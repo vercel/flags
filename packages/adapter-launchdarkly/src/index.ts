@@ -2,6 +2,8 @@ import type { Adapter } from '@vercel/flags';
 import { createClient } from '@vercel/edge-config';
 import { init, type LDContext } from '@launchdarkly/vercel-server-sdk';
 
+export type { LDContext };
+
 let defaultLaunchDarklyClient:
   | ReturnType<typeof createLaunchDarklyAdapter>
   | undefined;
@@ -48,7 +50,7 @@ export function launchDarkly<ValueType>(): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyClient) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
     const ldClientSideKey = assertEnv('LD_CLIENT_SIDE_KEY');
-    const ldProject = assertEnv('LD_PROJECT');
+    const ldProject = assertEnv('LD_PROJECT_SLUG');
     defaultLaunchDarklyClient = createLaunchDarklyAdapter({
       ldProject,
       ldClientSideKey,

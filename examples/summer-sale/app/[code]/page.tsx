@@ -18,6 +18,7 @@ import {
   showSummerBannerFlag,
   precomputeFlags,
 } from '@/flags';
+import { showLaunchDarklyBanner } from '@/ld-flags';
 
 export const dynamicParams = true;
 export async function generateStaticParams() {
@@ -35,9 +36,14 @@ export default async function Example(props: {
     params.code,
   );
 
+  const showLDBanner = await showLaunchDarklyBanner();
+
   return (
     <div className="bg-white">
       {showFreeDeliveryBanner ? <TopBanner /> : null}
+      {showLDBanner ? (
+        <TopBanner>The LaunchDarkly flag is on!</TopBanner>
+      ) : null}
       <Header />
       {showSummerBanner ? <Promo /> : null}
 
