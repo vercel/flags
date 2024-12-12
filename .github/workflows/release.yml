@@ -1,0 +1,47 @@
+name: Release
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # This expects you to have a script called release which does a build for your packages and calls changeset publish
+          publish: pnpm release
+          version: pnpm version-packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
+          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
+          LAUNCHDARKLY_API_TOKEN: ${{ secrets.LAUNCHDARKLY_API_TOKEN }}
+          HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}
+          HAPPYKIT_ENV_KEY: ${{ secrets.HAPPYKIT_ENV_KEY }}

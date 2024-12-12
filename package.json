@@ -1,0 +1,59 @@
+{
+  "name": "vercel-variants",
+  "version": "0.0.1",
+  "description": "A monorepo for @vercel/flags and next/variant",
+  "homepage": "https://vercel.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vercel/variants.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "turbo build",
+    "dcs": "pnpm dev -F docs",
+    "dev": "turbo dev",
+    "lint": "turbo lint -- --max-warnings=0",
+    "next-13": "pnpm dev -F next-13",
+    "next-14": "pnpm dev -F next-14",
+    "next-15": "pnpm dev -F next-15",
+    "ppr": "pnpm dev -F partial-prerendering",
+    "prepare": "husky",
+    "prettier-check": "prettier --check .",
+    "prettier-fix": "prettier --write .",
+    "publint": "turbo publint",
+    "release": "pnpm build && changeset publish",
+    "summer-sale": "pnpm dev -F summer-sale",
+    "svelte": "pnpm dev -F svelte-example",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
+    "test:integration": "turbo test:integration",
+    "type-check": "turbo type-check",
+    "version-packages": "changeset version && pnpm i --no-frozen-lockfile && git add ."
+  },
+  "lint-staged": {
+    "*": [
+      "prettier --ignore-unknown --write"
+    ]
+  },
+  "prettier": "@vercel/style-guide/prettier",
+  "devDependencies": {
+    "@changesets/cli": "2.27.1",
+    "@types/node": "22.9.0",
+    "@vercel/style-guide": "5.2.0",
+    "eslint": "8.56.0",
+    "eslint-config-custom": "workspace:*",
+    "husky": "9.0.10",
+    "jest": "29.7.0",
+    "lint-staged": "15.2.2",
+    "playwright": "1.48.2",
+    "prettier": "3.2.5",
+    "publint": "0.2.7",
+    "ts-jest": "29.1.2",
+    "turbo": "1.12.3",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@8.7.1",
+  "engines": {
+    "node": ">=18"
+  }
+}

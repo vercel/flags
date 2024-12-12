@@ -1,0 +1,116 @@
+{
+  "name": "@vercel/flags",
+  "version": "2.7.0",
+  "description": "Make the Vercel Toolbar aware of your feature flags and read overrides set by it",
+  "keywords": [
+    "feature flags",
+    "Next.js",
+    "react",
+    "toolbar",
+    "overrides"
+  ],
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./next": {
+      "import": "./dist/next/index.js",
+      "require": "./dist/next/index.cjs"
+    },
+    "./analytics": {
+      "import": "./dist/analytics.js",
+      "require": "./dist/analytics.cjs"
+    },
+    "./react": {
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
+    },
+    "./sveltekit": {
+      "import": "./dist/sveltekit/index.js",
+      "require": "./dist/sveltekit/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ],
+      "next": [
+        "dist/next/index.d.ts",
+        "dist/next/index.d.cts"
+      ],
+      "react": [
+        "dist/react/index.d.ts",
+        "dist/react/index.d.cts"
+      ],
+      "sveltekit": [
+        "dist/sveltekit/index.d.ts",
+        "dist/sveltekit/index.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "eslint": "eslint-runner",
+    "eslint:fix": "eslint-runner --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@edge-runtime/cookies": "^5.0.2",
+    "jose": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.17",
+    "@types/react": "18.2.55",
+    "@vitejs/plugin-react": "4.2.1",
+    "eslint-config-custom": "workspace:*",
+    "msw": "2.6.4",
+    "next": "15.0.3",
+    "react": "canary",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.1.1",
+    "vitest": "1.4.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.7.0",
+    "@sveltejs/kit": "*",
+    "next": "*",
+    "react": "*",
+    "react-dom": "*"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@sveltejs/kit": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

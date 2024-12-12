@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "partial-prerendering",
+    "summer-sale",
+    "svelte-example",
+    "next-13",
+    "next-14",
+    "next-15"
+  ],
+  "snapshot": {
+    "useCalculatedVersion": true
+  }
+}

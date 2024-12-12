@@ -1,0 +1,19 @@
+# build
+dist/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log
+
+.turbo
+.DS_Store
+.vscode
+.vercel
+.env*.local
+.svelte-kit
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/

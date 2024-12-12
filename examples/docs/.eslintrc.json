@@ -1,0 +1,11 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "import/order": "off",
+    "no-console": "off",
+    "@typescript-eslint/no-misused-promises": "off",
+    "@typescript-eslint/require-await": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/restrict-template-expressions": "off"
+  }
+}
