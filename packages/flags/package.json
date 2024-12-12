@@ -1,6 +1,6 @@
 {
   "name": "@vercel/flags",
-  "version": "2.7.0",
+  "version": "3.0.0",
   "description": "Make the Vercel Toolbar aware of your feature flags and read overrides set by it",
   "keywords": [
     "feature flags",
