@@ -38,7 +38,6 @@ export default function RootLayout({
             </div>
           </div>
         </div>
-        <VercelToolbar />
       </body>
     </html>
   );

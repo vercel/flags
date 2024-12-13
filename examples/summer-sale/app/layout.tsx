@@ -14,12 +14,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const shouldInjectToolbar = process.env.NODE_ENV === 'development';
   return (
     <html lang="en">
       <body className="">
         {children}
 
-        <VercelToolbar />
+        {shouldInjectToolbar && <VercelToolbar />}
         <Analytics />
       </body>
     </html>
