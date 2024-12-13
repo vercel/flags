@@ -8,7 +8,12 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "env": ["EDGE_CONFIG", "FLAGS_SECRET"],
+      "env": [
+        "EDGE_CONFIG",
+        "FLAGS_SECRET",
+        "LD_CLIENT_SIDE_KEY",
+        "LD_PROJECT_SLUG"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
