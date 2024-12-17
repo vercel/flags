@@ -5,6 +5,10 @@ import { init, type LDContext } from '@launchdarkly/vercel-server-sdk';
 export { getProviderData } from './provider';
 export type { LDContext };
 
+interface AdapterOptions<ValueType> {
+  defaultValue?: ValueType;
+}
+
 let defaultLaunchDarklyAdapter:
   | ReturnType<typeof createLaunchDarklyAdapter>
   | undefined;
@@ -31,23 +35,24 @@ export function createLaunchDarklyAdapter({
   const edgeConfigClient = createClient(edgeConfigConnectionString);
   const ldClient = init(ldClientSideKey, edgeConfigClient);
 
-  return function launchDarklyAdapter<ValueType>(): Adapter<
-    ValueType,
-    LDContext
-  > {
+  return function launchDarklyAdapter<ValueType>({
+    defaultValue,
+  }: AdapterOptions<ValueType> = {}): Adapter<ValueType, LDContext> {
     return {
       origin(key) {
         return `https://app.launchdarkly.com/projects/${ldProject}/flags/${key}/`;
       },
       async decide({ key, entities }): Promise<ValueType> {
         await ldClient.waitForInitialization();
-        return ldClient.variation(key, entities!, undefined) as ValueType;
+        return ldClient.variation(key, entities!, defaultValue) as ValueType;
       },
     };
   };
 }
 
-export function launchDarkly<ValueType>(): Adapter<ValueType, LDContext> {
+export function launchDarkly<ValueType>(
+  options: AdapterOptions<ValueType>,
+): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
     const ldClientSideKey = assertEnv('LD_CLIENT_SIDE_KEY');
@@ -59,5 +64,5 @@ export function launchDarkly<ValueType>(): Adapter<ValueType, LDContext> {
     });
   }
 
-  return defaultLaunchDarklyAdapter();
+  return defaultLaunchDarklyAdapter(options);
 }
