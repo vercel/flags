@@ -280,6 +280,7 @@ function getRun<ValueType, EntitiesType>(
     try {
       decisionPromise = Promise.resolve<ValueType>(
         decide({
+          defaultValue: definition.defaultValue,
           headers: readonlyHeaders,
           cookies: readonlyCookies,
           entities,

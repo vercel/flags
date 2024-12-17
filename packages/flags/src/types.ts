@@ -130,6 +130,7 @@ export type GenerousOption<T> = boolean extends T
 export type Decide<ValueType, EntitiesType> = (
   params: FlagParamsType & {
     entities?: EntitiesType;
+    defaultValue?: ValueType;
   },
 ) => Promise<ValueType> | ValueType;
 
@@ -150,6 +151,7 @@ export interface Adapter<ValueType, EntitiesType> {
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
+    defaultValue?: ValueType;
   }) => Promise<ValueType> | ValueType;
 }
 
