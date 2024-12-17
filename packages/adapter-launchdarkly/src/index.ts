@@ -54,7 +54,7 @@ export function createLaunchDarklyAdapter({
 }
 
 export function launchDarkly<ValueType>(
-  options: AdapterOptions<ValueType>,
+  options?: AdapterOptions<ValueType>,
 ): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
