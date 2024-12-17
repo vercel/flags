@@ -13,6 +13,7 @@ export LD_PROJECT_SLUG="my-project"
 ```
 
 ```ts
+import { flag, dedupe } from '@vercel/flags/next';
 import { launchDarkly, type LDContext } from '@flags-sdk/launchdarkly';
 
 const identify = dedupe(async (): Promise<LDContext> => {
