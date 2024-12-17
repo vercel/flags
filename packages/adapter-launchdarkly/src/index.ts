@@ -35,16 +35,20 @@ export function createLaunchDarklyAdapter({
   const edgeConfigClient = createClient(edgeConfigConnectionString);
   const ldClient = init(ldClientSideKey, edgeConfigClient);
 
-  return function launchDarklyAdapter<ValueType>({
-    defaultValue,
-  }: AdapterOptions<ValueType> = {}): Adapter<ValueType, LDContext> {
+  return function launchDarklyAdapter<ValueType>(
+    options: AdapterOptions<ValueType> = {},
+  ): Adapter<ValueType, LDContext> {
     return {
       origin(key) {
         return `https://app.launchdarkly.com/projects/${ldProject}/flags/${key}/`;
       },
-      async decide({ key, entities }): Promise<ValueType> {
+      async decide({ key, entities, defaultValue }): Promise<ValueType> {
         await ldClient.waitForInitialization();
-        return ldClient.variation(key, entities!, defaultValue) as ValueType;
+        return ldClient.variation(
+          key,
+          entities!,
+          options.defaultValue ?? defaultValue,
+        ) as ValueType;
       },
     };
   };
