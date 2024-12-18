@@ -130,7 +130,6 @@ export type GenerousOption<T> = boolean extends T
 export type Decide<ValueType, EntitiesType> = (
   params: FlagParamsType & {
     entities?: EntitiesType;
-    defaultValue?: ValueType;
   },
 ) => Promise<ValueType> | ValueType;
 
