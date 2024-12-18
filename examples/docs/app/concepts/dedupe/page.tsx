@@ -1,17 +1,9 @@
 import { CodeBlock } from '@/components/code-block';
 import { Content } from '@/components/content';
-import { dedupe } from '@vercel/flags/next';
+import { IframeBrowser } from '@/components/iframe-browser';
 import Link from 'next/link';
 
-const dedupeExample = dedupe(() => {
-  return Math.random().toString().substring(0, 8);
-});
-
-export default async function Page() {
-  const random1 = await dedupeExample();
-  const random2 = await dedupeExample();
-  const random3 = await dedupeExample();
-
+export default function Page() {
   return (
     <Content crumbs={['concepts', 'dedupe']}>
       <h2>Dedupe</h2>
@@ -42,9 +34,7 @@ export default async function Page() {
         }
       `}</CodeBlock>
       <p>Example of output:</p>
-      <div className="bg-slate-200 p-4 rounded monospace">
-        {random1} {random2} {random3}
-      </div>
+      <IframeBrowser src="http://localhost:3001/concepts/dedupe" codeSrc="" />
       <h3>Use case: Avoiding duplicate work</h3>
       <p>
         This helper is extremly useful in combination with the{' '}

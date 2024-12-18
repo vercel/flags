@@ -1,5 +1,6 @@
 import { CodeBlock } from '@/components/code-block';
 import { Content } from '@/components/content';
+import { IframeBrowser } from '@/components/iframe-browser';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -64,6 +65,10 @@ export default function Page() {
         feature flag is used on more than one page, or when multiple feature
         flags are used on a single page.
       </p>
+      <IframeBrowser
+        src="http://localhost:3001/concepts/precompute/manual"
+        codeSrc=""
+      />
       <h3>Precomputing</h3>
       <p>
         This is an extension to the previously described pattern. It allows
@@ -194,6 +199,11 @@ export default function Page() {
         works with API Routes.
       </p>
 
+      <IframeBrowser
+        src="http://localhost:3001/concepts/precompute/automatic"
+        codeSrc=""
+      />
+
       <h4>Enabling ISR (optional)</h4>
       <p>
         So far you&apos;ve set up middleware to decide the value of each feature
@@ -214,6 +224,13 @@ export default function Page() {
         return children;
       }
       `}</CodeBlock>
+
+      <p>
+        In the example above we used <code>generateStaticParams</code> on the
+        layout. You can also specify it on the page instead. It depends on
+        whether a single page needs the flag or all pages within that layout
+        need the flag. You have full control here.
+      </p>
 
       <h4>Opting into build-time rendering (optional)</h4>
 
@@ -239,7 +256,9 @@ export default function Page() {
       <p>
         You can further customize which specific combinations you want render by
         passing a filter function as the second argument of{' '}
-        <code>generatePermutations</code>.
+        <code>generatePermutations</code>. And just like in the example above,
+        you can also control whether you specify these permutations on the
+        individual pages or on a layout.
       </p>
       <h4>Example</h4>
       <p>
