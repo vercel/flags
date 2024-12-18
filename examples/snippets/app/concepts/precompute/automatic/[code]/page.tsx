@@ -4,6 +4,7 @@ import {
   secondPrecomputedFlag,
   marketingFlags,
 } from './flags';
+
 type Params = Promise<{ code: string }>;
 
 export default async function Page({ params }: { params: Params }) {
