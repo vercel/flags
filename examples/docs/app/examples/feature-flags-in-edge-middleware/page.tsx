@@ -1,15 +1,10 @@
 import { Content } from '@/components/content';
-import { DemoFlag } from '@/components/demo-flag';
-import { basicEdgeMiddlewareFlag } from './flags';
 import { Button } from '@/components/ui/button';
-import { actAsFlaggedInUser, actAsFlaggedOutUser, clear } from './handlers';
 import Link from 'next/link';
 import { CodeBlock } from '@/components/code-block';
-import { SelfDocumentingExampleAlert } from '@/components/self-documenting-example-alert';
+import { IframeBrowser } from '@/components/iframe-browser';
 
-// This component  does not actually use the feature flag, but the
-// variant-on and variant-off pages know about the value statically.
-export function Shared({ variant }: { variant: 'on' | 'off' }) {
+export default function Page() {
   return (
     <Content crumbs={['examples', 'feature-flags-in-edge-middleware']}>
       <h2>Feature Flags in Edge Middleware</h2>
@@ -48,24 +43,11 @@ export function Shared({ variant }: { variant: 'on' | 'off' }) {
         );
       }
       `}</CodeBlock>
-      <div className="flex gap-2">
-        <Button onClick={actAsFlaggedInUser} variant="outline">
-          Act as a flagged in user
-        </Button>
-        <Button onClick={actAsFlaggedOutUser} variant="outline">
-          Act as a flagged out user
-        </Button>
-        <Button onClick={clear} variant="outline">
-          Clear cookie
-        </Button>
-      </div>
-      <DemoFlag name={basicEdgeMiddlewareFlag.name} value={variant === 'on'} />
-      <SelfDocumentingExampleAlert>
-        <Link href="https://github.com/vercel/flags/blob/main/examples/docs/app/examples/feature-flags-in-edge-middleware/page.tsx">
-          Inspect the source code
-        </Link>{' '}
-        to see the actual usage of the feature flag.
-      </SelfDocumentingExampleAlert>
+
+      <IframeBrowser
+        src="http://localhost:3001/examples/feature-flags-in-edge-middleware"
+        codeSrc=""
+      />
 
       <h3>Advanced examples</h3>
       <p>
