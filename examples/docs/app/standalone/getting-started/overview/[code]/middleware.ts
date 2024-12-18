@@ -8,6 +8,6 @@ export async function overviewMiddleware(request: NextRequest) {
 
   // rewrite the page with the code
   return NextResponse.rewrite(
-    new URL(`/getting-started/overview/${code}`, request.url),
+    new URL(`/standalone/getting-started/overview/${code}`, request.url),
   );
 }

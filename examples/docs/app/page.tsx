@@ -1,19 +1,11 @@
 import { Content } from '@/components/content';
-import { DemoFlag } from '@/components/demo-flag';
-import { randomFlag, overviewFlags } from './flags';
-import { ReloadButton } from './reload-button';
 import { CodeBlock } from '@/components/code-block';
 import Link from 'next/link';
+import { IframeBrowser } from '@/components/iframe-browser';
 
 export const dynamic = 'error';
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ code: string }>;
-}) {
-  const awaitedParams = await params;
-  const overview = await randomFlag(awaitedParams.code, overviewFlags);
+export default function Page() {
   return (
     <Content crumbs={['getting-started', 'overview']}>
       <h3>Overview</h3>
@@ -43,8 +35,10 @@ export default async function Page({
       <p>Use the flag by calling it like any other async function.</p>
       <CodeBlock>{`await randomFlag()`}</CodeBlock>
       <p>This demo flag is on for 50% of visitors.</p>
-      <DemoFlag name={randomFlag.key} value={overview} />
-      <ReloadButton />
+      <IframeBrowser
+        src="https://localhost:3000/standalone/getting-started/overview"
+        codeSrc="https://github.com"
+      />
       <p>
         See the <Link href="/getting-started/quickstart">Quickstart</Link> for
         full setup instructions.
