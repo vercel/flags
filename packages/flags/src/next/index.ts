@@ -284,6 +284,7 @@ function getRun<ValueType, EntitiesType>(
     try {
       decisionPromise = Promise.resolve<ValueType>(
         decide({
+          // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
           defaultValue: definition.defaultValue,
           headers: readonlyHeaders,
           cookies: readonlyCookies,
