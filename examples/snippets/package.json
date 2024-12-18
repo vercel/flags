@@ -18,12 +18,10 @@
     "@vercel/toolbar": "0.1.27",
     "class-variance-authority": "0.7.1",
     "clsx": "2.0.0",
-    "lucide-react": "0.468.0",
     "nanoid": "5.0.7",
     "next": "15.0.3",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106",
-    "strip-indent": "4.0.0",
     "tailwind-merge": "2.5.5",
     "tailwindcss-animate": "1.0.7"
   },
