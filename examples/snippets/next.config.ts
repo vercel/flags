@@ -12,6 +12,20 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value:
+              "frame-ancestors 'self' https://flags-sdk.com http://localhost:* https://*.vercel.sh",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default withVercelToolbar()(nextConfig);
