@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { AppSidebar } from '@/components/app-sidebar';
 import { VercelToolbar } from '@vercel/toolbar/next';
 
 const geistSans = localFont({
@@ -30,18 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased prose px-4 m-0`}
       >
-        <SidebarProvider
-          style={
-            {
-              '--sidebar-width': '19rem',
-            } as React.CSSProperties
-          }
-        >
-          <AppSidebar />
-          <SidebarInset>{children}</SidebarInset>
-        </SidebarProvider>
+        {children}
         {shouldInjectToolbar && <VercelToolbar />}
       </body>
     </html>

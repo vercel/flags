@@ -1,16 +1,13 @@
 import { Content } from '@/components/content';
-import { basicIdentifyExampleFlag, fullIdentifyExampleFlag } from './flags';
 import { DemoFlag } from '@/components/demo-flag';
 import { Button } from '@/components/ui/button';
 import { cookies } from 'next/headers';
 import { CodeBlock } from '@/components/code-block';
 import Link from 'next/link';
 import { SelfDocumentingExampleAlert } from '@/components/self-documenting-example-alert';
+import { IframeBrowser } from '@/components/iframe-browser';
 
-export default async function Page() {
-  const basic = await basicIdentifyExampleFlag();
-  const full = await fullIdentifyExampleFlag();
-
+export default function Page() {
   return (
     <Content crumbs={['concepts', 'identify']}>
       <h2>Identify</h2>
@@ -42,14 +39,10 @@ export default async function Page() {
       });
       `}</CodeBlock>
 
-      <DemoFlag name={basicIdentifyExampleFlag.key} value={basic} />
-
-      <SelfDocumentingExampleAlert>
-        <Link href="https://github.com/vercel/flags/blob/main/examples/docs/app/concepts/identify/page.tsx">
-          Inspect the source code
-        </Link>{' '}
-        to see the actual usage of the feature flag.
-      </SelfDocumentingExampleAlert>
+      <IframeBrowser
+        src="http://localhost:3001/concepts/identify/basic"
+        codeSrc=""
+      />
 
       <p>
         Having first-class support for an evaluation context allows decoupling
@@ -150,45 +143,10 @@ export default async function Page() {
         display different content to different users.
       </p>
 
-      <div className="flex gap-2">
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.set('identify-example-user-id', 'user1');
-          }}
-          variant="outline"
-        >
-          Act as a flagged in user
-        </Button>
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.set('identify-example-user-id', 'user2');
-          }}
-          variant="outline"
-        >
-          Act as a flagged out user
-        </Button>
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.delete('identify-example-user-id');
-          }}
-          variant="outline"
-        >
-          Clear cookie
-        </Button>
-      </div>
-      <DemoFlag name={fullIdentifyExampleFlag.key} value={full} />
-      <SelfDocumentingExampleAlert>
-        <Link href="https://github.com/vercel/flags/blob/main/examples/docs/app/concepts/identify/page.tsx">
-          Inspect the source code
-        </Link>{' '}
-        to see the actual usage of the feature flag.
-      </SelfDocumentingExampleAlert>
+      <IframeBrowser
+        src="http://localhost:3001/concepts/identify/full"
+        codeSrc=""
+      />
 
       <p>The above example is implemented using this feature flag:</p>
       <CodeBlock>{`

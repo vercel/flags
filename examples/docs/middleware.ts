@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
-import { overviewMiddleware } from './app/standalone/getting-started/overview/[code]/middleware';
 import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
 
 export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === '/standalone/getting-started/overview') {
-    return overviewMiddleware(request);
-  }
-
   if (request.nextUrl.pathname === '/examples/marketing-pages') {
     return marketingMiddleware(request);
   }
@@ -25,7 +20,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
-    '/standalone/getting-started/overview',
     '/examples/marketing-pages',
     '/examples/feature-flags-in-edge-middleware',
   ],

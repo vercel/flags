@@ -36,7 +36,7 @@ export default function Page() {
       <CodeBlock>{`await randomFlag()`}</CodeBlock>
       <p>This demo flag is on for 50% of visitors.</p>
       <IframeBrowser
-        src="https://localhost:3000/standalone/getting-started/overview"
+        src="https://localhost:3000/getting-started/overview"
         codeSrc="https://github.com"
       />
       <p>
