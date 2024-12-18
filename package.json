@@ -10,6 +10,7 @@
   "license": "MIT",
   "scripts": {
     "build": "turbo build",
+    "collection": "pnpm dev -F collection",
     "dcs": "pnpm dev -F docs",
     "dev": "turbo dev",
     "lint": "turbo lint -- --max-warnings=0",
