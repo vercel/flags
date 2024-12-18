@@ -1,15 +1,9 @@
 import { CodeBlock } from '@/components/code-block';
 import { Content } from '@/components/content';
-import { dashboardFlag } from './flags';
-import { DemoFlag } from '@/components/demo-flag';
-import { Button } from '@/components/ui/button';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { SelfDocumentingExampleAlert } from '@/components/self-documenting-example-alert';
+import { IframeBrowser } from '@/components/iframe-browser';
 
-export default async function Page() {
-  const dashboard = await dashboardFlag();
-
+export default function Page() {
   return (
     <Content crumbs={['examples', 'dashboard-pages']}>
       <h2>Dashboard Pages</h2>
@@ -25,45 +19,10 @@ export default async function Page() {
         user id. The buttons below allow you to either act as a flagged in user
         or as a regular user.
       </p>
-      <div className="flex gap-2">
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.set('dashboard-user-id', 'user1');
-          }}
-          variant="outline"
-        >
-          Act as a flagged in user
-        </Button>
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.set('dashboard-user-id', 'user2');
-          }}
-          variant="outline"
-        >
-          Act as a regular user
-        </Button>
-        <Button
-          onClick={async () => {
-            'use server';
-            const cookiesStore = await cookies();
-            cookiesStore.delete('dashboard-user-id');
-          }}
-          variant="outline"
-        >
-          Clear cookie
-        </Button>
-      </div>
-      <DemoFlag name={dashboardFlag.key} value={dashboard} />
-      <SelfDocumentingExampleAlert>
-        <Link href="https://github.com/vercel/flags/blob/main/examples/docs/app/examples/dashboard-pages/page.tsx">
-          Inspect the source code
-        </Link>{' '}
-        to see the actual usage of the feature flag.
-      </SelfDocumentingExampleAlert>
+      <IframeBrowser
+        src="http://localhost:3001/examples/dashboard-pages"
+        codeSrc=""
+      />
       <h3>Definition</h3>
       <p>The example above works by first defining a feature flag.</p>
       <CodeBlock>
