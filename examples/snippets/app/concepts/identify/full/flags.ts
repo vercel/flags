@@ -12,17 +12,6 @@ const identify = dedupe(
   },
 );
 
-export const basicIdentifyExampleFlag = flag<boolean, Entities>({
-  key: 'basic-identify-example-flag',
-  identify,
-  description: 'Basic identify example',
-  decide({ entities }) {
-    console.log(entities);
-    if (!entities?.user) return false;
-    return entities.user.id === 'user1';
-  },
-});
-
 export const fullIdentifyExampleFlag = flag<boolean, Entities>({
   key: 'full-identify-example-flag',
   identify,
