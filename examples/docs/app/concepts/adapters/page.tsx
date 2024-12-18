@@ -1,12 +1,8 @@
 import { CodeBlock } from '@/components/code-block';
 import { Content } from '@/components/content';
-import { DemoFlag } from '@/components/demo-flag';
-import { customAdapterFlag } from './flags';
-import { SelfDocumentingExampleAlert } from '@/components/self-documenting-example-alert';
-import Link from 'next/link';
+import { IframeBrowser } from '@/components/iframe-browser';
 
-export default async function Page() {
-  const customAdapter = await customAdapterFlag();
+export default function Page() {
   return (
     <Content crumbs={['concepts', 'adapters']}>
       <h2>Adapters</h2>
@@ -90,14 +86,7 @@ export default async function Page() {
 
       <h4>Example</h4>
       <p>Below is an example of an Flags SDK adapter reading Edge Config.</p>
-      <DemoFlag name={customAdapterFlag.key} value={customAdapter} />
-
-      <SelfDocumentingExampleAlert>
-        <Link href="https://github.com/vercel/flags/blob/main/examples/docs/app/concepts/adapters/page.tsx">
-          Inspect the source code
-        </Link>{' '}
-        to see the actual usage of the feature flag.
-      </SelfDocumentingExampleAlert>
+      <IframeBrowser src="http://localhost:3001/concepts/adapters" codeSrc="" />
 
       <h4>Exposing default adapters</h4>
       <p>
