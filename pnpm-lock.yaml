@@ -51,7 +51,89 @@ importers:
         specifier: ^5.3.3
         version: 5.6.3
 
-  examples/collection:
+  examples/partial-prerendering:
+    dependencies:
+      '@heroicons/react':
+        specifier: 2.1.1
+        version: 2.1.1(react@19.1.0-canary-d4287258-20241217)
+      '@vercel/flags':
+        specifier: workspace:*
+        version: link:../../packages/flags
+      '@vercel/toolbar':
+        specifier: ^0.1.7
+        version: 0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-d4287258-20241217)
+      clsx:
+        specifier: 2.0.0
+        version: 2.0.0
+      date-fns:
+        specifier: 3.0.5
+        version: 3.0.5
+      dinero.js:
+        specifier: 2.0.0-alpha.8
+        version: 2.0.0-alpha.8
+      geist:
+        specifier: 1.2.0
+        version: 1.2.0(next@15.0.3-canary.9)
+      jose:
+        specifier: ^5.1.3
+        version: 5.9.6
+      next:
+        specifier: 15.0.3-canary.9
+        version: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217)
+      react:
+        specifier: canary
+        version: 19.1.0-canary-d4287258-20241217
+      react-dom:
+        specifier: canary
+        version: 19.1.0-canary-d4287258-20241217(react@19.1.0-canary-d4287258-20241217)
+    devDependencies:
+      '@tailwindcss/forms':
+        specifier: 0.5.7
+        version: 0.5.7(tailwindcss@3.4.0)
+      '@tailwindcss/typography':
+        specifier: 0.5.10
+        version: 0.5.10(tailwindcss@3.4.0)
+      '@types/node':
+        specifier: 20.10.5
+        version: 20.10.5
+      '@types/react':
+        specifier: 18.2.45
+        version: 18.2.45
+      '@types/react-dom':
+        specifier: 18.2.18
+        version: 18.2.18
+      '@vercel/git-hooks':
+        specifier: 1.0.0
+        version: 1.0.0
+      autoprefixer:
+        specifier: 10.4.16
+        version: 10.4.16(postcss@8.4.32)
+      eslint:
+        specifier: 8.56.0
+        version: 8.56.0
+      eslint-config-next:
+        specifier: 14.0.4
+        version: 14.0.4(eslint@8.56.0)(typescript@5.3.3)
+      lint-staged:
+        specifier: 15.2.0
+        version: 15.2.0
+      postcss:
+        specifier: 8.4.32
+        version: 8.4.32
+      prettier:
+        specifier: 3.1.1
+        version: 3.1.1
+      prettier-plugin-tailwindcss:
+        specifier: 0.5.9
+        version: 0.5.9(prettier@3.1.1)
+      tailwindcss:
+        specifier: 3.4.0
+        version: 3.4.0
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  examples/snippets:
     dependencies:
       '@radix-ui/react-dialog':
         specifier: 1.1.2
@@ -135,88 +217,6 @@ importers:
       typescript:
         specifier: ^5
         version: 5.6.3
-
-  examples/partial-prerendering:
-    dependencies:
-      '@heroicons/react':
-        specifier: 2.1.1
-        version: 2.1.1(react@19.1.0-canary-d4287258-20241217)
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../../packages/flags
-      '@vercel/toolbar':
-        specifier: ^0.1.7
-        version: 0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-d4287258-20241217)
-      clsx:
-        specifier: 2.0.0
-        version: 2.0.0
-      date-fns:
-        specifier: 3.0.5
-        version: 3.0.5
-      dinero.js:
-        specifier: 2.0.0-alpha.8
-        version: 2.0.0-alpha.8
-      geist:
-        specifier: 1.2.0
-        version: 1.2.0(next@15.0.3-canary.9)
-      jose:
-        specifier: ^5.1.3
-        version: 5.9.6
-      next:
-        specifier: 15.0.3-canary.9
-        version: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217)
-      react:
-        specifier: canary
-        version: 19.1.0-canary-d4287258-20241217
-      react-dom:
-        specifier: canary
-        version: 19.1.0-canary-d4287258-20241217(react@19.1.0-canary-d4287258-20241217)
-    devDependencies:
-      '@tailwindcss/forms':
-        specifier: 0.5.7
-        version: 0.5.7(tailwindcss@3.4.0)
-      '@tailwindcss/typography':
-        specifier: 0.5.10
-        version: 0.5.10(tailwindcss@3.4.0)
-      '@types/node':
-        specifier: 20.10.5
-        version: 20.10.5
-      '@types/react':
-        specifier: 18.2.45
-        version: 18.2.45
-      '@types/react-dom':
-        specifier: 18.2.18
-        version: 18.2.18
-      '@vercel/git-hooks':
-        specifier: 1.0.0
-        version: 1.0.0
-      autoprefixer:
-        specifier: 10.4.16
-        version: 10.4.16(postcss@8.4.32)
-      eslint:
-        specifier: 8.56.0
-        version: 8.56.0
-      eslint-config-next:
-        specifier: 14.0.4
-        version: 14.0.4(eslint@8.56.0)(typescript@5.3.3)
-      lint-staged:
-        specifier: 15.2.0
-        version: 15.2.0
-      postcss:
-        specifier: 8.4.32
-        version: 8.4.32
-      prettier:
-        specifier: 3.1.1
-        version: 3.1.1
-      prettier-plugin-tailwindcss:
-        specifier: 0.5.9
-        version: 0.5.9(prettier@3.1.1)
-      tailwindcss:
-        specifier: 3.4.0
-        version: 3.4.0
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
 
   examples/summer-sale:
     dependencies:

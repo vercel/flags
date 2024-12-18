@@ -10,7 +10,6 @@
   "license": "MIT",
   "scripts": {
     "build": "turbo build",
-    "collection": "pnpm dev -F collection",
     "dev": "turbo dev",
     "lint": "turbo lint -- --max-warnings=0",
     "next-13": "pnpm dev -F next-13",
@@ -22,6 +21,7 @@
     "prettier-fix": "prettier --write .",
     "publint": "turbo publint",
     "release": "pnpm build && changeset publish",
+    "snippets": "pnpm dev -F snippets",
     "summer-sale": "pnpm dev -F summer-sale",
     "svelte": "pnpm dev -F svelte-example",
     "test": "turbo test",
