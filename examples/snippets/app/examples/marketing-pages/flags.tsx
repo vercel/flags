@@ -1,4 +1,4 @@
-import type { ReadonlyRequestCookies } from '@vercel/flags';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from '@vercel/flags';
 import { dedupe, flag } from '@vercel/flags/next';
 import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
 
@@ -9,10 +9,12 @@ interface Entities {
 const identify = dedupe(
   async ({
     cookies,
+    headers,
   }: {
     cookies: ReadonlyRequestCookies;
+    headers: ReadonlyHeaders;
   }): Promise<Entities> => {
-    const visitorId = await getOrGenerateVisitorId(cookies);
+    const visitorId = await getOrGenerateVisitorId(cookies, headers);
     return { visitor: visitorId ? { id: visitorId } : undefined };
   },
 );
