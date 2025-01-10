@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --port 4015",
+    "dev": "next dev --port 4015 --turbopack",
     "lint": "next lint",
     "start": "next start --port 4015",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vercel/flags": "workspace:*",
-    "next": "15.0.3",
+    "next": "15.1.4",
     "react": "19.0.0-rc-02c0e824-20241028",
     "react-dom": "19.0.0-rc-02c0e824-20241028"
   },

@@ -19,9 +19,9 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.0.0",
     "nanoid": "5.0.7",
-    "next": "15.0.3",
-    "react": "19.0.0-rc-66855b96-20241106",
-    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "next": "15.1.4",
+    "react": "19.0.0-rc-02c0e824-20241028",
+    "react-dom": "19.0.0-rc-02c0e824-20241028",
     "tailwind-merge": "2.5.5",
     "tailwindcss-animate": "1.0.7"
   },
