@@ -5,6 +5,7 @@ import { overviewMiddleware } from './app/getting-started/overview/[code]/middle
 import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
 import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
 import { automaticPrecomputeMiddleware } from './app/concepts/precompute/automatic/[code]/middleware';
+import { pagesRouterMiddleware } from './pages/examples/pages-router-precomputed/[code]/middleware';
 
 export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === '/getting-started/overview') {
@@ -29,6 +30,10 @@ export function middleware(request: NextRequest) {
     return featureFlagsInEdgeMiddleware(request);
   }
 
+  if (request.nextUrl.pathname === '/examples/pages-router-precomputed') {
+    return pagesRouterMiddleware(request);
+  }
+
   return NextResponse.next();
 }
 
@@ -39,5 +44,6 @@ export const config = {
     '/concepts/precompute/automatic',
     '/examples/marketing-pages',
     '/examples/feature-flags-in-edge-middleware',
+    '/examples/pages-router-precomputed',
   ],
 };
