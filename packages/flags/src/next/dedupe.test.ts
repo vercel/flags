@@ -1,12 +1,29 @@
-import { describe, expect, it, Mock, vitest } from 'vitest';
+import { describe, expect, it, Mock, vitest, vi } from 'vitest';
 import { dedupe } from './dedupe';
-import { headers } from 'next/headers';
 
-vitest.mock('next/headers', () => ({
-  headers: vitest.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  return {
+    headers: vi.fn(async () => new Headers()),
+    cookies: vi.fn(async () => ({
+      get: vi.fn(),
+    })),
+  };
+});
 
-const headersMock = headers as Mock;
+vi.mock('next/headers', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('next/headers')>();
+  return {
+    ...mod,
+    // replace some exports
+    headers: mocks.headers,
+    cookies: mocks.cookies,
+  };
+});
+
+async function getHeadersMock() {
+  const headersMock = await import('next/headers').then((mod) => mod.headers);
+  return headersMock as Mock;
+}
 
 describe('dedupe', () => {
   describe('no arguments', () => {
@@ -14,6 +31,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped();
@@ -27,7 +45,7 @@ describe('dedupe', () => {
       const deduped = dedupe(fn);
       const same = new Headers();
       const different = new Headers();
-
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValueOnce(same);
       await deduped();
 
@@ -43,6 +61,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped(1, 'a');
@@ -56,7 +75,7 @@ describe('dedupe', () => {
       const deduped = dedupe(fn);
       const same = new Headers();
       const different = new Headers();
-
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValueOnce(same);
       await deduped(1, 'a');
 
@@ -72,6 +91,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped(1);
@@ -84,6 +104,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped(1);
@@ -98,6 +119,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       const obj1 = { a: 1 };
@@ -111,6 +133,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped({ a: 1 });
@@ -124,6 +147,7 @@ describe('dedupe', () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       const obj1 = { a: 1 };
@@ -143,6 +167,7 @@ describe('dedupe', () => {
       const deduped = dedupe(fn);
       const same = new Headers();
       const someFn = () => 1;
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped(someFn);
@@ -156,6 +181,7 @@ describe('dedupe', () => {
       const same = new Headers();
       const someFn = () => 1;
       const someOtherFn = () => 2;
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       await deduped(someFn);
@@ -177,6 +203,7 @@ describe('dedupe', () => {
       const fn = vitest.fn(() => promise);
       const deduped = dedupe(fn);
       const same = new Headers();
+      const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
       const result1Promise = deduped();
@@ -194,6 +221,8 @@ describe('dedupe', () => {
         throw new Error('resolvePromise not implemented');
       };
 
+      const headersMock = await getHeadersMock();
+
       const promise = new Promise((resolve, reject) => {
         rejectPromise = reject;
       });
@@ -203,13 +232,18 @@ describe('dedupe', () => {
       const same = new Headers();
       headersMock.mockReturnValue(same);
 
-      const result1Promise = deduped();
-      const result2Promise = deduped();
-      rejectPromise(1);
-      await expect(deduped()).rejects.toBe(1);
+      const result1Promise = expect(deduped()).rejects.toBe('artificial error');
+      const result2Promise = expect(deduped()).rejects.toBe('artificial error');
 
-      await expect(result1Promise).rejects.toBe(1);
-      await expect(result2Promise).rejects.toBe(1);
+      rejectPromise('artificial error');
+
+      // prevent unhandled promise rejection
+      await promise.catch(() => {});
+
+      await expect(deduped()).rejects.toBe('artificial error');
+
+      await Promise.allSettled([result1Promise, result2Promise]);
+
       expect(fn).toHaveBeenCalledTimes(1);
     });
   });

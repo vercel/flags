@@ -169,6 +169,7 @@ describe('flag on app router', () => {
 
     // @ts-expect-error this is defined
     rejectPromise(new Error('custom error'));
+    await promise.catch(() => {});
 
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
@@ -315,6 +316,7 @@ describe('flag on pages router', () => {
 
     // @ts-expect-error this is defined
     rejectPromise(new Error('custom error'));
+    await promise.catch(() => {});
 
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
