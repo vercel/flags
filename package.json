@@ -15,7 +15,6 @@
     "next-13": "pnpm dev -F next-13",
     "next-14": "pnpm dev -F next-14",
     "next-15": "pnpm dev -F next-15",
-    "ppr": "pnpm dev -F partial-prerendering",
     "prepare": "husky",
     "prettier-check": "prettier --check .",
     "prettier-fix": "prettier --write .",
