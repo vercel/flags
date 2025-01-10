@@ -41,7 +41,7 @@ function AnonUser() {
       action={async function signIn() {
         'use server';
         const jar = await cookies();
-        jar.set('ppr-shells-user-id', '1', {
+        jar.set('suspense-fallbacks-user-id', '1', {
           maxAge: 1000 * 60 * 60,
         });
       }}
@@ -64,7 +64,8 @@ async function User() {
   // but only if we are not hanlding a server action
   if (!headersStore.has('next-action')) await delay();
 
-  if (cookieStore.get('ppr-shells-user-id')?.value !== '1') return <AnonUser />;
+  if (cookieStore.get('suspense-fallbacks-user-id')?.value !== '1')
+    return <AnonUser />;
 
   return (
     <div className="flex flex-row items-center gap-2">
@@ -83,7 +84,7 @@ async function User() {
         action={async function signOut() {
           'use server';
           const jar = await cookies();
-          jar.delete('ppr-shells-user-id');
+          jar.delete('suspense-fallbacks-user-id');
         }}
       >
         <button

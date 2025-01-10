@@ -106,9 +106,9 @@ export default function Page() {
           href="/examples/pages-router-precomputed"
         />
         <ConceptCard
-          title="Partial Prerendering Shells"
-          description="Using multiple prerendering fallbacks"
-          href="/examples/partial-prerendering-shells"
+          title="Suspense Fallbacks"
+          description="Using prerendered suspense fallbacks"
+          href="/examples/suspense-fallbacks"
         />
       </div>
     </Content>

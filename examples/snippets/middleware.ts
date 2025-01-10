@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
 import { overviewMiddleware } from './app/getting-started/overview/[code]/middleware';
 import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
-import { pprShellsMiddleware } from './app/examples/partial-prerendering-shells/middleware';
+import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
 import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
 import { automaticPrecomputeMiddleware } from './app/concepts/precompute/automatic/[code]/middleware';
 import { pagesRouterMiddleware } from './lib/pages-router-precomputed/middleware';
@@ -34,7 +34,7 @@ export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === '/examples/pages-router-precomputed') {
     return pagesRouterMiddleware(request);
   }
-  if (request.nextUrl.pathname === '/examples/partial-prerendering-shells') {
+  if (request.nextUrl.pathname === '/examples/suspense-fallbacks') {
     return pprShellsMiddleware(request);
   }
 
@@ -49,6 +49,6 @@ export const config = {
     '/examples/marketing-pages',
     '/examples/feature-flags-in-edge-middleware',
     '/examples/pages-router-precomputed',
-    '/examples/partial-prerendering-shells',
+    '/examples/suspense-fallbacks',
   ],
 };

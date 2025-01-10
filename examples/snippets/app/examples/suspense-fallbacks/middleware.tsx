@@ -8,6 +8,6 @@ export async function pprShellsMiddleware(request: NextRequest) {
 
   // rewrite the page with the code
   return NextResponse.rewrite(
-    new URL(`/examples/partial-prerendering-shells/${code}`, request.url),
+    new URL(`/examples/suspense-fallbacks/${code}`, request.url),
   );
 }
