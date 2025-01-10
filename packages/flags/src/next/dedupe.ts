@@ -1,5 +1,3 @@
-import { headers } from 'next/headers';
-
 enum Status {
   UNTERMINATED = 0,
   TERMINATED = 1,
@@ -45,6 +43,10 @@ export function dedupe<A extends Array<unknown>, T>(
   const requestStore = new WeakMap<Headers, CacheNode<T>>();
 
   return async function (this: unknown, ...args: A): Promise<T> {
+    // async import required as turbopack errors in Pages Router
+    // when next/headers is imported at the top-level
+    const { headers } = await import('next/headers');
+
     const h = await headers();
     let cacheNode = requestStore.get(h);
     if (!cacheNode) {

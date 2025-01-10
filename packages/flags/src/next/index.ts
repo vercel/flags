@@ -1,4 +1,3 @@
-import { headers, cookies } from 'next/headers';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
   type FlagDefinitionType,
@@ -225,6 +224,11 @@ function getRun<ValueType, EntitiesType>(
       dedupeCacheKey = options.request.headers;
     } else {
       // app router
+
+      // async import required as turbopack errors in Pages Router
+      // when next/headers is imported at the top-level
+      const { headers, cookies } = await import('next/headers');
+
       const [headersStore, cookiesStore] = await Promise.all([
         headers(),
         cookies(),
