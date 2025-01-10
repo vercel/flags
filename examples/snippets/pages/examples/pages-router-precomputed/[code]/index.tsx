@@ -4,7 +4,10 @@ import type {
   GetStaticProps,
   InferGetStaticPropsType,
 } from 'next';
-import { exampleFlag, exampleFlags } from './flags';
+import {
+  exampleFlag,
+  exampleFlags,
+} from '@/lib/pages-router-precomputed/flags';
 import { DemoFlag } from '@/components/demo-flag';
 import { generatePermutations } from '@vercel/flags/next';
 
