@@ -105,6 +105,11 @@ export default function Page() {
           description="Using feature flags in Pages Router on static pages"
           href="/examples/pages-router-precomputed"
         />
+        <ConceptCard
+          title="Partial Prerendering Shells"
+          description="Using multiple prerendering fallbacks"
+          href="/examples/partial-prerendering-shells"
+        />
       </div>
     </Content>
   );

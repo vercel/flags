@@ -1,0 +1,126 @@
+import { coreFlags, hasAuthCookieFlag } from '../flags';
+import { cookies, headers } from 'next/headers';
+import Image from 'next/image';
+import { generatePermutations } from '@vercel/flags/next';
+import { Suspense } from 'react';
+
+// prerender this page for all permutations of the flags
+export async function generateStaticParams() {
+  const permutations = await generatePermutations(coreFlags);
+  return permutations.map((code) => ({ code }));
+}
+
+const delay = (ms = 700) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const shimmer = `relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent`;
+
+function AuthedUserSkeleton() {
+  return (
+    <div className="flex flex-row items-center gap-2">
+      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white">
+        <div className={`h-10 w-10 rounded-full bg-gray-200 ${shimmer}`} />
+      </div>
+
+      <button
+        type="submit"
+        disabled
+        className={`relative h-10 w-full items-center space-x-2 rounded-lg bg-gray-200 px-3 py-1 text-sm font-medium text-gray-200 ${shimmer}`}
+      >
+        Sign out
+      </button>
+    </div>
+  );
+}
+
+function AnonUser() {
+  return (
+    <form
+      action={async function signIn() {
+        'use server';
+        const jar = await cookies();
+        jar.set('ppr-shells-user-id', '1', {
+          maxAge: 1000 * 60 * 60,
+        });
+      }}
+    >
+      <button
+        type="submit"
+        className="relative h-10 w-full items-center space-x-2 rounded-lg bg-black px-3 py-1  text-sm font-medium text-white hover:bg-vercel-blue/90 disabled:text-white/70"
+      >
+        Sign in
+      </button>
+    </form>
+  );
+}
+
+async function User() {
+  const headersStore = await headers();
+  const cookieStore = await cookies();
+
+  // artificially delay the auth state to simulate resolving the user's auth,
+  // but only if we are not hanlding a server action
+  if (!headersStore.has('next-action')) await delay();
+
+  if (cookieStore.get('ppr-shells-user-id')?.value !== '1') return <AnonUser />;
+
+  return (
+    <div className="flex flex-row items-center gap-2">
+      <div>
+        <Image
+          src="/prince-akachi-LWkFHEGpleE-unsplash.jpg"
+          className="rounded-full m-0"
+          width={40}
+          height={40}
+          alt="User"
+          priority
+        />
+      </div>
+
+      <form
+        action={async function signOut() {
+          'use server';
+          const jar = await cookies();
+          jar.delete('ppr-shells-user-id');
+        }}
+      >
+        <button
+          type="submit"
+          className="relative h-10 w-full items-center space-x-2 rounded-lg bg-black px-3 py-1  text-sm font-medium text-white hover:bg-vercel-blue/90 disabled:text-white/70"
+        >
+          Sign out
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const awaitedParams = await params;
+  const hasAuthCookie = await hasAuthCookieFlag(awaitedParams.code, coreFlags);
+
+  return (
+    <>
+      <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 shadow-md rounded-lg my-4">
+        <div className="flex justify-between items-center">
+          <div className="text-xl font-semibold text-primary">My App</div>
+          <Suspense
+            fallback={hasAuthCookie ? <AuthedUserSkeleton /> : <AnonUser />}
+          >
+            <User />
+          </Suspense>
+        </div>
+      </div>
+      <p className="italic">
+        Reload this page while signed in or signed out to see that the loading
+        skeleton matches the predicted auth state.
+      </p>
+    </>
+  );
+}
