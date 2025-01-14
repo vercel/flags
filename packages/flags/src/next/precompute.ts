@@ -133,6 +133,12 @@ export async function getPrecomputed<T extends JsonValue>(
   code: string,
   secret: string | undefined = process.env.FLAGS_SECRET,
 ): Promise<any> {
+  if (!secret) {
+    throw new Error(
+      '@vercel/flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
+    );
+  }
+
   const flagSet = await deserialize(precomputeFlags, code, secret);
 
   if (Array.isArray(flagOrFlags)) {
@@ -162,6 +168,12 @@ export async function generatePermutations(
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
   secret: string = process.env.FLAGS_SECRET!,
 ): Promise<string[]> {
+  if (!secret) {
+    throw new Error(
+      '@vercel/flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
+    );
+  }
+
   const options = flags.map((flag) => {
     // no permutations if you don't declare any options
     if (!flag.options) return [];

@@ -30,6 +30,11 @@ export const verifyAccess = trace(
     secret: string | undefined = process?.env?.FLAGS_SECRET,
   ) {
     if (!authHeader) return false;
+    if (!secret)
+      throw new Error(
+        '@vercel/flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
+      );
+
     const data = await decrypt<{}>(
       authHeader?.replace(/^Bearer /i, ''),
       secret,

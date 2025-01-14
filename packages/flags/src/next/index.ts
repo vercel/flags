@@ -379,13 +379,6 @@ export function flag<
 
   const flag = trace(
     async (...args: any[]) => {
-      // defining flags throws since a FLAGS_SECRET is necessary for encrypting the flag code
-      if (!process.env.FLAGS_SECRET) {
-        throw new Error(
-          '@vercel/flags: Missing FLAGS_SECRET env var. Will not respect any overrides until this secret is added as an environment variable.',
-        );
-      }
-
       // Default method, may be overwritten by `getPrecomputed` or `run`
       // which is why we must not trace them directly in here,
       // as the attribute should be part of the `flag` function.
