@@ -1,4 +1,4 @@
-![hero illustration](./assets/hero-light.png)
+![hero illustration](./assets/hero-dark.png)
 
 # `@vercel/flags`
 
