@@ -35,7 +35,11 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vercel/edge-config": "1.2.0",
+    "statsig-node": "5.31.0",
+    "statsig-node-vercel": "0.4.0"
+  },
   "devDependencies": {
     "@types/node": "20.11.17",
     "@vercel/flags": "workspace:*",
