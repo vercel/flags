@@ -18,7 +18,7 @@ interface LaunchDarklyApiData {
   totalCount: number;
 }
 
-export async function getLaunchDarklyData(options: {
+export async function getProviderData(options: {
   apiKey: string;
   environment: string;
   projectKey: string;

@@ -1,5 +1,5 @@
 import { expect, it, describe, vi } from 'vitest';
-import { getLaunchDarklyData } from '.';
+import { getProviderData } from '..';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
@@ -55,13 +55,13 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getLaunchDarklyData', () => {
+describe('getProviderData', () => {
   describe('when called with valid params', () => {
     it('should fetch and return', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch');
 
       await expect(
-        getLaunchDarklyData({
+        getProviderData({
           apiKey: 'some-api-key',
           environment: 'some-environment',
           projectKey: 'some-project-key',
@@ -110,7 +110,7 @@ describe('getLaunchDarklyData', () => {
   describe('when called with invalid params', () => {
     it('should return appropriate hints', async () => {
       // @ts-expect-error this is the case we are testing
-      await expect(getLaunchDarklyData({})).resolves.toEqual({
+      await expect(getProviderData({})).resolves.toEqual({
         definitions: {},
         hints: [
           {
@@ -130,7 +130,7 @@ describe('getLaunchDarklyData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getLaunchDarklyData({ apiKey: 'some-api-key' }),
+        getProviderData({ apiKey: 'some-api-key' }),
       ).resolves.toEqual({
         definitions: {},
         hints: [
@@ -147,7 +147,7 @@ describe('getLaunchDarklyData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getLaunchDarklyData({
+        getProviderData({
           apiKey: 'some-api-key',
           environment: 'production',
         }),
@@ -172,7 +172,7 @@ describe('getLaunchDarklyData', () => {
         },
       } as Response);
       await expect(
-        getLaunchDarklyData({
+        getProviderData({
           apiKey: 'some-api-key',
           environment: 'some-environment',
           projectKey: 'some-project-key',
@@ -198,7 +198,7 @@ describe('getLaunchDarklyData', () => {
       } as Response);
 
       await expect(
-        getLaunchDarklyData({
+        getProviderData({
           apiKey: 'some-api-key',
           environment: 'some-environment',
           projectKey: 'some-project-key',

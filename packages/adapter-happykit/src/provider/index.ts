@@ -23,7 +23,7 @@ interface ProjectResponseBody {
   }[];
 }
 
-export async function getHappyKitData(options: {
+export async function getProviderData(options: {
   /**
    * The private API Token used to load your feature flags from HappyKit's API.
    */

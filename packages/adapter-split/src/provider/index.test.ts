@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest';
-import { getSplitData } from '.';
+import { getProviderData } from '.';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
@@ -64,11 +64,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getSplitData', () => {
+describe('getProviderData', () => {
   describe('when called with valid params', () => {
     it('should fetch and return', async () => {
       await expect(
-        getSplitData({
+        getProviderData({
           adminApiKey: 'this-is-my-api-key',
           organizationId: 'af791880-d541-11ee-8a6b-2a4bfd0c2d76',
           environmentId: 'cda1af20-d541-11fe-8c6b-2a4bfd0c2d76',
@@ -101,7 +101,7 @@ describe('getSplitData', () => {
   describe('when called with invalid params', () => {
     it('should return appropriate hints', async () => {
       // @ts-expect-error this is the case we are testing
-      await expect(getSplitData({})).resolves.toEqual({
+      await expect(getProviderData({})).resolves.toEqual({
         definitions: {},
         hints: [
           {
@@ -125,7 +125,7 @@ describe('getSplitData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getSplitData({ adminApiKey: 'some-api-key' }),
+        getProviderData({ adminApiKey: 'some-api-key' }),
       ).resolves.toEqual({
         definitions: {},
         hints: [
@@ -146,7 +146,7 @@ describe('getSplitData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getSplitData({
+        getProviderData({
           adminApiKey: 'this-is-my-api-key',
           organizationId: 'af791880-d541-11ee-8a6b-2a4bfd0c2d76',
           environmentId: 'cda1af20-d541-11fe-8c6b-2a4bfd0c2d76',

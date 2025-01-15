@@ -17,7 +17,7 @@ interface ListFeatureFlagsResponseBody {
   totalCount: number;
 }
 
-export async function getSplitData(options: {
+export async function getProviderData(options: {
   adminApiKey: string;
   workspaceId: string;
   organizationId: string;

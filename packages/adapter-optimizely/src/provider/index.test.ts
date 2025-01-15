@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest';
-import { getOptimizelyData } from '.';
+import { getProviderData } from '..';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
@@ -516,11 +516,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getOptimizelyData', () => {
+describe('getProviderData', () => {
   describe('when called with valid params', () => {
     it('should fetch and return', async () => {
       await expect(
-        getOptimizelyData({
+        getProviderData({
           apiKey: 'test-api-key',
           projectId: '1000000',
         }),
@@ -671,7 +671,7 @@ describe('getOptimizelyData', () => {
   describe('when called with invalid params', () => {
     it('should return appropriate hints', async () => {
       // @ts-expect-error this is the case we are testing
-      await expect(getOptimizelyData({})).resolves.toEqual({
+      await expect(getProviderData({})).resolves.toEqual({
         definitions: {},
         hints: [
           {

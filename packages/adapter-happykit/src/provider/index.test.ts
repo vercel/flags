@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest';
-import { getHappyKitData } from '.';
+import { getProviderData } from '..';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
@@ -36,11 +36,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getHappyKitData', () => {
+describe('getProviderData', () => {
   describe('when called with valid params', () => {
     it('should fetch and return', async () => {
       await expect(
-        getHappyKitData({
+        getProviderData({
           apiToken: 'this-is-my-api-token',
           envKey: 'flags_pub_development_272357356657967622',
         }),
@@ -65,7 +65,7 @@ describe('getHappyKitData', () => {
   describe('when called with invalid params', () => {
     it('should return appropriate hints', async () => {
       // @ts-expect-error this is the case we are testing
-      await expect(getHappyKitData({})).resolves.toEqual({
+      await expect(getProviderData({})).resolves.toEqual({
         definitions: {},
         hints: [
           {
@@ -81,7 +81,7 @@ describe('getHappyKitData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getHappyKitData({ apiToken: 'some-api-token' }),
+        getProviderData({ apiToken: 'some-api-token' }),
       ).resolves.toEqual({
         definitions: {},
         hints: [
@@ -94,7 +94,7 @@ describe('getHappyKitData', () => {
 
       await expect(
         // @ts-expect-error this is the case we are testing
-        getHappyKitData({
+        getProviderData({
           envKey: 'flags_pub_development_272357356657967622',
         }),
       ).resolves.toEqual({

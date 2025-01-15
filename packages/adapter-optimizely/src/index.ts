@@ -1,0 +1,1 @@
+export { getProviderData } from './provider';

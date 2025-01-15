@@ -43,7 +43,7 @@ interface StatsigExperimentsResponse {
   };
 }
 
-export async function getStatsigData(options: {
+export async function getProviderData(options: {
   consoleApiKey: string;
   /**
    * Required to set the `origin` property on the flag definitions.

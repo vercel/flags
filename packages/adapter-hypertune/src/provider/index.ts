@@ -1,6 +1,6 @@
 import type { ProviderData } from '@vercel/flags';
 
-export async function getHypertuneData(options: {
+export async function getProviderData(options: {
   token: string;
 }): Promise<ProviderData> {
   if (!options.token) {

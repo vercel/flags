@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest';
-import { getStatsigData } from '.';
+import { getProviderData } from '..';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
@@ -195,11 +195,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getStatsigData', () => {
+describe('getProviderData', () => {
   describe('when called with valid params', () => {
     it('should fetch and return', async () => {
       await expect(
-        getStatsigData({
+        getProviderData({
           consoleApiKey: 'console-this-is-a-test-token',
           projectId: 'project-id-placeholder',
         }),
@@ -301,7 +301,7 @@ describe('getStatsigData', () => {
   describe('when called with invalid params', () => {
     it('should return appropriate hints', async () => {
       await expect(
-        getStatsigData({
+        getProviderData({
           consoleApiKey: '',
         }),
       ).resolves.toEqual({

@@ -1,3 +1,5 @@
+export { getProviderData } from './provider';
+
 // import { Adapter } from '@vercel/flags';
 // import { flag } from '@vercel/flags/next';
 

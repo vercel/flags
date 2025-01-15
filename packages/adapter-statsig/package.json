@@ -11,10 +11,6 @@
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    },
-    "./provider": {
-      "import": "./dist/provider/index.js",
-      "require": "./dist/provider/index.cjs"
     }
   },
   "main": "./dist/index.js",
@@ -23,10 +19,6 @@
       ".": [
         "dist/*.d.ts",
         "dist/*.d.cts"
-      ],
-      "provider": [
-        "dist/provider/index.d.ts",
-        "dist/provider/index.d.cts"
       ]
     }
   },

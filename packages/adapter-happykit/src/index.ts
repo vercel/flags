@@ -5,6 +5,8 @@ import { createGetFlags } from '@happykit/flags/server';
 import type { GetDefinitions, Definitions } from '@happykit/flags/api-route';
 import { get } from '@vercel/edge-config';
 
+export { getProviderData } from './provider';
+
 export const getDefinitions: GetDefinitions = async (
   projectId,
   envKey,

@@ -40,7 +40,7 @@ interface OptimizelyVariationsResponseBody {
   next_url?: [string];
 }
 
-export async function getOptimizelyData(options: {
+export async function getProviderData(options: {
   projectId: string;
   apiKey: string;
 }): Promise<ProviderData> {
