@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 3.0.1
+
+### Patch Changes
+
+- 7e21d4f: add metadata to package.json
+
 ## 3.0.0
 
 ### Major Changes
