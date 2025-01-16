@@ -2,10 +2,13 @@
   "name": "vercel-variants",
   "version": "0.0.1",
   "description": "A monorepo for @vercel/flags",
-  "homepage": "https://vercel.com",
+  "homepage": "https://flags-sdk.com",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vercel/variants.git"
+    "url": "git+https://github.com/vercel/flags.git"
   },
   "license": "MIT",
   "scripts": {
