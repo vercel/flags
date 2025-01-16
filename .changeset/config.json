@@ -13,7 +13,8 @@
     "next-13",
     "next-14",
     "next-15",
-    "sveltekit-e2e"
+    "sveltekit-e2e",
+    "snippets"
   ],
   "snapshot": {
     "useCalculatedVersion": true
