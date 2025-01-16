@@ -10,7 +10,7 @@ From the creators of Next.js, the Flags SDK is a free open-source library that g
 - Compatible with App Router, Pages Router, and Edge Middleware
 - Built for feature flags and experimentation
 
-See [flags-sdk.com](https://www.flags-sdk.com/) for full docs and examples.
+See [flags-sdk.com](https://flags-sdk.com/) for full docs and examples.
 
 ## Installation
 
@@ -70,4 +70,4 @@ The Flags SDK has adapters for popular feature flag providers including LaunchDa
 
 There is a lot more to the Flags SDK than shown in the example above.
 
-See the full documentation and examples on [flags-sdk.com](https://www.flags-sdk.com/).
+See the full documentation and examples on [flags-sdk.com](https://flags-sdk.com/).
