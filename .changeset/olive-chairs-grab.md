@@ -2,18 +2,6 @@
 '@vercel/flags': minor
 ---
 
-**BREAKING CHANGES**
-
-- removed all `unstable_` prefixes, e.g. `unstable_flag` is now `flag`
-- removed `getPrecomputationContext`, use `dedupe` instead (see below)
-- moved all provider functions to dedicated packages
-  - `@vercel/flags/providers/launchdarkly` → `@flags-sdk/launchdarkly`
-  - `@vercel/flags/providers/statsig` → `@flags-sdk/statsig`
-  - `@vercel/flags/providers/split` → `@flags-sdk/split`
-  - `@vercel/flags/providers/hypertune` → `@flags-sdk/hypertune`
-  - `@vercel/flags/providers/optimizely` → `@flags-sdk/optimizely`
-  - `@vercel/flags/providers/happykit` → `@flags-sdk/happykit`
-
 **@vercel/flags/next: Added a `dedupe` function**
 
 `dedupe` is a middleware-friendly version of `React.cache`. It allows ensuring a function only ever runs once per request.
