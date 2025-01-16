@@ -1,6 +1,6 @@
 ![hero illustration](./assets/hero-dark.png)
 
-# `@vercel/flags`
+# Flags SDK
 
 The feature flags toolkit for Next.js and SvelteKit.
 

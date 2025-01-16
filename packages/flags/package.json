@@ -1,7 +1,7 @@
 {
   "name": "@vercel/flags",
   "version": "3.0.0",
-  "description": "Make the Vercel Toolbar aware of your feature flags and read overrides set by it",
+  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [
     "feature flags",
     "Next.js",

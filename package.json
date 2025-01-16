@@ -1,7 +1,7 @@
 {
   "name": "vercel-variants",
   "version": "0.0.1",
-  "description": "A monorepo for @vercel/flags and next/variant",
+  "description": "A monorepo for @vercel/flags",
   "homepage": "https://vercel.com",
   "repository": {
     "type": "git",
