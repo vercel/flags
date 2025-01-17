@@ -9,16 +9,27 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./provider": {
+      "types": "./dist/provider/index.d.ts",
+      "import": "./dist/provider/index.js",
+      "require": "./dist/provider/index.cjs"
     }
   },
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/*.d.ts",
-        "dist/*.d.cts"
+        "./dist/index.d.ts",
+        "./dist/index.d.cts"
+      ],
+      "provider": [
+        "./dist/provider/index.d.ts",
+        "./dist/provider/index.d.cts"
       ]
     }
   },
@@ -42,10 +53,13 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
+    "@vercel/edge-config": "1.2.0",
     "@vercel/flags": "workspace:*",
     "eslint-config-custom": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
+    "statsig-node": "5.31.0",
+    "statsig-node-vercel": "0.4.0",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
