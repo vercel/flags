@@ -23,7 +23,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "frame-ancestors 'self' https://flags-sdk.com https://www.flags-sdk.com http://localhost:* https://*.vercel.sh",
+              "frame-ancestors 'self' https://flags-sdk.com https://www.flags-sdk.com https://flags-sdk.dev https://www.flags-sdk.dev http://localhost:* https://*.vercel.sh",
           },
         ],
       },
