@@ -36,7 +36,7 @@ export default function Page() {
       <h1>Flags SDK</h1>
       <p>This page contains example snippets for the Flags SDK.</p>
       <p>
-        See <Link href="https://flags-sdk.com">flags-sdk.com</Link> for the full
+        See <Link href="https://flags-sdk.dev">flags-sdk.dev</Link> for the full
         documentation, or{' '}
         <Link
           href="https://github.com/vercel/flags/tree/main/examples/snippets"
