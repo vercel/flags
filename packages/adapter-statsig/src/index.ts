@@ -1,8 +1,6 @@
 export { getProviderData } from './provider';
 import { Adapter } from 'flags';
 import Statsig, { type StatsigUser, type StatsigOptions } from 'statsig-node';
-import { EdgeConfigDataAdapter } from 'statsig-node-vercel';
-import { createClient } from '@vercel/edge-config';
 
 interface StatsigUserEntities {
   statsigUser: StatsigUser;
@@ -24,22 +22,26 @@ interface StatsigUserEntities {
  * - `.experiment()` - Checks an experiment and returns a value based on the result and rule ID
  */
 function createStatsigAdapter(options: {
-  statsigSecretKey: string;
+  statsigServerApiKey: string;
   statsigOptions?: StatsigOptions;
   edgeConfig?: {
     connectionString: string;
     itemKey: string;
   };
 }) {
-  const dataAdapter = options.edgeConfig
-    ? new EdgeConfigDataAdapter({
-        edgeConfigItemKey: options.edgeConfig.itemKey,
-        edgeConfigClient: createClient(options.edgeConfig.connectionString),
-      })
-    : undefined;
+  // Peer dependency — Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
+  let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
+  if (options.edgeConfig) {
+    const { EdgeConfigDataAdapter } = require('statsig-node-vercel');
+    const { createClient } = require('@vercel/edge-config');
+    dataAdapter = new EdgeConfigDataAdapter({
+      edgeConfigItemKey: options.edgeConfig.itemKey,
+      edgeConfigClient: createClient(options.edgeConfig.connectionString),
+    });
+  }
 
   const initializeStatsig = async (): Promise<void> => {
-    await Statsig.initialize(options.statsigSecretKey, {
+    await Statsig.initialize(options.statsigServerApiKey, {
       dataAdapter,
       // ID list syncing is disabled by default
       // Can be opted in using `options.statsigOptions`
@@ -65,6 +67,10 @@ function createStatsigAdapter(options: {
     await _initializePromise;
   };
 
+  const isStatsigUser = (user: unknown): user is StatsigUser => {
+    return user != null && typeof user === 'object';
+  };
+
   /**
    * Resolve a Feature Gate and return an object with the boolean value and rule ID
    *
@@ -77,8 +83,13 @@ function createStatsigAdapter(options: {
     return {
       decide: async ({ key, entities }) => {
         await initialize();
+
+        if (!isStatsigUser(entities?.statsigUser)) {
+          throw new Error('Invalid or missing statsigUser in entities');
+        }
+
         const result = Statsig.getFeatureGateWithExposureLoggingDisabledSync(
-          entities?.statsigUser as StatsigUser,
+          entities?.statsigUser,
           key,
         );
         return mapValue(result.value, result.ruleID);
@@ -100,8 +111,13 @@ function createStatsigAdapter(options: {
     return {
       decide: async ({ key, entities }) => {
         await initialize();
+
+        if (!isStatsigUser(entities?.statsigUser)) {
+          throw new Error('Invalid or missing statsigUser in entities');
+        }
+
         const result = Statsig.getConfigWithExposureLoggingDisabledSync(
-          entities?.statsigUser as StatsigUser,
+          entities?.statsigUser,
           key,
         );
         return mapValue(result.value, result.getRuleID());
@@ -122,8 +138,8 @@ function createStatsigAdapter(options: {
 
   statsigAdapter.featureGate = featureGate;
   statsigAdapter.experiment = dynamicConfig;
-  statsigAdapter.dynamicConfig = dynamicConfig;
   statsigAdapter.autotune = dynamicConfig;
+  statsigAdapter.dynamicConfig = dynamicConfig;
   statsigAdapter.initialize = initialize;
   return statsigAdapter;
 }

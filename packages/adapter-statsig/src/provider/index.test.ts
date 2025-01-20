@@ -200,7 +200,7 @@ describe('getProviderData', () => {
     it('should fetch and return', async () => {
       await expect(
         getProviderData({
-          consoleApiKey: 'console-this-is-a-test-token',
+          statsigConsoleApiKey: 'console-this-is-a-test-token',
           projectId: 'project-id-placeholder',
         }),
       ).resolves.toEqual({
@@ -302,7 +302,7 @@ describe('getProviderData', () => {
     it('should return appropriate hints', async () => {
       await expect(
         getProviderData({
-          consoleApiKey: '',
+          statsigConsoleApiKey: '',
         }),
       ).resolves.toEqual({
         definitions: {},
