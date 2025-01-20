@@ -175,8 +175,10 @@ export async function generatePermutations(
   }
 
   const options = flags.map((flag) => {
-    // no permutations if you don't declare any options
-    if (!flag.options) return [];
+    // infert boolean permutations if you don't declare any options.
+    //
+    // to explicitly opt out you need to use "filter"
+    if (!flag.options) return [false, true];
     return flag.options.map((option) => option.value);
   });
 
