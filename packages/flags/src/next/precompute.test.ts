@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { deserialize, type Flag, flag, generatePermutations } from './index';
+import {
+  deserialize,
+  type Flag,
+  flag,
+  generatePermutations,
+  getPrecomputed,
+  serialize,
+} from './index';
 import crypto from 'node:crypto';
 import type { JsonValue } from '../types';
 
@@ -144,36 +151,49 @@ describe('generatePermutations', () => {
         ],
       );
     });
+  });
 
-    describe('multiple flags with a mix of inferred and declared options, filtered', () => {
-      it('should generate permutations', async () => {
-        process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+  describe('multiple flags with a mix of inferred and declared options, filtered', () => {
+    it('should generate permutations', async () => {
+      process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-        const flagA = flag({
-          key: 'a',
-          decide: () => false,
-        });
-
-        const flagB = flag({
-          key: 'b',
-          decide: () => false,
-        });
-
-        const flagC = flag({
-          key: 'c',
-          decide: () => 'two',
-          options: ['one', 'two', 'three'],
-        });
-
-        await expectPermutations(
-          [flagA, flagB, flagC],
-          [
-            { a: false, b: true, c: 'two' },
-            { a: true, b: true, c: 'two' },
-          ],
-          (permutation) => permutation.c === 'two' && permutation.b,
-        );
+      const flagA = flag({
+        key: 'a',
+        decide: () => false,
       });
+
+      const flagB = flag({
+        key: 'b',
+        decide: () => false,
+      });
+
+      const flagC = flag({
+        key: 'c',
+        decide: () => 'two',
+        options: ['one', 'two', 'three'],
+      });
+
+      await expectPermutations(
+        [flagA, flagB, flagC],
+        [
+          { a: false, b: true, c: 'two' },
+          { a: true, b: true, c: 'two' },
+        ],
+        (permutation) => permutation.c === 'two' && permutation.b,
+      );
     });
+  });
+});
+
+describe('getPrecomputed', () => {
+  it('should return the precomputed value', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag({ key: 'a', decide: () => true });
+    const flagB = flag({ key: 'b', decide: () => false });
+
+    const group = [flagA, flagB];
+    const code = await serialize(group, [true, false]);
+    await expect(getPrecomputed(flagA, group, code)).resolves.toBe(true);
   });
 });

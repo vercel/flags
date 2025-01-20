@@ -147,6 +147,16 @@ describe('flag on app router', () => {
     expect(decide).toHaveBeenCalledTimes(1);
   });
 
+  it('uses precomputed values even when options are inferred', async () => {
+    const decide = vi.fn(() => true);
+    const f = flag({ key: 'first-flag', decide });
+    const flagGroup = [f];
+    const code = await precompute(flagGroup);
+    expect(decide).toHaveBeenCalledTimes(1);
+    await expect(f(code, flagGroup)).resolves.toEqual(true);
+    expect(decide).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the defaultValue if an async decide throws', async () => {
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
