@@ -145,3 +145,44 @@ function createStatsigAdapter(options: {
 }
 
 export { createStatsigAdapter };
+
+let defaultStatsigAdapter: ReturnType<typeof createStatsigAdapter> | undefined;
+
+export function resetDefaultStatsigAdapter() {
+  defaultStatsigAdapter = undefined;
+}
+
+/**
+ * Equivalent to `createStatsigAdapter` but with default environment variable names.
+ *
+ * Required:
+ * - `STATSIG_SERVER_API_KEY` - Statsig secret server API key
+ *
+ * Optional:
+ * - `STATSIG_EDGE_CONFIG` - Vercel Edge Config connection string
+ * - `STATSIG_EDGE_CONFIG_ITEM_KEY` - Vercel Edge Config item key
+ */
+export default function createDefaultStatsigAdapter() {
+  if (defaultStatsigAdapter) {
+    return defaultStatsigAdapter;
+  }
+  const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
+  // Edge Config is optional
+  const edgeConfig = process.env.STATSIG_EDGE_CONFIG;
+  const edgeConfigItemKey = process.env.STATSIG_EDGE_CONFIG_ITEM_KEY;
+  if (!(edgeConfig && edgeConfigItemKey)) {
+    defaultStatsigAdapter = createStatsigAdapter({
+      statsigServerApiKey,
+    });
+  } else {
+    defaultStatsigAdapter = createStatsigAdapter({
+      statsigServerApiKey,
+      edgeConfig: {
+        connectionString: edgeConfig,
+        itemKey: edgeConfigItemKey,
+      },
+    });
+  }
+
+  return defaultStatsigAdapter;
+}
