@@ -29,18 +29,18 @@ function createStatsigAdapter(options: {
     itemKey: string;
   };
 }) {
-  // Peer dependency — Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
-  let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
-  if (options.edgeConfig) {
-    const { EdgeConfigDataAdapter } = require('statsig-node-vercel');
-    const { createClient } = require('@vercel/edge-config');
-    dataAdapter = new EdgeConfigDataAdapter({
-      edgeConfigItemKey: options.edgeConfig.itemKey,
-      edgeConfigClient: createClient(options.edgeConfig.connectionString),
-    });
-  }
-
   const initializeStatsig = async (): Promise<void> => {
+    // Peer dependency — Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
+    let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
+    if (options.edgeConfig) {
+      const { EdgeConfigDataAdapter } = await import('statsig-node-vercel');
+      const { createClient } = await import('@vercel/edge-config');
+      dataAdapter = new EdgeConfigDataAdapter({
+        edgeConfigItemKey: options.edgeConfig.itemKey,
+        edgeConfigClient: createClient(options.edgeConfig.connectionString),
+      });
+    }
+
     await Statsig.initialize(options.statsigServerApiKey, {
       dataAdapter,
       // ID list syncing is disabled by default
