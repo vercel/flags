@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 3.0.2
+
+### Patch Changes
+
+- 708d5e2: generatePermutations: infer options of boolean flags
+
 ## 3.0.1
 
 ### Patch Changes
