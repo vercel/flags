@@ -136,10 +136,47 @@ function createStatsigAdapter(options: {
     return featureGate((value) => value);
   }
 
+  /**
+   * Check a layer parameter and return a value based on the result and rule ID.
+   *
+   * When multiple experiments are running on the same surface, Statsig enables
+   * a parameter based workflow agnostic of how many experiments are running.
+   *
+   * Users will be allocated to one of many experiments, and the parameters will
+   * receive values based on the assigned experiment, and defaults from the layer.
+   *
+   * The key of a flag using this should match `layerName.parameterName`
+   */
+  const layerParameter = <T>(): Adapter<T, StatsigUserEntities> => {
+    return {
+      decide: async ({ key, entities }) => {
+        // `layer-a.parameter-b` -> Statsig.layer(`layer-a`).getValue(`parameter-b`)
+        const [layer, parameterKey] = key.split('.');
+        if (!layer || !parameterKey) {
+          throw new Error('Layer key must be in the format "layer.parameter"');
+        }
+
+        await initialize();
+
+        if (!isStatsigUser(entities?.statsigUser)) {
+          throw new Error('Invalid or missing statsigUser in entities');
+        }
+
+        const result = Statsig.getLayerWithExposureLoggingDisabledSync(
+          entities?.statsigUser,
+          layer,
+        );
+        // defaultValue should be provided to `flag({ adapter, defaultValue, ... })`
+        return result.getValue(parameterKey, undefined) as T;
+      },
+    };
+  };
+
   statsigAdapter.featureGate = featureGate;
   statsigAdapter.experiment = dynamicConfig;
   statsigAdapter.autotune = dynamicConfig;
   statsigAdapter.dynamicConfig = dynamicConfig;
+  statsigAdapter.layerParameter = layerParameter;
   statsigAdapter.initialize = initialize;
   return statsigAdapter;
 }
