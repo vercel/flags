@@ -3,7 +3,7 @@ import { flag, precompute } from '.';
 import { IncomingMessage } from 'node:http';
 import { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { Readable } from 'node:stream';
-import { encrypt } from '..';
+import { type Adapter, encrypt } from '..';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -50,7 +50,7 @@ describe('flag on app router', () => {
   it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: () => false,
     });
@@ -62,7 +62,7 @@ describe('flag on app router', () => {
   it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = await flag({ key: 'first-flag', decide });
+    const f = flag({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -94,7 +94,7 @@ describe('flag on app router', () => {
 
     const mockDecide = vi.fn(() => promise);
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
     });
@@ -119,7 +119,7 @@ describe('flag on app router', () => {
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = await flag({ key: 'first-flag', decide });
+    const f = flag({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -166,7 +166,7 @@ describe('flag on app router', () => {
     const mockDecide = vi.fn(() => promise);
     const catchFn = vi.fn();
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -185,6 +185,48 @@ describe('flag on app router', () => {
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
+
+  it('falls back to the defaultValue when a decide function returns undefined', async () => {
+    const syncFlag = flag({
+      key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: () => undefined,
+      defaultValue: true,
+    });
+
+    await expect(syncFlag()).resolves.toEqual(true);
+
+    const asyncFlag = flag({
+      key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: async () => undefined,
+      defaultValue: true,
+    });
+
+    await expect(asyncFlag()).resolves.toEqual(true);
+  });
+
+  it('throws an error when the decide function returns undefined and no defaultValue is provided (sync)', async () => {
+    const syncFlag = flag({
+      key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: () => undefined,
+    });
+
+    await expect(syncFlag()).rejects.toThrow(
+      '@vercel/flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
+    );
+
+    const asyncFlag = flag<string>({
+      key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: async () => undefined,
+    });
+
+    await expect(asyncFlag()).rejects.toThrow(
+      '@vercel/flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
+    );
+  });
 });
 
 describe('flag on pages router', () => {
@@ -196,7 +238,7 @@ describe('flag on pages router', () => {
   it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: () => false,
     });
@@ -214,7 +256,7 @@ describe('flag on pages router', () => {
   it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = await flag({ key: 'first-flag', decide });
+    const f = flag({ key: 'first-flag', decide });
 
     const [firstRequest, socket1] = createRequest();
     const [secondRequest, socket2] = createRequest();
@@ -246,7 +288,7 @@ describe('flag on pages router', () => {
 
     const mockDecide = vi.fn(() => promise);
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
     });
@@ -272,18 +314,69 @@ describe('flag on pages router', () => {
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
     });
+
+    const [firstRequest, socket1] = createRequest();
     expect(mockDecide).toHaveBeenCalledTimes(0);
-    await expect(() => f()).rejects.toThrow('custom error');
+    await expect(() => f(firstRequest)).rejects.toThrow('custom error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    socket1.destroy();
+  });
+
+  it('falls back to the defaultValue when a decide function returns undefined', async () => {
+    const [firstRequest, socket1] = createRequest();
+    const syncFlag = flag({
+      key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: () => undefined,
+      defaultValue: true,
+    });
+
+    await expect(syncFlag(firstRequest)).resolves.toEqual(true);
+
+    const asyncFlag = flag({
+      key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: async () => undefined,
+      defaultValue: true,
+    });
+
+    await expect(asyncFlag(firstRequest)).resolves.toEqual(true);
+
+    socket1.destroy();
+  });
+
+  it('throws an error when the decide function returns undefined and no defaultValue is provided (sync)', async () => {
+    const [firstRequest, socket1] = createRequest();
+    const syncFlag = flag({
+      key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: () => undefined,
+    });
+
+    await expect(syncFlag(firstRequest)).rejects.toThrow(
+      '@vercel/flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
+    );
+
+    const asyncFlag = flag<string>({
+      key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
+      decide: async () => undefined,
+    });
+
+    await expect(asyncFlag(firstRequest)).rejects.toThrow(
+      '@vercel/flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
+    );
+
+    socket1.destroy();
   });
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = await flag({ key: 'first-flag', decide });
+    const f = flag({ key: 'first-flag', decide });
     const override = await encrypt({ 'first-flag': true });
 
     const [firstRequest, socket1] = createRequest({
@@ -313,7 +406,7 @@ describe('flag on pages router', () => {
     const mockDecide = vi.fn(() => promise);
     const catchFn = vi.fn();
 
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -341,7 +434,7 @@ describe('dynamic io', () => {
       (error as any).digest = 'DYNAMIC_SERVER_USAGE;dynamic usage error';
       throw error;
     });
-    const f = await flag({
+    const f = flag({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -349,5 +442,50 @@ describe('dynamic io', () => {
     expect(mockDecide).toHaveBeenCalledTimes(0);
     await expect(() => f()).rejects.toThrow('dynamic usage error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('adapters', () => {
+  function createTestAdapter() {
+    return function testAdapter<ValueType, EntitiesType>(
+      value: ValueType,
+    ): Adapter<ValueType, EntitiesType> {
+      return {
+        decide: () => value,
+        origin: (key) => `fake-origin#${key}`,
+      };
+    };
+  }
+
+  it("should use the adapter's decide function when provided", async () => {
+    const testAdapter = createTestAdapter();
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    const f = flag({
+      key: 'adapter-flag',
+      adapter: testAdapter(5),
+    });
+
+    expect(f).toHaveProperty('key', 'adapter-flag');
+    await expect(f()).resolves.toEqual(5);
+    expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
+  });
+
+  it("should throw when an adapter's decide function returns undefined", async () => {
+    const testAdapter = createTestAdapter();
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    const f = flag({
+      key: 'adapter-flag',
+      adapter: testAdapter(undefined),
+    });
+
+    expect(f).toHaveProperty('key', 'adapter-flag');
+    await expect(f()).rejects.toThrow(
+      '@vercel/flags: Flag "adapter-flag" must have a defaultValue or a decide function that returns a value',
+    );
+    expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
   });
 });

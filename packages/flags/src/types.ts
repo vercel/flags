@@ -127,11 +127,13 @@ export type GenerousOption<T> = boolean extends T
     ? T | FlagOption<T>
     : FlagOption<T>;
 
+type NonUndefined<T> = T extends undefined | Promise<undefined> ? never : T;
+
 export type Decide<ValueType, EntitiesType> = (
   params: FlagParamsType & {
     entities?: EntitiesType;
   },
-) => Promise<ValueType> | ValueType;
+) => Promise<NonUndefined<ValueType>> | NonUndefined<ValueType>;
 
 export type Identify<EntitiesType> = (
   params: FlagParamsType,

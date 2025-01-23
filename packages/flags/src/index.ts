@@ -12,6 +12,8 @@ export type {
   FlagOverridesType,
   FlagDeclaration,
   GenerousOption,
+  Identify,
+  Decide,
 } from './types';
 export { safeJsonStringify } from './lib/safe-json-stringify';
 export { encrypt, decrypt } from './lib/crypto';

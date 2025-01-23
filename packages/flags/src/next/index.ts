@@ -2,7 +2,6 @@ import { RequestCookies } from '@edge-runtime/cookies';
 import {
   type FlagDefinitionType,
   type ProviderData,
-  type JsonValue,
   reportValue,
   type FlagDefinitionsType,
 } from '..';
@@ -290,22 +289,32 @@ function getRun<ValueType, EntitiesType>(
         }),
       )
         // catch errors in async "decide" functions
-        .catch<ValueType>((error: Error) => {
-          if (isInternalNextError(error)) throw error;
-
-          // try to recover if defaultValue is set
-          if (definition.defaultValue !== undefined) {
-            console.warn(
-              `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
-              error,
+        .then<ValueType, ValueType>(
+          (value) => {
+            if (value !== undefined) return value;
+            if (definition.defaultValue !== undefined)
+              return definition.defaultValue;
+            throw new Error(
+              `@vercel/flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
             );
-            return definition.defaultValue;
-          }
-          console.warn(
-            `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
-          );
-          throw error;
-        });
+          },
+          (error: Error) => {
+            if (isInternalNextError(error)) throw error;
+
+            // try to recover if defaultValue is set
+            if (definition.defaultValue !== undefined) {
+              console.warn(
+                `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
+                error,
+              );
+              return definition.defaultValue;
+            }
+            console.warn(
+              `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
+            );
+            throw error;
+          },
+        );
     } catch (error) {
       if (isInternalNextError(error)) throw error;
 
@@ -366,10 +375,7 @@ function getOrigin<ValueType, EntitiesType>(
  * @param definition - Information about the feature flag.
  * @returns - A feature flag declaration
  */
-export function flag<
-  ValueType extends JsonValue = boolean | string | number,
-  EntitiesType = any,
->(
+export function flag<ValueType = boolean | string | number, EntitiesType = any>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Flag<ValueType, EntitiesType> {
   const decide = getDecide<ValueType, EntitiesType>(definition);
