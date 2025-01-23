@@ -189,7 +189,6 @@ describe('flag on app router', () => {
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
     const syncFlag = flag({
       key: 'sync-flag',
-      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
     });
@@ -198,7 +197,6 @@ describe('flag on app router', () => {
 
     const asyncFlag = flag({
       key: 'async-flag',
-      // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
     });
@@ -209,7 +207,6 @@ describe('flag on app router', () => {
   it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const syncFlag = flag({
       key: 'sync-flag',
-      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
 
@@ -330,7 +327,6 @@ describe('flag on pages router', () => {
     const [firstRequest, socket1] = createRequest();
     const syncFlag = flag({
       key: 'sync-flag',
-      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
     });
@@ -339,7 +335,6 @@ describe('flag on pages router', () => {
 
     const asyncFlag = flag({
       key: 'async-flag',
-      // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
     });
@@ -353,7 +348,6 @@ describe('flag on pages router', () => {
     const [firstRequest, socket1] = createRequest();
     const syncFlag = flag({
       key: 'sync-flag',
-      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
 

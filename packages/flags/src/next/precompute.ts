@@ -94,7 +94,7 @@ export async function deserialize(
  * @param code - The code returned from `serialize`
  * @param secret - The secret to use for verifying the signature
  */
-export async function getPrecomputed<T>(
+export async function getPrecomputed<T extends JsonValue>(
   flag: Flag<T, any>,
   precomputeFlags: FlagsArray,
   code: string,
