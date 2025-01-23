@@ -10,6 +10,7 @@ import type {
   FlagDeclaration,
   FlagParamsType,
   Identify,
+  JsonValue,
   Origin,
 } from '../types';
 import type { Flag, PrecomputedFlag, PagesRouterFlag } from './types';
@@ -375,7 +376,10 @@ function getOrigin<ValueType, EntitiesType>(
  * @param definition - Information about the feature flag.
  * @returns - A feature flag declaration
  */
-export function flag<ValueType = boolean | string | number, EntitiesType = any>(
+export function flag<
+  ValueType extends JsonValue = boolean | string | number,
+  EntitiesType = any,
+>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Flag<ValueType, EntitiesType> {
   const decide = getDecide<ValueType, EntitiesType>(definition);
