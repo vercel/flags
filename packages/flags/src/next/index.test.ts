@@ -206,7 +206,7 @@ describe('flag on app router', () => {
     await expect(asyncFlag()).resolves.toEqual(true);
   });
 
-  it('throws an error when the decide function returns undefined and no defaultValue is provided (sync)', async () => {
+  it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const syncFlag = flag({
       key: 'sync-flag',
       // @ts-expect-error this is the case we are testing
@@ -349,7 +349,7 @@ describe('flag on pages router', () => {
     socket1.destroy();
   });
 
-  it('throws an error when the decide function returns undefined and no defaultValue is provided (sync)', async () => {
+  it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const [firstRequest, socket1] = createRequest();
     const syncFlag = flag({
       key: 'sync-flag',
