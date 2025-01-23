@@ -27,6 +27,8 @@ type AdapterResponse = {
   initialize: () => Promise<void>;
 };
 
+const keyDelimiterRegex = /[\/\.,+:]/;
+
 /**
  * Create a Statsig adapter for use with the Flags SDK.
  *
@@ -108,7 +110,8 @@ export function createStatsigAdapter(options: {
     return {
       origin: options?.statsigProjectId
         ? (key) => {
-            return `https://console.statsig.com/${options.statsigProjectId}/gates/${key}`;
+            const keyPart = key.split(keyDelimiterRegex)[0] ?? '';
+            return `https://console.statsig.com/${options.statsigProjectId}/gates/${keyPart}`;
           }
         : undefined,
       decide: async ({ key, entities }) => {
@@ -151,7 +154,10 @@ export function createStatsigAdapter(options: {
     return {
       origin: options.statsigProjectId
         ? (key) => {
-            return `https://console.statsig.com/${options.statsigProjectId}/dynamic_configs/${key}`;
+            // If decide maps the same config in different ways,
+            // The key can be differentiated. Ex. `config.param`
+            const keyPart = key.split(keyDelimiterRegex)[0] ?? '';
+            return `https://console.statsig.com/${options.statsigProjectId}/dynamic_configs/${keyPart}`;
           }
         : undefined,
       decide: async ({ key, entities }) => {
@@ -163,12 +169,20 @@ export function createStatsigAdapter(options: {
           );
         }
 
+        // .,+: are invalid characters for a Dynamic Config key
+        // and flags may use them to represent the same config in different ways
+        // Ex. flag `config.a` and flag `config.b`
+        // In which case, we'll look up `config` and let the function decide how to compute `a` or `b`
+        const keyParts = key.split(keyDelimiterRegex);
+        let configKey = keyParts[0] ?? '';
+
         const config = opts?.exposureLoggingDisabled
           ? Statsig.getConfigWithExposureLoggingDisabledSync(
               entities?.statsigUser,
-              key,
+              configKey,
             )
-          : Statsig.getConfigSync(entities?.statsigUser, key);
+          : Statsig.getConfigSync(entities?.statsigUser, configKey);
+
         return getValue(config);
       },
     };
@@ -222,11 +236,9 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   return defaultStatsigAdapter;
 }
 
-const statsigAdapter: AdapterResponse = {
+export const statsigAdapter: AdapterResponse = {
   featureGate: (...args) => createDefaultStatsigAdapter().featureGate(...args),
   dynamicConfig: (...args) =>
     createDefaultStatsigAdapter().dynamicConfig(...args),
   initialize: () => createDefaultStatsigAdapter().initialize(),
 };
-
-export default statsigAdapter;
