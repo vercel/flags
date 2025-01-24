@@ -22,8 +22,7 @@ export async function GET(request: NextRequest) {
 
   const providerData = await mergeProviderData([
     // expose flags declared in code first
-    getProviderData(flagsA),
-    getProviderData(flagsB),
+    getProviderData({ ...flagsA, ...flagsB }),
     // then enhance them with metadata from your flag provider
     getStatsigProviderData({ consoleApiKey: '', projectId: '' }),
   ]);
