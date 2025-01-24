@@ -3,7 +3,7 @@
 ## Installation
 
 ```sh
-npm install @flags-sdk/launchdarkly @launchdarkly/vercel-server-sdk
+npm install @flags-sdk/launchdarkly @launchdarkly/vercel-server-sdk @vercel/edge-config
 ```
 
 ## Usage
