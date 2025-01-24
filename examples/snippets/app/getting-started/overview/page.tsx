@@ -3,7 +3,7 @@ import { DemoFlag } from '@/components/demo-flag';
 import { ReloadButton } from './reload-button';
 
 // declare a feature flag
-const randomFlag = flag({
+const randomFlag = flag<boolean>({
   key: 'random-flag',
   decide() {
     // this flag will be on for 50% of visitors

@@ -50,7 +50,7 @@ describe('flag on app router', () => {
   it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: () => false,
     });
@@ -62,7 +62,7 @@ describe('flag on app router', () => {
   it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = flag({ key: 'first-flag', decide });
+    const f = flag<number>({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -94,7 +94,7 @@ describe('flag on app router', () => {
 
     const mockDecide = vi.fn(() => promise);
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
     });
@@ -119,7 +119,7 @@ describe('flag on app router', () => {
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = flag({ key: 'first-flag', decide });
+    const f = flag<boolean>({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -139,7 +139,11 @@ describe('flag on app router', () => {
 
   it('uses precomputed values', async () => {
     const decide = vi.fn(() => true);
-    const f = flag({ key: 'first-flag', decide, options: [false, true] });
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide,
+      options: [false, true],
+    });
     const flagGroup = [f];
     const code = await precompute(flagGroup);
     expect(decide).toHaveBeenCalledTimes(1);
@@ -149,7 +153,7 @@ describe('flag on app router', () => {
 
   it('uses precomputed values even when options are inferred', async () => {
     const decide = vi.fn(() => true);
-    const f = flag({ key: 'first-flag', decide });
+    const f = flag<boolean>({ key: 'first-flag', decide });
     const flagGroup = [f];
     const code = await precompute(flagGroup);
     expect(decide).toHaveBeenCalledTimes(1);
@@ -166,7 +170,7 @@ describe('flag on app router', () => {
     const mockDecide = vi.fn(() => promise);
     const catchFn = vi.fn();
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -187,16 +191,18 @@ describe('flag on app router', () => {
   });
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
-    const syncFlag = flag({
+    const syncFlag = flag<boolean>({
       key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
     });
 
     await expect(syncFlag()).resolves.toEqual(true);
 
-    const asyncFlag = flag({
+    const asyncFlag = flag<boolean>({
       key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
     });
@@ -205,8 +211,9 @@ describe('flag on app router', () => {
   });
 
   it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
-    const syncFlag = flag({
+    const syncFlag = flag<boolean>({
       key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
 
@@ -235,7 +242,7 @@ describe('flag on pages router', () => {
   it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: () => false,
     });
@@ -253,7 +260,7 @@ describe('flag on pages router', () => {
   it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = flag({ key: 'first-flag', decide });
+    const f = flag<number>({ key: 'first-flag', decide });
 
     const [firstRequest, socket1] = createRequest();
     const [secondRequest, socket2] = createRequest();
@@ -285,7 +292,7 @@ describe('flag on pages router', () => {
 
     const mockDecide = vi.fn(() => promise);
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
     });
@@ -311,7 +318,7 @@ describe('flag on pages router', () => {
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
     });
@@ -325,16 +332,18 @@ describe('flag on pages router', () => {
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
     const [firstRequest, socket1] = createRequest();
-    const syncFlag = flag({
+    const syncFlag = flag<boolean>({
       key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
     });
 
     await expect(syncFlag(firstRequest)).resolves.toEqual(true);
 
-    const asyncFlag = flag({
+    const asyncFlag = flag<boolean>({
       key: 'async-flag',
+      // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
     });
@@ -346,8 +355,9 @@ describe('flag on pages router', () => {
 
   it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const [firstRequest, socket1] = createRequest();
-    const syncFlag = flag({
+    const syncFlag = flag<boolean>({
       key: 'sync-flag',
+      // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
 
@@ -370,7 +380,7 @@ describe('flag on pages router', () => {
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = flag({ key: 'first-flag', decide });
+    const f = flag<boolean>({ key: 'first-flag', decide });
     const override = await encrypt({ 'first-flag': true });
 
     const [firstRequest, socket1] = createRequest({
@@ -383,7 +393,11 @@ describe('flag on pages router', () => {
 
   it('uses precomputed values', async () => {
     const decide = vi.fn(() => true);
-    const f = flag({ key: 'first-flag', decide, options: [false, true] });
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide,
+      options: [false, true],
+    });
     const flagGroup = [f];
     const code = await precompute(flagGroup);
     expect(decide).toHaveBeenCalledTimes(1);
@@ -400,7 +414,7 @@ describe('flag on pages router', () => {
     const mockDecide = vi.fn(() => promise);
     const catchFn = vi.fn();
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -428,7 +442,7 @@ describe('dynamic io', () => {
       (error as any).digest = 'DYNAMIC_SERVER_USAGE;dynamic usage error';
       throw error;
     });
-    const f = flag({
+    const f = flag<boolean>({
       key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
@@ -456,7 +470,7 @@ describe('adapters', () => {
 
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = flag({
+    const f = flag<number>({
       key: 'adapter-flag',
       adapter: testAdapter(5),
     });
@@ -471,8 +485,9 @@ describe('adapters', () => {
 
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const f = flag({
+    const f = flag<boolean>({
       key: 'adapter-flag',
+      // @ts-expect-error this is the case we are testing
       adapter: testAdapter(undefined),
     });
 

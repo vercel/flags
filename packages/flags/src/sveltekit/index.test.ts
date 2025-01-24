@@ -9,7 +9,7 @@ describe('getProviderData', () => {
 
 describe('flag', () => {
   it('defines a key', async () => {
-    const f = flag({ key: 'first-flag', decide: () => false });
+    const f = flag<boolean>({ key: 'first-flag', decide: () => false });
     expect(f).toHaveProperty('key', 'first-flag');
   });
 });

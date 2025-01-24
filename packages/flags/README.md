@@ -40,7 +40,7 @@ Create a file called flags.ts in your project and declare your first feature fla
 // app/flags.tsx
 import { flag } from '@vercel/flags/next';
 
-export const exampleFlag = flag({
+export const exampleFlag = flag<boolean>({
   key: 'example-flag',
   decide() {
     return true;

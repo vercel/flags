@@ -35,7 +35,7 @@ describe('generatePermutations', () => {
     it('should infer boolean options', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-      const flagA = flag({ key: 'a', decide: () => false });
+      const flagA = flag<boolean>({ key: 'a', decide: () => false });
       await expectPermutations([flagA], [{ a: false }, { a: true }]);
     });
   });
@@ -44,7 +44,11 @@ describe('generatePermutations', () => {
     it('should not infer any options', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-      const flagA = flag({ key: 'a', decide: () => false, options: [] });
+      const flagA = flag<boolean>({
+        key: 'a',
+        decide: () => false,
+        options: [],
+      });
       await expectPermutations([flagA], []);
     });
   });
@@ -89,12 +93,12 @@ describe('generatePermutations', () => {
     it('should generate permutations', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-      const flagA = flag({
+      const flagA = flag<boolean>({
         key: 'a',
         decide: () => false,
       });
 
-      const flagB = flag({
+      const flagB = flag<boolean>({
         key: 'b',
         decide: () => false,
       });
@@ -115,17 +119,17 @@ describe('generatePermutations', () => {
     it('should generate permutations', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-      const flagA = flag({
+      const flagA = flag<boolean>({
         key: 'a',
         decide: () => false,
       });
 
-      const flagB = flag({
+      const flagB = flag<boolean>({
         key: 'b',
         decide: () => false,
       });
 
-      const flagC = flag({
+      const flagC = flag<string>({
         key: 'c',
         decide: () => 'two',
         options: ['one', 'two', 'three'],
@@ -157,17 +161,17 @@ describe('generatePermutations', () => {
     it('should generate permutations', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-      const flagA = flag({
+      const flagA = flag<boolean>({
         key: 'a',
         decide: () => false,
       });
 
-      const flagB = flag({
+      const flagB = flag<boolean>({
         key: 'b',
         decide: () => false,
       });
 
-      const flagC = flag({
+      const flagC = flag<string>({
         key: 'c',
         decide: () => 'two',
         options: ['one', 'two', 'three'],
@@ -189,8 +193,8 @@ describe('getPrecomputed', () => {
   it('should return the precomputed value', async () => {
     process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
 
-    const flagA = flag({ key: 'a', decide: () => true });
-    const flagB = flag({ key: 'b', decide: () => false });
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const flagB = flag<boolean>({ key: 'b', decide: () => false });
 
     const group = [flagA, flagB];
     const code = await serialize(group, [true, false]);
