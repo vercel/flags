@@ -42,12 +42,12 @@ export function createLaunchDarklyAdapter({
       origin(key) {
         return `https://app.launchdarkly.com/projects/${ldProject}/flags/${key}/`;
       },
-      async decide({ key, entities, defaultValue }): Promise<ValueType> {
+      async decide({ key, entities }): Promise<ValueType> {
         await ldClient.waitForInitialization();
         return ldClient.variation(
           key,
           entities!,
-          options.defaultValue ?? defaultValue,
+          options.defaultValue,
         ) as ValueType;
       },
     };
