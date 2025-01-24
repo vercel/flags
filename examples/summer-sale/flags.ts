@@ -37,10 +37,11 @@ export const showFreeDeliveryBannerFlag = flag<boolean>({
   ],
 });
 
-export const countryFlag = flag<boolean>({
+export const countryFlag = flag<string>({
   key: 'country',
+  defaultValue: 'no accept-lanugage header',
   async decide({ headers }) {
-    return headers.get('accept-language') || 'no accept-lanugage header';
+    return headers.get('accept-language') ?? this.defaultValue!;
   },
 });
 
