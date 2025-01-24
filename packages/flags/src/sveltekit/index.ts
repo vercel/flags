@@ -131,7 +131,6 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
       {
         headers: sealHeaders(store.event.request.headers),
         cookies: sealCookies(store.event.request.headers),
-        defaultValue: definition.defaultValue,
       },
       // @ts-expect-error not part of the type, but we supply it for convenience
       { event: store.event },
