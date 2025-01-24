@@ -55,13 +55,13 @@ importers:
     dependencies:
       '@heroicons/react':
         specifier: 2.1.1
-        version: 2.1.1(react@19.1.0-canary-d4287258-20241217)
+        version: 2.1.1(react@19.1.0-canary-ae9017ce-20250122)
       '@vercel/flags':
         specifier: workspace:*
         version: link:../../packages/flags
       '@vercel/toolbar':
         specifier: ^0.1.7
-        version: 0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-d4287258-20241217)
+        version: 0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-ae9017ce-20250122)
       clsx:
         specifier: 2.0.0
         version: 2.0.0
@@ -79,13 +79,13 @@ importers:
         version: 5.9.6
       next:
         specifier: 15.0.3-canary.9
-        version: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217)
+        version: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-ae9017ce-20250122)(react@19.1.0-canary-ae9017ce-20250122)
       react:
         specifier: canary
-        version: 19.1.0-canary-d4287258-20241217
+        version: 19.1.0-canary-ae9017ce-20250122
       react-dom:
         specifier: canary
-        version: 19.1.0-canary-d4287258-20241217(react@19.1.0-canary-d4287258-20241217)
+        version: 19.1.0-canary-ae9017ce-20250122(react@19.1.0-canary-ae9017ce-20250122)
     devDependencies:
       '@tailwindcss/forms':
         specifier: 0.5.7
@@ -135,6 +135,9 @@ importers:
 
   examples/snippets:
     dependencies:
+      '@launchdarkly/vercel-server-sdk':
+        specifier: 1.3.21
+        version: 1.3.21
       '@radix-ui/react-dialog':
         specifier: 1.1.2
         version: 1.1.2(@types/react-dom@18.2.18)(@types/react@18.2.55)(react-dom@19.0.0-rc-66855b96-20241106)(react@19.0.0-rc-66855b96-20241106)
@@ -632,7 +635,7 @@ importers:
         version: 5.9.6
       react-dom:
         specifier: '*'
-        version: 18.3.1(react@19.1.0-canary-d4287258-20241217)
+        version: 18.3.1(react@19.1.0-canary-ae9017ce-20250122)
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -651,10 +654,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.0.3
-        version: 15.0.3(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-d4287258-20241217)
+        version: 15.0.3(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-ae9017ce-20250122)
       react:
         specifier: canary
-        version: 19.1.0-canary-d4287258-20241217
+        version: 19.1.0-canary-ae9017ce-20250122
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
@@ -1730,12 +1733,12 @@ packages:
       react: 18.3.1
     dev: false
 
-  /@heroicons/react@2.1.1(react@19.1.0-canary-d4287258-20241217):
+  /@heroicons/react@2.1.1(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-JyyN9Lo66kirbCMuMMRPtJxtKJoIsXKS569ebHGGRKbl8s4CtUfLnyKJxteA+vIKySocO4s1SkTkGS4xtG/yEA==}
     peerDependencies:
       react: '>= 16'
     dependencies:
-      react: 19.1.0-canary-d4287258-20241217
+      react: 19.1.0-canary-ae9017ce-20250122
     dev: false
 
   /@humanwhocodes/config-array@0.11.14:
@@ -4552,7 +4555,7 @@ packages:
       strip-ansi: 6.0.1
     dev: false
 
-  /@vercel/toolbar@0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-d4287258-20241217):
+  /@vercel/toolbar@0.1.27(next@15.0.3-canary.9)(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-AxPeZKFFIMr9OGy7ZcgSsKWX7VhZQvO6xpI3iv6j3ALI0CTVFjnu0HCBWLHjRH6YD59W5X+83uCXkKWWol+S3Q==}
     peerDependencies:
       next: '>=11.0.0'
@@ -4571,8 +4574,8 @@ packages:
       execa: 5.1.1
       find-up: 5.0.0
       get-port: 5.1.1
-      next: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217)
-      react: 19.1.0-canary-d4287258-20241217
+      next: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-ae9017ce-20250122)(react@19.1.0-canary-ae9017ce-20250122)
+      react: 19.1.0-canary-ae9017ce-20250122
       strip-ansi: 6.0.1
     dev: false
 
@@ -6004,36 +6007,6 @@ packages:
       - supports-color
     dev: true
 
-  /eslint-module-utils@2.12.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0):
-    resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
-    engines: {node: '>=4'}
-    peerDependencies:
-      '@typescript-eslint/parser': '*'
-      eslint: '*'
-      eslint-import-resolver-node: '*'
-      eslint-import-resolver-typescript: '*'
-      eslint-import-resolver-webpack: '*'
-    peerDependenciesMeta:
-      '@typescript-eslint/parser':
-        optional: true
-      eslint:
-        optional: true
-      eslint-import-resolver-node:
-        optional: true
-      eslint-import-resolver-typescript:
-        optional: true
-      eslint-import-resolver-webpack:
-        optional: true
-    dependencies:
-      '@typescript-eslint/parser': 6.21.0(eslint@8.56.0)(typescript@5.3.3)
-      debug: 3.2.7
-      eslint: 8.56.0
-      eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.7.0(eslint-plugin-import@2.31.0)(eslint@8.56.0)
-    transitivePeerDependencies:
-      - supports-color
-    dev: true
-
   /eslint-module-utils@2.12.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-node@0.3.9)(eslint@8.48.0):
     resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
     engines: {node: '>=4'}
@@ -6153,7 +6126,7 @@ packages:
         optional: true
     dependencies:
       '@rtsao/scc': 1.1.0
-      '@typescript-eslint/parser': 6.21.0(eslint@8.56.0)(typescript@5.3.3)
+      '@typescript-eslint/parser': 6.21.0(eslint@8.56.0)(typescript@5.6.3)
       array-includes: 3.1.8
       array.prototype.findlastindex: 1.2.5
       array.prototype.flat: 1.3.2
@@ -6162,7 +6135,7 @@ packages:
       doctrine: 2.1.0
       eslint: 8.56.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-node@0.3.9)(eslint@8.56.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
@@ -7006,7 +6979,7 @@ packages:
     peerDependencies:
       next: ^13.2 || ^14
     dependencies:
-      next: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217)
+      next: 15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-ae9017ce-20250122)(react@19.1.0-canary-ae9017ce-20250122)
     dev: false
 
   /gensync@1.0.0-beta.2:
@@ -8837,7 +8810,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.0.3(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-d4287258-20241217):
+  /next@15.0.3(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-ontCbCRKJUIoivAdGB34yCaOcPgYXr9AAkV/IwqFfWWTXEPUgLYkSkqBhIk9KK7gGmgjc64B+RdoeIDM13Irnw==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -8865,9 +8838,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001688
       postcss: 8.4.31
-      react: 19.1.0-canary-d4287258-20241217
-      react-dom: 18.3.1(react@19.1.0-canary-d4287258-20241217)
-      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-d4287258-20241217)
+      react: 19.1.0-canary-ae9017ce-20250122
+      react-dom: 18.3.1(react@19.1.0-canary-ae9017ce-20250122)
+      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-ae9017ce-20250122)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.0.3
       '@next/swc-darwin-x64': 15.0.3
@@ -9019,7 +8992,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-d4287258-20241217)(react@19.1.0-canary-d4287258-20241217):
+  /next@15.0.3-canary.9(@babel/core@7.26.0)(react-dom@19.1.0-canary-ae9017ce-20250122)(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-mz3piNB25DvCJA5z1fzf6bWLfg2WjglgN5Ga2R7SihrZMeiSIh5Ha7RVNyQ73Jn0YZHJvh5DJPTHgUuyM2Ff8g==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -9046,9 +9019,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001688
       postcss: 8.4.31
-      react: 19.1.0-canary-d4287258-20241217
-      react-dom: 19.1.0-canary-d4287258-20241217(react@19.1.0-canary-d4287258-20241217)
-      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-d4287258-20241217)
+      react: 19.1.0-canary-ae9017ce-20250122
+      react-dom: 19.1.0-canary-ae9017ce-20250122(react@19.1.0-canary-ae9017ce-20250122)
+      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-ae9017ce-20250122)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.0.3-canary.9
       '@next/swc-darwin-x64': 15.0.3-canary.9
@@ -9764,13 +9737,13 @@ packages:
       scheduler: 0.23.2
     dev: false
 
-  /react-dom@18.3.1(react@19.1.0-canary-d4287258-20241217):
+  /react-dom@18.3.1(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
     peerDependencies:
       react: ^18.3.1
     dependencies:
       loose-envify: 1.4.0
-      react: 19.1.0-canary-d4287258-20241217
+      react: 19.1.0-canary-ae9017ce-20250122
       scheduler: 0.23.2
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -9791,13 +9764,13 @@ packages:
       scheduler: 0.25.0-rc-66855b96-20241106
     dev: false
 
-  /react-dom@19.1.0-canary-d4287258-20241217(react@19.1.0-canary-d4287258-20241217):
-    resolution: {integrity: sha512-+gmdJwDqPY4Zo3Au1wrHvmfeDFboitnS7tbuFxRL3AnDpDxCj+7mw6eEioGs3G2uRPUSwDW1l7O7MPwu+t3H1w==}
+  /react-dom@19.1.0-canary-ae9017ce-20250122(react@19.1.0-canary-ae9017ce-20250122):
+    resolution: {integrity: sha512-rvIYh4ir3/bNafl4bh9vBsNaJqVAvX2rYDfM6RJo9CYqcuHDuLzn8vlxHEY+siQ/4M+26cnqfF9C7TMVwdb3Fw==}
     peerDependencies:
-      react: 19.1.0-canary-d4287258-20241217
+      react: 19.1.0-canary-ae9017ce-20250122
     dependencies:
-      react: 19.1.0-canary-d4287258-20241217
-      scheduler: 0.26.0-canary-d4287258-20241217
+      react: 19.1.0-canary-ae9017ce-20250122
+      scheduler: 0.26.0-canary-ae9017ce-20250122
     dev: false
 
   /react-is@16.13.1:
@@ -9880,8 +9853,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.1.0-canary-d4287258-20241217:
-    resolution: {integrity: sha512-ZPkfLPF89MKYxh0FiiClOMZmAK7sE6GSC2klSeAuo6qxW5QEn9PukRJPM9chxW1nbF4lSIP2kzXZ6HPVZxiDLQ==}
+  /react@19.1.0-canary-ae9017ce-20250122:
+    resolution: {integrity: sha512-91I4Lrxw0e8ubRvkZ3o59ubWrW8qaz6xSCv9OFKwl/4tKAtvzZ5aoHvGIXSUkefDT4kMrILzRyQogame8PqJaA==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -10165,8 +10138,8 @@ packages:
     resolution: {integrity: sha512-HQXp/Mnp/MMRSXMQF7urNFla+gmtXW/Gr1KliuR0iboTit4KvZRY8KYaq5ccCTAOJiUqQh2rE2F3wgUekmgdlA==}
     dev: false
 
-  /scheduler@0.26.0-canary-d4287258-20241217:
-    resolution: {integrity: sha512-F2dPXtrxz/FZIPbbIDEASr9NH17zNVFrdKJnXZ4bwkCzIhfLgzdOGldNiQp3vTJuc4G3LuJ7ArF0+5ttzcY0cw==}
+  /scheduler@0.26.0-canary-ae9017ce-20250122:
+    resolution: {integrity: sha512-aHpwXCj9PtLt55dZPkb5xgemSHjxwedGpdSjN3/cNyRhhpY6KUyESLJmSkJ6Qn0QUnId+HbRZk3fIFZFL+lG2A==}
     dev: false
 
   /semver@5.7.2:
@@ -10730,7 +10703,7 @@ packages:
       react: 19.0.0-rc-66855b96-20241106
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-d4287258-20241217):
+  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-ae9017ce-20250122):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -10745,7 +10718,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.0
       client-only: 0.0.1
-      react: 19.1.0-canary-d4287258-20241217
+      react: 19.1.0-canary-ae9017ce-20250122
 
   /sucrase@3.35.0:
     resolution: {integrity: sha512-8EbVDiu9iN/nESwxeSxDKe0dunta1GOlHufmSSXxMD2z2/tMZpDMpvXQGsc+ajGo8y2uYUmixaSRUc/QPoQ0GA==}
