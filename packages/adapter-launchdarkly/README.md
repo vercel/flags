@@ -1,5 +1,11 @@
 # `@flags-sdk/launchdarkly`
 
+## Installation
+
+```sh
+npm install @flags-sdk/launchdarkly @launchdarkly/vercel-server-sdk
+```
+
 ## Usage
 
 **NOTE:** [The LaunchDarkly Vercel integration must be installed on our account.](https://vercel.com/integrations/launchdarkly)
