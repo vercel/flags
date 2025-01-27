@@ -11,8 +11,8 @@
       "env": [
         "EDGE_CONFIG",
         "FLAGS_SECRET",
-        "LD_CLIENT_SIDE_KEY",
-        "LD_PROJECT_SLUG"
+        "LAUNCHDARKLY_CLIENT_SIDE_KEY",
+        "LAUNCHDARKLY_PROJECT_SLUG"
       ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },

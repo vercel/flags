@@ -14,8 +14,8 @@ The following environment variables are required in order to use the default ada
 
 ```sh
 export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx" # Provided by Vercel when connecting an Edge Config to the project
-export LD_CLIENT_SIDE_KEY="612376f91b8f5713a58777a1"
-export LD_PROJECT_SLUG="my-project"
+export LAUNCHDARKLY_CLIENT_SIDE_KEY="612376f91b8f5713a58777a1"
+export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 ```
 
 ```ts

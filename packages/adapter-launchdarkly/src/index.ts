@@ -59,8 +59,8 @@ export function launchDarkly<ValueType>(
 ): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
-    const ldClientSideKey = assertEnv('LD_CLIENT_SIDE_KEY');
-    const ldProject = assertEnv('LD_PROJECT_SLUG');
+    const ldClientSideKey = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_KEY');
+    const ldProject = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       ldProject,
       ldClientSideKey,
