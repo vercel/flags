@@ -150,6 +150,7 @@ export interface Adapter<ValueType, EntitiesType> {
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
+    defaultValue?: ValueType;
   }) => Promise<ValueType> | ValueType;
 }
 
