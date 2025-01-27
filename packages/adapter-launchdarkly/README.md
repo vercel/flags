@@ -14,7 +14,7 @@ The following environment variables are required in order to use the default ada
 
 ```sh
 export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx" # Provided by Vercel when connecting an Edge Config to the project
-export LAUNCHDARKLY_CLIENT_SIDE_KEY="612376f91b8f5713a58777a1"
+export LAUNCHDARKLY_CLIENT_SIDE_ID="612376f91b8f5713a58777a1"
 export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 ```
 
@@ -41,7 +41,7 @@ It's possible to create an adapter by using the `createLaunchDarklyAdapter` func
 import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
 
 const adapter = createLaunchDarklyAdapter({
-  ldProject: 'my-project',
+  projectSlug: 'my-project',
   ldClientSideKey: '612376f91b8f5713a58777a1',
   edgeConfigConnectionString: process.env.EDGE_CONFIG,
 });

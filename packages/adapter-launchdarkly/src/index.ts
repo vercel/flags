@@ -24,23 +24,23 @@ function assertEnv(name: string): string {
 }
 
 export function createLaunchDarklyAdapter({
-  ldProject,
-  ldClientSideKey,
+  projectSlug,
+  clientSideId,
   edgeConfigConnectionString,
 }: {
-  ldProject: string;
-  ldClientSideKey: string;
+  projectSlug: string;
+  clientSideId: string;
   edgeConfigConnectionString: string;
 }) {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
-  const ldClient = init(ldClientSideKey, edgeConfigClient);
+  const ldClient = init(clientSideId, edgeConfigClient);
 
   return function launchDarklyAdapter<ValueType>(
     options: AdapterOptions<ValueType> = {},
   ): Adapter<ValueType, LDContext> {
     return {
       origin(key) {
-        return `https://app.launchdarkly.com/projects/${ldProject}/flags/${key}/`;
+        return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
       },
       async decide({ key, entities }): Promise<ValueType> {
         await ldClient.waitForInitialization();
@@ -59,11 +59,12 @@ export function launchDarkly<ValueType>(
 ): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
-    const ldClientSideKey = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_KEY');
-    const ldProject = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
+    const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
+    const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
+
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
-      ldProject,
-      ldClientSideKey,
+      projectSlug,
+      clientSideId,
       edgeConfigConnectionString,
     });
   }
