@@ -5,9 +5,13 @@ import Statsig, {
   type StatsigOptions,
   type DynamicConfig,
 } from 'statsig-node';
+import {
+  createEdgeConfigDataAdapter,
+  createEdgeRuntimeIntervalHandler,
+} from './edge-runtime-hooks';
 
 // Not exported in `statsig-node`
-type FeatureGate = ReturnType<
+export type FeatureGate = ReturnType<
   typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
 >;
 
@@ -49,14 +53,11 @@ export function createStatsigAdapter(options: {
   };
 }): AdapterResponse {
   const initializeStatsig = async (): Promise<void> => {
-    // Peer dependency — Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
     let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
     if (options.edgeConfig) {
-      const { EdgeConfigDataAdapter } = await import('statsig-node-vercel');
-      const { createClient } = await import('@vercel/edge-config');
-      dataAdapter = new EdgeConfigDataAdapter({
+      dataAdapter = await createEdgeConfigDataAdapter({
         edgeConfigItemKey: options.edgeConfig.itemKey,
-        edgeConfigClient: createClient(options.edgeConfig.connectionString),
+        edgeConfigConnectionString: options.edgeConfig.connectionString,
       });
     }
 
@@ -90,6 +91,8 @@ export function createStatsigAdapter(options: {
     return user != null && typeof user === 'object';
   };
 
+  const edgeRuntimeIntervalHandler = createEdgeRuntimeIntervalHandler();
+
   /**
    * Resolve a flag powered by a Feature Gate.
    *
@@ -116,6 +119,7 @@ export function createStatsigAdapter(options: {
         : undefined,
       decide: async ({ key, entities }) => {
         await initialize();
+        edgeRuntimeIntervalHandler?.();
 
         if (!isStatsigUser(entities?.statsigUser)) {
           throw new Error(
@@ -162,6 +166,7 @@ export function createStatsigAdapter(options: {
         : undefined,
       decide: async ({ key, entities }) => {
         await initialize();
+        edgeRuntimeIntervalHandler?.();
 
         if (!isStatsigUser(entities?.statsigUser)) {
           throw new Error(
@@ -214,7 +219,6 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   }
   const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
   const statsigProjectId = process.env.STATSIG_PROJECT_ID;
-  // Edge Config is optional
   const edgeConfig = process.env.STATSIG_EDGE_CONFIG;
   const edgeConfigItemKey = process.env.STATSIG_EDGE_CONFIG_ITEM_KEY;
   if (!(edgeConfig && edgeConfigItemKey)) {
