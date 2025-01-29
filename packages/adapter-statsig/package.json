@@ -66,6 +66,7 @@
   },
   "peerDependencies": {
     "@vercel/edge-config": "~1.2.0",
+    "@vercel/functions": "1.5.2",
     "statsig-node-vercel": "~0.4.0"
   },
   "publishConfig": {
