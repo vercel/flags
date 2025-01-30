@@ -47,9 +47,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "1.2.0",
-    "statsig-node": "5.31.0",
-    "statsig-node-vercel": "0.4.0"
+    "statsig-node-lite": "^0.4.0"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
@@ -58,7 +56,6 @@
     "eslint-config-custom": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
-    "statsig-node": "5.31.0",
     "statsig-node-vercel": "0.4.0",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
@@ -66,7 +63,11 @@
     "vite": "5.1.1",
     "vitest": "1.4.0"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "@vercel/edge-config": "~1.2.0",
+    "@vercel/functions": "1.5.2",
+    "statsig-node-vercel": "~0.4.0"
+  },
   "publishConfig": {
     "access": "public"
   }

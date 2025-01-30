@@ -44,7 +44,7 @@ interface StatsigExperimentsResponse {
 }
 
 export async function getProviderData(options: {
-  consoleApiKey: string;
+  statsigConsoleApiKey: string;
   /**
    * Required to set the `origin` property on the flag definitions.
    */
@@ -52,7 +52,7 @@ export async function getProviderData(options: {
 }): Promise<ProviderData> {
   const hints = [];
 
-  if (!options.consoleApiKey) {
+  if (!options.statsigConsoleApiKey) {
     hints.push({
       key: 'statsig/missing-api-key',
       text: 'Missing Statsig Console API Key',
@@ -121,7 +121,7 @@ export async function getProviderData(options: {
 /**
  * Fetch all Feature Gates.
  */
-async function getFeatureGates(options: { consoleApiKey: string }) {
+async function getFeatureGates(options: { statsigConsoleApiKey: string }) {
   const data: StatsigFeatureGateResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/gates';
@@ -131,7 +131,7 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
       method: 'GET',
       headers: {
         'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
+        'STATSIG-API-KEY': options.statsigConsoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
       cache: 'no-store',
@@ -157,7 +157,7 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
 /**
  * Fetch all experiments.
  */
-async function getExperiments(options: { consoleApiKey: string }) {
+async function getExperiments(options: { statsigConsoleApiKey: string }) {
   const data: StatsigExperimentsResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/experiments';
@@ -167,7 +167,7 @@ async function getExperiments(options: { consoleApiKey: string }) {
       method: 'GET',
       headers: {
         'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
+        'STATSIG-API-KEY': options.statsigConsoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
       cache: 'no-store',
