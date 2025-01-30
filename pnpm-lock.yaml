@@ -451,9 +451,9 @@ importers:
       '@vercel/functions':
         specifier: 1.5.2
         version: 1.5.2
-      statsig-node:
-        specifier: ~5.31.0
-        version: 5.31.0
+      statsig-node-lite:
+        specifier: ^0.4.0
+        version: 0.4.1
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -7109,6 +7109,7 @@ packages:
 
   /ip3country@5.0.0:
     resolution: {integrity: sha512-lcFLMFU4eO1Z7tIpbVFZkaZ5ltqpeaRx7L9NsAbA9uA7/O/rj3RF8+evE5gDitooaTTIqjdzZrenFO/OOxQ2ew==}
+    dev: true
 
   /ipaddr.js@2.2.0:
     resolution: {integrity: sha512-Ag3wB2o37wslZS19hZqorUnrnzSkpOVy+IiiDEiTqNubEYpYuHWIf6K4psgN2ZWKExS4xhVCrRVfb/wfW8fWJA==}
@@ -10068,6 +10069,16 @@ packages:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
     dev: true
 
+  /statsig-node-lite@0.4.1:
+    resolution: {integrity: sha512-3/hqLDkLZFrMsOxa9b9zIwMUB6f7DttQjqD5RgnOrXF3lG0E6ParG/zBA/74vcnJ8krD1ZMcTLNQmI8X4UuIRg==}
+    dependencies:
+      node-fetch: 2.7.0
+      ua-parser-js: 1.0.40
+      uuid: 8.3.2
+    transitivePeerDependencies:
+      - encoding
+    dev: false
+
   /statsig-node-vercel@0.4.0(@vercel/edge-config@1.2.0):
     resolution: {integrity: sha512-Q0jOfOqb/jTDJbgI/4O4TFODPOLYlPE4FCaNJzjr+8EiIPJ7lWbOQ8bq1d06MSQk33axZ0XaRKQsz6L5vEAhvQ==}
     peerDependencies:
@@ -10089,17 +10100,6 @@ packages:
     transitivePeerDependencies:
       - encoding
     dev: true
-
-  /statsig-node@5.31.0:
-    resolution: {integrity: sha512-QxuLBdEGjzrUU4Tj3WvaactJQN0C8qSogVp1TdGallz/Wmm/0FCZswwtMoMjVePQW+kwAwxK/nvsmqig9xG4ew==}
-    dependencies:
-      ip3country: 5.0.0
-      node-fetch: 2.7.0
-      ua-parser-js: 1.0.40
-      uuid: 8.3.2
-    transitivePeerDependencies:
-      - encoding
-    dev: false
 
   /statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
