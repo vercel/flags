@@ -4,13 +4,12 @@ import Statsig, {
   type StatsigUser,
   type StatsigOptions,
   type DynamicConfig,
-} from 'statsig-node';
+} from 'statsig-node-lite';
 import {
   createEdgeConfigDataAdapter,
   createEdgeRuntimeIntervalHandler,
 } from './edge-runtime-hooks';
 
-// Not exported in `statsig-node`
 export type FeatureGate = ReturnType<
   typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
 >;

@@ -1,4 +1,4 @@
-import Statsig, { type StatsigOptions } from 'statsig-node';
+import Statsig from 'statsig-node-lite';
 
 declare global {
   var EdgeRuntime: string | undefined;
