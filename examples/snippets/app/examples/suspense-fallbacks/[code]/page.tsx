@@ -20,19 +20,21 @@ const delay = (ms = 700) =>
     setTimeout(resolve, ms);
   });
 
-const shimmer = `relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent`;
+const shimmer = `relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent dark:before:via-black/10 before:via-white/10 before:to-transparent`;
 
 function AuthedUserSkeleton() {
   return (
     <div className="flex flex-row items-center gap-2">
       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white">
-        <div className={`h-10 w-10 rounded-full bg-gray-200 ${shimmer}`} />
+        <div
+          className={`h-10 w-10 rounded-full bg-slate-300 dark:bg-slate-700 ${shimmer}`}
+        />
       </div>
 
       <button
         type="submit"
         disabled
-        className={`relative h-10 w-full items-center space-x-2 rounded-lg bg-gray-200 px-3 py-1 text-sm font-medium text-gray-200 ${shimmer}`}
+        className={`relative h-10 w-full items-center space-x-2 rounded-lg bg-slate-300 px-3 py-1 text-sm font-medium text-slate-300 dark:bg-slate-700 dark:text-slate-700 ${shimmer}`}
       >
         Sign out
       </button>
@@ -113,9 +115,9 @@ export default async function Page({
 
   return (
     <>
-      <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 dark:bg-zinc-800 shadow-md rounded-lg my-4">
+      <div className="w-full max-w-4xl mx-auto p-4 bg-slate-100 dark:bg-slate-800 shadow-md rounded-lg my-4">
         <div className="flex justify-between items-center">
-          <div className="text-xl font-semibold text-primary text-black dark:text-gray-100">
+          <div className="text-xl font-semibold text-primary text-slate-800 dark:text-slate-100">
             My App
           </div>
           <Suspense

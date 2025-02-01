@@ -10,7 +10,7 @@ export default async function Page() {
   const random3 = await dedupeExample();
 
   return (
-    <div className="bg-slate-200 p-4 rounded monospace mt-4">
+    <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded monospace mt-4">
       {random1} {random2} {random3}
     </div>
   );
