@@ -1,6 +1,6 @@
 export function Content({ children }: { children: React.ReactNode }) {
   return (
-    <div className="p-4 prose lg:prose-lg dark:prose-invert mb-32 !text-foreground">
+    <div className="p-4 prose lg:prose-lg mb-32 dark:prose-invert">
       {children}
     </div>
   );

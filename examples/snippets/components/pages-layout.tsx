@@ -23,7 +23,7 @@ export default function PagesLayout({
   const shouldInjectToolbar = process.env.NODE_ENV === 'development';
   return (
     <div
-      className={`${geistSans.variable} ${geistMono.variable} antialiased prose lg:prose-lg dark:prose-invert px-4 m-0`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased prose lg:prose-lg px-4 m-0`}
     >
       <ThemeProvider
         attribute="class"
