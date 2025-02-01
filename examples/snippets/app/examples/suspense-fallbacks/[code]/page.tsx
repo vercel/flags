@@ -74,10 +74,10 @@ async function User() {
 
   return (
     <div className="flex flex-row items-center gap-2">
-      <div>
+      <div className="h-10 overflow-hidden">
         <Image
           src="/prince-akachi-LWkFHEGpleE-unsplash.jpg"
-          className="rounded-full m-0"
+          className="rounded-full !my-0 h-10 inline-block"
           width={40}
           height={40}
           alt="User"
@@ -113,9 +113,11 @@ export default async function Page({
 
   return (
     <>
-      <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 shadow-md rounded-lg my-4">
+      <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 dark:bg-zinc-800 shadow-md rounded-lg my-4">
         <div className="flex justify-between items-center">
-          <div className="text-xl font-semibold text-primary">My App</div>
+          <div className="text-xl font-semibold text-primary text-black dark:text-gray-100">
+            My App
+          </div>
           <Suspense
             fallback={hasAuthCookie ? <AuthedUserSkeleton /> : <AnonUser />}
           >
