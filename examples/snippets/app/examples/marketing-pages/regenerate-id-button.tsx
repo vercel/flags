@@ -11,6 +11,7 @@ export function RegenerateIdButton() {
           'marketing-visitor-id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
         window.location.reload();
       }}
+      variant="outline"
     >
       Regenerate random visitor id
     </Button>
