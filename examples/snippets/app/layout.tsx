@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { VercelToolbar } from '@vercel/toolbar/next';
-import { ThemeProvider } from '@/components/theme-provider';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -27,18 +26,11 @@ export default function RootLayout({
 }>) {
   const shouldInjectToolbar = process.env.NODE_ENV === 'development';
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased prose lg:prose-lg dark:prose-invert px-4 m-0`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased prose px-4 m-0`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        {children}
         {shouldInjectToolbar && <VercelToolbar />}
       </body>
     </html>
