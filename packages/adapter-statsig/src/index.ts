@@ -205,7 +205,7 @@ export function resetDefaultStatsigAdapter() {
  * Equivalent to `createStatsigAdapter` but with default environment variable names.
  *
  * Required:
- * - `STATSIG_SERVER_API_KEY` - Statsig secret server API key
+ * - `STATSIG_SERVER_SECRET` - Statsig secret server API key
  *
  * Optional:
  * - `STATSIG_PROJECT_ID` - Statsig project ID to enable link in Vercel's Flags Explorer
@@ -216,7 +216,7 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   if (defaultStatsigAdapter) {
     return defaultStatsigAdapter;
   }
-  const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
+  const statsigServerApiKey = process.env.STATSIG_SERVER_SECRET as string;
   const statsigProjectId = process.env.STATSIG_PROJECT_ID;
   const edgeConfig = process.env.STATSIG_EDGE_CONFIG;
   const edgeConfigItemKey = process.env.STATSIG_EDGE_CONFIG_ITEM_KEY;
