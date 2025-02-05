@@ -279,7 +279,10 @@ function getRun<ValueType, EntitiesType>(
       return decision;
     }
 
-    // fall back to defaultValue if it is set
+    // We use an async iife to ensure we can catch both sync and async errors of
+    // the original decide function, as that one is not guaranted to be async.
+    //
+    // Also fall back to defaultValue when the decide function returns undefined or throws an error.
     const decisionPromise = (async () => {
       return decide({
         headers: readonlyHeaders,
