@@ -205,6 +205,32 @@ export type FlagDeclaration<ValueType, EntitiesType> = {
    * This function can establish entities which the `decide` function will be called with.
    */
   identify?: Identify<EntitiesType>;
+  /**
+   * This function can be used to intercept the call to the `decide` function or adapters, and post-process the result.
+   *
+   * Intercepting allows you to
+   * - act before `decide()` or adapters are called
+   * - handle any errors that occur in decide() or adapters
+   * - post-process the result
+   *
+   * If intercept itself throws, the Flags SDK will handle it by
+   *  - falling back to the default value if it's set
+   *  - otherwise re-throwing the error
+   *
+   * The default intercept implementation is:
+   *
+   * ```
+   *   async intercept(options, next) {
+   *     return next(options)
+   *   }
+   * ```
+   */
+  intercept?: (
+    options: FlagParamsType & { entities?: EntitiesType },
+    next: (
+      options: FlagParamsType & { entities?: EntitiesType },
+    ) => Promise<ValueType>,
+  ) => Promise<ValueType>;
 } & (
   | {
       adapter: Adapter<ValueType, EntitiesType>;
