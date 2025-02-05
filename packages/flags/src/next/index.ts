@@ -279,60 +279,47 @@ function getRun<ValueType, EntitiesType>(
       return decision;
     }
 
-    // fall back to defaultValue if it is set,
-    let decisionPromise: Promise<ValueType> | ValueType;
-    try {
-      decisionPromise = Promise.resolve<ValueType>(
-        decide({
-          headers: readonlyHeaders,
-          cookies: readonlyCookies,
-          entities,
-        }),
-      )
-        // catch errors in async "decide" functions
-        .then<ValueType, ValueType>(
-          (value) => {
-            if (value !== undefined) return value;
-            if (definition.defaultValue !== undefined)
-              return definition.defaultValue;
-            throw new Error(
-              `@vercel/flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
-            );
-          },
-          (error: Error) => {
-            if (isInternalNextError(error)) throw error;
+    // fall back to defaultValue if it is set
+    const decisionPromise = (async () => {
+      return decide({
+        headers: readonlyHeaders,
+        cookies: readonlyCookies,
+        entities,
+      });
+    })()
+      // catch errors in async "decide" functions
+      .then<ValueType, ValueType>(
+        (value) => {
+          if (value !== undefined) return value;
+          if (definition.defaultValue !== undefined)
+            return definition.defaultValue;
+          throw new Error(
+            `@vercel/flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
+          );
+        },
+        (error: Error) => {
+          if (isInternalNextError(error)) throw error;
 
-            // try to recover if defaultValue is set
-            if (definition.defaultValue !== undefined) {
+          // try to recover if defaultValue is set
+          if (definition.defaultValue !== undefined) {
+            if (process.env.NODE_ENV === 'development') {
+              console.info(
+                `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue`,
+              );
+            } else {
               console.warn(
                 `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
                 error,
               );
-              return definition.defaultValue;
             }
-            console.warn(
-              `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
-            );
-            throw error;
-          },
-        );
-    } catch (error) {
-      if (isInternalNextError(error)) throw error;
-
-      // catch errors in sync "decide" functions
-      if (definition.defaultValue !== undefined) {
-        console.warn(
-          `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
-          error,
-        );
-        decisionPromise = Promise.resolve(definition.defaultValue);
-      } else {
-        console.warn(
-          `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
-        );
-        throw error;
-      }
-    }
+            return definition.defaultValue;
+          }
+          console.warn(
+            `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
+          );
+          throw error;
+        },
+      );
 
     setCachedValuePromise(
       readonlyHeaders,
