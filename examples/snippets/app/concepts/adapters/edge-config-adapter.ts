@@ -2,7 +2,7 @@ import type { Adapter } from '@vercel/flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 
 /**
- * Allows creating a custom Edge Config adapter for feature flags
+ * An Edge Config adapter for the Flags SDK
  */
 export function createEdgeConfigAdapter(
   connectionString: string | EdgeConfigClient,
@@ -38,14 +38,14 @@ export function createEdgeConfigAdapter(
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!definitions) {
           throw new Error(
-            `Edge Config Adapter: Edge Config item "${edgeConfigItemKey}" not found`,
+            `@flags-sdk/edge-config: Edge Config item "${edgeConfigItemKey}" not found`,
           );
         }
 
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!(key in definitions)) {
           throw new Error(
-            `Edge Config Adapter: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
+            `@flags-sdk/edge-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
           );
         }
         return definitions[key] as ValueType;
