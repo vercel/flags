@@ -240,6 +240,39 @@ importers:
         specifier: ^5.0.3
         version: 5.1.1(@types/node@22.9.0)
 
+  packages/adapter-edge-config:
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.17
+        version: 20.11.17
+      '@vercel/edge-config':
+        specifier: 1.2.0
+        version: 1.2.0
+      '@vercel/flags':
+        specifier: workspace:*
+        version: link:../flags
+      eslint-config-custom:
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-custom
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      tsup:
+        specifier: 8.0.1
+        version: 8.0.1(typescript@5.6.3)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+      vite:
+        specifier: 5.1.1
+        version: 5.1.1(@types/node@20.11.17)
+      vitest:
+        specifier: 1.4.0
+        version: 1.4.0(@types/node@20.11.17)
+
   packages/adapter-happykit:
     dependencies:
       '@happykit/flags':
@@ -471,7 +504,7 @@ importers:
         version: 5.9.6
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.1.0-canary-cd90a4d8-20250210)
+        version: 19.0.0(react@19.1.0-canary-32b0cad8-20250213)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -493,10 +526,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.0)(react-dom@19.0.0)(react@19.1.0-canary-cd90a4d8-20250210)
+        version: 15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-32b0cad8-20250213)
       react:
         specifier: canary
-        version: 19.1.0-canary-cd90a4d8-20250210
+        version: 19.1.0-canary-32b0cad8-20250213
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -1500,6 +1533,7 @@ packages:
     dependencies:
       eslint: 8.56.0
       eslint-visitor-keys: 3.4.3
+    dev: true
 
   /@eslint-community/regexpp@4.12.1:
     resolution: {integrity: sha512-CCZCDJuduB9OUkFkY2IgppNZMi2lBQgD2qzwXkEia16cge2pijY/aXi96CJMquDMn3nJdlPV1A5KrJEXwfLNzQ==}
@@ -1528,6 +1562,7 @@ packages:
   /@eslint/js@8.56.0:
     resolution: {integrity: sha512-gMsVel9D7f2HLkBma9VbtzZRehRogVRfbr++f06nL2vnCGCNlzOD+/MUov/F4p8myyAHspEhVobgjpX64q5m6A==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    dev: true
 
   /@floating-ui/core@1.6.8:
     resolution: {integrity: sha512-7XJ9cPU+yI2QeLS+FCSlqNFZJq8arvswefkZrYI1yQBbftw6FyrZOxYSh+9S7z7TpeWlRt9zJ5IhM1WIL334jA==}
@@ -2544,7 +2579,6 @@ packages:
   /@opentelemetry/api@1.9.0:
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
-    dev: false
 
   /@pkgjs/parseargs@0.11.0:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3224,7 +3258,7 @@ packages:
       sirv: 3.0.0
       svelte: 4.2.19
       tiny-glob: 0.2.9
-      vite: 5.1.1(@types/node@22.9.0)
+      vite: 5.1.1(@types/node@20.11.17)
 
   /@sveltejs/vite-plugin-svelte-inspector@2.1.0(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1):
     resolution: {integrity: sha512-9QX28IymvBlSCqsCll5t0kQVxipsfhFFL+L2t3nTWfXnddYwxBuAEtTtlaVQpRz9c37BhJjltSeY4AJSC03SSg==}
@@ -3237,7 +3271,7 @@ packages:
       '@sveltejs/vite-plugin-svelte': 3.1.2(svelte@4.2.19)(vite@5.1.1)
       debug: 4.4.0
       svelte: 4.2.19
-      vite: 5.1.1(@types/node@22.9.0)
+      vite: 5.1.1(@types/node@20.11.17)
     transitivePeerDependencies:
       - supports-color
 
@@ -3255,7 +3289,7 @@ packages:
       magic-string: 0.30.15
       svelte: 4.2.19
       svelte-hmr: 0.16.0(svelte@4.2.19)
-      vite: 5.1.1(@types/node@22.9.0)
+      vite: 5.1.1(@types/node@20.11.17)
       vitefu: 0.2.5(vite@5.1.1)
     transitivePeerDependencies:
       - supports-color
@@ -3747,6 +3781,7 @@ packages:
       typescript: 5.6.3
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /@typescript-eslint/parser@8.18.0(eslint@8.56.0)(typescript@5.6.3):
     resolution: {integrity: sha512-hgUZ3kTEpVzKaK3uNibExUYm6SKKOmTU2BOxBSvOYwtJEPdVQ70kZJpPjstlnhCHcuc2WGfSbpKlb/69ttyN5Q==}
@@ -4136,6 +4171,7 @@ packages:
 
   /@ungap/structured-clone@1.2.1:
     resolution: {integrity: sha512-fEzPV3hSkSMltkw152tJKNARhOupqbH96MZWyRjNaYZOMIzbrTeQDG+MTc6Mr2pgzFQzFxAfmhGDNP5QK++2ZA==}
+    dev: true
 
   /@vercel/edge-config-fs@0.1.0:
     resolution: {integrity: sha512-NRIBwfcS0bUoUbRWlNGetqjvLSwgYH/BqKqDN7vK1g32p7dN96k0712COgaz6VFizAm9b0g6IG6hR6+hc0KCPg==}
@@ -5709,7 +5745,7 @@ packages:
     peerDependencies:
       eslint-plugin-import: '>=1.4.0'
     dependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.7.0)(eslint@8.48.0)
 
   /eslint-import-resolver-node@0.3.9:
     resolution: {integrity: sha512-WFj2isz22JahUv+B788TlO3N6zL3nNJGU8CcZbPZvVEkBPaJdCV4vy5wyghty5ROFbCRnm132v8BScu5/1BQ8g==}
@@ -5763,7 +5799,7 @@ packages:
       debug: 4.4.0
       enhanced-resolve: 5.17.1
       eslint: 8.56.0
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.18.0)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0)
       fast-glob: 3.3.2
       get-tsconfig: 4.8.1
       is-bun-module: 1.3.0
@@ -5771,6 +5807,7 @@ packages:
       stable-hash: 0.0.4
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-module-utils@2.12.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.48.0):
     resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
@@ -5829,6 +5866,7 @@ packages:
       eslint-import-resolver-typescript: 3.7.0(eslint-plugin-import@2.31.0)(eslint@8.56.0)
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-module-utils@2.12.0(@typescript-eslint/parser@8.18.0)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0):
     resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
@@ -5952,6 +5990,7 @@ packages:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
       - supports-color
+    dev: true
 
   /eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.18.0)(eslint-import-resolver-typescript@3.7.0)(eslint@8.56.0):
     resolution: {integrity: sha512-ixmkI62Rbc2/w8Vfxyh1jQRTdRTF52VxwRVHl/ykPAmqG+Nb7/kNn+byLP0LxPgI7zWA16Jt82SybJInmMia3A==}
@@ -6426,6 +6465,7 @@ packages:
       text-table: 0.2.0
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /esm-env@1.2.1:
     resolution: {integrity: sha512-U9JedYYjCnadUlXk7e1Kr+aENQhtUaoaV9+gZm1T8LC/YBAPJx3NSPIAurFOC0U5vrdSevnUJS2/wUVxGwPhng==}
@@ -8533,6 +8573,52 @@ packages:
       - babel-plugin-macros
     dev: false
 
+  /next@15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-32b0cad8-20250213):
+    resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
+    engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
+    hasBin: true
+    peerDependencies:
+      '@opentelemetry/api': ^1.1.0
+      '@playwright/test': ^1.41.2
+      babel-plugin-react-compiler: '*'
+      react: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
+      react-dom: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
+      sass: ^1.3.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@playwright/test':
+        optional: true
+      babel-plugin-react-compiler:
+        optional: true
+      sass:
+        optional: true
+    dependencies:
+      '@next/env': 15.1.4
+      '@opentelemetry/api': 1.9.0
+      '@swc/counter': 0.1.3
+      '@swc/helpers': 0.5.15
+      busboy: 1.6.0
+      caniuse-lite: 1.0.30001688
+      postcss: 8.4.31
+      react: 19.1.0-canary-32b0cad8-20250213
+      react-dom: 19.0.0(react@19.1.0-canary-32b0cad8-20250213)
+      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-32b0cad8-20250213)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 15.1.4
+      '@next/swc-darwin-x64': 15.1.4
+      '@next/swc-linux-arm64-gnu': 15.1.4
+      '@next/swc-linux-arm64-musl': 15.1.4
+      '@next/swc-linux-x64-gnu': 15.1.4
+      '@next/swc-linux-x64-musl': 15.1.4
+      '@next/swc-win32-arm64-msvc': 15.1.4
+      '@next/swc-win32-x64-msvc': 15.1.4
+      sharp: 0.33.5
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
+    dev: true
+
   /next@15.1.4(@babel/core@7.26.0)(@playwright/test@1.48.2)(react-dom@19.0.0-rc-02c0e824-20241028)(react@19.0.0-rc-02c0e824-20241028):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
@@ -8623,51 +8709,6 @@ packages:
       - '@babel/core'
       - babel-plugin-macros
     dev: false
-
-  /next@15.1.4(@babel/core@7.26.0)(react-dom@19.0.0)(react@19.1.0-canary-cd90a4d8-20250210):
-    resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
-    engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
-    hasBin: true
-    peerDependencies:
-      '@opentelemetry/api': ^1.1.0
-      '@playwright/test': ^1.41.2
-      babel-plugin-react-compiler: '*'
-      react: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
-      react-dom: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
-      sass: ^1.3.0
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-      '@playwright/test':
-        optional: true
-      babel-plugin-react-compiler:
-        optional: true
-      sass:
-        optional: true
-    dependencies:
-      '@next/env': 15.1.4
-      '@swc/counter': 0.1.3
-      '@swc/helpers': 0.5.15
-      busboy: 1.6.0
-      caniuse-lite: 1.0.30001688
-      postcss: 8.4.31
-      react: 19.1.0-canary-cd90a4d8-20250210
-      react-dom: 19.0.0(react@19.1.0-canary-cd90a4d8-20250210)
-      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-cd90a4d8-20250210)
-    optionalDependencies:
-      '@next/swc-darwin-arm64': 15.1.4
-      '@next/swc-darwin-x64': 15.1.4
-      '@next/swc-linux-arm64-gnu': 15.1.4
-      '@next/swc-linux-arm64-musl': 15.1.4
-      '@next/swc-linux-x64-gnu': 15.1.4
-      '@next/swc-linux-x64-musl': 15.1.4
-      '@next/swc-win32-arm64-msvc': 15.1.4
-      '@next/swc-win32-x64-msvc': 15.1.4
-      sharp: 0.33.5
-    transitivePeerDependencies:
-      - '@babel/core'
-      - babel-plugin-macros
-    dev: true
 
   /next@15.2.0-canary.3(@babel/core@7.26.0)(react-dom@19.0.0-rc-02c0e824-20241028)(react@19.0.0-rc-02c0e824-20241028):
     resolution: {integrity: sha512-mnlR2nZEsYCd6+wiLKJh09KVIRbsjybPfTQnqdVSq7TWkeK/zuLMug4IgwZ3bI9+fSjh/7zrpde84SdFMvJNIg==}
@@ -9327,12 +9368,12 @@ packages:
       scheduler: 0.23.2
     dev: false
 
-  /react-dom@19.0.0(react@19.1.0-canary-cd90a4d8-20250210):
+  /react-dom@19.0.0(react@19.1.0-canary-32b0cad8-20250213):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.1.0-canary-cd90a4d8-20250210
+      react: 19.1.0-canary-32b0cad8-20250213
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -9418,8 +9459,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.1.0-canary-cd90a4d8-20250210:
-    resolution: {integrity: sha512-1u9LWIuGKTxfH280X76vJSLLzIBt0EH5BuV6P6AkkcOZncLequ+0JzzyMr2+Lgu8lxVdMkBsht7Lo/v4k8NQag==}
+  /react@19.1.0-canary-32b0cad8-20250213:
+    resolution: {integrity: sha512-Gfrqvqx0z5hOpPc4+OxRwVgm+/BXQ+uQnW5Yidcpa1yCpJmXugX0/IUuCO1yDZAq0x+cuRP7SnwGHxmWRNaGtA==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -10274,7 +10315,7 @@ packages:
       react: 19.0.0-rc-02c0e824-20241028
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-cd90a4d8-20250210):
+  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-32b0cad8-20250213):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -10289,7 +10330,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.0
       client-only: 0.0.1
-      react: 19.1.0-canary-cd90a4d8-20250210
+      react: 19.1.0-canary-32b0cad8-20250213
     dev: true
 
   /sucrase@3.35.0:
@@ -11117,7 +11158,6 @@ packages:
       rollup: 4.28.1
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@5.1.1(@types/node@22.9.0):
     resolution: {integrity: sha512-wclpAgY3F1tR7t9LL5CcHC41YPkQIpKUGeIuT8MdNwNZr6OqOTLs7JX5vIHAtzqLWXts0T+GDrh9pN2arneKqg==}
@@ -11162,7 +11202,7 @@ packages:
       vite:
         optional: true
     dependencies:
-      vite: 5.1.1(@types/node@22.9.0)
+      vite: 5.1.1(@types/node@20.11.17)
 
   /vitest@1.4.0(@types/node@20.11.17):
     resolution: {integrity: sha512-gujzn0g7fmwf83/WzrDTnncZt2UiXP41mHuFYFrdwaLRVQ6JYQEiME2IfEjU3vcFL3VKa75XhI3lFgn+hfVsQw==}
