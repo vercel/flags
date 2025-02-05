@@ -190,6 +190,23 @@ describe('flag on app router', () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
+  it('falls back to the defaultValue if a sync decide throws', async () => {
+    const mockDecide = vi.fn(() => {
+      throw new Error('custom error');
+    });
+
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide: mockDecide,
+      defaultValue: false,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    await expect(f()).resolves.toEqual(false);
+    expect(mockDecide).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
     const syncFlag = flag<boolean>({
       key: 'sync-flag',
@@ -249,12 +266,10 @@ describe('flag on pages router', () => {
 
     expect(f).toHaveProperty('key', 'first-flag');
 
-    const fakeRequest = {
-      headers: {},
-      cookies: {},
-    } as unknown as IncomingMessage & { cookies: NextApiRequestCookies };
+    const [firstRequest, socket1] = createRequest();
 
-    await expect(f(fakeRequest)).resolves.toEqual(false);
+    await expect(f(firstRequest)).resolves.toEqual(false);
+    socket1.destroy();
   });
 
   it('caches for the duration of a request', async () => {
@@ -432,6 +447,25 @@ describe('flag on pages router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the defaultValue if a sync decide throws', async () => {
+    const mockDecide = vi.fn(() => {
+      throw new Error('custom error');
+    });
+
+    const [firstRequest, socket1] = createRequest();
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide: mockDecide,
+      defaultValue: false,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    await expect(f(firstRequest)).resolves.toEqual(false);
+    expect(mockDecide).toHaveBeenCalledTimes(1);
+    socket1.destroy();
   });
 });
 
