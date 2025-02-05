@@ -282,12 +282,21 @@ function getRun<ValueType, EntitiesType>(
     // fall back to defaultValue if it is set,
     let decisionPromise: Promise<ValueType> | ValueType;
     try {
+      const decideOptions = {
+        headers: readonlyHeaders,
+        cookies: readonlyCookies,
+        entities,
+      };
+
       decisionPromise = Promise.resolve<ValueType>(
-        decide({
-          headers: readonlyHeaders,
-          cookies: readonlyCookies,
-          entities,
-        }),
+        definition.intercept
+          ? definition.intercept(
+              decideOptions,
+              // creats the next() function and ensures it is always async to
+              // simplify the types
+              async (interceptedOptions) => decide(interceptedOptions),
+            )
+          : decide(decideOptions),
       )
         // catch errors in async "decide" functions
         .then<ValueType, ValueType>(

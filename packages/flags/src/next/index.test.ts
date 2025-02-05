@@ -231,6 +231,99 @@ describe('flag on app router', () => {
       '@vercel/flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
     );
   });
+
+  describe('intercept', () => {
+    it('allows intercepting without calling decide', async () => {
+      const decide = vi.fn(() => 0);
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        intercept: async () => 3,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+      await expect(f()).resolves.toEqual(3);
+
+      // ensure decide did not run
+      expect(decide).not.toHaveBeenCalled();
+    });
+
+    it('allows forwarding options', async () => {
+      const decide = vi.fn(() => 0);
+      const intercept = vi.fn((options, next) => next(options));
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        identify: () => ({ user: 'test-user' }),
+        intercept,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+      await expect(f()).resolves.toEqual(0);
+
+      // ensure intercept was called with the correct options
+      expect(intercept).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+        expect.any(Function),
+      );
+
+      // ensure decide ran
+      expect(decide).toHaveBeenCalledTimes(1);
+      expect(decide).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+      );
+    });
+
+    it('allows intercepting options', async () => {
+      const decide = vi.fn(() => 0);
+      const intercept = vi.fn((options, next) =>
+        next({ ...options, entities: { user: 'other-user' } }),
+      );
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        identify: () => ({ user: 'test-user' }),
+        intercept,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+      await expect(f()).resolves.toEqual(0);
+
+      // ensure intercept was called with the correct options
+      expect(intercept).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+        expect.any(Function),
+      );
+
+      // ensure decide ran with the intercepted options
+      expect(decide).toHaveBeenCalledTimes(1);
+      expect(decide).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'other-user' }),
+        }),
+      );
+    });
+  });
 });
 
 describe('flag on pages router', () => {
@@ -432,6 +525,113 @@ describe('flag on pages router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+  });
+
+  describe('intercept', () => {
+    it('allows intercepting without calling decide', async () => {
+      const decide = vi.fn(() => 0);
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        intercept: async () => 3,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+
+      const fakeRequest = {
+        headers: {},
+        cookies: {},
+      } as unknown as IncomingMessage & { cookies: NextApiRequestCookies };
+
+      await expect(f(fakeRequest)).resolves.toEqual(3);
+
+      // ensure decide did not run
+      expect(decide).not.toHaveBeenCalled();
+    });
+
+    it('allows forwarding options', async () => {
+      const decide = vi.fn(() => 0);
+      const intercept = vi.fn((options, next) => next(options));
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        identify: () => ({ user: 'test-user' }),
+        intercept,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+      const fakeRequest = {
+        headers: {},
+        cookies: {},
+      } as unknown as IncomingMessage & { cookies: NextApiRequestCookies };
+      await expect(f(fakeRequest)).resolves.toEqual(0);
+
+      // ensure intercept was called with the correct options
+      expect(intercept).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+        expect.any(Function),
+      );
+
+      // ensure decide ran
+      expect(decide).toHaveBeenCalledTimes(1);
+      expect(decide).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+      );
+    });
+
+    it('allows intercepting options', async () => {
+      const decide = vi.fn(() => 0);
+      const intercept = vi.fn((options, next) =>
+        next({ ...options, entities: { user: 'other-user' } }),
+      );
+      const f = flag<number>({
+        key: 'first-flag',
+        decide,
+        identify: () => ({ user: 'test-user' }),
+        intercept,
+      });
+
+      // first request using the flag
+      const headersOfFirstRequest = new Headers();
+      mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+      const fakeRequest = {
+        headers: {},
+        cookies: {},
+      } as unknown as IncomingMessage & { cookies: NextApiRequestCookies };
+      await expect(f(fakeRequest)).resolves.toEqual(0);
+
+      // ensure intercept was called with the correct options
+      expect(intercept).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'test-user' }),
+        }),
+        expect.any(Function),
+      );
+
+      // ensure decide ran with the intercepted options
+      expect(decide).toHaveBeenCalledTimes(1);
+      expect(decide).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookies: expect.objectContaining({}),
+          headers: headersOfFirstRequest,
+          entities: expect.objectContaining({ user: 'other-user' }),
+        }),
+      );
+    });
   });
 });
 
