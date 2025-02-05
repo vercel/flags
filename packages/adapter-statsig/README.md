@@ -6,111 +6,92 @@ An adapter to use [Statsig](https://github.com/statsig/statsig-node-lite) featur
 
 ```bash
 pnpm i @flags_sdk/statsig
+
+# Optional peer dependencies for use with Vercel and Edge Config
+pnpm i @flags_sdk/statsig statsig-node-vercel @vercel/edge-config @vercel/functions
 ```
 
 ## Overview
 
-The primary use case for this adapter is to use Statsig with the flags-sdk `precompute` pattern
-in order to serve dynamic variations pages while maintaining cache hits by using rewrites in middleware.
+Use Statsig's Feature Management (Feature Gates and Dynamic Configs) with the Flags SDK.
+
+The Flags SDK can help dynamically serve static variants of your pages.
 
 - Define pages with [generateStaticParams](https://nextjs.org/docs/app/api-reference/functions/generate-static-params#all-paths-at-runtime)
-- Define flags powered by the Statsig adapter
+- Define flags powered by Statsig using the adapter
 - Use [precompute](https://flags-sdk.dev/concepts/precompute#export-flags-to-be-precomputed) to route users to static page variants.
+
+[[Read more about the Precompute concept](https://flags-sdk.dev/concepts/precompute)]
 
 ## Usage
 
-Import the default Statsig adapter.
+### Environment Variables
+
+```bash
+# Required
+STATSIG_SERVER_SECRET="secret-..."
+
+# Optional
+STATSIG_PROJECT_ID="..."
+STATSIG_EDGE_CONFIG="edge-config-connection-string"
+STATSIG_EDGE_CONFIG_ITEM_KEY="edge-config-item-key"
+```
+
+### Identifying the Statsig User
 
 ```ts
-// Environment variable required: STATSIG_SERVER_SECRET
+// lib/identify-statsig-user.ts
+import { dedupe } from '@vercel/flags/next';
+import { type StatsigUser } from 'statsig-node-lite';
+
+const identifyStatsigUser = dedupe(async function identify(): Promise<{
+  statsigUser: StatsigUser;
+}> {
+  // TODO: Build a valid StatsigUser for usage in your application
+  const statsigUser = {
+    userID: '...',
+    customIDs: { stableID: '...' },
+  } as StatsigUser;
+  return {
+    statsigUser,
+  };
+});
+```
+
+```ts
+// flags.ts
+import { dedupe } from '@vercel/flags/next';
 import { statsigAdapter } from '@flags_sdk/statsig';
-```
+import { identifyStatsigUser } from './lib/identify-statsig-user';
 
-Define an identify function that can compute a `StatsigUser` from the request.
-
-```ts
-type Entities = { statsigUser: StatsigUser };
-
-const identify = dedupe(
-  async (): Promise<Entities> => ({
-    statsigUser: await getStatsigUser(),
-  }),
-);
-```
-
-### Feature Gates
-
-Statsig Feature Gates resolve a value that is a boolean.
-
-```ts
-export const exampleFlag = flag<boolean, Entities>({
+// Feature Gate
+export const exampleFlag = flag<boolean>({
+  // The key of the Feature Gate in the Statsig Console
   key: 'new_feature_gate',
-  identify,
-  defaultValue: false,
   adapter: statsigAdapter.featureGate((gate) => gate.value),
+  defaultValue: false,
+  identify: identifyStatsigUser,
 });
-```
 
-### Dynamic Configs
-
-Statsig Dynamic Configs resolve to a JSON object.
-
-```ts
-export const marketingConfig = flag<Record<string, unknown>, Entities>({
+// Dynamic Config
+export const marketingConfig = flag<Record<string, unknown>>({
+  // The key of the Dynamic Config in the Statsig Console
   key: 'marketing_config',
-  identify,
-  defaultValue: { bannerText: 'Buy now' },
   adapter: statsigAdapter.dynamicConfig((config) => config.value),
+  defaultValue: { bannerText: 'Buy now' },
+  identify: identifyStatsigUser,
 });
 ```
+
+## Caveats
+
+### Statsig Node Lite
+
+The adapter uses `statsig-node-lite` to provide defaults optimized for server side and middleware usage.
 
 ### Experimentation
 
 Flags SDK currently only implements Statsig's feature management primitives.
-
-## Enhancements
-
-Install optional Peer dependencies
-
-```bash
-pnpm i @vercel/functions @vercel/edge-config statsig-node-vercel
-```
-
-### Vercel
-
-The `STATSIG_PROJECT_ID` environment variable enhances Vercel's Flags Explorer with deep links.
-
-Override options in the Vercel toolbar are powered by `options` passed to flag definitions:
-
-```ts
-type Toggles = { a: number; b: number };
-
-export const exampleFlag = flag<Toggles, Entities>({
-  key: 'product_x_toggles',
-  // ...
-  options: [
-    // label: shown to users; value: resolved flag values
-    { label: 'All off', value: { a: 0, b: 0 } },
-    { label: 'All on', value: { a: 1, b: 1 } },
-  ],
-});
-```
-
-Definitions for the `.well-known/vercel/flags` endpoint can be powered by provider data:
-
-[Feature flag JSON response definitions](https://vercel.com/docs/workflow-collaboration/feature-flags/supporting-feature-flags#valid-json-response)
-
-```ts
-import { getProviderData } from '@flags_sdk/statsig/provider';
-// ...
-const statsigProviderData = await getProviderData({
-  statsigConsoleApiKey: 'console-this-is-a-test-token',
-  projectId: 'project-id-placeholder',
-});
-// ...
-```
-
-## Caveats
 
 ### Exposure Logging
 
@@ -177,6 +158,9 @@ import { StatsigProvider } from '@statsig/react-bindings';
 import { StatsigAutoCapturePlugin } from '@statsig/web-analytics';
 import { getStatsigUser } from '../lib/user-client';
 
+// Bootstrapping is recommended for dynamic pages using React Server Components
+// This client may be used with statically generated pages
+// See: https://flags-sdk.dev/concepts/precompute
 export function StatsigClientProvider({
   children,
 }: {
