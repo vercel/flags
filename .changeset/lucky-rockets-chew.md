@@ -2,4 +2,4 @@
 '@flags-sdk/statsig': minor
 ---
 
-Initialize Statsig adapter
+Initial support for Feature Gates and Dynamic Configs
