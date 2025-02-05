@@ -307,11 +307,11 @@ function getRun<ValueType, EntitiesType>(
           if (definition.defaultValue !== undefined) {
             if (process.env.NODE_ENV === 'development') {
               console.info(
-                `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue`,
+                `@vercel/flags: Flag "${definition.key}" is falling back to its defaultValue`,
               );
             } else {
               console.warn(
-                `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
+                `@vercel/flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
                 error,
               );
             }
