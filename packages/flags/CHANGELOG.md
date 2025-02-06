@@ -1,5 +1,12 @@
 # @vercel/flags
 
+## 3.1.1
+
+### Patch Changes
+
+- 6955b68: emit reduced console info when falling back to defaultValue during development
+- 6784f10: fix use node: protocol for async_hooks import
+
 ## 3.1.0
 
 ### Minor Changes
