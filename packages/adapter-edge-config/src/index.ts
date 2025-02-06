@@ -1,8 +1,41 @@
 import type { Adapter } from '@vercel/flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 
+export type EdgeConfigFlags = {
+  [key: string]: boolean | number | string | null;
+};
+
+// extend the adapter definition to expose a default adapter
+let defaultEdgeConfigAdapter:
+  | ReturnType<typeof createEdgeConfigAdapter>
+  | undefined;
+
 /**
- * An Edge Config adapter for the Flags SDK
+ * A default Vercel adapter for Edge Config
+ *
+ */
+export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
+  ValueType,
+  EntitiesType
+> {
+  // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
+  if (!defaultEdgeConfigAdapter) {
+    if (!process.env.EDGE_CONFIG) {
+      throw new Error('@flags-sdk/edge-config: Missing EDGE_CONFIG env var');
+    }
+
+    defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
+  }
+
+  return defaultEdgeConfigAdapter<ValueType, EntitiesType>();
+}
+
+export function resetDefaultEdgeConfigAdapter() {
+  defaultEdgeConfigAdapter = undefined;
+}
+
+/**
+ * Allows creating a custom Edge Config adapter for feature flags
  */
 export function createEdgeConfigAdapter(
   connectionString: string | EdgeConfigClient,
@@ -12,7 +45,7 @@ export function createEdgeConfigAdapter(
   },
 ) {
   if (!connectionString) {
-    throw new Error('Edge Config Adapter: Missing connection string');
+    throw new Error('@flags-sdk/edge-config: Missing connection string');
   }
   const edgeConfigClient =
     typeof connectionString === 'string'
