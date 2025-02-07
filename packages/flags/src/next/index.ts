@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
   type FlagDefinitionType,
