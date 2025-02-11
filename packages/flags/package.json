@@ -27,20 +27,20 @@
       "require": "./dist/index.cjs"
     },
     "./next": {
-      "import": "./dist/next/index.js",
-      "require": "./dist/next/index.cjs"
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
     },
     "./analytics": {
       "import": "./dist/analytics.js",
       "require": "./dist/analytics.cjs"
     },
     "./react": {
-      "import": "./dist/react/index.js",
-      "require": "./dist/react/index.cjs"
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
     },
     "./sveltekit": {
-      "import": "./dist/sveltekit/index.js",
-      "require": "./dist/sveltekit/index.cjs"
+      "import": "./dist/sveltekit.js",
+      "require": "./dist/sveltekit.cjs"
     }
   },
   "typesVersions": {
@@ -50,16 +50,16 @@
         "dist/*.d.cts"
       ],
       "next": [
-        "dist/next/index.d.ts",
-        "dist/next/index.d.cts"
+        "dist/next.ts",
+        "dist/next.cts"
       ],
       "react": [
-        "dist/react/index.d.ts",
-        "dist/react/index.d.cts"
+        "dist/react.ts",
+        "dist/react.cts"
       ],
       "sveltekit": [
-        "dist/sveltekit/index.d.ts",
-        "dist/sveltekit/index.d.cts"
+        "dist/sveltekit.ts",
+        "dist/sveltekit.cts"
       ]
     }
   },
