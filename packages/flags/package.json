@@ -50,16 +50,16 @@
         "dist/*.d.cts"
       ],
       "next": [
-        "dist/next.ts",
-        "dist/next.cts"
+        "dist/next.d.ts",
+        "dist/next.d.cts"
       ],
       "react": [
-        "dist/react.ts",
-        "dist/react.cts"
+        "dist/react.d.ts",
+        "dist/react.d.cts"
       ],
       "sveltekit": [
-        "dist/sveltekit.ts",
-        "dist/sveltekit.cts"
+        "dist/sveltekit.d.ts",
+        "dist/sveltekit.d.cts"
       ]
     }
   },
@@ -68,7 +68,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "rimraf dist && tsup",
+    "build": "tsup",
     "dev": "tsup --watch --clean=false",
     "eslint": "eslint-runner",
     "eslint:fix": "eslint-runner --fix",
@@ -88,7 +88,6 @@
     "msw": "2.6.4",
     "next": "15.1.4",
     "react": "canary",
-    "rimraf": "6.0.1",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
