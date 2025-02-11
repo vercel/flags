@@ -241,13 +241,14 @@ importers:
         version: 5.1.1(@types/node@22.9.0)
 
   packages/adapter-edge-config:
+    dependencies:
+      '@vercel/edge-config':
+        specifier: ^1.2.0
+        version: 1.2.0
     devDependencies:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/edge-config':
-        specifier: 1.2.0
-        version: 1.2.0
       '@vercel/flags':
         specifier: workspace:*
         version: link:../flags
