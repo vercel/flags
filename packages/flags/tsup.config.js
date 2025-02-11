@@ -14,11 +14,11 @@ const defaultConfig = {
 // eslint-disable-next-line import/no-default-export -- [@vercel/style-guide@5 migration]
 export default defineConfig({
   entry: {
-    'next.js': 'src/next/index.ts',
-    'sveltekit.js': 'src/sveltekit/index.ts',
-    'react.js': 'src/react/index.tsx',
-    'index.js': 'src/index.ts',
-    'analytics.js': 'src/analytics.ts',
+    index: 'src/index.ts',
+    next: 'src/next/index.ts',
+    sveltekit: 'src/sveltekit/index.ts',
+    react: 'src/react/index.tsx',
+    analytics: 'src/analytics.ts',
   },
   ...defaultConfig,
 });
