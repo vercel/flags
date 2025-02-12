@@ -68,6 +68,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
+    "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
     "eslint": "eslint-runner",
@@ -81,6 +82,7 @@
     "jose": "^5.2.1"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.17.3",
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",

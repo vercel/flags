@@ -17,6 +17,9 @@
     "type-check": {
       "dependsOn": ["^build"]
     },
+    "attw": {
+      "dependsOn": ["^build"]
+    },
     "test": {
       "dependsOn": ["^build"]
     },
