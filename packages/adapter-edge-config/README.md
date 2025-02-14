@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-npm install @flags-sdk/edge-config @vercel/edge-config
+npm install @flags-sdk/edge-config
 ```
 
 ## Usage
