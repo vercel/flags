@@ -36,6 +36,70 @@ describe('createEdgeConfigAdapter', () => {
     ).resolves.toEqual(true);
     expect(fakeEdgeConfigClient.get).toHaveBeenCalledWith('flags');
   });
+
+  describe('caching', () => {
+    it('caches for the duration of a request', async () => {
+      const fakeEdgeConfigClient = {
+        get: vi.fn(async () => ({ 'test-key': true })),
+      } as unknown as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+
+      const headers = new Headers();
+
+      // call once
+      await expect(
+        adapter().decide({
+          key: 'test-key',
+          entities: {},
+          headers,
+          cookies: {} as ReadonlyRequestCookies,
+        }),
+      ).resolves.toEqual(true);
+
+      // call again with the same headers instance
+      // to simulate a read within the same request
+      await expect(
+        adapter().decide({
+          key: 'test-key',
+          entities: {},
+          headers,
+          cookies: {} as ReadonlyRequestCookies,
+        }),
+      ).resolves.toEqual(true);
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledWith('flags');
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledOnce();
+    });
+    it('does not cache between requests', async () => {
+      const fakeEdgeConfigClient = {
+        get: vi.fn(async () => ({ 'test-key': true })),
+      } as unknown as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+
+      // call once
+      await expect(
+        adapter().decide({
+          key: 'test-key',
+          entities: {},
+          headers: new Headers(),
+          cookies: {} as ReadonlyRequestCookies,
+        }),
+      ).resolves.toEqual(true);
+
+      // call again with a different headers instance
+      // to simulate a new request
+      await expect(
+        adapter().decide({
+          key: 'test-key',
+          entities: {},
+          headers: new Headers(),
+          cookies: {} as ReadonlyRequestCookies,
+        }),
+      ).resolves.toEqual(true);
+
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledWith('flags');
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledTimes(2);
+    });
+  });
 });
 
 describe('edgeConfigAdapter', () => {
