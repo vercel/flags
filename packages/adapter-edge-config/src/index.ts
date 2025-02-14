@@ -1,4 +1,4 @@
-import type { Adapter } from '@vercel/flags';
+import type { Adapter, ReadonlyHeaders } from '@vercel/flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 
 export type EdgeConfigFlags = {
@@ -34,6 +34,8 @@ export function resetDefaultEdgeConfigAdapter() {
   defaultEdgeConfigAdapter = undefined;
 }
 
+type EdgeConfigItem = Record<string, boolean>;
+
 /**
  * Allows creating a custom Edge Config adapter for feature flags
  */
@@ -54,6 +56,17 @@ export function createEdgeConfigAdapter(
 
   const edgeConfigItemKey = options?.edgeConfigItemKey ?? 'flags';
 
+  /**
+   * Per-request cache to ensure we only ever read Edge Config once per request.
+   * Uses the request headers reference as the cache key.
+   *
+   * ReadonlyHeaders -> Promise<EdgeConfigItem>
+   */
+  const edgeConfigItemCache = new WeakMap<
+    ReadonlyHeaders,
+    Promise<EdgeConfigItem | undefined>
+  >();
+
   return function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
@@ -62,11 +75,19 @@ export function createEdgeConfigAdapter(
       origin: options?.teamSlug
         ? `https://vercel.com/${options.teamSlug}/~/stores/edge-config/${edgeConfigClient.connection.id}/items#item=${edgeConfigItemKey}`
         : undefined,
-      async decide({ key }): Promise<ValueType> {
-        const definitions =
-          await edgeConfigClient.get<Record<string, boolean>>(
-            edgeConfigItemKey,
-          );
+      async decide({ key, headers }): Promise<ValueType> {
+        const cached = edgeConfigItemCache.get(headers);
+        let valuePromise: Promise<EdgeConfigItem | undefined>;
+
+        if (!cached) {
+          valuePromise =
+            edgeConfigClient.get<EdgeConfigItem>(edgeConfigItemKey);
+          edgeConfigItemCache.set(headers, valuePromise);
+        } else {
+          valuePromise = cached;
+        }
+
+        const definitions = await valuePromise;
 
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!definitions) {
