@@ -1,5 +1,12 @@
 # @vercel/flags
 
+## 3.1.1
+
+### Patch Changes
+
+- 6955b68: emit reduced console info when falling back to defaultValue during development
+- cf532da: Update package.json and tsup.config.js for flags package
+
 ## 3.1.0
 
 ### Minor Changes
