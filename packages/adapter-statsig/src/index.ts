@@ -1,9 +1,10 @@
 export { getProviderData } from './provider';
-import { Adapter } from '@vercel/flags';
+import type { Adapter } from '@vercel/flags';
 import Statsig, {
   type StatsigUser,
   type StatsigOptions,
   type DynamicConfig,
+  type Layer,
 } from 'statsig-node-lite';
 import {
   createEdgeConfigDataAdapter,
@@ -14,23 +15,19 @@ export type FeatureGate = ReturnType<
   typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
 >;
 
-interface StatsigUserEntities {
-  statsigUser: StatsigUser;
-}
+type AdapterFunction<O> = <T>(
+  getValue: (obj: O) => T,
+  opts?: { exposureLogging?: boolean },
+) => Adapter<T, StatsigUser>;
 
 type AdapterResponse = {
-  featureGate: <T>(
-    getValue: (gate: FeatureGate) => T,
-    opts?: { exposureLoggingDisabled?: boolean },
-  ) => Adapter<T, StatsigUserEntities>;
-  dynamicConfig: <T>(
-    getValue: (config: DynamicConfig) => T,
-    opts?: { exposureLoggingDisabled?: boolean },
-  ) => Adapter<T, StatsigUserEntities>;
-  initialize: () => Promise<void>;
+  featureGate: AdapterFunction<FeatureGate>;
+  dynamicConfig: AdapterFunction<DynamicConfig>;
+  experiment: AdapterFunction<DynamicConfig>;
+  autotune: AdapterFunction<DynamicConfig>;
+  layer: AdapterFunction<Layer>;
+  initialize: () => Promise<typeof Statsig>;
 };
-
-const keyDelimiterRegex = /[\/\.,+:]/;
 
 /**
  * Create a Statsig adapter for use with the Flags SDK.
@@ -79,11 +76,12 @@ export function createStatsigAdapter(options: {
    * You can pre-initialize the SDK by calling `adapter.initialize()`,
    * otherwise it will be initialized lazily when needed.
    */
-  const initialize = async (): Promise<void> => {
+  const initialize = async (): Promise<typeof Statsig> => {
     if (!_initializePromise) {
       _initializePromise = initializeStatsig();
     }
     await _initializePromise;
+    return Statsig;
   };
 
   const isStatsigUser = (user: unknown): user is StatsigUser => {
@@ -91,6 +89,29 @@ export function createStatsigAdapter(options: {
   };
 
   const edgeRuntimeIntervalHandler = createEdgeRuntimeIntervalHandler();
+
+  async function predecide(user?: StatsigUser): Promise<StatsigUser> {
+    await initialize();
+    edgeRuntimeIntervalHandler?.();
+    if (!isStatsigUser(user)) {
+      throw new Error(
+        'Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
+      );
+    }
+    return user;
+  }
+
+  function origin(prefix: string) {
+    if (!options.statsigProjectId) {
+      return () => undefined;
+    }
+    return (key: string) => {
+      // Allow unused suffix to be provided to flags to tell them apart.
+      // Used for different treatments of the same Statsig entities.
+      const keyPart = key.split('.')[0] ?? '';
+      return `https://console.statsig.com/${options.statsigProjectId}/${prefix}/${keyPart}`;
+    };
+  }
 
   /**
    * Resolve a flag powered by a Feature Gate.
@@ -106,32 +127,16 @@ export function createStatsigAdapter(options: {
   function featureGate<T>(
     getValue: (gate: FeatureGate) => T,
     opts?: {
-      exposureLoggingDisabled?: boolean;
+      exposureLogging?: boolean;
     },
-  ): Adapter<T, StatsigUserEntities> {
+  ): Adapter<T, StatsigUser> {
     return {
-      origin: options?.statsigProjectId
-        ? (key) => {
-            const keyPart = key.split(keyDelimiterRegex)[0] ?? '';
-            return `https://console.statsig.com/${options.statsigProjectId}/gates/${keyPart}`;
-          }
-        : undefined,
+      origin: origin('gates'),
       decide: async ({ key, entities }) => {
-        await initialize();
-        edgeRuntimeIntervalHandler?.();
-
-        if (!isStatsigUser(entities?.statsigUser)) {
-          throw new Error(
-            'Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
-          );
-        }
-
-        const gate = opts?.exposureLoggingDisabled
-          ? Statsig.getFeatureGateWithExposureLoggingDisabledSync(
-              entities?.statsigUser,
-              key,
-            )
-          : Statsig.getFeatureGateSync(entities?.statsigUser, key);
+        const user = await predecide(entities);
+        const gate = opts?.exposureLogging
+          ? Statsig.getFeatureGateSync(user, key)
+          : Statsig.getFeatureGateWithExposureLoggingDisabledSync(user, key);
         return getValue(gate);
       },
     };
@@ -151,48 +156,78 @@ export function createStatsigAdapter(options: {
   function dynamicConfig<T>(
     getValue: (config: DynamicConfig) => T,
     opts?: {
-      exposureLoggingDisabled?: boolean;
+      exposureLogging?: boolean;
     },
-  ): Adapter<T, StatsigUserEntities> {
+  ): Adapter<T, StatsigUser> {
     return {
-      origin: options.statsigProjectId
-        ? (key) => {
-            // If decide maps the same config in different ways,
-            // The key can be differentiated. Ex. `config.param`
-            const keyPart = key.split(keyDelimiterRegex)[0] ?? '';
-            return `https://console.statsig.com/${options.statsigProjectId}/dynamic_configs/${keyPart}`;
-          }
-        : undefined,
+      origin: origin('dynamic_configs'),
       decide: async ({ key, entities }) => {
-        await initialize();
-        edgeRuntimeIntervalHandler?.();
-
-        if (!isStatsigUser(entities?.statsigUser)) {
-          throw new Error(
-            'Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
-          );
-        }
-
-        // .,+: are invalid characters for a Dynamic Config key
-        // and flags may use them to represent the same config in different ways
-        // Ex. flag `config.a` and flag `config.b`
-        // In which case, we'll look up `config` and let the function decide how to compute `a` or `b`
-        const keyParts = key.split(keyDelimiterRegex);
-        let configKey = keyParts[0] ?? '';
-
-        const config = opts?.exposureLoggingDisabled
-          ? Statsig.getConfigWithExposureLoggingDisabledSync(
-              entities?.statsigUser,
-              configKey,
-            )
-          : Statsig.getConfigSync(entities?.statsigUser, configKey);
-
+        const user = await predecide(entities);
+        const configKey = key.split('.')[0] ?? '';
+        const config = opts?.exposureLogging
+          ? Statsig.getConfigSync(user, configKey)
+          : Statsig.getConfigWithExposureLoggingDisabledSync(user, configKey);
         return getValue(config);
       },
     };
   }
 
-  return { featureGate, dynamicConfig, initialize };
+  function experiment<T>(
+    getValue: (experiment: DynamicConfig) => T,
+    opts?: { exposureLogging?: boolean },
+  ): Adapter<T, StatsigUser> {
+    return {
+      origin: origin('experiments'),
+      decide: async ({ key, entities }) => {
+        const user = await predecide(entities);
+        const experiment = opts?.exposureLogging
+          ? Statsig.getExperimentSync(user, key)
+          : Statsig.getExperimentWithExposureLoggingDisabledSync(user, key);
+        return getValue(experiment);
+      },
+    };
+  }
+
+  function autotune<T>(
+    getValue: (autotune: DynamicConfig) => T,
+    opts?: { exposureLogging?: boolean },
+  ): Adapter<T, StatsigUser> {
+    return {
+      origin: origin('autotune'),
+      decide: async ({ key, entities }) => {
+        const user = await predecide(entities);
+        const autotune = opts?.exposureLogging
+          ? Statsig.getConfigSync(user, key)
+          : Statsig.getConfigWithExposureLoggingDisabledSync(user, key);
+        return getValue(autotune);
+      },
+    };
+  }
+
+  function layer<T>(
+    getValue: (layer: Layer) => T,
+    opts?: { exposureLogging?: boolean },
+  ): Adapter<T, StatsigUser> {
+    return {
+      origin: origin('layers'),
+      decide: async ({ key, entities }) => {
+        const user = await predecide(entities);
+        const layer = opts?.exposureLogging
+          ? Statsig.getLayerSync(user, key)
+          : Statsig.getLayerWithExposureLoggingDisabledSync(user, key);
+        return getValue(layer);
+      },
+    };
+  }
+
+  return {
+    featureGate,
+    dynamicConfig,
+    experiment,
+    autotune,
+    layer,
+    initialize,
+  };
 }
 
 let defaultStatsigAdapter: AdapterResponse | undefined;
@@ -239,9 +274,33 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   return defaultStatsigAdapter;
 }
 
+/**
+ * The default Statsig adapter.
+ *
+ * This is a convenience object that pre-initializes the Statsig SDK and provides
+ * the adapter functions for the Feature Gates, Dynamic Configs, Experiments,
+ * Autotunes, and Layers.
+ *
+ * This is the recommended way to use the Statsig adapter.
+ *
+ * ```ts
+ * // flags.ts
+ * import { flag } from '@vercel/flags/next';
+ * import { statsigAdapter } from '@flags-sdk/statsig';
+ *
+ * const flag = flag({
+ *   key: 'my-flag',
+ *   defaultValue: false,
+ *   adapter: statsigAdapter.featureGate((gate) => gate.value),
+ * });
+ * ```
+ */
 export const statsigAdapter: AdapterResponse = {
   featureGate: (...args) => createDefaultStatsigAdapter().featureGate(...args),
   dynamicConfig: (...args) =>
     createDefaultStatsigAdapter().dynamicConfig(...args),
+  experiment: (...args) => createDefaultStatsigAdapter().experiment(...args),
+  autotune: (...args) => createDefaultStatsigAdapter().autotune(...args),
+  layer: (...args) => createDefaultStatsigAdapter().layer(...args),
   initialize: () => createDefaultStatsigAdapter().initialize(),
 };
