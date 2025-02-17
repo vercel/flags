@@ -40,29 +40,25 @@ STATSIG_EDGE_CONFIG_ITEM_KEY="edge-config-item-key"
 ### Identifying the Statsig User
 
 ```ts
-// lib/identify-statsig-user.ts
+// #/lib/user.ts
 import { dedupe } from '@vercel/flags/next';
 import { type StatsigUser } from 'statsig-node-lite';
 
-const identifyStatsigUser = dedupe(async function identify(): Promise<{
-  statsigUser: StatsigUser;
-}> {
-  // TODO: Build a valid StatsigUser for usage in your application
-  const statsigUser = {
-    userID: '...',
-    customIDs: { stableID: '...' },
-  } as StatsigUser;
-  return {
-    statsigUser,
-  };
-});
+const identifyStatsigUser = dedupe(
+  async function identify(): Promise<StatsigUser> {
+    return {
+      userID: '...',
+      customIDs: { stableID: '...' },
+    } as StatsigUser;
+  },
+);
 ```
 
 ```ts
-// flags.ts
+// #/flags.ts
 import { dedupe } from '@vercel/flags/next';
 import { statsigAdapter } from '@flags_sdk/statsig';
-import { identifyStatsigUser } from './lib/identify-statsig-user';
+import { identifyStatsigUser } from '#/lib/user';
 
 // Feature Gate
 export const exampleFlag = flag<boolean>({
@@ -95,24 +91,24 @@ Flags SDK currently only implements Statsig's feature management primitives.
 
 ### Exposure Logging
 
-React Server Components and middleware are also evaluated when routes are prefetched. Logging exposures from the flags-sdk may mean exposures are recorded
-even though a user has not navigated to the page. When it is critical to avoid unnecessary exposures, options can be provided to the adapter so that they
-can be logged manually.
+Because middleware and server components are evaluated when routes are prefetched, exposures are not logged by default. You can enable exposure logging by providing the `exposureLogging` option to the adapter functions.
 
 ```ts
-export const exampleFlag = flag<boolean, Entities>({
+export const exampleFlag = flag<boolean, StatsigUser>({
   key: "new_feature_gate",
   ...
   adapter: statsigAdapter.featureGate((gate) => gate.value, {
-    exposureLoggingDisabled: true,
+    exposureLogging: true,
   })
 });
 ```
 
-When logging automatically, the application should also call `Statsig.flush` appropriately to ensure exposures are recorded.
+When logging is on, your application should also call `Statsig.flush` appropriately to ensure exposures are recorded.
 
-When logging manually, the adapter function can call `.getRuleID()` to get the rule ID for the current request.
-While this can be used to manually log exposures on the client, these IDs can impact cache hit ratio when used with middleware.
+The recommended approach for experimentation is to log exposures from the client when
+the user is indeed exposed to an experiment, either when seen or interacted with.
+
+[Read about Statsig's React Bindings](https://docs.statsig.com/client/javascript-sdk/react#basics-get-experiment)
 
 ### Config Spec Synchronization
 
@@ -123,60 +119,35 @@ To enable synchronization with Vercel's `waitUntil` function, please install the
 
 ### Statsig Bootstrapping
 
-It is desirable to initialize Statsig in only one place on the server and with one library.
+Bootstrapping is recommended for use in React Server Components, but prevents static page generation when using ISR/static pages with middleware rewrites. For such cases,
+see avoiding bootstrapping below.
 
-The adapter will call `Statsig.initialize` and uses `statsig-node-lite` to provide defaults optimized for server side and middleware usage.
+You can call `statsigAdapter.initialize()` to initialize the `statsig-node-lite` SDK.
 
-To rely on this elsewhere in your app, like in [Statsig: Bootstrap Initialization](https://docs.statsig.com/client/concepts/initialize/#2-bootstrap-initialization),
-you can rely on the adapter's `initialize` function.
+This can be used in place of `Statsig.initialize` in middleware, API routes, and server components/functions.
 
 ```ts
-// Use statsig-node-lite
-import Statsig from 'statsig-node-lite';
-import { statsigAdapter } from '@flags_sdk/statsig';
+// app/api/bootstrap/route.ts
+import { NextResponse } from 'next/server';
+import { statsigAdapter } from '@flags-sdk/statsig';
 
-// Initialize the adapter
-const statsigInitialization = statsigAdapter.initialize();
+export const runtime = 'edge';
 
-async function generateBootstrapValues() {
-  // Wait for the adapter to initialize
-  await statsigInitialization;
-  // ... existing bootstrap code
+export async function GET() {
+  const Statsig = await statsigAdapter.initialize();
+  const initializeResponse = await Statsig.getClientInitializeResponse(user, {
+    hash: 'djb2',
+  });
+  return new NextResponse(JSON.stringify(initializeResponse));
 }
 ```
 
 ### Avoiding bootstrapping for static pages
 
-When using the Flags SDK with the Statsig adapter and middleware rewrites, adding server bootstrapping causes the page to become dynamically rendered.
+User information cannot be prerendered, but it's possible to prerender/ISR the
+different variants of flags and experiments and rewrite them using precompute.
 
-To maintain static page generation and cache hits, consider resolving values using the adapter and using a simple Statsig Provider.
+In this case, user info should be fetched on the client, and exposures should
+be logged as a client side effect.
 
-```tsx
-'use client';
-import { LogLevel } from '@statsig/react-bindings';
-import { StatsigProvider } from '@statsig/react-bindings';
-import { StatsigAutoCapturePlugin } from '@statsig/web-analytics';
-import { getStatsigUser } from '../lib/user-client';
-
-// Bootstrapping is recommended for dynamic pages using React Server Components
-// This client may be used with statically generated pages
-// See: https://flags-sdk.dev/concepts/precompute
-export function StatsigClientProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <StatsigProvider
-      sdkKey={process.env.NEXT_PUBLIC_STATSIG_CLIENT_KEY!}
-      user={getStatsigUser()}
-      options={{
-        logLevel: LogLevel.Debug,
-        plugins: [new StatsigAutoCapturePlugin()],
-      }}
-    >
-      {children}
-    </StatsigProvider>
-  );
-}
-```
+Read more about initialization strategies in the [Statsig Docs](https://docs.statsig.com/client/javascript-sdk/init-strategies)
