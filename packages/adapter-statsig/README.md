@@ -6,9 +6,6 @@ An adapter to use [Statsig](https://github.com/statsig/statsig-node-lite) featur
 
 ```bash
 pnpm i @flags-sdk/statsig
-
-# Optional peer dependencies for use with Vercel and Edge Config
-pnpm i @flags-sdk/statsig statsig-node-vercel @vercel/edge-config @vercel/functions
 ```
 
 ## Overview
@@ -29,12 +26,12 @@ The Flags SDK can help dynamically serve static variants of your pages.
 
 ```bash
 # Required
-STATSIG_SERVER_SECRET="secret-..."
+STATSIG_SERVER_API_KEY="secret-..."
 
 # Optional
 STATSIG_PROJECT_ID="..."
-STATSIG_EDGE_CONFIG="edge-config-connection-string"
-STATSIG_EDGE_CONFIG_ITEM_KEY="edge-config-item-key"
+EXPERIMENTATION_CONFIG="edge-config-connection-string"
+EXPERIMENTATION_CONFIG_ITEM_KEY="edge-config-item-key"
 ```
 
 ### Identifying the Statsig User
@@ -57,7 +54,7 @@ const identifyStatsigUser = dedupe(
 ```ts
 // #/flags.ts
 import { dedupe } from '@vercel/flags/next';
-import { statsigAdapter } from '@flags_sdk/statsig';
+import { statsigAdapter } from '@flags-sdk/statsig';
 import { identifyStatsigUser } from '#/lib/user';
 
 // Feature Gate
@@ -109,13 +106,6 @@ The recommended approach for experimentation is to log exposures from the client
 the user is indeed exposed to an experiment, either when seen or interacted with.
 
 [Read about Statsig's React Bindings](https://docs.statsig.com/client/javascript-sdk/react#basics-get-experiment)
-
-### Config Spec Synchronization
-
-At the time of writing, Statsig config specs are synchronized using a timer created outside of a request context. This is not supported in the Edge Runtime,
-and the adapter can support a solution that will resolve this.
-
-To enable synchronization with Vercel's `waitUntil` function, please install the optional peer dependency `@vercel/functions`.
 
 ### Statsig Bootstrapping
 

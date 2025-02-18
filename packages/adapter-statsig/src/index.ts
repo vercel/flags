@@ -240,7 +240,7 @@ export function resetDefaultStatsigAdapter() {
  * Equivalent to `createStatsigAdapter` but with default environment variable names.
  *
  * Required:
- * - `STATSIG_SERVER_SECRET` - Statsig secret server API key
+ * - `STATSIG_SERVER_API_KEY` - Statsig secret server API key
  *
  * Optional:
  * - `STATSIG_PROJECT_ID` - Statsig project ID to enable link in Vercel's Flags Explorer
