@@ -245,7 +245,7 @@ export function resetDefaultStatsigAdapter() {
  * Optional:
  * - `STATSIG_PROJECT_ID` - Statsig project ID to enable link in Vercel's Flags Explorer
  * - `EXPERIMENTATION_CONFIG` - Vercel Edge Config connection string
- * - `EXPERIMENTATION_CONFIG_KEY` - Vercel Edge Config item key where data is stored
+ * - `EXPERIMENTATION_CONFIG_ITEM_KEY` - Vercel Edge Config item key where data is stored
  */
 export function createDefaultStatsigAdapter(): AdapterResponse {
   if (defaultStatsigAdapter) {
@@ -254,7 +254,7 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
   const statsigProjectId = process.env.STATSIG_PROJECT_ID;
   const edgeConfig = process.env.EXPERIMENTATION_CONFIG;
-  const edgeConfigItemKey = process.env.EXPERIMENTATION_CONFIG_KEY;
+  const edgeConfigItemKey = process.env.EXPERIMENTATION_CONFIG_ITEM_KEY;
   if (!(edgeConfig && edgeConfigItemKey)) {
     defaultStatsigAdapter = createStatsigAdapter({
       statsigServerApiKey,
