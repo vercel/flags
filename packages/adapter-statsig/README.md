@@ -8,7 +8,7 @@ An adapter to use [Statsig](https://github.com/statsig/statsig-node-lite) featur
 pnpm i @flags_sdk/statsig
 
 # Optional peer dependencies for use with Vercel and Edge Config
-pnpm i @flags_sdk/statsig statsig-node-vercel @vercel/edge-config @vercel/functions
+pnpm i @flags-sdk/statsig statsig-node-vercel @vercel/edge-config @vercel/functions
 ```
 
 ## Overview
