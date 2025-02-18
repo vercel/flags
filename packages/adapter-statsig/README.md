@@ -5,7 +5,7 @@ An adapter to use [Statsig](https://github.com/statsig/statsig-node-lite) featur
 ## Installation
 
 ```bash
-pnpm i @flags_sdk/statsig
+pnpm i @flags-sdk/statsig
 
 # Optional peer dependencies for use with Vercel and Edge Config
 pnpm i @flags-sdk/statsig statsig-node-vercel @vercel/edge-config @vercel/functions
