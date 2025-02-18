@@ -448,19 +448,22 @@ importers:
 
   packages/adapter-statsig:
     dependencies:
+      '@vercel/edge-config':
+        specifier: ^1.2.0
+        version: 1.2.0
       '@vercel/functions':
-        specifier: 1.5.2
+        specifier: ^1.5.2
         version: 1.5.2
       statsig-node-lite:
         specifier: ^0.4.0
         version: 0.4.1
+      statsig-node-vercel:
+        specifier: ^0.4.0
+        version: 0.4.0(@vercel/edge-config@1.2.0)
     devDependencies:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/edge-config':
-        specifier: 1.2.0
-        version: 1.2.0
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
@@ -473,9 +476,6 @@ importers:
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
-      statsig-node-vercel:
-        specifier: 0.4.0
-        version: 0.4.0(@vercel/edge-config@1.2.0)
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -7109,7 +7109,7 @@ packages:
 
   /ip3country@5.0.0:
     resolution: {integrity: sha512-lcFLMFU4eO1Z7tIpbVFZkaZ5ltqpeaRx7L9NsAbA9uA7/O/rj3RF8+evE5gDitooaTTIqjdzZrenFO/OOxQ2ew==}
-    dev: true
+    dev: false
 
   /ipaddr.js@2.2.0:
     resolution: {integrity: sha512-Ag3wB2o37wslZS19hZqorUnrnzSkpOVy+IiiDEiTqNubEYpYuHWIf6K4psgN2ZWKExS4xhVCrRVfb/wfW8fWJA==}
@@ -8789,6 +8789,7 @@ packages:
         optional: true
     dependencies:
       whatwg-url: 5.0.0
+    dev: false
 
   /node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
@@ -10088,7 +10089,7 @@ packages:
       statsig-node: 5.22.0
     transitivePeerDependencies:
       - encoding
-    dev: true
+    dev: false
 
   /statsig-node@5.22.0:
     resolution: {integrity: sha512-g3ULqEbC6o5pu4FhOg1IjJp8IDGA7IUeMbaX+v2DUyk0cja7jH13TPznuHgJxy4ICyOlTBMV1JLagMGNtQdXSg==}
@@ -10099,7 +10100,7 @@ packages:
       uuid: 8.3.2
     transitivePeerDependencies:
       - encoding
-    dev: true
+    dev: false
 
   /statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
@@ -10628,6 +10629,7 @@ packages:
 
   /tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
+    dev: false
 
   /tr46@1.0.1:
     resolution: {integrity: sha512-dTpowEjclQ7Kgx5SdBkqRzVhERQXov8/l9Ft9dVM9fmg0W0KQSVaXX9T4i6twCPNtYiZM53lpSSUAwJbFPOHxA==}
@@ -10951,6 +10953,7 @@ packages:
   /ua-parser-js@1.0.40:
     resolution: {integrity: sha512-z6PJ8Lml+v3ichVojCiB8toQJBuwR42ySM4ezjXIqXK3M0HczmKQ3LF4rhU55PfD99KEEXQG6yb7iOMyvYuHew==}
     hasBin: true
+    dev: false
 
   /ufo@1.5.4:
     resolution: {integrity: sha512-UsUk3byDzKd04EyoZ7U4DOlxQaD14JUKQl6/P7wiX4FNvUfm3XL246n9W5AmqwW5RSFJ27NAuM0iLscAOYUiGQ==}
@@ -11078,6 +11081,7 @@ packages:
   /uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
     hasBin: true
+    dev: false
 
   /v8-to-istanbul@9.3.0:
     resolution: {integrity: sha512-kiGUalWN+rgBJ/1OHZsBtU4rXZOfj/7rKQxULKlIzwzQSvMJUUNgPwJEEh7gU6xEVxC0ahoOBvN2YI8GH6FNgA==}
@@ -11290,6 +11294,7 @@ packages:
 
   /webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
+    dev: false
 
   /webidl-conversions@4.0.2:
     resolution: {integrity: sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==}
@@ -11300,6 +11305,7 @@ packages:
     dependencies:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
+    dev: false
 
   /whatwg-url@7.1.0:
     resolution: {integrity: sha512-WUu7Rg1DroM7oQvGWfOiAK21n74Gg+T4elXEQYkOhtyLeWiJFoOGLXPKI/9gzIie9CtwVLm8wtw6YJdKyxSjeg==}
