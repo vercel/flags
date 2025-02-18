@@ -52,7 +52,7 @@ Call your feature flag in a React Server Component:
 
 ```tsx
 // app/page.tsx
-import { exampleFlag } from '../flags';
+import { exampleFlag } from './flags';
 
 export default async function Page() {
   const example = await exampleFlag();
