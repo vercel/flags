@@ -49,7 +49,7 @@
   "dependencies": {
     "@vercel/edge-config": "^1.2.0",
     "@vercel/functions": "^1.5.2",
-    "statsig-node-lite": "^0.4.0",
+    "statsig-node-lite": "^0.4.1",
     "statsig-node-vercel": "^0.4.0"
   },
   "devDependencies": {

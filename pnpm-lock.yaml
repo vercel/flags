@@ -455,7 +455,7 @@ importers:
         specifier: ^1.5.2
         version: 1.5.2
       statsig-node-lite:
-        specifier: ^0.4.0
+        specifier: ^0.4.1
         version: 0.4.1
       statsig-node-vercel:
         specifier: ^0.4.0
