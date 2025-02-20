@@ -68,9 +68,6 @@ importers:
       '@vercel/edge-config':
         specifier: 1.2.0
         version: 1.2.0
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../../packages/flags
       '@vercel/toolbar':
         specifier: 0.1.27
         version: 0.1.27(next@15.2.0-canary.3)(react@19.0.0-rc-02c0e824-20241028)
@@ -80,6 +77,9 @@ importers:
       clsx:
         specifier: 2.0.0
         version: 2.0.0
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
       nanoid:
         specifier: 5.0.7
         version: 5.0.7
@@ -159,15 +159,15 @@ importers:
       '@vercel/edge-config':
         specifier: 1.2.0
         version: 1.2.0
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../../packages/flags
       '@vercel/toolbar':
         specifier: 0.1.14
         version: 0.1.14(next@15.0.3)(react@18.3.1)
       clsx:
         specifier: 2.0.0
         version: 2.0.0
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
       nanoid:
         specifier: 5.0.7
         version: 5.0.7
@@ -202,12 +202,12 @@ importers:
 
   examples/sveltekit-example:
     dependencies:
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../../packages/flags
       '@vercel/toolbar':
         specifier: 0.1.15
         version: 0.1.15(vite@5.1.1)
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0
@@ -249,12 +249,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
@@ -286,12 +286,12 @@ importers:
       '@vercel/edge-config':
         specifier: 1.2.0
         version: 1.2.0
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -319,12 +319,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -352,12 +352,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -385,12 +385,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -418,12 +418,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -461,12 +461,12 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../flags
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -505,7 +505,7 @@ importers:
         version: 5.9.6
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.1.0-canary-32b0cad8-20250213)
+        version: 19.0.0(react@19.1.0-canary-fcb4e0f1-20250219)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -527,10 +527,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-32b0cad8-20250213)
+        version: 15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-fcb4e0f1-20250219)
       react:
         specifier: canary
-        version: 19.1.0-canary-32b0cad8-20250213
+        version: 19.1.0-canary-fcb4e0f1-20250219
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -549,7 +549,7 @@ importers:
 
   tests/next-13:
     dependencies:
-      '@vercel/flags':
+      flags:
         specifier: workspace:*
         version: link:../../packages/flags
       next:
@@ -589,7 +589,7 @@ importers:
 
   tests/next-14:
     dependencies:
-      '@vercel/flags':
+      flags:
         specifier: workspace:*
         version: link:../../packages/flags
       next:
@@ -626,7 +626,7 @@ importers:
 
   tests/next-15:
     dependencies:
-      '@vercel/flags':
+      flags:
         specifier: workspace:*
         version: link:../../packages/flags
       next:
@@ -663,12 +663,12 @@ importers:
 
   tests/sveltekit-e2e:
     dependencies:
-      '@vercel/flags':
-        specifier: workspace:*
-        version: link:../../packages/flags
       '@vercel/toolbar':
         specifier: 0.1.15
         version: 0.1.15(vite@5.1.1)
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
     devDependencies:
       '@playwright/test':
         specifier: 1.48.2
@@ -8574,7 +8574,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-32b0cad8-20250213):
+  /next@15.1.4(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-fcb4e0f1-20250219):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -8602,9 +8602,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001688
       postcss: 8.4.31
-      react: 19.1.0-canary-32b0cad8-20250213
-      react-dom: 19.0.0(react@19.1.0-canary-32b0cad8-20250213)
-      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-32b0cad8-20250213)
+      react: 19.1.0-canary-fcb4e0f1-20250219
+      react-dom: 19.0.0(react@19.1.0-canary-fcb4e0f1-20250219)
+      styled-jsx: 5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-fcb4e0f1-20250219)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -9369,12 +9369,12 @@ packages:
       scheduler: 0.23.2
     dev: false
 
-  /react-dom@19.0.0(react@19.1.0-canary-32b0cad8-20250213):
+  /react-dom@19.0.0(react@19.1.0-canary-fcb4e0f1-20250219):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.1.0-canary-32b0cad8-20250213
+      react: 19.1.0-canary-fcb4e0f1-20250219
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -9460,8 +9460,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.1.0-canary-32b0cad8-20250213:
-    resolution: {integrity: sha512-Gfrqvqx0z5hOpPc4+OxRwVgm+/BXQ+uQnW5Yidcpa1yCpJmXugX0/IUuCO1yDZAq0x+cuRP7SnwGHxmWRNaGtA==}
+  /react@19.1.0-canary-fcb4e0f1-20250219:
+    resolution: {integrity: sha512-27ccYQMGwXM6NOT89LQ6LCrhlb2M7/vhDpVJ56fNExEF9JGM6eoe4Nxbm6X3G02Oiqkk5kxdZ70JFrKnTkczlQ==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -10316,7 +10316,7 @@ packages:
       react: 19.0.0-rc-02c0e824-20241028
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-32b0cad8-20250213):
+  /styled-jsx@5.1.6(@babel/core@7.26.0)(react@19.1.0-canary-fcb4e0f1-20250219):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -10331,7 +10331,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.0
       client-only: 0.0.1
-      react: 19.1.0-canary-32b0cad8-20250213
+      react: 19.1.0-canary-fcb4e0f1-20250219
     dev: true
 
   /sucrase@3.35.0:
