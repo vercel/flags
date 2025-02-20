@@ -27,14 +27,12 @@ export async function createEdgeConfigDataAdapter(options: {
 }
 
 /**
- * Edge runtime does not support timers outside of a request context.
+ * Edge runtime and React Server Components do not support timers outside of a request context.
  *
  * Statsig syncs config specs outside of the request context,
  * so we will support it in triggering config spec synchronization in this case.
  */
 export const createEdgeRuntimeIntervalHandler = (): null | (() => void) => {
-  if (typeof EdgeRuntime === 'undefined') return null;
-
   const timerInterval = 10_000;
   let isSyncingConfigSpecs = false;
   let nextConfigSpecSyncTime = Date.now() + timerInterval;
