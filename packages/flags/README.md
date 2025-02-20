@@ -17,7 +17,7 @@ See [flags-sdk.com](https://flags-sdk.com/) for full docs and examples.
 Install the package using your package manager:
 
 ```sh
-npm install @vercel/flags
+npm install flags
 ```
 
 ## Setup
@@ -38,7 +38,7 @@ Create a file called flags.ts in your project and declare your first feature fla
 
 ```ts
 // app/flags.tsx
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 
 export const exampleFlag = flag<boolean>({
   key: 'example-flag',

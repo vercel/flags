@@ -13,7 +13,7 @@ npm install @flags-sdk/edge-config
 This adapter will connect to the Edge Config available under the `EDGE_CONFIG` environment variable, and read items from a key in the Edge Config called `flags`.
 
 ```ts
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 import { edgeConfigAdapter } from '@flags-sdk/edge-config';
 
 export const exampleFlag = flag({
@@ -37,7 +37,7 @@ Your Edge Config should look like this:
 You can specify a custom adapter which connects to a different Edge Config, and reads
 
 ```ts
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
 
 const edgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG, {

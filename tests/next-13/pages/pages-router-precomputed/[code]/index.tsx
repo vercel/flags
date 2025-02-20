@@ -3,7 +3,7 @@ import type {
   GetStaticProps,
   InferGetStaticPropsType,
 } from 'next';
-import { generatePermutations } from '@vercel/flags/next';
+import { generatePermutations } from 'flags/next';
 import {
   exampleFlag,
   hostFlag,

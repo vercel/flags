@@ -1,5 +1,5 @@
 {
-  "name": "@vercel/flags",
+  "name": "flags",
   "version": "3.1.1",
   "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [

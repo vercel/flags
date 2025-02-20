@@ -1,4 +1,4 @@
-import { precompute } from '@vercel/flags/next';
+import { precompute } from 'flags/next';
 import { type NextRequest, NextResponse } from 'next/server';
 import { marketingFlags } from './flags';
 import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';

@@ -1,4 +1,4 @@
-import type { Adapter, ReadonlyHeaders } from '@vercel/flags';
+import type { Adapter, ReadonlyHeaders } from 'flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 
 export type EdgeConfigFlags = {

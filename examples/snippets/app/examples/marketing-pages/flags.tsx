@@ -1,5 +1,5 @@
-import type { ReadonlyHeaders, ReadonlyRequestCookies } from '@vercel/flags';
-import { dedupe, flag } from '@vercel/flags/next';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import { dedupe, flag } from 'flags/next';
 import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
 
 interface Entities {

@@ -1,5 +1,5 @@
-import type { ReadonlyRequestCookies } from '@vercel/flags';
-import { flag, dedupe } from '@vercel/flags/next';
+import type { ReadonlyRequestCookies } from 'flags';
+import { flag, dedupe } from 'flags/next';
 
 interface Entities {
   user?: { id: string };

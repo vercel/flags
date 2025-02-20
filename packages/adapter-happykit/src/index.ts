@@ -1,4 +1,4 @@
-import { Adapter } from '@vercel/flags';
+import { Adapter } from 'flags';
 import type { Configuration } from '@happykit/flags/config';
 import type { FlagUser, Traits } from '@happykit/flags/client';
 import { createGetFlags } from '@happykit/flags/server';

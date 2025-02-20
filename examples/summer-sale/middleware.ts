@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { precompute } from '@vercel/flags/next';
+import { precompute } from 'flags/next';
 import { precomputeFlags, bannerFlags } from '@/flags';
 import { getOrGenerateVisitorId } from './utils/generateVisitorId';
 

@@ -5,7 +5,7 @@ import {
   resetDefaultEdgeConfigAdapter,
 } from '.';
 import type { EdgeConfigClient } from '@vercel/edge-config';
-import type { ReadonlyRequestCookies } from '@vercel/flags';
+import type { ReadonlyRequestCookies } from 'flags';
 
 describe('createEdgeConfigAdapter', () => {
   it('should allow creating an adapter with a client', () => {

@@ -9,11 +9,11 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 // Use a symbol to avoid having global variable that is scoped to this file,
 // as it can lead to issues with cjs and mjs being used at the same time.
-const vercelFlagsTraceSymbol = Symbol.for('@vercel/flags:global-trace');
+const vercelFlagsTraceSymbol = Symbol.for('flags:global-trace');
 
 /**
  * Allows setting the `@opentelemetry/api` tracer provider to generate traces
- * for @vercel/flags operations.
+ * for `flags` operations.
  */
 export function setTracerProvider(tracer: TracerProvider): void {
   Reflect.set(globalThis, vercelFlagsTraceSymbol, tracer);

@@ -1,4 +1,4 @@
-import type { Adapter } from '@vercel/flags';
+import type { Adapter } from 'flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 
 /**

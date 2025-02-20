@@ -1,7 +1,7 @@
 import { coreFlags, hasAuthCookieFlag } from '../flags';
 import { cookies, headers } from 'next/headers';
 import Image from 'next/image';
-import { generatePermutations } from '@vercel/flags/next';
+import { generatePermutations } from 'flags/next';
 import { Suspense } from 'react';
 
 // opt into on parital prerendering for this page, which is necessary while

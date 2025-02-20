@@ -12,7 +12,7 @@ import { Materials } from '@/components/materials';
 import { ProductHeading } from '@/components/product-heading';
 import { Promo } from '@/components/promo';
 import { TopBanner } from '@/components/top-banner';
-import { getPrecomputed, generatePermutations } from '@vercel/flags/next';
+import { getPrecomputed, generatePermutations } from 'flags/next';
 import {
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,

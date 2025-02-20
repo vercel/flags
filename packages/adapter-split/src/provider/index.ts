@@ -1,4 +1,4 @@
-import { ProviderData } from '@vercel/flags';
+import { ProviderData } from 'flags';
 
 // See: https://docs.split.io/reference/get-feature-flag
 interface ListFeatureFlagsResponseBody {

@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from '@vercel/flags';
+import type { JsonValue, ProviderData } from 'flags';
 
 // See: https://docs.developers.optimizely.com/feature-experimentation/reference/list_flags
 interface OptimizelyFeatureFlagsResponseBody {

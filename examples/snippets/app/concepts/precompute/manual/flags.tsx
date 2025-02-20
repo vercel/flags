@@ -1,4 +1,4 @@
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 
 export const manualPrecomputeFlag = flag<boolean>({
   key: 'manual-precompute-flag',

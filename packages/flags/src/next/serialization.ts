@@ -72,7 +72,7 @@ export async function deserialize(
       const flag = flags[index];
 
       if (!flag) {
-        throw new Error(`@vercel/flags: No flag at index ${index}`);
+        throw new Error(`flags: No flag at index ${index}`);
       }
 
       switch (valueIndex) {
@@ -161,7 +161,7 @@ export async function serialize(
         !Object.prototype.hasOwnProperty.call(flagSet, flag.key) ||
         value === undefined
       ) {
-        throw new Error(`@vercel/flags: Missing value for flag "${flag.key}"`);
+        throw new Error(`flags: Missing value for flag "${flag.key}"`);
       }
 
       // avoid searching for common values

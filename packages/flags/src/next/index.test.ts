@@ -235,7 +235,7 @@ describe('flag on app router', () => {
     });
 
     await expect(syncFlag()).rejects.toThrow(
-      '@vercel/flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
+      'flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
     );
 
     const asyncFlag = flag<string>({
@@ -245,7 +245,7 @@ describe('flag on app router', () => {
     });
 
     await expect(asyncFlag()).rejects.toThrow(
-      '@vercel/flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
+      'flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
     );
   });
 });
@@ -377,7 +377,7 @@ describe('flag on pages router', () => {
     });
 
     await expect(syncFlag(firstRequest)).rejects.toThrow(
-      '@vercel/flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
+      'flags: Flag "sync-flag" must have a defaultValue or a decide function that returns a value',
     );
 
     const asyncFlag = flag<string>({
@@ -387,7 +387,7 @@ describe('flag on pages router', () => {
     });
 
     await expect(asyncFlag(firstRequest)).rejects.toThrow(
-      '@vercel/flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
+      'flags: Flag "async-flag" must have a defaultValue or a decide function that returns a value',
     );
 
     socket1.destroy();
@@ -527,7 +527,7 @@ describe('adapters', () => {
 
     expect(f).toHaveProperty('key', 'adapter-flag');
     await expect(f()).rejects.toThrow(
-      '@vercel/flags: Flag "adapter-flag" must have a defaultValue or a decide function that returns a value',
+      'flags: Flag "adapter-flag" must have a defaultValue or a decide function that returns a value',
     );
     expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
   });

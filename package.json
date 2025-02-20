@@ -1,7 +1,7 @@
 {
-  "name": "vercel-variants",
+  "name": "vercel-flags",
   "version": "0.0.1",
-  "description": "A monorepo for @vercel/flags",
+  "description": "A monorepo for the Flags SDK",
   "homepage": "https://flags-sdk.dev",
   "bugs": {
     "url": "https://github.com/vercel/flags/issues"

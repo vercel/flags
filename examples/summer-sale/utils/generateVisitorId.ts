@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { dedupe } from '@vercel/flags/next';
+import { dedupe } from 'flags/next';
 import { nanoid } from 'nanoid';
 
 /**

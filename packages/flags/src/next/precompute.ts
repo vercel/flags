@@ -61,7 +61,7 @@ export async function serialize(
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
   if (!secret) {
-    throw new Error('@vercel/flags: Can not serialize due to missing secret');
+    throw new Error('flags: Can not serialize due to missing secret');
   }
 
   return s.serialize(combine(flags, values), flags, secret);
@@ -80,7 +80,7 @@ export async function deserialize(
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
   if (!secret) {
-    throw new Error('@vercel/flags: Can not serialize due to missing secret');
+    throw new Error('flags: Can not serialize due to missing secret');
   }
 
   return s.deserialize(code, flags, secret);
@@ -135,7 +135,7 @@ export async function getPrecomputed<T extends JsonValue>(
 ): Promise<any> {
   if (!secret) {
     throw new Error(
-      '@vercel/flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
+      'flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
 
@@ -170,7 +170,7 @@ export async function generatePermutations(
 ): Promise<string[]> {
   if (!secret) {
     throw new Error(
-      '@vercel/flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
+      'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
 

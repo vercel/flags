@@ -176,7 +176,7 @@ function getDecide<ValueType, EntitiesType>(
       return definition.adapter.decide({ key: definition.key, ...params });
     }
     throw new Error(
-      `@vercel/flags: No decide function provided for ${definition.key}`,
+      `@flags: No decide function provided for ${definition.key}`,
     );
   };
 }
@@ -297,7 +297,7 @@ function getRun<ValueType, EntitiesType>(
           if (definition.defaultValue !== undefined)
             return definition.defaultValue;
           throw new Error(
-            `@vercel/flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
+            `@flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
           );
         },
         (error: Error) => {
@@ -307,18 +307,18 @@ function getRun<ValueType, EntitiesType>(
           if (definition.defaultValue !== undefined) {
             if (process.env.NODE_ENV === 'development') {
               console.info(
-                `@vercel/flags: Flag "${definition.key}" is falling back to its defaultValue`,
+                `@flags: Flag "${definition.key}" is falling back to its defaultValue`,
               );
             } else {
               console.warn(
-                `@vercel/flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
+                `@flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
                 error,
               );
             }
             return definition.defaultValue;
           }
           console.warn(
-            `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
+            `@flags: Flag "${definition.key}" could not be evaluated`,
           );
           throw error;
         },
@@ -360,7 +360,7 @@ function getOrigin<ValueType, EntitiesType>(
  *
  * If an override set by Vercel Toolbar, or more precisely if the `vercel-flag-overrides` cookie, is present then the `decide` function will not be called and the value of the override will be returned instead.
  *
- * In both cases this function also calls the `reportValue` function of `@vercel/flags` so the evaluated flag shows up in Runtime Logs and is available for use with Web Analytics custom server-side events.
+ * In both cases this function also calls the `reportValue` function of `@flags` so the evaluated flag shows up in Runtime Logs and is available for use with Web Analytics custom server-side events.
  *
  *
  * @param definition - Information about the feature flag.
