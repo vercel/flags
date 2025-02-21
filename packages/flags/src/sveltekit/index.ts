@@ -213,9 +213,7 @@ export function flag<
   return flagImpl;
 }
 
-export function getProviderData(
-  flags: Record<string, Flag<JsonValue>>,
-): ApiData {
+export function getProviderData(flags: FlagsRecord): ApiData {
   const definitions = Object.values(flags).reduce<FlagDefinitionsType>(
     (acc, d) => {
       acc[d.key] = {
@@ -249,6 +247,14 @@ function createContext(request: Request, secret: string): AsyncLocalContext {
 
 const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
 
+type FlagsRecord = Record<
+  string,
+  // options handling necessary or else you get type errors due to `any` expanding `GenerousOption` to all possible branches, which can't be satisfied
+  Omit<Flag<JsonValue>, 'options'> & {
+    options?: any[];
+  }
+>;
+
 /**
  * Establishes context for flags, so they have access to the
  * request and cookie.
@@ -273,7 +279,7 @@ export function createHandle({
   flags,
 }: {
   secret?: string;
-  flags?: Record<string, Flag<JsonValue>>;
+  flags?: FlagsRecord;
 }): Handle {
   secret = tryGetSecret(secret);
 
@@ -315,7 +321,7 @@ export function createHandle({
 async function handleWellKnownFlagsRoute(
   event: RequestEvent<Partial<Record<string, string>>, string | null>,
   secret: string,
-  flags: Record<string, Flag<JsonValue>>,
+  flags: FlagsRecord,
 ) {
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
