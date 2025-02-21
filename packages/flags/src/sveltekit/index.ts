@@ -1,9 +1,11 @@
 import type { Handle, RequestEvent } from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
+// @ts-expect-error will be available in user's project
+import { env } from '$env/dynamic/private';
 import {
   type ApiData,
-  decrypt,
-  encrypt,
+  decrypt as _decrypt,
+  encrypt as _encrypt,
   reportValue,
   safeJsonStringify,
   verifyAccess,
@@ -89,6 +91,16 @@ function getDecide<ValueType, EntitiesType>(
     }
     throw new Error(`flags: No decide function provided for ${definition.key}`);
   };
+}
+
+function tryGetSecret(secret?: string): string {
+  if (!secret) {
+    secret = env.FLAGS_SECRET;
+  }
+  if (!secret) {
+    throw new Error('flags: No secret provided');
+  }
+  return secret;
 }
 
 /**
@@ -198,10 +210,9 @@ const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
  *
  * ```ts
  * import { createHandle } from 'flags/sveltekit';
- * import { FLAGS_SECRET } from '$env/static/private';
  * import * as flags from '$lib/flags';
  *
- * export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+ * export const handle = createHandle({ flags });
  * ```
  *
  * @example Usage example in src/hooks.server.ts with other handlers
@@ -212,9 +223,11 @@ export function createHandle({
   secret,
   flags,
 }: {
-  secret: string;
+  secret?: string;
   flags?: Record<string, Flag<JsonValue>>;
 }): Handle {
+  secret = tryGetSecret(secret);
+
   return function handle({ event, resolve }) {
     if (
       flags &&
@@ -261,4 +274,32 @@ async function handleWellKnownFlagsRoute(
   );
   if (!access) return new Response(null, { status: 401 });
   return Response.json(getProviderData(flags));
+}
+
+/**
+ * Function to encrypt overrides, values, definitions, and API data.
+ *
+ * Convenience wrapper around `encrypt` from `@vercel/flags` for not
+ * having to provide a secret - it will be read from the environment
+ * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
+ */
+export async function encrypt<T extends object>(
+  value: T,
+  secret?: string,
+): Promise<string> {
+  return _encrypt(value, tryGetSecret(secret));
+}
+
+/**
+ * Function to decrypt overrides, values, definitions, and API data.
+ *
+ * Convenience wrapper around `deencrypt` from `@vercel/flags` for not
+ * having to provide a secret - it will be read from the environment
+ * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
+ */
+export async function decrypt<T extends object>(
+  encryptedData: string,
+  secret?: string,
+): Promise<T | undefined> {
+  return _decrypt(encryptedData, tryGetSecret(secret));
 }
