@@ -12,7 +12,7 @@ import {
   type JsonValue,
   type FlagDefinitionsType,
 } from '..';
-import { Decide, FlagDeclaration, GenerousOption } from '../types';
+import { Decide, FlagDeclaration, GenerousOption, Identify } from '../types';
 import {
   type ReadonlyHeaders,
   HeadersAdapter,
@@ -97,6 +97,17 @@ function getDecide<ValueType, EntitiesType>(
   };
 }
 
+function getIdentify<ValueType, EntitiesType>(
+  definition: FlagDeclaration<ValueType, EntitiesType>,
+): Identify<EntitiesType> | undefined {
+  if (typeof definition.identify === 'function') {
+    return definition.identify;
+  }
+  if (typeof definition.adapter?.identify === 'function') {
+    return definition.adapter.identify;
+  }
+}
+
 function tryGetSecret(secret?: string): string {
   if (!secret) {
     secret = env.FLAGS_SECRET;
@@ -116,13 +127,17 @@ const requestMap = new WeakMap<Request, AsyncLocalContext>();
 /**
  * Declares a feature flag
  */
-export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
-  const decide = getDecide<T, unknown>(definition);
+export function flag<
+  ValueType extends JsonValue = boolean | string | number,
+  EntitiesType = any,
+>(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
+  const decide = getDecide<ValueType, EntitiesType>(definition);
+  const identify = getIdentify(definition);
 
   const flagImpl = async function flagImpl(
     request?: Request,
     secret?: string,
-  ): Promise<T> {
+  ): Promise<ValueType> {
     let store = flagStorage.getStore();
 
     if (!store) {
@@ -140,7 +155,7 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
     if (hasOwnProperty(store.usedFlags, definition.key)) {
       const valuePromise = store.usedFlags[definition.key];
       if (typeof valuePromise !== 'undefined') {
-        return valuePromise as Promise<T>;
+        return valuePromise as Promise<ValueType>;
       }
     }
 
@@ -149,7 +164,7 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
-      ? await decrypt<Record<string, T>>(overridesCookie, store.secret)
+      ? await decrypt<Record<string, ValueType>>(overridesCookie, store.secret)
       : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
@@ -161,14 +176,25 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
       }
     }
 
-    const valuePromise = decide(
-      {
-        headers,
-        cookies,
-      },
-      // @ts-expect-error not part of the type, but we supply it for convenience
-      { event: store.event },
-    );
+    let entities: EntitiesType | undefined;
+    if (identify) {
+      // Deduplicate calls to identify, key being the function itself
+      if (!store.identifiers.has(identify)) {
+        const entities = identify({
+          headers,
+          cookies,
+        });
+        store.identifiers.set(identify, entities);
+      }
+
+      entities = (await store.identifiers.get(identify)) as EntitiesType;
+    }
+
+    const valuePromise = decide({
+      headers,
+      cookies,
+      entities,
+    });
     store.usedFlags[definition.key] = valuePromise as Promise<JsonValue>;
 
     const value = await valuePromise;
@@ -182,7 +208,7 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
   flagImpl.description = definition.description;
   flagImpl.options = definition.options;
   flagImpl.decide = decide;
-  // flagImpl.identify = identify;
+  flagImpl.identify = identify;
 
   return flagImpl;
 }
@@ -209,6 +235,7 @@ interface AsyncLocalContext {
   request: Request;
   secret: string;
   usedFlags: Record<string, Promise<JsonValue>>;
+  identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
 }
 
 function createContext(request: Request, secret: string): AsyncLocalContext {
@@ -216,6 +243,7 @@ function createContext(request: Request, secret: string): AsyncLocalContext {
     request,
     secret,
     usedFlags: {},
+    identifiers: new Map(),
   };
 }
 
