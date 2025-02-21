@@ -52,7 +52,11 @@ function sealCookies(headers: Headers): ReadonlyRequestCookies {
   return sealed;
 }
 
-type Flag<ReturnValue> = (() => ReturnValue | Promise<ReturnValue>) & {
+type Flag<ReturnValue> = ((
+  /** Only provide this if you're retrieving the flag value outside of the lifecycle of the `handle` hook, e.g. when calling it inside edge middleware. */
+  request?: Request,
+  secret?: string,
+) => ReturnValue | Promise<ReturnValue>) & {
   key: string;
   description?: string;
   origin?: string | Record<string, unknown>;
@@ -104,16 +108,33 @@ function tryGetSecret(secret?: string): string {
 }
 
 /**
+ * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
+ * This could be the case when the flag is called from edge middleware.
+ */
+const requestMap = new WeakMap<Request, AsyncLocalContext>();
+
+/**
  * Declares a feature flag
  */
 export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
   const decide = getDecide<T, unknown>(definition);
 
-  const flagImpl = async function flagImpl(): Promise<T> {
-    const store = flagStorage.getStore();
+  const flagImpl = async function flagImpl(
+    request?: Request,
+    secret?: string,
+  ): Promise<T> {
+    let store = flagStorage.getStore();
 
     if (!store) {
-      throw new Error('flags: context not found');
+      if (request) {
+        store = requestMap.get(request);
+        if (!store) {
+          store = createContext(request, secret ?? tryGetSecret());
+          requestMap.set(request, store);
+        }
+      } else {
+        throw new Error('flags: Neither context found nor Request provided');
+      }
     }
 
     if (hasOwnProperty(store.usedFlags, definition.key)) {
@@ -123,7 +144,10 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
       }
     }
 
-    const overridesCookie = store.event.cookies.get('vercel-flag-overrides');
+    const headers = sealHeaders(store.request.headers);
+    const cookies = sealCookies(store.request.headers);
+
+    const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
       ? await decrypt<Record<string, T>>(overridesCookie, store.secret)
       : undefined;
@@ -139,8 +163,8 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
 
     const valuePromise = decide(
       {
-        headers: sealHeaders(store.event.request.headers),
-        cookies: sealCookies(store.event.request.headers),
+        headers,
+        cookies,
       },
       // @ts-expect-error not part of the type, but we supply it for convenience
       { event: store.event },
@@ -158,7 +182,7 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
   flagImpl.description = definition.description;
   flagImpl.options = definition.options;
   flagImpl.decide = decide;
-  // flagImpl.identify = definition.identify;
+  // flagImpl.identify = identify;
 
   return flagImpl;
 }
@@ -182,17 +206,14 @@ export function getProviderData(
 }
 
 interface AsyncLocalContext {
-  event: RequestEvent<Partial<Record<string, string>>, string | null>;
+  request: Request;
   secret: string;
   usedFlags: Record<string, Promise<JsonValue>>;
 }
 
-function createContext(
-  event: RequestEvent<Partial<Record<string, string>>, string | null>,
-  secret: string,
-): AsyncLocalContext {
+function createContext(request: Request, secret: string): AsyncLocalContext {
   return {
-    event,
+    request,
     secret,
     usedFlags: {},
   };
@@ -238,7 +259,7 @@ export function createHandle({
       return handleWellKnownFlagsRoute(event, secret, flags);
     }
 
-    const flagContext = createContext(event, secret);
+    const flagContext = createContext(event.request, secret);
     return flagStorage.run(flagContext, () =>
       resolve(event, {
         transformPageChunk: async ({ html }) => {
