@@ -28,3 +28,4 @@ export {
   RequestCookiesAdapter,
 } from './spec-extension/adapters/request-cookies';
 export { mergeProviderData } from './lib/merge-provider-data';
+export { createPostHogAdapter } from '@flags-sdk/posthog';
