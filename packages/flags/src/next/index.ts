@@ -17,7 +17,7 @@ import {
   sealCookies,
   sealHeaders,
   transformToHeaders,
-} from './request-mapping';
+} from '../lib/request-mapping';
 
 export type { Flag } from './types';
 
@@ -74,7 +74,7 @@ function getRun<ValueType, EntitiesType>(
       requestCacheKey = headersStore;
     }
 
-    return core({
+    return core<ValueType, EntitiesType>({
       readonlyHeaders,
       readonlyCookies,
       flagKey: definition.key,
@@ -83,6 +83,7 @@ function getRun<ValueType, EntitiesType>(
       requestCacheKey,
       defaultValue: definition.defaultValue,
       shouldReportValue: definition.config?.reportValue !== false,
+      secret: process.env.FLAGS_SECRET,
     });
   };
 }

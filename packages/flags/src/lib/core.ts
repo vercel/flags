@@ -3,6 +3,7 @@
  * by the implementations for different frameworks.
  */
 
+import stringify from 'json-stringify-deterministic';
 import { isInternalNextError } from '../next/is-internal-next-error';
 import { getCachedValuePromise, setCachedValuePromise } from './request-cache';
 import { setSpanAttribute } from './tracing';
@@ -96,6 +97,7 @@ export async function core<ValueType, EntitiesType>({
   readonlyHeaders,
   readonlyCookies,
   shouldReportValue,
+  secret,
 }: {
   flagKey: string;
   getPrecomputed?: () => Promise<ValueType>;
@@ -106,6 +108,7 @@ export async function core<ValueType, EntitiesType>({
   readonlyHeaders: ReadonlyHeaders;
   readonlyCookies: ReadonlyRequestCookies;
   shouldReportValue: boolean;
+  secret?: string;
 }) {
   if (typeof getPrecomputed === 'function') {
     const precomputed = await getPrecomputed();
@@ -117,6 +120,7 @@ export async function core<ValueType, EntitiesType>({
 
   const overrides = await getOverrides(
     readonlyCookies.get('vercel-flag-overrides')?.value,
+    secret,
   );
   const override = overrides ? overrides?.[flagKey] : null;
   if (overrides) {
@@ -132,7 +136,7 @@ export async function core<ValueType, EntitiesType>({
     readonlyCookies,
   );
 
-  const entitiesKey = JSON.stringify(entities) ?? '';
+  const entitiesKey = stringify(entities) ?? '';
 
   const cachedValue = getCachedValuePromise(
     requestCacheKey,

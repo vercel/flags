@@ -2,53 +2,18 @@ import type { Handle, RequestEvent } from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   type ApiData,
-  decrypt,
   encrypt,
-  reportValue,
   safeJsonStringify,
   verifyAccess,
   type JsonValue,
   type FlagDefinitionsType,
 } from '..';
-import { Decide, FlagDeclaration, GenerousOption } from '../types';
-import {
-  type ReadonlyHeaders,
-  HeadersAdapter,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
+import { FlagDeclaration, GenerousOption } from '../types';
 import { normalizeOptions } from '../lib/normalize-options';
-import { RequestCookies } from '@edge-runtime/cookies';
-
-function hasOwnProperty<X extends {}, Y extends PropertyKey>(
-  obj: X,
-  prop: Y,
-): obj is X & Record<Y, unknown> {
-  return obj.hasOwnProperty(prop);
-}
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
+import { core, getDecide, getIdentify } from '../lib/core';
+import { getOrigin } from '../lib/origin';
+import { sealCookies, sealHeaders } from '../lib/request-mapping';
+import { resolveObjectPromises } from '../lib/resolve-object-promises';
 
 type Flag<ReturnValue> = (() => ReturnValue | Promise<ReturnValue>) & {
   key: string;
@@ -57,87 +22,43 @@ type Flag<ReturnValue> = (() => ReturnValue | Promise<ReturnValue>) & {
   options?: GenerousOption<ReturnValue>[];
 };
 
-type PromisesMap<T> = {
-  [K in keyof T]: Promise<T[K]>;
-};
-
-async function resolveObjectPromises<T>(obj: PromisesMap<T>): Promise<T> {
-  // Convert the object into an array of [key, promise] pairs
-  const entries = Object.entries(obj) as [keyof T, Promise<any>][];
-
-  // Use Promise.all to wait for all the promises to resolve
-  const resolvedEntries = await Promise.all(
-    entries.map(async ([key, promise]) => {
-      const value = await promise;
-      return [key, value] as [keyof T, T[keyof T]];
-    }),
-  );
-
-  // Convert the array of resolved [key, value] pairs back into an object
-  return Object.fromEntries(resolvedEntries) as T;
-}
-
-function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Decide<ValueType, EntitiesType> {
-  return function decide(params) {
-    if (typeof definition.decide === 'function') {
-      return definition.decide(params);
-    }
-    if (typeof definition.adapter?.decide === 'function') {
-      return definition.adapter.decide({ key: definition.key, ...params });
-    }
-    throw new Error(`flags: No decide function provided for ${definition.key}`);
-  };
-}
-
 /**
  * Declares a feature flag
  */
-export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
-  const decide = getDecide<T, unknown>(definition);
+export function flag<
+  ValueType extends JsonValue = boolean | string | number,
+  EntitiesType = any,
+>(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
+  const decide = getDecide<ValueType, EntitiesType>(definition);
+  const identify = getIdentify<ValueType, EntitiesType>(definition);
+  const origin = getOrigin(definition);
 
-  const flagImpl = async function flagImpl(): Promise<T> {
+  const flagImpl = async function flagImpl(): Promise<ValueType> {
     const store = flagStorage.getStore();
 
     if (!store) {
       throw new Error('flags: context not found');
     }
 
-    if (hasOwnProperty(store.usedFlags, definition.key)) {
-      const valuePromise = store.usedFlags[definition.key];
-      if (typeof valuePromise !== 'undefined') {
-        return valuePromise as Promise<T>;
-      }
-    }
+    const readonlyHeaders = sealHeaders(store.event.request.headers);
+    const readonlyCookies = sealCookies(store.event.request.headers);
 
-    const overridesCookie = store.event.cookies.get('vercel-flag-overrides');
-    const overrides = overridesCookie
-      ? await decrypt<Record<string, T>>(overridesCookie, store.secret)
-      : undefined;
+    const decisionPromise = core<ValueType, EntitiesType>({
+      readonlyHeaders,
+      readonlyCookies,
+      flagKey: definition.key,
+      identify,
+      decide,
+      requestCacheKey: store.event.request,
+      defaultValue: definition.defaultValue,
+      shouldReportValue: definition.config?.reportValue !== false,
+      secret: store.secret,
+    });
 
-    if (overrides && hasOwnProperty(overrides, definition.key)) {
-      const value = overrides[definition.key];
-      if (typeof value !== 'undefined') {
-        reportValue(definition.key, value);
-        store.usedFlags[definition.key] = Promise.resolve(value as JsonValue);
-        return value;
-      }
-    }
+    // report for handler
+    store.usedFlags[definition.key] = decisionPromise as Promise<JsonValue>;
 
-    const valuePromise = decide(
-      {
-        headers: sealHeaders(store.event.request.headers),
-        cookies: sealCookies(store.event.request.headers),
-      },
-      // @ts-expect-error not part of the type, but we supply it for convenience
-      { event: store.event },
-    );
-    store.usedFlags[definition.key] = valuePromise as Promise<JsonValue>;
-
-    const value = await valuePromise;
-    reportValue(definition.key, value);
-    return value;
+    return decisionPromise;
   };
 
   flagImpl.key = definition.key;
@@ -146,7 +67,8 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
   flagImpl.description = definition.description;
   flagImpl.options = definition.options;
   flagImpl.decide = decide;
-  // flagImpl.identify = definition.identify;
+  flagImpl.origin = origin;
+  flagImpl.identify = identify;
 
   return flagImpl;
 }
