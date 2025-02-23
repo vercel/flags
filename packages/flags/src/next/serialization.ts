@@ -1,5 +1,5 @@
 import type { JsonValue } from '..';
-import { memoizeOne } from './async-memoize-one';
+import { memoizeOne } from '../lib/async-memoize-one';
 import type { Flag } from './types';
 import type { FlagOption } from '../types';
 import { CompactSign, base64url, compactVerify } from 'jose';

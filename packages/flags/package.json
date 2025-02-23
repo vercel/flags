@@ -79,7 +79,8 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
-    "jose": "^5.2.1"
+    "jose": "^5.2.1",
+    "json-stringify-deterministic": "1.0.12"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.17.3",
