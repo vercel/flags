@@ -12,7 +12,7 @@ import {
   type JsonValue,
   type FlagDefinitionsType,
 } from '..';
-import { Decide, FlagDeclaration, GenerousOption, Identify } from '../types';
+import { Decide, FlagDeclaration, Identify } from '../types';
 import {
   type ReadonlyHeaders,
   HeadersAdapter,
@@ -23,6 +23,8 @@ import {
 } from '../spec-extension/adapters/request-cookies';
 import { normalizeOptions } from '../lib/normalize-options';
 import { RequestCookies } from '@edge-runtime/cookies';
+import { Flag } from './types';
+import { generatePermutations, getPrecomputed, precompute } from './precompute';
 
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
@@ -51,17 +53,6 @@ function sealCookies(headers: Headers): ReadonlyRequestCookies {
   cookiesMap.set(headers, sealed);
   return sealed;
 }
-
-type Flag<ReturnValue> = ((
-  /** Only provide this if you're retrieving the flag value outside of the lifecycle of the `handle` hook, e.g. when calling it inside edge middleware. */
-  request?: Request,
-  secret?: string,
-) => ReturnValue | Promise<ReturnValue>) & {
-  key: string;
-  description?: string;
-  origin?: string | Record<string, unknown>;
-  options?: GenerousOption<ReturnValue>[];
-};
 
 type PromisesMap<T> = {
   [K in keyof T]: Promise<T[K]>;
@@ -206,14 +197,14 @@ export function flag<
   flagImpl.defaultValue = definition.defaultValue;
   flagImpl.origin = definition.origin;
   flagImpl.description = definition.description;
-  flagImpl.options = definition.options;
+  flagImpl.options = normalizeOptions(definition.options);
   flagImpl.decide = decide;
   flagImpl.identify = identify;
 
   return flagImpl;
 }
 
-export function getProviderData(flags: FlagsRecord): ApiData {
+export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
   const definitions = Object.values(flags).reduce<FlagDefinitionsType>(
     (acc, d) => {
       acc[d.key] = {
@@ -232,28 +223,26 @@ export function getProviderData(flags: FlagsRecord): ApiData {
 interface AsyncLocalContext {
   request: Request;
   secret: string;
+  params: Record<string, string>;
   usedFlags: Record<string, Promise<JsonValue>>;
   identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
 }
 
-function createContext(request: Request, secret: string): AsyncLocalContext {
+function createContext(
+  request: Request,
+  secret: string,
+  params?: Record<string, string>,
+): AsyncLocalContext {
   return {
     request,
     secret,
+    params: params ?? {},
     usedFlags: {},
     identifiers: new Map(),
   };
 }
 
 const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
-
-type FlagsRecord = Record<
-  string,
-  // options handling necessary or else you get type errors due to `any` expanding `GenerousOption` to all possible branches, which can't be satisfied
-  Omit<Flag<JsonValue>, 'options'> & {
-    options?: any[];
-  }
->;
 
 /**
  * Establishes context for flags, so they have access to the
@@ -279,7 +268,7 @@ export function createHandle({
   flags,
 }: {
   secret?: string;
-  flags?: FlagsRecord;
+  flags?: Record<string, Flag<any>>;
 }): Handle {
   secret = tryGetSecret(secret);
 
@@ -293,7 +282,11 @@ export function createHandle({
       return handleWellKnownFlagsRoute(event, secret, flags);
     }
 
-    const flagContext = createContext(event.request, secret);
+    const flagContext = createContext(
+      event.request,
+      secret,
+      event.params as Record<string, string>,
+    );
     return flagStorage.run(flagContext, () =>
       resolve(event, {
         transformPageChunk: async ({ html }) => {
@@ -321,7 +314,7 @@ export function createHandle({
 async function handleWellKnownFlagsRoute(
   event: RequestEvent<Partial<Record<string, string>>, string | null>,
   secret: string,
-  flags: FlagsRecord,
+  flags: Record<string, Flag<any>>,
 ) {
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
@@ -357,4 +350,94 @@ export async function decrypt<T extends object>(
   secret?: string,
 ): Promise<T | undefined> {
   return _decrypt(encryptedData, tryGetSecret(secret));
+}
+
+/**
+ * Create an object for managing precomputed flags that are used for a certain route parameter.
+ * Use this only if you want to prerender or ISR the pages.
+ *
+ * 1. Generate the precomputed flags object. The first parameter is the name of the route parameter, the second is an object with flags that should be precomputed/decoded:
+ *
+ * ```ts
+ * const marketing = createPrecomputedFlags('code', { flag1, flag2 });
+ * ```
+ *
+ * 2. If you want to prerender the pages, use `generatePermutations` inside `entries` to generate all possible permutations (if you use ISR you can skip this step):
+ *
+ * ```ts
+ * // file: src/routes/marketing/[code]/+page.server.ts
+ * export const prerender = true;
+ *
+ * export function entries() {
+ *  return marketing.generatePermutations().map((code) => ({ code }));
+ * }
+ * ```
+ *
+ * 3. At runtime, generate the code within edge middleware:
+ *
+ * ```ts
+ * // file: src/edge-middleware.ts
+ * export default async function middleware(request: Request) {
+ *  if (new URL(request.url).pathname === '/marketing')) {
+ *    const code = await marketing.precompute(request);
+ *    return rewrite(`/marketing/${code}`);
+ *  }
+ * }
+ * ```
+ *
+ * 4. Use them in your SvelteKit load function:
+ *
+ * ```ts
+ * // file: src/routes/marketing/[code]/+page.server.ts
+ * export function load() {
+ *  const value = marketing.flags.flag1();
+ *  // ...
+ * }
+ * ```
+ */
+export function createPrecomputedFlags<T extends Record<string, Flag<any>>>(
+  param: string,
+  flags: T,
+  secret: string = tryGetSecret(),
+) {
+  const flagFunctions = Object.entries(flags).map(([_, flag]) => flag);
+  const flagsArray = Object.entries(flags).map(([key, flag]) => {
+    const fn = async () => {
+      let store = flagStorage.getStore();
+
+      if (!store) {
+        throw new Error(
+          'flags: No context found. You need to run this function during the lifecycle of the `handle` hook.',
+        );
+      }
+
+      const code = store.params[param];
+
+      if (!code) {
+        throw new Error(
+          `flags: Parameter '${param}' not found in context. Make sure you call this flag inside the right route.`,
+        );
+      }
+
+      return getPrecomputed(flag, flagFunctions, code, store.secret);
+    };
+
+    return [key, fn];
+  });
+
+  return {
+    generatePermutations: (
+      filter:
+        | ((permutation: Record<string, JsonValue>) => boolean)
+        | null = null,
+    ) => {
+      return generatePermutations(flagFunctions, filter, secret);
+    },
+    precompute: async (request: Request) => {
+      return precompute(flagFunctions, request, secret);
+    },
+    flags: Object.fromEntries(flagsArray) as {
+      [K in keyof T]: () => ReturnType<T[K]>;
+    },
+  };
 }
