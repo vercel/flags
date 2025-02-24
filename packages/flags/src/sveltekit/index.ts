@@ -23,8 +23,12 @@ import {
 } from '../spec-extension/adapters/request-cookies';
 import { normalizeOptions } from '../lib/normalize-options';
 import { RequestCookies } from '@edge-runtime/cookies';
-import { Flag } from './types';
-import { generatePermutations, getPrecomputed, precompute } from './precompute';
+import { Flag, FlagsArray } from './types';
+import {
+  generatePermutations as _generatePermutations,
+  getPrecomputed,
+  precompute as _precompute,
+} from './precompute';
 
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
@@ -126,21 +130,36 @@ export function flag<
   const identify = getIdentify(definition);
 
   const flagImpl = async function flagImpl(
-    request?: Request,
-    secret?: string,
+    requestOrCode?: string | Request,
+    flagsArrayOrSecret?: string | Flag<any>[],
   ): Promise<ValueType> {
     let store = flagStorage.getStore();
 
     if (!store) {
-      if (request) {
-        store = requestMap.get(request);
+      if (requestOrCode instanceof Request) {
+        store = requestMap.get(requestOrCode);
         if (!store) {
-          store = createContext(request, secret ?? tryGetSecret());
-          requestMap.set(request, store);
+          store = createContext(
+            requestOrCode,
+            (flagsArrayOrSecret as string) ?? tryGetSecret(),
+          );
+          requestMap.set(requestOrCode, store);
         }
       } else {
         throw new Error('flags: Neither context found nor Request provided');
       }
+    }
+
+    if (
+      typeof requestOrCode === 'string' &&
+      Array.isArray(flagsArrayOrSecret)
+    ) {
+      return getPrecomputed(
+        definition.key,
+        flagsArrayOrSecret,
+        requestOrCode,
+        store.secret,
+      );
     }
 
     if (hasOwnProperty(store.usedFlags, definition.key)) {
@@ -353,91 +372,32 @@ export async function decrypt<T extends object>(
 }
 
 /**
- * Create an object for managing precomputed flags that are used for a certain route parameter.
- * Use this only if you want to prerender or ISR the pages.
+ * Evaluate a list of feature flags and generate a signed string representing their values.
  *
- * 1. Generate the precomputed flags object. The first parameter is the name of the route parameter, the second is an object with flags that should be precomputed/decoded:
+ * This convenience function call combines `evaluate` and `serialize`.
  *
- * ```ts
- * const marketing = createPrecomputedFlags('code', { flag1, flag2 });
- * ```
- *
- * 2. If you want to prerender the pages, use `generatePermutations` inside `entries` to generate all possible permutations (if you use ISR you can skip this step):
- *
- * ```ts
- * // file: src/routes/marketing/[code]/+page.server.ts
- * export const prerender = true;
- *
- * export function entries() {
- *  return marketing.generatePermutations().map((code) => ({ code }));
- * }
- * ```
- *
- * 3. At runtime, generate the code within edge middleware:
- *
- * ```ts
- * // file: src/edge-middleware.ts
- * export default async function middleware(request: Request) {
- *  if (new URL(request.url).pathname === '/marketing')) {
- *    const code = await marketing.precompute(request);
- *    return rewrite(`/marketing/${code}`);
- *  }
- * }
- * ```
- *
- * 4. Use them in your SvelteKit load function:
- *
- * ```ts
- * // file: src/routes/marketing/[code]/+page.server.ts
- * export function load() {
- *  const value = marketing.flags.flag1();
- *  // ...
- * }
- * ```
+ * @param flags - list of flags
+ * @returns - a string representing evaluated flags
  */
-export function createPrecomputedFlags<T extends Record<string, Flag<any>>>(
-  param: string,
+export async function precompute<T extends FlagsArray>(
   flags: T,
+  request: Request,
   secret: string = tryGetSecret(),
-) {
-  const flagFunctions = Object.entries(flags).map(([_, flag]) => flag);
-  const flagsArray = Object.entries(flags).map(([key, flag]) => {
-    const fn = async () => {
-      let store = flagStorage.getStore();
+): Promise<string> {
+  return _precompute(flags, request, secret);
+}
 
-      if (!store) {
-        throw new Error(
-          'flags: No context found. You need to run this function during the lifecycle of the `handle` hook.',
-        );
-      }
-
-      const code = store.params[param];
-
-      if (!code) {
-        throw new Error(
-          `flags: Parameter '${param}' not found in context. Make sure you call this flag inside the right route.`,
-        );
-      }
-
-      return getPrecomputed(flag, flagFunctions, code, store.secret);
-    };
-
-    return [key, fn];
-  });
-
-  return {
-    generatePermutations: (
-      filter:
-        | ((permutation: Record<string, JsonValue>) => boolean)
-        | null = null,
-    ) => {
-      return generatePermutations(flagFunctions, filter, secret);
-    },
-    precompute: async (request: Request) => {
-      return precompute(flagFunctions, request, secret);
-    },
-    flags: Object.fromEntries(flagsArray) as {
-      [K in keyof T]: () => ReturnType<T[K]>;
-    },
-  };
+/**
+ * Generates all permutations given a list of feature flags based on the options declared on each flag.
+ * @param flags - The list of feature flags
+ * @param filter - An optional filter function which gets called with each permutation.
+ * @param secret - The secret sign the generated permutation with
+ * @returns An array of strings representing each permutation
+ */
+export function generatePermutations(
+  flags: FlagsArray,
+  filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
+  secret: string = tryGetSecret(),
+): Promise<string[]> {
+  return _generatePermutations(flags, filter, secret);
 }
