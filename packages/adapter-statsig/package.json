@@ -54,7 +54,6 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "@vercel/edge-config": "1.2.0",
     "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
