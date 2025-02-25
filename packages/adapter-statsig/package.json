@@ -2,7 +2,16 @@
   "name": "@flags-sdk/statsig",
   "version": "0.1.0",
   "description": "",
-  "keywords": [],
+  "keywords": [
+    "flags-sdk",
+    "statsig",
+    "dynamic config",
+    "vercel",
+    "edge config",
+    "experiments",
+    "experimentation",
+    "ab testing"
+  ],
   "license": "MIT",
   "author": "",
   "sideEffects": false,
