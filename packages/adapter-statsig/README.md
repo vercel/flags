@@ -24,9 +24,9 @@ import { statsigAdapter } from '@flags-sdk/statsig';
 import { flag } from 'flags/next';
 import { statsigAdapter } from '@flags-sdk/statsig';
 
-export const marketingConfig = flag<string>({
-  key: 'marketing_config',
-  adapter: statsigAdapter.dynamicConfig((config) => config.value),
+export const marketingGate = flag<boolean>({
+  key: 'marketing_gate',
+  adapter: statsigAdapter.featureGate((config) => config.value),
 });
 ```
 
