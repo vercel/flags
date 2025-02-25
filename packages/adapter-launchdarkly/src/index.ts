@@ -1,4 +1,4 @@
-import type { Adapter } from '@vercel/flags';
+import type { Adapter } from 'flags';
 import { createClient } from '@vercel/edge-config';
 import { init, type LDContext } from '@launchdarkly/vercel-server-sdk';
 

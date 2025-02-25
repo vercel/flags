@@ -19,7 +19,7 @@ export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 ```
 
 ```ts
-import { flag, dedupe } from '@vercel/flags/next';
+import { flag, dedupe } from 'flags/next';
 import { launchDarkly, type LDContext } from '@flags-sdk/launchdarkly';
 
 const identify = dedupe(async (): Promise<LDContext> => {
