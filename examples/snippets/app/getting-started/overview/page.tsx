@@ -1,4 +1,4 @@
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 import { DemoFlag } from '@/components/demo-flag';
 import { ReloadButton } from './reload-button';
 

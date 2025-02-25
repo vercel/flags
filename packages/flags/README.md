@@ -10,14 +10,14 @@ From the creators of Next.js, the Flags SDK is a free open-source library that g
 - Compatible with App Router, Pages Router, and Edge Middleware
 - Built for feature flags and experimentation
 
-See [flags-sdk.com](https://flags-sdk.com/) for full docs and examples.
+See [flags-sdk.dev](https://flags-sdk.dev/) for full docs and examples.
 
 ## Installation
 
 Install the package using your package manager:
 
 ```sh
-npm install @vercel/flags
+npm install flags
 ```
 
 ## Setup
@@ -38,7 +38,7 @@ Create a file called flags.ts in your project and declare your first feature fla
 
 ```ts
 // app/flags.tsx
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 
 export const exampleFlag = flag<boolean>({
   key: 'example-flag',
@@ -52,7 +52,7 @@ Call your feature flag in a React Server Component:
 
 ```tsx
 // app/page.tsx
-import { exampleFlag } from '../flags';
+import { exampleFlag } from './flags';
 
 export default async function Page() {
   const example = await exampleFlag();
@@ -70,4 +70,4 @@ The Flags SDK has adapters for popular feature flag providers including LaunchDa
 
 There is a lot more to the Flags SDK than shown in the example above.
 
-See the full documentation and examples on [flags-sdk.com](https://flags-sdk.com/).
+See the full documentation and examples on [flags-sdk.dev](https://flags-sdk.dev/).

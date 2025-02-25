@@ -5,7 +5,7 @@ import {
 } from '../flags';
 import { DemoFlag } from '@/components/demo-flag';
 import { RegenerateIdButton } from '../regenerate-id-button';
-import { generatePermutations } from '@vercel/flags/next';
+import { generatePermutations } from 'flags/next';
 
 // Ensure the page is static
 export const dynamic = 'error';

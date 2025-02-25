@@ -1,5 +1,5 @@
 export { getProviderData } from './provider';
-import { Adapter } from '@vercel/flags';
+import { Adapter } from 'flags';
 import Statsig, { type StatsigUser, type StatsigOptions } from 'statsig-node';
 import { EdgeConfigDataAdapter } from 'statsig-node-vercel';
 import { createClient } from '@vercel/edge-config';

@@ -7,7 +7,7 @@ import { version } from '../../package.json';
  * @example Using `reportValue` to report a flag value.
  * ```
  *  import { type NextRequest, NextResponse } from "next/server";
- *  import { reportValue } from '@vercel/flags';
+ *  import { reportValue } from 'flags';
  *
  *  export async function GET(request: NextRequest) {
  *    reportValue('my-flag', true);

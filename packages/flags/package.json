@@ -1,6 +1,6 @@
 {
-  "name": "@vercel/flags",
-  "version": "3.0.2",
+  "name": "flags",
+  "version": "3.1.1",
   "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [
     "feature flags",
@@ -27,20 +27,20 @@
       "require": "./dist/index.cjs"
     },
     "./next": {
-      "import": "./dist/next/index.js",
-      "require": "./dist/next/index.cjs"
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
     },
     "./analytics": {
       "import": "./dist/analytics.js",
       "require": "./dist/analytics.cjs"
     },
     "./react": {
-      "import": "./dist/react/index.js",
-      "require": "./dist/react/index.cjs"
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
     },
     "./sveltekit": {
-      "import": "./dist/sveltekit/index.js",
-      "require": "./dist/sveltekit/index.cjs"
+      "import": "./dist/sveltekit.js",
+      "require": "./dist/sveltekit.cjs"
     }
   },
   "typesVersions": {
@@ -50,16 +50,16 @@
         "dist/*.d.cts"
       ],
       "next": [
-        "dist/next/index.d.ts",
-        "dist/next/index.d.cts"
+        "dist/next.d.ts",
+        "dist/next.d.cts"
       ],
       "react": [
-        "dist/react/index.d.ts",
-        "dist/react/index.d.cts"
+        "dist/react.d.ts",
+        "dist/react.d.cts"
       ],
       "sveltekit": [
-        "dist/sveltekit/index.d.ts",
-        "dist/sveltekit/index.d.cts"
+        "dist/sveltekit.d.ts",
+        "dist/sveltekit.d.cts"
       ]
     }
   },
@@ -68,7 +68,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "rimraf dist && tsup",
+    "attw": "attw --pack .",
+    "build": "tsup",
     "dev": "tsup --watch --clean=false",
     "eslint": "eslint-runner",
     "eslint:fix": "eslint-runner --fix",
@@ -81,6 +82,7 @@
     "jose": "^5.2.1"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.17.3",
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
@@ -88,7 +90,6 @@
     "msw": "2.6.4",
     "next": "15.1.4",
     "react": "canary",
-    "rimraf": "6.0.1",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",

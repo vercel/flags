@@ -1,4 +1,4 @@
-import { createHandle } from '@vercel/flags/sveltekit';
+import { createHandle } from 'flags/sveltekit';
 import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 

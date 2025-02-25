@@ -32,7 +32,7 @@ function createCacheNode<T>(): CacheNode<T> {
  * into middleware, thus leading to an unnecessarily large middleware bundle.
  *
  * This function is a polyfill that will eventually land in Next.js itself,
- * at which point it will be removed from `@vercel/flags/next`.
+ * at which point it will be removed from `flags/next`.
  *
  * This function will turn any sync function async, since we rely on the
  * headers() API to dedupe, which is async.

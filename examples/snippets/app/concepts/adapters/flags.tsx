@@ -1,4 +1,4 @@
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 import { createEdgeConfigAdapter } from './edge-config-adapter';
 
 const edgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG!);

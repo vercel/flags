@@ -74,6 +74,9 @@ jobs:
       - name: Run TypeScript type check
         run: pnpm run type-check
 
+      - name: Run `@arethetypeswrong/cli` check
+        run: pnpm run attw
+
   publint:
     name: 'publint'
     runs-on: ubuntu-latest

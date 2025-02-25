@@ -1,4 +1,4 @@
-import { precompute } from '@vercel/flags/next';
+import { precompute } from 'flags/next';
 import { type NextRequest, NextResponse } from 'next/server';
 import { exampleFlags } from './flags';
 

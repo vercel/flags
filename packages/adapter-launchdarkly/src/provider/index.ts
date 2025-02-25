@@ -1,8 +1,4 @@
-import type {
-  FlagDefinitionsType,
-  JsonValue,
-  ProviderData,
-} from '@vercel/flags';
+import type { FlagDefinitionsType, JsonValue, ProviderData } from 'flags';
 
 // See: https://apidocs.launchdarkly.com/tag/Feature-flags#operation/getFeatureFlags
 interface LaunchDarklyApiData {

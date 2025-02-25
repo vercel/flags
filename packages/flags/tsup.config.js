@@ -5,26 +5,20 @@ const defaultConfig = {
   splitting: true,
   sourcemap: true,
   minify: false,
-  clean: false,
+  clean: true,
   skipNodeModulesBundle: true,
   dts: true,
-  external: ['node_modules'],
+  external: [/^node:.*/, 'node_modules'],
 };
 
 // eslint-disable-next-line import/no-default-export -- [@vercel/style-guide@5 migration]
 export default defineConfig({
-  entry: [
-    'src/next/index.ts',
-    'src/sveltekit/index.ts',
-    'src/react/index.tsx',
-    'src/index.ts',
-    'src/analytics.ts',
-    'src/providers/launchdarkly.ts',
-    'src/providers/split.ts',
-    'src/providers/statsig.ts',
-    'src/providers/optimizely.ts',
-    'src/providers/happykit.ts',
-    'src/providers/hypertune.ts',
-  ],
+  entry: {
+    index: 'src/index.ts',
+    next: 'src/next/index.ts',
+    sveltekit: 'src/sveltekit/index.ts',
+    react: 'src/react/index.tsx',
+    analytics: 'src/analytics.ts',
+  },
   ...defaultConfig,
 });

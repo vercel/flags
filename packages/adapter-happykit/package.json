@@ -41,8 +41,8 @@
   "devDependencies": {
     "@types/node": "20.11.17",
     "@vercel/edge-config": "1.2.0",
-    "@vercel/flags": "workspace:*",
     "eslint-config-custom": "workspace:*",
+    "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
     "tsconfig": "workspace:*",

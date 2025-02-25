@@ -87,9 +87,7 @@ function getDecide<ValueType, EntitiesType>(
     if (typeof definition.adapter?.decide === 'function') {
       return definition.adapter.decide({ key: definition.key, ...params });
     }
-    throw new Error(
-      `@vercel/flags: No decide function provided for ${definition.key}`,
-    );
+    throw new Error(`flags: No decide function provided for ${definition.key}`);
   };
 }
 
@@ -103,7 +101,7 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
     const store = flagStorage.getStore();
 
     if (!store) {
-      throw new Error('@vercel/flags: context not found');
+      throw new Error('flags: context not found');
     }
 
     if (hasOwnProperty(store.usedFlags, definition.key)) {
@@ -199,7 +197,7 @@ const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
  * @example Usage example in src/hooks.server.ts
  *
  * ```ts
- * import { createHandle } from '@vercel/flags/sveltekit';
+ * import { createHandle } from 'flags/sveltekit';
  * import { FLAGS_SECRET } from '$env/static/private';
  * import * as flags from '$lib/flags';
  *

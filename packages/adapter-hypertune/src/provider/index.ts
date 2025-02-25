@@ -1,4 +1,4 @@
-import type { ProviderData } from '@vercel/flags';
+import type { ProviderData } from 'flags';
 
 export async function getProviderData(options: {
   token: string;

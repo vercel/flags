@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { verifyAccess, type ApiData } from '@vercel/flags';
-import { getProviderData } from '@vercel/flags/next';
+import { verifyAccess, type ApiData } from 'flags';
+import { getProviderData } from 'flags/next';
 // The @/ import is not working in the ".well-known" folder due do the dot in the path.
 // We need to use relative paths instead. This seems like a TypeScript issue.
 import * as marketingFlags from '../../../examples/marketing-pages/flags';

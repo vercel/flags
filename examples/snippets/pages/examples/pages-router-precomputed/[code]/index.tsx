@@ -9,7 +9,7 @@ import {
   exampleFlags,
 } from '@/lib/pages-router-precomputed/flags';
 import { DemoFlag } from '@/components/demo-flag';
-import { generatePermutations } from '@vercel/flags/next';
+import { generatePermutations } from 'flags/next';
 
 export const getStaticPaths = (async () => {
   const codes = await generatePermutations(exampleFlags);

@@ -1,8 +1,4 @@
-import type {
-  FlagDefinitionType,
-  JsonValue,
-  ProviderData,
-} from '@vercel/flags';
+import type { FlagDefinitionType, JsonValue, ProviderData } from 'flags';
 
 interface ProjectResponseBody {
   project: {

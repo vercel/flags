@@ -8,7 +8,7 @@ import { trace } from './tracing';
  * @example Using verifyAccess in .well-known/vercel/flags to verify access and respond with unencrypted data.
  * ```
  *  import { type NextRequest, NextResponse } from "next/server";
- *  import { verifyAccess } from "@vercel/flags";
+ *  import { verifyAccess } from "flags";
  *
  *  export async function GET(request: NextRequest) {
  *    const access = await verifyAccess(request.headers.get("Authorization"));
@@ -32,7 +32,7 @@ export const verifyAccess = trace(
     if (!authHeader) return false;
     if (!secret)
       throw new Error(
-        '@vercel/flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
+        'flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
       );
 
     const data = await decrypt<{}>(

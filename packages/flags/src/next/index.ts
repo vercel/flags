@@ -175,9 +175,7 @@ function getDecide<ValueType, EntitiesType>(
     if (typeof definition.adapter?.decide === 'function') {
       return definition.adapter.decide({ key: definition.key, ...params });
     }
-    throw new Error(
-      `@vercel/flags: No decide function provided for ${definition.key}`,
-    );
+    throw new Error(`flags: No decide function provided for ${definition.key}`);
   };
 }
 
@@ -279,60 +277,50 @@ function getRun<ValueType, EntitiesType>(
       return decision;
     }
 
-    // fall back to defaultValue if it is set,
-    let decisionPromise: Promise<ValueType> | ValueType;
-    try {
-      decisionPromise = Promise.resolve<ValueType>(
-        decide({
-          headers: readonlyHeaders,
-          cookies: readonlyCookies,
-          entities,
-        }),
-      )
-        // catch errors in async "decide" functions
-        .then<ValueType, ValueType>(
-          (value) => {
-            if (value !== undefined) return value;
-            if (definition.defaultValue !== undefined)
-              return definition.defaultValue;
-            throw new Error(
-              `@vercel/flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
-            );
-          },
-          (error: Error) => {
-            if (isInternalNextError(error)) throw error;
+    // We use an async iife to ensure we can catch both sync and async errors of
+    // the original decide function, as that one is not guaranted to be async.
+    //
+    // Also fall back to defaultValue when the decide function returns undefined or throws an error.
+    const decisionPromise = (async () => {
+      return decide({
+        headers: readonlyHeaders,
+        cookies: readonlyCookies,
+        entities,
+      });
+    })()
+      // catch errors in async "decide" functions
+      .then<ValueType, ValueType>(
+        (value) => {
+          if (value !== undefined) return value;
+          if (definition.defaultValue !== undefined)
+            return definition.defaultValue;
+          throw new Error(
+            `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
+          );
+        },
+        (error: Error) => {
+          if (isInternalNextError(error)) throw error;
 
-            // try to recover if defaultValue is set
-            if (definition.defaultValue !== undefined) {
+          // try to recover if defaultValue is set
+          if (definition.defaultValue !== undefined) {
+            if (process.env.NODE_ENV === 'development') {
+              console.info(
+                `flags: Flag "${definition.key}" is falling back to its defaultValue`,
+              );
+            } else {
               console.warn(
-                `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
+                `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
                 error,
               );
-              return definition.defaultValue;
             }
-            console.warn(
-              `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
-            );
-            throw error;
-          },
-        );
-    } catch (error) {
-      if (isInternalNextError(error)) throw error;
-
-      // catch errors in sync "decide" functions
-      if (definition.defaultValue !== undefined) {
-        console.warn(
-          `@vercel/flags: Flag "${definition.key}" is falling back to the defaultValue after catching the following error`,
-          error,
-        );
-        decisionPromise = Promise.resolve(definition.defaultValue);
-      } else {
-        console.warn(
-          `@vercel/flags: Flag "${definition.key}" could not be evaluated`,
-        );
-        throw error;
-      }
-    }
+            return definition.defaultValue;
+          }
+          console.warn(
+            `flags: Flag "${definition.key}" could not be evaluated`,
+          );
+          throw error;
+        },
+      );
 
     setCachedValuePromise(
       readonlyHeaders,
@@ -370,7 +358,7 @@ function getOrigin<ValueType, EntitiesType>(
  *
  * If an override set by Vercel Toolbar, or more precisely if the `vercel-flag-overrides` cookie, is present then the `decide` function will not be called and the value of the override will be returned instead.
  *
- * In both cases this function also calls the `reportValue` function of `@vercel/flags` so the evaluated flag shows up in Runtime Logs and is available for use with Web Analytics custom server-side events.
+ * In both cases this function also calls the `reportValue` function of `flags` so the evaluated flag shows up in Runtime Logs and is available for use with Web Analytics custom server-side events.
  *
  *
  * @param definition - Information about the feature flag.

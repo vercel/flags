@@ -1,4 +1,4 @@
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 
 export const hasAuthCookieFlag = flag<boolean>({
   key: 'has-auth-cookie',

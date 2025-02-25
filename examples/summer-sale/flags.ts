@@ -1,4 +1,4 @@
-import { flag, dedupe } from '@vercel/flags/next';
+import { flag, dedupe } from 'flags/next';
 import { getOrGenerateVisitorId } from './utils/generateVisitorId';
 
 const identify = dedupe(async () => {
