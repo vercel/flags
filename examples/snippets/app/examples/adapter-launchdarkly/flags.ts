@@ -1,4 +1,4 @@
-import { flag } from '@vercel/flags/next';
+import { flag } from 'flags/next';
 import { launchDarkly } from '@flags-sdk/launchdarkly';
 
 export const summerSaleFlag = flag({
