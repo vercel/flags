@@ -24,7 +24,7 @@ import { statsigAdapter } from '@flags-sdk/statsig';
 import { flag } from 'flags/next';
 import { statsigAdapter } from '@flags-sdk/statsig';
 
-export const marketingConfig = flag<Record<string>>({
+export const marketingConfig = flag<string>({
   key: 'marketing_config',
   adapter: statsigAdapter.dynamicConfig((config) => config.value),
 });
