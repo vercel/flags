@@ -2,4 +2,4 @@
 '@flags-sdk/launchdarkly': minor
 ---
 
-add LaunchDarkly adapter
+Add LaunchDarkly adapter
