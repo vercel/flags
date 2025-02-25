@@ -1,7 +1,7 @@
 {
   "name": "@flags-sdk/statsig",
   "version": "0.1.0",
-  "description": "",
+  "description": "Statsig provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
     "statsig",
@@ -12,8 +12,15 @@
     "experimentation",
     "ab testing"
   ],
+  "homepage": "https://flags-sdk.dev/docs",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "license": "MIT",
-  "author": "",
   "sideEffects": false,
   "type": "module",
   "exports": {
