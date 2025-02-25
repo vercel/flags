@@ -101,7 +101,7 @@ export function createStatsigAdapter(options: {
     edgeRuntimeIntervalHandler?.();
     if (!isStatsigUser(user)) {
       throw new Error(
-        'Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
+        '@flags-sdk/statsig: Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
       );
     }
     return user;
