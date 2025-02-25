@@ -12,7 +12,13 @@ import {
 } from './edge-runtime-hooks';
 
 // Export the Statsig instance
-export { Statsig };
+export {
+  Statsig,
+  type StatsigUser,
+  type StatsigOptions,
+  type DynamicConfig,
+  type Layer,
+};
 
 export type FeatureGate = ReturnType<
   typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
