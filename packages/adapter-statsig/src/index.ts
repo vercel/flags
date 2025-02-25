@@ -11,6 +11,9 @@ import {
   createEdgeRuntimeIntervalHandler,
 } from './edge-runtime-hooks';
 
+// Export the Statsig instance
+export { Statsig };
+
 export type FeatureGate = ReturnType<
   typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
 >;
@@ -63,6 +66,9 @@ export function createStatsigAdapter(options: {
       // Can be opted in using `options.statsigOptions`
       initStrategyForIDLists: 'none',
       disableIdListsSync: true,
+      // Set a shorter interval during development so developers see changes earlier
+      rulesetsSyncIntervalMs:
+        process.env.NODE_ENV === 'development' ? 5_000 : undefined,
       ...options.statsigOptions,
     });
   };

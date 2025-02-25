@@ -22,7 +22,13 @@ export async function createEdgeConfigDataAdapter(options: {
   const { createClient } = await import('@vercel/edge-config');
   return new EdgeConfigDataAdapter({
     edgeConfigItemKey: options.edgeConfigItemKey,
-    edgeConfigClient: createClient(options.edgeConfigConnectionString),
+    edgeConfigClient: createClient(options.edgeConfigConnectionString, {
+      // We disable the development cache as Statsig caches for 10 seconds internally,
+      // and we want to avoid situations where Statsig tries to read the latest value,
+      // but hits the development cache and then caches the outdated value for another 10 seconds,
+      // as this would lead to the developer having to wait 20 seconds to see the latest value.
+      disableDevelopmentCache: true,
+    }),
   });
 }
 
