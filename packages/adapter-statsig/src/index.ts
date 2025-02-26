@@ -8,7 +8,7 @@ import Statsig, {
 } from 'statsig-node-lite';
 import {
   createEdgeConfigDataAdapter,
-  createEdgeRuntimeIntervalHandler,
+  createSyncingHandler,
 } from './edge-runtime-hooks';
 
 // Export the Statsig instance
@@ -100,11 +100,11 @@ export function createStatsigAdapter(options: {
     return user != null && typeof user === 'object';
   };
 
-  const edgeRuntimeIntervalHandler = createEdgeRuntimeIntervalHandler();
+  const syncHandler = createSyncingHandler();
 
   async function predecide(user?: StatsigUser): Promise<StatsigUser> {
     await initialize();
-    edgeRuntimeIntervalHandler?.();
+    syncHandler?.();
     if (!isStatsigUser(user)) {
       throw new Error(
         '@flags-sdk/statsig: Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',

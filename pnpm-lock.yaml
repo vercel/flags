@@ -211,10 +211,10 @@ importers:
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0
-        version: 3.3.1(@sveltejs/kit@2.17.2)
+        version: 3.3.1(@sveltejs/kit@2.17.3)
       '@sveltejs/kit':
         specifier: ^2.0.0
-        version: 2.17.2(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
+        version: 2.17.3(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
       '@sveltejs/vite-plugin-svelte':
         specifier: ^3.0.0
         version: 3.1.2(svelte@4.2.19)(vite@5.1.1)
@@ -502,13 +502,13 @@ importers:
         version: 1.9.0
       '@sveltejs/kit':
         specifier: '*'
-        version: 2.17.2(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
+        version: 2.17.3(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
       jose:
         specifier: ^5.2.1
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 18.3.1(react@19.1.0-canary-25677265-20250224)
+        version: 18.3.1(react@19.1.0-canary-22e39ea7-20250225)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -530,10 +530,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.9)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-25677265-20250224)
+        version: 15.1.4(@babel/core@7.26.9)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-22e39ea7-20250225)
       react:
         specifier: canary
-        version: 19.1.0-canary-25677265-20250224
+        version: 19.1.0-canary-22e39ea7-20250225
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -678,10 +678,10 @@ importers:
         version: 1.48.2
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0
-        version: 3.3.1(@sveltejs/kit@2.17.2)
+        version: 3.3.1(@sveltejs/kit@2.17.3)
       '@sveltejs/kit':
         specifier: ^2.0.0
-        version: 2.17.2(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
+        version: 2.17.3(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
       '@sveltejs/vite-plugin-svelte':
         specifier: ^3.0.0
         version: 3.1.2(svelte@4.2.19)(vite@5.1.1)
@@ -2667,7 +2667,7 @@ packages:
     resolution: {integrity: sha512-UASk9zi+crv9WteK/NU4PLvOoL3OuE6BWVKNF6hPRBtYBDXQ2u5iu3O59zUlJiTVvkyuycnqrztsHVJwcK9K+Q==}
     peerDependencies:
       '@types/react': '*'
-      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react: 19.0.0-rc-380f5d67-20241113
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -2942,7 +2942,7 @@ packages:
     resolution: {integrity: sha512-CasTfvsy+frcFkbXtSJ2Zu9JHpN8TYKxkgJGWbjiZhFivxaeW7rMeZt7QELGVLaYVfFMsKHjb7Ak0nMEe+2Vfw==}
     peerDependencies:
       '@types/react': '*'
-      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react: 19.0.0-rc.0 || 19.0.0-beta-4508873393-20240430
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -2983,7 +2983,7 @@ packages:
     resolution: {integrity: sha512-+FPE0rOdziWSrH9athwI1R0HDVbWlEhd+FR+aSDk4uWGmSJ9Z54sdZVDQPZAinJhJXwfT+qnj969mCsT2gfm5w==}
     peerDependencies:
       '@types/react': '*'
-      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react: 19.0.0-rc.0 || 19.0.0-beta-4508873393-20240430
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3238,17 +3238,17 @@ packages:
     dependencies:
       '@sinonjs/commons': 3.0.1
 
-  /@sveltejs/adapter-auto@3.3.1(@sveltejs/kit@2.17.2):
+  /@sveltejs/adapter-auto@3.3.1(@sveltejs/kit@2.17.3):
     resolution: {integrity: sha512-5Sc7WAxYdL6q9j/+D0jJKjGREGlfIevDyHSQ2eNETHcB1TKlQWHcAo8AS8H1QdjNvSXpvOwNjykDUHPEAyGgdQ==}
     peerDependencies:
       '@sveltejs/kit': ^2.0.0
     dependencies:
-      '@sveltejs/kit': 2.17.2(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
+      '@sveltejs/kit': 2.17.3(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1)
       import-meta-resolve: 4.1.0
     dev: true
 
-  /@sveltejs/kit@2.17.2(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1):
-    resolution: {integrity: sha512-Vypk02baf7qd3SOB1uUwUC/3Oka+srPo2J0a8YN3EfJypRshDkNx9HzNKjSmhOnGWwT+SSO06+N0mAb8iVTmTQ==}
+  /@sveltejs/kit@2.17.3(@sveltejs/vite-plugin-svelte@3.1.2)(svelte@4.2.19)(vite@5.1.1):
+    resolution: {integrity: sha512-GcNaPDr0ti4O/TonPewkML2DG7UVXkSxPN3nPMlpmx0Rs4b2kVP4gymz98WEHlfzPXdd4uOOT1Js26DtieTNBQ==}
     engines: {node: '>=18.13'}
     hasBin: true
     peerDependencies:
@@ -4695,7 +4695,7 @@ packages:
       postcss: ^8.1.0
     dependencies:
       browserslist: 4.24.4
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       fraction.js: 4.3.7
       normalize-range: 0.1.2
       picocolors: 1.1.1
@@ -4829,8 +4829,8 @@ packages:
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
     dependencies:
-      caniuse-lite: 1.0.30001700
-      electron-to-chromium: 1.5.104
+      caniuse-lite: 1.0.30001701
+      electron-to-chromium: 1.5.105
       node-releases: 2.0.19
       update-browserslist-db: 1.1.2(browserslist@4.24.4)
 
@@ -4927,8 +4927,8 @@ packages:
     resolution: {integrity: sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==}
     engines: {node: '>=10'}
 
-  /caniuse-lite@1.0.30001700:
-    resolution: {integrity: sha512-2S6XIXwaE7K7erT8dY+kLQcpa5ms63XlRkMkReXjle+kf6c5g38vyMl+Z5y8dSxOFDhcFe+nxnn261PLxBSQsQ==}
+  /caniuse-lite@1.0.30001701:
+    resolution: {integrity: sha512-faRs/AW3jA9nTwmJBSO1PQ6L/EOgsB5HMQQq4iCu5zhPgVVgO/pZRHlmatwijZKetFw8/Pr4q6dEN8sJuq8qTw==}
 
   /ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -5478,8 +5478,8 @@ packages:
   /eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  /electron-to-chromium@1.5.104:
-    resolution: {integrity: sha512-Us9M2L4cO/zMBqVkJtnj353nQhMju9slHm62NprKTmdF3HH8wYOtNvDFq/JB2+ZRoGLzdvYDiATlMHs98XBM1g==}
+  /electron-to-chromium@1.5.105:
+    resolution: {integrity: sha512-ccp7LocdXx3yBhwiG0qTQ7XFrK48Ua2pxIxBdJO8cbddp/MvbBtPFzvnTchtyHQTsgqqczO8cdmAIbpMa0u2+g==}
 
   /emittery@0.13.1:
     resolution: {integrity: sha512-DeWwawk6r5yR9jFgnDKYt4sLS0LmHJJi3ZOnb5/JdbYwj3nW+FxQnHIjhBKz8YLC7oRNPVM9NQ47I3CVx34eqQ==}
@@ -6635,7 +6635,7 @@ packages:
   /fastq@1.19.0:
     resolution: {integrity: sha512-7SFSRCNjBQIZH/xZR3iy5iQYR8aGBE0h3VG6/cwlbrpdciNYBMotQav8c1XI3HjHH+NikUpP53nPdlZSdWmFzA==}
     dependencies:
-      reusify: 1.0.4
+      reusify: 1.1.0
 
   /fb-watchman@2.0.2:
     resolution: {integrity: sha512-p5161BqbuCaSnB8jIbzQHOlpgsPmK5rJVDfDKO91Axs5NC1uu3HRQm6wt9cd9/+GtQQIO53JdGXXoyDpTAsgYA==}
@@ -8498,7 +8498,7 @@ packages:
       '@next/env': 13.5.7
       '@swc/helpers': 0.5.2
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -8541,7 +8541,7 @@ packages:
       '@playwright/test': 1.48.2
       '@swc/helpers': 0.5.5
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       graceful-fs: 4.2.11
       postcss: 8.4.31
       react: 18.3.1
@@ -8587,7 +8587,7 @@ packages:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.13
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -8607,7 +8607,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.9)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-25677265-20250224):
+  /next@15.1.4(@babel/core@7.26.9)(@opentelemetry/api@1.9.0)(react-dom@18.3.1)(react@19.1.0-canary-22e39ea7-20250225):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -8633,11 +8633,11 @@ packages:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
-      react: 19.1.0-canary-25677265-20250224
-      react-dom: 18.3.1(react@19.1.0-canary-25677265-20250224)
-      styled-jsx: 5.1.6(@babel/core@7.26.9)(react@19.1.0-canary-25677265-20250224)
+      react: 19.1.0-canary-22e39ea7-20250225
+      react-dom: 18.3.1(react@19.1.0-canary-22e39ea7-20250225)
+      styled-jsx: 5.1.6(@babel/core@7.26.9)(react@19.1.0-canary-22e39ea7-20250225)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -8679,7 +8679,7 @@ packages:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
       react: 19.0.0-rc-02c0e824-20241028
       react-dom: 19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028)
@@ -8724,7 +8724,7 @@ packages:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -8769,7 +8769,7 @@ packages:
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001700
+      caniuse-lite: 1.0.30001701
       postcss: 8.4.31
       react: 19.0.0-rc-02c0e824-20241028
       react-dom: 19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028)
@@ -9408,13 +9408,13 @@ packages:
       scheduler: 0.23.2
     dev: false
 
-  /react-dom@18.3.1(react@19.1.0-canary-25677265-20250224):
+  /react-dom@18.3.1(react@19.1.0-canary-22e39ea7-20250225):
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
     peerDependencies:
       react: ^18.3.1
     dependencies:
       loose-envify: 1.4.0
-      react: 19.1.0-canary-25677265-20250224
+      react: 19.1.0-canary-22e39ea7-20250225
       scheduler: 0.23.2
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -9500,8 +9500,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.1.0-canary-25677265-20250224:
-    resolution: {integrity: sha512-vYF/etfc1I9obVWhyTHatPcUwmXp4d2KNnQVRYlag+NAWUA7SE8QcrDbOCAv8E7dFBsYBZNEm++23mLy/sdj0Q==}
+  /react@19.1.0-canary-22e39ea7-20250225:
+    resolution: {integrity: sha512-9Pjd0zY+ldEFLg5fyMAYeUUiqpz5IWVKwrRYK5KCmSK8OMtLqSSi/WHQB6ATH/Zq71EcQynJ4IeplLR1q8umFQ==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -9673,8 +9673,8 @@ packages:
       signal-exit: 4.1.0
     dev: true
 
-  /reusify@1.0.4:
-    resolution: {integrity: sha512-U9nH88a3fc/ekCF1l0/UP1IosiuIjyTh7hBvXVMHYgVcfGvt897Xguj2UOLDeI5BG2m7/uwyaLVT6fbtCwTyzw==}
+  /reusify@1.1.0:
+    resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
   /rfdc@1.4.1:
@@ -10358,7 +10358,7 @@ packages:
       react: 19.0.0-rc-02c0e824-20241028
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.9)(react@19.1.0-canary-25677265-20250224):
+  /styled-jsx@5.1.6(@babel/core@7.26.9)(react@19.1.0-canary-22e39ea7-20250225):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -10373,7 +10373,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.9
       client-only: 0.0.1
-      react: 19.1.0-canary-25677265-20250224
+      react: 19.1.0-canary-22e39ea7-20250225
     dev: true
 
   /sucrase@3.35.0:

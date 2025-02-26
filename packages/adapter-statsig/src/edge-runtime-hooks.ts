@@ -38,10 +38,20 @@ export async function createEdgeConfigDataAdapter(options: {
  * Statsig syncs config specs outside of the request context,
  * so we will support it in triggering config spec synchronization in this case.
  */
-export const createEdgeRuntimeIntervalHandler = (): null | (() => void) => {
-  if (typeof EdgeRuntime === 'undefined') return null;
+export const createSyncingHandler = (): null | (() => void) => {
+  // Syncing both in Edge Runtime and Node.js for now, as the sync is otherwise
+  // not working during local development.
+  //
+  // This needs to be fixed in statsig-node-lite in the future.
+  //
+  // Ideally the Statsig SDK would not sync at all and instead always read from Edge Config,
+  // this would provide two benefits:
+  // - changes would propagate immediately instead of being cached for 5s or 10s
+  // - the broken syncing due to issues in Date.now in Edge Runtime would be irrelevant
+  //
+  // if (typeof EdgeRuntime === 'undefined') return null;
 
-  const timerInterval = 10_000;
+  const timerInterval = 5_000;
   let isSyncingConfigSpecs = false;
   let nextConfigSpecSyncTime = Date.now() + timerInterval;
   return (): void => {
