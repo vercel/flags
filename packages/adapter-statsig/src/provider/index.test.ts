@@ -195,106 +195,119 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
+const responseFixture = {
+  hints: [],
+  definitions: {
+    show_high_definition_images: {
+      options: [
+        { label: 'Off', value: false },
+        { label: 'On', value: true },
+      ],
+      description: 'Show high definition product images',
+      origin:
+        'https://console.statsig.com/project-id-placeholder/gates/show_high_definition_images',
+      createdAt: 1708981092158,
+      updatedAt: 1708981874677,
+    },
+    show_new_product_details: {
+      options: [
+        { label: 'Off', value: false },
+        { label: 'On', value: true },
+      ],
+      description: 'Shows the new product details.',
+      origin:
+        'https://console.statsig.com/project-id-placeholder/gates/show_new_product_details',
+      createdAt: 1708975725889,
+      updatedAt: 1708975899169,
+    },
+    classroom: {
+      description: '',
+      origin:
+        'https://console.statsig.com/project-id-placeholder/experiments/classroom/setup',
+      options: [
+        {
+          label: 'Class D',
+          value: {
+            idealism: 75,
+            fitness: 'weak',
+            skilful: false,
+            proficiency: {
+              math: 10,
+              literature: 10,
+              sport: 10,
+            },
+            standouts: [],
+          },
+        },
+        {
+          label: 'Class C',
+          value: {
+            idealism: 40,
+            fitness: 'lazy',
+            skilful: false,
+            proficiency: {
+              math: 30,
+              literature: 30,
+              sport: 40,
+            },
+            standouts: ['Craftsmanship', 'Basketball'],
+          },
+        },
+        {
+          label: 'Class B',
+          value: {
+            idealism: 20,
+            fitness: 'fit',
+            skilful: true,
+            proficiency: {
+              math: 60,
+              literature: 70,
+              sport: 80,
+            },
+            standouts: ['Chess', 'Aikido'],
+          },
+        },
+        {
+          label: 'Class A',
+          value: {
+            idealism: 0,
+            fitness: 'strong',
+            skilful: true,
+            proficiency: {
+              math: 100,
+              literature: 100,
+              sport: 100,
+            },
+            standouts: ['Martial Arts', 'Poetry', 'Politics'],
+          },
+        },
+      ],
+      createdAt: 1707427634717,
+      updatedAt: 1707427635442,
+    },
+  },
+} as const;
+
 describe('getProviderData', () => {
   describe('when called with valid params', () => {
+    it('should fetch and return', async () => {
+      await expect(
+        getProviderData({
+          consoleApiKey: 'console-this-is-a-test-token',
+          projectId: 'project-id-placeholder',
+        }),
+      ).resolves.toEqual(responseFixture);
+    });
+  });
+
+  describe('when called with deprecated valid params', () => {
     it('should fetch and return', async () => {
       await expect(
         getProviderData({
           statsigConsoleApiKey: 'console-this-is-a-test-token',
           projectId: 'project-id-placeholder',
         }),
-      ).resolves.toEqual({
-        hints: [],
-        definitions: {
-          show_high_definition_images: {
-            options: [
-              { label: 'Off', value: false },
-              { label: 'On', value: true },
-            ],
-            description: 'Show high definition product images',
-            origin:
-              'https://console.statsig.com/project-id-placeholder/gates/show_high_definition_images',
-            createdAt: 1708981092158,
-            updatedAt: 1708981874677,
-          },
-          show_new_product_details: {
-            options: [
-              { label: 'Off', value: false },
-              { label: 'On', value: true },
-            ],
-            description: 'Shows the new product details.',
-            origin:
-              'https://console.statsig.com/project-id-placeholder/gates/show_new_product_details',
-            createdAt: 1708975725889,
-            updatedAt: 1708975899169,
-          },
-          classroom: {
-            description: '',
-            origin:
-              'https://console.statsig.com/project-id-placeholder/experiments/classroom/setup',
-            options: [
-              {
-                label: 'Class D',
-                value: {
-                  idealism: 75,
-                  fitness: 'weak',
-                  skilful: false,
-                  proficiency: {
-                    math: 10,
-                    literature: 10,
-                    sport: 10,
-                  },
-                  standouts: [],
-                },
-              },
-              {
-                label: 'Class C',
-                value: {
-                  idealism: 40,
-                  fitness: 'lazy',
-                  skilful: false,
-                  proficiency: {
-                    math: 30,
-                    literature: 30,
-                    sport: 40,
-                  },
-                  standouts: ['Craftsmanship', 'Basketball'],
-                },
-              },
-              {
-                label: 'Class B',
-                value: {
-                  idealism: 20,
-                  fitness: 'fit',
-                  skilful: true,
-                  proficiency: {
-                    math: 60,
-                    literature: 70,
-                    sport: 80,
-                  },
-                  standouts: ['Chess', 'Aikido'],
-                },
-              },
-              {
-                label: 'Class A',
-                value: {
-                  idealism: 0,
-                  fitness: 'strong',
-                  skilful: true,
-                  proficiency: {
-                    math: 100,
-                    literature: 100,
-                    sport: 100,
-                  },
-                  standouts: ['Martial Arts', 'Poetry', 'Politics'],
-                },
-              },
-            ],
-            createdAt: 1707427634717,
-            updatedAt: 1707427635442,
-          },
-        },
-      });
+      ).resolves.toEqual(responseFixture);
     });
   });
 
@@ -302,7 +315,7 @@ describe('getProviderData', () => {
     it('should return appropriate hints', async () => {
       await expect(
         getProviderData({
-          statsigConsoleApiKey: '',
+          consoleApiKey: '',
         }),
       ).resolves.toEqual({
         definitions: {},

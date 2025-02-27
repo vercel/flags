@@ -43,28 +43,55 @@ interface StatsigExperimentsResponse {
   };
 }
 
-export async function getProviderData(options: {
-  statsigConsoleApiKey: string;
-  /**
-   * Required to set the `origin` property on the flag definitions.
-   */
-  projectId?: string;
-}): Promise<ProviderData> {
-  const hints = [];
+export async function getProviderData(
+  options: {
+    /**
+     * Required to set the `origin` property on the flag definitions.
+     */
+    projectId?: string;
+  } & (
+    | {
+        /**
+         * The Statsig Console API key.
+         */
+        consoleApiKey: string;
+        /**
+         * @deprecated Use `consoleApiKey` instead.
+         */
+        statsigConsoleApiKey?: never;
+      }
+    | {
+        /**
+         * @deprecated Use `consoleApiKey` instead.
+         */
+        statsigConsoleApiKey: string;
+        /**
+         * The Statsig Console API key.
+         */
+        consoleApiKey?: never;
+      }
+  ),
+): Promise<ProviderData> {
+  const consoleApiKey = options.consoleApiKey || options.statsigConsoleApiKey;
 
-  if (!options.statsigConsoleApiKey) {
-    hints.push({
-      key: 'statsig/missing-api-key',
-      text: 'Missing Statsig Console API Key',
-    });
+  if (!consoleApiKey) {
+    return {
+      definitions: {},
+      hints: [
+        {
+          key: 'statsig/missing-api-key',
+          text: 'Missing Statsig Console API Key',
+        },
+      ],
+    };
   }
 
-  // Abort early if called with incomplete options.
-  if (hints.length > 0) return { definitions: {}, hints };
+  const hints: ProviderData['hints'] = [];
 
+  // Abort early if called with incomplete options.
   const [gates, experiments] = await Promise.allSettled([
-    getFeatureGates(options),
-    getExperiments(options),
+    getFeatureGates({ consoleApiKey }),
+    getExperiments({ consoleApiKey }),
   ] as const);
 
   const definitions: ProviderData['definitions'] = {};
@@ -121,7 +148,7 @@ export async function getProviderData(options: {
 /**
  * Fetch all Feature Gates.
  */
-async function getFeatureGates(options: { statsigConsoleApiKey: string }) {
+async function getFeatureGates(options: { consoleApiKey: string }) {
   const data: StatsigFeatureGateResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/gates';
@@ -131,7 +158,7 @@ async function getFeatureGates(options: { statsigConsoleApiKey: string }) {
       method: 'GET',
       headers: {
         'content-type': 'application/json',
-        'STATSIG-API-KEY': options.statsigConsoleApiKey,
+        'STATSIG-API-KEY': options.consoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
       cache: 'no-store',
@@ -157,7 +184,7 @@ async function getFeatureGates(options: { statsigConsoleApiKey: string }) {
 /**
  * Fetch all experiments.
  */
-async function getExperiments(options: { statsigConsoleApiKey: string }) {
+async function getExperiments(options: { consoleApiKey: string }) {
   const data: StatsigExperimentsResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/experiments';
@@ -167,7 +194,7 @@ async function getExperiments(options: { statsigConsoleApiKey: string }) {
       method: 'GET',
       headers: {
         'content-type': 'application/json',
-        'STATSIG-API-KEY': options.statsigConsoleApiKey,
+        'STATSIG-API-KEY': options.consoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
       cache: 'no-store',
