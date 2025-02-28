@@ -35,7 +35,7 @@ export function SummerBanner(props: { show: boolean }) {
               </p>
               <button
                 type="button"
-                className="mt-8 block w-full rounded-md border border-transparent bg-white px-8 py-3 text-base font-medium text-gray-900 hover:bg-gray-100 sm:w-auto"
+                className="cursor-pointer mt-8 block w-full rounded-md border border-transparent bg-white px-8 py-3 text-base font-medium text-gray-900 hover:bg-gray-100 sm:w-auto"
                 onClick={() => {
                   track('summer_banner:clicked');
                 }}

@@ -1,6 +1,6 @@
 import { proceedToCheckoutColorFlag } from '@/flags';
-import { getStableId } from '@/utils/get-stable-id';
 import Link from 'next/link';
+import { ProceedToCheckoutButton } from './proceed-to-checkout-button';
 
 const colorMap: Record<string, string> = {
   blue: 'bg-blue-600 hover:bg-blue-700',
@@ -18,9 +18,6 @@ export async function CheckoutForm({
   total: number;
 }) {
   const proceedToCheckoutColor = await proceedToCheckoutColorFlag();
-
-  const stableId = await getStableId();
-  console.log('stableId#checkout', stableId, proceedToCheckoutColor);
 
   return (
     <section className="mt-16 rounded-lg bg-gray-50 px-6 py-6 sm:p-6 lg:col-span-5 lg:mt-0 lg:p-8">
@@ -48,12 +45,7 @@ export async function CheckoutForm({
       </div>
 
       <div className="mt-6">
-        <button
-          type="button"
-          className={`${colorMap[proceedToCheckoutColor]} w-full rounded-full border border-transparent px-4 py-3 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-50`}
-        >
-          Proceed to Checkout
-        </button>
+        <ProceedToCheckoutButton color={colorMap[proceedToCheckoutColor]} />
       </div>
 
       <div className="mt-6 text-center text-sm text-gray-500">

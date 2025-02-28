@@ -7,7 +7,7 @@ export function OrderSummaryRemoveButton({ index }: { index: number }) {
     <button
       type="button"
       onClick={() => removeFromCart(index)}
-      className="font-medium text-blue-600 hover:text-blue-500"
+      className="cursor-pointer font-medium text-blue-600 hover:text-blue-500"
     >
       Remove
     </button>
