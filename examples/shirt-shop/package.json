@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
+    "replace-workspace-version": "node scripts/replace-workspace-version.mjs",
     "start": "next start"
   },
   "dependencies": {

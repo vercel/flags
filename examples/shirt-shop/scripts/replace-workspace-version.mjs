@@ -1,8 +1,10 @@
 import fs from 'fs/promises';
 
 async function prepareTemplate() {
-  // Skip when not used as a template
-  if (process.env.VERCEL_PROJECT_ID === 'prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y') {
+  if (
+    process.env.CI === '1' &&
+    process.env.VERCEL_PROJECT_ID === 'prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y'
+  ) {
     return;
   }
 
