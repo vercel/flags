@@ -1,6 +1,10 @@
-import { productFlags } from '@/flags';
 import { deserialize, generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
+import { productFlags, showFreeDeliveryBannerFlag } from '@/flags';
+import { FreeDeliveryBanner } from '@/components/banners/free-delivery-banner';
+import { DevTools } from '@/components/dev-tools';
+import { Footer } from '@/components/footer';
+import { Navigation } from '@/components/navigation';
 
 export async function generateStaticParams() {
   // Returning an empty array here is important as it enables ISR, so
@@ -23,10 +27,21 @@ export default async function Layout(props: {
   const params = await props.params;
   const values = await deserialize(productFlags, params.code);
 
+  const showFreeDeliveryBanner = await showFreeDeliveryBannerFlag(
+    params.code,
+    productFlags,
+  );
+
   return (
     <>
-      {props.children}
-      <FlagValues values={values} />
+      <div className="bg-white">
+        <FreeDeliveryBanner show={showFreeDeliveryBanner} />
+        <Navigation />
+        {props.children}
+        <FlagValues values={values} />
+        <Footer />
+        <DevTools />
+      </div>
     </>
   );
 }

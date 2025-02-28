@@ -4,13 +4,16 @@ import { productFlags } from '@/flags';
 import { getStableId } from './utils/get-stable-id';
 
 export const config = {
-  matcher: ['/'],
+  matcher: ['/', '/cart'],
 };
 
 export async function middleware(request: NextRequest) {
   const stableId = await getStableId();
 
-  if (request.nextUrl.pathname === '/') {
+  if (
+    request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname === '/cart'
+  ) {
     const code = await precompute(productFlags);
 
     // rewrites the request to the variant for this flag combination
