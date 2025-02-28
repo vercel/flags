@@ -11,7 +11,6 @@ export default async function Page() {
       <DemoFlag name={fullIdentifyExampleFlag.key} value={full} />
 
       <div className="flex gap-2">
-        {/* @ts-expect-error - This is a server action */}
         <Button
           onClick={async () => {
             'use server';
@@ -22,7 +21,6 @@ export default async function Page() {
         >
           Act as a flagged in user
         </Button>
-        {/* @ts-expect-error - This is a server action */}
         <Button
           onClick={async () => {
             'use server';
@@ -33,7 +31,6 @@ export default async function Page() {
         >
           Act as a flagged out user
         </Button>
-        {/* @ts-expect-error - This is a server action */}
         <Button
           onClick={async () => {
             'use server';
