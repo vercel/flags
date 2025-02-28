@@ -43,13 +43,13 @@ This allows the Flags SDK and the Flags Explorer to work correctly, by getting a
 vercel env pull
 ```
 
-### Step 2: Install dependencies
+### Step 3: Install dependencies
 
 ```bash
 npm install
 ```
 
-### Step 3: Run the project
+### Step 4: Run the project
 
 ```bash
 npm run dev
