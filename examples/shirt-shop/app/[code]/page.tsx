@@ -8,6 +8,7 @@ import { SizePicker } from '@/components/size-picker';
 import { ProductDetailPageProvider } from '@/utils/product-detail-page';
 
 import { productFlags, showSummerBannerFlag } from '@/flags';
+import { Main } from '@/components/main';
 
 export default async function Page(props: {
   params: Promise<{ code: string }>;
@@ -22,7 +23,7 @@ export default async function Page(props: {
   return (
     <ProductDetailPageProvider>
       <SummerBanner show={showSummerBanner} />
-      <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6 sm:pb-24 lg:max-w-7xl lg:px-8">
+      <Main>
         <div className="lg:grid lg:auto-rows-min lg:grid-cols-12 lg:gap-x-8">
           <ProductHeader />
           <ImageGallery />
@@ -34,7 +35,7 @@ export default async function Page(props: {
             <ProductDetails />
           </div>
         </div>
-      </main>
+      </Main>
     </ProductDetailPageProvider>
   );
 }

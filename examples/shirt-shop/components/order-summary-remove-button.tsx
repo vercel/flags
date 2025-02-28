@@ -1,6 +1,6 @@
 'use client';
 
-import { removeFromCart } from '@/app/actions';
+import { removeFromCart } from '@/utils/actions';
 
 export function OrderSummaryRemoveButton({ index }: { index: number }) {
   return (

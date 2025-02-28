@@ -33,15 +33,13 @@ export default async function Layout(props: {
   );
 
   return (
-    <>
-      <div className="bg-white">
-        <FreeDeliveryBanner show={showFreeDeliveryBanner} />
-        <Navigation />
-        {props.children}
-        <FlagValues values={values} />
-        <Footer />
-        <DevTools />
-      </div>
-    </>
+    <div className="bg-white">
+      <FreeDeliveryBanner show={showFreeDeliveryBanner} />
+      <Navigation />
+      {props.children}
+      <FlagValues values={values} />
+      <Footer />
+      <DevTools />
+    </div>
   );
 }

@@ -3,7 +3,7 @@
 import { track } from '@vercel/analytics';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { addToCart } from '@/app/actions';
+import { addToCart } from '@/utils/actions';
 import { useProductDetailPageContext } from '@/utils/product-detail-page';
 
 export function AddToCartButton() {
