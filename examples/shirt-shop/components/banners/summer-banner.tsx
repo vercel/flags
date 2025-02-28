@@ -4,6 +4,7 @@ import pool from '@/public/images/pool.jpg';
 import Image from 'next/image';
 import { track } from '@vercel/analytics';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 
 export function SummerBanner(props: { show: boolean }) {
   useEffect(() => {
@@ -38,6 +39,11 @@ export function SummerBanner(props: { show: boolean }) {
                 className="cursor-pointer mt-8 block w-full rounded-md border border-transparent bg-white px-8 py-3 text-base font-medium text-gray-900 hover:bg-gray-100 sm:w-auto"
                 onClick={() => {
                   track('summer_banner:clicked');
+                  toast('End reached', {
+                    className: 'my-classname',
+                    description:
+                      'The summer sale is not implemented in this template. Try adding to the cart instead.',
+                  });
                 }}
               >
                 Shop now
