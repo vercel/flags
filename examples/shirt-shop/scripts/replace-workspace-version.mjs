@@ -2,9 +2,9 @@ import fs from 'fs/promises';
 
 async function prepareTemplate() {
   // Skip when not used as a template
-  if (process.env.VERCEL_PROJECT_ID === 'prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y') {
-    return;
-  }
+  // if (process.env.VERCEL_PROJECT_ID === 'prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y') {
+  //   return;
+  // }
 
   // Read the package.json
   const packageJson = JSON.parse(await fs.readFile('./package.json', 'utf8'));
