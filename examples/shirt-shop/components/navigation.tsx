@@ -1,8 +1,4 @@
-import {
-  Bars3Icon,
-  ShoppingBagIcon,
-  ShoppingCartIcon,
-} from '@heroicons/react/24/outline';
+import { ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 const navigation = ['Home', 'Sale', 'New', 'Shirts', 'Stickers'];

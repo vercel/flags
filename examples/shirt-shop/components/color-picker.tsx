@@ -2,7 +2,6 @@
 
 import { Radio, RadioGroup } from '@headlessui/react';
 import clsx from 'clsx';
-import { useState } from 'react';
 
 const colors = [
   { name: 'Black', bgColor: 'bg-gray-900', selectedColor: 'ring-gray-900' },
@@ -10,8 +9,13 @@ const colors = [
   { name: 'Blue', bgColor: 'bg-blue-500', selectedColor: 'ring-blue-500' },
 ];
 
-export function ColorPicker() {
-  const [selectedColor, setSelectedColor] = useState(colors[0]);
+interface ColorPickerProps {
+  color: string;
+  setColor: (color: string) => void;
+}
+
+export function ColorPicker({ color, setColor }: ColorPickerProps) {
+  const selectedColor = colors.find((c) => c.name === color) || colors[0];
 
   return (
     <div>
@@ -19,7 +23,7 @@ export function ColorPicker() {
       <fieldset aria-label="Choose a color" className="mt-2">
         <RadioGroup
           value={selectedColor}
-          onChange={setSelectedColor}
+          onChange={(newColor) => setColor(newColor.name)}
           className="flex items-center gap-x-3"
         >
           {colors.map((color) => (

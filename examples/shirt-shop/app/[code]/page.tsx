@@ -1,10 +1,8 @@
-import { AddToCartButton } from '@/components/add-to-cart-button';
+import { AddToCartArea } from '@/components/add-to-cart-area';
 import { SummerBanner } from '@/components/banners/summer-banner';
-import { ColorPicker } from '@/components/color-picker';
 import { ImageGallery } from '@/components/image-gallery';
 import { ProductDetails } from '@/components/product-details';
 import { ProductHeader } from '@/components/product-header';
-import { SizePicker } from '@/components/size-picker';
 import { productFlags, showSummerBannerFlag } from '@/flags';
 
 export default async function Page(props: {
@@ -26,9 +24,7 @@ export default async function Page(props: {
           <ImageGallery />
 
           <div className="mt-8 lg:col-span-5">
-            <ColorPicker />
-            <SizePicker />
-            <AddToCartButton />
+            <AddToCartArea />
             <ProductDetails />
           </div>
         </div>
