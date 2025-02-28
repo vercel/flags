@@ -1,12 +1,23 @@
-import { images } from '@/utils/images';
+'use client';
+
+import { colorToImage, images } from '@/utils/images';
+import { useProductDetailPageContext } from '@/utils/product-detail-page';
 import clsx from 'clsx';
 import Image from 'next/image';
 
 export function ImageGallery() {
+  const { color } = useProductDetailPageContext();
+
+  const orderedImages = [...images].sort((a, b) => {
+    if (a === colorToImage[color]) return -1;
+    if (b === colorToImage[color]) return 1;
+    return 0;
+  });
+
   return (
     <div className="mt-8 lg:col-span-7 lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:mt-0">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-3 lg:gap-8">
-        {images.map((image, index) => (
+        {orderedImages.map((image, index) => (
           <Image
             key={index}
             alt="Product Image"

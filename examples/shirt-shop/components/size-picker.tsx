@@ -2,7 +2,7 @@
 
 import { Radio, RadioGroup } from '@headlessui/react';
 import clsx from 'clsx';
-
+import { useProductDetailPageContext } from '@/utils/product-detail-page';
 const sizes = [
   { name: 'XXS', inStock: true },
   { name: 'XS', inStock: true },
@@ -17,7 +17,8 @@ interface SizePickerProps {
   setSize: (size: string) => void;
 }
 
-export function SizePicker({ size, setSize }: SizePickerProps) {
+export function SizePicker() {
+  const { size, setSize } = useProductDetailPageContext();
   const selectedSize = sizes.find((s) => s.name === size) || sizes[0];
 
   return (

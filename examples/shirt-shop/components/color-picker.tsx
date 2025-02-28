@@ -1,5 +1,6 @@
 'use client';
 
+import { useProductDetailPageContext } from '@/utils/product-detail-page';
 import { Radio, RadioGroup } from '@headlessui/react';
 import clsx from 'clsx';
 
@@ -9,12 +10,8 @@ const colors = [
   { name: 'Blue', bgColor: 'bg-blue-500', selectedColor: 'ring-blue-500' },
 ];
 
-interface ColorPickerProps {
-  color: string;
-  setColor: (color: string) => void;
-}
-
-export function ColorPicker({ color, setColor }: ColorPickerProps) {
+export function ColorPicker() {
+  const { color, setColor } = useProductDetailPageContext();
   const selectedColor = colors.find((c) => c.name === color) || colors[0];
 
   return (
