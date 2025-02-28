@@ -44,3 +44,24 @@ export function getCartItemCount(): number {
   const cart = getCart();
   return cart.items.reduce((total, item) => total + item.quantity, 0);
 }
+
+export function getServerCart(cookieStr?: string): Cart {
+  try {
+    if (cookieStr) {
+      const cartCookie = cookieStr
+        .split('; ')
+        .find((row) => row.startsWith('cart='));
+
+      if (cartCookie) {
+        const cartData = JSON.parse(
+          decodeURIComponent(cartCookie.split('=')[1]),
+        );
+        return cartData;
+      }
+    }
+  } catch (error) {
+    console.error('Error reading cart cookie:', error);
+  }
+
+  return { items: [] };
+}
