@@ -1,5 +1,5 @@
 import { type FlagOverridesType, decrypt } from '..';
-import { memoizeOne } from './async-memoize-one';
+import { memoizeOne } from '../lib/async-memoize-one';
 
 const memoizedDecrypt = memoizeOne(
   (text: string) => decrypt<FlagOverridesType>(text),
