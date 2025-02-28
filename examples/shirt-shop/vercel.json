@@ -1,0 +1,3 @@
+{
+  "installCommand": "node scripts/replace-workspace-version.js && pnpm install"
+}
