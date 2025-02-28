@@ -1,22 +1,19 @@
-import { getServerCart } from '@/utils/cart';
-import { cookies } from 'next/headers';
-import { Suspense } from 'react';
-import { CartClient } from './client';
+import { getCart } from '@/app/actions';
+import { CheckoutForm } from '@/components/checkout-form';
+import { OrderSummary } from '@/components/order-summary';
 
-// Server Component for initial cart state
-function CartServer() {
-  const cookieStore = cookies();
-  const cookieStr = cookieStore.toString();
-  const cart = getServerCart(cookieStr);
+export default async function CartPage() {
+  const { items } = await getCart();
+  const subtotal = items.length * 20; // Assuming $20 per shirt
+  const shipping = 5;
+  const total = subtotal + shipping;
 
-  return <CartClient initialItems={cart.items} />;
-}
-
-// Default export is now the Server Component
-export default function CartPage() {
   return (
-    <Suspense>
-      <CartServer />
-    </Suspense>
+    <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6 sm:pb-24 lg:max-w-7xl lg:px-8">
+      <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
+        <OrderSummary items={items} />
+        <CheckoutForm subtotal={subtotal} shipping={shipping} total={total} />
+      </div>
+    </main>
   );
 }

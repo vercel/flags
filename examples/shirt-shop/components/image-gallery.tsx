@@ -1,11 +1,6 @@
+import { images } from '@/utils/images';
 import clsx from 'clsx';
 import Image from 'next/image';
-
-import blue from '@/public/images/product/shirt-blue.avif';
-import black from '@/public/images/product/shirt-black.avif';
-import white from '@/public/images/product/shirt-white.avif';
-
-const images = [black, white, blue];
 
 export function ImageGallery() {
   return (
