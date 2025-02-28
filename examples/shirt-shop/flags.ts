@@ -39,6 +39,21 @@ export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
   },
 });
 
+export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
+  key: 'proceed_to_checkout_color',
+  defaultValue: 'blue',
+  options: ['blue', 'green', 'red'],
+  identify,
+  decide({ entities }) {
+    if (!entities || !entities.stableId) {
+      return this.defaultValue as string;
+    }
+    return this.options![
+      bucket(`${this.key}/${entities.stableId}`, this.options!.length)
+    ] as string;
+  },
+});
+
 export const productFlags = [
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,
