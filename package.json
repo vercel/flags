@@ -12,6 +12,7 @@
   },
   "license": "MIT",
   "scripts": {
+    "api-server": "pnpm dev -F api-server",
     "attw": "turbo attw",
     "build": "turbo build",
     "dev": "turbo dev",
@@ -23,6 +24,7 @@
     "prettier-check": "prettier --check .",
     "prettier-fix": "prettier --write .",
     "publint": "turbo publint",
+    "registry": "pnpm dev -F registry",
     "release": "pnpm build && changeset publish",
     "shirt-shop": "pnpm dev -F shirt-shop",
     "snippets": "pnpm dev -F snippets",
