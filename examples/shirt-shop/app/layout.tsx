@@ -6,7 +6,8 @@ import { Toaster } from 'sonner';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Shirt Shop',
+  title: 'Flags SDK Example',
+  description: 'A Flags SDK example for Ecommerce',
 };
 
 export default function RootLayout({
