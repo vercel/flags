@@ -41,7 +41,7 @@ export function AddToCartButton() {
   const handleAddToCart = async () => {
     setIsLoading(true);
     track('add_to_cart:clicked');
-    await addToCart({ color, size });
+    await addToCart({ id: 'shirt', color, size, quantity: 1 });
     router.push('/cart');
   };
 

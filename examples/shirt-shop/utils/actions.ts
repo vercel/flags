@@ -1,58 +1,41 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { Cart, CartItem } from '@/utils/cart-types';
 import { delayFlag } from '@/flags';
+import { getCartId } from './get-cart-id';
+
+const CART_BASE_URL = process.env.CART_BASE_URL;
 
 export async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function getCart(): Promise<Cart> {
+  const cartId = await getCartId();
   const delayMs = await delayFlag();
   await delay(delayMs);
-  const cookieStore = await cookies();
-
-  const cartCookie = cookieStore.get('cart')?.value;
-  if (!cartCookie) return { items: [] };
-
-  const cartData = JSON.parse(decodeURIComponent(cartCookie));
-  return cartData;
+  return fetch(`${CART_BASE_URL}/api/${cartId.value}`).then((res) =>
+    res.json(),
+  );
 }
 
-export async function addToCart(item: Omit<CartItem, 'quantity'>) {
-  const cart = await getCart();
-
-  const existingItemIndex = cart.items.findIndex(
-    (i) => i.color === item.color && i.size === item.size,
-  );
-
-  if (existingItemIndex >= 0) {
-    cart.items[existingItemIndex].quantity += 1;
-  } else {
-    cart.items.push({ ...item, quantity: 1 });
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set({
-    name: 'cart',
-    value: JSON.stringify(cart),
-    path: '/',
+export async function addToCart(item: CartItem) {
+  const cartId = await getCartId();
+  await fetch(`${CART_BASE_URL}/api/${cartId.value}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
   });
   revalidatePath('/cart');
 }
 
-export async function removeFromCart(index: number) {
-  const cart = await getCart();
-
-  const cookieStore = await cookies();
-
-  cart.items.splice(index, 1);
-  cookieStore.set({
-    name: 'cart',
-    value: JSON.stringify(cart),
-    path: '/',
+export async function removeFromCart(item: CartItem) {
+  const cartId = await getCartId();
+  await fetch(`${CART_BASE_URL}/api/${cartId.value}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
   });
   revalidatePath('/cart');
 }

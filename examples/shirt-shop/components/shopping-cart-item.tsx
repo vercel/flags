@@ -69,7 +69,7 @@ export function ShoppingCartItem({
         <div className="flex flex-1 items-end justify-between text-sm">
           <p className="text-gray-500">Qty {item.quantity}</p>
           <div className="flex">
-            <ShoppingCartRemoveButton index={index} />
+            <ShoppingCartRemoveButton item={item} />
           </div>
         </div>
       </div>
