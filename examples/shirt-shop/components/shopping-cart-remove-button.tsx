@@ -2,7 +2,7 @@
 
 import { removeFromCart } from '@/utils/actions';
 
-export function OrderSummaryRemoveButton({ index }: { index: number }) {
+export function ShoppingCartRemoveButton({ index }: { index: number }) {
   return (
     <button
       type="button"

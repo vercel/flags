@@ -3,8 +3,15 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { Cart, CartItem } from '@/utils/cart-types';
+import { delayFlag } from '@/flags';
+
+export async function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function getCart(): Promise<Cart> {
+  const delayMs = await delayFlag();
+  await delay(delayMs);
   const cookieStore = await cookies();
 
   const cartCookie = cookieStore.get('cart')?.value;

@@ -21,6 +21,7 @@ function bucket(key: string, buckets: number = 2) {
 
 export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
   key: 'summer_sale',
+  description: 'Shows a bright yellow banner for a 20% discount',
   defaultValue: false,
   identify,
   decide({ entities }) {
@@ -31,6 +32,7 @@ export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
 
 export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
   key: 'free_delivery',
+  description: 'Show a black free delivery banner at the top of the page',
   defaultValue: false,
   identify,
   decide({ entities }) {
@@ -51,6 +53,22 @@ export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
     return this.options![
       bucket(`${this.key}/${entities.stableId}`, this.options!.length)
     ] as string;
+  },
+});
+
+export const delayFlag = flag<number>({
+  key: 'delay',
+  defaultValue: 200,
+  description: 'Delay the cart data',
+  options: [
+    { value: 0, label: 'No delay' },
+    { value: 200, label: '200ms' },
+    { value: 1000, label: '1s' },
+    { value: 3000, label: '3s' },
+    { value: 10_000, label: '10s' },
+  ],
+  decide() {
+    return this.defaultValue!;
   },
 });
 
