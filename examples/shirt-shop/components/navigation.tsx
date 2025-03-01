@@ -1,7 +1,30 @@
+import { getCart } from '@/utils/actions';
 import { ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 const navigation = ['Home', 'Sale', 'New', 'Shirts', 'Stickers'];
+
+function ShoppingCartNavItemFallback() {
+  return (
+    <Link href="/cart" className="group -m-2 flex items-center p-2">
+      <ShoppingCartIcon className="h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
+      <span className="ml-2 w-3 h-4 rounded text-sm font-medium bg-gray-200" />
+    </Link>
+  );
+}
+
+async function ShoppingCartNavItem() {
+  const cart = await getCart();
+  return (
+    <Link href="/cart" className="group -m-2 flex items-center p-2">
+      <ShoppingCartIcon className="h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
+      <span className="ml-2 min-w-3 text-sm font-medium text-gray-700 group-hover:text-gray-800">
+        {cart.items.length}
+      </span>
+    </Link>
+  );
+}
 
 export function Navigation() {
   return (
@@ -41,12 +64,9 @@ export function Navigation() {
 
           <div className="flex flex-1 items-center justify-end">
             <div className="ml-4 flow-root lg:ml-6">
-              <Link href="/cart" className="group -m-2 flex items-center p-2">
-                <ShoppingCartIcon className="h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
-                {/* <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-gray-800">
-                  0
-                </span> */}
-              </Link>
+              <Suspense fallback={<ShoppingCartNavItemFallback />}>
+                <ShoppingCartNavItem />
+              </Suspense>
             </div>
           </div>
         </div>
