@@ -1,7 +1,6 @@
-import { proceedToCheckoutColorFlag } from '@/flags';
+import { ProceedToCheckout } from '@/logic/shopping-cart/proceed-to-checkout';
+import { getCart } from '@/logic/utils/actions';
 import Link from 'next/link';
-import { ProceedToCheckoutButton } from './proceed-to-checkout-button';
-import { getCart } from '@/utils/actions';
 import { Suspense } from 'react';
 
 const colorMap: Record<string, string> = {
@@ -82,20 +81,19 @@ async function OrderSummaryContent({
   );
 }
 
-export async function OrderSummary({
+export function OrderSummarySection({
   showSummerBanner,
+  proceedToCheckoutColor,
 }: {
   showSummerBanner: boolean;
+  proceedToCheckoutColor: string;
 }) {
-  // This is a fast feature flag so we don't suspend on it
-  const proceedToCheckoutColor = await proceedToCheckoutColorFlag();
-
   return (
     <section className="mt-16 rounded-lg bg-gray-50 px-6 py-6 sm:p-6 lg:col-span-5 lg:mt-0 lg:p-8">
       <h2 className="text-lg font-medium text-gray-900">Order summary</h2>
 
       <div className="mt-6">
-        <ProceedToCheckoutButton color={colorMap[proceedToCheckoutColor]} />
+        <ProceedToCheckout color={colorMap[proceedToCheckoutColor]} />
       </div>
 
       <Suspense

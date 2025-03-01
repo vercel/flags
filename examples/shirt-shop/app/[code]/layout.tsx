@@ -1,7 +1,7 @@
 import { deserialize, generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import { productFlags, showFreeDeliveryBannerFlag } from '@/flags';
-import { FreeDeliveryBanner } from '@/components/banners/free-delivery-banner';
+import { FreeDelivery } from '@/logic/banners/free-delivery';
 import { DevTools } from '@/components/dev-tools';
 import { Footer } from '@/components/footer';
 import { Navigation } from '@/components/navigation';
@@ -34,7 +34,7 @@ export default async function Layout(props: {
 
   return (
     <div className="bg-white">
-      <FreeDeliveryBanner show={showFreeDeliveryBanner} />
+      <FreeDelivery show={showFreeDeliveryBanner} />
       <Navigation />
       {props.children}
       <FlagValues values={values} />

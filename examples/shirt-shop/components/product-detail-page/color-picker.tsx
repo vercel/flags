@@ -1,6 +1,6 @@
 'use client';
 
-import { useProductDetailPageContext } from '@/utils/product-detail-page';
+import { useProductDetailPageContext } from '@/components/utils/product-detail-page-context';
 import { Radio, RadioGroup } from '@headlessui/react';
 import clsx from 'clsx';
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { colorToImage, images } from '@/utils/images';
-import { useProductDetailPageContext } from '@/utils/product-detail-page';
+import { colorToImage, images } from '@/components/utils/images';
+import { useProductDetailPageContext } from '@/components/utils/product-detail-page-context';
 import clsx from 'clsx';
 import Image from 'next/image';
 

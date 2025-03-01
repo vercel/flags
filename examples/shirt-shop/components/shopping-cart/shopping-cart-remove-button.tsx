@@ -1,9 +1,9 @@
 'use client';
 
-import { removeFromCart } from '@/utils/actions';
-import type { CartItem } from '@/utils/cart-types';
+import { removeFromCart } from '@/logic/utils/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { CartItem } from '../utils/cart-types';
 
 function Spinner() {
   return (
@@ -25,16 +25,13 @@ function Spinner() {
 
 export function ShoppingCartRemoveButton({ item }: { item: CartItem }) {
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleRemove = async () => {
-    setIsLoading(true);
-    await removeFromCart(item);
-  };
-
   return (
     <button
       type="button"
-      onClick={handleRemove}
+      onClick={async () => {
+        setIsLoading(true);
+        await removeFromCart(item);
+      }}
       disabled={isLoading}
       className="cursor-pointer font-medium text-blue-600 hover:text-blue-500 disabled:opacity-70 flex items-center gap-2"
     >

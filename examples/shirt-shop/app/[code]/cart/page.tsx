@@ -1,6 +1,6 @@
-import { OrderSummary } from '@/components/order-summary';
+import { OrderSummary } from '@/logic/shopping-cart/order-summary';
 import { Main } from '@/components/main';
-import { ShoppingCart } from '@/components/shopping-cart';
+import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
 import { productFlags, showSummerBannerFlag } from '@/flags';
 
 export default async function CartPage({
