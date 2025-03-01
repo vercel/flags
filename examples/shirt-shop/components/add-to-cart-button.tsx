@@ -3,12 +3,18 @@
 import { track } from '@vercel/analytics';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { addToCart } from '@/utils/actions';
 import { useProductDetailPageContext } from '@/utils/product-detail-page';
 
 function Spinner() {
   return (
-    <div className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+    <motion.div
+      initial={{ scale: 0, x: 0, opacity: 0.1 }}
+      animate={{ scale: 1, x: 0, opacity: 1 }}
+      exit={{ scale: 0, x: 0, opacity: 0.1 }}
+      className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"
+    />
   );
 }
 
@@ -35,8 +41,18 @@ export function AddToCartButton() {
       onClick={handleAddToCart}
       disabled={isLoading}
     >
-      {isLoading ? <Spinner /> : null}
-      Add to cart
+      <AnimatePresence mode="popLayout">
+        {isLoading && <Spinner />}
+        <motion.span
+          layout
+          key="text"
+          initial={{ x: isLoading ? 12 : 0 }}
+          animate={{ x: 0 }}
+          transition={{ type: 'tween', ease: 'anticipate' }}
+        >
+          Add to cart
+        </motion.span>
+      </AnimatePresence>
     </button>
   );
 }
