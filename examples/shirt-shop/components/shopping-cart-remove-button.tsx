@@ -1,0 +1,54 @@
+'use client';
+
+import { removeFromCart } from '@/utils/actions';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+
+function Spinner() {
+  return (
+    <motion.div
+      initial={{ scale: 0, x: 0, opacity: 0, rotate: 0 }}
+      animate={{ scale: 1, x: 0, opacity: 1, rotate: 360 }}
+      exit={{ scale: 0, x: 0, opacity: 0, rotate: 0 }}
+      transition={{
+        rotate: {
+          duration: 1,
+          ease: 'linear',
+          repeat: Infinity,
+        },
+      }}
+      className="inline-block size-4 rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"
+    />
+  );
+}
+
+export function ShoppingCartRemoveButton({ index }: { index: number }) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRemove = async () => {
+    setIsLoading(true);
+    await removeFromCart(index);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleRemove}
+      disabled={isLoading}
+      className="cursor-pointer font-medium text-blue-600 hover:text-blue-500 disabled:opacity-70 flex items-center gap-2"
+    >
+      <AnimatePresence mode="popLayout">
+        {isLoading && <Spinner />}
+        <motion.span
+          layout
+          key="text"
+          initial={{ x: isLoading ? 12 : 0 }}
+          animate={{ x: 0 }}
+          transition={{ type: 'spring', bounce: 0.3 }}
+        >
+          Remove
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  );
+}
