@@ -10,10 +10,21 @@ import { useProductDetailPageContext } from '@/utils/product-detail-page';
 function Spinner() {
   return (
     <motion.div
-      initial={{ scale: 0, x: 0, opacity: 0.1 }}
-      animate={{ scale: 1, x: 0, opacity: 1 }}
-      exit={{ scale: 0, x: 0, opacity: 0.1 }}
-      className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"
+      initial={{ scale: 0, opacity: 0.1, rotate: 0 }}
+      animate={{
+        scale: 1,
+        opacity: 1,
+        rotate: 360,
+      }}
+      transition={{
+        rotate: {
+          duration: 1,
+          ease: 'linear',
+          repeat: Infinity,
+        },
+      }}
+      exit={{ scale: 0, opacity: 0.1 }}
+      className="inline-block size-4 rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"
     />
   );
 }
