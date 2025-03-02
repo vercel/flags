@@ -3,7 +3,7 @@
 import { removeFromCart } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { CartItem } from '../utils/cart-types';
+import { CartItem } from '@/components/utils/cart-types';
 
 function Spinner() {
   return (

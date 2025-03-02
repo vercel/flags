@@ -1,7 +1,7 @@
 'use client';
-import { CartItem } from '../utils/cart-types';
+import { CartItem } from '@/components/utils/cart-types';
 import { ShoppingBagIcon } from '@heroicons/react/24/outline';
-import { colorToImage } from '../utils/images';
+import { colorToImage } from '@/components/utils/images';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ShoppingCartRemoveButton } from './shopping-cart-remove-button';
