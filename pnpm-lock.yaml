@@ -175,6 +175,9 @@ importers:
       '@heroicons/react':
         specifier: 2.2.0
         version: 2.2.0(react@19.0.0)
+      '@radix-ui/react-slot':
+        specifier: 1.1.2
+        version: 1.1.2(@types/react@19.0.10)(react@19.0.0)
       '@tailwindcss/aspect-ratio':
         specifier: 0.4.2
         version: 0.4.2(tailwindcss@4.0.9)
@@ -199,6 +202,9 @@ importers:
       '@vercel/toolbar':
         specifier: 0.1.33
         version: 0.1.33(@vercel/analytics@1.5.0)(next@15.2.1-canary.4)(react-dom@19.0.0)(react@19.0.0)
+      class-variance-authority:
+        specifier: 0.7.1
+        version: 0.7.1
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -211,6 +217,9 @@ importers:
       js-xxhash:
         specifier: 4.0.0
         version: 4.0.0
+      lucide-react:
+        specifier: ^0.471.1
+        version: 0.471.2(react@19.0.0)
       nanoid:
         specifier: 5.1.2
         version: 5.1.2
@@ -226,6 +235,12 @@ importers:
       sonner:
         specifier: 2.0.1
         version: 2.0.1(react-dom@19.0.0)(react@19.0.0)
+      tailwind-merge:
+        specifier: 3.0.2
+        version: 3.0.2
+      tailwindcss-animate:
+        specifier: 1.0.7
+        version: 1.0.7(tailwindcss@4.0.9)
     devDependencies:
       '@types/node':
         specifier: ^22.13.5
@@ -12390,12 +12405,24 @@ packages:
     resolution: {integrity: sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==}
     dev: false
 
+  /tailwind-merge@3.0.2:
+    resolution: {integrity: sha512-l7z+OYZ7mu3DTqrL88RiKrKIqO3NcpEO8V/Od04bNpvk0kiIFndGEoqfuzvj4yuhRkHKjRkII2z+KS2HfPcSxw==}
+    dev: false
+
   /tailwindcss-animate@1.0.7(tailwindcss@3.4.17):
     resolution: {integrity: sha512-bl6mpH3T7I3UFxuvDEXLxy/VuFxBk5bbzplh7tXI68mwMokNYd1t9qPBHlnyTwfa4JGC4zP516I1hYYtQ/vspA==}
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders'
     dependencies:
       tailwindcss: 3.4.17
+    dev: false
+
+  /tailwindcss-animate@1.0.7(tailwindcss@4.0.9):
+    resolution: {integrity: sha512-bl6mpH3T7I3UFxuvDEXLxy/VuFxBk5bbzplh7tXI68mwMokNYd1t9qPBHlnyTwfa4JGC4zP516I1hYYtQ/vspA==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || insiders'
+    dependencies:
+      tailwindcss: 4.0.9
     dev: false
 
   /tailwindcss@3.4.17:

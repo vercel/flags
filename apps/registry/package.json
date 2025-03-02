@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --port 3040",
     "lint": "next lint",
     "registry:build": "shadcn build",
     "start": "next start"
