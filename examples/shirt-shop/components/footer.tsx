@@ -24,10 +24,7 @@ export function Footer() {
                 <ul role="list" className="mt-2 space-y-6">
                   {navigation.map((item) => (
                     <li key={item} className="text-sm">
-                      <a
-                        href={item}
-                        className="text-gray-500 hover:text-gray-600"
-                      >
+                      <a href="#" className="text-gray-500 hover:text-gray-600">
                         {item}
                       </a>
                     </li>
