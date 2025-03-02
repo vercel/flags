@@ -1,8 +1,8 @@
-import { SummerSale } from '@/logic/banners/summer-sale';
+import { SummerSale } from '@/app/summer-sale';
 import { ImageGallery } from '@/components/image-gallery';
 import { ProductDetails } from '@/components/product-detail-page/product-details';
 import { ProductHeader } from '@/components/product-detail-page/product-header';
-import { AddToCart } from '@/logic/product-detail-page/add-to-cart';
+import { AddToCart } from '@/app/[code]/add-to-cart';
 import { ColorPicker } from '@/components/product-detail-page/color-picker';
 import { SizePicker } from '@/components/product-detail-page/size-picker';
 import { ProductDetailPageProvider } from '@/components/utils/product-detail-page-context';

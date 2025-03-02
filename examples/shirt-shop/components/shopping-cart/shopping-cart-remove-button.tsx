@@ -1,6 +1,6 @@
 'use client';
 
-import { removeFromCart } from '@/logic/utils/actions';
+import { removeFromCart } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { CartItem } from '../utils/cart-types';

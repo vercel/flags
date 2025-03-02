@@ -1,4 +1,4 @@
-import { getCart } from '@/logic/utils/actions';
+import { getCart } from '@/lib/actions';
 import { Suspense } from 'react';
 import { ShoppingCartList } from './shopping-cart-list';
 import { EmptyShoppingCartItem, ShoppingCartItem } from './shopping-cart-item';

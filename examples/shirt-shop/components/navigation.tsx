@@ -1,4 +1,4 @@
-import { getCart } from '@/logic/utils/actions';
+import { getCart } from '@/lib/actions';
 import { ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { Suspense } from 'react';

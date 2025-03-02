@@ -1,5 +1,5 @@
 import { flag } from 'flags/next';
-import { identify, type EvaluationContext } from './logic/utils/identify';
+import { identify, type EvaluationContext } from './lib/identify';
 import { xxHash32 } from 'js-xxhash';
 
 /**

@@ -1,4 +1,4 @@
-import { OrderSummary } from '@/logic/shopping-cart/order-summary';
+import { OrderSummary } from '@/app/[code]/cart/order-summary';
 import { Main } from '@/components/main';
 import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
 import {

@@ -1,5 +1,6 @@
 import { proceedToCheckoutColorFlag } from '@/flags';
 import { OrderSummarySection } from '@/components/shopping-cart/order-summary-section';
+import { ProceedToCheckout } from './proceed-to-checkout';
 
 export async function OrderSummary({
   showSummerBanner,
@@ -15,7 +16,7 @@ export async function OrderSummary({
     <OrderSummarySection
       showSummerBanner={showSummerBanner}
       freeDelivery={freeDelivery}
-      proceedToCheckoutColor={proceedToCheckoutColor}
+      proceedToCheckout={<ProceedToCheckout color={proceedToCheckoutColor} />}
     />
   );
 }

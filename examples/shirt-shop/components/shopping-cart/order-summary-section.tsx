@@ -1,13 +1,6 @@
-import { ProceedToCheckout } from '@/logic/shopping-cart/proceed-to-checkout';
-import { getCart } from '@/logic/utils/actions';
+import { getCart } from '@/lib/actions';
 import Link from 'next/link';
 import { Suspense } from 'react';
-
-const colorMap: Record<string, string> = {
-  blue: 'bg-blue-600 hover:bg-blue-700',
-  red: 'bg-red-600 hover:bg-red-700',
-  green: 'bg-green-600 hover:bg-green-700',
-};
 
 function OrderSummaryFallback({
   showSummerBanner,
@@ -48,7 +41,7 @@ async function OrderSummaryContent({
   const { items } = await getCart();
   const subtotal = items.length * 20; // Assuming $20 per shirt
   const summerDiscount = showSummerBanner ? subtotal * (20 / 100) * -1 : 0; // 20% discount
-  const qualifyingForFreeDelivery = subtotal > 30;
+  const qualifyingForFreeDelivery = freeDelivery && subtotal > 30;
   const shippingCost = 5;
   const shipping = qualifyingForFreeDelivery ? 0 : shippingCost;
   const total = subtotal + shipping + summerDiscount;
@@ -97,19 +90,17 @@ async function OrderSummaryContent({
 export function OrderSummarySection({
   showSummerBanner,
   freeDelivery,
-  proceedToCheckoutColor,
+  proceedToCheckout,
 }: {
   showSummerBanner: boolean;
   freeDelivery: boolean;
-  proceedToCheckoutColor: string;
+  proceedToCheckout: React.ReactNode;
 }) {
   return (
     <section className="mt-16 rounded-lg bg-gray-50 px-6 py-6 sm:p-6 lg:col-span-5 lg:mt-0 lg:p-8">
       <h2 className="text-lg font-medium text-gray-900">Order summary</h2>
 
-      <div className="mt-6">
-        <ProceedToCheckout color={colorMap[proceedToCheckoutColor]} />
-      </div>
+      <div className="mt-6">{proceedToCheckout}</div>
 
       <Suspense
         fallback={<OrderSummaryFallback showSummerBanner={showSummerBanner} />}

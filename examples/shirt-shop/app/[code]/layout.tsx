@@ -1,7 +1,7 @@
 import { deserialize, generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import { productFlags, showFreeDeliveryBannerFlag } from '@/flags';
-import { FreeDelivery } from '@/logic/banners/free-delivery';
+import { FreeDelivery } from '@/app/free-delivery';
 import { DevTools } from '@/components/dev-tools';
 import { Footer } from '@/components/footer';
 import { Navigation } from '@/components/navigation';
