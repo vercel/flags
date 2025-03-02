@@ -3,8 +3,10 @@ import { OrderSummarySection } from '@/components/shopping-cart/order-summary-se
 
 export async function OrderSummary({
   showSummerBanner,
+  freeDelivery,
 }: {
   showSummerBanner: boolean;
+  freeDelivery: boolean;
 }) {
   // This is a fast feature flag so we don't suspend on it
   const proceedToCheckoutColor = await proceedToCheckoutColorFlag();
@@ -12,6 +14,7 @@ export async function OrderSummary({
   return (
     <OrderSummarySection
       showSummerBanner={showSummerBanner}
+      freeDelivery={freeDelivery}
       proceedToCheckoutColor={proceedToCheckoutColor}
     />
   );

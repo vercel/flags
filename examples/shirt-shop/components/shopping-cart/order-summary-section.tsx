@@ -40,13 +40,17 @@ function OrderSummaryFallback({
 
 async function OrderSummaryContent({
   showSummerBanner,
+  freeDelivery,
 }: {
   showSummerBanner: boolean;
+  freeDelivery: boolean;
 }) {
   const { items } = await getCart();
   const subtotal = items.length * 20; // Assuming $20 per shirt
   const summerDiscount = showSummerBanner ? subtotal * (20 / 100) * -1 : 0; // 20% discount
-  const shipping = 5;
+  const qualifyingForFreeDelivery = subtotal > 30;
+  const shippingCost = 5;
+  const shipping = qualifyingForFreeDelivery ? 0 : shippingCost;
   const total = subtotal + shipping + summerDiscount;
 
   return (
@@ -67,9 +71,18 @@ async function OrderSummaryContent({
       ) : null}
       <div className="flex items-center justify-between border-t border-gray-200 pt-4">
         <p className="text-sm text-gray-600">Shipping estimate</p>
-        <p className="text-sm font-medium text-gray-900">
-          {shipping.toFixed(2)} USD
-        </p>
+        {qualifyingForFreeDelivery ? (
+          <p className="text-sm font-medium text-gray-900">
+            <span className="line-through font-normal">
+              {shipping.toFixed(2)} USD
+            </span>{' '}
+            FREE
+          </p>
+        ) : (
+          <p className="text-sm font-medium text-gray-900">
+            {shipping.toFixed(2)} USD
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between border-t border-gray-200 pt-4">
         <p className="text-base font-medium text-gray-900">Order total</p>
@@ -83,9 +96,11 @@ async function OrderSummaryContent({
 
 export function OrderSummarySection({
   showSummerBanner,
+  freeDelivery,
   proceedToCheckoutColor,
 }: {
   showSummerBanner: boolean;
+  freeDelivery: boolean;
   proceedToCheckoutColor: string;
 }) {
   return (
@@ -99,7 +114,10 @@ export function OrderSummarySection({
       <Suspense
         fallback={<OrderSummaryFallback showSummerBanner={showSummerBanner} />}
       >
-        <OrderSummaryContent showSummerBanner={showSummerBanner} />
+        <OrderSummaryContent
+          showSummerBanner={showSummerBanner}
+          freeDelivery={freeDelivery}
+        />
       </Suspense>
 
       <div className="mt-6 text-center text-sm text-gray-500">
