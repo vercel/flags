@@ -17,15 +17,14 @@
       ]
     },
     {
-      "name": "example-form",
+      "name": "shirt-shop",
       "type": "registry:component",
-      "title": "Example Form",
-      "description": "A contact form with Zod validation.",
-      "dependencies": ["zod"],
-      "registryDependencies": ["button", "input", "label", "textarea", "card"],
+      "title": "Shirt Shop",
+      "description": "Supporting components for the Shirt Shop example",
+      "registryDependencies": [],
       "files": [
         {
-          "path": "registry/example-form/example-form.tsx",
+          "path": "registry/shirt-shop/banners/examples-banner.tsx",
           "type": "registry:component"
         }
       ]

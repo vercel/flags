@@ -8,7 +8,7 @@
   "files": [
     {
       "path": "registry/hello-world/hello-world.tsx",
-      "content": "import foo from '@/hooks';\n\nexport function HelloWorld() {\n  return <h1 className=\"text-2xl font-bold\">Hello World!!1</h1>;\n}\n",
+      "content": "export function HelloWorld() {\n  return <h1 className=\"text-2xl font-bold\">Hello World</h1>;\n}\n",
       "type": "registry:component"
     }
   ]
