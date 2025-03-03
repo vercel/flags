@@ -125,8 +125,11 @@ export async function DELETE(
       );
     }
 
-    // Remove item at the found index
-    existingCart.items.splice(itemIndex, 1);
+    if (existingCart.items[itemIndex].quantity === 1) {
+      existingCart.items.splice(itemIndex, 1);
+    } else {
+      existingCart.items[itemIndex].quantity -= 1;
+    }
 
     // Save updated cart with expiration
     await redis.set(cartKey, existingCart, { ex: CART_TTL });
