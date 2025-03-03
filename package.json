@@ -12,7 +12,6 @@
   },
   "license": "MIT",
   "scripts": {
-    "api-server": "pnpm dev -F api-server",
     "attw": "turbo attw",
     "build": "turbo build",
     "dev": "turbo dev",
@@ -27,6 +26,7 @@
     "registry": "pnpm dev -F registry",
     "release": "pnpm build && changeset publish",
     "shirt-shop": "pnpm dev -F shirt-shop",
+    "shirt-shop-api": "pnpm dev -F shirt-shop-api",
     "snippets": "pnpm dev -F snippets",
     "svelte": "pnpm dev -F svelte-example",
     "test": "turbo test",
