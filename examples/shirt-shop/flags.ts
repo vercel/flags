@@ -58,8 +58,9 @@ export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
 
 export const delayFlag = flag<number>({
   key: 'delay',
-  defaultValue: 200,
-  description: 'Delay the cart data',
+  defaultValue: 0,
+  description:
+    'A flag for debugging and demo purposes which delays the data loading',
   options: [
     { value: 0, label: 'No delay' },
     { value: 200, label: '200ms' },
