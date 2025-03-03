@@ -34,7 +34,10 @@ async function ShoppingCartContent() {
         <EmptyShoppingCartItem />
       ) : (
         items.map((item) => (
-          <ShoppingCartItem key={JSON.stringify(item)} item={item} />
+          <ShoppingCartItem
+            key={[item.id, item.color, item.size].join('/')}
+            item={item}
+          />
         ))
       )}
     </ShoppingCartList>

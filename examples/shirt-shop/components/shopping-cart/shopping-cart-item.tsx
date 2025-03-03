@@ -28,7 +28,6 @@ export function EmptyShoppingCartItem() {
 export function ShoppingCartItem({ item }: { item: CartItem }) {
   return (
     <motion.li
-      key={JSON.stringify(item)}
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}

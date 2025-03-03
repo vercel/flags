@@ -31,6 +31,9 @@ export function ShoppingCartRemoveButton({ item }: { item: CartItem }) {
       onClick={async () => {
         setIsLoading(true);
         await removeFromCart(item);
+        // Only end the spinner if the item is not the last one, as the item
+        // unmounts when the last one is removed
+        if (item.quantity !== 1) setIsLoading(false);
       }}
       disabled={isLoading}
       className="cursor-pointer font-medium text-blue-600 hover:text-blue-500 disabled:opacity-70 flex items-center gap-2"
