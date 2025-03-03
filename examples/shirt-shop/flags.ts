@@ -20,7 +20,7 @@ function bucket(key: string, buckets: number = 2) {
 }
 
 export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
-  key: 'summer_sale',
+  key: 'summer-sale',
   description: 'Shows a bright yellow banner for a 20% discount',
   defaultValue: false,
   identify,
@@ -31,7 +31,7 @@ export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
 });
 
 export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
-  key: 'free_delivery',
+  key: 'free-delivery',
   description: 'Show a black free delivery banner at the top of the page',
   defaultValue: false,
   identify,
@@ -42,7 +42,8 @@ export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
 });
 
 export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
-  key: 'proceed_to_checkout_color',
+  key: 'proceed-to-checkout-color',
+  description: 'The color of the proceed to checkout button',
   defaultValue: 'blue',
   options: ['blue', 'green', 'red'],
   identify,
