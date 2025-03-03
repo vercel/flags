@@ -32,6 +32,6 @@ export async function middleware(request: NextRequest) {
   // response headers
   const headers = new Headers();
   headers.set('set-cookie', `stable-id=${stableId.value}`);
-  // headers.set('set-cookie', `cart-id=${cartId.value}`);
+  headers.set('set-cookie', `cart-id=${cartId.value}`);
   return NextResponse.rewrite(nextUrl, { request, headers });
 }
