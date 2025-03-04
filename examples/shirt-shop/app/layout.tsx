@@ -4,9 +4,11 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 
 import './globals.css';
+import { ExamplesBanner } from '@/components/banners/examples-banner';
 
 export const metadata: Metadata = {
-  title: 'Shirt Shop',
+  title: 'Flags SDK Example',
+  description: 'A Flags SDK example for Ecommerce',
 };
 
 export default function RootLayout({
@@ -16,7 +18,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="">
+      <body className="antialiased">
+        <ExamplesBanner />
         {children}
         <Toaster />
         <Analytics />

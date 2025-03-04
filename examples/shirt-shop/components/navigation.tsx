@@ -1,4 +1,4 @@
-import { getCart } from '@/utils/actions';
+import { getCart } from '@/lib/actions';
 import { ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -20,7 +20,7 @@ async function ShoppingCartNavItem() {
     <Link href="/cart" className="group -m-2 flex items-center p-2">
       <ShoppingCartIcon className="h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
       <span className="ml-2 min-w-3 text-sm font-medium text-gray-700 group-hover:text-gray-800">
-        {cart.items.length}
+        {cart.items.reduce((acc, item) => acc + item.quantity, 0)}
       </span>
     </Link>
   );

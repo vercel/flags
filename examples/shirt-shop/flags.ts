@@ -1,5 +1,5 @@
 import { flag } from 'flags/next';
-import { identify, type EvaluationContext } from './utils/identify';
+import { identify, type EvaluationContext } from './lib/identify';
 import { xxHash32 } from 'js-xxhash';
 
 /**
@@ -20,7 +20,7 @@ function bucket(key: string, buckets: number = 2) {
 }
 
 export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
-  key: 'summer_sale',
+  key: 'summer-sale',
   description: 'Shows a bright yellow banner for a 20% discount',
   defaultValue: false,
   identify,
@@ -31,7 +31,7 @@ export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
 });
 
 export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
-  key: 'free_delivery',
+  key: 'free-delivery',
   description: 'Show a black free delivery banner at the top of the page',
   defaultValue: false,
   identify,
@@ -42,7 +42,8 @@ export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
 });
 
 export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
-  key: 'proceed_to_checkout_color',
+  key: 'proceed-to-checkout-color',
+  description: 'The color of the proceed to checkout button',
   defaultValue: 'blue',
   options: ['blue', 'green', 'red'],
   identify,
@@ -58,8 +59,9 @@ export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
 
 export const delayFlag = flag<number>({
   key: 'delay',
-  defaultValue: 200,
-  description: 'Delay the cart data',
+  defaultValue: 0,
+  description:
+    'A flag for debugging and demo purposes which delays the data loading',
   options: [
     { value: 0, label: 'No delay' },
     { value: 200, label: '200ms' },

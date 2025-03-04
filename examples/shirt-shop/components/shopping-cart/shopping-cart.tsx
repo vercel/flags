@@ -1,4 +1,4 @@
-import { getCart } from '@/utils/actions';
+import { getCart } from '@/lib/actions';
 import { Suspense } from 'react';
 import { ShoppingCartList } from './shopping-cart-list';
 import { EmptyShoppingCartItem, ShoppingCartItem } from './shopping-cart-item';
@@ -33,11 +33,10 @@ async function ShoppingCartContent() {
       {items.length === 0 ? (
         <EmptyShoppingCartItem />
       ) : (
-        items.map((item, index) => (
+        items.map((item) => (
           <ShoppingCartItem
+            key={[item.id, item.color, item.size].join('/')}
             item={item}
-            key={JSON.stringify(item)}
-            index={index}
           />
         ))
       )}

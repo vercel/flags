@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { precompute } from 'flags/next';
 import { productFlags } from '@/flags';
-import { getStableId } from './utils/get-stable-id';
+import { getStableId } from './lib/get-stable-id';
+import { getCartId } from './lib/get-cart-id';
 
 export const config = {
   matcher: ['/', '/cart'],
@@ -9,6 +10,7 @@ export const config = {
 
 export async function middleware(request: NextRequest) {
   const stableId = await getStableId();
+  const cartId = await getCartId();
   const code = await precompute(productFlags);
 
   // rewrites the request to the variant for this flag combination
@@ -17,16 +19,19 @@ export async function middleware(request: NextRequest) {
     request.url,
   );
 
-  // If the stable id is fresh, we need to set the cookie and rewrite the request
-  if (stableId.isFresh) {
-    // Add a header to the request to indicate that the stable id is generated,
-    // as it will not be present on the cookie request header on the first-ever request.
-    request.headers.set('x-generated-stable-id', stableId.value);
-    return NextResponse.rewrite(nextUrl, {
-      request,
-      headers: { 'set-cookie': `stable-id=${stableId.value}` },
-    });
+  // Add a header to the request to indicate that the stable id is generated,
+  // as it will not be present on the cookie request header on the first-ever request.
+  if (cartId.isFresh) {
+    request.headers.set('x-generated-cart-id', cartId.value);
   }
 
-  return NextResponse.rewrite(nextUrl, { request });
+  if (stableId.isFresh) {
+    request.headers.set('x-generated-stable-id', stableId.value);
+  }
+
+  // response headers
+  const headers = new Headers();
+  headers.append('set-cookie', `stable-id=${stableId.value}`);
+  headers.append('set-cookie', `cart-id=${cartId.value}`);
+  return NextResponse.rewrite(nextUrl, { request, headers });
 }
