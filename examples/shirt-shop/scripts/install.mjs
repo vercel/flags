@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import { execSync } from 'child_process';
 
-function install(packageManager) {
-  return execSync(`${packageManager} install`, { stdio: 'inherit' });
+function install(command) {
+  return execSync(command, { stdio: 'inherit' });
 }
 
 /**
@@ -18,7 +18,7 @@ function install(packageManager) {
 async function main() {
   if (process.env.VERCEL_PROJECT_ID === 'prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y') {
     // pnpm is necessary when installing for the vercel/flags monorepo
-    install('pnpm');
+    install('pnpm install');
     return;
   }
 
@@ -38,7 +38,7 @@ async function main() {
   await fs.writeFile('./package.json', JSON.stringify(templatePackageJson));
 
   // npm is necessary when installing for a template project
-  install('npm');
+  install('npm install --legacy-peer-deps');
 }
 
 main();
