@@ -5,7 +5,10 @@ import { Cart, CartItem } from '@/components/utils/cart-types';
 import { delayFlag } from '@/flags';
 import { getCartId } from './get-cart-id';
 
-const BACKEND_URL = process.env.BACKEND_URL;
+// Using a fallback here so we don't need to make the BACKEND_URL part of the env,
+// which makes using the template easy..
+const BACKEND_URL =
+  process.env.BACKEND_URL || 'https://shirt-shop-api.labs.vercel.dev';
 
 export async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
