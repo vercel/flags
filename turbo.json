@@ -13,8 +13,8 @@
         "EDGE_CONFIG",
         "FLAGS_SECRET",
         "FLAGS",
-        "LD_PROJECT_SLUG",
-        "LD_CLIENT_SIDE_KEY",
+        "LAUNCHDARKLY_CLIENT_SIDE_ID",
+        "LAUNCHDARKLY_PROJECT_SLUG",
         "BACKEND_URL"
       ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
