@@ -10,6 +10,7 @@ import * as topLevelFlags from '../../../../flags';
 import * as basicEdgeMiddlewareFlags from '../../../examples/feature-flags-in-edge-middleware/flags';
 import * as basicIdentifyFlags from '../../../concepts/identify/basic/flags';
 import * as fullIdentifyFlags from '../../../concepts/identify/full/flags';
+import * as adapterLaunchDarklyFlags from '../../../examples/adapter-launchdarkly/flags';
 
 export async function GET(request: NextRequest) {
   const access = await verifyAccess(request.headers.get('Authorization'));
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
       ...basicEdgeMiddlewareFlags,
       ...basicIdentifyFlags,
       ...fullIdentifyFlags,
+      ...adapterLaunchDarklyFlags,
     }),
   );
 }
