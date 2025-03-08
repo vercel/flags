@@ -35,16 +35,20 @@ export function createLaunchDarklyAdapter({
   projectSlug: string;
   clientSideId: string;
   edgeConfigConnectionString: string;
-}) {
+}): {
+  <ValueType>(
+    options?: AdapterOptions<ValueType>,
+  ): Adapter<ValueType, LDContext>;
+  /** The LaunchDarkly client instance used by the adapter. */
+  ldClient: LDClient;
+} {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
   const ldClient = init(clientSideId, edgeConfigClient);
 
-  return function launchDarklyAdapter<ValueType>(
+  const launchDarklyAdapter = function launchDarklyAdapter<ValueType>(
     options: AdapterOptions<ValueType> = {},
-  ): Adapter<ValueType, LDContext> & { ldClient: LDClient } {
+  ): Adapter<ValueType, LDContext> {
     return {
-      /** The LaunchDarkly client instance used by the adapter. */
-      ldClient,
       origin(key) {
         return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
       },
@@ -58,6 +62,10 @@ export function createLaunchDarklyAdapter({
       },
     };
   };
+
+  launchDarklyAdapter.ldClient = ldClient;
+
+  return launchDarklyAdapter;
 }
 
 export function ldAdapter<ValueType>(
