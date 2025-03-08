@@ -1,5 +1,12 @@
 # @flags-sdk/launchdarkly
 
+## 0.2.1
+
+### Patch Changes
+
+- fbc886a: expose ldAdapter.ldClient
+- fbc886a: expose as ldAdapter
+
 ## 0.2.0
 
 ### Minor Changes
