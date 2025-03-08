@@ -1,8 +1,23 @@
 {
   "name": "@flags-sdk/launchdarkly",
   "version": "0.2.1",
-  "description": "",
-  "keywords": [],
+  "description": "LaunchDarkly provider for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "launchdarkly",
+    "vercel",
+    "edge config",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "license": "MIT",
   "author": "",
   "sideEffects": false,

@@ -12,7 +12,7 @@
     "experimentation",
     "ab testing"
   ],
-  "homepage": "https://flags-sdk.dev/docs",
+  "homepage": "https://flags-sdk.dev",
   "bugs": {
     "url": "https://github.com/vercel/flags/issues"
   },
