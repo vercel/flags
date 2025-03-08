@@ -1,6 +1,10 @@
 import type { Adapter } from 'flags';
 import { createClient } from '@vercel/edge-config';
-import { init, type LDContext } from '@launchdarkly/vercel-server-sdk';
+import {
+  init,
+  LDClient,
+  type LDContext,
+} from '@launchdarkly/vercel-server-sdk';
 
 export { getProviderData } from './provider';
 export type { LDContext };
@@ -37,8 +41,10 @@ export function createLaunchDarklyAdapter({
 
   return function launchDarklyAdapter<ValueType>(
     options: AdapterOptions<ValueType> = {},
-  ): Adapter<ValueType, LDContext> {
+  ): Adapter<ValueType, LDContext> & { ldClient: LDClient } {
     return {
+      /** The LaunchDarkly client instance used by the adapter. */
+      ldClient,
       origin(key) {
         return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
       },
@@ -46,7 +52,7 @@ export function createLaunchDarklyAdapter({
         await ldClient.waitForInitialization();
         return ldClient.variation(
           key,
-          entities!,
+          entities as LDContext,
           options.defaultValue,
         ) as ValueType;
       },
