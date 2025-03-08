@@ -3,12 +3,12 @@
 ## Installation
 
 ```sh
-npm install @flags-sdk/launchdarkly @launchdarkly/vercel-server-sdk @vercel/edge-config
+npm install @flags-sdk/launchdarkly
 ```
 
 ## Usage
 
-**NOTE:** [The LaunchDarkly Vercel integration must be installed on our account.](https://vercel.com/integrations/launchdarkly)
+**NOTE:** The [LaunchDarkly Vercel integration](https://vercel.com/integrations/launchdarkly) must be installed on our account, as this adapter loads LaunchDarkly from Edge Config. The adapter can not be used without Edge Config.
 
 The following environment variables are required in order to use the default adapter:
 
