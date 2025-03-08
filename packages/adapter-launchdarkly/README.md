@@ -44,7 +44,7 @@ const identify = dedupe(async (): Promise<LDContext> => {
 export const showBanner = flag<boolean, LDContext>({
   key: 'show-banner',
   identify,
-  adapter: ldAdapter(),
+  adapter: ldAdapter.variation(),
 });
 ```
 

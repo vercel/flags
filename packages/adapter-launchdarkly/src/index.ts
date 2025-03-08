@@ -106,7 +106,7 @@ function getOrCreateDeaultAdapter() {
  *   key: 'my-flag',
  *   defaultValue: false,
  *   identify: () => ({ key: "user-123" }),
- *   adapter: ldAdapter(),
+ *   adapter: ldAdapter.variation(),
  * });
  * ```
  */
