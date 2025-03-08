@@ -1,5 +1,16 @@
 # @flags-sdk/launchdarkly
 
+## 0.3.0
+
+### Minor Changes
+
+- 917ef42: change API from ldAdapter() to ldAdapter.variation()
+
+### Patch Changes
+
+- b375e4e: add metadata to package.json
+- 917ef42: expose ldClient on default ldAdapter
+
 ## 0.2.1
 
 ### Patch Changes
