@@ -1,22 +1,35 @@
-# `@flags-sdk/launchdarkly`
+# Flags SDK - LaunchDarkly Provider
 
-## Installation
+The [LaunchDarkly provider](https://flags-sdk.dev/docs/api-reference/adapters/launchdarkly) for the [Flags SDK](https://flags-sdk.dev/) contains support for LaunchDarkly's Feature Flags.
 
-```sh
-npm install @flags-sdk/launchdarkly
+## Setup
+
+The Statsig provider is available in the `@flags-sdk/statsig` module. You can install it with
+
+```bash
+npm i @flags-sdk/launchdarkly
 ```
 
-## Usage
+## Provider Instance
 
-**NOTE:** The [LaunchDarkly Vercel integration](https://vercel.com/integrations/launchdarkly) must be installed on our account, as this adapter loads LaunchDarkly from Edge Config. The adapter can not be used without Edge Config.
+**NOTE:** The [LaunchDarkly Vercel integration](https://vercel.com/integrations/launchdarkly) must be installed on your account, as this adapter loads LaunchDarkly from Edge Config. The adapter can not be used without Edge Config.
 
-The following environment variables are required in order to use the default adapter:
+Import the default adapter instance `launchDarkly` from `@flags-sdk/launchdarkly`:
+
+```ts
+import { launchDarkly } from '@flags-sdk/launchdarkly';
+```
+
+The default adapter uses the following environment variables to configure itself:
 
 ```sh
-export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx" # Provided by Vercel when connecting an Edge Config to the project
 export LAUNCHDARKLY_CLIENT_SIDE_ID="612376f91b8f5713a58777a1"
 export LAUNCHDARKLY_PROJECT_SLUG="my-project"
+# Provided by Vercel when connecting an Edge Config to the project
+export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
 ```
+
+## Example
 
 ```ts
 import { flag, dedupe } from 'flags/next';
@@ -35,7 +48,9 @@ export const showBanner = flag<boolean, LDContext>({
 });
 ```
 
-It's possible to create an adapter by using the `createLaunchDarklyAdapter` function:
+## Custom Adapter
+
+Create an adapter by using the `createLaunchDarklyAdapter` function:
 
 ```ts
 import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
@@ -46,3 +61,7 @@ const adapter = createLaunchDarklyAdapter({
   edgeConfigConnectionString: process.env.EDGE_CONFIG,
 });
 ```
+
+## Documentation
+
+Please check out the [LaunchDarkly provider documentation](https://flags-sdk.dev/docs/api-reference/adapters/launchdarkly) for more information.
