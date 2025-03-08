@@ -60,7 +60,7 @@ export function createLaunchDarklyAdapter({
   };
 }
 
-export function launchDarkly<ValueType>(
+export function ldAdapter<ValueType>(
   options?: AdapterOptions<ValueType>,
 ): Adapter<ValueType, LDContext> {
   if (!defaultLaunchDarklyAdapter) {
@@ -77,3 +77,10 @@ export function launchDarkly<ValueType>(
 
   return defaultLaunchDarklyAdapter(options);
 }
+
+/**
+ * This is the previous name for the LaunchDarkly adapter.
+ *
+ * @deprecated Use `ldAdapter` instead.
+ */
+export const launchDarkly = ldAdapter;

@@ -14,10 +14,10 @@ npm i @flags-sdk/launchdarkly
 
 **NOTE:** The [LaunchDarkly Vercel integration](https://vercel.com/integrations/launchdarkly) must be installed on your account, as this adapter loads LaunchDarkly from Edge Config. The adapter can not be used without Edge Config.
 
-Import the default adapter instance `launchDarkly` from `@flags-sdk/launchdarkly`:
+Import the default adapter instance `ldAdapter` from `@flags-sdk/launchdarkly`:
 
 ```ts
-import { launchDarkly } from '@flags-sdk/launchdarkly';
+import { ldAdapter } from '@flags-sdk/launchdarkly';
 ```
 
 The default adapter uses the following environment variables to configure itself:
@@ -33,7 +33,7 @@ export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-x
 
 ```ts
 import { flag, dedupe } from 'flags/next';
-import { launchDarkly, type LDContext } from '@flags-sdk/launchdarkly';
+import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
 
 const identify = dedupe(async (): Promise<LDContext> => {
   return {
@@ -44,7 +44,7 @@ const identify = dedupe(async (): Promise<LDContext> => {
 export const showBanner = flag<boolean, LDContext>({
   key: 'show-banner',
   identify,
-  adapter: launchDarkly(),
+  adapter: ldAdapter(),
 });
 ```
 
