@@ -14,9 +14,9 @@ interface AdapterOptions<ValueType> {
 }
 
 type AdapterResponse = {
-  <ValueType>(
+  variation: <ValueType>(
     options?: AdapterOptions<ValueType>,
-  ): Adapter<ValueType, LDContext>;
+  ) => Adapter<ValueType, LDContext>;
   /** The LaunchDarkly client instance used by the adapter. */
   ldClient: LDClient;
 };
@@ -47,13 +47,15 @@ export function createLaunchDarklyAdapter({
   const edgeConfigClient = createClient(edgeConfigConnectionString);
   const ldClient = init(clientSideId, edgeConfigClient);
 
-  const launchDarklyAdapter = function launchDarklyAdapter<ValueType>(
+  function origin(key: string) {
+    return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
+  }
+
+  function variation<ValueType>(
     options: AdapterOptions<ValueType> = {},
   ): Adapter<ValueType, LDContext> {
     return {
-      origin(key) {
-        return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
-      },
+      origin,
       async decide({ key, entities }): Promise<ValueType> {
         await ldClient.waitForInitialization();
         return ldClient.variation(
@@ -63,14 +65,15 @@ export function createLaunchDarklyAdapter({
         ) as ValueType;
       },
     };
+  }
+
+  return {
+    ldClient,
+    variation,
   };
-
-  launchDarklyAdapter.ldClient = ldClient;
-
-  return launchDarklyAdapter;
 }
 
-function getOrCreateDefaultAdapter() {
+function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
@@ -107,17 +110,14 @@ function getOrCreateDefaultAdapter() {
  * });
  * ```
  */
-export const ldAdapter: AdapterResponse = Object.assign(
-  function ldAdapter<ValueType>(options?: AdapterOptions<ValueType>) {
-    return getOrCreateDefaultAdapter()(options);
+export const ldAdapter: AdapterResponse = {
+  variation: (...args) => getOrCreateDeaultAdapter().variation(...args),
+  get ldClient() {
+    return getOrCreateDeaultAdapter().ldClient;
   },
-  {
-    get ldClient() {
-      return getOrCreateDefaultAdapter().ldClient;
-    },
-  },
-);
+};
 
+/**
 /**
  * This is the previous name for the LaunchDarkly adapter.
  *
