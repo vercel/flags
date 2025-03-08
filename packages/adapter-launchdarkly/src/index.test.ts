@@ -1,6 +1,6 @@
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { expect, it, describe, vi, beforeAll } from 'vitest';
-import { ldAdapter, LDContext } from '..';
+import { ldAdapter, type LDContext } from '..';
 
 const ldClientMock = {
   waitForInitialization: vi.fn(),
