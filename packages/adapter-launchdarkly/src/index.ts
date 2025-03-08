@@ -13,6 +13,14 @@ interface AdapterOptions<ValueType> {
   defaultValue?: ValueType;
 }
 
+type AdapterResponse = {
+  <ValueType>(
+    options?: AdapterOptions<ValueType>,
+  ): Adapter<ValueType, LDContext>;
+  /** The LaunchDarkly client instance used by the adapter. */
+  ldClient: LDClient;
+};
+
 let defaultLaunchDarklyAdapter:
   | ReturnType<typeof createLaunchDarklyAdapter>
   | undefined;
@@ -35,13 +43,7 @@ export function createLaunchDarklyAdapter({
   projectSlug: string;
   clientSideId: string;
   edgeConfigConnectionString: string;
-}): {
-  <ValueType>(
-    options?: AdapterOptions<ValueType>,
-  ): Adapter<ValueType, LDContext>;
-  /** The LaunchDarkly client instance used by the adapter. */
-  ldClient: LDClient;
-} {
+}): AdapterResponse {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
   const ldClient = init(clientSideId, edgeConfigClient);
 
@@ -68,9 +70,7 @@ export function createLaunchDarklyAdapter({
   return launchDarklyAdapter;
 }
 
-export function ldAdapter<ValueType>(
-  options?: AdapterOptions<ValueType>,
-): Adapter<ValueType, LDContext> {
+function getOrCreateDefaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
@@ -83,8 +83,40 @@ export function ldAdapter<ValueType>(
     });
   }
 
-  return defaultLaunchDarklyAdapter(options);
+  return defaultLaunchDarklyAdapter;
 }
+
+/**
+ * The default LaunchDarkly adapter.
+ *
+ * This is a convenience object that pre-initializes the LaunchDarkly SDK and provides
+ * the adapter function for usage with the Flags SDK.
+ *
+ * This is the recommended way to use the LaunchDarkly adapter.
+ *
+ * ```ts
+ * // flags.ts
+ * import { flag } from 'flags/next';
+ * import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
+ *
+ * const flag = flag<boolean, LDContext>({
+ *   key: 'my-flag',
+ *   defaultValue: false,
+ *   identify: () => ({ key: "user-123" }),
+ *   adapter: ldAdapter(),
+ * });
+ * ```
+ */
+export const ldAdapter: AdapterResponse = Object.assign(
+  function ldAdapter<ValueType>(options?: AdapterOptions<ValueType>) {
+    return getOrCreateDefaultAdapter()(options);
+  },
+  {
+    get ldClient() {
+      return getOrCreateDefaultAdapter().ldClient;
+    },
+  },
+);
 
 /**
  * This is the previous name for the LaunchDarkly adapter.
