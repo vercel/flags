@@ -3,3 +3,4 @@ packages:
   - 'tooling/*'
   - 'tests/*'
   - 'examples/*'
+  - 'apps/*'

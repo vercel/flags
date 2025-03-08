@@ -43,28 +43,55 @@ interface StatsigExperimentsResponse {
   };
 }
 
-export async function getProviderData(options: {
-  consoleApiKey: string;
-  /**
-   * Required to set the `origin` property on the flag definitions.
-   */
-  projectId?: string;
-}): Promise<ProviderData> {
-  const hints = [];
+export async function getProviderData(
+  options: {
+    /**
+     * Required to set the `origin` property on the flag definitions.
+     */
+    projectId?: string;
+  } & (
+    | {
+        /**
+         * The Statsig Console API key.
+         */
+        consoleApiKey: string;
+        /**
+         * @deprecated Use `consoleApiKey` instead.
+         */
+        statsigConsoleApiKey?: never;
+      }
+    | {
+        /**
+         * @deprecated Use `consoleApiKey` instead.
+         */
+        statsigConsoleApiKey: string;
+        /**
+         * The Statsig Console API key.
+         */
+        consoleApiKey?: never;
+      }
+  ),
+): Promise<ProviderData> {
+  const consoleApiKey = options.consoleApiKey || options.statsigConsoleApiKey;
 
-  if (!options.consoleApiKey) {
-    hints.push({
-      key: 'statsig/missing-api-key',
-      text: 'Missing Statsig Console API Key',
-    });
+  if (!consoleApiKey) {
+    return {
+      definitions: {},
+      hints: [
+        {
+          key: 'statsig/missing-api-key',
+          text: 'Missing Statsig Console API Key',
+        },
+      ],
+    };
   }
 
-  // Abort early if called with incomplete options.
-  if (hints.length > 0) return { definitions: {}, hints };
+  const hints: ProviderData['hints'] = [];
 
+  // Abort early if called with incomplete options.
   const [gates, experiments] = await Promise.allSettled([
-    getFeatureGates(options),
-    getExperiments(options),
+    getFeatureGates({ consoleApiKey }),
+    getExperiments({ consoleApiKey }),
   ] as const);
 
   const definitions: ProviderData['definitions'] = {};

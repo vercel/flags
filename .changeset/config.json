@@ -8,7 +8,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "summer-sale",
+    "shirt-shop",
     "svelte-example",
     "next-13",
     "next-14",

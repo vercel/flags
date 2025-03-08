@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [".env", ".env.local", ".env.development.local"],
+  "globalEnv": ["NPM_TOKEN", "DEPLOYMENT_PROTECTION_BYPASS"],
   "tasks": {
     "dev": {
       "dependsOn": ["^build"],
@@ -12,7 +13,9 @@
         "EDGE_CONFIG",
         "FLAGS_SECRET",
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
-        "LAUNCHDARKLY_PROJECT_SLUG"
+        "LAUNCHDARKLY_PROJECT_SLUG",
+        "FLAGS",
+        "BACKEND_URL"
       ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
