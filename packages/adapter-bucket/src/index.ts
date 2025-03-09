@@ -4,20 +4,26 @@ import {
   ClientOptions,
   Context,
   ContextWithTracking,
-  TypedFeatures,
+  Feature,
 } from '@bucketco/node-sdk';
+import { FeatureRemoteConfig } from '@bucketco/node-sdk/dist/types/src/types';
 
-export { getProviderData } from './provider';
 export type { Context };
 
 type AdapterOptions = Pick<ContextWithTracking, 'enableTracking' | 'meta'>;
 
 type AdapterResponse = {
   feature: <ValueType>(options?: AdapterOptions) => Adapter<ValueType, Context>;
-  featureConfig: <ValueType>(
-    getter: (value: TypedFeatures[string]) => ValueType,
-    options?: AdapterOptions,
-  ) => Adapter<ValueType, Context>;
+  featureConfig: (opts?: {
+    /**
+     * Allows overriding the key used to fetch the feature.
+     */
+    key?: string;
+    /**
+     * These options are passed to the Bucket SDK when fetching the feature.
+     */
+    options?: AdapterOptions;
+  }) => Adapter<Feature<FeatureRemoteConfig>, Context>;
   /** The Bucket client instance used by the adapter. */
   bucketClient: () => Promise<BucketClient>;
 };
@@ -59,17 +65,22 @@ export function createBucketAdapter(
     };
   }
 
-  function featureConfig<ValueType>(
-    getter: (value: TypedFeatures[string]) => ValueType | undefined,
-    options?: AdapterOptions,
-  ): Adapter<ValueType, Context> {
+  /**
+   * featureConfig can not be precomputed or overridden as it returns the raw Feature,
+   * which contains a track() function that can not be serialized.
+   */
+  function featureConfig(opts?: {
+    key?: string;
+    options?: AdapterOptions;
+  }): Adapter<Feature<FeatureRemoteConfig>, Context> {
     return {
-      async decide({ key, entities }): Promise<ValueType> {
+      async decide({ key, entities }) {
         await initialize();
-
-        const value = bucketClient.getFeature({ ...options, ...entities }, key);
-
-        return getter(value) as ValueType;
+        const feature = bucketClient.getFeature(
+          { ...opts?.options, ...entities },
+          opts?.key ?? key,
+        );
+        return feature;
       },
     };
   }
