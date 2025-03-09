@@ -133,9 +133,9 @@ describe('OpenFeature Adapter', () => {
   });
 
   describe('client', () => {
-    it('should expose the client instance', () => {
+    it('should expose the client instance', async () => {
       const adapter = createOpenFeatureAdapter(mockClient);
-      expect(adapter.client).toBe(mockClient);
+      await expect(adapter.client()).resolves.toBe(mockClient);
     });
   });
 });

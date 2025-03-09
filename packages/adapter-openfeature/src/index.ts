@@ -19,16 +19,26 @@ type AdapterResponse = {
   objectValue: <ValueType>(
     options?: FlagEvaluationOptions,
   ) => Adapter<ValueType, EvaluationContext>;
-  /** The OpenFeature client instance used by the adapter. */
-  client: Client;
+  client: () => Promise<Client>;
 };
 
-export function createOpenFeatureAdapter(client: Client): AdapterResponse {
+export function createOpenFeatureAdapter(
+  init: Client | (() => Promise<Client>),
+): AdapterResponse {
+  let client: Client | null = typeof init === 'function' ? null : init;
+
+  async function initialize() {
+    if (client) return client;
+    client = await (typeof init === 'function' ? init() : init);
+  }
+
   function booleanValue<ValueType>(
     options?: FlagEvaluationOptions,
   ): Adapter<ValueType, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<ValueType> {
+        await initialize();
+        if (!client) return defaultValue as ValueType;
         return client.getBooleanValue(
           key,
           defaultValue as boolean,
@@ -44,6 +54,8 @@ export function createOpenFeatureAdapter(client: Client): AdapterResponse {
   ): Adapter<ValueType, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<ValueType> {
+        await initialize();
+        if (!client) return defaultValue as ValueType;
         return client.getStringValue(
           key,
           defaultValue as string,
@@ -59,6 +71,8 @@ export function createOpenFeatureAdapter(client: Client): AdapterResponse {
   ): Adapter<ValueType, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<ValueType> {
+        await initialize();
+        if (!client) return defaultValue as ValueType;
         return client.getNumberValue(
           key,
           defaultValue as number,
@@ -74,6 +88,8 @@ export function createOpenFeatureAdapter(client: Client): AdapterResponse {
   ): Adapter<ValueType, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<ValueType> {
+        await initialize();
+        if (!client) return defaultValue as ValueType;
         return client.getObjectValue(
           key,
           defaultValue as JsonValue,
@@ -89,6 +105,13 @@ export function createOpenFeatureAdapter(client: Client): AdapterResponse {
     stringValue,
     numberValue,
     objectValue,
-    client,
+    client: async () => {
+      await initialize();
+      if (!client)
+        throw new Error(
+          '@flags-sdk/openfeature: OpenFeature client failed to initialize',
+        );
+      return client;
+    },
   };
 }
