@@ -1,0 +1,71 @@
+{
+  "name": "@flags-sdk/openfeature",
+  "version": "0.1.0",
+  "description": "OpenFeature provider for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "openfeature",
+    "vercel",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "eslint": "eslint-runner",
+    "eslint:fix": "eslint-runner --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@openfeature/server-sdk": "^1.17.1",
+    "@types/node": "20.11.17",
+    "eslint-config-custom": "workspace:*",
+    "flags": "workspace:*",
+    "msw": "2.6.4",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.1.1",
+    "vitest": "1.4.0"
+  },
+  "peerDependencies": {
+    "@openfeature/server-sdk": "^1.17.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
