@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { examplePrecomputed } from '$lib/flags';
+import { firstMarketingABTest, secondMarketingABTest } from '$lib/flags';
 import { marketingFlags } from '$lib/precomputed-flags';
 import { generatePermutations } from 'flags/sveltekit';
 
@@ -17,9 +17,11 @@ export async function entries() {
 // };
 
 export const load: PageServerLoad = async ({ params }) => {
-	const flag = await examplePrecomputed(params.code, marketingFlags);
+	const flag1 = await firstMarketingABTest(params.code, marketingFlags);
+	const flag2 = await secondMarketingABTest(params.code, marketingFlags);
 
 	return {
-		title: flag ? 'New Marketing Page' : `Old Marketing Page`
+		first: `First flag evaluated to ${flag1}`,
+		second: `Second flag evaluated to ${flag2}`
 	};
 };

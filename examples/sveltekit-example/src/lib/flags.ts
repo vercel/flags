@@ -34,8 +34,8 @@ function identify({
 	return { visitorId };
 }
 
-export const examplePrecomputed = flag<boolean, Entities>({
-	key: 'examplePrecomputed',
+export const firstMarketingABTest = flag<boolean, Entities>({
+	key: 'firstMarketingABTest',
 	description: 'Example of a precomputed flag',
 	identify,
 	decide({ entities }) {
@@ -43,5 +43,17 @@ export const examplePrecomputed = flag<boolean, Entities>({
 
 		// Use any kind of deterministic method that runs on the visitorId
 		return /^[a-n0-5]/i.test(entities?.visitorId);
+	}
+});
+
+export const secondMarketingABTest = flag<boolean, Entities>({
+	key: 'secondMarketingABTest',
+	description: 'Example of a precomputed flag',
+	identify,
+	decide({ entities }) {
+		if (!entities?.visitorId) return false;
+
+		// Use any kind of deterministic method that runs on the visitorId
+		return /[a-n0-5]$/i.test(entities.visitorId);
 	}
 });

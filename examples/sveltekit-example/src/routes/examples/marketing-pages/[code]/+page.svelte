@@ -4,7 +4,8 @@
 	let { data }: PageProps = $props();
 </script>
 
-<h1>{data.title}</h1>
+<p>{data.first}</p>
+<p>{data.second}</p>
 
 <div>
 	<button

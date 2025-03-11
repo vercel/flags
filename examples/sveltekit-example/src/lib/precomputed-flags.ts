@@ -1,8 +1,8 @@
 import { precompute } from 'flags/sveltekit';
-import { examplePrecomputed } from './flags';
+import { firstMarketingABTest, secondMarketingABTest } from './flags';
 import { randomUUID } from 'crypto';
 
-export const marketingFlags = [examplePrecomputed];
+export const marketingFlags = [firstMarketingABTest, secondMarketingABTest];
 
 /**
  * Given a user-visible pathname, precompute the internal route using the flags used on that page
