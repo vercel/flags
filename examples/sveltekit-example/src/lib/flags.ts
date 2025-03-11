@@ -12,6 +12,14 @@ export const showNewDashboard = flag<boolean>({
 	}
 });
 
+export const marketingABTestManualApproach = flag<boolean>({
+	key: 'marketingABTestManualApproach',
+	description: 'Marketing AB Test Manual Approach',
+	decide({ cookies, headers }) {
+		return (cookies.get('marketingManual')?.value ?? headers.get('x-marketingManual')) === 'true';
+	}
+});
+
 interface Entities {
 	visitorId?: string;
 }

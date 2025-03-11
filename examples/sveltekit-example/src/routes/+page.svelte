@@ -13,6 +13,11 @@
 	<p>Using feature flags on dynamic pages</p>
 </a>
 
+<a class="tile" href="/examples/marketing-pages-manual-approach">
+	<h3>Marketing Pages (manual approach)</h3>
+	<p>Simple but not scalable approach to feature flags on static pages</p>
+</a>
+
 <a class="tile" href="/examples/marketing-pages">
 	<h3>Marketing Pages</h3>
 	<p>Using feature flags on static pages</p>
