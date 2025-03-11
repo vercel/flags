@@ -10,8 +10,8 @@ export const marketingFlags = [examplePrecomputed];
  * e.g. /marketing -> /marketing/asd-qwe-123
  */
 export async function computeInternalRoute(pathname: string, request: Request) {
-	if (pathname === '/marketing') {
-		return '/marketing/' + (await precompute(marketingFlags, request));
+	if (pathname === '/examples/marketing-pages') {
+		return '/examples/marketing-pages/' + (await precompute(marketingFlags, request));
 	}
 
 	return pathname;

@@ -8,7 +8,7 @@ export const config = {
 	// matcher: '/((?!_app/|favicon.ico|favicon.png).*)'
 	// ... or only run it where you actually need it (more performant).
 	matcher: [
-		'/marketing'
+		'/examples/marketing-pages'
 		// add more paths here if you want to run A/B tests on other pages, e.g.
 		// '/something-else'
 	]
@@ -18,7 +18,7 @@ export default async function middleware(request: Request) {
 	const { url, denormalize } = normalizeUrl(request.url);
 
 	// this part is only needed if you use the commented-out matcher above instead
-	// if (url.pathname !== '/') return next();
+	// if (url.pathname !== '/examples/marketing-pages') return next();
 
 	// Retrieve cookies which contain the feature flags.
 	let visitorId = parse(request.headers.get('cookie') ?? '').visitorId || '';

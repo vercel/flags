@@ -20,9 +20,6 @@ export const load: PageServerLoad = async ({ params }) => {
 	const flag = await examplePrecomputed(params.code, marketingFlags);
 
 	return {
-		post: {
-			title: flag ? 'New Marketing Page' : `Old Marketing Page`,
-			content: `Content for page goes here`
-		}
+		title: flag ? 'New Marketing Page' : `Old Marketing Page`
 	};
 };

@@ -1,22 +1,22 @@
 <script lang="ts">
-	import type { LayoutProps } from './$types';
 	import { mountVercelToolbar } from '@vercel/toolbar/vite';
 	import { onMount } from 'svelte';
+	import type { LayoutProps } from './$types';
+	import { page } from '$app/state';
 
 	onMount(() => mountVercelToolbar());
 
-	let { data, children }: LayoutProps = $props();
+	let { children }: LayoutProps = $props();
 </script>
 
-<header>
-	<nav>
-		<a href="/">Home</a>
-		<a href="/marketing">Marketing</a>
-	</nav>
-</header>
+{#if page.url.pathname !== '/'}
+	<header>
+		<nav>
+			<a href="/">Back to homepage</a>
+		</nav>
+	</header>
+{/if}
 
 <main>
-	{data.title}
-	<!-- +page.svelte is rendered in this <slot> -->
 	{@render children?.()}
 </main>

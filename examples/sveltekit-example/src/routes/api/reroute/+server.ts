@@ -6,7 +6,10 @@ export async function GET({ url, request, cookies, setHeaders }) {
 
 	if (!visitorId) {
 		visitorId = createVisitorId();
-		cookies.set('visitorId', visitorId, { path: '/' });
+		cookies.set('visitorId', visitorId, {
+			path: '/',
+			httpOnly: false // So that we can reset the visitor Id on the client in the examples
+		});
 		request.headers.set('x-visitorId', visitorId); // cookie is not available on the initial request
 	}
 
