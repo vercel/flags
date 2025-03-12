@@ -1,6 +1,5 @@
 import { precompute } from 'flags/sveltekit';
 import { firstMarketingABTest, secondMarketingABTest } from './flags';
-import { randomUUID } from 'crypto';
 
 export const marketingFlags = [firstMarketingABTest, secondMarketingABTest];
 
@@ -18,5 +17,5 @@ export async function computeInternalRoute(pathname: string, request: Request) {
 }
 
 export function createVisitorId() {
-	return randomUUID().replace(/-/g, '');
+	return crypto.randomUUID().replace(/-/g, '');
 }
