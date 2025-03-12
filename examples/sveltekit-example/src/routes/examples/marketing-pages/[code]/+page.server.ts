@@ -3,18 +3,20 @@ import { firstMarketingABTest, secondMarketingABTest } from '$lib/flags';
 import { marketingFlags } from '$lib/precomputed-flags';
 import { generatePermutations } from 'flags/sveltekit';
 
-export const prerender = true;
+// Use Vercel ISR:
+export const config = {
+	isr: {
+		expiration: false
+	}
+};
 
-export async function entries() {
-	return (await generatePermutations(marketingFlags)).map((code) => ({ code }));
-}
-
-// On Vercel you could also use ISR:
-// export const config= {
-// 	isr: {
-// 		expiration: 60
-// 	}
-// };
+// You could also prerender at build time by doing:
+//
+// export const prerender = true;
+//
+// export async function entries() {
+// 	return (await generatePermutations(marketingFlags)).map((code) => ({ code }));
+// }
 
 export const load: PageServerLoad = async ({ params }) => {
 	const flag1 = await firstMarketingABTest(params.code, marketingFlags);
