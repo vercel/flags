@@ -1,7 +1,5 @@
 import type { Handle, RequestEvent } from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
-// @ts-expect-error will be available in user's project
-import { env } from '$env/dynamic/private';
 import {
   type ApiData,
   decrypt as _decrypt,
@@ -29,6 +27,7 @@ import {
   getPrecomputed,
   precompute as _precompute,
 } from './precompute';
+import { tryGetSecret } from './env';
 
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
@@ -103,16 +102,6 @@ function getIdentify<ValueType, EntitiesType>(
   }
 }
 
-function tryGetSecret(secret?: string): string {
-  if (!secret) {
-    secret = env.FLAGS_SECRET;
-  }
-  if (!secret) {
-    throw new Error('flags: No secret provided');
-  }
-  return secret;
-}
-
 /**
  * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
  * This could be the case when the flag is called from edge middleware.
@@ -141,7 +130,7 @@ export function flag<
         if (!store) {
           store = createContext(
             requestOrCode,
-            (flagsArrayOrSecret as string) ?? tryGetSecret(),
+            (flagsArrayOrSecret as string) ?? (await tryGetSecret()),
           );
           requestMap.set(requestOrCode, store);
         }
@@ -289,9 +278,9 @@ export function createHandle({
   secret?: string;
   flags?: Record<string, Flag<any>>;
 }): Handle {
-  secret = tryGetSecret(secret);
+  return async function handle({ event, resolve }) {
+    secret ??= await tryGetSecret(secret);
 
-  return function handle({ event, resolve }) {
     if (
       flags &&
       // avoid creating the URL object for every request by checking with includes() first
@@ -354,7 +343,7 @@ export async function encrypt<T extends object>(
   value: T,
   secret?: string,
 ): Promise<string> {
-  return _encrypt(value, tryGetSecret(secret));
+  return _encrypt(value, await tryGetSecret(secret));
 }
 
 /**
@@ -368,7 +357,7 @@ export async function decrypt<T extends object>(
   encryptedData: string,
   secret?: string,
 ): Promise<T | undefined> {
-  return _decrypt(encryptedData, tryGetSecret(secret));
+  return _decrypt(encryptedData, await tryGetSecret(secret));
 }
 
 /**
@@ -382,9 +371,9 @@ export async function decrypt<T extends object>(
 export async function precompute<T extends FlagsArray>(
   flags: T,
   request: Request,
-  secret: string = tryGetSecret(),
+  secret?: string,
 ): Promise<string> {
-  return _precompute(flags, request, secret);
+  return _precompute(flags, request, await tryGetSecret(secret));
 }
 
 /**
@@ -394,10 +383,10 @@ export async function precompute<T extends FlagsArray>(
  * @param secret - The secret sign the generated permutation with
  * @returns An array of strings representing each permutation
  */
-export function generatePermutations(
+export async function generatePermutations(
   flags: FlagsArray,
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
-  secret: string = tryGetSecret(),
+  secret?: string,
 ): Promise<string[]> {
-  return _generatePermutations(flags, filter, secret);
+  return _generatePermutations(flags, filter, await tryGetSecret(secret));
 }
