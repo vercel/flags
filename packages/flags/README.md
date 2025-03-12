@@ -37,7 +37,7 @@ This secret is required to use the SDK. It is used to read overrides and to encr
 Create a file called flags.ts in your project and declare your first feature flag there:
 
 ```ts
-// app/flags.tsx
+// utils/flags.tsx
 import { flag } from 'flags/next';
 
 export const exampleFlag = flag<boolean>({
@@ -51,7 +51,7 @@ export const exampleFlag = flag<boolean>({
 Call your feature flag in a React Server Component:
 
 ```tsx
-// app/page.tsx
+// @/utils/page.tsx
 import { exampleFlag } from './flags';
 
 export default async function Page() {
