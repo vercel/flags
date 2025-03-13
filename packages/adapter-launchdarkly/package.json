@@ -1,8 +1,23 @@
 {
   "name": "@flags-sdk/launchdarkly",
-  "version": "0.1.0",
-  "description": "",
-  "keywords": [],
+  "version": "0.3.0",
+  "description": "LaunchDarkly provider for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "launchdarkly",
+    "vercel",
+    "edge config",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "license": "MIT",
   "author": "",
   "sideEffects": false,
@@ -35,7 +50,10 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@launchdarkly/vercel-server-sdk": "^1.3.23",
+    "@vercel/edge-config": "^1.4.0"
+  },
   "devDependencies": {
     "@types/node": "20.11.17",
     "eslint-config-custom": "workspace:*",
@@ -48,7 +66,6 @@
     "vite": "5.1.1",
     "vitest": "1.4.0"
   },
-  "peerDependencies": {},
   "publishConfig": {
     "access": "public"
   }

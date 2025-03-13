@@ -42,6 +42,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
-          LAUNCHDARKLY_API_TOKEN: ${{ secrets.LAUNCHDARKLY_API_TOKEN }}
           HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}
           HAPPYKIT_ENV_KEY: ${{ secrets.HAPPYKIT_ENV_KEY }}
+          LAUNCHDARKLY_CLIENT_SIDE_ID: ${{ secrets.LAUNCHDARKLY_CLIENT_SIDE_ID }}
+          LAUNCHDARKLY_PROJECT_SLUG: ${{ secrets.LAUNCHDARKLY_PROJECT_SLUG }}
