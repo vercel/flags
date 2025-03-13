@@ -1,15 +1,22 @@
 <script lang="ts">
-	import type { LayoutData } from './$types';
-
+	import type { LayoutProps } from './$types';
 	import { mountVercelToolbar } from '@vercel/toolbar/vite';
 	import { onMount } from 'svelte';
+
 	onMount(() => mountVercelToolbar());
 
-	export let data: LayoutData;
+	let { data, children }: LayoutProps = $props();
 </script>
+
+<header>
+	<nav>
+		<a href="/">Home</a>
+		<a href="/precomputed">Precomputed</a>
+	</nav>
+</header>
 
 <main>
 	{data.title}
 	<!-- +page.svelte is rendered in this <slot> -->
-	<slot />
+	{@render children?.()}
 </main>

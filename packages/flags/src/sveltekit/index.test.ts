@@ -1,5 +1,7 @@
-import { expect, it, describe } from 'vitest';
+import { expect, it, describe, vi } from 'vitest';
 import { getProviderData, flag } from '.';
+
+vi.mock('$env/dynamic/private', () => ({ FLAGS_SECRET: 'secret' }));
 
 describe('getProviderData', () => {
   it('is a function', () => {

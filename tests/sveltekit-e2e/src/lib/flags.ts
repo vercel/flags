@@ -1,3 +1,4 @@
+import { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { flag } from 'flags/sveltekit';
 
 export const showDashboard = flag<boolean>({
@@ -19,4 +20,43 @@ export const hostFlag = flag<string>({
 export const cookieFlag = flag<string>({
 	key: 'cookie',
 	decide: ({ cookies }) => cookies.get('example-cookie')?.value || 'no cookie'
+});
+
+interface Entities {
+	visitorId?: string;
+}
+
+function identify({
+	cookies,
+	headers
+}: {
+	cookies: ReadonlyRequestCookies;
+	headers: ReadonlyHeaders;
+}): Entities {
+	const visitorId = cookies.get('visitorId')?.value ?? headers.get('x-visitorId');
+
+	if (!visitorId) {
+		throw new Error(
+			'Visitor ID not found - should have been set by middleware or within api/reroute'
+		);
+	}
+
+	return { visitorId };
+}
+
+export const precomputedFlag = flag<string, Entities>({
+	key: 'precomputedFlag',
+	description: 'A precomputed flag',
+	identify,
+	decide({ entities, cookies, headers }) {
+		if (!entities?.visitorId) return 'fail';
+
+		return (
+			entities.visitorId +
+			'|' +
+			(cookies.get('visitorId')?.value || 'no cookie') +
+			'|' +
+			(headers.get('x-visitorId') || 'no header')
+		);
+	}
 });
