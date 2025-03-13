@@ -7,15 +7,15 @@ import type {
 } from '@openfeature/server-sdk';
 
 type AdapterResponse<ClientType> = {
-  booleanValue: <ValueType>(
+  booleanValue: (
     options?: FlagEvaluationOptions,
-  ) => Adapter<ValueType, EvaluationContext>;
-  stringValue: <ValueType>(
+  ) => Adapter<boolean, EvaluationContext>;
+  stringValue: (
     options?: FlagEvaluationOptions,
-  ) => Adapter<ValueType, EvaluationContext>;
-  numberValue: <ValueType>(
+  ) => Adapter<string, EvaluationContext>;
+  numberValue: (
     options?: FlagEvaluationOptions,
-  ) => Adapter<ValueType, EvaluationContext>;
+  ) => Adapter<number, EvaluationContext>;
   objectValue: <ValueType>(
     options?: FlagEvaluationOptions,
   ) => Adapter<ValueType, EvaluationContext>;
@@ -64,53 +64,53 @@ export function createOpenFeatureAdapter(
     return clientPromise;
   }
 
-  function booleanValue<ValueType>(
+  function booleanValue(
     options?: FlagEvaluationOptions,
-  ): Adapter<ValueType, EvaluationContext> {
+  ): Adapter<boolean, EvaluationContext> {
     return {
-      async decide({ key, entities, defaultValue }): Promise<ValueType> {
+      async decide({ key, entities, defaultValue }): Promise<boolean> {
         await initialize();
-        if (!client) return defaultValue as ValueType;
+        if (!client) return defaultValue as boolean;
         return client.getBooleanValue(
           key,
           defaultValue as boolean,
           entities,
           options,
-        ) as ValueType;
+        );
       },
     };
   }
 
-  function stringValue<ValueType>(
+  function stringValue(
     options?: FlagEvaluationOptions,
-  ): Adapter<ValueType, EvaluationContext> {
+  ): Adapter<string, EvaluationContext> {
     return {
-      async decide({ key, entities, defaultValue }): Promise<ValueType> {
+      async decide({ key, entities, defaultValue }): Promise<string> {
         await initialize();
-        if (!client) return defaultValue as ValueType;
+        if (!client) return defaultValue as string;
         return client.getStringValue(
           key,
           defaultValue as string,
           entities,
           options,
-        ) as ValueType;
+        );
       },
     };
   }
 
-  function numberValue<ValueType>(
+  function numberValue(
     options?: FlagEvaluationOptions,
-  ): Adapter<ValueType, EvaluationContext> {
+  ): Adapter<number, EvaluationContext> {
     return {
-      async decide({ key, entities, defaultValue }): Promise<ValueType> {
+      async decide({ key, entities, defaultValue }): Promise<number> {
         await initialize();
-        if (!client) return defaultValue as ValueType;
+        if (!client) return defaultValue as number;
         return client.getNumberValue(
           key,
           defaultValue as number,
           entities,
           options,
-        ) as ValueType;
+        );
       },
     };
   }
