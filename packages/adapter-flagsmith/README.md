@@ -5,15 +5,13 @@ A provider adapter for the Flags SDK that integrates with [Flagsmith](https://fl
 ## Installation
 
 ```bash
-npm install @flags-sdk/adapter-flagsmith
-# or
-yarn add @flags-sdk/adapter-flagsmith
+npm install @flags-sdk/flagsmith
 ```
 
 ## Usage
 
 ```typescript
-import { createFlagsmithAdapter } from '@flags-sdk/adapter-flagsmith';
+import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
 import { flag } from 'flags';
 
 // Create the Flagsmith adapter
