@@ -24,7 +24,7 @@ const flagsmithAdapter = createFlagsmithAdapter({
 });
 
 // Define your flags
-const myFeatureFlag = flag<boolean>({
+const myFeatureFlag = flag({
   key: 'my-feature',
   adapter: flagsmithAdapter,
 });
