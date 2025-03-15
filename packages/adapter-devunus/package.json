@@ -1,0 +1,57 @@
+{
+  "name": "@flags-sdk/devunus",
+  "version": "0.1.0",
+  "description": "Devunus adapter for flags-sdk",
+  "keywords": [
+    "feature-flags",
+    "devunus",
+    "flags-sdk"
+  ],
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "eslint": "eslint-runner",
+    "eslint:fix": "eslint-runner --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.17",
+    "eslint-config-custom": "workspace:*",
+    "eslint-plugin-vitest": "0.5.4",
+    "flags": "workspace:*",
+    "msw": "2.6.4",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.6.3",
+    "vitest": "1.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
