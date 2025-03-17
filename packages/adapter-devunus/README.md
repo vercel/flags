@@ -1,4 +1,4 @@
-# @flags-sdk/Devunus
+# @flags-sdk/devunus
 
 Devunus adapter for [flags-sdk](https://github.com/vercel/flags).
 
@@ -8,10 +8,12 @@ Devunus adapter for [flags-sdk](https://github.com/vercel/flags).
 ## Installation
 
 ```bash
-npm install @flags-sdk/Devunus
+npm install @flags-sdk/devunus
 ```
 
 ## Usage getProviderData
+
+Use a server env key for DEVUNUS_ENV_KEY. You can find your environment key in the [Devunus Admin Console](https://app.devunus.com/admin/def/project/1/get-started/e0-0/keys).
 
 `app/.well-known/vercel/flags/route.ts`:
 

@@ -4,7 +4,7 @@ interface DevunusFlag {
   id: string;
   name: string;
   description: string;
-  value: JsonValue;
+  value: string;
   type: 'boolean' | 'string' | 'number' | 'json';
   createdAt: number;
   updatedAt: number;
