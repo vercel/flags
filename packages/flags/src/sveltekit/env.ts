@@ -6,8 +6,10 @@ export async function tryGetSecret(secret?: string): Promise<string> {
   if (!default_secret) {
     try {
       // @ts-expect-error SvelteKit will know about this
-      const env = await import('$env/dynamic/private');
-      default_secret = env.env.FLAGS_SECRET;
+      // use static instead of dynamic because only the latter is available during prerendering,
+      // and in case it's not available through that it should be via process.env above.
+      const env = await import('$env/static/private');
+      default_secret = env.FLAGS_SECRET;
     } catch (e) {
       // ignore, could happen when importing from an environment that doesn't know this import
     }
