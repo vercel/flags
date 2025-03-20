@@ -531,4 +531,19 @@ describe('adapters', () => {
     );
     expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
   });
+
+  it("should pass the defaultValue to the adapter's decide function", async () => {
+    const outerValue = Math.random();
+
+    const exampleFlag = flag<number>({
+      key: 'example-flag',
+      defaultValue: outerValue,
+      adapter: {
+        decide: ({ defaultValue }) => defaultValue || -1,
+        origin: (key) => `fake-origin#${key}`,
+      },
+    });
+
+    expect(await exampleFlag()).toBe(outerValue);
+  });
 });

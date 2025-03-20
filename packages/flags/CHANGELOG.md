@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 3.1.2
+
+### Patch Changes
+
+- b79a84a: Pass the `defaultValue` to the adapter's decide function
+
 ## 3.1.1
 
 ### Patch Changes
