@@ -17,7 +17,7 @@
         "FLAGS",
         "BACKEND_URL"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".svelte-kit/**"]
     },
     "lint": {
       "dependsOn": ["^build"]
