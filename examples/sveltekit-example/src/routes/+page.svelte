@@ -1,37 +1,54 @@
-<h1>Flags SDK</h1>
+<div class="p-4 prose lg:prose-lg mb-32 dark:prose-invert">
+	<h1>Flags SDK</h1>
 
-<p>This page contains example snippets for the Flags SDK using SvelteKit</p>
+	<p>This page contains example snippets for the Flags SDK using SvelteKit.</p>
 
-<p>
-	See <a href="https://flags-sdk.dev">flags-sdk.dev</a> for the full documentation, or
-	<a href="https://github.com/vercel/flags/tree/main/examples/sveltekit-example">GitHub</a> for the source
-	code.
-</p>
+	<p>
+		See <a href="https://flags-sdk.dev">flags-sdk.dev</a> for the full documentation, or
+		<a href="https://github.com/vercel/flags/tree/main/examples/sveltekit-example">GitHub</a> for the
+		source code.
+	</p>
 
-<a class="tile" href="/examples/dashboard-pages">
-	<h3>Dashboard Pages</h3>
-	<p>Using feature flags on dynamic pages</p>
-</a>
+	<div class="flex flex-col gap-4">
+		<a class="no-underline" href="/examples/dashboard-pages">
+			<div
+				class="rounded-xl border border-neutral-200 bg-white text-neutral-950 shadow dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50"
+			>
+				<div class="flex flex-col space-y-1.5 p-6">
+					<div class="font-semibold leading-none tracking-tight">Dashboard Pages</div>
+					<div class="text-sm text-neutral-500 dark:text-neutral-400">
+						Using feature flags on dynamic pages
+					</div>
+				</div>
+			</div>
+		</a>
 
-<a class="tile" href="/examples/marketing-pages-manual-approach">
-	<h3>Marketing Pages (manual approach)</h3>
-	<p>Simple but not scalable approach to feature flags on static pages</p>
-</a>
+		<a class="no-underline" href="/examples/marketing-pages-manual-approach">
+			<div
+				class="rounded-xl border border-neutral-200 bg-white text-neutral-950 shadow dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50"
+			>
+				<div class="flex flex-col space-y-1.5 p-6">
+					<div class="font-semibold leading-none tracking-tight">
+						Marketing Pages (manual approach)
+					</div>
+					<div class="text-sm text-neutral-500 dark:text-neutral-400">
+						Simple but not scalable approach to feature flags on static pages
+					</div>
+				</div>
+			</div>
+		</a>
 
-<a class="tile" href="/examples/marketing-pages">
-	<h3>Marketing Pages</h3>
-	<p>Using feature flags on static pages</p>
-</a>
-
-<style>
-	.tile {
-		display: block;
-		padding: 1rem;
-		margin: 1rem 0;
-		border: 1px solid #ccc;
-		border-radius: 0.5rem;
-		text-decoration: none;
-		color: inherit;
-		max-width: 30rem;
-	}
-</style>
+		<a class="no-underline" href="/examples/marketing-pages">
+			<div
+				class="rounded-xl border border-neutral-200 bg-white text-neutral-950 shadow dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50"
+			>
+				<div class="flex flex-col space-y-1.5 p-6">
+					<div class="font-semibold leading-none tracking-tight">Marketing Pages</div>
+					<div class="text-sm text-neutral-500 dark:text-neutral-400">
+						Using feature flags on static pages
+					</div>
+				</div>
+			</div>
+		</a>
+	</div>
+</div>

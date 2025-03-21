@@ -17,7 +17,14 @@
         "FLAGS",
         "BACKEND_URL"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".svelte-kit/**"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        ".svelte-kit/**",
+        ".vercel/**"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"]

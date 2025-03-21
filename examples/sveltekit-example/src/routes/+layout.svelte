@@ -1,22 +1,14 @@
 <script lang="ts">
+	import '../app.css';
 	import { mountVercelToolbar } from '@vercel/toolbar/vite';
 	import { onMount } from 'svelte';
 	import type { LayoutProps } from './$types';
-	import { page } from '$app/state';
 
 	onMount(() => mountVercelToolbar());
 
 	let { children }: LayoutProps = $props();
 </script>
 
-{#if page.url.pathname !== '/'}
-	<header>
-		<nav>
-			<a href="/">Back to homepage</a>
-		</nav>
-	</header>
-{/if}
-
-<main>
+<main class="mx-4 my-2">
 	{@render children()}
 </main>

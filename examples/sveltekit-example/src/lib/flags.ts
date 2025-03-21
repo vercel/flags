@@ -50,7 +50,7 @@ export const firstMarketingABTest = flag<boolean, Entities>({
 		if (!entities?.visitorId) return false;
 
 		// Use any kind of deterministic method that runs on the visitorId
-		return /^[a-n0-5]/i.test(entities?.visitorId);
+		return /^[a-m0-4]/i.test(entities?.visitorId);
 	}
 });
 
@@ -62,6 +62,6 @@ export const secondMarketingABTest = flag<boolean, Entities>({
 		if (!entities?.visitorId) return false;
 
 		// Use any kind of deterministic method that runs on the visitorId
-		return /[a-n0-5]$/i.test(entities.visitorId);
+		return /[a-m0-4]$/i.test(entities.visitorId);
 	}
 });

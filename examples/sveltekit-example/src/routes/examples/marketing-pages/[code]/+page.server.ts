@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { firstMarketingABTest, secondMarketingABTest } from '$lib/flags';
 import { marketingFlags } from '$lib/precomputed-flags';
-import { generatePermutations } from 'flags/sveltekit';
+// import { generatePermutations } from 'flags/sveltekit';
 
 // Use Vercel ISR:
 export const config = {
@@ -22,8 +22,5 @@ export const load: PageServerLoad = async ({ params }) => {
 	const flag1 = await firstMarketingABTest(params.code, marketingFlags);
 	const flag2 = await secondMarketingABTest(params.code, marketingFlags);
 
-	return {
-		first: `First flag evaluated to ${flag1}`,
-		second: `Second flag evaluated to ${flag2}`
-	};
+	return { flag1, flag2 };
 };

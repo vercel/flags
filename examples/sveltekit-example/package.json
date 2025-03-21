@@ -12,10 +12,13 @@
 		"format": "prettier --write ."
 	},
 	"dependencies": {
+		"@tailwindcss/typography": "0.5.16",
+		"@tailwindcss/vite": "4.0.15",
 		"@vercel/edge": "^1.2.1",
 		"@vercel/toolbar": "0.1.15",
+		"cookie": "^0.6.0",
 		"flags": "workspace:*",
-		"cookie": "^0.6.0"
+		"tailwindcss": "4.0.15"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-vercel": "^5.6.0",

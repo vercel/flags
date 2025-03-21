@@ -4,23 +4,48 @@
 	let { data }: PageProps = $props();
 </script>
 
-<h1>{data.title}</h1>
+{#if data.dashboard}
+	<div class="rounded-md bg-green-100 dark:bg-green-800">
+		<div class="p-4 text-sm font-medium text-green-800 dark:text-green-100">
+			The feature flag <span class="font-semibold">dashboard-flag</span> evaluated to
+			<span class="font-semibold">true</span>.
+		</div>
+	</div>
+{:else}
+	<div class="rounded-md bg-fuchsia-100 dark:bg-fuchsia-800">
+		<div class="p-4 text-sm font-medium text-fuchsia-800 dark:text-fuchsia-100">
+			The feature flag <span class="font-semibold">dashboard-flag</span> evaluated to
+			<span class="font-semibold">false</span>.
+		</div>
+	</div>
+{/if}
 
-<button
-	onclick={() => {
-		document.cookie = 'showNewDashboard=true; Path=/';
-		window.location.reload();
-	}}>Act as flagged in user</button
->
-<button
-	onclick={() => {
-		document.cookie = 'showNewDashboard=false; Path=/';
-		window.location.reload();
-	}}>Act as a regular user</button
->
-<button
-	onclick={() => {
-		document.cookie = 'showNewDashboard=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-		window.location.reload();
-	}}>Clear cookie</button
->
+<div class="flex gap-2 pt-2">
+	<button
+		class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 border border-neutral-200 bg-white shadow-sm hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50 h-9 px-4 py-2"
+		onclick={() => {
+			document.cookie = 'showNewDashboard=true; Path=/';
+			window.location.reload();
+		}}
+	>
+		Act as flagged in user
+	</button>
+	<button
+		class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 border border-neutral-200 bg-white shadow-sm hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50 h-9 px-4 py-2"
+		onclick={() => {
+			document.cookie = 'showNewDashboard=false; Path=/';
+			window.location.reload();
+		}}
+	>
+		Act as a regular user
+	</button>
+	<button
+		class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 border border-neutral-200 bg-white shadow-sm hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50 h-9 px-4 py-2"
+		onclick={() => {
+			document.cookie = 'showNewDashboard=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+			window.location.reload();
+		}}
+	>
+		Clear cookie
+	</button>
+</div>
