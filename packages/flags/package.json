@@ -39,6 +39,7 @@
       "require": "./dist/react.cjs"
     },
     "./sveltekit": {
+      "svelte": "./dist/sveltekit.js",
       "import": "./dist/sveltekit.js",
       "require": "./dist/sveltekit.cjs"
     }
