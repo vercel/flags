@@ -51,7 +51,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@bucketco/node-sdk": "1.6.0"
+    "@bucketco/node-sdk": "1.8.0"
   },
   "devDependencies": {
     "@types/node": "20.11.17",

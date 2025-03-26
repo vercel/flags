@@ -1,12 +1,13 @@
-import type { Adapter } from 'flags';
+import type { Adapter, FlagDefinitionsType } from 'flags';
 import {
   BucketClient,
   ClientOptions,
   Context,
   ContextWithTracking,
   Feature,
+  FeatureRemoteConfig,
 } from '@bucketco/node-sdk';
-import { FeatureRemoteConfig } from '@bucketco/node-sdk/dist/types/src/types';
+import { ProviderData } from 'flags';
 
 export type { Context };
 
@@ -42,14 +43,13 @@ export function createBucketAdapter(
   clientOptions: ClientOptions,
 ): AdapterResponse {
   let bucketClient: BucketClient;
-  let initPromise: Promise<void>;
 
   async function initialize() {
-    if (initPromise) await initPromise;
-    if (bucketClient) return bucketClient;
-    bucketClient = new BucketClient(clientOptions);
-    initPromise = bucketClient.initialize();
-    await initPromise;
+    if (!bucketClient) {
+      bucketClient = new BucketClient(clientOptions);
+    }
+    // this can be called multiple times. Same promise is returned.
+    return bucketClient.initialize();
   }
 
   function feature<ValueType>(
@@ -134,3 +134,40 @@ export const bucketAdapter: AdapterResponse = {
     return getOrCreateDefaultAdapter().bucketClient();
   },
 };
+
+export async function getProviderData({
+  bucketClient,
+}: {
+  /**
+   * The BucketClient instance.
+   */
+  bucketClient: BucketClient;
+}): Promise<ProviderData> {
+  await bucketClient.initialize();
+
+  const features = await bucketClient.getFeatureDefinitions();
+
+  return {
+    definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
+      if (item.config) {
+        acc[`${item.key}.config`] = {
+          options: item.config.variants.map((v) => ({
+            value: v.payload ?? v.key,
+            label: v.key,
+          })),
+          description: item.description ?? undefined,
+        };
+      }
+
+      acc[item.key] = {
+        options: [
+          { label: 'Disabled', value: false },
+          { label: 'Enabled', value: true },
+        ],
+        description: item.description ?? undefined,
+      };
+      return acc;
+    }, {}),
+    hints: [],
+  };
+}

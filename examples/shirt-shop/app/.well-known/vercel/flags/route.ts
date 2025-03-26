@@ -1,7 +1,6 @@
 import { type ApiData, verifyAccess } from 'flags';
-import { getProviderData } from 'flags/next';
+import { bucketAdapter, getProviderData } from '@flags-sdk/bucket';
 import { NextResponse, type NextRequest } from 'next/server';
-import * as flags from '../../../../flags';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic'; // defaults to auto
@@ -10,7 +9,8 @@ export async function GET(request: NextRequest) {
   const access = await verifyAccess(request.headers.get('Authorization'));
   if (!access) return NextResponse.json(null, { status: 401 });
 
-  // Forward info from Flags in Code
-  const providerData = await getProviderData(flags);
+  const providerData = await getProviderData(
+    await bucketAdapter.bucketClient(),
+  );
   return NextResponse.json<ApiData>(providerData);
 }
