@@ -1,6 +1,6 @@
 {
   "name": "flags",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [
     "feature flags",
@@ -39,6 +39,7 @@
       "require": "./dist/react.cjs"
     },
     "./sveltekit": {
+      "svelte": "./dist/sveltekit.js",
       "import": "./dist/sveltekit.js",
       "require": "./dist/sveltekit.cjs"
     }

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { PageData } from './$types';
+	import type { PageProps } from './$types';
 
-	export let data: PageData;
+	let { data }: PageProps = $props();
 </script>
 
 <h1>{data.post.title}</h1>

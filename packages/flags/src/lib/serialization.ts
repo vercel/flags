@@ -1,6 +1,5 @@
 import type { JsonValue } from '..';
 import { memoizeOne } from './async-memoize-one';
-import type { Flag } from './types';
 import type { FlagOption } from '../types';
 import { CompactSign, base64url, compactVerify } from 'jose';
 
@@ -48,9 +47,17 @@ function splitUint8Array(
   return [firstHalf, secondHalf];
 }
 
+/**
+ * Common subset of the flag type used in here
+ */
+type Flag = {
+  key: string;
+  options?: FlagOption<any>[];
+};
+
 export async function deserialize(
   code: string,
-  flags: readonly Flag<any, any>[],
+  flags: readonly Flag[],
   secret: string,
 ): Promise<Record<string, JsonValue>> {
   // TODO what happens when verification fails?
@@ -146,8 +153,8 @@ function joinUint8Arrays(array1: Uint8Array, array2: Uint8Array): Uint8Array {
   return combined;
 }
 export async function serialize(
-  flagSet: Record<Flag<any, any>['key'], JsonValue>,
-  flags: readonly Flag<any, any>[],
+  flagSet: Record<Flag['key'], JsonValue>,
+  flags: readonly Flag[],
   secret: string,
 ) {
   const unlistedValues: JsonValue[] = [];

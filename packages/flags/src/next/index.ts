@@ -283,6 +283,8 @@ function getRun<ValueType, EntitiesType>(
     // Also fall back to defaultValue when the decide function returns undefined or throws an error.
     const decisionPromise = (async () => {
       return decide({
+        // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
+        defaultValue: definition.defaultValue,
         headers: readonlyHeaders,
         cookies: readonlyCookies,
         entities,

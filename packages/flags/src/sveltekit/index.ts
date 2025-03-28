@@ -2,15 +2,15 @@ import type { Handle, RequestEvent } from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   type ApiData,
-  decrypt,
-  encrypt,
+  decrypt as _decrypt,
+  encrypt as _encrypt,
   reportValue,
   safeJsonStringify,
   verifyAccess,
   type JsonValue,
   type FlagDefinitionsType,
 } from '..';
-import { Decide, FlagDeclaration, GenerousOption } from '../types';
+import { Decide, FlagDeclaration, Identify } from '../types';
 import {
   type ReadonlyHeaders,
   HeadersAdapter,
@@ -21,6 +21,13 @@ import {
 } from '../spec-extension/adapters/request-cookies';
 import { normalizeOptions } from '../lib/normalize-options';
 import { RequestCookies } from '@edge-runtime/cookies';
+import { Flag, FlagsArray } from './types';
+import {
+  generatePermutations as _generatePermutations,
+  getPrecomputed,
+  precompute as _precompute,
+} from './precompute';
+import { tryGetSecret } from './env';
 
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
@@ -49,13 +56,6 @@ function sealCookies(headers: Headers): ReadonlyRequestCookies {
   cookiesMap.set(headers, sealed);
   return sealed;
 }
-
-type Flag<ReturnValue> = (() => ReturnValue | Promise<ReturnValue>) & {
-  key: string;
-  description?: string;
-  origin?: string | Record<string, unknown>;
-  options?: GenerousOption<ReturnValue>[];
-};
 
 type PromisesMap<T> = {
   [K in keyof T]: Promise<T[K]>;
@@ -91,29 +91,79 @@ function getDecide<ValueType, EntitiesType>(
   };
 }
 
+function getIdentify<ValueType, EntitiesType>(
+  definition: FlagDeclaration<ValueType, EntitiesType>,
+): Identify<EntitiesType> | undefined {
+  if (typeof definition.identify === 'function') {
+    return definition.identify;
+  }
+  if (typeof definition.adapter?.identify === 'function') {
+    return definition.adapter.identify;
+  }
+}
+
+/**
+ * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
+ * This could be the case when the flag is called from edge middleware.
+ */
+const requestMap = new WeakMap<Request, AsyncLocalContext>();
+
 /**
  * Declares a feature flag
  */
-export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
-  const decide = getDecide<T, unknown>(definition);
+export function flag<
+  ValueType extends JsonValue = boolean | string | number,
+  EntitiesType = any,
+>(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
+  const decide = getDecide<ValueType, EntitiesType>(definition);
+  const identify = getIdentify(definition);
 
-  const flagImpl = async function flagImpl(): Promise<T> {
-    const store = flagStorage.getStore();
+  const flagImpl = async function flagImpl(
+    requestOrCode?: string | Request,
+    flagsArrayOrSecret?: string | Flag<any>[],
+  ): Promise<ValueType> {
+    let store = flagStorage.getStore();
 
     if (!store) {
-      throw new Error('flags: context not found');
+      if (requestOrCode instanceof Request) {
+        store = requestMap.get(requestOrCode);
+        if (!store) {
+          store = createContext(
+            requestOrCode,
+            (flagsArrayOrSecret as string) ?? (await tryGetSecret()),
+          );
+          requestMap.set(requestOrCode, store);
+        }
+      } else {
+        throw new Error('flags: Neither context found nor Request provided');
+      }
+    }
+
+    if (
+      typeof requestOrCode === 'string' &&
+      Array.isArray(flagsArrayOrSecret)
+    ) {
+      return getPrecomputed(
+        definition.key,
+        flagsArrayOrSecret,
+        requestOrCode,
+        store.secret,
+      );
     }
 
     if (hasOwnProperty(store.usedFlags, definition.key)) {
       const valuePromise = store.usedFlags[definition.key];
       if (typeof valuePromise !== 'undefined') {
-        return valuePromise as Promise<T>;
+        return valuePromise as Promise<ValueType>;
       }
     }
 
-    const overridesCookie = store.event.cookies.get('vercel-flag-overrides');
+    const headers = sealHeaders(store.request.headers);
+    const cookies = sealCookies(store.request.headers);
+
+    const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
-      ? await decrypt<Record<string, T>>(overridesCookie, store.secret)
+      ? await decrypt<Record<string, ValueType>>(overridesCookie, store.secret)
       : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
@@ -125,14 +175,25 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
       }
     }
 
-    const valuePromise = decide(
-      {
-        headers: sealHeaders(store.event.request.headers),
-        cookies: sealCookies(store.event.request.headers),
-      },
-      // @ts-expect-error not part of the type, but we supply it for convenience
-      { event: store.event },
-    );
+    let entities: EntitiesType | undefined;
+    if (identify) {
+      // Deduplicate calls to identify, key being the function itself
+      if (!store.identifiers.has(identify)) {
+        const entities = identify({
+          headers,
+          cookies,
+        });
+        store.identifiers.set(identify, entities);
+      }
+
+      entities = (await store.identifiers.get(identify)) as EntitiesType;
+    }
+
+    const valuePromise = decide({
+      headers,
+      cookies,
+      entities,
+    });
     store.usedFlags[definition.key] = valuePromise as Promise<JsonValue>;
 
     const value = await valuePromise;
@@ -144,16 +205,14 @@ export function flag<T>(definition: FlagDeclaration<T, unknown>): Flag<T> {
   flagImpl.defaultValue = definition.defaultValue;
   flagImpl.origin = definition.origin;
   flagImpl.description = definition.description;
-  flagImpl.options = definition.options;
+  flagImpl.options = normalizeOptions(definition.options);
   flagImpl.decide = decide;
-  // flagImpl.identify = definition.identify;
+  flagImpl.identify = identify;
 
   return flagImpl;
 }
 
-export function getProviderData(
-  flags: Record<string, Flag<JsonValue>>,
-): ApiData {
+export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
   const definitions = Object.values(flags).reduce<FlagDefinitionsType>(
     (acc, d) => {
       acc[d.key] = {
@@ -170,19 +229,24 @@ export function getProviderData(
 }
 
 interface AsyncLocalContext {
-  event: RequestEvent<Partial<Record<string, string>>, string | null>;
+  request: Request;
   secret: string;
+  params: Record<string, string>;
   usedFlags: Record<string, Promise<JsonValue>>;
+  identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
 }
 
 function createContext(
-  event: RequestEvent<Partial<Record<string, string>>, string | null>,
+  request: Request,
   secret: string,
+  params?: Record<string, string>,
 ): AsyncLocalContext {
   return {
-    event,
+    request,
     secret,
+    params: params ?? {},
     usedFlags: {},
+    identifiers: new Map(),
   };
 }
 
@@ -198,10 +262,9 @@ const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
  *
  * ```ts
  * import { createHandle } from 'flags/sveltekit';
- * import { FLAGS_SECRET } from '$env/static/private';
  * import * as flags from '$lib/flags';
  *
- * export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+ * export const handle = createHandle({ flags });
  * ```
  *
  * @example Usage example in src/hooks.server.ts with other handlers
@@ -212,10 +275,12 @@ export function createHandle({
   secret,
   flags,
 }: {
-  secret: string;
-  flags?: Record<string, Flag<JsonValue>>;
+  secret?: string;
+  flags?: Record<string, Flag<any>>;
 }): Handle {
-  return function handle({ event, resolve }) {
+  return async function handle({ event, resolve }) {
+    secret ??= await tryGetSecret(secret);
+
     if (
       flags &&
       // avoid creating the URL object for every request by checking with includes() first
@@ -225,7 +290,11 @@ export function createHandle({
       return handleWellKnownFlagsRoute(event, secret, flags);
     }
 
-    const flagContext = createContext(event, secret);
+    const flagContext = createContext(
+      event.request,
+      secret,
+      event.params as Record<string, string>,
+    );
     return flagStorage.run(flagContext, () =>
       resolve(event, {
         transformPageChunk: async ({ html }) => {
@@ -253,7 +322,7 @@ export function createHandle({
 async function handleWellKnownFlagsRoute(
   event: RequestEvent<Partial<Record<string, string>>, string | null>,
   secret: string,
-  flags: Record<string, Flag<JsonValue>>,
+  flags: Record<string, Flag<any>>,
 ) {
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
@@ -261,4 +330,63 @@ async function handleWellKnownFlagsRoute(
   );
   if (!access) return new Response(null, { status: 401 });
   return Response.json(getProviderData(flags));
+}
+
+/**
+ * Function to encrypt overrides, values, definitions, and API data.
+ *
+ * Convenience wrapper around `encrypt` from `@vercel/flags` for not
+ * having to provide a secret - it will be read from the environment
+ * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
+ */
+export async function encrypt<T extends object>(
+  value: T,
+  secret?: string,
+): Promise<string> {
+  return _encrypt(value, await tryGetSecret(secret));
+}
+
+/**
+ * Function to decrypt overrides, values, definitions, and API data.
+ *
+ * Convenience wrapper around `deencrypt` from `@vercel/flags` for not
+ * having to provide a secret - it will be read from the environment
+ * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
+ */
+export async function decrypt<T extends object>(
+  encryptedData: string,
+  secret?: string,
+): Promise<T | undefined> {
+  return _decrypt(encryptedData, await tryGetSecret(secret));
+}
+
+/**
+ * Evaluate a list of feature flags and generate a signed string representing their values.
+ *
+ * This convenience function call combines `evaluate` and `serialize`.
+ *
+ * @param flags - list of flags
+ * @returns - a string representing evaluated flags
+ */
+export async function precompute<T extends FlagsArray>(
+  flags: T,
+  request: Request,
+  secret?: string,
+): Promise<string> {
+  return _precompute(flags, request, await tryGetSecret(secret));
+}
+
+/**
+ * Generates all permutations given a list of feature flags based on the options declared on each flag.
+ * @param flags - The list of feature flags
+ * @param filter - An optional filter function which gets called with each permutation.
+ * @param secret - The secret sign the generated permutation with
+ * @returns An array of strings representing each permutation
+ */
+export async function generatePermutations(
+  flags: FlagsArray,
+  filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
+  secret?: string,
+): Promise<string[]> {
+  return _generatePermutations(flags, filter, await tryGetSecret(secret));
 }

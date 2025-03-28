@@ -1,5 +1,17 @@
 # @vercel/flags
 
+## 3.2.0
+
+### Minor Changes
+
+- 701f3c2: feat: provide precompute patterns for SvelteKit
+
+## 3.1.2
+
+### Patch Changes
+
+- b79a84a: Pass the `defaultValue` to the adapter's decide function
+
 ## 3.1.1
 
 ### Patch Changes
