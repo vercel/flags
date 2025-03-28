@@ -149,16 +149,6 @@ export async function getProviderData({
 
   return {
     definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
-      if (item.config) {
-        acc[`${item.key}.config`] = {
-          options: item.config.variants.map((v) => ({
-            value: v.payload ?? v.key,
-            label: v.key,
-          })),
-          description: item.description ?? undefined,
-        };
-      }
-
       acc[item.key] = {
         options: [
           { label: 'Disabled', value: false },
