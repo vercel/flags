@@ -10,25 +10,27 @@ npm install @flags-sdk/flagsmith
 
 ## Usage
 
+An Enviroment ID must be provided either using `FLAGSMITH_ENVIRONMENT_ID` environment variable or setting `environmentID` property in the initialization parameters
+
 ```typescript
-import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
+import { flagsmithAdapter } from '@flags-sdk/flagsmith';
 import { flag } from 'flags';
 
-// Create the Flagsmith adapter
-const flagsmithAdapter = createFlagsmithAdapter({
-  environmentID: 'your-environment-id',
-  // Optional: Add any other Flagsmith configuration options
-  // See: https://docs.flagsmith.com/clients/javascript/
-});
-
-// Define your flags
+// Lazy Mode
 const myFeatureFlag = flag({
   key: 'my-feature',
-  adapter: flagsmithAdapter,
+  adapter: flagsmithAdapter.getFeature(),
 });
 
-// Use the flag in your application
-const flag = await myFeatureFlag();
+// Custom initialization
+const myFeatureFlag = flag({
+  key: 'my-feature',
+  adapter: flagsmithAdapter.getFeature({
+    key: 'other-feature',
+    api: 'https://custom-api.com',
+    environmentID: 'ABC',
+  }),
+});
 ```
 
 ## Configuration
