@@ -10,7 +10,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@flags-sdk/bucket": "workspace:*",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
     "@tailwindcss/aspect-ratio": "0.4.2",
