@@ -5,14 +5,12 @@ export type { PostHogEntities, JsonType };
 
 export function createPostHogAdapter({
   postHogKey,
-  postHogHost,
+  postHogOptions,
 }: {
-  postHogKey: string;
-  postHogHost: string;
+  postHogKey: ConstructorParameters<typeof PostHog>[0];
+  postHogOptions: ConstructorParameters<typeof PostHog>[1];
 }): PostHogAdapter {
-  const client = new PostHog(postHogKey, {
-    host: postHogHost,
-  });
+  const client = new PostHog(postHogKey, postHogOptions);
 
   const result: PostHogAdapter = {
     client,
@@ -22,13 +20,13 @@ export function createPostHogAdapter({
           const parsedEntities = parseEntities(entities);
           const result =
             (await client.isFeatureEnabled(
-              key,
+              trimKey(key),
               parsedEntities.distinctId,
               options,
             )) ?? defaultValue;
           if (result === undefined) {
             throw new Error(
-              `PostHog Adapter isFeatureEnabled returned undefined for ${key} and no default value was provided.`,
+              `PostHog Adapter isFeatureEnabled returned undefined for ${trimKey(key)} and no default value was provided.`,
             );
           }
           return result;
@@ -40,7 +38,7 @@ export function createPostHogAdapter({
         async decide({ key, entities, defaultValue }) {
           const parsedEntities = parseEntities(entities);
           const flagValue = await client.getFeatureFlag(
-            key,
+            trimKey(key),
             parsedEntities.distinctId,
             options,
           );
@@ -49,7 +47,7 @@ export function createPostHogAdapter({
               return defaultValue;
             }
             throw new Error(
-              `PostHog Adapter featureFlagValue found undefined for ${key} and no default value was provided.`,
+              `PostHog Adapter featureFlagValue found undefined for ${trimKey(key)} and no default value was provided.`,
             );
           }
           return flagValue;
@@ -61,7 +59,7 @@ export function createPostHogAdapter({
         async decide({ key, entities, defaultValue }) {
           const parsedEntities = parseEntities(entities);
           const flagValue = await client.getFeatureFlag(
-            key,
+            trimKey(key),
             parsedEntities.distinctId,
             {
               ...options,
@@ -69,20 +67,20 @@ export function createPostHogAdapter({
             },
           );
           const payload = await client.getFeatureFlagPayload(
-            key,
+            trimKey(key),
             parsedEntities.distinctId,
             flagValue,
             options,
           );
-          if (!payload) {
+          if (!payload || !flagValue) {
             if (typeof defaultValue !== 'undefined') {
               return defaultValue;
             }
             throw new Error(
-              `PostHog Adapter featureFlagPayload found undefined for ${key} and no default value was provided.`,
+              `PostHog Adapter featureFlagPayload found undefined for ${trimKey(key)} and no default value was provided.`,
             );
           }
-          return getValue(payload);
+          return getValue(payload, flagValue);
         },
       };
     },
@@ -109,12 +107,23 @@ function assertEnv(name: string): string {
   return value;
 }
 
+// Read until the first `.`
+// This supports defining multiple flags with the same key
+// Ex. with my-flag.is-enabled, my-flag.variant and my-flag.payload
+function trimKey(key: string): string {
+  return key.split('.')[0] as string;
+}
+
 let defaultPostHogAdapter: ReturnType<typeof createPostHogAdapter> | undefined;
 function getOrCreateDefaultAdapter() {
   if (!defaultPostHogAdapter) {
     defaultPostHogAdapter = createPostHogAdapter({
       postHogKey: assertEnv('NEXT_PUBLIC_POSTHOG_KEY'),
-      postHogHost: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
+      postHogOptions: {
+        host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
+        personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+        featureFlagsPollingInterval: 10_000,
+      },
     });
   }
   return defaultPostHogAdapter;
