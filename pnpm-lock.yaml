@@ -532,7 +532,7 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)
 
-  packages/adapter-posthog:
+  packages/posthog:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.0

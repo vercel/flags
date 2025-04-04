@@ -1,6 +1,7 @@
 import { PostHog } from 'posthog-node';
 import type { PostHogAdapter, PostHogEntities, JsonType } from './types';
 
+export { getProviderData } from './provider';
 export type { PostHogEntities, JsonType };
 
 export function createPostHogAdapter({
@@ -123,6 +124,8 @@ function getOrCreateDefaultAdapter() {
         host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
         personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
         featureFlagsPollingInterval: 10_000,
+        // Presumption: Server IP is likely not a good proxy for user location
+        disableGeoip: true,
       },
     });
   }
