@@ -10,7 +10,7 @@ npm install @flags-sdk/flagsmith
 
 ## Usage
 
-An Enviroment ID must be provided either using `FLAGSMITH_ENVIRONMENT_ID` environment variable or setting `environmentID` property in the initialization parameters
+An Environment ID must be provided either using `FLAGSMITH_ENVIRONMENT_ID` environment variable or setting `environmentID` property in the initialization parameters
 
 ```typescript
 import { flagsmithAdapter } from '@flags-sdk/flagsmith';
