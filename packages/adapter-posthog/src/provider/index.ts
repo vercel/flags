@@ -1,4 +1,4 @@
-import type { FlagDefinitionsType, JsonValue, ProviderData } from 'flags';
+import type { FlagDefinitionsType, ProviderData } from 'flags';
 
 // See: https://posthog.com/docs/api/feature-flags#get-api-projects-project_id-feature_flags
 interface ApiData {
