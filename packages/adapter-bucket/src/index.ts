@@ -4,8 +4,6 @@ import {
   ClientOptions,
   Context,
   ContextWithTracking,
-  Feature,
-  FeatureRemoteConfig,
 } from '@bucketco/node-sdk';
 import { ProviderData } from 'flags';
 
@@ -14,17 +12,7 @@ export type { Context };
 type AdapterOptions = Pick<ContextWithTracking, 'enableTracking' | 'meta'>;
 
 type AdapterResponse = {
-  feature: <ValueType>(options?: AdapterOptions) => Adapter<ValueType, Context>;
-  featureConfig: (opts?: {
-    /**
-     * Allows overriding the key used to fetch the feature.
-     */
-    key?: string;
-    /**
-     * These options are passed to the Bucket SDK when fetching the feature.
-     */
-    options?: AdapterOptions;
-  }) => Adapter<Feature<FeatureRemoteConfig>, Context>;
+  featureIsEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
   /** The Bucket client instance used by the adapter. */
   bucketClient: () => Promise<BucketClient>;
 };
@@ -52,42 +40,21 @@ export function createBucketAdapter(
     return bucketClient.initialize();
   }
 
-  function feature<ValueType>(
+  function featureIsEnabled(
     options?: AdapterOptions,
-  ): Adapter<ValueType, Context> {
+  ): Adapter<boolean, Context> {
     return {
-      async decide({ key, entities }): Promise<ValueType> {
+      async decide({ key, entities }): Promise<boolean> {
         await initialize();
 
         return bucketClient.getFeature({ ...options, ...entities }, key)
-          .isEnabled as ValueType;
-      },
-    };
-  }
-
-  /**
-   * featureConfig can not be precomputed or overridden as it returns the raw Feature,
-   * which contains a track() function that can not be serialized.
-   */
-  function featureConfig(opts?: {
-    key?: string;
-    options?: AdapterOptions;
-  }): Adapter<Feature<FeatureRemoteConfig>, Context> {
-    return {
-      async decide({ key, entities }) {
-        await initialize();
-        const feature = bucketClient.getFeature(
-          { ...opts?.options, ...entities },
-          opts?.key ?? key,
-        );
-        return feature;
+          .isEnabled;
       },
     };
   }
 
   return {
-    feature,
-    featureConfig: featureConfig,
+    featureIsEnabled,
     bucketClient: async () => {
       await initialize();
       return bucketClient;
@@ -122,14 +89,13 @@ function getOrCreateDefaultAdapter() {
  *   key: 'my-flag',
  *   defaultValue: false,
  *   identify: () => ({ key: "user-123" }),
- *   adapter: bucketAdapter.feature(),
+ *   adapter: bucketAdapter.featureIsEnabled(),
  * });
  * ```
  */
 export const bucketAdapter: AdapterResponse = {
-  feature: (...args) => getOrCreateDefaultAdapter().feature(...args),
-  featureConfig: (...args) =>
-    getOrCreateDefaultAdapter().featureConfig(...args),
+  featureIsEnabled: (...args) =>
+    getOrCreateDefaultAdapter().featureIsEnabled(...args),
   bucketClient: async () => {
     return getOrCreateDefaultAdapter().bucketClient();
   },
