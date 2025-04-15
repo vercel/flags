@@ -1,5 +1,11 @@
 # @flags-sdk/statsig
 
+## 0.2.2
+
+### Patch Changes
+
+- 1e3c8df: If using an Edge Config adapter, reduce minimum sync delay for config specs from 5000ms->1000ms
+
 ## 0.2.1
 
 ### Patch Changes
