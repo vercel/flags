@@ -47,8 +47,11 @@ export function createBucketAdapter(
       async decide({ key, entities }): Promise<boolean> {
         await initialize();
 
-        return bucketClient.getFeature({ ...options, ...entities }, key)
-          .isEnabled;
+        // using getFeatures() to avoid sending "check" events to Bucket
+        // Next.js uses prefetching to load pages and will cause "check" events to be sent
+        // even though the feature is not being exposed.
+        const features = bucketClient.getFeatures({ ...options, ...entities });
+        return features[key]?.isEnabled ?? false;
       },
     };
   }
@@ -101,6 +104,27 @@ export const bucketAdapter: AdapterResponse = {
   },
 };
 
+/**
+ * Get the provider data for the Bucket adapter.
+ *
+ * This function is used the the [Flags API endpoint](https://vercel.com/docs/workflow-collaboration/feature-flags/implement-flags-in-toolbar#creating-the-flags-api-endpoint) to load and emit your Bucket data.
+ *
+ * ```ts
+ * // .well-known/vercel/flags/route.ts
+ * import { NextResponse, type NextRequest } from 'next/server';
+ * import { verifyAccess, type ApiData } from 'flags';
+ * import { bucketAdapter, getProviderData } from '@flags-sdk/bucket';
+ *
+ * export async function GET(request: NextRequest) {
+ *   const access = await verifyAccess(request.headers.get('Authorization'));
+ *   if (!access) return NextResponse.json(null, { status: 401 });
+ *
+ *   return NextResponse.json<ApiData>(
+ *     await getProviderData({ bucketClient: await bucketAdapter.bucketClient() }),
+ *   );
+ * }
+ * ```
+ */
 export async function getProviderData({
   bucketClient,
 }: {
