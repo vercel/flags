@@ -1,9 +1,10 @@
 {
   "name": "@flags-sdk/bucket",
-  "version": "0.3.0",
-  "description": "Bucket provider for the Flags SDK",
+  "version": "0.1.0",
+  "description": "Bucket.co provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
+    "bucket.co",
     "bucket",
     "vercel",
     "edge config",
