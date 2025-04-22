@@ -484,3 +484,4 @@ export function getProviderData(
 }
 
 export { dedupe } from './dedupe';
+export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';

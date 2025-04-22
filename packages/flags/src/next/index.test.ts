@@ -3,7 +3,7 @@ import { flag, precompute } from '.';
 import { IncomingMessage } from 'node:http';
 import { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { Readable } from 'node:stream';
-import { type Adapter, encrypt } from '..';
+import { type Adapter, encryptOverrides } from '..';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -123,7 +123,7 @@ describe('flag on app router', () => {
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
-    const override = await encrypt({ 'first-flag': true });
+    const override = await encryptOverrides({ 'first-flag': true });
     const cookieMock = vi.fn((cookieName) => {
       if (cookieName === 'vercel-flag-overrides') {
         return { name: 'vercel-flag-overrides', value: override };
@@ -396,7 +396,7 @@ describe('flag on pages router', () => {
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
     const f = flag<boolean>({ key: 'first-flag', decide });
-    const override = await encrypt({ 'first-flag': true });
+    const override = await encryptOverrides({ 'first-flag': true });
 
     const [firstRequest, socket1] = createRequest({
       'vercel-flag-overrides': override,

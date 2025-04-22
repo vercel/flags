@@ -12,6 +12,8 @@ From the creators of Next.js, the Flags SDK is a free open-source library that g
 
 See [flags-sdk.dev](https://flags-sdk.dev/) for full docs and examples.
 
+> Upgrading from version 3? See the [Upgrade to v4](https://github.com/vercel/flags/blob/main/packages/flags/guides/upgrade-to-v4.md) guide.
+
 ## Installation
 
 Install the package using your package manager:

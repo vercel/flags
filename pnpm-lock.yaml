@@ -124,8 +124,8 @@ importers:
         specifier: 1.4.0
         version: 1.4.0
       '@vercel/toolbar':
-        specifier: 0.1.33
-        version: 0.1.33(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0)
+        specifier: 0.1.36
+        version: 0.1.36(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0)
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -200,8 +200,8 @@ importers:
         specifier: 1.2.0
         version: 1.2.0
       '@vercel/toolbar':
-        specifier: 0.1.27
-        version: 0.1.27(next@15.2.2-canary.4)(react@19.0.0-rc.1)
+        specifier: 0.1.36
+        version: 0.1.36(next@15.2.2-canary.4)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -276,8 +276,8 @@ importers:
         specifier: ^1.2.1
         version: 1.2.1
       '@vercel/toolbar':
-        specifier: 0.1.15
-        version: 0.1.15(vite@5.4.14)
+        specifier: 0.1.36
+        version: 0.1.36(@sveltejs/kit@2.20.2)(vite@5.4.14)
       cookie:
         specifier: ^0.6.0
         version: 0.6.0
@@ -627,7 +627,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.1.0-canary-a4f9bd58-20250319)
+        version: 19.0.0(react@19.2.0-canary-408d055a-20250430)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -649,10 +649,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-a4f9bd58-20250319)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-408d055a-20250430)
       react:
         specifier: canary
-        version: 19.1.0-canary-a4f9bd58-20250319
+        version: 19.2.0-canary-408d055a-20250430
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -786,8 +786,8 @@ importers:
   tests/sveltekit-e2e:
     dependencies:
       '@vercel/toolbar':
-        specifier: 0.1.15
-        version: 0.1.15(vite@5.4.14)
+        specifier: 0.1.36
+        version: 0.1.36(@sveltejs/kit@2.20.2)(vite@5.4.14)
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
@@ -2062,6 +2062,7 @@ packages:
     dependencies:
       eslint: 8.56.0
       eslint-visitor-keys: 3.4.3
+    dev: true
 
   /@eslint-community/eslint-utils@4.5.0(eslint@9.22.0):
     resolution: {integrity: sha512-RoV8Xs9eNwiDvhv7M+xcL4PWyRyIXRY/FLp3buU4h1EYfdF7unWUy3dOjPqb3C7rMUewIcqwW850PgS8h1o1yg==}
@@ -2140,6 +2141,7 @@ packages:
   /@eslint/js@8.56.0:
     resolution: {integrity: sha512-gMsVel9D7f2HLkBma9VbtzZRehRogVRfbr++f06nL2vnCGCNlzOD+/MUov/F4p8myyAHspEhVobgjpX64q5m6A==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    dev: true
 
   /@eslint/js@9.22.0:
     resolution: {integrity: sha512-vLFajx9o8d1/oL2ZkpMYbkLv8nDB6yaIwFNt7nI4+I80U/z03SxmfOMsLbvWr3p7C+Wnoh//aOu2pQW8cS0HCQ==}
@@ -4148,7 +4150,6 @@ packages:
       sirv: 3.0.1
       svelte: 5.23.0
       vite: 5.4.14(@types/node@22.9.0)
-    dev: true
 
   /@sveltejs/vite-plugin-svelte-inspector@3.0.1(@sveltejs/vite-plugin-svelte@4.0.4)(svelte@5.23.0)(vite@5.1.1):
     resolution: {integrity: sha512-2CKypmj1sM4GE7HjllT7UKmo4Q6L5xFRd7VMGEWhYnZ+wc6AUVU01IBd7yUi6WnFndEwWoMNOd6e8UjoN0nbvQ==}
@@ -4180,7 +4181,6 @@ packages:
       vite: 5.4.14(@types/node@22.9.0)
     transitivePeerDependencies:
       - supports-color
-    dev: true
 
   /@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.23.0)(vite@5.1.1):
     resolution: {integrity: sha512-0ba1RQ/PHen5FGpdSrW7Y3fAMQjrXantECALeOiOdBdzR5+5vPP6HVZRLmZaQL+W8m++o+haIAKq5qT+MiZ7VA==}
@@ -4218,7 +4218,6 @@ packages:
       vitefu: 1.0.6(vite@5.4.14)
     transitivePeerDependencies:
       - supports-color
-    dev: true
 
   /@swc/counter@0.1.3:
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
@@ -5027,6 +5026,7 @@ packages:
       typescript: 5.8.2
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /@typescript-eslint/parser@8.26.1(eslint@8.56.0)(typescript@5.8.2):
     resolution: {integrity: sha512-w6HZUV4NWxqd8BdeFf81t07d7/YV9s7TCWrQQbG5uhuvGUAW+fq1usZ1Hmz9UPNLniFnD8GLSsDpjP0hm1S4lQ==}
@@ -5317,6 +5317,7 @@ packages:
       typescript: 5.8.2
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /@typescript-eslint/typescript-estree@8.26.1(typescript@5.8.2):
     resolution: {integrity: sha512-yUwPpUHDgdrv1QJ7YQal3cMVBGWfnuCdKbXw1yyjArax3353rEJP1ZA+4F8nOlQ3RfS2hUN/wze3nlY+ZOhvoA==}
@@ -5510,6 +5511,7 @@ packages:
 
   /@ungap/structured-clone@1.3.0:
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    dev: true
 
   /@upstash/redis@1.34.4:
     resolution: {integrity: sha512-AZx2iD5s1Pu/KCrRA7KVCffu3NSoaYnNY7N9YI7aLAYhcJfsriQKTe+8OxQWJqGqFbrvm17Lyr9HFnDLvqNpfA==}
@@ -5587,16 +5589,20 @@ packages:
         optional: true
     dev: false
 
-  /@vercel/microfrontends@1.0.0(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0):
-    resolution: {integrity: sha512-83ikhvV/k9F48zu/J7KtIi6ly1hZ5vSAosBBdkb9hmFgz8iL7iifjEpNp9cREjYa/8hajpbuVhqzsL23Cc+70Q==}
+  /@vercel/microfrontends@1.1.0(@sveltejs/kit@2.20.2)(vite@5.4.14):
+    resolution: {integrity: sha512-w7SeCV10hsLh3xUB4M1xsqbBSo+ry5PPL9/pkX9St5ZDRUHGZT/UEQd4vhOcSgwObn/1gbcuV0Il/unXmPty9A==}
     hasBin: true
     peerDependencies:
+      '@sveltejs/kit': '>=1'
       '@vercel/analytics': '>=1.5.0'
       '@vercel/speed-insights': '>=1.2.0'
       next: '>=13'
       react: '>=17.0.0'
       react-dom: '>=17.0.0'
+      vite: '>=5'
     peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
       '@vercel/analytics':
         optional: true
       '@vercel/speed-insights':
@@ -5607,6 +5613,49 @@ packages:
         optional: true
       react-dom:
         optional: true
+      vite:
+        optional: true
+    dependencies:
+      '@sveltejs/kit': 2.20.2(@sveltejs/vite-plugin-svelte@4.0.4)(svelte@5.23.0)(vite@5.4.14)
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.9
+      path-to-regexp: 6.2.1
+      vite: 5.4.14(@types/node@22.9.0)
+    transitivePeerDependencies:
+      - debug
+    dev: false
+
+  /@vercel/microfrontends@1.1.0(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0):
+    resolution: {integrity: sha512-w7SeCV10hsLh3xUB4M1xsqbBSo+ry5PPL9/pkX9St5ZDRUHGZT/UEQd4vhOcSgwObn/1gbcuV0Il/unXmPty9A==}
+    hasBin: true
+    peerDependencies:
+      '@sveltejs/kit': '>=1'
+      '@vercel/analytics': '>=1.5.0'
+      '@vercel/speed-insights': '>=1.2.0'
+      next: '>=13'
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+      vite: '>=5'
+    peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
+      '@vercel/analytics':
+        optional: true
+      '@vercel/speed-insights':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      vite:
+        optional: true
     dependencies:
       '@vercel/analytics': 1.5.0(next@15.2.2-canary.4)(react@19.0.0)
       ajv: 8.17.1
@@ -5615,10 +5664,53 @@ packages:
       fast-glob: 3.3.3
       http-proxy: 1.18.1
       jsonc-parser: 3.3.1
+      nanoid: 3.3.9
       next: 15.2.2-canary.4(@babel/core@7.26.10)(react-dom@19.0.0)(react@19.0.0)
       path-to-regexp: 6.2.1
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
+    transitivePeerDependencies:
+      - debug
+    dev: false
+
+  /@vercel/microfrontends@1.1.0(next@15.2.2-canary.4)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1):
+    resolution: {integrity: sha512-w7SeCV10hsLh3xUB4M1xsqbBSo+ry5PPL9/pkX9St5ZDRUHGZT/UEQd4vhOcSgwObn/1gbcuV0Il/unXmPty9A==}
+    hasBin: true
+    peerDependencies:
+      '@sveltejs/kit': '>=1'
+      '@vercel/analytics': '>=1.5.0'
+      '@vercel/speed-insights': '>=1.2.0'
+      next: '>=13'
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+      vite: '>=5'
+    peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
+      '@vercel/analytics':
+        optional: true
+      '@vercel/speed-insights':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      vite:
+        optional: true
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.9
+      next: 15.2.2-canary.4(@babel/core@7.26.10)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
+      path-to-regexp: 6.2.1
+      react: 19.0.0-rc.1
+      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
     transitivePeerDependencies:
       - debug
     dev: false
@@ -5787,8 +5879,8 @@ packages:
       - supports-color
     dev: true
 
-  /@vercel/toolbar@0.1.15(vite@5.4.14):
-    resolution: {integrity: sha512-YDwRdYM6ij5CbkZm9NgoO1H7uXPuoM5nnzoHYMAZtF0sJylhQ7JIgwLniW71V6RNCKCrJGS1B23BvrQQl8WyrQ==}
+  /@vercel/toolbar@0.1.36(@sveltejs/kit@2.20.2)(vite@5.4.14):
+    resolution: {integrity: sha512-hEY4dx2XkR6p7uWT1pvP9brVWGM8cY6Ga9WG7utAsmayie+wNRKN/oVSGAVWTp4A55S0bYZshYBKwoZ7ng9FxA==}
     peerDependencies:
       next: '>=11.0.0'
       react: '>=17'
@@ -5802,16 +5894,25 @@ packages:
         optional: true
     dependencies:
       '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.20.2)(vite@5.4.14)
       chokidar: 3.6.0
       execa: 5.1.1
+      fast-glob: 3.3.3
       find-up: 5.0.0
       get-port: 5.1.1
+      jsonc-parser: 3.3.1
       strip-ansi: 6.0.1
       vite: 5.4.14(@types/node@22.9.0)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
     dev: false
 
-  /@vercel/toolbar@0.1.27(next@15.2.2-canary.4)(react@19.0.0-rc.1):
-    resolution: {integrity: sha512-AxPeZKFFIMr9OGy7ZcgSsKWX7VhZQvO6xpI3iv6j3ALI0CTVFjnu0HCBWLHjRH6YD59W5X+83uCXkKWWol+S3Q==}
+  /@vercel/toolbar@0.1.36(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0):
+    resolution: {integrity: sha512-hEY4dx2XkR6p7uWT1pvP9brVWGM8cY6Ga9WG7utAsmayie+wNRKN/oVSGAVWTp4A55S0bYZshYBKwoZ7ng9FxA==}
     peerDependencies:
       next: '>=11.0.0'
       react: '>=17'
@@ -5825,31 +5926,7 @@ packages:
         optional: true
     dependencies:
       '@tinyhttp/app': 1.3.0
-      chokidar: 3.6.0
-      execa: 5.1.1
-      find-up: 5.0.0
-      get-port: 5.1.1
-      next: 15.2.2-canary.4(@babel/core@7.26.10)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      strip-ansi: 6.0.1
-    dev: false
-
-  /@vercel/toolbar@0.1.33(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0):
-    resolution: {integrity: sha512-92NzgxXRwiQ1frekzrTDFl93uslB5f9PT9QOeduLB9VHhThJ49OdRsddJgsVGJ4oW31EeOpCVyap3tHpA1sWzA==}
-    peerDependencies:
-      next: '>=11.0.0'
-      react: '>=17'
-      vite: '>=5'
-    peerDependenciesMeta:
-      next:
-        optional: true
-      react:
-        optional: true
-      vite:
-        optional: true
-    dependencies:
-      '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.0.0(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0)
+      '@vercel/microfrontends': 1.1.0(@vercel/analytics@1.5.0)(next@15.2.2-canary.4)(react-dom@19.0.0)(react@19.0.0)
       chokidar: 3.6.0
       execa: 5.1.1
       fast-glob: 3.3.3
@@ -5860,6 +5937,40 @@ packages:
       react: 19.0.0
       strip-ansi: 6.0.1
     transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
+    dev: false
+
+  /@vercel/toolbar@0.1.36(next@15.2.2-canary.4)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1):
+    resolution: {integrity: sha512-hEY4dx2XkR6p7uWT1pvP9brVWGM8cY6Ga9WG7utAsmayie+wNRKN/oVSGAVWTp4A55S0bYZshYBKwoZ7ng9FxA==}
+    peerDependencies:
+      next: '>=11.0.0'
+      react: '>=17'
+      vite: '>=5'
+    peerDependenciesMeta:
+      next:
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(next@15.2.2-canary.4)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      next: 15.2.2-canary.4(@babel/core@7.26.10)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      strip-ansi: 6.0.1
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
       - '@vercel/analytics'
       - '@vercel/speed-insights'
       - debug
@@ -7347,7 +7458,7 @@ packages:
     peerDependencies:
       eslint-plugin-import: '>=1.4.0'
     dependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.48.0)
 
   /eslint-import-resolver-node@0.3.9:
     resolution: {integrity: sha512-WFj2isz22JahUv+B788TlO3N6zL3nNJGU8CcZbPZvVEkBPaJdCV4vy5wyghty5ROFbCRnm132v8BScu5/1BQ8g==}
@@ -7400,13 +7511,14 @@ packages:
       debug: 4.4.0
       enhanced-resolve: 5.18.1
       eslint: 8.56.0
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
       get-tsconfig: 4.10.0
       is-bun-module: 1.3.0
       stable-hash: 0.0.4
       tinyglobby: 0.2.12
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-import-resolver-typescript@3.8.6(eslint-plugin-import@2.31.0)(eslint@9.22.0):
     resolution: {integrity: sha512-d9UjvYpj/REmUoZvOtDEmayPlwyP4zOwwMBgtC6RtrpZta8u1AIVmxgZBYJIcCKKXwAcLs+DX2yn2LeMaTqKcQ==}
@@ -7491,6 +7603,7 @@ packages:
       eslint-import-resolver-typescript: 3.8.6(eslint-plugin-import@2.31.0)(eslint@8.56.0)
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-module-utils@2.12.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0):
     resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
@@ -7644,6 +7757,7 @@ packages:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
       - supports-color
+    dev: true
 
   /eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0):
     resolution: {integrity: sha512-ixmkI62Rbc2/w8Vfxyh1jQRTdRTF52VxwRVHl/ykPAmqG+Nb7/kNn+byLP0LxPgI7zWA16Jt82SybJInmMia3A==}
@@ -8223,6 +8337,7 @@ packages:
       text-table: 0.2.0
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint@9.22.0:
     resolution: {integrity: sha512-9V/QURhsRN40xuHXWjV64yvrzMjcz7ZyNoF2jJFmy9j/SLk0u1OLSZgXi28MrXjymnjEGSR80WCdab3RGMDveQ==}
@@ -10582,7 +10697,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.1.0-canary-a4f9bd58-20250319):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -10610,9 +10725,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001704
       postcss: 8.4.31
-      react: 19.1.0-canary-a4f9bd58-20250319
-      react-dom: 19.0.0(react@19.1.0-canary-a4f9bd58-20250319)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.1.0-canary-a4f9bd58-20250319)
+      react: 19.2.0-canary-408d055a-20250430
+      react-dom: 19.0.0(react@19.2.0-canary-408d055a-20250430)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-408d055a-20250430)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -11446,12 +11561,12 @@ packages:
       scheduler: 0.25.0
     dev: false
 
-  /react-dom@19.0.0(react@19.1.0-canary-a4f9bd58-20250319):
+  /react-dom@19.0.0(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.1.0-canary-a4f9bd58-20250319
+      react: 19.2.0-canary-408d055a-20250430
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -11556,8 +11671,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.1.0-canary-a4f9bd58-20250319:
-    resolution: {integrity: sha512-wRC4V2P/2yecBs/676cNhcQHv1UGfmNxizrqvEX6OjqNne79lzhe5oPbQ06JxNkzew5+2B2EtnTBEjs6M7vuKQ==}
+  /react@19.2.0-canary-408d055a-20250430:
+    resolution: {integrity: sha512-5kJrlaa4OgrQoOSMNyOWlY+PoOq7a5RRnJrrA9ERhAwAmP2r8ndaSFfDet0ihOmxVjEARRgo2mB7Nj2GBiC1xg==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -12443,7 +12558,7 @@ packages:
       react: 19.0.0-rc.1
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.1.0-canary-a4f9bd58-20250319):
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -12458,7 +12573,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       client-only: 0.0.1
-      react: 19.1.0-canary-a4f9bd58-20250319
+      react: 19.2.0-canary-408d055a-20250430
     dev: true
 
   /sucrase@3.35.0:
@@ -12744,6 +12859,7 @@ packages:
       typescript: '>=4.2.0'
     dependencies:
       typescript: 5.8.2
+    dev: true
 
   /ts-api-utils@2.0.1(typescript@5.8.2):
     resolution: {integrity: sha512-dnlgjFSVetynI8nzgJ+qF62efpglpWRk8isUEWZGWlJYySCTD6aKvbUDu+zbPeDakk3bg5H4XpitHukgfL1m9w==}
@@ -13050,6 +13166,7 @@ packages:
     resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
     engines: {node: '>=14.17'}
     hasBin: true
+    dev: true
 
   /ua-parser-js@1.0.40:
     resolution: {integrity: sha512-z6PJ8Lml+v3ichVojCiB8toQJBuwR42ySM4ezjXIqXK3M0HczmKQ3LF4rhU55PfD99KEEXQG6yb7iOMyvYuHew==}
@@ -13375,7 +13492,6 @@ packages:
         optional: true
     dependencies:
       vite: 5.4.14(@types/node@22.9.0)
-    dev: true
 
   /vitest@1.4.0(@types/node@20.11.17):
     resolution: {integrity: sha512-gujzn0g7fmwf83/WzrDTnncZt2UiXP41mHuFYFrdwaLRVQ6JYQEiME2IfEjU3vcFL3VKa75XhI3lFgn+hfVsQw==}
