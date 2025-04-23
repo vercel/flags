@@ -5,6 +5,7 @@ import type {
   AttributeValue,
 } from '@opentelemetry/api';
 import { name as pkgName, version } from '../../package.json';
+import { isInternalNextError } from '../next/is-internal-next-error';
 import { AsyncLocalStorage } from 'async_hooks';
 
 // Use a symbol to avoid having global variable that is scoped to this file,
@@ -94,6 +95,11 @@ export function trace<F extends (...args: any) => any>(
                 span.end();
               })
               .catch((error) => {
+                if (isInternalNextError(error)) {
+                  // Let React postpone errors bubble up
+                  // https://nextjs.org/docs/messages/ppr-caught-error
+                  throw error;
+                }
                 if (options.attributesError) {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- k
                   span.setAttributes(options.attributesError(error));
