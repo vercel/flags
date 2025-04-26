@@ -18,12 +18,13 @@ export { GrowthBookClient };
 type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
+  setTrackingCallback: (cb: TrackingCallback) => void;
 };
 
 /**
  * Create a GrowthBook adapter for use with the Flags SDK.
  */
-export function createGrowthBookAdapter(options: {
+export function createGrowthbookAdapter(options: {
   /** GrowthBook SDK key **/
   clientKey: string;
   /** Callback to log experiment exposures **/
@@ -37,7 +38,7 @@ export function createGrowthBookAdapter(options: {
   /** Optional GrowthBook SDK init() options **/
   initOptions?: InitOptions;
 }): AdapterResponse {
-  const trackingCallback = options.trackingCallback;
+  let trackingCallback = options.trackingCallback;
 
   const growthbook = new GrowthBookClient({
     clientKey: options.clientKey,
@@ -114,9 +115,14 @@ export function createGrowthBookAdapter(options: {
     };
   }
 
+  function setTrackingCallback(cb: TrackingCallback) {
+    trackingCallback = cb;
+  }
+
   return {
     feature,
     initialize,
+    setTrackingCallback,
   };
 }
 
@@ -127,65 +133,56 @@ export function resetDefaultGrowthbookAdapter() {
 }
 
 /**
- * Equivalent to `createStatsigAdapter` but with default environment variable names.
+ * Equivalent to `createGrowthbookAdapter` but with default environment variable names.
  *
  * Required:
- * - `STATSIG_SERVER_API_KEY` - Statsig secret server API key
+ * - `GROWTHBOOK_CLIENT_KEY` - GrowthBook SDK key
  *
  * Optional:
- * - `STATSIG_PROJECT_ID` - Statsig project ID to enable link in Vercel's Flags Explorer
- * - `EXPERIMENTATION_CONFIG` - Vercel Edge Config connection string
- * - `EXPERIMENTATION_CONFIG_ITEM_KEY` - Vercel Edge Config item key where data is stored
+ * - `GROWTHBOOK_API_HOST` - Override the features API endpoint for self-hosted users
+ * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
  */
-export function createDefaultGrowthbookAdapter(): AdapterResponse {
+export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
     return defaultGrowthbookAdapter;
   }
-  const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
-  const statsigProjectId = process.env.STATSIG_PROJECT_ID;
-  const edgeConfig = process.env.EXPERIMENTATION_CONFIG;
-  const edgeConfigItemKey = process.env.EXPERIMENTATION_CONFIG_ITEM_KEY;
-  if (!(edgeConfig && edgeConfigItemKey)) {
-    defaultGrowthbookAdapter = createStatsigAdapter({
-      statsigServerApiKey,
-      statsigProjectId,
-    });
-  } else {
-    defaultGrowthbookAdapter = createStatsigAdapter({
-      statsigServerApiKey,
-      edgeConfig: {
-        connectionString: edgeConfig,
-        itemKey: edgeConfigItemKey,
-      },
-      statsigProjectId,
-    });
-  }
+  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY as string;
+  const apiHost = process.env.GROWTHBOOK_API_HOST;
+  const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
+
+  defaultGrowthbookAdapter = createGrowthbookAdapter({
+    clientKey,
+    apiHost,
+    appOrigin,
+  });
 
   return defaultGrowthbookAdapter;
 }
 
 /**
- * The default Statsig adapter.
+ * The default GrowthBook adapter.
  *
- * This is a convenience object that pre-initializes the Statsig SDK and provides
- * the adapter functions for the Feature Gates, Dynamic Configs, Experiments,
- * Autotunes, and Layers.
+ * This is a convenience object that pre-initializes the GrowthBook SDK, provides
+ * an adapter function for features, and provides a hook to set the experiment exposure
+ * tracking callback.
  *
- * This is the recommended way to use the Statsig adapter.
+ * This is the recommended way to use the GrowthBook adapter.
  *
  * ```ts
  * // flags.ts
  * import { flag } from 'flags/next';
- * import { statsigAdapter } from '@flags-sdk/statsig';
+ * import { growthbookAdapter } from '@flags-sdk/growthbook';
  *
  * const flag = flag({
  *   key: 'my-flag',
  *   defaultValue: false,
- *   adapter: statsigAdapter.featureGate((gate) => gate.value),
+ *   adapter: growthbookAdapter.feature(),
  * });
  * ```
  */
 export const growthbookAdapter: AdapterResponse = {
-  feature: (...args) => createGrowthBookAdapter().feature(...args),
-  initialize: () => createDefaultStatsigAdapter().initialize(),
+  feature: (...args) => createGrowthbookAdapter().feature(...args),
+  initialize: () => createGrowthbookAdapter().initialize(),
+  setTrackingCallback: (...args) =>
+    createGrowthbookAdapter().setTrackingCallback(...args),
 };
