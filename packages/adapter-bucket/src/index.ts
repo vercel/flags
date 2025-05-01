@@ -34,8 +34,15 @@ export function createBucketAdapter(
 
   async function initialize() {
     if (!bucketClient) {
-      bucketClient = new BucketClient(clientOptions);
+      try {
+        bucketClient = new BucketClient(clientOptions);
+      } catch (err) {
+        // explicitly log out the error, otherwise it's swallowed
+        console.error('@flags-sdk/bucket: Error creating bucketClient', err);
+        throw err;
+      }
     }
+
     // this can be called multiple times. Same promise is returned.
     return bucketClient.initialize();
   }
@@ -131,9 +138,11 @@ export async function getProviderData({
   /**
    * The BucketClient instance.
    */
-  bucketClient: BucketClient;
-}): Promise<ProviderData> {
-  await bucketClient.initialize();
+  bucketClient?: BucketClient;
+} = {}): Promise<ProviderData> {
+  if (!bucketClient) {
+    bucketClient = await getOrCreateDefaultAdapter().bucketClient();
+  }
 
   const features = await bucketClient.getFeatureDefinitions();
 
