@@ -54,11 +54,8 @@ export function createBucketAdapter(
       async decide({ key, entities }): Promise<boolean> {
         await initialize();
 
-        // using getFeatures() to avoid sending "check" events to Bucket
-        // Next.js uses prefetching to load pages and will cause "check" events to be sent
-        // even though the feature is not being exposed.
-        const features = bucketClient.getFeatures({ ...options, ...entities });
-        return features[key]?.isEnabled ?? false;
+        return bucketClient.getFeature({ ...options, ...entities }, key)
+          .isEnabled;
       },
     };
   }
