@@ -307,8 +307,8 @@ importers:
   packages/adapter-bucket:
     dependencies:
       '@bucketco/node-sdk':
-        specifier: 1.8.0
-        version: 1.8.0
+        specifier: 1.8.1
+        version: 1.8.1
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -616,7 +616,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.2.0-canary-040f8286-20250402)
+        version: 19.0.0(react@19.2.0-canary-408d055a-20250430)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -638,10 +638,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-040f8286-20250402)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-408d055a-20250430)
       react:
         specifier: canary
-        version: 19.2.0-canary-040f8286-20250402
+        version: 19.2.0-canary-408d055a-20250430
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -1223,14 +1223,16 @@ packages:
   /@bcoe/v8-coverage@0.2.3:
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  /@bucketco/flag-evaluation@0.1.0:
-    resolution: {integrity: sha512-136qXO9PLa3PXVa+sk6Yu1y4CfpwwoyPqNgvLHfQWpJhdktrVke4SBizSjT3uou7kMo+25/Or1O+w2zI+YNc5w==}
+  /@bucketco/flag-evaluation@0.1.2:
+    resolution: {integrity: sha512-gsvV+aE8JrOonHSbjmNd8PhlXN7sgBnIxmBKzAZN+XLCfSHMOUoWZc59VLMkZPsX6xTmH+1nyH02NbzjXZFu7w==}
+    dependencies:
+      js-sha256: 0.11.0
     dev: false
 
-  /@bucketco/node-sdk@1.8.0:
-    resolution: {integrity: sha512-0aAsjtnPHLPU6ytzf3cgUpVVunjsqRcIJ9uv2g/rmrkipfNDuPX38MUXa5c0QsaOnijKzOixM8ql2jTjlWmqaQ==}
+  /@bucketco/node-sdk@1.8.1:
+    resolution: {integrity: sha512-5WMnpNVqQ+kwcSGURSlOtK7Ha5WwlqWpx6uIC1nU1tEg+RxOr0nSrokMqVpn+yT7Iol5mDcwX5GgaMD1KUjOaw==}
     dependencies:
-      '@bucketco/flag-evaluation': 0.1.0
+      '@bucketco/flag-evaluation': 0.1.2
     dev: false
 
   /@bundled-es-modules/cookie@2.0.1:
@@ -9132,6 +9134,10 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
+  /js-sha256@0.11.0:
+    resolution: {integrity: sha512-6xNlKayMZvds9h1Y1VWc0fQHQ82BxTXizWPEtEeGvmOUYpBRy4gbWroHLpzowe6xiQhHpelCQiE7HEdznyBL9Q==}
+    dev: false
+
   /js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -9931,7 +9937,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-040f8286-20250402):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -9959,9 +9965,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001707
       postcss: 8.4.31
-      react: 19.2.0-canary-040f8286-20250402
-      react-dom: 19.0.0(react@19.2.0-canary-040f8286-20250402)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-040f8286-20250402)
+      react: 19.2.0-canary-408d055a-20250430
+      react-dom: 19.0.0(react@19.2.0-canary-408d055a-20250430)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-408d055a-20250430)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -10791,12 +10797,12 @@ packages:
       scheduler: 0.25.0
     dev: false
 
-  /react-dom@19.0.0(react@19.2.0-canary-040f8286-20250402):
+  /react-dom@19.0.0(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.2.0-canary-040f8286-20250402
+      react: 19.2.0-canary-408d055a-20250430
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -10901,8 +10907,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.2.0-canary-040f8286-20250402:
-    resolution: {integrity: sha512-+yF1HPV+N1DXYtcKQVowDB1CbFSb3bfnSGN7MYFl5UQjpDdn1ZYR0+zlpCfhYtZc0jJBb+P7UaI18RTDJsK1Lw==}
+  /react@19.2.0-canary-408d055a-20250430:
+    resolution: {integrity: sha512-5kJrlaa4OgrQoOSMNyOWlY+PoOq7a5RRnJrrA9ERhAwAmP2r8ndaSFfDet0ihOmxVjEARRgo2mB7Nj2GBiC1xg==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -11823,7 +11829,7 @@ packages:
       react: 19.0.0-rc.1
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-040f8286-20250402):
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-408d055a-20250430):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -11838,7 +11844,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       client-only: 0.0.1
-      react: 19.2.0-canary-040f8286-20250402
+      react: 19.2.0-canary-408d055a-20250430
     dev: true
 
   /sucrase@3.35.0:

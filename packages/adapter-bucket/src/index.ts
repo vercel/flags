@@ -34,8 +34,15 @@ export function createBucketAdapter(
 
   async function initialize() {
     if (!bucketClient) {
-      bucketClient = new BucketClient(clientOptions);
+      try {
+        bucketClient = new BucketClient(clientOptions);
+      } catch (err) {
+        // explicitly log out the error, otherwise it's swallowed
+        console.error('@flags-sdk/bucket: Error creating bucketClient', err);
+        throw err;
+      }
     }
+
     // this can be called multiple times. Same promise is returned.
     return bucketClient.initialize();
   }
@@ -101,15 +108,38 @@ export const bucketAdapter: AdapterResponse = {
   },
 };
 
+/**
+ * Get the provider data for the Bucket adapter.
+ *
+ * This function is used the the [Flags API endpoint](https://vercel.com/docs/workflow-collaboration/feature-flags/implement-flags-in-toolbar#creating-the-flags-api-endpoint) to load and emit your Bucket data.
+ *
+ * ```ts
+ * // .well-known/vercel/flags/route.ts
+ * import { NextResponse, type NextRequest } from 'next/server';
+ * import { verifyAccess, type ApiData } from 'flags';
+ * import { bucketAdapter, getProviderData } from '@flags-sdk/bucket';
+ *
+ * export async function GET(request: NextRequest) {
+ *   const access = await verifyAccess(request.headers.get('Authorization'));
+ *   if (!access) return NextResponse.json(null, { status: 401 });
+ *
+ *   return NextResponse.json<ApiData>(
+ *     await getProviderData({ bucketClient: await bucketAdapter.bucketClient() }),
+ *   );
+ * }
+ * ```
+ */
 export async function getProviderData({
   bucketClient,
 }: {
   /**
    * The BucketClient instance.
    */
-  bucketClient: BucketClient;
-}): Promise<ProviderData> {
-  await bucketClient.initialize();
+  bucketClient?: BucketClient;
+} = {}): Promise<ProviderData> {
+  if (!bucketClient) {
+    bucketClient = await getOrCreateDefaultAdapter().bucketClient();
+  }
 
   const features = await bucketClient.getFeatureDefinitions();
 
