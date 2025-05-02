@@ -138,15 +138,14 @@ async function getFeatures(options: {
     const features: GrowthbookFeaturesResponse['features'] = [];
 
     let offset = 0;
-    const limit = 100;
     let hasMore = true;
 
     while (hasMore) {
-      const url = `${options.appApiHost}/api/v1/features?limit=${limit}&offset=${offset}`;
+      const qs = offset ? `?offset=${offset}` : '';
+      const url = `${options.appApiHost}/api/v1/features${qs}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'content-type': 'application/json',
           Authorization: `Bearer ${options.apiKey}`,
         },
         // @ts-expect-error some Next.js versions need this
