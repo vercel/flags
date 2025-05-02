@@ -1,56 +1,23 @@
-import type { Adapter } from 'flags';
-import {
-  GrowthBookClient,
-  type ClientOptions,
-  type InitOptions,
-  type Attributes,
-  type UserContext,
-  type TrackingCallback,
-} from '@growthbook/growthbook';
-
+import { GrowthBookClient } from '@growthbook/growthbook';
 export { getProviderData } from './provider';
 export { GrowthBookClient };
-
-type AdapterResponse = {
-  feature: <T>() => Adapter<T, Attributes>;
-  initialize: () => Promise<GrowthBookClient>;
-  setTrackingCallback: (cb: TrackingCallback) => void;
-};
-
 /**
  * Create a GrowthBook adapter for use with the Flags SDK.
  */
-export function createGrowthbookAdapter(options: {
-  /** GrowthBook SDK key **/
-  clientKey: string;
-  /** Callback to log experiment exposures **/
-  trackingCallback?: TrackingCallback;
-  /** Override the features API endpoint for self-hosted users **/
-  apiHost?: string;
-  /** Override the application URL for self-hosted users **/
-  appOrigin?: string;
-  /** Optional GrowthBook SDK constructor options **/
-  clientOptions?: ClientOptions;
-  /** Optional GrowthBook SDK init() options **/
-  initOptions?: InitOptions;
-}): AdapterResponse {
+export function createGrowthbookAdapter(options) {
   let trackingCallback = options.trackingCallback;
-
   const growthbook = new GrowthBookClient({
     clientKey: options.clientKey,
     apiHost: options.apiHost || 'https://cdn.growthbook.io',
     ...(options.clientOptions || {}),
   });
-
-  let _initializePromise: Promise<void> | undefined;
-
-  const initializeGrowthBook = async (): Promise<void> => {
+  let _initializePromise;
+  const initializeGrowthBook = async () => {
     await growthbook.init({
       streaming: false,
       ...(options.initOptions || {}),
     });
   };
-
   /**
    * Initialize the GrowthBook SDK.
    *
@@ -59,21 +26,19 @@ export function createGrowthbookAdapter(options: {
    * You can pre-initialize the SDK by calling `adapter.initialize()`,
    * otherwise it will be initialized lazily when needed.
    */
-  const initialize = async (): Promise<GrowthBookClient> => {
+  const initialize = async () => {
     if (!_initializePromise) {
       _initializePromise = initializeGrowthBook();
     }
     await _initializePromise;
     return growthbook;
   };
-
-  function origin(prefix: string) {
-    return (key: string) => {
+  function origin(prefix) {
+    return (key) => {
       const appOrigin = options.appOrigin || 'https://app.growthbook.io';
       return `${appOrigin}/${prefix}/${key}`;
     };
   }
-
   /**
    * Resolve a feature flag.
    *
@@ -81,43 +46,36 @@ export function createGrowthbookAdapter(options: {
    *
    * Implements `origin` to link to the flag in the GrowthBook app
    */
-  function feature<T>(
-    opts: {
-      exposureLogging?: boolean;
-    } = {
+  function feature(
+    opts = {
       exposureLogging: true,
     },
-  ): Adapter<T, Attributes> {
+  ) {
     return {
       origin: origin('features'),
       decide: async ({ key, entities }) => {
         await initialize();
-        const userContext: UserContext = {
-          attributes: entities as Attributes,
+        const userContext = {
+          attributes: entities,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
         };
-        return growthbook.evalFeature<T>(key, userContext).value;
+        return growthbook.evalFeature(key, userContext).value;
       },
     };
   }
-
-  function setTrackingCallback(cb: TrackingCallback) {
+  function setTrackingCallback(cb) {
     trackingCallback = cb;
   }
-
   return {
     feature,
     initialize,
     setTrackingCallback,
   };
 }
-
-let defaultGrowthbookAdapter: AdapterResponse | undefined;
-
+let defaultGrowthbookAdapter;
 export function resetDefaultGrowthbookAdapter() {
   defaultGrowthbookAdapter = undefined;
 }
-
 /**
  * Equivalent to `createGrowthbookAdapter` but with default environment variable names.
  *
@@ -128,23 +86,20 @@ export function resetDefaultGrowthbookAdapter() {
  * - `GROWTHBOOK_API_HOST` - Override the SDK API endpoint for self-hosted users
  * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
  */
-export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
+export function getOrCreateDefaultGrowthbookAdapter() {
   if (defaultGrowthbookAdapter) {
     return defaultGrowthbookAdapter;
   }
-  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY as string;
+  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY;
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
-
   defaultGrowthbookAdapter = createGrowthbookAdapter({
     clientKey,
     apiHost,
     appOrigin,
   });
-
   return defaultGrowthbookAdapter;
 }
-
 /**
  * The default GrowthBook adapter.
  *
@@ -166,9 +121,9 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
  * });
  * ```
  */
-export const growthbookAdapter: AdapterResponse = {
-  feature: (...args) => getOrCreateDefaultGrowthbookAdapter().feature(...args),
-  initialize: () => getOrCreateDefaultGrowthbookAdapter().initialize(),
+export const growthbookAdapter = {
+  feature: (...args) => createGrowthbookAdapter().feature(...args),
+  initialize: () => createGrowthbookAdapter().initialize(),
   setTrackingCallback: (...args) =>
-    getOrCreateDefaultGrowthbookAdapter().setTrackingCallback(...args),
+    createGrowthbookAdapter().setTrackingCallback(...args),
 };
