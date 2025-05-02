@@ -119,8 +119,8 @@ export async function getProviderData(options: {
       description: feature.description,
       origin: `${appOrigin}/features/${feature.id}`,
       options,
-      createdAt: feature.dateCreated,
-      updatedAt: feature.dateUpdated,
+      createdAt: new Date(feature.dateCreated).getTime(),
+      updatedAt: new Date(feature.dateUpdated).getTime(),
     };
   }
 
