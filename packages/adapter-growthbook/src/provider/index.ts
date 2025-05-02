@@ -1,86 +1,63 @@
 import type { JsonValue, ProviderData } from 'flags';
 
-// See: https://docs.statsig.com/console-api/gates/#get-/console/v1/gates
-interface StatsigFeatureGateResponse {
-  data: {
-    id: string;
-    name: string;
-    description: string;
-    rules: {}[];
-    createdTime: number;
-    lastModifiedTime: number;
-  }[];
-  pagination?: {
-    itemsPerPage: number;
-    pageNumber: number;
-    totalItems: number;
-    nextPage: null | string;
-    previousPage: null | string;
-    all: string;
-  };
+interface GrowthbookFeature {
+  id: string;
+  dateCreated: string;
+  dateUpdated: string;
+  archived: boolean;
+  description: string;
+  owner: string;
+  project: string;
+  valueType: string;
+  defaultValue: string;
+  tags: string[];
+  environments: Record<
+    string,
+    {
+      enabled: boolean;
+      defaultValue: string;
+      rules: {}[];
+    }
+  >;
+  prerequisites: [];
+  revision: {};
 }
 
-// See: https://docs.statsig.com/console-api/experiments#get-/console/v1/experiments
-interface StatsigExperimentsResponse {
-  data: {
-    id: string;
-    name: string;
-    description: string;
-    groups: {
-      name: string;
-      parameterValues: Record<string, JsonValue>;
-    }[];
-    createdTime: number;
-    lastModifiedTime: number;
-  }[];
-  pagination?: {
-    itemsPerPage: number;
-    pageNumber: number;
-    totalItems: number;
-    nextPage: null | string;
-    previousPage: null | string;
-    all: string;
-  };
+interface GrowthbookFeaturesResponse {
+  features: GrowthbookFeature[];
+  limit: number;
+  offset: number;
+  count: number;
+  total: number;
+  hasMore: boolean;
+  nextOffset: number;
 }
 
-export async function getProviderData(
-  options: {
-    /**
-     * Required to set the `origin` property on the flag definitions.
-     */
-    projectId?: string;
-  } & (
-    | {
-        /**
-         * The Statsig Console API key.
-         */
-        consoleApiKey: string;
-        /**
-         * @deprecated Use `consoleApiKey` instead.
-         */
-        statsigConsoleApiKey?: never;
-      }
-    | {
-        /**
-         * @deprecated Use `consoleApiKey` instead.
-         */
-        statsigConsoleApiKey: string;
-        /**
-         * The Statsig Console API key.
-         */
-        consoleApiKey?: never;
-      }
-  ),
-): Promise<ProviderData> {
-  const consoleApiKey = options.consoleApiKey || options.statsigConsoleApiKey;
+export async function getProviderData(options: {
+  /**
+   * GrowthBook API Key or Personal Access Token
+   */
+  apiKey: string;
+  /**
+   * Override the application API host for self-hosted users
+   */
+  appApiHost?: string;
+  /**
+   * Override the application URL for self-hosted users
+   */
+  appOrigin?: string;
+}): Promise<ProviderData> {
+  const apiKey = options.apiKey;
+  const appApiHost = options.appApiHost || 'https://api.growthbook.io';
+  const appOrigin = options.appOrigin || 'https://app.growthbook.io';
 
-  if (!consoleApiKey) {
+  if (!apiKey) {
     return {
       definitions: {},
       hints: [
         {
-          key: 'statsig/missing-api-key',
-          text: 'Missing Statsig Console API Key',
+          key: 'growthbook/missing-api-key',
+          text: 'Missing GrowthBook API Key',
         },
       ],
     };
@@ -88,131 +65,117 @@ export async function getProviderData(
 
   const hints: ProviderData['hints'] = [];
 
-  // Abort early if called with incomplete options.
-  const [gates, experiments] = await Promise.allSettled([
-    getFeatureGates({ consoleApiKey }),
-    getExperiments({ consoleApiKey }),
-  ] as const);
+  const features = await getFeatures({ apiKey, appApiHost });
 
-  const definitions: ProviderData['definitions'] = {};
-
-  if (gates.status === 'fulfilled') {
-    gates.value.forEach((gate) => {
-      definitions[gate.id] = {
-        description: gate.description,
-        origin: options.projectId
-          ? `https://console.statsig.com/${options.projectId}/gates/${gate.id}`
-          : undefined,
-        options: [
-          { label: 'Off', value: false },
-          { label: 'On', value: true },
-        ],
-        createdAt: gate.createdTime,
-        updatedAt: gate.lastModifiedTime,
-      };
-    });
-  } else {
-    hints.push({
-      key: 'statsig/failed-to-load-feature-gates',
-      text: gates.reason.message,
-    });
+  if (features instanceof Error) {
+    return {
+      definitions: {},
+      hints: [
+        {
+          key: 'growthbook/fetch-failed',
+          text: features.message,
+        },
+      ],
+    };
   }
 
-  if (experiments.status === 'fulfilled') {
-    experiments.value.forEach((experiment) => {
-      definitions[experiment.id] = {
-        description: experiment.description,
-        origin: options.projectId
-          ? `https://console.statsig.com/${options.projectId}/experiments/${experiment.id}/setup`
-          : undefined,
-        options: experiment.groups.map((group) => {
-          return {
-            label: group.name,
-            value: group.parameterValues,
-          };
-        }),
-        createdAt: experiment.createdTime,
-        updatedAt: experiment.lastModifiedTime,
-      };
-    });
-  } else {
-    hints.push({
-      key: 'statsig/failed-to-load-experiments',
-      text: experiments.reason.message,
-    });
+  const definitions: ProviderData['definitions'] = {};
+  for (const feature of features) {
+    if (feature.archived) continue;
+
+    let options: { label: string; value: JsonValue }[] = [];
+
+    switch (feature.valueType) {
+      case 'boolean':
+        options = [
+          { label: 'On', value: true },
+          { label: 'Off', value: false },
+        ];
+        break;
+      case 'string':
+        options = [
+          { label: `"${feature.defaultValue}"`, value: feature.defaultValue },
+        ];
+        break;
+      case 'number':
+        options = [
+          {
+            label: String(feature.defaultValue),
+            value: Number(feature.defaultValue),
+          },
+        ];
+        break;
+      case 'json':
+        options = [
+          {
+            label: 'JSON',
+            value: tryParseJSON(feature.defaultValue),
+          },
+        ];
+        break;
+    }
+
+    definitions[feature.id] = {
+      description: feature.description,
+      origin: `${appOrigin}/features/${feature.id}`,
+      options,
+      createdAt: feature.dateCreated,
+      updatedAt: feature.dateUpdated,
+    };
   }
 
   return { definitions, hints };
 }
 
 /**
- * Fetch all Feature Gates.
+ * Fetch all Feature Flags.
  */
-async function getFeatureGates(options: { consoleApiKey: string }) {
-  const data: StatsigFeatureGateResponse['data'] = [];
+async function getFeatures(options: {
+  apiKey: string;
+  appApiHost: string;
+}): Promise<GrowthbookFeature[] | Error> {
+  try {
+    const features: GrowthbookFeaturesResponse['features'] = [];
 
-  let suffix: string | null = '/console/v1/gates';
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
 
-  do {
-    const response = await fetch(`https://statsigapi.net${suffix}`, {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
-      },
-      // @ts-expect-error some Next.js versions need this
-      cache: 'no-store',
-    });
+    while (hasMore) {
+      const url = `${options.appApiHost}/api/v1/features?limit=${limit}&offset=${offset}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${options.apiKey}`,
+        },
+        // @ts-expect-error some Next.js versions need this
+        cache: 'no-store',
+      });
 
-    if (response.status !== 200) {
-      // Consume the response body to free up connections.
-      await response.arrayBuffer();
+      if (response.status !== 200) {
+        await response.arrayBuffer(); // ensure stream is drained
+        return new Error(
+          `Failed to fetch GrowthBook (Received ${response.status} response)`,
+        );
+      }
 
-      throw new Error(
-        `Failed to fetch Statsig (Received ${response.status} response)`,
-      );
+      const body = (await response.json()) as GrowthbookFeaturesResponse;
+      features.push(...body.features);
+      hasMore = body.hasMore;
+      offset = body.nextOffset;
     }
 
-    const body = (await response.json()) as StatsigFeatureGateResponse;
-    suffix = body.pagination?.nextPage || null;
-    data.push(...body.data);
-  } while (suffix);
-
-  return data;
+    return features;
+  } catch (e) {
+    return e instanceof Error ? e : new Error(String(e));
+  }
 }
 
-/**
- * Fetch all experiments.
- */
-async function getExperiments(options: { consoleApiKey: string }) {
-  const data: StatsigExperimentsResponse['data'] = [];
-
-  let suffix: string | null = '/console/v1/experiments';
-
-  do {
-    const response = await fetch(`https://statsigapi.net${suffix}`, {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
-      },
-      // @ts-expect-error some Next.js versions need this
-      cache: 'no-store',
-    });
-
-    if (response.status !== 200) {
-      // Consume the response body to free up connections.
-      await response.arrayBuffer();
-
-      throw new Error(
-        `Failed to fetch Statsig (Received ${response.status} response)`,
-      );
-    }
-
-    const body = (await response.json()) as StatsigExperimentsResponse;
-    suffix = body.pagination?.nextPage || null;
-    data.push(...body.data);
-  } while (suffix);
-
-  return data;
+function tryParseJSON(value: string): JsonValue {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
 }

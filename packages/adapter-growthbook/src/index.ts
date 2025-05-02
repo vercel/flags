@@ -139,7 +139,7 @@ export function resetDefaultGrowthbookAdapter() {
  * - `GROWTHBOOK_CLIENT_KEY` - GrowthBook SDK key
  *
  * Optional:
- * - `GROWTHBOOK_API_HOST` - Override the features API endpoint for self-hosted users
+ * - `GROWTHBOOK_API_HOST` - Override the SDK API endpoint for self-hosted users
  * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
  */
 export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
