@@ -87,7 +87,7 @@ export function createGrowthbookAdapter(options: {
     } = {
       exposureLogging: true,
     },
-  ): Adapter<T, Attributes> {
+  ): Adapter<T | null, Attributes> {
     return {
       origin: origin('features'),
       decide: async ({ key, entities }) => {
