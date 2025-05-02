@@ -8,7 +8,7 @@ interface GrowthbookFeature {
   description: string;
   owner: string;
   project: string;
-  valueType: string;
+  valueType: 'string' | 'number' | 'boolean' | 'json';
   defaultValue: string;
   tags: string[];
   environments: Record<
@@ -84,6 +84,7 @@ export async function getProviderData(options: {
     if (feature.archived) continue;
 
     let options: { label: string; value: JsonValue }[] = [];
+    let invalidType: never;
 
     switch (feature.valueType) {
       case 'boolean':
@@ -113,6 +114,12 @@ export async function getProviderData(options: {
           },
         ];
         break;
+      default:
+        invalidType = feature.valueType;
+        hints.push({
+          key: 'growthbook/invalid-feature-type',
+          text: `Invalid feature type: ${feature.valueType}`,
+        });
     }
 
     definitions[feature.id] = {
