@@ -52,8 +52,8 @@ const responseFixture = {
     showdemo: {
       description: 'Show demo banner',
       origin: 'https://app.growthbook.io/features/showdemo',
-      createdAt: '2023-01-01T00:00:00.000Z',
-      updatedAt: '2023-01-02T00:00:00.000Z',
+      createdAt: 1672531200000,
+      updatedAt: 1672617600000,
       options: [
         { label: 'On', value: true },
         { label: 'Off', value: false },
