@@ -12,7 +12,7 @@ export { getProviderData } from './provider';
 export { GrowthBookClient };
 
 type AdapterResponse = {
-  feature: <T>() => Adapter<T, Attributes>;
+  feature: <T>() => Adapter<T | null, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
   setTrackingCallback: (cb: TrackingCallback) => void;
 };
