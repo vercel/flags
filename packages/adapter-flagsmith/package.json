@@ -4,7 +4,7 @@
   "description": "Flagsmith provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
-    "flagsmith",
+    "flagsmith-nodejs",
     "vercel",
     "feature flags",
     "flags"
