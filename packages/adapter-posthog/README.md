@@ -1,4 +1,4 @@
-# Flags SDK — Statsig Provider
+# Flags SDK — PostHog Adapter
 
 The PostHog adapter for [Flags SDK](https://flags-sdk.dev/) supports dynamic server side feature flags powered by [PostHog](https://posthog.com/).
 
@@ -32,6 +32,8 @@ export const marketingGate = flag<boolean>({
 | Edge Runtime | ❌        |
 
 Note: `posthog-node` does not support the Edge Runtime.
+
+To use with middleware and precompute, read more: [Middleware now supports Node.js](https://vercel.com/changelog/middleware-now-supports-node-js)
 
 ## Documentation
 
