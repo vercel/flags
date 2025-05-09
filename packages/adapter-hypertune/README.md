@@ -12,13 +12,8 @@ pnpm i @flags-sdk/hypertune
 
 ## Provider Instance
 
-You can import the default adapter instance `statigAdapter` from `@flags-sdk/statsig`:
-
-```ts
-import { statsigAdapter } from '@flags-sdk/statsig';
-```
-
-## Example
+You must use the code generation powered by `npx hypertune` to create an adapter instance.
+Use `createHypertuneAdapter` from `@flags-sdk/hypertune` as shown below:
 
 ```ts
 /** Generated with `npx hypertune` */
@@ -76,7 +71,7 @@ export const delayFlag = flag({
 # Required
 NEXT_PUBLIC_HYPERTUNE_TOKEN="123="
 
-# For use with encrypted flag values, overrides, and the Flags Explorer
+# For use with precompute, encrypted flag values, overrides, and the Flags Explorer
 FLAGS_SECRET="ReplaceThisWith32RandomBytesBase64UrlString"
 
 # Optional: automatically configure with a VercelEdgeConfigInitDataProvider
@@ -86,4 +81,4 @@ EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_xyz"
 
 ## Documentation
 
-Please check out the [Statsig provider documentation](https://flags-sdk.dev/docs/api-reference/adapters/statsig) for more information.
+Please check out the [Hypertune Adapter reference](https://flags-sdk.dev/docs/api-reference/adapters/hypertune) for more information.
