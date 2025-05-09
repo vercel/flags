@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/hypertune",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -35,7 +35,10 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vercel/edge-config": "1.4.0",
+    "hypertune": "2.7.2"
+  },
   "devDependencies": {
     "@types/node": "20.11.17",
     "eslint-config-custom": "workspace:*",
@@ -48,7 +51,6 @@
     "vite": "5.1.1",
     "vitest": "1.4.0"
   },
-  "peerDependencies": {},
   "publishConfig": {
     "access": "public"
   }
