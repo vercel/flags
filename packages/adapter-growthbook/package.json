@@ -53,7 +53,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^1.4.1",
+    "@growthbook/growthbook": "^1.5.1",
     "@vercel/edge-config": "^1.2.0",
     "@vercel/functions": "^1.5.2"
   },
