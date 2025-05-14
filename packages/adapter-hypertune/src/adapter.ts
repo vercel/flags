@@ -158,15 +158,29 @@ export const createHypertuneAdapter = <
     };
   };
 
-  const declarations = Object.keys(flagDefinitions).reduce(
-    (acc, key) => {
-      acc[key] = createDeclaration({ key: key as keyof TFlagValues });
-      return acc;
+  const declarations = new Proxy(
+    Object.keys(flagDefinitions).reduce(
+      (acc, key) => {
+        acc[key] = createDeclaration({ key: key as keyof TFlagValues });
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    ) as {
+      [key in keyof TFlagValues]: FlagDeclaration<TFlagValues[key], TContext>;
     },
-    {} as Record<string, unknown>,
-  ) as {
-    [key in keyof TFlagValues]: FlagDeclaration<TFlagValues[key], TContext>;
-  };
+    {
+      get(target, prop) {
+        if (typeof prop === 'string' && !(prop in target)) {
+          throw new Error(
+            // biome-ignore lint/style/useTemplate: <explanation>
+            `Attempted to access flag "${prop}" which is not found in the generated Hypertune code. ` +
+              'Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.',
+          );
+        }
+        return target[prop as keyof typeof target];
+      },
+    },
+  );
   return { declarations, getSource };
 };
 
