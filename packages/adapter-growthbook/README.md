@@ -24,7 +24,7 @@ import { growthBookAdapter } from '@flags-sdk/growthbook';
 import { flag } from 'flags/next';
 import { growthBookAdapter } from '@flags-sdk/growthbook';
 
-export const summerBannerFlag = flag<boolean>({
+export const summerBannerFlag = feature<boolean>({
   key: 'summer-banner',
   adapter: growthBookAdapter.feature(),
 });
