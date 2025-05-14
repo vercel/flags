@@ -1,8 +1,8 @@
-import { type FlagOverridesType, decrypt } from '..';
+import { decryptOverrides } from '..';
 import { memoizeOne } from '../lib/async-memoize-one';
 
 const memoizedDecrypt = memoizeOne(
-  (text: string) => decrypt<FlagOverridesType>(text),
+  (text: string) => decryptOverrides(text),
   (a, b) => a[0] === b[0], // only the first argument gets compared
   { cachePromiseRejection: true },
 );

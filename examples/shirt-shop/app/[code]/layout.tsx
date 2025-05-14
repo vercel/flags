@@ -5,6 +5,7 @@ import { FreeDelivery } from '@/app/free-delivery';
 import { DevTools } from '@/components/dev-tools';
 import { Footer } from '@/components/footer';
 import { Navigation } from '@/components/navigation';
+import { encryptFlagValues } from 'flags';
 
 export async function generateStaticParams() {
   // Returning an empty array here is important as it enables ISR, so
@@ -32,12 +33,14 @@ export default async function Layout(props: {
     productFlags,
   );
 
+  const encryptedFlagValues = await encryptFlagValues(values);
+
   return (
     <div className="bg-white">
       <FreeDelivery show={showFreeDeliveryBanner} />
       <Navigation />
       {props.children}
-      <FlagValues values={values} />
+      <FlagValues values={encryptedFlagValues} />
       <Footer />
       <DevTools />
     </div>

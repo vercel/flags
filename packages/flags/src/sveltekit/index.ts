@@ -1,16 +1,33 @@
-import type { Handle, RequestEvent } from '@sveltejs/kit';
+import {
+  error,
+  json,
+  type Handle,
+  type RequestEvent,
+  type RequestHandler,
+} from '@sveltejs/kit';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   type ApiData,
-  decrypt as _decrypt,
-  encrypt as _encrypt,
   reportValue,
   safeJsonStringify,
   verifyAccess,
   type JsonValue,
   type FlagDefinitionsType,
+  encryptFlagValues as _encryptFlagValues,
+  decryptFlagValues as _decryptFlagValues,
+  encryptOverrides as _encryptOverrides,
+  decryptOverrides as _decryptOverrides,
+  encryptFlagDefinitions as _encryptFlagDefinitions,
+  decryptFlagDefinitions as _decryptFlagDefinitions,
+  version,
 } from '..';
-import { Decide, FlagDeclaration, Identify } from '../types';
+import {
+  Decide,
+  FlagDeclaration,
+  FlagOverridesType,
+  FlagValuesType,
+  Identify,
+} from '../types';
 import {
   type ReadonlyHeaders,
   HeadersAdapter,
@@ -163,7 +180,7 @@ export function flag<
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
-      ? await decrypt<Record<string, ValueType>>(overridesCookie, store.secret)
+      ? await _decryptOverrides(overridesCookie, store.secret)
       : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
@@ -304,7 +321,7 @@ export function createHandle({
           // This is for reporting which flags were used when this page was generated,
           // so the value shows up in Vercel Toolbar, without the client ever being
           // aware of this feature flag.
-          const encryptedFlagValues = await encrypt(
+          const encryptedFlagValues = await _encryptFlagValues(
             await resolveObjectPromises(store.usedFlags),
             secret,
           );
@@ -329,35 +346,49 @@ async function handleWellKnownFlagsRoute(
     secret,
   );
   if (!access) return new Response(null, { status: 401 });
-  return Response.json(getProviderData(flags));
+  const providerData = getProviderData(flags);
+  return Response.json(providerData, {
+    headers: { 'x-flags-sdk-version': version },
+  });
 }
 
-/**
- * Function to encrypt overrides, values, definitions, and API data.
- *
- * Convenience wrapper around `encrypt` from `@vercel/flags` for not
- * having to provide a secret - it will be read from the environment
- * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
- */
-export async function encrypt<T extends object>(
-  value: T,
+export async function encryptFlagValues(
+  value: FlagValuesType,
   secret?: string,
-): Promise<string> {
-  return _encrypt(value, await tryGetSecret(secret));
+) {
+  return _encryptFlagValues(value, await tryGetSecret(secret));
 }
 
-/**
- * Function to decrypt overrides, values, definitions, and API data.
- *
- * Convenience wrapper around `deencrypt` from `@vercel/flags` for not
- * having to provide a secret - it will be read from the environment
- * variable `FLAGS_SECRET` via `$env/dynamic/private` if not provided.
- */
-export async function decrypt<T extends object>(
+export async function decryptFlagValues(
   encryptedData: string,
   secret?: string,
-): Promise<T | undefined> {
-  return _decrypt(encryptedData, await tryGetSecret(secret));
+) {
+  return _decryptFlagValues(encryptedData, await tryGetSecret(secret));
+}
+
+export async function encryptOverrides(
+  overrides: FlagOverridesType,
+  secret?: string,
+) {
+  return _encryptOverrides(overrides, await tryGetSecret(secret));
+}
+
+export async function decryptOverrides(encryptedData: string, secret?: string) {
+  return _decryptOverrides(encryptedData, await tryGetSecret(secret));
+}
+
+export async function encryptFlagDefinitions(
+  value: FlagDefinitionsType,
+  secret?: string,
+) {
+  return _encryptFlagDefinitions(value, await tryGetSecret(secret));
+}
+
+export async function decryptFlagDefinitions(
+  encryptedData: string,
+  secret?: string,
+) {
+  return _decryptFlagDefinitions(encryptedData, await tryGetSecret(secret));
 }
 
 /**
@@ -389,4 +420,30 @@ export async function generatePermutations(
   secret?: string,
 ): Promise<string[]> {
   return _generatePermutations(flags, filter, await tryGetSecret(secret));
+}
+
+/**
+ * Creates a well-known flags endpoint for SvelteKit.
+ * @param getApiData a function returning the API data
+ * @param options accepts a secret
+ * @returns a RequestHandler
+ */
+export function createFlagsDiscoveryEndpoint(
+  getApiData: (event: RequestEvent) => Promise<ApiData> | ApiData,
+  options?: {
+    secret?: string | undefined;
+  },
+) {
+  const requestHandler: RequestHandler = async (event) => {
+    const access = await verifyAccess(
+      event.request.headers.get('Authorization'),
+      options?.secret,
+    );
+    if (!access) error(401);
+
+    const apiData = await getApiData(event);
+    return json(apiData, { headers: { 'x-flags-sdk-version': version } });
+  };
+
+  return requestHandler;
 }

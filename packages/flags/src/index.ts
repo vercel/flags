@@ -1,3 +1,4 @@
+export { version } from '../package.json';
 export { setTracerProvider } from './lib/tracing';
 export type {
   Adapter,
@@ -16,7 +17,16 @@ export type {
   Decide,
 } from './types';
 export { safeJsonStringify } from './lib/safe-json-stringify';
-export { encrypt, decrypt } from './lib/crypto';
+export {
+  createAccessProof,
+  verifyAccessProof,
+  encryptOverrides,
+  decryptOverrides,
+  encryptFlagValues,
+  decryptFlagValues,
+  encryptFlagDefinitions,
+  decryptFlagDefinitions,
+} from './lib/crypto';
 export { verifyAccess } from './lib/verify-access';
 export { reportValue } from './lib/report-value';
 export {
