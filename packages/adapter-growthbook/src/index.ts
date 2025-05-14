@@ -1,4 +1,5 @@
 import type { Adapter } from 'flags';
+import { createClient } from '@vercel/edge-config';
 import {
   GrowthBookClient,
   type ClientOptions,
@@ -6,10 +7,17 @@ import {
   type Attributes,
   type UserContext,
   type TrackingCallback,
+  FeatureApiResponse,
 } from '@growthbook/growthbook';
 
 export { getProviderData } from './provider';
 export { GrowthBookClient };
+
+type EdgeConfig = {
+  connectionString: string;
+  /** Defaults to `options.clientKey` **/
+  itemKey?: string;
+};
 
 type AdapterResponse = {
   feature: <T>() => Adapter<T | null, Attributes>;
@@ -33,6 +41,8 @@ export function createGrowthbookAdapter(options: {
   clientOptions?: ClientOptions;
   /** Optional GrowthBook SDK init() options **/
   initOptions?: InitOptions;
+  /** Provide Edge Config details to use the optional Edge Config adapter */
+  edgeConfig?: EdgeConfig;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
 
@@ -45,8 +55,26 @@ export function createGrowthbookAdapter(options: {
   let _initializePromise: Promise<void> | undefined;
 
   const initializeGrowthBook = async (): Promise<void> => {
+    let payload: FeatureApiResponse | undefined;
+    if (options.edgeConfig) {
+      try {
+        const edgeConfigClient = createClient(
+          options.edgeConfig.connectionString,
+        );
+        payload = await edgeConfigClient.get<FeatureApiResponse>(
+          options.edgeConfig.itemKey || options.clientKey,
+        );
+        if (!payload) {
+          console.error('No payload found in edge config');
+        }
+      } catch (e) {
+        console.error('Error fetching edge config', e);
+      }
+    }
+
     await growthbook.init({
       streaming: false,
+      payload,
       ...(options.initOptions || {}),
     });
   };
@@ -133,13 +161,27 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
     return defaultGrowthbookAdapter;
   }
   const clientKey = process.env.GROWTHBOOK_CLIENT_KEY as string;
+  if (!clientKey) {
+    throw new Error('Missing GROWTHBOOK_CLIENT_KEY env var');
+  }
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
+  const connectionString = process.env.GROWTHBOOK_EDGE_CONNECTION_STRING;
+  const itemKey = process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY;
+
+  let edgeConfig: EdgeConfig | undefined;
+  if (connectionString) {
+    edgeConfig = {
+      connectionString,
+      itemKey,
+    };
+  }
 
   defaultGrowthbookAdapter = createGrowthbookAdapter({
     clientKey,
     apiHost,
     appOrigin,
+    edgeConfig,
   });
 
   return defaultGrowthbookAdapter;
