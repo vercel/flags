@@ -130,7 +130,7 @@ export function createGrowthbookAdapter(options: {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
         };
-        return (growthbook.evalFeature<T>(key, userContext) ??
+        return (growthbook.evalFeature<T>(key, userContext).value ??
           defaultValue) as T;
       },
     };
