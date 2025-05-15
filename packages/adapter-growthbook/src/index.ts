@@ -124,13 +124,14 @@ export function createGrowthbookAdapter(options: {
   ): Adapter<T, Attributes> {
     return {
       origin: origin('features'),
-      decide: async ({ key, entities }) => {
+      decide: async ({ key, entities, defaultValue }) => {
         await initialize();
         const userContext: UserContext = {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
         };
-        return growthbook.evalFeature<T>(key, userContext).value as T;
+        return (growthbook.evalFeature<T>(key, userContext) ??
+          defaultValue) as T;
       },
     };
   }
