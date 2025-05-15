@@ -2,16 +2,22 @@ import type { Adapter } from 'flags';
 import { createClient } from '@vercel/edge-config';
 import {
   GrowthBookClient,
+  type Attributes,
   type ClientOptions,
   type InitOptions,
-  type Attributes,
   type UserContext,
   type TrackingCallback,
   FeatureApiResponse,
 } from '@growthbook/growthbook';
 
 export { getProviderData } from './provider';
-export { GrowthBookClient };
+export {
+  GrowthBookClient,
+  type Attributes,
+  type ClientOptions,
+  type InitOptions,
+  type TrackingCallback,
+};
 
 type EdgeConfig = {
   connectionString: string;
@@ -20,7 +26,7 @@ type EdgeConfig = {
 };
 
 type AdapterResponse = {
-  feature: <T>() => Adapter<T | null, Attributes>;
+  feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
   setTrackingCallback: (cb: TrackingCallback) => void;
 };
@@ -115,7 +121,7 @@ export function createGrowthbookAdapter(options: {
     } = {
       exposureLogging: true,
     },
-  ): Adapter<T | null, Attributes> {
+  ): Adapter<T, Attributes> {
     return {
       origin: origin('features'),
       decide: async ({ key, entities }) => {
@@ -124,7 +130,7 @@ export function createGrowthbookAdapter(options: {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
         };
-        return growthbook.evalFeature<T>(key, userContext).value;
+        return growthbook.evalFeature<T>(key, userContext).value as T;
       },
     };
   }

@@ -35,10 +35,8 @@ export const summerBannerFlag = feature<boolean>({
 In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system.
 
 ```ts
-growthbookAdapter.setTrackingCallback((experiment, result, userContext) => {
-  const userId = userContext.attributes.id;
-
-  console.log('Viewed Experiment', userId, {
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  console.log('Viewed Experiment', {
     experimentId: experiment.key,
     variationId: result.key,
   });
