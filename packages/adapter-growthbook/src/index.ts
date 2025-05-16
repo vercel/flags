@@ -173,7 +173,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   }
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
-  const connectionString = process.env.GROWTHBOOK_EDGE_CONNECTION_STRING;
+  const connectionString = process.env.GROWTHBOOK_EDGE_CONNECTION_STRING || process.env.EXPERIMENTATION_CONFIG;
   const itemKey = process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY;
 
   let edgeConfig: EdgeConfig | undefined;
