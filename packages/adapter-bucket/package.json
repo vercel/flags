@@ -47,8 +47,6 @@
     "dev": "tsup --watch --clean=false",
     "eslint": "eslint-runner",
     "eslint:fix": "eslint-runner --fix",
-    "test": "vitest --run",
-    "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
