@@ -414,7 +414,19 @@ export function flag<
       }
 
       // the flag is being used in app router
-      return run({ identify, request: undefined });
+      const result = run({ identify, request: undefined });
+      result.catch(() => {
+        /**
+         * Prevent reporting rejection as unhandled.
+         * When dynamicIO is enabled, prerenders abort, any flags that depend
+         * on request data like headers will reject. This might happen before the
+         * flag is actually consumed anywhere in the render.
+         *
+         * TODO: When Next.js is updated to not report unhandled rejections due to
+         * dynamicIO we can remove this.
+         */
+      });
+      return result;
     },
     {
       name: 'flag',
