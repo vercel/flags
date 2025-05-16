@@ -1,0 +1,75 @@
+{
+  "name": "@flags-sdk/growthbook",
+  "version": "0.0.1",
+  "description": "GrowthBook provider for the Flags SDK",
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./provider": {
+      "types": "./dist/provider/index.d.ts",
+      "import": "./dist/provider/index.js",
+      "require": "./dist/provider/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/index.d.ts",
+        "./dist/index.d.cts"
+      ],
+      "provider": [
+        "./dist/provider/index.d.ts",
+        "./dist/provider/index.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "eslint": "eslint-runner",
+    "eslint:fix": "eslint-runner --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@growthbook/growthbook": "^1.5.1",
+    "@vercel/edge-config": "^1.2.0",
+    "@vercel/functions": "^1.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.17",
+    "eslint-config-custom": "workspace:*",
+    "flags": "workspace:*",
+    "msw": "2.6.4",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.1.1",
+    "vitest": "1.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
