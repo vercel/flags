@@ -39,10 +39,12 @@ function createCacheNode<T>(): CacheNode<T> {
  */
 export function dedupe<A extends Array<unknown>, T>(
   fn: (...args: A) => T | Promise<T>,
-): (...args: A) => Promise<T> {
+): ((...args: A) => Promise<T>) & {
+  clearDedupeCacheForCurrentRequest: () => Promise<boolean>;
+} {
   const requestStore = new WeakMap<Headers, CacheNode<T>>();
 
-  return async function (this: unknown, ...args: A): Promise<T> {
+  const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
     // async import required as turbopack errors in Pages Router
     // when next/headers is imported at the top-level
     const { headers } = await import('next/headers');
@@ -105,4 +107,15 @@ export function dedupe<A extends Array<unknown>, T>(
       throw error;
     }
   };
+
+  /**
+   * Clears the cache for the current request.
+   */
+  dedupedFn.clearDedupeCacheForCurrentRequest = async () => {
+    const { headers } = await import('next/headers');
+    const h = await headers();
+    return requestStore.delete(h);
+  };
+
+  return dedupedFn;
 }

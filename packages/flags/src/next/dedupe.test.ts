@@ -190,6 +190,24 @@ describe('dedupe', () => {
     });
   });
 
+  describe('clearCurrent', () => {
+    it('should allow dedupe to be cleared within same request', async () => {
+      const fn = vitest.fn();
+      const deduped = dedupe(fn);
+      const same = new Headers();
+      const headersMock = await getHeadersMock();
+      headersMock.mockReturnValue(same);
+
+      await deduped();
+      await deduped();
+      await deduped.clearDedupeCacheForCurrentRequest();
+      await deduped();
+      await deduped();
+
+      expect(fn).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('promises', () => {
     it('should dedupe even when the promise has not resolved yet', async () => {
       let resolvePromise: (value: unknown) => void = () => {
