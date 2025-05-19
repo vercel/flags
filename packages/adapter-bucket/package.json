@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/bucket",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bucket.co provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
@@ -50,7 +50,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@bucketco/node-sdk": "1.8.1"
+    "@bucketco/node-sdk": "1.8.3"
   },
   "devDependencies": {
     "@types/node": "20.11.17",

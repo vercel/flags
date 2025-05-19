@@ -319,8 +319,8 @@ importers:
   packages/adapter-bucket:
     dependencies:
       '@bucketco/node-sdk':
-        specifier: 1.8.1
-        version: 1.8.1
+        specifier: 1.8.3
+        version: 1.8.3
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -1281,8 +1281,8 @@ packages:
       js-sha256: 0.11.0
     dev: false
 
-  /@bucketco/node-sdk@1.8.1:
-    resolution: {integrity: sha512-5WMnpNVqQ+kwcSGURSlOtK7Ha5WwlqWpx6uIC1nU1tEg+RxOr0nSrokMqVpn+yT7Iol5mDcwX5GgaMD1KUjOaw==}
+  /@bucketco/node-sdk@1.8.3:
+    resolution: {integrity: sha512-RRBCDSt05gMCefBM/zrt0weJebqWwP6rm2Xucp6mSty689OKtWBREI43lQ/9Y4vQFt8Ohs9HeJ7BGPflH0w16g==}
     dependencies:
       '@bucketco/flag-evaluation': 0.1.2
     dev: false
