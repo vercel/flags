@@ -32,7 +32,7 @@ export const summerBannerFlag = feature<boolean>({
 
 ## Experimentation (A/B Testing)
 
-In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system.
+In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in `middleware.ts`.
 
 ```ts
 growthbookAdapter.setTrackingCallback((experiment, result) => {
@@ -41,6 +41,20 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
     variationId: result.key,
   });
 });
+```
+
+### Sticky Bucketing
+
+To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `middleware.ts`). We recommend using our Redis service for ease of implementation.
+
+```ts
+import { RedisStickyBucketService } from '@growthbook/growthbook';
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_CONNECTION_URL);
+const redisStickyBucketService = new RedisStickyBucketService({ redis });
+
+growthbookAdapter.setStickyBucketService(redisStickyBucketService);
 ```
 
 ## Documentation

@@ -8,6 +8,7 @@ import {
   type UserContext,
   type TrackingCallback,
   FeatureApiResponse,
+  StickyBucketService,
 } from '@growthbook/growthbook';
 
 export { getProviderData } from './provider';
@@ -17,6 +18,7 @@ export {
   type ClientOptions,
   type InitOptions,
   type TrackingCallback,
+  type StickyBucketService,
 };
 
 type EdgeConfig = {
@@ -29,6 +31,8 @@ type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
   setTrackingCallback: (cb: TrackingCallback) => void;
+  setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
+  growthbook: GrowthBookClient;
 };
 
 /**
@@ -47,10 +51,13 @@ export function createGrowthbookAdapter(options: {
   clientOptions?: ClientOptions;
   /** Optional GrowthBook SDK init() options **/
   initOptions?: InitOptions;
+  /** Optional StickyBucketService (reduces variation hopping, required for Bandits) **/
+  stickyBucketService?: StickyBucketService;
   /** Provide Edge Config details to use the optional Edge Config adapter */
   edgeConfig?: EdgeConfig;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
+  let stickyBucketService = options.stickyBucketService;
 
   const growthbook = new GrowthBookClient({
     clientKey: options.clientKey,
@@ -112,7 +119,6 @@ export function createGrowthbookAdapter(options: {
    * Resolve a feature flag.
    *
    * Implements `decide` to resolve the feature with `GrowthBook.evalFeature`
-   *
    * Implements `origin` to link to the flag in the GrowthBook app
    */
   function feature<T>(
@@ -130,6 +136,18 @@ export function createGrowthbookAdapter(options: {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
         };
+        if (stickyBucketService && opts.exposureLogging) {
+          const { stickyBucketAssignmentDocs, saveStickyBucketAssignmentDoc } =
+            await growthbook.applyStickyBuckets(
+              userContext,
+              stickyBucketService,
+            );
+          return (growthbook.evalFeature<T>(key, {
+            ...userContext,
+            stickyBucketAssignmentDocs,
+            saveStickyBucketAssignmentDoc,
+          }).value ?? defaultValue) as T;
+        }
         return (growthbook.evalFeature<T>(key, userContext).value ??
           defaultValue) as T;
       },
@@ -140,10 +158,16 @@ export function createGrowthbookAdapter(options: {
     trackingCallback = cb;
   }
 
+  function setStickyBucketService(sbs: StickyBucketService) {
+    stickyBucketService = sbs;
+  }
+
   return {
     feature,
     initialize,
     setTrackingCallback,
+    setStickyBucketService,
+    growthbook,
   };
 }
 
@@ -162,6 +186,9 @@ export function resetDefaultGrowthbookAdapter() {
  * Optional:
  * - `GROWTHBOOK_API_HOST` - Override the SDK API endpoint for self-hosted users
  * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
+ * - `GROWTHBOOK_EDGE_CONNECTION_STRING` - Edge Config connection string
+ * - `EXPERIMENTATION_CONFIG` - fallback for GROWTHBOOK_EDGE_CONNECTION_STRING
+ * - `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` - Override the item key for Edge Config (defaults to GROWTHBOOK_CLIENT_KEY)
  */
 export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
@@ -173,7 +200,9 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   }
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
-  const connectionString = process.env.GROWTHBOOK_EDGE_CONNECTION_STRING || process.env.EXPERIMENTATION_CONFIG;
+  const connectionString =
+    process.env.GROWTHBOOK_EDGE_CONNECTION_STRING ||
+    process.env.EXPERIMENTATION_CONFIG;
   const itemKey = process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY;
 
   let edgeConfig: EdgeConfig | undefined;
@@ -220,4 +249,7 @@ export const growthbookAdapter: AdapterResponse = {
   initialize: () => getOrCreateDefaultGrowthbookAdapter().initialize(),
   setTrackingCallback: (...args) =>
     getOrCreateDefaultGrowthbookAdapter().setTrackingCallback(...args),
+  setStickyBucketService: (...args) =>
+    getOrCreateDefaultGrowthbookAdapter().setStickyBucketService(...args),
+  growthbook: getOrCreateDefaultGrowthbookAdapter().growthbook,
 };

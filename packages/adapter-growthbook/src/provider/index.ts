@@ -34,22 +34,19 @@ interface GrowthbookFeaturesResponse {
 }
 
 export async function getProviderData(options: {
-  /**
-   * GrowthBook API Key or Personal Access Token
-   */
+  /** GrowthBook API Key or Personal Access Token **/
   apiKey: string;
-  /**
-   * Override the application API host for self-hosted users
-   */
+  /** Override the application API host for self-hosted users **/
   appApiHost?: string;
-  /**
-   * Override the application URL for self-hosted users
-   */
+  /** Override the application URL for self-hosted users **/
   appOrigin?: string;
+  /** Provide your GrowthBook SDK key to filter flag definitions **/
+  clientKey?: string;
 }): Promise<ProviderData> {
   const apiKey = options.apiKey;
   const appApiHost = options.appApiHost || 'https://api.growthbook.io';
   const appOrigin = options.appOrigin || 'https://app.growthbook.io';
+  const clientKey = options.clientKey;
 
   if (!apiKey) {
     return {
@@ -65,7 +62,7 @@ export async function getProviderData(options: {
 
   const hints: ProviderData['hints'] = [];
 
-  const features = await getFeatures({ apiKey, appApiHost });
+  const features = await getFeatures({ apiKey, appApiHost, clientKey });
 
   if (features instanceof Error) {
     return {
@@ -121,9 +118,14 @@ export async function getProviderData(options: {
           text: `Invalid feature type: ${feature.valueType}`,
         });
     }
+    const typeLabel =
+      feature.valueType === 'json'
+        ? 'JSON'
+        : feature.valueType.charAt(0).toUpperCase() +
+          feature.valueType.slice(1);
 
     definitions[feature.id] = {
-      description: feature.description,
+      description: `[${typeLabel}] ${feature.description}`,
       origin: `${appOrigin}/features/${feature.id}`,
       options,
       createdAt: new Date(feature.dateCreated).getTime(),
@@ -140,6 +142,7 @@ export async function getProviderData(options: {
 async function getFeatures(options: {
   apiKey: string;
   appApiHost: string;
+  clientKey?: string;
 }): Promise<GrowthbookFeature[] | Error> {
   try {
     const features: GrowthbookFeaturesResponse['features'] = [];
@@ -148,7 +151,10 @@ async function getFeatures(options: {
     let hasMore = true;
 
     while (hasMore) {
-      const qs = offset ? `?offset=${offset}` : '';
+      const params = new URLSearchParams();
+      if (offset) params.append('offset', String(offset));
+      if (options.clientKey) params.append('clientKey', options.clientKey);
+      const qs = params.toString() ? `?${params.toString()}` : '';
       const url = `${options.appApiHost}/api/v1/features${qs}`;
       const response = await fetch(url, {
         method: 'GET',
