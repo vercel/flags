@@ -59,21 +59,13 @@ export function createPostHogAdapter({
       return {
         async decide({ key, entities, defaultValue }) {
           const parsedEntities = parseEntities(entities);
-          const flagValue = await client.getFeatureFlag(
-            trimKey(key),
-            parsedEntities.distinctId,
-            {
-              ...options,
-              sendFeatureFlagEvents: false,
-            },
-          );
           const payload = await client.getFeatureFlagPayload(
             trimKey(key),
             parsedEntities.distinctId,
-            flagValue,
+            undefined,
             options,
           );
-          if (!payload || !flagValue) {
+          if (!payload) {
             if (typeof defaultValue !== 'undefined') {
               return defaultValue;
             }
@@ -81,7 +73,7 @@ export function createPostHogAdapter({
               `PostHog Adapter featureFlagPayload found undefined for ${trimKey(key)} and no default value was provided.`,
             );
           }
-          return getValue(payload, flagValue);
+          return getValue(payload);
         },
       };
     },

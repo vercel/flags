@@ -26,7 +26,7 @@ export type PostHogAdapter = {
     sendFeatureFlagEvents?: boolean;
   }) => Adapter<string | boolean, PostHogEntities>;
   featureFlagPayload: <T>(
-    getValue: (payload: JsonType, flagValue: string | boolean) => T,
+    getValue: (payload: JsonType) => T,
     options?: {
       sendFeatureFlagEvents?: boolean;
     },
