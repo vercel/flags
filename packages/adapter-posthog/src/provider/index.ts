@@ -23,8 +23,8 @@ interface ApiData {
 
 export async function getProviderData(options: {
   personalApiKey: string;
-  host: string;
   projectId: string;
+  appHost?: string;
 }): Promise<ProviderData> {
   const hints: Exclude<ProviderData['hints'], undefined> = [];
 
@@ -35,11 +35,16 @@ export async function getProviderData(options: {
     });
   }
 
-  if (!options.host) {
-    hints.push({
-      key: 'posthog/missing-host',
-      text: 'Missing PostHog Host',
-    });
+  let host = options.appHost;
+  if (!host) {
+    try {
+      host = getAppHost();
+    } catch (e) {
+      hints.push({
+        key: 'posthog/missing-app-host',
+        text: 'Missing NEXT_PUBLIC_POSTHOG_HOST environment variable',
+      });
+    }
   }
 
   if (!options.projectId) {
@@ -58,7 +63,7 @@ export async function getProviderData(options: {
   };
 
   const res = await fetch(
-    `${options.host}/api/projects/${options.projectId}/feature_flags?active=true`,
+    `${host}/api/projects/${options.projectId}/feature_flags?active=true`,
     {
       method: 'GET',
       headers,
@@ -86,7 +91,7 @@ export async function getProviderData(options: {
     // paginate in a parallel request
     for (let offset = 100; offset < data.count; offset += 100) {
       const paginatedRes = await fetch(
-        `${options.host}/api/projects/${options.projectId}/feature_flags?active=true&offset=${offset}&limit=100`,
+        `${host}/api/projects/${options.projectId}/feature_flags?active=true&offset=${offset}&limit=100`,
         {
           method: 'GET',
           headers,
@@ -109,7 +114,7 @@ export async function getProviderData(options: {
     return {
       definitions: items.reduce<FlagDefinitionsType>((acc, item) => {
         acc[item.key] = {
-          origin: `${options.host}/project/${options.projectId}/feature_flags/${item.id}`,
+          origin: `${host}/project/${options.projectId}/feature_flags/${item.id}`,
           description: item.name,
           createdAt: new Date(item.created_at).getTime(),
           options: !item.filters.payloads
@@ -137,3 +142,21 @@ export async function getProviderData(options: {
     };
   }
 }
+
+export const getAppHost = () => {
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+
+  if (!host) {
+    throw new Error('NEXT_PUBLIC_POSTHOG_HOST is not set');
+  }
+
+  if (host.includes('us.i.posthog.com')) {
+    return 'https://us.posthog.com';
+  }
+
+  if (host.includes('eu.i.posthog.com')) {
+    return 'https://eu.posthog.com';
+  }
+
+  return host;
+};
