@@ -4,6 +4,12 @@
 
 ### Minor Changes
 
+- 44bada7: Publish PostHog adapter
+
+## 0.1.0
+
+### Minor Changes
+
 - postHogAdapter: Default adapter is available
 - postHogAdapter.isFeatureEnabled: Check if a feature flag is enabled
 - postHogAdapter.featureFlagValue: Get the value of a feature flag

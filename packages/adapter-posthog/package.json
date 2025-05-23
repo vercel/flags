@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/posthog",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "PostHog adapter for the Flags SDK",
   "keywords": [
     "flags-sdk",
