@@ -4,8 +4,6 @@ enum Status {
   ERRORED = 2,
 }
 
-const requestStoreKey = Symbol('dedupe.requestStoreKey');
-
 type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
 
 type CacheNode<T> = {
@@ -28,6 +26,15 @@ function createCacheNode<T>(): CacheNode<T> {
 }
 
 /**
+ * We use a registry to store the request store for each deduped function.
+ *
+ * This is necessary as we don't want to attach the request store to the deduped
+ * to retain its original type, and we need to be able to clear the cache for the
+ * current request.
+ */
+const cacheRegistry = new WeakMap<Function, RequestStore<unknown>>();
+
+/**
  * A middleware-friendly version of React.cache.
  *
  * Given the same arguments, the function wrapped by this function will only ever run once for the duration of a request.
@@ -43,9 +50,7 @@ function createCacheNode<T>(): CacheNode<T> {
  */
 export function dedupe<A extends Array<unknown>, T>(
   fn: (...args: A) => T | Promise<T>,
-): ((...args: A) => Promise<T>) & {
-  [requestStoreKey]: RequestStore<T>;
-} {
+): (...args: A) => Promise<T> {
   const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
@@ -112,29 +117,24 @@ export function dedupe<A extends Array<unknown>, T>(
     }
   };
 
-  /**
-   * Attach the request store to the deduped function so that it can be
-   * cleared for the current request by `clearCacheForCurrentRequest`.
-   */
-  dedupedFn[requestStoreKey] = requestStore;
+  cacheRegistry.set(dedupedFn, requestStore);
   return dedupedFn;
 }
 
 /**
- * Clears the cache of a deduped function for the current request.
+ * Clears the cached value of a deduped function for the current request.
  *
  * This function is useful for resetting the cache after making changes to
  * the underlying cached information.
  */
-export async function clearCacheForCurrentRequest(
-  dedupedFn: ((...args: unknown[]) => unknown) & {
-    [requestStoreKey]: RequestStore<unknown>;
-  },
+export async function clearDedupeCacheForCurrentRequest(
+  dedupedFn: (...args: unknown[]) => unknown,
 ) {
   if (typeof dedupedFn !== 'function') {
     throw new Error('dedupe: not a function');
   }
-  const requestStore = dedupedFn[requestStoreKey];
+  const requestStore = cacheRegistry.get(dedupedFn);
+
   if (!requestStore) {
     throw new Error('dedupe: cache not found');
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it, Mock, vitest, vi } from 'vitest';
-import { clearCacheForCurrentRequest, dedupe } from './dedupe';
+import { clearDedupeCacheForCurrentRequest, dedupe } from './dedupe';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -200,7 +200,7 @@ describe('dedupe', () => {
 
       await deduped();
       await deduped();
-      await clearCacheForCurrentRequest(deduped);
+      await clearDedupeCacheForCurrentRequest(deduped);
       await deduped();
       await deduped();
 
@@ -232,7 +232,7 @@ describe('dedupe', () => {
 
       // now clear one cache but not the other, and call once for each request
       headersMock.mockReturnValue(same);
-      await clearCacheForCurrentRequest(deduped);
+      await clearDedupeCacheForCurrentRequest(deduped);
       await deduped();
 
       headersMock.mockReturnValue(other);

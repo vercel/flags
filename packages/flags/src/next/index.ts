@@ -483,5 +483,5 @@ export function getProviderData(
   return { definitions, hints: [] };
 }
 
-export { dedupe } from './dedupe';
+export { dedupe, clearDedupeCacheForCurrentRequest } from './dedupe';
 export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';

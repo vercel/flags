@@ -2,4 +2,4 @@
 'flags': patch
 ---
 
-- expose `clearCacheForCurrentRequest` to allow clearing the cache of a deduped function for the current request
+- expose `clearDedupeCacheForCurrentRequest` to allow clearing the cache of a deduped function for the current request
