@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.0.1
+
+### Patch Changes
+
+- d4108c8: - expose `clearDedupeCacheForCurrentRequest` to allow clearing the cache of a deduped function for the current request
+
 ## 4.0.0
 
 ### Major Changes
