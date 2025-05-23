@@ -4,6 +4,10 @@ enum Status {
   ERRORED = 2,
 }
 
+const requestStoreKey = Symbol('dedupe.requestStoreKey');
+
+type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
+
 type CacheNode<T> = {
   s: Status;
   v: T | undefined | unknown;
@@ -40,9 +44,9 @@ function createCacheNode<T>(): CacheNode<T> {
 export function dedupe<A extends Array<unknown>, T>(
   fn: (...args: A) => T | Promise<T>,
 ): ((...args: A) => Promise<T>) & {
-  clearDedupeCacheForCurrentRequest: () => Promise<boolean>;
+  [requestStoreKey]: RequestStore<T>;
 } {
-  const requestStore = new WeakMap<Headers, CacheNode<T>>();
+  const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
     // async import required as turbopack errors in Pages Router
@@ -109,13 +113,32 @@ export function dedupe<A extends Array<unknown>, T>(
   };
 
   /**
-   * Clears the cache for the current request.
+   * Attach the request store to the deduped function so that it can be
+   * cleared for the current request by `clearCacheForCurrentRequest`.
    */
-  dedupedFn.clearDedupeCacheForCurrentRequest = async () => {
-    const { headers } = await import('next/headers');
-    const h = await headers();
-    return requestStore.delete(h);
-  };
-
+  dedupedFn[requestStoreKey] = requestStore;
   return dedupedFn;
+}
+
+/**
+ * Clears the cache of a deduped function for the current request.
+ *
+ * This function is useful for resetting the cache after making changes to
+ * the underlying cached information.
+ */
+export async function clearCacheForCurrentRequest(
+  dedupedFn: ((...args: unknown[]) => unknown) & {
+    [requestStoreKey]: RequestStore<unknown>;
+  },
+) {
+  if (typeof dedupedFn !== 'function') {
+    throw new Error('dedupe: not a function');
+  }
+  const requestStore = dedupedFn[requestStoreKey];
+  if (!requestStore) {
+    throw new Error('dedupe: cache not found');
+  }
+  const { headers } = await import('next/headers');
+  const h = await headers();
+  return requestStore.delete(h);
 }

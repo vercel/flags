@@ -1,5 +1,5 @@
 import { describe, expect, it, Mock, vitest, vi } from 'vitest';
-import { dedupe } from './dedupe';
+import { clearCacheForCurrentRequest, dedupe } from './dedupe';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -200,11 +200,47 @@ describe('dedupe', () => {
 
       await deduped();
       await deduped();
-      await deduped.clearDedupeCacheForCurrentRequest();
+      await clearCacheForCurrentRequest(deduped);
       await deduped();
       await deduped();
 
       expect(fn).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not affect the cache of a different request', async () => {
+      const fn = vitest.fn();
+      const deduped = dedupe(fn);
+      const same = new Headers();
+      const other = new Headers();
+      const headersMock = await getHeadersMock();
+
+      // fill both caches and call once each, interleaved
+      headersMock.mockReturnValue(same);
+      await deduped();
+
+      headersMock.mockReturnValue(other);
+      await deduped();
+
+      headersMock.mockReturnValue(same);
+      await deduped();
+
+      headersMock.mockReturnValue(other);
+      await deduped();
+
+      // check the fn was only called twice (once for each request)
+      expect(fn).toHaveBeenCalledTimes(2);
+
+      // now clear one cache but not the other, and call once for each request
+      headersMock.mockReturnValue(same);
+      await clearCacheForCurrentRequest(deduped);
+      await deduped();
+
+      headersMock.mockReturnValue(other);
+      await deduped();
+
+      // it should go from 2 → 3 as the one request gets a cache hit, but
+      // the other request gets a cache miss
+      expect(fn).toHaveBeenCalledTimes(3);
     });
   });
 
