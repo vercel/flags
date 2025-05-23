@@ -14,7 +14,6 @@ export function createPostHogAdapter({
   const client = new PostHog(postHogKey, postHogOptions);
 
   const result: PostHogAdapter = {
-    client,
     isFeatureEnabled: (options) => {
       return {
         async decide({ key, entities, defaultValue }): Promise<boolean> {
@@ -131,7 +130,4 @@ export const postHogAdapter: PostHogAdapter = {
     getOrCreateDefaultAdapter().featureFlagValue(...args),
   featureFlagPayload: (...args) =>
     getOrCreateDefaultAdapter().featureFlagPayload(...args),
-  get client() {
-    return getOrCreateDefaultAdapter().client;
-  },
 };

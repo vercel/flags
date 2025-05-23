@@ -143,8 +143,8 @@ export async function getProviderData(options: {
   }
 }
 
-export const getAppHost = () => {
-  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+export const getAppHost = (apiHost?: string) => {
+  const host = apiHost ?? process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
   if (!host) {
     throw new Error('NEXT_PUBLIC_POSTHOG_HOST is not set');

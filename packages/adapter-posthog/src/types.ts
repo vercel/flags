@@ -1,9 +1,6 @@
 import type { Adapter } from 'flags';
-import type { PostHog } from 'posthog-node';
 
-export type { Adapter } from 'flags';
-
-export type JsonType =
+type JsonType =
   | string
   | number
   | boolean
@@ -13,12 +10,11 @@ export type JsonType =
     }
   | Array<JsonType>;
 
-export interface PostHogEntities {
+interface PostHogEntities {
   distinctId: string;
 }
 
-export type PostHogAdapter = {
-  client: PostHog;
+type PostHogAdapter = {
   isFeatureEnabled: (options?: {
     sendFeatureFlagEvents?: boolean;
   }) => Adapter<boolean, PostHogEntities>;
@@ -32,3 +28,5 @@ export type PostHogAdapter = {
     },
   ) => Adapter<T, PostHogEntities>;
 };
+
+export type { Adapter, PostHogEntities, PostHogAdapter, JsonType };

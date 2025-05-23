@@ -32,11 +32,6 @@ describe('postHogAdapter', () => {
       process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://us.i.posthog.com';
     });
 
-    it('should expose the postHogClient', () => {
-      expect(postHogAdapter).toHaveProperty('client');
-      expect(postHogAdapter.client).toBeDefined();
-    });
-
     describe('isFeatureEnabled', () => {
       it('should decide', async () => {
         postHogClientMock.isFeatureEnabled.mockReturnValue(true);
