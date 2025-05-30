@@ -32,20 +32,25 @@ export const summerBannerFlag = feature<boolean>({
 
 ## Experimentation (A/B Testing)
 
-In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in `middleware.ts`.
+In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`). Currently only back-end tracking callbacks are supported.
 
 ```ts
+import { after } from 'next/server';
+
 growthbookAdapter.setTrackingCallback((experiment, result) => {
-  console.log('Viewed Experiment', {
-    experimentId: experiment.key,
-    variationId: result.key,
+  // Safely fire and forget async calls (Next.js)
+  after(async () => {
+    console.log('Viewed Experiment', {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
   });
 });
 ```
 
 ### Sticky Bucketing
 
-To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `middleware.ts`). We recommend using our Redis service for ease of implementation.
+To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `flags.ts`). We recommend using our Redis service for ease of implementation.
 
 ```ts
 import { RedisStickyBucketService } from '@growthbook/growthbook';
