@@ -1,5 +1,5 @@
 import { expect, it, describe, vi, beforeAll } from 'vitest';
-import { flag, precompute } from '.';
+import { flag, precompute, dedupe, clearDedupeCacheForCurrentRequest } from '.';
 import { IncomingMessage } from 'node:http';
 import { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { Readable } from 'node:stream';
@@ -41,6 +41,21 @@ function createRequest(cookies = {}): [
 
   return [request, socket];
 }
+
+describe('exports', () => {
+  it('should export flag', () => {
+    expect(typeof flag).toBe('function');
+  });
+  it('should export precompute', () => {
+    expect(typeof precompute).toBe('function');
+  });
+  it('should export dedupe', () => {
+    expect(typeof dedupe).toBe('function');
+  });
+  it('should export clearDedupeCacheForCurrentRequest', () => {
+    expect(typeof clearDedupeCacheForCurrentRequest).toBe('function');
+  });
+});
 
 describe('flag on app router', () => {
   beforeAll(() => {
