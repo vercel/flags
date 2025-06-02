@@ -32,7 +32,7 @@ export const summerBannerFlag = feature<boolean>({
 
 ## Experimentation (A/B Testing)
 
-In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`). Currently only back-end tracking callbacks are supported.
+In order to run GrowthBook experiments, you must define a back-end tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`).
 
 ```ts
 import { after } from 'next/server';
@@ -47,6 +47,8 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
   });
 });
 ```
+
+In some situations, you may prefer to use a front-end tracking callback. This requires a bit of implementation glue. See the Vercel [Next.js + GrowthBook example](https://github.com/vercel/examples/tree/main/flags-sdk/growthbook) for details.
 
 ### Sticky Bucketing
 

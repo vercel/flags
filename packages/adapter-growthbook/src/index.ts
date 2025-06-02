@@ -7,8 +7,10 @@ import {
   type InitOptions,
   type UserContext,
   type TrackingCallback,
-  FeatureApiResponse,
-  StickyBucketService,
+  type TrackingCallbackWithUser,
+  type FeatureApiResponse,
+  type StickyBucketService,
+  type StickyAssignmentsDocument,
 } from '@growthbook/growthbook';
 
 export { getProviderData } from './provider';
@@ -17,8 +19,12 @@ export {
   type Attributes,
   type ClientOptions,
   type InitOptions,
+  type UserContext,
   type TrackingCallback,
+  type TrackingCallbackWithUser,
+  type FeatureApiResponse,
   type StickyBucketService,
+  type StickyAssignmentsDocument,
 };
 
 type EdgeConfig = {
@@ -32,6 +38,7 @@ type AdapterResponse = {
   initialize: () => Promise<GrowthBookClient>;
   setTrackingCallback: (cb: TrackingCallback) => void;
   setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
+  stickyBucketService?: StickyBucketService;
   growthbook: GrowthBookClient;
 };
 
@@ -167,6 +174,7 @@ export function createGrowthbookAdapter(options: {
     initialize,
     setTrackingCallback,
     setStickyBucketService,
+    stickyBucketService,
     growthbook,
   };
 }
