@@ -50,7 +50,7 @@ const responseFixture = {
   hints: [],
   definitions: {
     showdemo: {
-      description: 'Show demo banner',
+      description: '[Boolean] Show demo banner',
       origin: 'https://app.growthbook.io/features/showdemo',
       createdAt: 1672531200000,
       updatedAt: 1672617600000,

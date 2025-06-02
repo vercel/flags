@@ -202,9 +202,9 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
     return defaultGrowthbookAdapter;
   }
-  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY as string;
+  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY || '';
   if (!clientKey) {
-    throw new Error('Missing GROWTHBOOK_CLIENT_KEY env var');
+    console.warn('Missing GROWTHBOOK_CLIENT_KEY env var');
   }
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
