@@ -1,186 +1,210 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { flagsmithAdapter } from '.';
-import flagsmith, { IFlagsmithFeature, IState } from 'flagsmith';
+import flagsmith, { IFlagsmithFeature, IState, IIdentity } from 'flagsmith';
 
 // Mock the flagsmith module
 vi.mock('flagsmith', () => ({
   default: {
     init: vi.fn(),
     getState: vi.fn(),
+    identify: vi.fn(),
     initialised: false,
   },
 }));
 
 describe('Flagsmith Adapter', () => {
+  const mockHeaders = {} as any;
+  const mockCookies = {} as any;
+  const mockEnvironmentId = 'test-env-id';
+
   beforeEach(() => {
     vi.resetAllMocks();
-    process.env.FLAGSMITH_ENVIRONMENT_ID = 'test-key';
   });
 
   afterEach(() => {
     vi.mocked(flagsmith.init).mockClear();
-    delete process.env.FLAGSMITH_ENVIRONMENT_ID;
     vi.clearAllMocks();
   });
 
-  it('should initialize the adapter', async () => {
-    const adapter = flagsmithAdapter.getFeature();
-
-    expect(adapter).toBeDefined();
-    expect(adapter.decide).toBeDefined();
-  });
-
-  it('should initialize Flagsmith client when deciding flag value', async () => {
-    const adapter = flagsmithAdapter.getFeature();
-
-    // Mock getState to return a specific flag value
-    const mockFlag: IFlagsmithFeature = {
-      enabled: true,
-      value: 'test-value',
-    };
-
-    vi.mocked(flagsmith.getState).mockReturnValue({
-      flags: {
-        'test-flag': mockFlag,
-      },
-      api: 'https://api.flagsmith.com/api/v1/',
-    } as IState<string>);
-
-    const value = await adapter.decide({
-      key: 'test-flag',
-      defaultValue: mockFlag,
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
+  describe('booleanValue', () => {
+    it('should initialize the adapter', async () => {
+      const adapter = flagsmithAdapter.booleanValue();
+      expect(adapter).toBeDefined();
+      expect(adapter.decide).toBeDefined();
     });
 
-    expect(flagsmith.init).toHaveBeenCalledWith({
-      fetch: expect.any(Function),
-      environmentID: process.env.FLAGSMITH_ENVIRONMENT_ID,
-    });
-    expect(value).toEqual(mockFlag);
-  });
+    it('should return flag enabled state for boolean values', async () => {
+      const adapter = flagsmithAdapter.booleanValue();
 
-  it('should return default value when flag is not found', async () => {
-    const adapter = flagsmithAdapter.getFeature();
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: true,
+            value: 'some-value',
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
 
-    // Mock getState to return empty flags
-    vi.mocked(flagsmith.getState).mockReturnValue({
-      flags: {},
-      api: 'https://api.flagsmith.com/api/v1/',
-    } as IState<string>);
+      const value = await adapter.decide({
+        key: 'test-flag',
+        defaultValue: false,
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
 
-    const defaultValue: IFlagsmithFeature = {
-      enabled: false,
-      value: 'default',
-    };
-
-    const value = await adapter.decide({
-      key: 'non-existent-flag',
-      defaultValue,
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
-    });
-
-    expect(value).toEqual(defaultValue);
-  });
-
-  it('should reuse initialized Flagsmith client', async () => {
-    const adapter = flagsmithAdapter.getFeature();
-
-    // Set Flagsmith as already initialized
-    vi.mocked(flagsmith).initialised = true;
-
-    const defaultValue: IFlagsmithFeature = {
-      enabled: false,
-      value: 'default',
-    };
-
-    await adapter.decide({
-      key: 'test-flag',
-      defaultValue,
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
+      expect(flagsmith.init).toHaveBeenCalledWith({
+        fetch: expect.any(Function),
+        environmentID: mockEnvironmentId,
+      });
+      expect(value).toBe(true);
     });
 
-    expect(flagsmith.init).not.toHaveBeenCalled();
-  });
+    it('should return default value when flag is not found', async () => {
+      const adapter = flagsmithAdapter.booleanValue();
 
-  it('should handle additional Flagsmith configuration options', async () => {
-    const adapter = flagsmithAdapter.getFeature({
-      api: 'https://custom-api.com',
-      enableLogs: true,
-    });
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {},
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
 
-    vi.mocked(flagsmith).initialised = false;
+      const value = await adapter.decide({
+        key: 'non-existent-flag',
+        defaultValue: false,
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
 
-    await adapter.decide({
-      key: 'test-flag',
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
-    });
-
-    expect(flagsmith.init).toHaveBeenCalledWith({
-      api: 'https://custom-api.com',
-      enableLogs: true,
-      environmentID: process.env.FLAGSMITH_ENVIRONMENT_ID,
-      fetch: expect.any(Function),
+      expect(value).toBe(false);
     });
   });
 
-  it('should handle manually set environmentID', async () => {
-    const adapter = flagsmithAdapter.getFeature({
-      environmentID: 'custom-env-id',
+  describe('stringValue', () => {
+    it('should return string value when flag is enabled', async () => {
+      const adapter = flagsmithAdapter.stringValue();
+
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: true,
+            value: 'test-value',
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
+
+      const value = await adapter.decide({
+        key: 'test-flag',
+        defaultValue: 'default',
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
+
+      expect(value).toBe('test-value');
     });
 
-    vi.mocked(flagsmith).initialised = false;
+    it('should return default value when flag is disabled', async () => {
+      const adapter = flagsmithAdapter.stringValue();
 
-    await adapter.decide({
-      key: 'test-flag',
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
-    });
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: false,
+            value: 'test-value',
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
 
-    expect(flagsmith.init).toHaveBeenCalledWith({
-      environmentID: 'custom-env-id',
-      fetch: expect.any(Function),
+      const value = await adapter.decide({
+        key: 'test-flag',
+        defaultValue: 'default',
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
+
+      expect(value).toBe('default');
     });
   });
 
-  it('should retrieve the feature flag value using the decide method', async () => {
-    const mockFlag: IFlagsmithFeature = {
-      enabled: true,
-      value: 'mocked-value',
-    };
+  describe('numberValue', () => {
+    it('should return number value when flag is enabled', async () => {
+      const adapter = flagsmithAdapter.numberValue();
 
-    vi.mocked(flagsmith.getState).mockReturnValue({
-      flags: {
-        'my-feature': mockFlag,
-      },
-      api: 'https://api.flagsmith.com/api/v1/',
-    } as IState<string>);
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: true,
+            value: 42,
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
 
-    // Mock Flagsmith as not initialized
-    vi.mocked(flagsmith).initialised = false;
+      const value = await adapter.decide({
+        key: 'test-flag',
+        defaultValue: 0,
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
 
-    const adapter = flagsmithAdapter.getFeature();
-
-    const myFeatureFlag = await adapter.decide({
-      key: 'my-feature',
-      defaultValue: { enabled: false, value: 'default-value' },
-      entities: undefined,
-      headers: {} as any,
-      cookies: {} as any,
+      expect(value).toBe(42);
     });
 
-    expect(flagsmith.init).toHaveBeenCalledWith({
-      environmentID: process.env.FLAGSMITH_ENVIRONMENT_ID,
-      fetch: expect.any(Function),
+    it('should return default value when flag is disabled', async () => {
+      const adapter = flagsmithAdapter.numberValue();
+
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: false,
+            value: 42,
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
+
+      const value = await adapter.decide({
+        key: 'test-flag',
+        defaultValue: 0,
+        entities: undefined,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
+
+      expect(value).toBe(0);
     });
-    expect(myFeatureFlag).toEqual(mockFlag);
+  });
+
+  describe('identity handling', () => {
+    it('should identify user when entities are provided', async () => {
+      const adapter = flagsmithAdapter.booleanValue();
+      const identity: IIdentity = 'test-id';
+
+      vi.mocked(flagsmith.getState).mockReturnValue({
+        flags: {
+          'test-flag': {
+            enabled: true,
+            value: 'test-value',
+          },
+        },
+        api: 'https://api.flagsmith.com/api/v1/',
+      } as IState<string>);
+
+      await adapter.decide({
+        key: 'test-flag',
+        defaultValue: false,
+        entities: identity,
+        headers: mockHeaders,
+        cookies: mockCookies,
+      });
+
+      expect(flagsmith.identify).toHaveBeenCalledWith(identity);
+    });
   });
 });

@@ -2,45 +2,94 @@ import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
 import { IIdentity, IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
 
+export type { IIdentity } from 'flagsmith/types';
 export { getProviderData } from './provider';
 
-let defaultFlagsmithAdapter:
-  | ReturnType<typeof createFlagsmithAdapter>
-  | undefined;
+let defaultFlagsmithAdapter: AdapterResponse | undefined;
 
 export type FlagsmithValue = IFlagsmithFeature['value'];
 
-export function createFlagsmithAdapter<
-  ValueType extends FlagsmithValue,
-  EntitiesType extends IIdentity,
->(params: IInitConfig): Adapter<ValueType, EntitiesType> {
+export type EntitiesType = IIdentity;
+
+export type AdapterResponse = {
+  booleanValue: () => Adapter<boolean, EntitiesType>;
+  stringValue: () => Adapter<string, EntitiesType>;
+  numberValue: () => Adapter<number, EntitiesType>;
+};
+
+function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
+  async function initialize() {
+    await flagsmith.init({ fetch: globalThis.fetch, ...params });
+  }
+
+  function booleanValue(): Adapter<boolean, EntitiesType> {
+    return {
+      async decide({
+        key,
+        defaultValue,
+        entities: identity,
+      }): Promise<boolean> {
+        await initialize();
+
+        if (identity) {
+          await flagsmith.identify(identity);
+        }
+        const state = flagsmith.getState();
+        const flagState = state.flags?.[key];
+
+        if (!flagState) {
+          return defaultValue as boolean;
+        }
+
+        return flagState.enabled;
+      },
+    };
+  }
+
+  function stringValue(): Adapter<string, EntitiesType> {
+    return {
+      async decide({ key, defaultValue, entities: identity }): Promise<string> {
+        await initialize();
+
+        if (identity) {
+          await flagsmith.identify(identity);
+        }
+        const state = flagsmith.getState();
+        const flagState = state.flags?.[key];
+
+        if (!flagState || !flagState.enabled) {
+          return defaultValue as string;
+        }
+
+        return flagState.value as string;
+      },
+    };
+  }
+
+  function numberValue(): Adapter<number, EntitiesType> {
+    return {
+      async decide({ key, defaultValue, entities: identity }): Promise<number> {
+        await initialize();
+
+        if (identity) {
+          await flagsmith.identify(identity);
+        }
+        const state = flagsmith.getState();
+        const flagState = state.flags?.[key];
+
+        if (!flagState || !flagState.enabled) {
+          return defaultValue as number;
+        }
+
+        return flagState.value as number;
+      },
+    };
+  }
+
   return {
-    async decide({
-      key,
-      defaultValue,
-      entities,
-    }: {
-      key: string;
-      defaultValue?: ValueType;
-      entities?: EntitiesType;
-      headers: any;
-      cookies: any;
-    }): Promise<ValueType> {
-      await flagsmith.init({ fetch: globalThis.fetch, ...params });
-      const identity = entities?.[0];
-
-      if (identity) {
-        await flagsmith.identify(identity);
-      }
-      const state = flagsmith.getState();
-      const flagState = state.flags?.[key];
-
-      if (!flagState || !flagState?.enabled) {
-        return defaultValue as ValueType;
-      }
-
-      return flagState.value as ValueType;
-    },
+    booleanValue,
+    stringValue,
+    numberValue,
   };
 }
 
@@ -63,8 +112,5 @@ export const getOrCreateDefaultFlagsmithAdapter = () => {
 };
 
 // Lazy default adapter
-export const flagsmithAdapter = {
-  getFeatureValue() {
-    return getOrCreateDefaultFlagsmithAdapter();
-  },
-};
+export const flagsmithAdapter: AdapterResponse =
+  getOrCreateDefaultFlagsmithAdapter();
