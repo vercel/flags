@@ -80,6 +80,7 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
+    "htmlrewriter": "0.0.12",
     "jose": "^5.2.1"
   },
   "devDependencies": {
