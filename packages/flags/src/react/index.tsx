@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import type { FlagDefinitionsType, FlagValuesType } from '../types';
 import { safeJsonStringify } from '../lib/safe-json-stringify';

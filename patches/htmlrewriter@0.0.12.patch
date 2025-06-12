@@ -1,0 +1,34 @@
+diff --git a/node.mjs b/node.mjs
+index ecc855d4eef5f23465531fc93087c7821db740e0..d5aacc26cf1b0d207f67cd2a40024a3eb73a08c7 100644
+--- a/node.mjs
++++ b/node.mjs
+@@ -1,15 +1,12 @@
+ import init from './dist/html_rewriter.js'
+ import fs from 'fs'
+-import path from 'path'
+ import url from 'url'
+ 
+ import { HTMLRewriterWrapper } from './dist/html_rewriter_wrapper.js'
+ 
+-const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
++const file = url.fileURLToPath(new url.URL('./dist/html_rewriter_bg.wasm', import.meta.url))
+ 
+-const bytes = fs.readFileSync(
+-    path.join(__dirname, 'dist/html_rewriter_bg.wasm'),
+-)
++const bytes = fs.readFileSync(file)
+ 
+ const wasm = new WebAssembly.Module(bytes)
+ 
+diff --git a/package.json b/package.json
+index 36c1b59f618408c72510d2c2f06255f0e76b4620..c27d7651b9ae12f6cb346fe0f4594fce6258ae4f 100644
+--- a/package.json
++++ b/package.json
+@@ -61,5 +61,6 @@
+     "try": "bun scripts/try.js && node scripts/try.js && deno run --allow-read scripts/try.js && pnpm vite dev scripts",
+     "test": "pnpm vitest",
+     "build": "tsx scripts/build.ts"
+-  }
++  },
++  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+ }

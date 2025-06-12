@@ -60,5 +60,10 @@
   "packageManager": "pnpm@8.7.1",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "htmlrewriter@0.0.12": "patches/htmlrewriter@0.0.12.patch"
+    }
   }
 }
