@@ -6,16 +6,8 @@ import {
   useClientBootstrapInit,
   StatsigOptions,
 } from '@statsig/react-bindings';
-import React, { createContext, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useBootstrapData } from 'flags/react';
-
-export const StatsigAppBootstrapContext = createContext<{
-  isLoading: boolean;
-  error: Error | null;
-}>({
-  isLoading: true,
-  error: null,
-});
 
 function BootstrappedStatsigProvider({
   user,
@@ -61,30 +53,17 @@ export function EmbeddedStatsigProvider({
   );
 
   if (!data || !values) {
-    return (
-      <StatsigAppBootstrapContext.Provider
-        value={{
-          isLoading: false,
-          error: new Error('No bootstrap data embedded'),
-        }}
-      >
-        {children}
-      </StatsigAppBootstrapContext.Provider>
-    );
+    return children;
   }
 
   return (
-    <StatsigAppBootstrapContext.Provider
-      value={{ isLoading: false, error: null }}
+    <BootstrappedStatsigProvider
+      user={data.statsigUser}
+      values={values}
+      statsigOptions={statsigOptions}
+      sdkKey={sdkKey}
     >
-      <BootstrappedStatsigProvider
-        user={data.statsigUser}
-        values={values}
-        statsigOptions={statsigOptions}
-        sdkKey={sdkKey}
-      >
-        {children}
-      </BootstrappedStatsigProvider>
-    </StatsigAppBootstrapContext.Provider>
+      {children}
+    </BootstrappedStatsigProvider>
   );
 }
