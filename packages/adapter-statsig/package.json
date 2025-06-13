@@ -33,6 +33,11 @@
       "types": "./dist/provider/index.d.ts",
       "import": "./dist/provider/index.js",
       "require": "./dist/provider/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
     }
   },
   "main": "./dist/index.js",
@@ -46,6 +51,10 @@
       "provider": [
         "./dist/provider/index.d.ts",
         "./dist/provider/index.d.cts"
+      ],
+      "react": [
+        "./dist/react/index.d.ts",
+        "./dist/react/index.d.cts"
       ]
     }
   },
@@ -63,6 +72,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@statsig/react-bindings": "^3.17.2",
     "@vercel/edge-config": "^1.2.0",
     "@vercel/functions": "^1.5.2",
     "statsig-node-lite": "^0.4.2",
@@ -70,6 +80,7 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
+    "@types/react": "19.1.8",
     "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
@@ -79,6 +90,9 @@
     "typescript": "5.6.3",
     "vite": "5.1.1",
     "vitest": "1.4.0"
+  },
+  "peerDependencies": {
+    "react": "*"
   },
   "publishConfig": {
     "access": "public"
