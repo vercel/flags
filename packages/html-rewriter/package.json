@@ -65,6 +65,7 @@
     "htmlrewriter": "^0.0.12",
     "prettier": "^2.3.2",
     "tsx": "4.20.2",
-    "vitest": "^3.1.1"
+    "vitest": "^3.1.1",
+    "wasm-pack": "0.13.1"
   }
 }
