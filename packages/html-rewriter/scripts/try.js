@@ -1,4 +1,4 @@
-import { HTMLRewriter } from 'htmlrewriter';
+import { HTMLRewriter } from 'html-rewriter';
 
 const rewriter = new HTMLRewriter();
 

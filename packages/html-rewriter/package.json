@@ -10,16 +10,19 @@
     "htmlrewriter",
     "lol"
   ],
-  "homepage": "https://github.com/remorses/htmlrewriter#readme",
+  "homepage": "https://github.com/vercel/flags/tree/main/packages/html-rewriter#readme",
   "bugs": {
-    "url": "https://github.com/remorses/htmlrewriter/issues"
+    "url": "https://github.com/vercel/flags/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/remorses/htmlrewriter.git"
+    "url": "git+https://github.com/vercel/flags.git"
   },
   "license": "BSD-3-Clause",
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
+  "contributors": [
+    "Dominik Ferber <dominik@vercel.com>"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -61,6 +64,7 @@
     "fs-extra": "^11.1.1",
     "htmlrewriter": "^0.0.12",
     "prettier": "^2.3.2",
+    "tsx": "4.20.2",
     "vitest": "^3.1.1"
   }
 }

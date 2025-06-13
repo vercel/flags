@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from 'vitest';
-import { HTMLRewriter } from 'htmlrewriter';
+import { HTMLRewriter } from 'html-rewriter';
 
 test(
   'errors',
