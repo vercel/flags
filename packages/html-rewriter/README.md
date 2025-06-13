@@ -16,7 +16,7 @@ Cloudflare `HTMLRewriter` packaged to work with
 - Deno (fetching the wasm file at runtime with file:// protocol)
 - Bun & Cloudflare (simply using the global `HTMLRewriter` object)
 
-This is a fork of [htmlrewriter](https://github.com/remorses/htmlrewriter) by [@remorses](https://github.com/remorses/).
+This is a fork of [htmlrewriter](https://github.com/remorses/htmlrewriter) by [@remorses](https://github.com/remorses/), which fixes compatibility with turborepo. This is used while we wait for [the fix](https://github.com/remorses/htmlrewriter/pull/6) to land upstream.
 
 ## Install
 
