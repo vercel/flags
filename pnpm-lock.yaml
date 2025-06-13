@@ -754,9 +754,6 @@ importers:
       '@sveltejs/kit':
         specifier: '*'
         version: 2.21.4(@sveltejs/vite-plugin-svelte@4.0.4)(svelte@5.34.1)(vite@5.1.1)
-      htmlrewriter:
-        specifier: 0.0.12
-        version: 0.0.12(patch_hash=vap6zqjpck25vh5ftre5uhrjle)
       jose:
         specifier: ^5.2.1
         version: 5.10.0
@@ -779,6 +776,9 @@ importers:
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
+      htmlrewriter:
+        specifier: 0.0.12
+        version: 0.0.12(patch_hash=vap6zqjpck25vh5ftre5uhrjle)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
@@ -9815,7 +9815,7 @@ packages:
 
   /htmlrewriter@0.0.12(patch_hash=vap6zqjpck25vh5ftre5uhrjle):
     resolution: {integrity: sha512-Tw+wORUlNL9+JQCIo7J4SuX/T3M1xRAC/0XaifnRPLHCX95jbZy/0CI06n7BhuFQJhSdNA7ZoxnStJmF31FZRw==}
-    dev: false
+    dev: true
     patched: true
 
   /http-proxy@1.18.1:

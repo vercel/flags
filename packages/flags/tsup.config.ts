@@ -1,6 +1,6 @@
-import { defineConfig } from 'tsup';
+import { defineConfig, type Options } from 'tsup';
 
-const defaultConfig = {
+const defaultConfig: Options = {
   format: ['esm', 'cjs'],
   splitting: true,
   sourcemap: true,
@@ -9,6 +9,7 @@ const defaultConfig = {
   skipNodeModulesBundle: true,
   dts: true,
   external: [/^node:.*/, 'node_modules'],
+  noExternal: ['htmlrewriter'],
 };
 
 // eslint-disable-next-line import/no-default-export -- [@vercel/style-guide@5 migration]
