@@ -9,7 +9,6 @@ const defaultConfig: Options = {
   skipNodeModulesBundle: true,
   dts: true,
   external: [/^node:.*/, 'node_modules'],
-  noExternal: ['htmlrewriter'],
 };
 
 // eslint-disable-next-line import/no-default-export -- [@vercel/style-guide@5 migration]

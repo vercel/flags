@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "ES2020",
+    "target": "es2018",
+    "lib": ["es2018", "dom"],
+    "strict": true,
+    "rootDir": "src",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "allowJs": false,
+    "types": ["node"],
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "declaration": true,
+
+    "sourceMap": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "scripts", "play.ts", "src/*.test.ts"]
+}
