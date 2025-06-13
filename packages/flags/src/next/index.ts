@@ -28,7 +28,7 @@ import {
 import { setSpanAttribute, trace } from '../lib/tracing';
 import { internalReportValue } from '../lib/report-value';
 import { isInternalNextError } from './is-internal-next-error';
-import { HTMLRewriter } from 'html-rewriter';
+import { HTMLRewriter } from 'htmlrewriter';
 
 export type { Flag } from './types';
 
