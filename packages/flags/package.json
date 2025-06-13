@@ -80,6 +80,7 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
+    "htmlrewriter": "0.0.13",
     "jose": "^5.2.1"
   },
   "devDependencies": {
@@ -88,7 +89,6 @@
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
     "eslint-config-custom": "workspace:*",
-    "htmlrewriter": "0.0.13",
     "msw": "2.6.4",
     "next": "15.1.4",
     "react": "canary",
