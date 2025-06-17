@@ -37,7 +37,7 @@ type EdgeConfig = {
 type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
-  refresh: (skipCache?: boolean) => Promise<void>;
+  refresh: () => Promise<void>;
   setTrackingCallback: (cb: TrackingCallback) => void;
   setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
   stickyBucketService?: StickyBucketService;
@@ -64,7 +64,7 @@ export function createGrowthbookAdapter(options: {
   stickyBucketService?: StickyBucketService;
   /** Provide Edge Config details to use the optional Edge Config adapter */
   edgeConfig?: EdgeConfig;
-  /** How long to cache feature definitions (in milliseconds). Default to 0 in dev (no cache) and 30s in prod */
+  /** How long to cache feature definitions (in milliseconds). Default to 1s in dev and 30s in prod */
   cacheTTLms?: number;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
@@ -77,14 +77,13 @@ export function createGrowthbookAdapter(options: {
   });
 
   const cacheTTLms =
-    options.cacheTTLms ?? (process.env.NODE_ENV === 'development' ? 0 : 30_000);
+    options.cacheTTLms ??
+    (process.env.NODE_ENV === 'development' ? 1_000 : 30_000);
   configureCache({
     staleTTL: cacheTTLms,
   });
 
-  let _getEdgePayloadTimestamp = 0;
   const getEdgePayload = async (): Promise<FeatureApiResponse | undefined> => {
-    _getEdgePayloadTimestamp = Date.now();
     let payload: FeatureApiResponse | undefined;
     if (options.edgeConfig) {
       try {
@@ -114,6 +113,8 @@ export function createGrowthbookAdapter(options: {
     });
   };
 
+  let _lastRefreshTimestamp = 0;
+
   /**
    * Initialize the GrowthBook SDK.
    *
@@ -124,28 +125,28 @@ export function createGrowthbookAdapter(options: {
    */
   const initialize = async (): Promise<GrowthBookClient> => {
     if (!_initializePromise) {
+      _lastRefreshTimestamp = Date.now();
       _initializePromise = initializeGrowthBook();
     }
     await _initializePromise;
     return growthbook;
   };
 
-  const refresh = async (skipCache?: boolean): Promise<void> => {
-    // Edge config happens outside of the core GrowthBook SDK
-    // Need to handle TTLs ourselves
+  const refresh = async (): Promise<void> => {
+    const isStale = _lastRefreshTimestamp + cacheTTLms < Date.now();
+    if (!isStale) return;
+    _lastRefreshTimestamp = Date.now();
+
     if (options.edgeConfig) {
-      const isStale = _getEdgePayloadTimestamp + cacheTTLms < Date.now();
-      if (skipCache || isStale) {
-        const payload = await getEdgePayload();
-        if (payload) {
-          await growthbook.setPayload(payload);
-        }
+      // Await does not block on the network here. Edge Config returns immediately and kicks off a background refresh
+      const payload = await getEdgePayload();
+      if (payload) {
+        await growthbook.setPayload(payload);
       }
-    }
-    // Otherwise, can use the built-in caching logic in the core SDK
-    else {
-      await growthbook.refreshFeatures({
-        skipCache,
+    } else {
+      // Await would block on the network here, so we use a promise to kick off the refresh in the background
+      growthbook.refreshFeatures().catch((e) => {
+        console.error('Failed to refresh features', e);
       });
     }
   };
@@ -174,10 +175,7 @@ export function createGrowthbookAdapter(options: {
       origin: origin('features'),
       decide: async ({ key, entities, defaultValue }) => {
         await initialize();
-        // Refresh in background
-        refresh().catch((e) => {
-          console.error('Error refreshing GrowthBook features:', e);
-        });
+        await refresh();
         const userContext: UserContext = {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
