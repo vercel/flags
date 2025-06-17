@@ -2,6 +2,7 @@ import type { Adapter } from 'flags';
 import { createClient } from '@vercel/edge-config';
 import {
   GrowthBookClient,
+  configureCache,
   type Attributes,
   type ClientOptions,
   type InitOptions,
@@ -36,6 +37,7 @@ type EdgeConfig = {
 type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
+  refresh: (skipCache?: boolean) => Promise<void>;
   setTrackingCallback: (cb: TrackingCallback) => void;
   setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
   stickyBucketService?: StickyBucketService;
@@ -62,6 +64,8 @@ export function createGrowthbookAdapter(options: {
   stickyBucketService?: StickyBucketService;
   /** Provide Edge Config details to use the optional Edge Config adapter */
   edgeConfig?: EdgeConfig;
+  /** How long to cache feature definitions (in milliseconds). Default 10s in dev, 60s in prod. */
+  cacheTTLms?: number;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
   let stickyBucketService = options.stickyBucketService;
@@ -72,9 +76,23 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  let _initializePromise: Promise<void> | undefined;
+  let cacheTTLms = process.env.NODE_ENV === 'development' ? 10_000 : 60_000;
+  if (options.cacheTTLms) {
+    if (options.cacheTTLms >= 1000) {
+      cacheTTLms = options.cacheTTLms;
+    } else {
+      console.warn(
+        'Cache TTL should be at least 1000ms (1 second). Using default TTL.',
+      );
+    }
+  }
+  configureCache({
+    staleTTL: cacheTTLms,
+  });
 
-  const initializeGrowthBook = async (): Promise<void> => {
+  let _getEdgePayloadTimestamp = 0;
+  const getEdgePayload = async (): Promise<FeatureApiResponse | undefined> => {
+    _getEdgePayloadTimestamp = Date.now();
     let payload: FeatureApiResponse | undefined;
     if (options.edgeConfig) {
       try {
@@ -91,7 +109,12 @@ export function createGrowthbookAdapter(options: {
         console.error('Error fetching edge config', e);
       }
     }
+    return payload;
+  };
 
+  let _initializePromise: Promise<void> | undefined;
+  const initializeGrowthBook = async (): Promise<void> => {
+    const payload = await getEdgePayload();
     await growthbook.init({
       streaming: false,
       payload,
@@ -113,6 +136,26 @@ export function createGrowthbookAdapter(options: {
     }
     await _initializePromise;
     return growthbook;
+  };
+
+  const refresh = async (skipCache?: boolean): Promise<void> => {
+    // Edge config happens outside of the core GrowthBook SDK
+    // Need to handle TTLs ourselves
+    if (options.edgeConfig) {
+      const isStale = _getEdgePayloadTimestamp + cacheTTLms < Date.now();
+      if (skipCache || isStale) {
+        const payload = await getEdgePayload();
+        if (payload) {
+          await growthbook.setPayload(payload);
+        }
+      }
+    }
+    // Otherwise, can use the built-in caching logic in the core SDK
+    else {
+      await growthbook.refreshFeatures({
+        skipCache,
+      });
+    }
   };
 
   function origin(prefix: string) {
@@ -139,6 +182,10 @@ export function createGrowthbookAdapter(options: {
       origin: origin('features'),
       decide: async ({ key, entities, defaultValue }) => {
         await initialize();
+        // Refresh in background
+        refresh().catch((e) => {
+          console.error('Error refreshing GrowthBook features:', e);
+        });
         const userContext: UserContext = {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
@@ -172,6 +219,7 @@ export function createGrowthbookAdapter(options: {
   return {
     feature,
     initialize,
+    refresh,
     setTrackingCallback,
     setStickyBucketService,
     stickyBucketService,
@@ -255,6 +303,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
 export const growthbookAdapter: AdapterResponse = {
   feature: (...args) => getOrCreateDefaultGrowthbookAdapter().feature(...args),
   initialize: () => getOrCreateDefaultGrowthbookAdapter().initialize(),
+  refresh: () => getOrCreateDefaultGrowthbookAdapter().refresh(),
   setTrackingCallback: (...args) =>
     getOrCreateDefaultGrowthbookAdapter().setTrackingCallback(...args),
   setStickyBucketService: (...args) =>
