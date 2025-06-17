@@ -64,7 +64,7 @@ export function createGrowthbookAdapter(options: {
   stickyBucketService?: StickyBucketService;
   /** Provide Edge Config details to use the optional Edge Config adapter */
   edgeConfig?: EdgeConfig;
-  /** How long to cache feature definitions (in milliseconds). Default 10s in dev, 60s in prod. */
+  /** How long to cache feature definitions (in milliseconds). Default to 0 in dev (no cache) and 30s in prod */
   cacheTTLms?: number;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
@@ -76,16 +76,8 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  let cacheTTLms = process.env.NODE_ENV === 'development' ? 10_000 : 60_000;
-  if (options.cacheTTLms) {
-    if (options.cacheTTLms >= 1000) {
-      cacheTTLms = options.cacheTTLms;
-    } else {
-      console.warn(
-        'Cache TTL should be at least 1000ms (1 second). Using default TTL.',
-      );
-    }
-  }
+  const cacheTTLms =
+    options.cacheTTLms ?? (process.env.NODE_ENV === 'development' ? 0 : 30_000);
   configureCache({
     staleTTL: cacheTTLms,
   });
