@@ -1,0 +1,69 @@
+{
+  "name": "@flags-sdk/posthog",
+  "version": "0.1.0",
+  "description": "PostHog adapter for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "posthog",
+    "vercel",
+    "edge config",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "eslint": "eslint-runner",
+    "eslint:fix": "eslint-runner --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/edge-config": "^1.4.0",
+    "posthog-node": "4.11.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "eslint-config-custom": "workspace:*",
+    "flags": "workspace:*",
+    "msw": "2.6.4",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.8.2",
+    "vite": "6.2.5",
+    "vitest": "1.4.0"
+  }
+}

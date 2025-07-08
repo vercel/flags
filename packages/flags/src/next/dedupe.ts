@@ -4,6 +4,8 @@ enum Status {
   ERRORED = 2,
 }
 
+type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
+
 type CacheNode<T> = {
   s: Status;
   v: T | undefined | unknown;
@@ -24,6 +26,15 @@ function createCacheNode<T>(): CacheNode<T> {
 }
 
 /**
+ * We use a registry to store the request store for each deduped function.
+ *
+ * This is necessary as we don't want to attach the request store to the deduped
+ * to retain its original type, and we need to be able to clear the cache for the
+ * current request.
+ */
+const cacheRegistry = new WeakMap<Function, RequestStore<unknown>>();
+
+/**
  * A middleware-friendly version of React.cache.
  *
  * Given the same arguments, the function wrapped by this function will only ever run once for the duration of a request.
@@ -40,9 +51,9 @@ function createCacheNode<T>(): CacheNode<T> {
 export function dedupe<A extends Array<unknown>, T>(
   fn: (...args: A) => T | Promise<T>,
 ): (...args: A) => Promise<T> {
-  const requestStore = new WeakMap<Headers, CacheNode<T>>();
+  const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
-  return async function (this: unknown, ...args: A): Promise<T> {
+  const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
     // async import required as turbopack errors in Pages Router
     // when next/headers is imported at the top-level
     const { headers } = await import('next/headers');
@@ -105,4 +116,29 @@ export function dedupe<A extends Array<unknown>, T>(
       throw error;
     }
   };
+
+  cacheRegistry.set(dedupedFn, requestStore);
+  return dedupedFn;
+}
+
+/**
+ * Clears the cached value of a deduped function for the current request.
+ *
+ * This function is useful for resetting the cache after making changes to
+ * the underlying cached information.
+ */
+export async function clearDedupeCacheForCurrentRequest(
+  dedupedFn: (...args: unknown[]) => unknown,
+) {
+  if (typeof dedupedFn !== 'function') {
+    throw new Error('dedupe: not a function');
+  }
+  const requestStore = cacheRegistry.get(dedupedFn);
+
+  if (!requestStore) {
+    throw new Error('dedupe: cache not found');
+  }
+  const { headers } = await import('next/headers');
+  const h = await headers();
+  return requestStore.delete(h);
 }

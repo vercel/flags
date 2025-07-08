@@ -100,7 +100,8 @@ export function createStatsigAdapter(options: {
     return user != null && typeof user === 'object';
   };
 
-  const syncHandler = createSyncingHandler();
+  const minSyncDelayMs = options.edgeConfig ? 1_000 : 5_000;
+  const syncHandler = createSyncingHandler(minSyncDelayMs);
 
   async function predecide(user?: StatsigUser): Promise<StatsigUser> {
     await initialize();

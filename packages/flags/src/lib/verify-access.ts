@@ -1,4 +1,4 @@
-import { decrypt } from './crypto';
+import { verifyAccessProof } from './crypto';
 import { trace } from './tracing';
 
 /**
@@ -35,11 +35,12 @@ export const verifyAccess = trace(
         'flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
       );
 
-    const data = await decrypt<{}>(
-      authHeader?.replace(/^Bearer /i, ''),
+    const valid = await verifyAccessProof(
+      authHeader.replace(/^Bearer /i, ''),
       secret,
     );
-    return data !== undefined;
+
+    return valid;
   },
   {
     isVerboseTrace: false,

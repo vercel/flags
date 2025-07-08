@@ -38,7 +38,9 @@ export async function createEdgeConfigDataAdapter(options: {
  * Statsig syncs config specs outside of the request context,
  * so we will support it in triggering config spec synchronization in this case.
  */
-export const createSyncingHandler = (): null | (() => void) => {
+export const createSyncingHandler = (
+  minSyncDelayMs: number,
+): null | (() => void) => {
   // Syncing both in Edge Runtime and Node.js for now, as the sync is otherwise
   // not working during local development.
   //
@@ -50,17 +52,15 @@ export const createSyncingHandler = (): null | (() => void) => {
   // - the broken syncing due to issues in Date.now in Edge Runtime would be irrelevant
   //
   // if (typeof EdgeRuntime === 'undefined') return null;
-
-  const timerInterval = 5_000;
   let isSyncingConfigSpecs = false;
-  let nextConfigSpecSyncTime = Date.now() + timerInterval;
+  let nextConfigSpecSyncTime = Date.now() + minSyncDelayMs;
   return (): void => {
     if (Date.now() >= nextConfigSpecSyncTime && !isSyncingConfigSpecs) {
       try {
         isSyncingConfigSpecs = true;
         const sync = Statsig.syncConfigSpecs().finally(() => {
           isSyncingConfigSpecs = false;
-          nextConfigSpecSyncTime = Date.now() + timerInterval;
+          nextConfigSpecSyncTime = Date.now() + minSyncDelayMs;
         });
         import('@vercel/functions').then(({ waitUntil }) => {
           waitUntil(sync);
