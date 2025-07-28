@@ -1,5 +1,11 @@
 # @flags-sdk/posthog
 
+## 0.2.0
+
+### Minor Changes
+
+- 5586443: List flags includes inactive ones to discover all flags
+
 ## 0.1.0
 
 ### Minor Changes
