@@ -63,7 +63,7 @@ export async function getProviderData(options: {
   };
 
   const res = await fetch(
-    `${host}/api/projects/${options.projectId}/feature_flags?active=true`,
+    `${host}/api/projects/${options.projectId}/feature_flags`,
     {
       method: 'GET',
       headers,
@@ -91,7 +91,7 @@ export async function getProviderData(options: {
     // paginate in a parallel request
     for (let offset = 100; offset < data.count; offset += 100) {
       const paginatedRes = await fetch(
-        `${host}/api/projects/${options.projectId}/feature_flags?active=true&offset=${offset}&limit=100`,
+        `${host}/api/projects/${options.projectId}/feature_flags?offset=${offset}&limit=100`,
         {
           method: 'GET',
           headers,
