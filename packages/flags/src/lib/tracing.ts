@@ -5,7 +5,7 @@ import type {
   AttributeValue,
 } from '@opentelemetry/api';
 import { name as pkgName, version } from '../../package.json';
-import { AsyncLocalStorage } from 'async_hooks';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 // Use a symbol to avoid having global variable that is scoped to this file,
 // as it can lead to issues with cjs and mjs being used at the same time.
