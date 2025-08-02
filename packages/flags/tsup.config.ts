@@ -1,6 +1,6 @@
-import { defineConfig } from 'tsup';
+import { defineConfig, type Options } from 'tsup';
 
-const defaultConfig = {
+const defaultConfig: Options = {
   format: ['esm', 'cjs'],
   splitting: true,
   sourcemap: true,
