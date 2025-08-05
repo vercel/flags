@@ -59,12 +59,16 @@
     "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
+    "next": "15.4.5",
     "rimraf": "6.0.1",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
     "vite": "5.1.1",
     "vitest": "1.4.0"
+  },
+  "peerDependencies": {
+    "next": "*"
   },
   "publishConfig": {
     "access": "public"

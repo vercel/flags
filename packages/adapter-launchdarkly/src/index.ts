@@ -1,10 +1,11 @@
 import type { Adapter } from 'flags';
-import { createClient } from '@vercel/edge-config';
+import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
 import {
   init,
   LDClient,
   type LDContext,
 } from '@launchdarkly/vercel-server-sdk';
+import { headers } from 'next/headers';
 
 export { getProviderData } from './provider';
 export type { LDContext };
@@ -45,7 +46,24 @@ export function createLaunchDarklyAdapter({
   edgeConfigConnectionString: string;
 }): AdapterResponse {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
-  const ldClient = init(clientSideId, edgeConfigClient);
+
+  const cache = new WeakMap<WeakKey, unknown>();
+
+  const patchedEdgeConfigClient: EdgeConfigClient = {
+    ...edgeConfigClient,
+    get: async <T>(key: string): Promise<T | undefined> => {
+      const cacheKey = await headers();
+      if (cacheKey) {
+        const cached = cache.get(cacheKey);
+        if (cached) return cached as T;
+      }
+      const value = await edgeConfigClient.get(key);
+      if (cacheKey) cache.set(cacheKey, value);
+      return value as T | undefined;
+    },
+  };
+
+  const ldClient = init(clientSideId, patchedEdgeConfigClient);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
@@ -73,7 +91,7 @@ export function createLaunchDarklyAdapter({
   };
 }
 
-function getOrCreateDeaultAdapter() {
+function getOrCreateDefaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
@@ -111,8 +129,8 @@ function getOrCreateDeaultAdapter() {
  * ```
  */
 export const ldAdapter: AdapterResponse = {
-  variation: (...args) => getOrCreateDeaultAdapter().variation(...args),
+  variation: (...args) => getOrCreateDefaultAdapter().variation(...args),
   get ldClient() {
-    return getOrCreateDeaultAdapter().ldClient;
+    return getOrCreateDefaultAdapter().ldClient;
   },
 };
