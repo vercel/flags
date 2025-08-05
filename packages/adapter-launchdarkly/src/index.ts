@@ -52,7 +52,7 @@ export function createLaunchDarklyAdapter({
   const patchedEdgeConfigClient: EdgeConfigClient = {
     ...edgeConfigClient,
     get: async <T>(key: string): Promise<T | undefined> => {
-      const cacheKey = await headers();
+      const cacheKey = headers();
       if (cacheKey) {
         const cached = cache.get(cacheKey);
         if (cached) return cached as T;
