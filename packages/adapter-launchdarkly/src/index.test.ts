@@ -5,6 +5,7 @@ import { ldAdapter, type LDContext } from '.';
 const ldClientMock = {
   waitForInitialization: vi.fn(),
   variation: vi.fn(),
+  initialized: vi.fn(() => true),
 };
 
 vi.mock('@launchdarkly/vercel-server-sdk', () => ({
