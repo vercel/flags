@@ -1,5 +1,11 @@
 # @flags-sdk/launchdarkly
 
+## 0.3.1
+
+### Patch Changes
+
+- 595e9d0: only read edge config once per request
+
 ## 0.3.0
 
 ### Minor Changes
