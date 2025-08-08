@@ -11,7 +11,15 @@ export const config = {
 export async function middleware(request: NextRequest) {
   const stableId = await getStableId();
   const cartId = await getCartId();
+  const before = performance.now();
   const code = await precompute(productFlags);
+  const after = performance.now();
+  console.log('initial precompute time', after - before);
+
+  const before1 = performance.now();
+  await precompute(productFlags);
+  const after1 = performance.now();
+  console.log('subsequent precompute time', after1 - before1);
 
   // rewrites the request to the variant for this flag combination
   const nextUrl = new URL(
