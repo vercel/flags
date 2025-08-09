@@ -387,6 +387,11 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)
 
+  packages/adapter-flagsmith:
+    dependencies:
+      flagsmith:
+        specifier: ^9.0.5
+        version: 9.0.5
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
@@ -9124,6 +9129,10 @@ packages:
       micromatch: 4.0.8
       pkg-dir: 4.2.0
     dev: true
+
+  /flagsmith@9.0.5:
+    resolution: {integrity: sha512-bmAqGX+LUvToIl136eWKFmbVcVIpZ4H9mk2gDhz8YEKvF5HoM6Sj2WgtRei7pPJy4bXTJdfT7BLebu2v9USc4w==}
+    dev: false
 
   /flat-cache@3.2.0:
     resolution: {integrity: sha512-CYcENa+FtcUKLmhhqyctpclsq7QF38pKjZHsGNiSQF5r4FtoKDWabFDl3hzaEQMvT1LHEysw5twgLvpYYb4vbw==}
