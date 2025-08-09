@@ -2,6 +2,7 @@ import type { Adapter } from 'flags';
 import { createClient } from '@vercel/edge-config';
 import {
   GrowthBookClient,
+  configureCache,
   type Attributes,
   type ClientOptions,
   type InitOptions,
@@ -36,6 +37,7 @@ type EdgeConfig = {
 type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
+  refresh: () => Promise<void>;
   setTrackingCallback: (cb: TrackingCallback) => void;
   setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
   stickyBucketService?: StickyBucketService;
@@ -62,6 +64,8 @@ export function createGrowthbookAdapter(options: {
   stickyBucketService?: StickyBucketService;
   /** Provide Edge Config details to use the optional Edge Config adapter */
   edgeConfig?: EdgeConfig;
+  /** How long to cache feature definitions (in milliseconds). Default to 1s in dev and 30s in prod */
+  cacheTTLms?: number;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
   let stickyBucketService = options.stickyBucketService;
@@ -72,9 +76,14 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  let _initializePromise: Promise<void> | undefined;
+  const cacheTTLms =
+    options.cacheTTLms ??
+    (process.env.NODE_ENV === 'development' ? 1_000 : 30_000);
+  configureCache({
+    staleTTL: cacheTTLms,
+  });
 
-  const initializeGrowthBook = async (): Promise<void> => {
+  const getEdgePayload = async (): Promise<FeatureApiResponse | undefined> => {
     let payload: FeatureApiResponse | undefined;
     if (options.edgeConfig) {
       try {
@@ -91,13 +100,20 @@ export function createGrowthbookAdapter(options: {
         console.error('Error fetching edge config', e);
       }
     }
+    return payload;
+  };
 
+  let _initializePromise: Promise<void> | undefined;
+  const initializeGrowthBook = async (): Promise<void> => {
+    const payload = await getEdgePayload();
     await growthbook.init({
       streaming: false,
       payload,
       ...(options.initOptions || {}),
     });
   };
+
+  let _lastRefreshTimestamp = 0;
 
   /**
    * Initialize the GrowthBook SDK.
@@ -109,10 +125,30 @@ export function createGrowthbookAdapter(options: {
    */
   const initialize = async (): Promise<GrowthBookClient> => {
     if (!_initializePromise) {
+      _lastRefreshTimestamp = Date.now();
       _initializePromise = initializeGrowthBook();
     }
     await _initializePromise;
     return growthbook;
+  };
+
+  const refresh = async (): Promise<void> => {
+    const isStale = _lastRefreshTimestamp + cacheTTLms < Date.now();
+    if (!isStale) return;
+    _lastRefreshTimestamp = Date.now();
+
+    if (options.edgeConfig) {
+      // Await does not block on the network here. Edge Config returns immediately and kicks off a background refresh
+      const payload = await getEdgePayload();
+      if (payload) {
+        await growthbook.setPayload(payload);
+      }
+    } else {
+      // Await would block on the network here, so we use a promise to kick off the refresh in the background
+      growthbook.refreshFeatures().catch((e) => {
+        console.error('Failed to refresh features', e);
+      });
+    }
   };
 
   function origin(prefix: string) {
@@ -139,6 +175,7 @@ export function createGrowthbookAdapter(options: {
       origin: origin('features'),
       decide: async ({ key, entities, defaultValue }) => {
         await initialize();
+        await refresh();
         const userContext: UserContext = {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
@@ -172,6 +209,7 @@ export function createGrowthbookAdapter(options: {
   return {
     feature,
     initialize,
+    refresh,
     setTrackingCallback,
     setStickyBucketService,
     stickyBucketService,
@@ -255,6 +293,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
 export const growthbookAdapter: AdapterResponse = {
   feature: (...args) => getOrCreateDefaultGrowthbookAdapter().feature(...args),
   initialize: () => getOrCreateDefaultGrowthbookAdapter().initialize(),
+  refresh: () => getOrCreateDefaultGrowthbookAdapter().refresh(),
   setTrackingCallback: (...args) =>
     getOrCreateDefaultGrowthbookAdapter().setTrackingCallback(...args),
   setStickyBucketService: (...args) =>
