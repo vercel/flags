@@ -1,0 +1,16 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+deleted file mode 100644
+index f38bcc612ee241e19598cf83aa24f555fb219cc8..0000000000000000000000000000000000000000
+diff --git a/dist/store/serialization.js b/dist/store/serialization.js
+index 21a7a5415c077d272cc4c6f50a03c232351eb17a..60ed113c58884be3b3e7b7287c1b7120a9e34dc3 100644
+--- a/dist/store/serialization.js
++++ b/dist/store/serialization.js
+@@ -225,7 +225,7 @@ exports.deserializeAll = deserializeAll;
+  * @returns The parsed and processed data.
+  */
+ function deserializePoll(data) {
+-    const parsed = tryParse(data);
++    const parsed = data && typeof data !== 'string' ? data : tryParse(data);
+     if (!parsed) {
+         return undefined;
+     }
