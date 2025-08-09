@@ -76,15 +76,18 @@ export function createLaunchDarklyAdapter({
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
   }
 
+  let initialized = false;
+
   function variation<ValueType>(
     options: AdapterOptions<ValueType> = {},
   ): Adapter<ValueType, LDContext> {
     return {
       origin,
       async decide({ key, entities, headers }): Promise<ValueType> {
-        if (!ldClient.initialized()) {
+        if (!initialized) {
           if (!initPromise) initPromise = ldClient.waitForInitialization();
           await initPromise;
+          initialized = true;
         }
 
         return store.run(
