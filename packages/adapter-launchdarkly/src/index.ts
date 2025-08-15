@@ -61,16 +61,23 @@ export function createLaunchDarklyAdapter({
         }
       }
 
+      console.log('reading edge config');
+      const before = performance.now();
       const promise = edgeConfigClient.get<T>(key);
       if (h) cache.set(h, promise);
-
+      await promise;
+      const after = performance.now();
+      console.log('edge config read', after - before);
       return promise;
     },
   };
 
   let initPromise: Promise<unknown> | null = null;
 
+  const before = performance.now();
   const ldClient = init(clientSideId, patchedEdgeConfigClient);
+  const after = performance.now();
+  console.log('init', after - before);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
@@ -82,20 +89,26 @@ export function createLaunchDarklyAdapter({
     return {
       origin,
       async decide({ key, entities, headers }): Promise<ValueType> {
+        const before = performance.now();
         if (!ldClient.initialized()) {
           if (!initPromise) initPromise = ldClient.waitForInitialization();
           await initPromise;
         }
+        const after = performance.now();
+        console.log('waitForInitialization', after - before);
 
-        return store.run(
-          headers,
-          () =>
-            ldClient.variation(
-              key,
-              entities as LDContext,
-              options.defaultValue,
-            ) as ValueType,
-        );
+        return store.run(headers, async () => {
+          const before = performance.now();
+          const value = ldClient.variation(
+            key,
+            entities as LDContext,
+            options.defaultValue,
+          ) as ValueType;
+          await value;
+          const after = performance.now();
+          console.log('variation', after - before);
+          return value;
+        });
       },
     };
   }

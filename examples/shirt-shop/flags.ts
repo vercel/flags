@@ -1,6 +1,8 @@
-import { flag } from 'flags/next';
+import { dedupe, flag } from 'flags/next';
 import { identify, type EvaluationContext } from './lib/identify';
 import { xxHash32 } from 'js-xxhash';
+import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
+import type { Identify, ReadonlyRequestCookies } from 'flags';
 
 /**
  * Takes a string and puts it into a bucket.
@@ -78,3 +80,64 @@ export const productFlags = [
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,
 ] as const;
+
+const vIdentify: Identify<LDContext> = dedupe(
+  ({ cookies }: { cookies: ReadonlyRequestCookies }) => {
+    return {
+      key: cookies.get('stable-id')?.value ?? '',
+    };
+  },
+);
+
+const adapter = {
+  decide: async ({ key, entities, headers }) => {
+    return false;
+  },
+};
+
+export const testFlags = [
+  ...Array.from({ length: 100 }, (_, i) => {
+    return flag<boolean, EvaluationContext>({
+      key: `test-${i}`,
+      identify: () => ({}),
+      async decide({ entities }) {
+        return false;
+      },
+    });
+  }),
+  flag<boolean, LDContext>({
+    key: 'free-delivery',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'summer-sale',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'proceed-to-checkout-color',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'delete-me-later',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'another-flag',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'another-flag2',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+  flag<boolean, LDContext>({
+    key: 'another-flag3',
+    identify: vIdentify,
+    adapter: ldAdapter.variation(),
+  }),
+];

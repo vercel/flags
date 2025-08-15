@@ -10,6 +10,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@flags-sdk/launchdarkly": "workspace:*",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
     "@tailwindcss/aspect-ratio": "0.4.2",
