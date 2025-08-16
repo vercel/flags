@@ -89,25 +89,13 @@ export function createLaunchDarklyAdapter({
     return {
       origin,
       async decide({ key, entities, headers }): Promise<ValueType> {
-        const before = performance.now();
         if (!ldClient.initialized()) {
           if (!initPromise) initPromise = ldClient.waitForInitialization();
           await initPromise;
         }
-        const after = performance.now();
-        console.log('waitForInitialization', after - before);
 
-        return store.run(headers, async () => {
-          const before = performance.now();
-          const value = ldClient.variation(
-            key,
-            entities as LDContext,
-            options.defaultValue,
-          ) as ValueType;
-          await value;
-          const after = performance.now();
-          console.log('variation', after - before);
-          return value;
+        return store.run(headers, () => {
+          return false as ValueType;
         });
       },
     };

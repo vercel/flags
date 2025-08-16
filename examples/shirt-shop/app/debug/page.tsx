@@ -19,10 +19,13 @@ export default async function Page() {
   console.log('precompute', after - before, after1 - before1);
 
   return (
-    <ul>
-      <li>{prepareAfter - prepareBefore}ms</li>
-      <li>{after - before}ms</li>
-      <li>{after1 - before1}ms</li>
-    </ul>
+    <>
+      <p>using ld adapter but not calling ldClient.variation</p>
+      <ul>
+        <li>{prepareAfter - prepareBefore}ms</li>
+        <li>{after - before}ms</li>
+        <li>{after1 - before1}ms</li>
+      </ul>
+    </>
   );
 }

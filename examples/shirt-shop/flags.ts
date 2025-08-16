@@ -90,40 +90,40 @@ const vIdentify: Identify<LDContext> = dedupe(
 );
 
 export const testFlags = [
-  ...Array.from({ length: 100 }, (_, i) => {
-    return flag<boolean, EvaluationContext>({
-      key: `test-${i}`,
-      identify: () => ({}),
-      async decide({ entities }) {
-        return false;
-      },
-    });
-  }),
-  flag<boolean, LDContext>({
-    key: 'free-delivery',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
-  flag<boolean, LDContext>({
-    key: 'summer-sale',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
-  flag<boolean, LDContext>({
-    key: 'proceed-to-checkout-color',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
-  flag<boolean, LDContext>({
-    key: 'delete-me-later',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
-  flag<boolean, LDContext>({
-    key: 'another-flag',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
+  // ...Array.from({ length: 100 }, (_, i) => {
+  //   return flag<boolean, EvaluationContext>({
+  //     key: `test-${i}`,
+  //     identify: () => ({}),
+  //     async decide({ entities }) {
+  //       return false;
+  //     },
+  //   });
+  // }),
+  // flag<boolean, LDContext>({
+  //   key: 'free-delivery',
+  //   identify: vIdentify,
+  //   adapter: ldAdapter.variation(),
+  // }),
+  // flag<boolean, LDContext>({
+  //   key: 'summer-sale',
+  //   identify: vIdentify,
+  //   adapter: ldAdapter.variation(),
+  // }),
+  // flag<boolean, LDContext>({
+  //   key: 'proceed-to-checkout-color',
+  //   identify: vIdentify,
+  //   adapter: ldAdapter.variation(),
+  // }),
+  // flag<boolean, LDContext>({
+  //   key: 'delete-me-later',
+  //   identify: vIdentify,
+  //   adapter: ldAdapter.variation(),
+  // }),
+  // flag<boolean, LDContext>({
+  //   key: 'another-flag',
+  //   identify: vIdentify,
+  //   adapter: ldAdapter.variation(),
+  // }),
   ...Array.from({ length: 69 }).map((item, index) =>
     flag<boolean, LDContext>({
       key: `another-flag${index + 2}`,
