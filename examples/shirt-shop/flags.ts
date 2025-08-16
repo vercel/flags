@@ -89,12 +89,6 @@ const vIdentify: Identify<LDContext> = dedupe(
   },
 );
 
-const adapter = {
-  decide: async ({ key, entities, headers }) => {
-    return false;
-  },
-};
-
 export const testFlags = [
   ...Array.from({ length: 100 }, (_, i) => {
     return flag<boolean, EvaluationContext>({
@@ -130,14 +124,11 @@ export const testFlags = [
     identify: vIdentify,
     adapter: ldAdapter.variation(),
   }),
-  flag<boolean, LDContext>({
-    key: 'another-flag2',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
-  flag<boolean, LDContext>({
-    key: 'another-flag3',
-    identify: vIdentify,
-    adapter: ldAdapter.variation(),
-  }),
+  ...Array.from({ length: 69 }).map((item, index) =>
+    flag<boolean, LDContext>({
+      key: `another-flag${index + 2}`,
+      identify: vIdentify,
+      adapter: ldAdapter.variation(),
+    }),
+  ),
 ];

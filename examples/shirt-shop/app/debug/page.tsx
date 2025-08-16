@@ -1,7 +1,13 @@
 import { testFlags } from '@/flags';
 import { precompute } from 'flags/next';
+import { ldAdapter } from '@flags-sdk/launchdarkly';
 
 export default async function Page() {
+  const prepareBefore = performance.now();
+  await ldAdapter.ldClient.waitForInitialization();
+  const prepareAfter = performance.now();
+  console.log('prepare', prepareAfter - prepareBefore);
+
   const before = performance.now();
   await precompute(testFlags);
   const after = performance.now();
@@ -14,6 +20,7 @@ export default async function Page() {
 
   return (
     <ul>
+      <li>{prepareAfter - prepareBefore}ms</li>
       <li>{after - before}ms</li>
       <li>{after1 - before1}ms</li>
     </ul>
