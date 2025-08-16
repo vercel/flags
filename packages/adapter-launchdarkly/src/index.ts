@@ -94,12 +94,11 @@ export function createLaunchDarklyAdapter({
           await initPromise;
         }
 
-        return store.run(headers, () => {
-          return ldClient.variation(
-            key,
-            entities as LDContext,
-            options.defaultValue,
-          ) as ValueType;
+        return store.run(headers, async () => {
+          const content = await patchedEdgeConfigClient.get(
+            'LD-Env-6830baa92311f90e95927800',
+          );
+          return (typeof content === 'object') as ValueType;
         });
       },
     };
