@@ -95,7 +95,11 @@ export function createLaunchDarklyAdapter({
         }
 
         return store.run(headers, () => {
-          return false as ValueType;
+          return ldClient.variation(
+            key,
+            entities as LDContext,
+            options.defaultValue,
+          ) as ValueType;
         });
       },
     };

@@ -20,7 +20,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>using ld adapter but not calling ldClient.variation</p>
+      <p>ldClient.variation without measurements</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
