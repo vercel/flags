@@ -6,10 +6,10 @@ settings:
 
 patchedDependencies:
   '@launchdarkly/js-server-sdk-common-edge@2.6.8':
-    hash: aceqikt3mvlucjqcfkmq3ulqva
+    hash: knsbrjecvnh2sahpffdeuc2wfq
     path: patches/@launchdarkly__js-server-sdk-common-edge@2.6.8.patch
   '@launchdarkly/vercel-server-sdk@1.3.23':
-    hash: phv5qt3sucef3m2b4baggsxxqe
+    hash: oj7tsiagy35q2wqmtv4u2zgzee
     path: patches/@launchdarkly__vercel-server-sdk@1.3.23.patch
 
 importers:
@@ -115,7 +115,7 @@ importers:
         version: 2.2.0(react@19.0.0)
       '@launchdarkly/js-server-sdk-common-edge':
         specifier: 2.6.8
-        version: 2.6.8(patch_hash=aceqikt3mvlucjqcfkmq3ulqva)
+        version: 2.6.8(patch_hash=knsbrjecvnh2sahpffdeuc2wfq)
       '@tailwindcss/aspect-ratio':
         specifier: 0.4.2
         version: 0.4.2(tailwindcss@4.0.13)
@@ -528,10 +528,10 @@ importers:
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge':
         specifier: 2.6.8
-        version: 2.6.8(patch_hash=aceqikt3mvlucjqcfkmq3ulqva)
+        version: 2.6.8(patch_hash=knsbrjecvnh2sahpffdeuc2wfq)
       '@launchdarkly/vercel-server-sdk':
         specifier: ^1.3.23
-        version: 1.3.23(patch_hash=phv5qt3sucef3m2b4baggsxxqe)
+        version: 1.3.23(patch_hash=oj7tsiagy35q2wqmtv4u2zgzee)
       '@vercel/edge-config':
         specifier: ^1.4.0
         version: 1.4.0
@@ -3218,7 +3218,7 @@ packages:
       crypto-js: 4.2.0
     dev: false
 
-  /@launchdarkly/js-server-sdk-common-edge@2.6.8(patch_hash=aceqikt3mvlucjqcfkmq3ulqva):
+  /@launchdarkly/js-server-sdk-common-edge@2.6.8(patch_hash=knsbrjecvnh2sahpffdeuc2wfq):
     resolution: {integrity: sha512-Dw43nuM6QbTbVKJ0Wn1ZeobKi5FqRImkmoW3C5jPRBE7DHhrC24ZC1LplU012mCPLwxbSTBISdQKSRvHAKYWRA==}
     dependencies:
       '@launchdarkly/js-server-sdk-common': 2.16.1
@@ -3257,7 +3257,7 @@ packages:
       - '@opentelemetry/api'
     dev: false
 
-  /@launchdarkly/vercel-server-sdk@1.3.23(patch_hash=phv5qt3sucef3m2b4baggsxxqe):
+  /@launchdarkly/vercel-server-sdk@1.3.23(patch_hash=oj7tsiagy35q2wqmtv4u2zgzee):
     resolution: {integrity: sha512-1QcUA+QD69bbPwDWCg5PpEvRmbi8FHv1D22OECHtChKnmSlw28orHnmfw7MqcgVVZu5z2x91q/Gs37VMNkh3Ig==}
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge': 2.5.4

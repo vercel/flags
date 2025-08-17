@@ -20,7 +20,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>with patched ld</p>
+      <p>with patched ld (esm and cjs)</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>

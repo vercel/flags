@@ -1,8 +1,22 @@
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 deleted file mode 100644
 index 266a0ffdf355a0f14b15acdb841ba093748a0a69..0000000000000000000000000000000000000000
+diff --git a/dist/cjs/src/api/EdgeFeatureStore.js b/dist/cjs/src/api/EdgeFeatureStore.js
+index c1a81d61057a2df7e8d9446a276d58b5bdd419d8..c95ba7909f7688d437bf9c38cc8b23b7c4f73443 100644
+--- a/dist/cjs/src/api/EdgeFeatureStore.js
++++ b/dist/cjs/src/api/EdgeFeatureStore.js
+@@ -71,7 +71,8 @@ class EdgeFeatureStore {
+         if (!providerData) {
+             throw new Error(`${this._rootKey} is not found in KV.`);
+         }
+-        payload = (0, js_server_sdk_common_1.deserializePoll)(providerData);
++        console.log("patched _getStorePayload", typeof providerData === 'string');
++        payload = typeof providerData === 'string' ? (0, js_server_sdk_common_1.deserializePoll)(providerData) : providerData;
+         if (!payload) {
+             throw new Error(`Error deserializing ${this._rootKey}`);
+         }
 diff --git a/dist/esm/src/api/EdgeFeatureStore.js b/dist/esm/src/api/EdgeFeatureStore.js
-index 2629103372cfebd942ca0e8189bc7290fe6a639e..3aa2b16e730ed8d2e3f57d9fcf065522e6135dcb 100644
+index 2629103372cfebd942ca0e8189bc7290fe6a639e..7c06b04a3d1fbab8014e20606c6c3b2f6716278a 100644
 --- a/dist/esm/src/api/EdgeFeatureStore.js
 +++ b/dist/esm/src/api/EdgeFeatureStore.js
 @@ -68,7 +68,8 @@ export class EdgeFeatureStore {
