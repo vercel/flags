@@ -69,5 +69,11 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@launchdarkly/js-server-sdk-common-edge@2.6.8": "../../patches/@launchdarkly__js-server-sdk-common-edge@2.6.8.patch",
+      "@launchdarkly/vercel-server-sdk@1.3.23": "../../patches/@launchdarkly__vercel-server-sdk@1.3.23.patch"
+    }
   }
 }

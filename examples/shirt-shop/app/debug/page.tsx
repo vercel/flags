@@ -20,7 +20,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>with edge config reads only</p>
+      <p>with patched ld</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
