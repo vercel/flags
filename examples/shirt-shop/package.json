@@ -13,6 +13,7 @@
     "@flags-sdk/launchdarkly": "workspace:*",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
+    "@launchdarkly/js-server-sdk-common-edge": "2.6.8",
     "@tailwindcss/aspect-ratio": "0.4.2",
     "@tailwindcss/forms": "0.5.10",
     "@tailwindcss/postcss": "^4.0.9",

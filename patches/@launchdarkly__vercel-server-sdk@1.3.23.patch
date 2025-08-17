@@ -1,0 +1,17 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+deleted file mode 100644
+index a099f5d92067f10db29adc9e24162702a53a441b..0000000000000000000000000000000000000000
+diff --git a/dist/esm/src/index.js b/dist/esm/src/index.js
+index a98507e9798d97deb4f9453f0d7dba186d499a99..c8d183fca7245a16135cfc796c759b6fb31636ed 100644
+--- a/dist/esm/src/index.js
++++ b/dist/esm/src/index.js
+@@ -29,7 +29,8 @@ export const init = (sdkKey, edgeConfig, options = {}) => {
+     const edgeProvider = {
+         get: async (rootKey) => {
+             const json = await edgeConfig.get(rootKey);
+-            return json ? JSON.stringify(json) : null;
++            console.log("returning plain json")
++            return json || null;
+         },
+     };
+     return initEdge(sdkKey, createPlatformInfo(), Object.assign({ featureStore: new EdgeFeatureStore(edgeProvider, sdkKey, 'Vercel', logger), logger }, options));
