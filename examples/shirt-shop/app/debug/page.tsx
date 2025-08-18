@@ -18,6 +18,8 @@ export default async function Page() {
 
   console.log('precompute', after - before, after1 - before1);
 
+  console.log('code', code);
+
   const firstTestFlag = testFlags[0];
   const firstTestFlagValue = await firstTestFlag(code, testFlags);
   console.log('firstTestFlagValue', firstTestFlagValue);
