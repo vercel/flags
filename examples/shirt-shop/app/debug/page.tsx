@@ -22,16 +22,17 @@ export default async function Page() {
 
   const firstTestFlag = testFlags[0];
   const firstTestFlagValue = await firstTestFlag(code, testFlags);
-  console.log('firstTestFlagValue', firstTestFlagValue);
 
   return (
     <>
-      <p>with patched ld (esm and cjs)</p>
+      <p>with actually patched ld (esm and cjs)</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
         <li>{after1 - before1}ms</li>
-        <li>{JSON.stringify(firstTestFlagValue)}</li>
+        <li>
+          {firstTestFlag.key}: {JSON.stringify(firstTestFlagValue)}
+        </li>
       </ul>
     </>
   );

@@ -1,8 +1,8 @@
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 deleted file mode 100644
-index a099f5d92067f10db29adc9e24162702a53a441b..0000000000000000000000000000000000000000
+index bf38b3f43163cad56b7b4981c63096b304b6c481..0000000000000000000000000000000000000000
 diff --git a/dist/cjs/src/index.js b/dist/cjs/src/index.js
-index d7aed6a778023742931dc5ddc127d9598ef2de84..eb9b1917acd3863fad07df9e7e4a0c57e4414e9c 100644
+index d7aed6a778023742931dc5ddc127d9598ef2de84..c6eb31ead4225c553a63dce2b20a29fbc9e1e5f6 100644
 --- a/dist/cjs/src/index.js
 +++ b/dist/cjs/src/index.js
 @@ -46,7 +46,8 @@ const init = (sdkKey, edgeConfig, options = {}) => {
@@ -10,13 +10,13 @@ index d7aed6a778023742931dc5ddc127d9598ef2de84..eb9b1917acd3863fad07df9e7e4a0c57
          get: async (rootKey) => {
              const json = await edgeConfig.get(rootKey);
 -            return json ? JSON.stringify(json) : null;
-+            console.log("returning plain json cjs");
-+            return json;
++            console.log('returning plain json cjs');
++            return json || null;
          },
      };
      return (0, js_server_sdk_common_edge_1.init)(sdkKey, (0, createPlatformInfo_1.default)(), Object.assign({ featureStore: new js_server_sdk_common_edge_1.EdgeFeatureStore(edgeProvider, sdkKey, 'Vercel', logger), logger }, options));
 diff --git a/dist/esm/src/index.js b/dist/esm/src/index.js
-index a98507e9798d97deb4f9453f0d7dba186d499a99..d4ea6a777ac0f491946b00bc8c3da0435a383fc7 100644
+index a98507e9798d97deb4f9453f0d7dba186d499a99..f74a406cba9c134b102712fb6e00a7353c01b60b 100644
 --- a/dist/esm/src/index.js
 +++ b/dist/esm/src/index.js
 @@ -29,7 +29,8 @@ export const init = (sdkKey, edgeConfig, options = {}) => {
@@ -24,7 +24,7 @@ index a98507e9798d97deb4f9453f0d7dba186d499a99..d4ea6a777ac0f491946b00bc8c3da043
          get: async (rootKey) => {
              const json = await edgeConfig.get(rootKey);
 -            return json ? JSON.stringify(json) : null;
-+            console.log("returning plain json")
++            console.log('returning plain json esm');
 +            return json || null;
          },
      };
