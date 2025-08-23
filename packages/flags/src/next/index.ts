@@ -1,17 +1,16 @@
 import { RequestCookies } from '@edge-runtime/cookies';
-import {
-  type FlagDefinitionType,
-  type ProviderData,
-  reportValue,
-  type FlagDefinitionsType,
-} from '..';
+import { reportValue } from '../lib/report-value';
+import { safeJsonStringify } from '../lib/safe-json-stringify';
 import type {
   Decide,
   FlagDeclaration,
   FlagParamsType,
+  FlagDefinitionType,
+  FlagDefinitionsType,
   Identify,
   JsonValue,
   Origin,
+  ProviderData,
 } from '../types';
 import type { Flag, PrecomputedFlag, PagesRouterFlag } from './types';
 import { getOverrides } from './overrides';
@@ -29,6 +28,7 @@ import {
 import { setSpanAttribute, trace } from '../lib/tracing';
 import { internalReportValue } from '../lib/report-value';
 import { isInternalNextError } from './is-internal-next-error';
+import { HTMLRewriter } from 'htmlrewriter';
 
 export type { Flag } from './types';
 
@@ -485,3 +485,25 @@ export function getProviderData(
 
 export { dedupe, clearDedupeCacheForCurrentRequest } from './dedupe';
 export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';
+
+let rewriter: InstanceType<typeof HTMLRewriter> | null = null;
+
+/**
+ * Embeds the bootstrap data into the page.
+ *
+ * Render the FlagBootstrapData component in your top-level layout(s), and then call
+ * embedBootstrapData from Edge Middleware to embed the bootstrap data into the page.
+ *
+ * @param response - The response to embed the bootstrap data into.
+ * @param data - The data to embed.
+ * @returns The modified response.
+ */
+export function embedBootstrapData(response: Response, data: any) {
+  rewriter ??= new HTMLRewriter();
+  rewriter.on('script[data-flag-bootstrap]', {
+    element(element) {
+      element.setInnerContent(safeJsonStringify(data), { html: true });
+    },
+  });
+  return rewriter.transform(response);
+}
