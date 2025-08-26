@@ -1,11 +1,13 @@
 {
   "name": "flags",
   "version": "4.0.1",
-  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
+  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js, Nuxt, and SvelteKit",
   "keywords": [
     "feature flags",
     "Next.js",
+    "Nuxt",
     "react",
+    "vue",
     "toolbar",
     "overrides",
     "SvelteKit"
@@ -30,6 +32,8 @@
       "import": "./dist/next.js",
       "require": "./dist/next.cjs"
     },
+    "./nuxt": "./dist/nuxt.js",
+    "./nuxt/runtime": "./dist/nuxt/runtime/index.js",
     "./analytics": {
       "import": "./dist/analytics.js",
       "require": "./dist/analytics.cjs"
@@ -53,6 +57,12 @@
       "next": [
         "dist/next.d.ts",
         "dist/next.d.cts"
+      ],
+      "nuxt": [
+        "dist/nuxt.d.ts"
+      ],
+      "nuxt/runtime": [
+        "dist/nuxt/runtime.d.ts"
       ],
       "react": [
         "dist/react.d.ts",
@@ -80,16 +90,21 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
-    "jose": "^5.2.1"
+    "exsolve": "^1.0.7",
+    "jose": "^5.2.1",
+    "std-env": "^3.9.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.17.3",
+    "@nuxt/test-utils": "3.19.2",
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
     "eslint-config-custom": "workspace:*",
+    "h3": "1.15.4",
     "msw": "2.6.4",
     "next": "15.1.4",
+    "nuxt": "4.0.3",
     "react": "canary",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
@@ -101,6 +116,7 @@
     "@opentelemetry/api": "^1.7.0",
     "@sveltejs/kit": "*",
     "next": "*",
+    "nuxt": ">=3.0.0",
     "react": "*",
     "react-dom": "*"
   },
@@ -112,6 +128,9 @@
       "optional": true
     },
     "next": {
+      "optional": true
+    },
+    "nuxt": {
       "optional": true
     },
     "react": {

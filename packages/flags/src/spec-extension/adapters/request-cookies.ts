@@ -63,10 +63,6 @@ export function getModifiedCookieValues(
   return modified;
 }
 
-type SetCookieArgs =
-  | [key: string, value: string, cookie?: Partial<ResponseCookie>]
-  | [options: ResponseCookie];
-
 export function appendMutableCookies(
   headers: Headers,
   mutableCookies: ResponseCookies,
