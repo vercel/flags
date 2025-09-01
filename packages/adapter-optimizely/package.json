@@ -35,7 +35,10 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@optimizely/optimizely-sdk": "6.0.0",
+    "@vercel/functions": "^1.5.2"
+  },
   "devDependencies": {
     "@types/node": "20.11.17",
     "eslint-config-custom": "workspace:*",
@@ -48,7 +51,6 @@
     "vite": "5.1.1",
     "vitest": "1.4.0"
   },
-  "peerDependencies": {},
   "publishConfig": {
     "access": "public"
   }
