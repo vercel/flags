@@ -1,10 +1,16 @@
 export { getProviderData } from './provider';
 import {
   Client,
+  createBatchEventProcessor,
   createInstance,
-  createPollingProjectConfigManager,
+  UserAttributes,
 } from '@optimizely/optimizely-sdk';
+import { IOptimizelyUserContext } from '@optimizely/optimizely-sdk/dist/optimizely_user_context';
 import type { Adapter } from 'flags';
+import {
+  createEdgeProjectConfigManager,
+  dispatchEvent,
+} from './edge-runtime-hooks';
 
 let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
@@ -14,7 +20,11 @@ let defaultOptimizelyAdapter:
 type UserId = string;
 
 type AdapterResponse = {
-  decide: <T>() => Adapter<T, UserId>;
+  decide: <T>({
+    attributes,
+  }: {
+    attributes?: UserAttributes;
+  }) => Adapter<T, UserId>;
   initialize: () => Promise<Client>;
 };
 
@@ -28,18 +38,29 @@ function assertEnv(name: string): string {
 
 export function createOptimizelyAdapter({
   sdkKey,
+  edgeConfig,
+  edgeConfigItemKey,
 }: {
   sdkKey: string;
+  edgeConfig: string;
+  edgeConfigItemKey: string;
 }): AdapterResponse {
   let optimizelyInstance: Client | undefined;
+
   const initializeOptimizely = async () => {
+    const projectConfigManager = await createEdgeProjectConfigManager({
+      edgeConfigItemKey: edgeConfigItemKey,
+      edgeConfigConnectionString: edgeConfig,
+    });
+
     optimizelyInstance = createInstance({
-      clientEngine: 'edge-config',
-      // TODO: Check if polling project config would work for edge middleware
-      projectConfigManager: createPollingProjectConfigManager({
-        sdkKey: sdkKey,
+      clientEngine: 'javascript-sdk/flags-sdk',
+      projectConfigManager,
+      // TODO: Check if batch event processor works here or just need one final `waitUntil` flush
+      eventProcessor: createBatchEventProcessor({
+        // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
+        eventDispatcher: { dispatchEvent },
       }),
-      // TODO: Add edge-proof event processor
     });
 
     await optimizelyInstance.onReady({ timeout: 500 });
@@ -51,7 +72,6 @@ export function createOptimizelyAdapter({
       _initializePromise = initializeOptimizely();
     }
     await _initializePromise;
-    // TODO: Check if needed
     if (!optimizelyInstance) {
       throw new Error('Optimizely instance not initialized');
     }
@@ -59,20 +79,39 @@ export function createOptimizelyAdapter({
   };
 
   function origin(key: string) {
+    // TODO: Still AI generated, check proper key once I have access to a project
     return `https://app.optimizely.com/projects/${sdkKey}/flags/${key}/`;
   }
-  function decide<T>(): Adapter<T, UserId> {
+
+  /**
+   * Sets up the Optimizely instance and creates a user context
+   */
+  async function predecide(
+    userId: string,
+    attributes?: UserAttributes,
+  ): Promise<IOptimizelyUserContext> {
+    await initialize();
+    if (!optimizelyInstance) {
+      throw new Error('Optimizely instance not initialized');
+    }
+    const context = optimizelyInstance.createUserContext(userId, attributes);
+    return context;
+  }
+
+  /**
+   * Resolve an Optimizely flag.
+   *
+   *
+   */
+  function decide<T>({
+    attributes,
+  }: {
+    attributes?: UserAttributes;
+  }): Adapter<T, UserId> {
     return {
-      async decide({ key, entities }) {
-        await initialize();
-
-        // TODO: Make sure it's always initialized
-        if (!optimizelyInstance) {
-          throw new Error('Optimizely instance not initialized');
-        }
-
-        const context = optimizelyInstance.createUserContext(entities);
-
+      origin,
+      decide: async ({ key, entities }) => {
+        const context = await predecide(entities, attributes);
         return context.decide(key);
       },
     };
@@ -88,6 +127,8 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
   if (!defaultOptimizelyAdapter) {
     defaultOptimizelyAdapter = createOptimizelyAdapter({
       sdkKey: assertEnv('OPTIMIZELY_SDK_KEY'),
+      edgeConfig: assertEnv('EDGE_CONFIG_CONNECTION_STRING'),
+      edgeConfigItemKey: assertEnv('OPTIMIZELY_DATAFILE_ITEM_KEY'),
     });
   }
 
@@ -110,12 +151,11 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
  * const flag = flag({
  *   key: 'my-flag',
  *   defaultValue: false,
- *   adapter: optimizelyAdapter.isFeatureEnabled(),
+ *   adapter: optimizelyAdapter.decide(),
  * });
  * ```
  */
 export const optimizelyAdapter: AdapterResponse = {
-  isFeatureEnabled: (...args) =>
-    getOrCreateDefaultOptimizelyAdapter().isFeatureEnabled(...args),
+  decide: (...args) => getOrCreateDefaultOptimizelyAdapter().decide(...args),
   initialize: () => getOrCreateDefaultOptimizelyAdapter().initialize(),
 };
