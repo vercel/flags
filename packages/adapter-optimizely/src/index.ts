@@ -48,16 +48,17 @@ export function createOptimizelyAdapter({
   let optimizelyInstance: Client | undefined;
 
   const initializeOptimizely = async () => {
-    const projectConfigManager = await createEdgeProjectConfigManager({
+    const edgeProjectConfigManager = await createEdgeProjectConfigManager({
       edgeConfigItemKey: edgeConfigItemKey,
       edgeConfigConnectionString: edgeConfig,
     });
 
     optimizelyInstance = createInstance({
       clientEngine: 'javascript-sdk/flags-sdk',
-      projectConfigManager,
-      // TODO: Check if batch event processor works here or just need one final `waitUntil` flush
+      projectConfigManager: edgeProjectConfigManager,
+      // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
       eventProcessor: createBatchEventProcessor({
+        // TODO: Check if running this in a `waitUntil()` doesn't break things
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
         eventDispatcher: { dispatchEvent },
       }),
