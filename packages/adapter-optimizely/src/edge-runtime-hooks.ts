@@ -55,7 +55,9 @@ export async function createEdgeProjectConfigManager(options: {
 }): Promise<OpaqueConfigManager> {
   const { createClient } = await import('@vercel/edge-config');
   const edgeConfigClient = createClient(options.edgeConfigConnectionString);
-  const datafile = edgeConfigClient.get(options.edgeConfigItemKey);
+  const datafile = await edgeConfigClient.get<string | Record<string, unknown>>(
+    options.edgeConfigItemKey,
+  );
 
   return wrapConfigManager(
     new ProjectConfigManagerImpl({
