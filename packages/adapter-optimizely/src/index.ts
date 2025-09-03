@@ -79,11 +79,6 @@ export function createOptimizelyAdapter({
     return optimizelyInstance;
   };
 
-  function origin(key: string) {
-    // TODO: Still AI generated, check proper key once I have access to a project
-    return `https://app.optimizely.com/projects/${sdkKey}/flags/${key}/`;
-  }
-
   /**
    * Sets up the Optimizely instance and creates a user context
    */
@@ -99,18 +94,12 @@ export function createOptimizelyAdapter({
     return context;
   }
 
-  /**
-   * Resolve an Optimizely flag.
-   *
-   *
-   */
   function decide<T>({
     attributes,
   }: {
     attributes?: UserAttributes;
   }): Adapter<T, UserId> {
     return {
-      origin,
       decide: async ({ key, entities }) => {
         const context = await predecide(entities, attributes);
         return context.decide(key);
