@@ -40,10 +40,5 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^4.0.9",
     "typescript": "^5.7.3"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "@launchdarkly/js-server-sdk-common-edge@2.6.8": "../../patches/@launchdarkly__js-server-sdk-common-edge@2.6.8.patch"
-    }
   }
 }

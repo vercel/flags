@@ -25,7 +25,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>with actually patched ld (esm and cjs)</p>
+      <p>with new releases of ld</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
