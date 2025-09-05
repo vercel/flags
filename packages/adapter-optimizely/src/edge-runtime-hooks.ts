@@ -4,6 +4,7 @@ import {
   wrapConfigManager,
 } from '@optimizely/optimizely-sdk/dist/project_config/config_manager_factory';
 import { ProjectConfigManagerImpl } from '@optimizely/optimizely-sdk/dist/project_config/project_config_manager';
+import { createClient } from '@vercel/edge-config';
 
 /**
  * Web standards friendly event dispatcher for Optimizely
@@ -53,7 +54,6 @@ export async function createEdgeProjectConfigManager(options: {
   edgeConfigConnectionString: string;
   edgeConfigItemKey: string;
 }): Promise<OpaqueConfigManager> {
-  const { createClient } = await import('@vercel/edge-config');
   const edgeConfigClient = createClient(options.edgeConfigConnectionString);
   const datafile = await edgeConfigClient.get<string | Record<string, unknown>>(
     options.edgeConfigItemKey,
