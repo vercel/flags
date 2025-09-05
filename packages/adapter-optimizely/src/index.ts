@@ -4,6 +4,7 @@ import {
   createBatchEventProcessor,
   createPollingProjectConfigManager,
   OpaqueConfigManager,
+  OptimizelyDecision,
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 import { createInstance } from '@optimizely/optimizely-sdk/dist/index.universal';
@@ -23,11 +24,14 @@ let defaultOptimizelyAdapter:
 type UserId = string;
 
 type AdapterResponse = {
-  decide: <T>({
-    attributes,
-  }: {
-    attributes?: UserAttributes;
-  }) => Adapter<T, UserId>;
+  decide: <T extends OptimizelyDecision>(
+    getValue: (decision: OptimizelyDecision) => T,
+    {
+      attributes,
+    }: {
+      attributes?: UserAttributes;
+    },
+  ) => Adapter<T, UserId>;
   initialize: () => Promise<Client>;
 };
 
@@ -125,7 +129,7 @@ export function createOptimizelyAdapter({
    * Sets up the Optimizely instance and creates a user context
    */
   async function predecide(
-    userId: string,
+    userId?: string,
     attributes?: UserAttributes,
   ): Promise<IOptimizelyUserContext> {
     await initialize();
@@ -136,15 +140,18 @@ export function createOptimizelyAdapter({
     return context;
   }
 
-  function decide<T>({
-    attributes,
-  }: {
-    attributes?: UserAttributes;
-  }): Adapter<T, UserId> {
+  function decide<T>(
+    getValue: (decision: OptimizelyDecision) => T,
+    {
+      attributes,
+    }: {
+      attributes?: UserAttributes;
+    },
+  ): Adapter<T, UserId> {
     return {
       decide: async ({ key, entities }) => {
         const context = await predecide(entities, attributes);
-        return context.decide(key);
+        return getValue(context.decide(key));
       },
     };
   }
@@ -194,7 +201,7 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
  * const flag = flag({
  *   key: 'my-flag',
  *   defaultValue: false,
- *   adapter: optimizelyAdapter.decide(),
+ *   adapter: optimizelyAdapter.decide((decision) => decision.enabled),
  * });
  * ```
  */
