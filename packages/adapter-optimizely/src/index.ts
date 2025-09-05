@@ -2,15 +2,18 @@ export { getProviderData } from './provider';
 import {
   Client,
   createBatchEventProcessor,
-  createInstance,
+  createPollingProjectConfigManager,
+  OpaqueConfigManager,
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
+import { createInstance } from '@optimizely/optimizely-sdk/dist/index.universal';
 import { IOptimizelyUserContext } from '@optimizely/optimizely-sdk/dist/optimizely_user_context';
 import type { Adapter } from 'flags';
 import {
   createEdgeProjectConfigManager,
   dispatchEvent,
 } from './edge-runtime-hooks';
+import { AbortableRequest } from '@optimizely/optimizely-sdk/dist/utils/http_request_handler/http';
 
 let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
@@ -42,26 +45,65 @@ export function createOptimizelyAdapter({
   edgeConfigItemKey,
 }: {
   sdkKey: string;
-  edgeConfig: string;
-  edgeConfigItemKey: string;
+  edgeConfig?: {
+    connectionString: string;
+    itemKey: string;
+  };
+  edgeConfigItemKey?: string;
 }): AdapterResponse {
   let optimizelyInstance: Client | undefined;
 
   const initializeOptimizely = async () => {
-    const edgeProjectConfigManager = await createEdgeProjectConfigManager({
-      edgeConfigItemKey: edgeConfigItemKey,
-      edgeConfigConnectionString: edgeConfig,
-    });
+    let projectConfigManager: OpaqueConfigManager | undefined;
+    if (edgeConfig && edgeConfigItemKey) {
+      projectConfigManager = await createEdgeProjectConfigManager({
+        edgeConfigItemKey: edgeConfigItemKey,
+        edgeConfigConnectionString: edgeConfig.connectionString,
+      });
+    } else {
+      projectConfigManager = createPollingProjectConfigManager({
+        sdkKey: sdkKey,
+        updateInterval: 10000,
+      });
+    }
 
     optimizelyInstance = createInstance({
       clientEngine: 'javascript-sdk/flags-sdk',
-      projectConfigManager: edgeProjectConfigManager,
+      projectConfigManager,
       // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
       eventProcessor: createBatchEventProcessor({
         // TODO: Check if running this in a `waitUntil()` doesn't break things
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
         eventDispatcher: { dispatchEvent },
       }),
+      // Request handler can be used for personalization, both `node` and `browser` versions of the SDK have invalid
+      // request mechanisms for edge runtimes (XHR and node http(s)), hence the fetch wrapper.
+      requestHandler: {
+        makeRequest(requestUrl, headers, method, data) {
+          const abortController = new AbortController();
+
+          const responsePromise = fetch(requestUrl, {
+            headers: headers as any,
+            method,
+            body: data,
+            signal: abortController.signal,
+          });
+          return {
+            abort: () => abortController.abort(),
+            responsePromise: responsePromise.then(async (response) => {
+              const headersObj: Record<string, string> = {};
+              response.headers.forEach((value, key) => {
+                headersObj[key] = value;
+              });
+              return {
+                statusCode: response.status,
+                body: (await response.text()) ?? '',
+                headers: headersObj,
+              };
+            }),
+          } satisfies AbortableRequest;
+        },
+      },
     });
 
     await optimizelyInstance.onReady({ timeout: 500 });
@@ -114,14 +156,25 @@ export function createOptimizelyAdapter({
 }
 
 function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
+  const sdkKey = assertEnv('OPTIMIZELY_SDK_KEY');
+  const edgeConfig = process.env.EDGE_CONFIG_CONNECTION_STRING;
+  const edgeConfigItemKey = process.env.OPTIMIZELY_DATAFILE_ITEM_KEY;
   if (!defaultOptimizelyAdapter) {
-    defaultOptimizelyAdapter = createOptimizelyAdapter({
-      sdkKey: assertEnv('OPTIMIZELY_SDK_KEY'),
-      edgeConfig: assertEnv('EDGE_CONFIG_CONNECTION_STRING'),
-      edgeConfigItemKey: assertEnv('OPTIMIZELY_DATAFILE_ITEM_KEY'),
-    });
+    if (edgeConfig && edgeConfigItemKey) {
+      defaultOptimizelyAdapter = createOptimizelyAdapter({
+        sdkKey,
+        edgeConfig: {
+          connectionString: edgeConfig,
+          itemKey: edgeConfigItemKey,
+        },
+      });
+    } else {
+      // Fallback to polling optimizely SDK
+      defaultOptimizelyAdapter = createOptimizelyAdapter({
+        sdkKey,
+      });
+    }
   }
-
   return defaultOptimizelyAdapter;
 }
 
