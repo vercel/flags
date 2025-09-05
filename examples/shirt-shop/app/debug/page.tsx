@@ -25,7 +25,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>with new releases of ld</p>
+      <p>with cache</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
