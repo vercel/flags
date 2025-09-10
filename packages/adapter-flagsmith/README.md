@@ -78,26 +78,6 @@ const value = await numberAdapter.decide({
 });
 ```
 
-## Identity Handling
-
-The adapter supports Flagsmith identity management. Pass an `IIdentity` object to the `entities` parameter:
-
-```typescript
-const identity: IIdentity = {
-  identifier: 'user-123',
-  traits: {
-    email: 'user@example.com',
-    plan: 'premium',
-  },
-};
-
-const value = await adapter.decide({
-  key: 'my-flag',
-  defaultValue: false,
-  entities: identity,
-});
-```
-
 ## Configuration
 
 The adapter automatically initializes Flagsmith with the following configuration:
@@ -115,6 +95,10 @@ The adapter automatically initializes Flagsmith with the following configuration
 ## Environment Variables
 
 - `FLAGSMITH_ENVIRONMENT_ID` (required): Your Flagsmith environment ID
+
+## Documentation
+
+Please check out the [Flagsmith provider documentation](https://flags-sdk.dev/providers/flagsmith) for more information.
 
 ## License
 
