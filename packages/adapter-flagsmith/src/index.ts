@@ -17,7 +17,7 @@ export type AdapterResponse = {
   numberValue: () => Adapter<number, EntitiesType>;
 };
 
-function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
+export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
   async function initialize() {
     await flagsmith.init({ fetch: globalThis.fetch, ...params });
   }
@@ -95,14 +95,13 @@ function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
 function assertEnv(name: string): string {
   const value = process.env[name];
-  console.log('value', process.env);
   if (!value) {
     throw new Error(`Flagsmith Adapter: Missing ${name} environment variable`);
   }
   return value;
 }
 
-export const getOrCreateDefaultFlagsmithAdapter = () => {
+const getOrCreateDefaultFlagsmithAdapter = () => {
   if (!defaultFlagsmithAdapter) {
     const environmentId = assertEnv('FLAGSMITH_ENVIRONMENT_ID');
     defaultFlagsmithAdapter = createFlagsmithAdapter({
@@ -113,5 +112,8 @@ export const getOrCreateDefaultFlagsmithAdapter = () => {
 };
 
 // Lazy default adapter
-export const flagsmithAdapter: AdapterResponse =
-  getOrCreateDefaultFlagsmithAdapter();
+export const flagsmithAdapter: AdapterResponse = {
+  booleanValue: () => getOrCreateDefaultFlagsmithAdapter().booleanValue(),
+  stringValue: () => getOrCreateDefaultFlagsmithAdapter().stringValue(),
+  numberValue: () => getOrCreateDefaultFlagsmithAdapter().numberValue(),
+};
