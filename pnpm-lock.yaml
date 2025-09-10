@@ -386,6 +386,38 @@ importers:
       flagsmith:
         specifier: ^9.0.5
         version: 9.0.5
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.17
+        version: 20.11.17
+      eslint-config-custom:
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      msw:
+        specifier: 2.6.4
+        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      tsup:
+        specifier: 8.0.1
+        version: 8.0.1(typescript@5.6.3)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+      vite:
+        specifier: 5.1.1
+        version: 5.1.1(@types/node@20.11.17)
+      vitest:
+        specifier: 1.4.0
+        version: 1.4.0(@types/node@20.11.17)
+
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
@@ -750,7 +782,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.3.0-canary-ead92181-20251010)
+        version: 19.0.0(react@19.2.0-canary-6b70072c-20250909)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -772,10 +804,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(@playwright/test@1.48.2)(react-dom@19.0.0(react@19.3.0-canary-ead92181-20251010))(react@19.3.0-canary-ead92181-20251010)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-6b70072c-20250909)
       react:
         specifier: canary
-        version: 19.3.0-canary-ead92181-20251010
+        version: 19.2.0-canary-6b70072c-20250909
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -14195,7 +14227,26 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(@playwright/test@1.48.2)(react-dom@19.0.0(react@19.3.0-canary-ead92181-20251010))(react@19.3.0-canary-ead92181-20251010):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-6b70072c-20250909):
+    resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
+    engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
+    hasBin: true
+    peerDependencies:
+      '@opentelemetry/api': ^1.1.0
+      '@playwright/test': ^1.41.2
+      babel-plugin-react-compiler: '*'
+      react: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
+      react-dom: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
+      sass: ^1.3.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@playwright/test':
+        optional: true
+      babel-plugin-react-compiler:
+        optional: true
+      sass:
+        optional: true
     dependencies:
       '@next/env': 15.1.4
       '@swc/counter': 0.1.3
@@ -14203,9 +14254,9 @@ snapshots:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001704
       postcss: 8.4.31
-      react: 19.3.0-canary-ead92181-20251010
-      react-dom: 19.0.0(react@19.3.0-canary-ead92181-20251010)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.3.0-canary-ead92181-20251010)
+      react: 19.2.0-canary-6b70072c-20250909
+      react-dom: 19.0.0(react@19.2.0-canary-6b70072c-20250909)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-6b70072c-20250909)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -14726,9 +14777,12 @@ snapshots:
       react: 19.0.0
       scheduler: 0.25.0
 
-  react-dom@19.0.0(react@19.3.0-canary-ead92181-20251010):
+  /react-dom@19.0.0(react@19.2.0-canary-6b70072c-20250909):
+    resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
+    peerDependencies:
+      react: ^19.0.0
     dependencies:
-      react: 19.3.0-canary-ead92181-20251010
+      react: 19.2.0-canary-6b70072c-20250909
       scheduler: 0.25.0
 
   react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -14784,7 +14838,9 @@ snapshots:
 
   react@19.0.0-rc.1: {}
 
-  react@19.3.0-canary-ead92181-20251010: {}
+  /react@19.2.0-canary-6b70072c-20250909:
+    resolution: {integrity: sha512-ofzX2PCo2W3P1NCTb0RHiFnx2DmUrjfyeawO/AK2rYRo7KbFdoupcFxgmcacLs5JIgTSpL2GFHJB42Dkn7cDDQ==}
+    engines: {node: '>=0.10.0'}
 
   read-cache@1.0.0:
     dependencies:
@@ -15169,7 +15225,10 @@ snapshots:
 
   source-map@0.6.1: {}
 
-  source-map@0.8.0-beta.0:
+  /source-map@0.8.0-beta.0:
+    resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
+    engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
     dependencies:
       whatwg-url: 7.1.0
 
@@ -15375,8 +15434,25 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.0.0-rc.1
-    optionalDependencies:
+    dev: false
+
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-6b70072c-20250909):
+    resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
+    engines: {node: '>= 12.0.0'}
+    peerDependencies:
+      '@babel/core': '*'
+      babel-plugin-macros: '*'
+      react: '>= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      babel-plugin-macros:
+        optional: true
+    dependencies:
       '@babel/core': 7.26.10
+      client-only: 0.0.1
+      react: 19.2.0-canary-6b70072c-20250909
+    dev: true
 
   styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.3.0-canary-ead92181-20251010):
     dependencies:
