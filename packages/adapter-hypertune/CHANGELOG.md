@@ -1,10 +1,5 @@
 # @flags-sdk/hypertune
 
-## 0.3.0
-
-- Nested flags are now supported.
-- A `key` is now passed to `createSource` to prevent conflicts with your `getHypertune` setup.
-
 ## 0.2.0
 
 ### Minor Changes
