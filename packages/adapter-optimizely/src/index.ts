@@ -8,7 +8,7 @@ import {
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 import { createInstance } from '@optimizely/optimizely-sdk/dist/index.universal';
-import { IOptimizelyUserContext } from '@optimizely/optimizely-sdk/dist/optimizely_user_context';
+import type { OptimizelyUserContext } from '@optimizely/optimizely-sdk';
 import type { Adapter } from 'flags';
 import {
   createEdgeProjectConfigManager,
@@ -20,7 +20,7 @@ let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
   | undefined;
 
-// Just re-typing string for now to make it clear what the context is
+// Re-typing string to clarify what the string is for
 type UserId = string;
 
 type AdapterResponse = {
@@ -131,7 +131,7 @@ export function createOptimizelyAdapter({
   async function predecide(
     userId?: string,
     attributes?: UserAttributes,
-  ): Promise<IOptimizelyUserContext> {
+  ): Promise<OptimizelyUserContext> {
     await initialize();
     if (!optimizelyInstance) {
       throw new Error('Optimizely instance not initialized');
