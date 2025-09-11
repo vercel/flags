@@ -75,10 +75,7 @@ export function createLaunchDarklyAdapter({
   let initPromise: Promise<unknown> | null = null;
 
   const before = performance.now();
-  const ldClient = init(clientSideId, patchedEdgeConfigClient, {
-    // @ts-ignore testing
-    cache: { checkInterval: 30, ttl: 60 },
-  });
+  const ldClient = init(clientSideId, patchedEdgeConfigClient);
   const after = performance.now();
   console.log('init', after - before);
 

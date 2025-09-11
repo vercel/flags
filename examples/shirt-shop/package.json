@@ -10,7 +10,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@flags-sdk/launchdarkly": "workspace:*",
+    "@flags-sdk/launchdarkly": "0.3.2",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
     "@launchdarkly/js-server-sdk-common-edge": "2.6.8",

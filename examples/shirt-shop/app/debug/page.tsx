@@ -25,7 +25,7 @@ export default async function Page() {
 
   return (
     <>
-      <p>with cache</p>
+      <p>after upgrade to @flags-sdk/launchdarkly v0.3.2</p>
       <ul>
         <li>{prepareAfter - prepareBefore}ms</li>
         <li>{after - before}ms</li>
