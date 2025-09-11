@@ -182,8 +182,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapter-launchdarkly
       '@launchdarkly/vercel-server-sdk':
-        specifier: 1.3.21
-        version: 1.3.21
+        specifier: 1.3.34
+        version: 1.3.34
       '@radix-ui/react-dialog':
         specifier: 1.1.2
         version: 1.1.2(@types/react-dom@19.0.4)(@types/react@19.0.10)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
@@ -473,8 +473,8 @@ importers:
   packages/adapter-launchdarkly:
     dependencies:
       '@launchdarkly/vercel-server-sdk':
-        specifier: ^1.3.23
-        version: 1.3.23
+        specifier: ^1.3.34
+        version: 1.3.34
       '@vercel/edge-config':
         specifier: ^1.4.0
         version: 1.4.0
@@ -714,7 +714,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.2.0-canary-6b70072c-20250909)
+        version: 19.0.0(react@19.2.0-canary-886b3d36-20250910)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -736,10 +736,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-6b70072c-20250909)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-886b3d36-20250910)
       react:
         specifier: canary
-        version: 19.2.0-canary-6b70072c-20250909
+        version: 19.2.0-canary-886b3d36-20250910
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -3124,56 +3124,28 @@ packages:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  /@launchdarkly/js-sdk-common@2.12.0:
-    resolution: {integrity: sha512-HIDxvgo1vksC9hsYy3517sgW0Ql+iW3fgwlq/CEigeBNmaa9/J1Pxo7LrKPzezEA0kaGedmt/DCzVVxVBmxSsQ==}
+  /@launchdarkly/js-sdk-common@2.19.0:
+    resolution: {integrity: sha512-p4MU3VxFSxj1T5yGm3OeJAS034nAiISGUF9Av3r9tClRCElcIdj159hADBYCE4VpiH6q+6KJ3cbvXF8v1200+g==}
     dev: false
 
-  /@launchdarkly/js-sdk-common@2.13.0:
-    resolution: {integrity: sha512-cRoOQWBEOOynY3YDHIF4am1ZxiGu6MFK4v8WyNR0zN+nVjdQiuuyfAbHB//1Q0nrc1aB0flOy6e8C51eHy+VeA==}
-    dev: false
-
-  /@launchdarkly/js-server-sdk-common-edge@2.5.2:
-    resolution: {integrity: sha512-4+YNIt4s9QV2iJ86QF19B/6hKqjtt8XvmjgDWcplbwKAhtVPII+PFAlPMmEbwpS++V9hV/DQsoCyO1VILGtIoQ==}
+  /@launchdarkly/js-server-sdk-common-edge@2.6.9:
+    resolution: {integrity: sha512-z8rUtlnz527WJRa6IBAJ6SZjJUdbAFz+Fqdc4zZpFgxyYctEcNrrCua96P9IQlM7K+yZp9zggb7oBChPjixZ6g==}
     dependencies:
-      '@launchdarkly/js-server-sdk-common': 2.10.0
+      '@launchdarkly/js-server-sdk-common': 2.16.2
       crypto-js: 4.2.0
     dev: false
 
-  /@launchdarkly/js-server-sdk-common-edge@2.5.4:
-    resolution: {integrity: sha512-L79FsZfAosYMHE/eg3p7KFLiWHJn3TCdEAL89frzMOLv0e43xTp4xQEDnTovWKQpAN7gH1iYDLwKUpoWgUAS2g==}
+  /@launchdarkly/js-server-sdk-common@2.16.2:
+    resolution: {integrity: sha512-xjJP1YHdSABgn4whBccaIFK5Mr0e3WVdu47NJoSzbkVEDrr2LaOaya+92vYkuByulObvuGAkhI+ceJhz3G0l2g==}
     dependencies:
-      '@launchdarkly/js-server-sdk-common': 2.11.1
-      crypto-js: 4.2.0
-    dev: false
-
-  /@launchdarkly/js-server-sdk-common@2.10.0:
-    resolution: {integrity: sha512-zbqpmEFQW/ZElZnRYX6N4gMZMpviE0F75/IyxcifLAFsjGNouxllpOOPbdtrLiJnJ0ixzt5vbtnem4tbhlYNOw==}
-    dependencies:
-      '@launchdarkly/js-sdk-common': 2.12.0
+      '@launchdarkly/js-sdk-common': 2.19.0
       semver: 7.5.4
     dev: false
 
-  /@launchdarkly/js-server-sdk-common@2.11.1:
-    resolution: {integrity: sha512-mz5meN+tII/By8TjPRhuI5SSztFSIYXQpK1IlUX1uUlM8xDlS/HrzM4KcP7BRLpO0TQcZKl4roEkkoMBoukPsA==}
+  /@launchdarkly/vercel-server-sdk@1.3.34:
+    resolution: {integrity: sha512-uZjn6gH2wfct0HwiH+BH9EPJmLIsS5XmzMitFSWJjgosaVHG07qUWhZsQBbWpAIOz2Xc761lob5B4kpH9wJQdQ==}
     dependencies:
-      '@launchdarkly/js-sdk-common': 2.13.0
-      semver: 7.5.4
-    dev: false
-
-  /@launchdarkly/vercel-server-sdk@1.3.21:
-    resolution: {integrity: sha512-ELt4fYXXpHzixLvZOWG+T82RVGmI1iKwOlpV8YfxW8FISmlTfF7xmSlH6mTUSRMA3Q5xIzYnXuk9XaTc/F8tag==}
-    dependencies:
-      '@launchdarkly/js-server-sdk-common-edge': 2.5.2
-      '@vercel/edge-config': 1.4.0
-      crypto-js: 4.2.0
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-    dev: false
-
-  /@launchdarkly/vercel-server-sdk@1.3.23:
-    resolution: {integrity: sha512-1QcUA+QD69bbPwDWCg5PpEvRmbi8FHv1D22OECHtChKnmSlw28orHnmfw7MqcgVVZu5z2x91q/Gs37VMNkh3Ig==}
-    dependencies:
-      '@launchdarkly/js-server-sdk-common-edge': 2.5.4
+      '@launchdarkly/js-server-sdk-common-edge': 2.6.9
       '@vercel/edge-config': 1.4.0
       crypto-js: 4.2.0
     transitivePeerDependencies:
@@ -11265,7 +11237,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-6b70072c-20250909):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-886b3d36-20250910):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -11293,9 +11265,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001704
       postcss: 8.4.31
-      react: 19.2.0-canary-6b70072c-20250909
-      react-dom: 19.0.0(react@19.2.0-canary-6b70072c-20250909)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-6b70072c-20250909)
+      react: 19.2.0-canary-886b3d36-20250910
+      react-dom: 19.0.0(react@19.2.0-canary-886b3d36-20250910)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-886b3d36-20250910)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -12150,12 +12122,12 @@ packages:
       scheduler: 0.25.0
     dev: false
 
-  /react-dom@19.0.0(react@19.2.0-canary-6b70072c-20250909):
+  /react-dom@19.0.0(react@19.2.0-canary-886b3d36-20250910):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.2.0-canary-6b70072c-20250909
+      react: 19.2.0-canary-886b3d36-20250910
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -12260,8 +12232,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.2.0-canary-6b70072c-20250909:
-    resolution: {integrity: sha512-ofzX2PCo2W3P1NCTb0RHiFnx2DmUrjfyeawO/AK2rYRo7KbFdoupcFxgmcacLs5JIgTSpL2GFHJB42Dkn7cDDQ==}
+  /react@19.2.0-canary-886b3d36-20250910:
+    resolution: {integrity: sha512-MN3YAzcD5R+FbWtbEwqfC+sn9OOnW/IEXorAcrVOs/uGE3y4kgY297gLtr/WCxBEXwBgWCUFOxgiD3Cx+fXGfQ==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -13151,7 +13123,7 @@ packages:
       react: 19.0.0-rc.1
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-6b70072c-20250909):
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-886b3d36-20250910):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -13166,7 +13138,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       client-only: 0.0.1
-      react: 19.2.0-canary-6b70072c-20250909
+      react: 19.2.0-canary-886b3d36-20250910
     dev: true
 
   /sucrase@3.35.0:
