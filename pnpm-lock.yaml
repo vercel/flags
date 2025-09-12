@@ -178,12 +178,6 @@ importers:
 
   examples/snippets:
     dependencies:
-      '@flags-sdk/launchdarkly':
-        specifier: workspace:*
-        version: link:../../packages/adapter-launchdarkly
-      '@launchdarkly/vercel-server-sdk':
-        specifier: 1.3.21
-        version: 1.3.21
       '@radix-ui/react-dialog':
         specifier: 1.1.2
         version: 1.1.2(@types/react-dom@19.0.4)(@types/react@19.0.10)(react-dom@19.0.0-rc.1)(react@19.0.0-rc.1)
@@ -387,43 +381,6 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)
 
-  packages/adapter-flagsmith:
-    dependencies:
-      flagsmith:
-        specifier: ^9.0.5
-        version: 9.0.5
-    devDependencies:
-      '@types/node':
-        specifier: 20.11.17
-        version: 20.11.17
-      eslint-config-custom:
-        specifier: workspace:*
-        version: link:../../tooling/eslint-config-custom
-      flags:
-        specifier: workspace:*
-        version: link:../flags
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
-      rimraf:
-        specifier: 6.0.1
-        version: 6.0.1
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      tsup:
-        specifier: 8.0.1
-        version: 8.0.1(typescript@5.6.3)
-      typescript:
-        specifier: 5.6.3
-        version: 5.6.3
-      vite:
-        specifier: 5.1.1
-        version: 5.1.1(@types/node@20.11.17)
-      vitest:
-        specifier: 1.4.0
-        version: 1.4.0(@types/node@20.11.17)
-
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
@@ -439,46 +396,6 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      eslint-config-custom:
-        specifier: workspace:*
-        version: link:../../tooling/eslint-config-custom
-      flags:
-        specifier: workspace:*
-        version: link:../flags
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
-      rimraf:
-        specifier: 6.0.1
-        version: 6.0.1
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      tsup:
-        specifier: 8.0.1
-        version: 8.0.1(typescript@5.6.3)
-      typescript:
-        specifier: 5.6.3
-        version: 5.6.3
-      vite:
-        specifier: 5.1.1
-        version: 5.1.1(@types/node@20.11.17)
-      vitest:
-        specifier: 1.4.0
-        version: 1.4.0(@types/node@20.11.17)
-
-  packages/adapter-happykit:
-    dependencies:
-      '@happykit/flags':
-        specifier: 3.3.0
-        version: 3.3.0(next@15.2.0)(react@19.0.0)
-    devDependencies:
-      '@types/node':
-        specifier: 20.11.17
-        version: 20.11.17
-      '@vercel/edge-config':
-        specifier: 1.2.0
-        version: 1.2.0
       eslint-config-custom:
         specifier: workspace:*
         version: link:../../tooling/eslint-config-custom
@@ -550,8 +467,8 @@ importers:
   packages/adapter-launchdarkly:
     dependencies:
       '@launchdarkly/vercel-server-sdk':
-        specifier: ^1.3.23
-        version: 1.3.23
+        specifier: ^1.3.34
+        version: 1.3.34
       '@vercel/edge-config':
         specifier: ^1.4.0
         version: 1.4.0
@@ -791,7 +708,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.2.0-canary-b9a04536-20250904)
+        version: 19.0.0(react@19.2.0-canary-f3a80361-20250911)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -813,10 +730,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-b9a04536-20250904)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-f3a80361-20250911)
       react:
         specifier: canary
-        version: 19.2.0-canary-b9a04536-20250904
+        version: 19.2.0-canary-f3a80361-20250911
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -2463,6 +2380,7 @@ packages:
     dependencies:
       eslint: 8.56.0
       eslint-visitor-keys: 3.4.3
+    dev: true
 
   /@eslint-community/eslint-utils@4.5.0(eslint@9.22.0):
     resolution: {integrity: sha512-RoV8Xs9eNwiDvhv7M+xcL4PWyRyIXRY/FLp3buU4h1EYfdF7unWUy3dOjPqb3C7rMUewIcqwW850PgS8h1o1yg==}
@@ -2541,6 +2459,7 @@ packages:
   /@eslint/js@8.56.0:
     resolution: {integrity: sha512-gMsVel9D7f2HLkBma9VbtzZRehRogVRfbr++f06nL2vnCGCNlzOD+/MUov/F4p8myyAHspEhVobgjpX64q5m6A==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    dev: true
 
   /@eslint/js@9.22.0:
     resolution: {integrity: sha512-vLFajx9o8d1/oL2ZkpMYbkLv8nDB6yaIwFNt7nI4+I80U/z03SxmfOMsLbvWr3p7C+Wnoh//aOu2pQW8cS0HCQ==}
@@ -2617,17 +2536,6 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       dom-mutator: 0.6.0
-    dev: false
-
-  /@happykit/flags@3.3.0(next@15.2.0)(react@19.0.0):
-    resolution: {integrity: sha512-QyywkKYctdo0bnNf+bBd+3B/3Rsnjdaz+jtVA+jSqLxm0/lw51Z1+q2sEfc62MyNwQnY6w7eqajdwhuvH3VWAw==}
-    peerDependencies:
-      next: '>=12.0.2'
-      react: '>=16.13.1'
-    dependencies:
-      nanoid: 3.2.0
-      next: 15.2.0(@babel/core@7.26.10)(react-dom@19.0.0)(react@19.0.0)
-      react: 19.0.0
     dev: false
 
   /@headlessui/react@2.2.0(react-dom@19.0.0)(react@19.0.0):
@@ -3210,56 +3118,28 @@ packages:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  /@launchdarkly/js-sdk-common@2.12.0:
-    resolution: {integrity: sha512-HIDxvgo1vksC9hsYy3517sgW0Ql+iW3fgwlq/CEigeBNmaa9/J1Pxo7LrKPzezEA0kaGedmt/DCzVVxVBmxSsQ==}
+  /@launchdarkly/js-sdk-common@2.19.0:
+    resolution: {integrity: sha512-p4MU3VxFSxj1T5yGm3OeJAS034nAiISGUF9Av3r9tClRCElcIdj159hADBYCE4VpiH6q+6KJ3cbvXF8v1200+g==}
     dev: false
 
-  /@launchdarkly/js-sdk-common@2.13.0:
-    resolution: {integrity: sha512-cRoOQWBEOOynY3YDHIF4am1ZxiGu6MFK4v8WyNR0zN+nVjdQiuuyfAbHB//1Q0nrc1aB0flOy6e8C51eHy+VeA==}
-    dev: false
-
-  /@launchdarkly/js-server-sdk-common-edge@2.5.2:
-    resolution: {integrity: sha512-4+YNIt4s9QV2iJ86QF19B/6hKqjtt8XvmjgDWcplbwKAhtVPII+PFAlPMmEbwpS++V9hV/DQsoCyO1VILGtIoQ==}
+  /@launchdarkly/js-server-sdk-common-edge@2.6.9:
+    resolution: {integrity: sha512-z8rUtlnz527WJRa6IBAJ6SZjJUdbAFz+Fqdc4zZpFgxyYctEcNrrCua96P9IQlM7K+yZp9zggb7oBChPjixZ6g==}
     dependencies:
-      '@launchdarkly/js-server-sdk-common': 2.10.0
+      '@launchdarkly/js-server-sdk-common': 2.16.2
       crypto-js: 4.2.0
     dev: false
 
-  /@launchdarkly/js-server-sdk-common-edge@2.5.4:
-    resolution: {integrity: sha512-L79FsZfAosYMHE/eg3p7KFLiWHJn3TCdEAL89frzMOLv0e43xTp4xQEDnTovWKQpAN7gH1iYDLwKUpoWgUAS2g==}
+  /@launchdarkly/js-server-sdk-common@2.16.2:
+    resolution: {integrity: sha512-xjJP1YHdSABgn4whBccaIFK5Mr0e3WVdu47NJoSzbkVEDrr2LaOaya+92vYkuByulObvuGAkhI+ceJhz3G0l2g==}
     dependencies:
-      '@launchdarkly/js-server-sdk-common': 2.11.1
-      crypto-js: 4.2.0
-    dev: false
-
-  /@launchdarkly/js-server-sdk-common@2.10.0:
-    resolution: {integrity: sha512-zbqpmEFQW/ZElZnRYX6N4gMZMpviE0F75/IyxcifLAFsjGNouxllpOOPbdtrLiJnJ0ixzt5vbtnem4tbhlYNOw==}
-    dependencies:
-      '@launchdarkly/js-sdk-common': 2.12.0
+      '@launchdarkly/js-sdk-common': 2.19.0
       semver: 7.5.4
     dev: false
 
-  /@launchdarkly/js-server-sdk-common@2.11.1:
-    resolution: {integrity: sha512-mz5meN+tII/By8TjPRhuI5SSztFSIYXQpK1IlUX1uUlM8xDlS/HrzM4KcP7BRLpO0TQcZKl4roEkkoMBoukPsA==}
+  /@launchdarkly/vercel-server-sdk@1.3.34:
+    resolution: {integrity: sha512-uZjn6gH2wfct0HwiH+BH9EPJmLIsS5XmzMitFSWJjgosaVHG07qUWhZsQBbWpAIOz2Xc761lob5B4kpH9wJQdQ==}
     dependencies:
-      '@launchdarkly/js-sdk-common': 2.13.0
-      semver: 7.5.4
-    dev: false
-
-  /@launchdarkly/vercel-server-sdk@1.3.21:
-    resolution: {integrity: sha512-ELt4fYXXpHzixLvZOWG+T82RVGmI1iKwOlpV8YfxW8FISmlTfF7xmSlH6mTUSRMA3Q5xIzYnXuk9XaTc/F8tag==}
-    dependencies:
-      '@launchdarkly/js-server-sdk-common-edge': 2.5.2
-      '@vercel/edge-config': 1.4.0
-      crypto-js: 4.2.0
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-    dev: false
-
-  /@launchdarkly/vercel-server-sdk@1.3.23:
-    resolution: {integrity: sha512-1QcUA+QD69bbPwDWCg5PpEvRmbi8FHv1D22OECHtChKnmSlw28orHnmfw7MqcgVVZu5z2x91q/Gs37VMNkh3Ig==}
-    dependencies:
-      '@launchdarkly/js-server-sdk-common-edge': 2.5.4
+      '@launchdarkly/js-server-sdk-common-edge': 2.6.9
       '@vercel/edge-config': 1.4.0
       crypto-js: 4.2.0
     transitivePeerDependencies:
@@ -5487,6 +5367,7 @@ packages:
       typescript: 5.8.2
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /@typescript-eslint/parser@8.26.1(eslint@8.56.0)(typescript@5.8.2):
     resolution: {integrity: sha512-w6HZUV4NWxqd8BdeFf81t07d7/YV9s7TCWrQQbG5uhuvGUAW+fq1usZ1Hmz9UPNLniFnD8GLSsDpjP0hm1S4lQ==}
@@ -5777,6 +5658,7 @@ packages:
       typescript: 5.8.2
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /@typescript-eslint/typescript-estree@8.26.1(typescript@5.8.2):
     resolution: {integrity: sha512-yUwPpUHDgdrv1QJ7YQal3cMVBGWfnuCdKbXw1yyjArax3353rEJP1ZA+4F8nOlQ3RfS2hUN/wze3nlY+ZOhvoA==}
@@ -5970,6 +5852,7 @@ packages:
 
   /@ungap/structured-clone@1.3.0:
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    dev: true
 
   /@upstash/redis@1.34.4:
     resolution: {integrity: sha512-AZx2iD5s1Pu/KCrRA7KVCffu3NSoaYnNY7N9YI7aLAYhcJfsriQKTe+8OxQWJqGqFbrvm17Lyr9HFnDLvqNpfA==}
@@ -6009,6 +5892,7 @@ packages:
 
   /@vercel/edge-config-fs@0.1.0:
     resolution: {integrity: sha512-NRIBwfcS0bUoUbRWlNGetqjvLSwgYH/BqKqDN7vK1g32p7dN96k0712COgaz6VFizAm9b0g6IG6hR6+hc0KCPg==}
+    dev: false
 
   /@vercel/edge-config@1.2.0:
     resolution: {integrity: sha512-ouX+hJK4KzXE31Wi2Xs7IEXb+6gImcOXgeOT9P48YKsZb7oNG2uyhvKDDkAyOJ739AnCJ5tKxavXjIoit6dWtw==}
@@ -6020,6 +5904,7 @@ packages:
         optional: true
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
+    dev: false
 
   /@vercel/edge-config@1.4.0:
     resolution: {integrity: sha512-69Wg5gw9DzwnyUmnjToSeLRm1nm8mCPgN0kflX8EHRHyqvzH80wPem5A8rI2LXPb2Y9tJNoqN3vXPcQhS2Wh5g==}
@@ -7997,7 +7882,7 @@ packages:
     peerDependencies:
       eslint-plugin-import: '>=1.4.0'
     dependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.48.0)
 
   /eslint-import-resolver-node@0.3.9:
     resolution: {integrity: sha512-WFj2isz22JahUv+B788TlO3N6zL3nNJGU8CcZbPZvVEkBPaJdCV4vy5wyghty5ROFbCRnm132v8BScu5/1BQ8g==}
@@ -8050,13 +7935,14 @@ packages:
       debug: 4.4.0
       enhanced-resolve: 5.18.1
       eslint: 8.56.0
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@6.21.0)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0)
       get-tsconfig: 4.10.0
       is-bun-module: 1.3.0
       stable-hash: 0.0.4
       tinyglobby: 0.2.12
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-import-resolver-typescript@3.8.6(eslint-plugin-import@2.31.0)(eslint@9.22.0):
     resolution: {integrity: sha512-d9UjvYpj/REmUoZvOtDEmayPlwyP4zOwwMBgtC6RtrpZta8u1AIVmxgZBYJIcCKKXwAcLs+DX2yn2LeMaTqKcQ==}
@@ -8141,6 +8027,7 @@ packages:
       eslint-import-resolver-typescript: 3.8.6(eslint-plugin-import@2.31.0)(eslint@8.56.0)
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint-module-utils@2.12.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0):
     resolution: {integrity: sha512-wALZ0HFoytlyh/1+4wuZ9FJCD/leWHQzzrxJ8+rebyReSLk7LApMyd3WJaLVoN+D5+WIdJyDK1c6JnE65V4Zyg==}
@@ -8294,6 +8181,7 @@ packages:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
       - supports-color
+    dev: true
 
   /eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.26.1)(eslint-import-resolver-typescript@3.8.6)(eslint@8.56.0):
     resolution: {integrity: sha512-ixmkI62Rbc2/w8Vfxyh1jQRTdRTF52VxwRVHl/ykPAmqG+Nb7/kNn+byLP0LxPgI7zWA16Jt82SybJInmMia3A==}
@@ -8873,6 +8761,7 @@ packages:
       text-table: 0.2.0
     transitivePeerDependencies:
       - supports-color
+    dev: true
 
   /eslint@9.22.0:
     resolution: {integrity: sha512-9V/QURhsRN40xuHXWjV64yvrzMjcz7ZyNoF2jJFmy9j/SLk0u1OLSZgXi28MrXjymnjEGSR80WCdab3RGMDveQ==}
@@ -9152,10 +9041,6 @@ packages:
       micromatch: 4.0.8
       pkg-dir: 4.2.0
     dev: true
-
-  /flagsmith@9.0.5:
-    resolution: {integrity: sha512-bmAqGX+LUvToIl136eWKFmbVcVIpZ4H9mk2gDhz8YEKvF5HoM6Sj2WgtRei7pPJy4bXTJdfT7BLebu2v9USc4w==}
-    dev: false
 
   /flat-cache@3.2.0:
     resolution: {integrity: sha512-CYcENa+FtcUKLmhhqyctpclsq7QF38pKjZHsGNiSQF5r4FtoKDWabFDl3hzaEQMvT1LHEysw5twgLvpYYb4vbw==}
@@ -11229,12 +11114,6 @@ packages:
       object-assign: 4.1.1
       thenify-all: 1.6.0
 
-  /nanoid@3.2.0:
-    resolution: {integrity: sha512-fmsZYa9lpn69Ad5eDn7FMcnnSR+8R34W9qJEijxYhTbfOWzr22n1QxCMzXLK+ODyW2973V3Fux959iQoUxzUIA==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-    dev: false
-
   /nanoid@3.3.9:
     resolution: {integrity: sha512-SppoicMGpZvbF1l3z4x7No3OlIjP7QJvC9XR7AhZr1kL133KHnKPztkKDc+Ir4aJ/1VhTySrtKhrsycmrMQfvg==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -11352,7 +11231,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-b9a04536-20250904):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-f3a80361-20250911):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -11380,9 +11259,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001704
       postcss: 8.4.31
-      react: 19.2.0-canary-b9a04536-20250904
-      react-dom: 19.0.0(react@19.2.0-canary-b9a04536-20250904)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-b9a04536-20250904)
+      react: 19.2.0-canary-f3a80361-20250911
+      react-dom: 19.0.0(react@19.2.0-canary-f3a80361-20250911)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-f3a80361-20250911)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -12237,12 +12116,12 @@ packages:
       scheduler: 0.25.0
     dev: false
 
-  /react-dom@19.0.0(react@19.2.0-canary-b9a04536-20250904):
+  /react-dom@19.0.0(react@19.2.0-canary-f3a80361-20250911):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.2.0-canary-b9a04536-20250904
+      react: 19.2.0-canary-f3a80361-20250911
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -12347,8 +12226,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.2.0-canary-b9a04536-20250904:
-    resolution: {integrity: sha512-fE8lDzq2d+rVB/p8Of4z7x53CWf+3S5c6TnhenTz2pqCoyioF/UH0L/fV6+U9ZwCdG0VAqzruCMH7M5/sKwNYg==}
+  /react@19.2.0-canary-f3a80361-20250911:
+    resolution: {integrity: sha512-Ln0/97ItMm+MzQg6lp7XV803424a/yeM6it7HlFmbPE8jH0LeqZRvnAPhvXp8czrJIw2DRY3xNSuyG2ZM327Fg==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -13238,7 +13117,7 @@ packages:
       react: 19.0.0-rc.1
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-b9a04536-20250904):
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-f3a80361-20250911):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -13253,7 +13132,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       client-only: 0.0.1
-      react: 19.2.0-canary-b9a04536-20250904
+      react: 19.2.0-canary-f3a80361-20250911
     dev: true
 
   /sucrase@3.35.0:
@@ -13539,6 +13418,7 @@ packages:
       typescript: '>=4.2.0'
     dependencies:
       typescript: 5.8.2
+    dev: true
 
   /ts-api-utils@2.0.1(typescript@5.8.2):
     resolution: {integrity: sha512-dnlgjFSVetynI8nzgJ+qF62efpglpWRk8isUEWZGWlJYySCTD6aKvbUDu+zbPeDakk3bg5H4XpitHukgfL1m9w==}
@@ -13884,6 +13764,7 @@ packages:
     resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
     engines: {node: '>=14.17'}
     hasBin: true
+    dev: true
 
   /ua-parser-js@1.0.40:
     resolution: {integrity: sha512-z6PJ8Lml+v3ichVojCiB8toQJBuwR42ySM4ezjXIqXK3M0HczmKQ3LF4rhU55PfD99KEEXQG6yb7iOMyvYuHew==}

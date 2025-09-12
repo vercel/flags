@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/launchdarkly",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "LaunchDarkly provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
@@ -51,7 +51,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@launchdarkly/vercel-server-sdk": "^1.3.23",
+    "@launchdarkly/vercel-server-sdk": "^1.3.34",
     "@vercel/edge-config": "^1.4.0"
   },
   "devDependencies": {
