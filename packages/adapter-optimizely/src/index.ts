@@ -6,15 +6,14 @@ import {
   OpaqueConfigManager,
   OptimizelyDecision,
   UserAttributes,
+  createInstance,
 } from '@optimizely/optimizely-sdk';
-import { createInstance } from '@optimizely/optimizely-sdk/dist/index.universal';
 import type { OptimizelyUserContext } from '@optimizely/optimizely-sdk';
 import type { Adapter } from 'flags';
 import {
   createEdgeProjectConfigManager,
   dispatchEvent,
 } from './edge-runtime-hooks';
-import { AbortableRequest } from '@optimizely/optimizely-sdk/dist/utils/http_request_handler/http';
 
 let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
@@ -82,32 +81,33 @@ export function createOptimizelyAdapter({
       }),
       // Request handler can be used for personalization, both `node` and `browser` versions of the SDK have invalid
       // request mechanisms for edge runtimes (XHR and node http(s)), hence the fetch wrapper.
-      requestHandler: {
-        makeRequest(requestUrl, headers, method, data) {
-          const abortController = new AbortController();
+      // TODO: Disabled for now as we can't update the request handler for the default node export
+      // requestHandler: {
+      //   makeRequest(requestUrl, headers, method, data) {
+      //     const abortController = new AbortController();
 
-          const responsePromise = fetch(requestUrl, {
-            headers: headers as any,
-            method,
-            body: data,
-            signal: abortController.signal,
-          });
-          return {
-            abort: () => abortController.abort(),
-            responsePromise: responsePromise.then(async (response) => {
-              const headersObj: Record<string, string> = {};
-              response.headers.forEach((value, key) => {
-                headersObj[key] = value;
-              });
-              return {
-                statusCode: response.status,
-                body: (await response.text()) ?? '',
-                headers: headersObj,
-              };
-            }),
-          } satisfies AbortableRequest;
-        },
-      },
+      //     const responsePromise = fetch(requestUrl, {
+      //       headers: headers as any,
+      //       method,
+      //       body: data,
+      //       signal: abortController.signal,
+      //     });
+      //     return {
+      //       abort: () => abortController.abort(),
+      //       responsePromise: responsePromise.then(async (response) => {
+      //         const headersObj: Record<string, string> = {};
+      //         response.headers.forEach((value, key) => {
+      //           headersObj[key] = value;
+      //         });
+      //         return {
+      //           statusCode: response.status,
+      //           body: (await response.text()) ?? '',
+      //           headers: headersObj,
+      //         };
+      //       }),
+      //     } satisfies AbortableRequest;
+      //   },
+      // },
     });
 
     await optimizelyInstance.onReady({ timeout: 500 });
