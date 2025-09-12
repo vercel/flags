@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@vercel/edge-config": "1.4.0",
-    "hypertune": "2.7.2"
+    "hypertune": "2.8.3"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
