@@ -10,11 +10,9 @@ import {
 
 import type { OptimizelyUserContext } from '@optimizely/optimizely-sdk';
 import type { Adapter } from 'flags';
-import {
-  createEdgeProjectConfigManager,
-  dispatchEvent,
-} from './edge-runtime-hooks';
+import { dispatchEvent } from './edge-runtime-hooks';
 import { createInstance } from '@optimizely/optimizely-sdk/universal';
+import { createClient } from '@vercel/edge-config';
 
 let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
@@ -60,9 +58,16 @@ export function createOptimizelyAdapter({
   const initializeOptimizely = async () => {
     let projectConfigManager: OpaqueConfigManager | undefined;
     if (edgeConfig && edgeConfigItemKey) {
-      projectConfigManager = await createEdgeProjectConfigManager({
-        edgeConfigItemKey: edgeConfigItemKey,
-        edgeConfigConnectionString: edgeConfig.connectionString,
+      const edgeConfigClient = createClient(edgeConfig.connectionString);
+      const datafile = await edgeConfigClient.get<string>(edgeConfigItemKey);
+
+      // There's no export in the Optimizely SDK for a custom project config manager so need to disable any auto updates for the polling manager
+      projectConfigManager = createPollingProjectConfigManager({
+        datafile,
+        sdkKey,
+        // Never try to update the datafile
+        updateInterval: Infinity,
+        autoUpdate: false,
       });
     }
 
@@ -82,9 +87,8 @@ export function createOptimizelyAdapter({
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
         eventDispatcher: { dispatchEvent },
       }),
-      // Request handler can be used for personalization, both `node` and `browser` versions of the SDK have invalid
-      // request mechanisms for edge runtimes (XHR and node http(s)), hence the fetch wrapper.
-      // TODO: Disabled for now as we can't update the request handler for the default node export
+      // The node instance has a hardcoded XHR request handler that will break in edge runtime
+      // so we need to use a custom request handler that uses fetch
       requestHandler: {
         makeRequest(requestUrl, headers, method, data) {
           const abortController = new AbortController();
@@ -153,7 +157,14 @@ export function createOptimizelyAdapter({
   ): Adapter<T, UserId> {
     return {
       decide: async ({ key, entities }) => {
-        const context = await predecide(entities, attributes);
+        await initialize();
+        if (!optimizelyInstance) {
+          throw new Error('Optimizely instance not initialized');
+        }
+        const context = optimizelyInstance.createUserContext(
+          entities,
+          attributes,
+        );
         return getValue(context.decide(key));
       },
     };
@@ -169,6 +180,7 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
   const sdkKey = assertEnv('OPTIMIZELY_SDK_KEY');
   const edgeConfig = process.env.EDGE_CONFIG_CONNECTION_STRING;
   const edgeConfigItemKey = process.env.OPTIMIZELY_DATAFILE_ITEM_KEY;
+
   if (!defaultOptimizelyAdapter) {
     if (edgeConfig && edgeConfigItemKey) {
       defaultOptimizelyAdapter = createOptimizelyAdapter({
