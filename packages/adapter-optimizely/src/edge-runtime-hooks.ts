@@ -1,9 +1,8 @@
-import { LogEvent } from '@optimizely/optimizely-sdk';
 import {
-  OpaqueConfigManager,
-  wrapConfigManager,
-} from '@optimizely/optimizely-sdk/dist/project_config/config_manager_factory';
-import { ProjectConfigManagerImpl } from '@optimizely/optimizely-sdk/dist/project_config/project_config_manager';
+  createPollingProjectConfigManager,
+  LogEvent,
+} from '@optimizely/optimizely-sdk';
+import type { OpaqueConfigManager } from '@optimizely/optimizely-sdk/dist/project_config/config_manager_factory';
 import { createClient } from '@vercel/edge-config';
 
 /**
@@ -55,13 +54,16 @@ export async function createEdgeProjectConfigManager(options: {
   edgeConfigItemKey: string;
 }): Promise<OpaqueConfigManager> {
   const edgeConfigClient = createClient(options.edgeConfigConnectionString);
-  const datafile = await edgeConfigClient.get<string | Record<string, unknown>>(
+  const datafile = await edgeConfigClient.get<string>(
     options.edgeConfigItemKey,
   );
 
-  return wrapConfigManager(
-    new ProjectConfigManagerImpl({
-      datafile,
-    }),
-  );
+  return createPollingProjectConfigManager({
+    datafile,
+    // sdkKey is not used for Edge Config
+    sdkKey: '',
+    // Never try to update the datafile
+    updateInterval: Infinity,
+    autoUpdate: false,
+  });
 }
