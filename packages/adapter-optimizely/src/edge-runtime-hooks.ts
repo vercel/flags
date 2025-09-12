@@ -2,7 +2,6 @@ import {
   createPollingProjectConfigManager,
   LogEvent,
 } from '@optimizely/optimizely-sdk';
-import type { OpaqueConfigManager } from '@optimizely/optimizely-sdk/dist/project_config/config_manager_factory';
 import { createClient } from '@vercel/edge-config';
 
 /**
@@ -47,17 +46,17 @@ export async function dispatchEvent(event: LogEvent) {
 
 /**
  * Edge runtime specific project config manager that loads the datafile from Edge Config.
- * Excludes a datafile manager as there's no need to poll for updates.
  */
 export async function createEdgeProjectConfigManager(options: {
   edgeConfigConnectionString: string;
   edgeConfigItemKey: string;
-}): Promise<OpaqueConfigManager> {
+}) {
   const edgeConfigClient = createClient(options.edgeConfigConnectionString);
   const datafile = await edgeConfigClient.get<string>(
     options.edgeConfigItemKey,
   );
 
+  // There's no export in the Optimizely SDK for a custom project config manager so need to disable any auto updates for the polling manager
   return createPollingProjectConfigManager({
     datafile,
     // sdkKey is not used for Edge Config
