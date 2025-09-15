@@ -3,6 +3,7 @@ import {
   Client,
   createBatchEventProcessor,
   createPollingProjectConfigManager,
+  createStaticProjectConfigManager,
   OpaqueConfigManager,
   OptimizelyDecision,
   UserAttributes,
@@ -19,10 +20,10 @@ let defaultOptimizelyAdapter:
   | undefined;
 
 // Re-typing string to clarify what the string is for
-type UserId = string;
+export type UserId = string;
 
 type AdapterResponse = {
-  decide: <T extends OptimizelyDecision>(
+  decide: <T>(
     getValue: (decision: OptimizelyDecision) => T,
     {
       attributes,
@@ -46,7 +47,7 @@ export function createOptimizelyAdapter({
   edgeConfig,
   edgeConfigItemKey,
 }: {
-  sdkKey: string;
+  sdkKey?: string;
   edgeConfig?: {
     connectionString: string;
     itemKey: string;
@@ -61,21 +62,24 @@ export function createOptimizelyAdapter({
       const edgeConfigClient = createClient(edgeConfig.connectionString);
       const datafile = await edgeConfigClient.get<string>(edgeConfigItemKey);
 
-      // There's no export in the Optimizely SDK for a custom project config manager so need to disable any auto updates for the polling manager
-      projectConfigManager = createPollingProjectConfigManager({
-        datafile,
-        sdkKey,
-        // Never try to update the datafile
-        updateInterval: Infinity,
-        autoUpdate: false,
-      });
+      if (datafile) {
+        projectConfigManager = createStaticProjectConfigManager({
+          datafile,
+        });
+      }
     }
 
-    if (!projectConfigManager) {
+    if (!projectConfigManager && sdkKey) {
       projectConfigManager = createPollingProjectConfigManager({
         sdkKey: sdkKey,
         updateInterval: 10000,
       });
+    }
+
+    if (!projectConfigManager) {
+      throw new Error(
+        'Optimizely Adapter: Could not create project config manager, either edgeConfig or sdkKey must be provided',
+      );
     }
 
     optimizelyInstance = createInstance({
@@ -177,7 +181,7 @@ export function createOptimizelyAdapter({
 }
 
 function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
-  const sdkKey = assertEnv('OPTIMIZELY_SDK_KEY');
+  const sdkKey = process.env.OPTIMIZELY_SDK_KEY;
   const edgeConfig = process.env.EDGE_CONFIG_CONNECTION_STRING;
   const edgeConfigItemKey = process.env.OPTIMIZELY_DATAFILE_ITEM_KEY;
 
