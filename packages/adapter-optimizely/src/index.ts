@@ -1,7 +1,6 @@
 export { getProviderData } from './provider';
 import {
   Client,
-  createStaticProjectConfigManager,
   OpaqueConfigManager,
   OptimizelyDecision,
   UserAttributes,
@@ -13,6 +12,7 @@ import {
   createForwardingEventProcessor,
   createInstance,
   createPollingProjectConfigManager,
+  createStaticProjectConfigManager,
   RequestHandler,
 } from '@optimizely/optimizely-sdk/universal';
 import { createClient } from '@vercel/edge-config';
@@ -70,28 +70,30 @@ const requestHandler: RequestHandler = {
 export function createOptimizelyAdapter({
   sdkKey,
   edgeConfig,
-  edgeConfigItemKey,
 }: {
   sdkKey?: string;
   edgeConfig?: {
     connectionString: string;
     itemKey: string;
   };
-  edgeConfigItemKey?: string;
 }): AdapterResponse {
   let optimizelyInstance: Client | undefined;
 
   const initializeOptimizely = async () => {
     let projectConfigManager: OpaqueConfigManager | undefined;
-    if (edgeConfig && edgeConfigItemKey) {
+    if (edgeConfig) {
       const edgeConfigClient = createClient(edgeConfig.connectionString);
-      const datafile = await edgeConfigClient.get<string>(edgeConfigItemKey);
+      const datafile = await edgeConfigClient.get<string>(edgeConfig.itemKey);
 
-      if (datafile) {
-        projectConfigManager = createStaticProjectConfigManager({
-          datafile,
-        });
+      if (!datafile) {
+        throw new Error(
+          'Optimizely Adapter: Could not get datafile from edge config',
+        );
       }
+
+      projectConfigManager = createStaticProjectConfigManager({
+        datafile: JSON.stringify(datafile),
+      });
     }
 
     if (!projectConfigManager && sdkKey) {
@@ -108,19 +110,25 @@ export function createOptimizelyAdapter({
       );
     }
 
-    optimizelyInstance = createInstance({
-      clientEngine: 'javascript-sdk/flags-sdk',
-      projectConfigManager,
-      // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
-      eventProcessor: createForwardingEventProcessor({
+    try {
+      optimizelyInstance = createInstance({
+        clientEngine: 'javascript-sdk/flags-sdk',
+        projectConfigManager,
+        // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
         // TODO: Check if running this in a `waitUntil()` doesn't break things
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
-        eventDispatcher: { dispatchEvent },
-      }),
+        eventProcessor: createForwardingEventProcessor({ dispatchEvent }),
+        requestHandler,
+      });
+    } catch (error) {
+      throw new Error(
+        `Optimizely Adapter: Error creating optimizely instance, ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+    }
 
-      requestHandler,
-    });
-
+    // This resolves instantly when using the edge config, the timeout is just for fetching the datafile from the polling project config manager
     await optimizelyInstance.onReady({ timeout: 500 });
   };
 
@@ -131,7 +139,9 @@ export function createOptimizelyAdapter({
     }
     await _initializePromise;
     if (!optimizelyInstance) {
-      throw new Error('Optimizely instance not initialized');
+      throw new Error(
+        'Optimizely Adapter: Optimizely instance not initialized',
+      );
     }
     return optimizelyInstance;
   };
@@ -148,7 +158,9 @@ export function createOptimizelyAdapter({
       decide: async ({ key, entities }) => {
         await initialize();
         if (!optimizelyInstance) {
-          throw new Error('Optimizely instance not initialized');
+          throw new Error(
+            'Optimizely Adapter: Optimizely instance not initialized',
+          );
         }
         const context = optimizelyInstance.createUserContext(
           entities,
