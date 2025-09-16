@@ -1,18 +1,20 @@
 export { getProviderData } from './provider';
 import {
   Client,
-  createBatchEventProcessor,
-  createPollingProjectConfigManager,
   createStaticProjectConfigManager,
   OpaqueConfigManager,
   OptimizelyDecision,
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 
-import type { OptimizelyUserContext } from '@optimizely/optimizely-sdk';
 import type { Adapter } from 'flags';
 import { dispatchEvent } from './edge-runtime-hooks';
-import { createInstance } from '@optimizely/optimizely-sdk/universal';
+import {
+  createForwardingEventProcessor,
+  createInstance,
+  createPollingProjectConfigManager,
+  RequestHandler,
+} from '@optimizely/optimizely-sdk/universal';
 import { createClient } from '@vercel/edge-config';
 
 let defaultOptimizelyAdapter:
@@ -34,13 +36,36 @@ type AdapterResponse = {
   initialize: () => Promise<Client>;
 };
 
-function assertEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Optimizely Adapter: Missing ${name} environment variable`);
-  }
-  return value;
-}
+/**
+ * The node instance has a hardcoded XHR request handler that will break in edge runtime,
+ * so we need to use a custom request handler that uses fetch.
+ */
+const requestHandler: RequestHandler = {
+  makeRequest(requestUrl, headers, method, data) {
+    const abortController = new AbortController();
+
+    const responsePromise = fetch(requestUrl, {
+      headers: headers as any,
+      method,
+      body: data,
+      signal: abortController.signal,
+    });
+    return {
+      abort: () => abortController.abort(),
+      responsePromise: responsePromise.then(async (response) => {
+        const headersObj: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          headersObj[key] = value;
+        });
+        return {
+          statusCode: response.status,
+          body: (await response.text()) ?? '',
+          headers: headersObj,
+        };
+      }),
+    };
+  },
+};
 
 export function createOptimizelyAdapter({
   sdkKey,
@@ -73,6 +98,7 @@ export function createOptimizelyAdapter({
       projectConfigManager = createPollingProjectConfigManager({
         sdkKey: sdkKey,
         updateInterval: 10000,
+        requestHandler,
       });
     }
 
@@ -86,39 +112,13 @@ export function createOptimizelyAdapter({
       clientEngine: 'javascript-sdk/flags-sdk',
       projectConfigManager,
       // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
-      eventProcessor: createBatchEventProcessor({
+      eventProcessor: createForwardingEventProcessor({
         // TODO: Check if running this in a `waitUntil()` doesn't break things
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
         eventDispatcher: { dispatchEvent },
       }),
-      // The node instance has a hardcoded XHR request handler that will break in edge runtime
-      // so we need to use a custom request handler that uses fetch
-      requestHandler: {
-        makeRequest(requestUrl, headers, method, data) {
-          const abortController = new AbortController();
 
-          const responsePromise = fetch(requestUrl, {
-            headers: headers as any,
-            method,
-            body: data,
-            signal: abortController.signal,
-          });
-          return {
-            abort: () => abortController.abort(),
-            responsePromise: responsePromise.then(async (response) => {
-              const headersObj: Record<string, string> = {};
-              response.headers.forEach((value, key) => {
-                headersObj[key] = value;
-              });
-              return {
-                statusCode: response.status,
-                body: (await response.text()) ?? '',
-                headers: headersObj,
-              };
-            }),
-          };
-        },
-      },
+      requestHandler,
     });
 
     await optimizelyInstance.onReady({ timeout: 500 });
@@ -135,21 +135,6 @@ export function createOptimizelyAdapter({
     }
     return optimizelyInstance;
   };
-
-  /**
-   * Sets up the Optimizely instance and creates a user context
-   */
-  async function predecide(
-    userId?: string,
-    attributes?: UserAttributes,
-  ): Promise<OptimizelyUserContext> {
-    await initialize();
-    if (!optimizelyInstance) {
-      throw new Error('Optimizely instance not initialized');
-    }
-    const context = optimizelyInstance.createUserContext(userId, attributes);
-    return context;
-  }
 
   function decide<T>(
     getValue: (decision: OptimizelyDecision) => T,
