@@ -3,6 +3,7 @@ import {
   Client,
   OpaqueConfigManager,
   OptimizelyDecision,
+  OptimizelyUserContext,
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 
@@ -33,6 +34,10 @@ type AdapterResponse = {
       attributes?: UserAttributes;
     },
   ) => Adapter<T, UserId>;
+  userContext: (
+    entities: UserId,
+    attributes?: UserAttributes,
+  ) => Promise<OptimizelyUserContext>;
   initialize: () => Promise<Client>;
 };
 
@@ -114,8 +119,6 @@ export function createOptimizelyAdapter({
       optimizelyInstance = createInstance({
         clientEngine: 'javascript-sdk/flags-sdk',
         projectConfigManager,
-        // TODO: Check if batch event processor works here or if we should just force a single `waitUntil` flush of all events
-        // TODO: Check if running this in a `waitUntil()` doesn't break things
         // @ts-expect-error - dispatchEvent runs in `waitUntil` so it's not going to return a response
         eventProcessor: createForwardingEventProcessor({ dispatchEvent }),
         requestHandler,
@@ -171,28 +174,41 @@ export function createOptimizelyAdapter({
     };
   }
 
+  async function userContext(
+    entities: UserId,
+    attributes?: UserAttributes,
+  ): Promise<OptimizelyUserContext> {
+    await initialize();
+    if (!optimizelyInstance) {
+      throw new Error(
+        'Optimizely Adapter: Optimizely instance not initialized',
+      );
+    }
+    return optimizelyInstance.createUserContext(entities, attributes);
+  }
+
   return {
     decide,
+    userContext,
     initialize,
   };
 }
 
 function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
   const sdkKey = process.env.OPTIMIZELY_SDK_KEY;
-  const edgeConfig = process.env.EDGE_CONFIG_CONNECTION_STRING;
+  const edgeConfigConnectionString = process.env.EDGE_CONFIG_CONNECTION_STRING;
   const edgeConfigItemKey = process.env.OPTIMIZELY_DATAFILE_ITEM_KEY;
 
   if (!defaultOptimizelyAdapter) {
-    if (edgeConfig && edgeConfigItemKey) {
+    if (edgeConfigConnectionString && edgeConfigItemKey) {
       defaultOptimizelyAdapter = createOptimizelyAdapter({
         sdkKey,
         edgeConfig: {
-          connectionString: edgeConfig,
+          connectionString: edgeConfigConnectionString,
           itemKey: edgeConfigItemKey,
         },
       });
     } else {
-      // Fallback to polling optimizely SDK
       defaultOptimizelyAdapter = createOptimizelyAdapter({
         sdkKey,
       });
@@ -223,5 +239,7 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
  */
 export const optimizelyAdapter: AdapterResponse = {
   decide: (...args) => getOrCreateDefaultOptimizelyAdapter().decide(...args),
+  userContext: (...args) =>
+    getOrCreateDefaultOptimizelyAdapter().userContext(...args),
   initialize: () => getOrCreateDefaultOptimizelyAdapter().initialize(),
 };
