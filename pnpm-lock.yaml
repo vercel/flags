@@ -613,6 +613,43 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@22.14.0)
 
+  packages/adapter-reflag:
+    dependencies:
+      '@reflag/node-sdk':
+        specifier: 1.0.1
+        version: 1.0.1
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.17
+        version: 20.11.17
+      eslint-config-custom:
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-custom
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      msw:
+        specifier: 2.6.4
+        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      tsup:
+        specifier: 8.0.1
+        version: 8.0.1(typescript@5.6.3)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+      vite:
+        specifier: 5.1.1
+        version: 5.1.1(@types/node@20.11.17)
+      vitest:
+        specifier: 1.4.0
+        version: 1.4.0(@types/node@20.11.17)
+
   packages/adapter-split:
     devDependencies:
       '@types/node':
@@ -708,7 +745,7 @@ importers:
         version: 5.10.0
       react-dom:
         specifier: '*'
-        version: 19.0.0(react@19.2.0-canary-f3a80361-20250911)
+        version: 19.0.0(react@19.2.0-canary-128abcfa-20250917)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -730,10 +767,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-f3a80361-20250911)
+        version: 15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-128abcfa-20250917)
       react:
         specifier: canary
-        version: 19.2.0-canary-f3a80361-20250911
+        version: 19.2.0-canary-128abcfa-20250917
       tsconfig:
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -4203,6 +4240,18 @@ packages:
       react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
     dependencies:
       react: 19.0.0
+    dev: false
+
+  /@reflag/flag-evaluation@1.0.0:
+    resolution: {integrity: sha512-3N35ICE9SNlSK6edorjBIAEqB2wvOKRy+ZktXRAfJpQHKcwnjfcFyIIzGKOenm9DCPFxo2hv9Yz7QhUFrcntow==}
+    dependencies:
+      js-sha256: 0.11.0
+    dev: false
+
+  /@reflag/node-sdk@1.0.1:
+    resolution: {integrity: sha512-UUmxjspx3hExHDzmtBrZux9fDP44SQok9sQawM+OV0zvJzPyR9b6g3UuK/vNnr+RPMgKoaBvlPeU4kEB70Gt1A==}
+    dependencies:
+      '@reflag/flag-evaluation': 1.0.0
     dev: false
 
   /@rollup/pluginutils@5.1.4:
@@ -11231,7 +11280,7 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-f3a80361-20250911):
+  /next@15.1.4(@babel/core@7.26.10)(@opentelemetry/api@1.9.0)(react-dom@19.0.0)(react@19.2.0-canary-128abcfa-20250917):
     resolution: {integrity: sha512-mTaq9dwaSuwwOrcu3ebjDYObekkxRnXpuVL21zotM8qE2W0HBOdVIdg2Li9QjMEZrj73LN96LcWcz62V19FjAg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
@@ -11259,9 +11308,9 @@ packages:
       busboy: 1.6.0
       caniuse-lite: 1.0.30001704
       postcss: 8.4.31
-      react: 19.2.0-canary-f3a80361-20250911
-      react-dom: 19.0.0(react@19.2.0-canary-f3a80361-20250911)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-f3a80361-20250911)
+      react: 19.2.0-canary-128abcfa-20250917
+      react-dom: 19.0.0(react@19.2.0-canary-128abcfa-20250917)
+      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-128abcfa-20250917)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.1.4
       '@next/swc-darwin-x64': 15.1.4
@@ -12116,12 +12165,12 @@ packages:
       scheduler: 0.25.0
     dev: false
 
-  /react-dom@19.0.0(react@19.2.0-canary-f3a80361-20250911):
+  /react-dom@19.0.0(react@19.2.0-canary-128abcfa-20250917):
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
     dependencies:
-      react: 19.2.0-canary-f3a80361-20250911
+      react: 19.2.0-canary-128abcfa-20250917
       scheduler: 0.25.0
 
   /react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028):
@@ -12226,8 +12275,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
 
-  /react@19.2.0-canary-f3a80361-20250911:
-    resolution: {integrity: sha512-Ln0/97ItMm+MzQg6lp7XV803424a/yeM6it7HlFmbPE8jH0LeqZRvnAPhvXp8czrJIw2DRY3xNSuyG2ZM327Fg==}
+  /react@19.2.0-canary-128abcfa-20250917:
+    resolution: {integrity: sha512-nv8D8mIgigWVd9ui0TorvooRxmVf4ryAxvLuXRKI4DP+t8sh60yY3JMcx8qMaaVM+NH1zVQvEN+raruumdpJSw==}
     engines: {node: '>=0.10.0'}
 
   /read-cache@1.0.0:
@@ -13117,7 +13166,7 @@ packages:
       react: 19.0.0-rc.1
     dev: false
 
-  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-f3a80361-20250911):
+  /styled-jsx@5.1.6(@babel/core@7.26.10)(react@19.2.0-canary-128abcfa-20250917):
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -13132,7 +13181,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       client-only: 0.0.1
-      react: 19.2.0-canary-f3a80361-20250911
+      react: 19.2.0-canary-128abcfa-20250917
     dev: true
 
   /sucrase@3.35.0:
