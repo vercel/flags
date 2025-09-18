@@ -12,7 +12,7 @@ export type { Context };
 type AdapterOptions = Pick<ContextWithTracking, 'enableTracking' | 'meta'>;
 
 type AdapterResponse = {
-  featureIsEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
+  isEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
   /** The Reflag client instance used by the adapter. */
   reflagClient: () => Promise<ReflagClient>;
 };
@@ -47,9 +47,7 @@ export function createReflagAdapter(
     return reflagClient.initialize();
   }
 
-  function featureIsEnabled(
-    options?: AdapterOptions,
-  ): Adapter<boolean, Context> {
+  function isEnabled(options?: AdapterOptions): Adapter<boolean, Context> {
     return {
       async decide({ key, entities }): Promise<boolean> {
         await initialize();
@@ -60,7 +58,7 @@ export function createReflagAdapter(
   }
 
   return {
-    featureIsEnabled,
+    isEnabled,
     reflagClient: async () => {
       await initialize();
       return reflagClient;
@@ -95,13 +93,12 @@ function getOrCreateDefaultAdapter() {
  *   key: 'my-flag',
  *   defaultValue: false,
  *   identify: () => ({ key: "user-123" }),
- *   adapter: reflagAdapter.featureIsEnabled(),
+ *   adapter: reflagAdapter.isEnabled(),
  * });
  * ```
  */
 export const reflagAdapter: AdapterResponse = {
-  featureIsEnabled: (...args) =>
-    getOrCreateDefaultAdapter().featureIsEnabled(...args),
+  isEnabled: (...args) => getOrCreateDefaultAdapter().isEnabled(...args),
   reflagClient: async () => {
     return getOrCreateDefaultAdapter().reflagClient();
   },

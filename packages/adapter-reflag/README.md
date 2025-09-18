@@ -26,7 +26,7 @@ import { reflagAdapter } from '@flags-sdk/reflag';
 
 export const huddleFlag = flag<boolean>({
   key: 'huddle',
-  adapter: reflagAdapter.featureIsEnabled(),
+  adapter: reflagAdapter.isEnabled(),
 });
 ```
 
