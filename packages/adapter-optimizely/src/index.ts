@@ -148,11 +148,6 @@ export function createOptimizelyAdapter({
 
   function decide<T>(
     getValue: (decision: OptimizelyDecision) => T,
-    {
-      attributes,
-    }: {
-      attributes?: UserAttributes;
-    },
   ): Adapter<T, UserContext> {
     return {
       decide: async ({ key, entities }) => {
