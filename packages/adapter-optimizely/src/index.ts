@@ -6,7 +6,7 @@ import {
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 
-import type { Adapter } from 'flags';
+import type { Adapter, JsonValue } from 'flags';
 import { dispatchEvent } from './edge-runtime-hooks';
 import {
   createForwardingEventProcessor,
@@ -32,11 +32,6 @@ export type UserContext = {
 type AdapterResponse = {
   decide: <T>(
     getValue: (decision: OptimizelyDecision) => T,
-    {
-      attributes,
-    }: {
-      attributes?: UserAttributes;
-    },
   ) => Adapter<T, UserContext>;
   initialize: () => Promise<Client>;
 };
@@ -50,7 +45,7 @@ const requestHandler: RequestHandler = {
     const abortController = new AbortController();
 
     const responsePromise = fetch(requestUrl, {
-      headers: headers as any,
+      headers: headers as Record<string, string>,
       method,
       body: data,
       signal: abortController.signal,
@@ -88,7 +83,9 @@ export function createOptimizelyAdapter({
     let projectConfigManager: OpaqueConfigManager | undefined;
     if (edgeConfig) {
       const edgeConfigClient = createClient(edgeConfig.connectionString);
-      const datafile = await edgeConfigClient.get<string>(edgeConfig.itemKey);
+      const datafile = await edgeConfigClient.get<JsonValue>(
+        edgeConfig.itemKey,
+      );
 
       if (!datafile) {
         throw new Error(
