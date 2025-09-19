@@ -3,7 +3,6 @@ import {
   Client,
   OpaqueConfigManager,
   OptimizelyDecision,
-  OptimizelyUserContext,
   UserAttributes,
 } from '@optimizely/optimizely-sdk';
 
@@ -22,8 +21,13 @@ let defaultOptimizelyAdapter:
   | ReturnType<typeof createOptimizelyAdapter>
   | undefined;
 
-// Re-typing string to clarify what the string is for
-export type UserId = string;
+/**
+ * The user context for the Optimizely adapter
+ */
+export type UserContext = {
+  userId: string;
+  attributes?: UserAttributes;
+};
 
 type AdapterResponse = {
   decide: <T>(
@@ -33,11 +37,7 @@ type AdapterResponse = {
     }: {
       attributes?: UserAttributes;
     },
-  ) => Adapter<T, UserId>;
-  userContext: (
-    entities: UserId,
-    attributes?: UserAttributes,
-  ) => Promise<OptimizelyUserContext>;
+  ) => Adapter<T, UserContext>;
   initialize: () => Promise<Client>;
 };
 
@@ -156,7 +156,7 @@ export function createOptimizelyAdapter({
     }: {
       attributes?: UserAttributes;
     },
-  ): Adapter<T, UserId> {
+  ): Adapter<T, UserContext> {
     return {
       decide: async ({ key, entities }) => {
         await initialize();
@@ -165,31 +165,20 @@ export function createOptimizelyAdapter({
             'Optimizely Adapter: Optimizely instance not initialized',
           );
         }
+        if (!entities || !entities.userId) {
+          throw new Error('Optimizely Adapter: User ID not provided');
+        }
         const context = optimizelyInstance.createUserContext(
-          entities,
-          attributes,
+          entities?.userId,
+          entities?.attributes,
         );
         return getValue(context.decide(key));
       },
     };
   }
 
-  async function userContext(
-    entities: UserId,
-    attributes?: UserAttributes,
-  ): Promise<OptimizelyUserContext> {
-    await initialize();
-    if (!optimizelyInstance) {
-      throw new Error(
-        'Optimizely Adapter: Optimizely instance not initialized',
-      );
-    }
-    return optimizelyInstance.createUserContext(entities, attributes);
-  }
-
   return {
     decide,
-    userContext,
     initialize,
   };
 }
@@ -239,7 +228,5 @@ function getOrCreateDefaultOptimizelyAdapter(): AdapterResponse {
  */
 export const optimizelyAdapter: AdapterResponse = {
   decide: (...args) => getOrCreateDefaultOptimizelyAdapter().decide(...args),
-  userContext: (...args) =>
-    getOrCreateDefaultOptimizelyAdapter().userContext(...args),
   initialize: () => getOrCreateDefaultOptimizelyAdapter().initialize(),
 };
