@@ -53,10 +53,12 @@ export function dedupe<A extends Array<unknown>, T>(
 ): (...args: A) => Promise<T> {
   const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
+  // async import required as turbopack errors in Pages Router
+  // when next/headers is imported at the top-level
+  const headersPromise = import('next/headers').then((mod) => mod.headers);
+
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
-    // async import required as turbopack errors in Pages Router
-    // when next/headers is imported at the top-level
-    const { headers } = await import('next/headers');
+    const headers = await headersPromise;
 
     const h = await headers();
     let cacheNode = requestStore.get(h);
