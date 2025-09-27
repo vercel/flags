@@ -15,8 +15,8 @@
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "strict": true,
-    "moduleResolution": "node",
-    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
     "types": ["@types/node", "jest"],
     "jsx": "react"
   },
