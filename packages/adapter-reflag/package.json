@@ -1,8 +1,23 @@
 {
-  "name": "@flags-sdk/happykit",
-  "version": "0.1.0",
-  "description": "",
-  "keywords": [],
+  "name": "@flags-sdk/reflag",
+  "version": "1.0.0",
+  "description": "Reflag provider for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "reflag",
+    "vercel",
+    "edge config",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "license": "MIT",
   "author": "",
   "sideEffects": false,
@@ -31,16 +46,13 @@
     "dev": "tsup --watch --clean=false",
     "eslint": "eslint-runner",
     "eslint:fix": "eslint-runner --fix",
-    "test": "vitest --run",
-    "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@happykit/flags": "3.3.0"
+    "@reflag/node-sdk": "1.0.1"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "@vercel/edge-config": "1.2.0",
     "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
@@ -50,9 +62,6 @@
     "typescript": "5.6.3",
     "vite": "5.1.1",
     "vitest": "1.4.0"
-  },
-  "peerDependencies": {
-    "@vercel/edge-config": "^1.2.0"
   },
   "publishConfig": {
     "access": "public"

@@ -1,4 +1,4 @@
-# @flags-sdk/bucket
+# @flags-sdk/reflag
 
 ## 0.1.1
 
