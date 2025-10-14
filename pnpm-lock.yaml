@@ -381,6 +381,11 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)(lightningcss@1.29.2)
 
+  packages/adapter-flagsmith:
+    dependencies:
+      flagsmith:
+        specifier: ^9.0.5
+        version: 9.0.5
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
