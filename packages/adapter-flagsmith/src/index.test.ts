@@ -12,6 +12,7 @@ import flagsmith, { IState, IIdentity } from 'flagsmith';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { getProviderData } from './provider';
+import { EntitiesType } from '.';
 
 vi.stubEnv('FLAGSMITH_ENVIRONMENT_ID', 'test-env-id');
 
@@ -222,7 +223,11 @@ describe('Flagsmith Adapter', () => {
   describe('identity handling', () => {
     it('should identify user when entities are provided', async () => {
       const adapter = flagsmithAdapter.booleanValue();
-      const identity: IIdentity = 'test-id';
+      const identity: EntitiesType = {
+        targetingKey: 'test-id',
+        name: 'john doe',
+        age: 30,
+      };
 
       vi.mocked(flagsmith.getState).mockReturnValue({
         flags: {
@@ -242,7 +247,10 @@ describe('Flagsmith Adapter', () => {
         cookies: mockCookies,
       });
 
-      expect(flagsmith.identify).toHaveBeenCalledWith(identity);
+      expect(flagsmith.identify).toHaveBeenCalledWith(identity.targetingKey, {
+        name: identity.name,
+        age: identity.age,
+      });
     });
   });
 
