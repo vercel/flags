@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/statsig",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Statsig provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
@@ -65,7 +65,7 @@
   "dependencies": {
     "@vercel/edge-config": "^1.2.0",
     "@vercel/functions": "^1.5.2",
-    "statsig-node-lite": "^0.4.2",
+    "statsig-node-lite": "^0.5.2",
     "statsig-node-vercel": "^0.7.0"
   },
   "devDependencies": {

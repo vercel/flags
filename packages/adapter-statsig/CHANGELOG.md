@@ -1,5 +1,11 @@
 # @flags-sdk/statsig
 
+## 0.2.3
+
+### Patch Changes
+
+- 48adbf2: bump statsig-node-lite to v0.5.2
+
 ## 0.2.2
 
 ### Patch Changes
