@@ -1,81 +1,21 @@
 # Flags SDK - Flagsmith Provider
 
-A provider adapter for the Flags SDK that integrates with [Flagsmith](https://flagsmith.com/), allowing you to use Flagsmith's feature flags and remote configuration in your application.
+The [Flagsmith provider](https://flags-sdk.dev/docs/api-reference/adapters/flagsmith) for the [Flags SDK](https://flags-sdk.dev/) contains support for Flagsmith's Feature Flags and Remote Configuration.
 
-## Installation
+## Setup
+
+The Flagsmith provider is available in the `@flags-sdk/flagsmith` module. You can install it with
 
 ```bash
-npm install @flags-sdk/flagsmith
+npm i @flags-sdk/flagsmith
 ```
 
-## Usage
+## Provider Instance
 
-An Environment ID must be provided using the `FLAGSMITH_ENVIRONMENT_ID` environment variable.
+You can import the default adapter instance `flagsmithAdapter` from `@flags-sdk/flagsmith`:
 
-```typescript
+```ts
 import { flagsmithAdapter } from '@flags-sdk/flagsmith';
-import { flag } from 'flags';
-
-// Boolean flags - returns flagState.enabled
-const myBooleanFlag = flag({
-  key: 'my-boolean-feature',
-  adapter: flagsmithAdapter.booleanValue(),
-});
-
-// String flags - returns flagState.value when enabled
-const myStringFlag = flag({
-  key: 'my-string-feature',
-  adapter: flagsmithAdapter.stringValue(),
-});
-
-// Number flags - returns flagState.value when enabled
-const myNumberFlag = flag({
-  key: 'my-number-feature',
-  adapter: flagsmithAdapter.numberValue(),
-});
-```
-
-## API
-
-The adapter provides three methods for different flag types:
-
-### `booleanValue()`
-
-Returns an adapter for boolean flags. Uses `flagState.enabled` directly.
-
-```typescript
-const booleanAdapter = flagsmithAdapter.booleanValue();
-const value = await booleanAdapter.decide({
-  key: 'my-flag',
-  defaultValue: false,
-  entities: { identifier: 'user-123' },
-});
-```
-
-### `stringValue()`
-
-Returns an adapter for string flags. Returns `flagState.value` when the flag is enabled, otherwise returns the default value.
-
-```typescript
-const stringAdapter = flagsmithAdapter.stringValue();
-const value = await stringAdapter.decide({
-  key: 'my-flag',
-  defaultValue: 'default',
-  entities: { identifier: 'user-123' },
-});
-```
-
-### `numberValue()`
-
-Returns an adapter for number flags. Returns `flagState.value` when the flag is enabled, otherwise returns the default value.
-
-```typescript
-const numberAdapter = flagsmithAdapter.numberValue();
-const value = await numberAdapter.decide({
-  key: 'my-flag',
-  defaultValue: 0,
-  entities: { identifier: 'user-123' },
-});
 ```
 
 ## Configuration
@@ -84,17 +24,80 @@ The adapter automatically initializes Flagsmith with the following configuration
 
 - `environmentId`: From `FLAGSMITH_ENVIRONMENT_ID` environment variable
 
+```sh
+export FLAGSMITH_ENVIRONMENT_ID="your-environment-id"
+```
+
+## Example
+
+```ts
+import { flag } from 'flags/next';
+import { flagsmithAdapter } from '@flags-sdk/flagsmith';
+
+// Boolean flags
+export const showBanner = flag<boolean>({
+  key: 'show-banner',
+  adapter: flagsmithAdapter.booleanValue(),
+});
+
+// String flags
+export const buttonColor = flag<string>({
+  key: 'button-color',
+  defaultValue: 'blue',
+  adapter: flagsmithAdapter.stringValue(),
+});
+
+// Number flags
+export const maxItems = flag<number>({
+  key: 'max-items',
+  defaultValue: 10,
+  adapter: flagsmithAdapter.numberValue(),
+});
+```
+
+## Custom Adapter
+
+Create a custom adapter by using the `createFlagsmithAdapter` function:
+
+```ts
+import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
+
+const adapter = createFlagsmithAdapter({
+  environmentID: 'your-environment-id',
+  // Additional Flagsmith config options
+});
+```
+
+## Flags Discovery Endpoint
+
+To enable the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer), create a discovery endpoint at `app/.well-known/vercel/flags/route.ts`:
+
+```ts
+import { createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData } from '@flags-sdk/flagsmith';
+
+export const GET = createFlagsDiscoveryEndpoint(async () => {
+  return getProviderData({
+    environmentKey: process.env.FLAGSMITH_ENVIRONMENT_ID,
+    projectId: process.env.FLAGSMITH_PROJECT_ID,
+  });
+});
+```
+
+This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer. You'll need to set the `FLAGSMITH_PROJECT_ID` environment variable in addition to `FLAGSMITH_ENVIRONMENT_ID`.
+
 ## Features
 
 - **Type-safe flag definitions**: Each method returns a properly typed adapter
 - **Automatic initialization**: Flagsmith client can be lazily initialized
 - **Identity support**: Full support for Flagsmith identity and traits
 - **Default value handling**: Proper fallback to default values when flags are disabled or not found
-- **Boolean flag optimization**: Boolean flags use the `enabled` state directly for better performance
+- **Boolean flag**: Boolean flags use the `value` if it is of boolean type or the `enabled` state directly
 
 ## Environment Variables
 
 - `FLAGSMITH_ENVIRONMENT_ID` (required): Your Flagsmith environment ID
+- `FLAGSMITH_PROJECT_ID` (optional): Required for the Flags Discovery Endpoint
 
 ## Documentation
 
