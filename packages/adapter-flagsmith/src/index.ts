@@ -1,6 +1,6 @@
 import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
-import { IIdentity, IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
+import { IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
 
 export type { IIdentity } from 'flagsmith/types';
 export { getProviderData } from './provider';
@@ -9,7 +9,9 @@ let defaultFlagsmithAdapter: AdapterResponse | undefined;
 
 export type FlagsmithValue = IFlagsmithFeature['value'];
 
-export type EntitiesType = IIdentity;
+export type EntitiesType = {
+  targetingKey: string;
+} & Record<string, string | number | boolean | null>;
 
 export type AdapterResponse = {
   booleanValue: () => Adapter<boolean, EntitiesType>;
@@ -31,14 +33,25 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
       }): Promise<boolean> {
         await initialize();
 
-        if (identity) {
-          await flagsmith.identify(identity);
+        if (identity?.targetingKey) {
+          const { targetingKey, ...traits } = identity;
+          await flagsmith.identify(identity.targetingKey, {
+            ...traits,
+          });
         }
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
 
         if (!flagState) {
           return defaultValue as boolean;
+        }
+
+        if (typeof flagState.value === 'boolean') {
+          return flagState.value;
+        }
+
+        if (['true', 'false'].includes(flagState.value as string)) {
+          return flagState.value === 'true';
         }
 
         return flagState.enabled;
@@ -51,9 +64,13 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
       async decide({ key, defaultValue, entities: identity }): Promise<string> {
         await initialize();
 
-        if (identity) {
-          await flagsmith.identify(identity);
+        if (identity?.targetingKey) {
+          const { targetingKey, ...traits } = identity;
+          await flagsmith.identify(identity.targetingKey, {
+            ...traits,
+          });
         }
+
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
 
@@ -71,9 +88,13 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
       async decide({ key, defaultValue, entities: identity }): Promise<number> {
         await initialize();
 
-        if (identity) {
-          await flagsmith.identify(identity);
+        if (identity?.targetingKey) {
+          const { targetingKey, ...traits } = identity;
+          await flagsmith.identify(identity.targetingKey, {
+            ...traits,
+          });
         }
+
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
 
