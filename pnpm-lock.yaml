@@ -381,43 +381,6 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)(lightningcss@1.29.2)
 
-  packages/adapter-flagsmith:
-    dependencies:
-      flagsmith:
-        specifier: ^9.0.5
-        version: 9.0.5
-    devDependencies:
-      '@types/node':
-        specifier: 20.11.17
-        version: 20.11.17
-      eslint-config-custom:
-        specifier: workspace:*
-        version: link:../../tooling/eslint-config-custom
-      flags:
-        specifier: workspace:*
-        version: link:../flags
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
-      rimraf:
-        specifier: 6.0.1
-        version: 6.0.1
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      tsup:
-        specifier: 8.0.1
-        version: 8.0.1(typescript@5.6.3)
-      typescript:
-        specifier: 5.6.3
-        version: 5.6.3
-      vite:
-        specifier: 5.1.1
-        version: 5.1.1(@types/node@20.11.17)
-      vitest:
-        specifier: 1.4.0
-        version: 1.4.0(@types/node@20.11.17)
-
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
@@ -12791,17 +12754,7 @@ snapshots:
       micromatch: 4.0.8
       pkg-dir: 4.2.0
 
-  /flagsmith@9.0.5:
-    resolution: {integrity: sha512-bmAqGX+LUvToIl136eWKFmbVcVIpZ4H9mk2gDhz8YEKvF5HoM6Sj2WgtRei7pPJy4bXTJdfT7BLebu2v9USc4w==}
-    dev: false
-
-  /flat-cache@3.2.0:
-    resolution: {integrity: sha512-CYcENa+FtcUKLmhhqyctpclsq7QF38pKjZHsGNiSQF5r4FtoKDWabFDl3hzaEQMvT1LHEysw5twgLvpYYb4vbw==}
-    engines: {node: ^10.12.0 || >=12.0.0}
-    dependencies:
-      flatted: 3.3.3
-      keyv: 4.5.4
-      rimraf: 3.0.2
+  flagsmith@9.0.5: {}
 
   flat-cache@3.2.0:
     dependencies:
