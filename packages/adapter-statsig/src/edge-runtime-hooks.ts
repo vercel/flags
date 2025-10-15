@@ -65,7 +65,7 @@ export const createSyncingHandler = (
         import("@vercel/functions").then(({ waitUntil }) => {
           waitUntil(sync);
         });
-      } catch (e) {
+      } catch {
         // continue
       }
     }

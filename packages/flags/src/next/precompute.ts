@@ -2,7 +2,9 @@ import { Flag } from "./types";
 import type { JsonValue } from "..";
 import * as s from "../lib/serialization";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FlagsArray = readonly Flag<any, any>[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ValuesArray = readonly any[];
 
 /**
@@ -95,6 +97,7 @@ export async function deserialize(
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flag: Flag<T, any>,
   precomputeFlags: FlagsArray,
   code: string,
@@ -111,12 +114,14 @@ export async function getPrecomputed<T extends JsonValue>(
  */
 export async function getPrecomputed<
   T extends JsonValue,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   K extends readonly Flag<T, any>[],
 >(
   flags: readonly [...K],
   precomputeFlags: FlagsArray,
   code: string,
   secret?: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ [P in keyof K]: K[P] extends Flag<infer U, any> ? U : never }>;
 
 /**
@@ -128,10 +133,12 @@ export async function getPrecomputed<
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flagOrFlags: Flag<T, any> | readonly Flag<T, any>[],
   precomputeFlags: FlagsArray,
   code: string,
   secret: string | undefined = process.env.FLAGS_SECRET,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   if (!secret) {
     throw new Error(
@@ -146,6 +153,7 @@ export async function getPrecomputed<T extends JsonValue>(
     return flagOrFlags.map((flag) => flagSet[flag.key]);
   } else {
     // Handle case when a single flag is passed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return flagSet[(flagOrFlags as Flag<T, any>).key];
   }
 }
@@ -153,7 +161,7 @@ export async function getPrecomputed<T extends JsonValue>(
 // see https://stackoverflow.com/a/44344803
 function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
   const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-  for (let r of remainder) for (let h of items.at(0)!) yield [h, ...r];
+  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**

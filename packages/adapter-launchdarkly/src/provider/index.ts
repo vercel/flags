@@ -115,7 +115,7 @@ export async function getProviderData(options: {
       }, {}),
       hints,
     };
-  } catch (e) {
+  } catch {
     return {
       definitions: {},
       hints: [

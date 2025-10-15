@@ -17,8 +17,8 @@ import type { JsonValue } from "../types";
  * @param expected the expected permutations
  */
 async function expectPermutations(
-  group: Flag<any, any>[],
-  expected: any[],
+  group: Flag<unknown, unknown>[],
+  expected: unknown[],
   filter?: ((permutation: Record<string, JsonValue>) => boolean) | null,
 ) {
   const permutationsPromise = generatePermutations(group, filter);

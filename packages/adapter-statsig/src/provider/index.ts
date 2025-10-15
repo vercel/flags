@@ -6,7 +6,7 @@ interface StatsigFeatureGateResponse {
     id: string;
     name: string;
     description: string;
-    rules: {}[];
+    rules: Record<string, unknown>[];
     createdTime: number;
     lastModifiedTime: number;
   }[];

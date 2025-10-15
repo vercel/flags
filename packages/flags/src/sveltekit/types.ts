@@ -30,4 +30,5 @@ export type Flag<ReturnValue> =
   | RegularFlag<ReturnValue>
   | PrecomputedFlag<ReturnValue>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FlagsArray = readonly Flag<any>[];

@@ -1,11 +1,15 @@
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { defineConfig } from "eslint/config";
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig([
+  eslint.configs.recommended,
+  tseslint.configs.recommended,
   {
     // When ignores is used without any other keys (besides name) in the configuration object,
     // then the patterns act as global ignores. This means they apply to every configuration
@@ -20,6 +24,7 @@ export default defineConfig([
       "**/dist/**",
       "**/.svelte-kit/**",
       "**/.next/**",
+      "**/vite.config.ts.timestamp*",
     ],
   },
   {
@@ -27,6 +32,8 @@ export default defineConfig([
       "@typescript-eslint/explicit-function-return-type": "off",
       "import/no-default-export": "off",
       "@typescript-eslint/no-confusing-void-expression": "off",
+      "no-var": "error",
+      "@typescript-eslint/triple-slash-reference": "off",
     },
   },
 ]);

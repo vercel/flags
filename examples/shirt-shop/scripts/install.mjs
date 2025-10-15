@@ -16,6 +16,7 @@ function install(command) {
  * when the repository is cloned.
  */
 async function main() {
+  // eslint-disable-next-line no-undef
   if (process.env.VERCEL_PROJECT_ID === "prj_6Km3AvCCo0QgJSoEb3cFQwwB9x0Y") {
     // pnpm is necessary when installing for the vercel/flags monorepo
     install("pnpm install");

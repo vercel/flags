@@ -13,11 +13,3 @@ export function FreeDelivery(props: { show: boolean }) {
 
   return <FreeDeliveryBanner />;
 }
-
-function doIf() {
-  if (true) {
-    var build = true;
-  }
-
-  console.log(build);
-}

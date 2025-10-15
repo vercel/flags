@@ -16,11 +16,11 @@ interface GrowthbookFeature {
     {
       enabled: boolean;
       defaultValue: string;
-      rules: {}[];
+      rules: unknown[];
     }
   >;
   prerequisites: [];
-  revision: {};
+  revision: unknown;
 }
 
 interface GrowthbookFeaturesResponse {
@@ -81,7 +81,6 @@ export async function getProviderData(options: {
     if (feature.archived) continue;
 
     let options: { label: string; value: JsonValue }[] = [];
-    let invalidType: never;
 
     switch (feature.valueType) {
       case "boolean":
@@ -112,7 +111,6 @@ export async function getProviderData(options: {
         ];
         break;
       default:
-        invalidType = feature.valueType;
         hints.push({
           key: "growthbook/invalid-feature-type",
           text: `Invalid feature type: ${feature.valueType}`,

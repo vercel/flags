@@ -41,7 +41,7 @@ export function setSpanAttribute(name: string, value: AttributeValue) {
   spanContext.getStore()?.set(name, value);
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- bc */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function trace<F extends (...args: any) => any>(
   fn: F,
   options: {
@@ -95,7 +95,6 @@ export function trace<F extends (...args: any) => any>(
               })
               .catch((error) => {
                 if (options.attributesError) {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- k
                   span.setAttributes(options.attributesError(error));
                 }
 
@@ -112,7 +111,6 @@ export function trace<F extends (...args: any) => any>(
               });
           } else {
             if (options.attributesSuccess) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- k
               span.setAttributes(options.attributesSuccess(result));
             }
 
@@ -149,4 +147,3 @@ export function trace<F extends (...args: any) => any>(
 
   return traced as unknown as F;
 }
-/* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- k */

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Converts a JavaScript value to a JavaScript Object Notation (JSON) string.
  *

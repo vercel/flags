@@ -4,6 +4,7 @@ import { IncomingMessage } from "node:http";
 import { NextApiRequestCookies } from "next/dist/server/api-utils";
 import { Readable } from "node:stream";
 import { type Adapter, encryptOverrides } from "..";
+import type { Socket } from "node:net";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -31,7 +32,9 @@ function createRequest(cookies = {}): [
   Readable,
 ] {
   const socket = new Readable();
-  const request = new IncomingMessage(socket as any) as IncomingMessage & {
+  const request = new IncomingMessage(
+    socket as unknown as Socket,
+  ) as IncomingMessage & {
     cookies: NextApiRequestCookies;
   };
   request.cookies = cookies;
@@ -488,7 +491,8 @@ describe("dynamic io", () => {
   it("should re-throw dynamic usage erorrs even when a defaultValue is present", async () => {
     const mockDecide = vi.fn(() => {
       const error = new Error("dynamic usage error");
-      (error as any).digest = "DYNAMIC_SERVER_USAGE;dynamic usage error";
+      (error as Error & { digest: string }).digest =
+        "DYNAMIC_SERVER_USAGE;dynamic usage error";
       throw error;
     });
     const f = flag<boolean>({

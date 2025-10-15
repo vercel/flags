@@ -3,6 +3,7 @@ import type { FlagDefinitionsType, FlagValuesType } from "../types";
 import { safeJsonStringify } from "../lib/safe-json-stringify";
 // the generic type T is not actually used but is great to
 // signal what is encrypted
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type Encrypted<T> = string;
 
 /**

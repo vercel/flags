@@ -1,5 +1,3 @@
-"use client";
-
 import { motion, AnimatePresence } from "motion/react";
 
 function Spinner() {
@@ -28,7 +26,7 @@ export function AddToCartButton({
   onClick,
   isLoading,
 }: {
-  onClick: () => {};
+  onClick: () => void;
   isLoading: boolean;
 }) {
   return (

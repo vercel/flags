@@ -52,7 +52,8 @@
     "publint": "0.2.7",
     "ts-jest": "29.1.2",
     "turbo": "2.3.3",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-eslint": "8.46.1"
   },
   "packageManager": "pnpm@8.7.1",
   "engines": {

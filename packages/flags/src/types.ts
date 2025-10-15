@@ -59,6 +59,7 @@ export type ApiData = {
  *
  * This is essentially just `any` to make it easy to work with, but we use a dedicated type to signal the intent.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type JsonValue = any;
 
 export interface FlagOptionType {

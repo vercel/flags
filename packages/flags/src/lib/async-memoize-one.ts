@@ -5,6 +5,7 @@ type MemoizeOneOptions = {
   cachePromiseRejection?: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MemoizedFn<TFunc extends (this: any, ...args: any[]) => any> = (
   this: ThisParameterType<TFunc>,
   ...args: Parameters<TFunc>
@@ -13,6 +14,7 @@ type MemoizedFn<TFunc extends (this: any, ...args: any[]) => any> = (
 /**
  * Memoizes an async function, but only keeps the latest result
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoizeOne<TFunc extends (this: any, ...newArgs: any[]) => any>(
   fn: TFunc,
   isEqual: (a: Parameters<TFunc>, b: Parameters<TFunc>) => boolean,
@@ -20,6 +22,7 @@ export function memoizeOne<TFunc extends (this: any, ...newArgs: any[]) => any>(
 ): MemoizedFn<TFunc> {
   let calledOnce = false;
   let oldArgs: Parameters<TFunc>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let lastResult: any;
 
   function memoized(

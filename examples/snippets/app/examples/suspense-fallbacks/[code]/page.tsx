@@ -6,7 +6,6 @@ import { Suspense } from "react";
 
 // opt into on parital prerendering for this page, which is necessary while
 // it's experimental, see https://nextjs.org/learn/dashboard-app/partial-prerendering
-// eslint-disable-next-line camelcase -- ok
 export const experimental_ppr = true;
 
 // prerender this page for all permutations of the flags

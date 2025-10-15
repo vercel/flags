@@ -10,7 +10,7 @@ export async function tryGetSecret(secret?: string): Promise<string> {
       // and in case it's not available through that it should be via process.env above.
       const env = await import("$env/static/private");
       default_secret = env.FLAGS_SECRET;
-    } catch (e) {
+    } catch {
       // ignore, could happen when importing from an environment that doesn't know this import
     }
   }

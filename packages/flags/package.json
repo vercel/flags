@@ -72,8 +72,7 @@
     "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "lint": "eslint .",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"

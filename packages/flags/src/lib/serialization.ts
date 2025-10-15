@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { JsonValue } from "..";
 import { memoizeOne } from "./async-memoize-one";
 import type { FlagOption } from "../types";
