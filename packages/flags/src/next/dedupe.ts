@@ -56,7 +56,7 @@ export function dedupe<A extends Array<unknown>, T>(
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
     // async import required as turbopack errors in Pages Router
     // when next/headers is imported at the top-level
-    const { headers } = await import('next/headers');
+    const { headers } = await import("next/headers");
 
     const h = await headers();
     let cacheNode = requestStore.get(h);
@@ -68,8 +68,8 @@ export function dedupe<A extends Array<unknown>, T>(
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (
-        typeof arg === 'function' ||
-        (typeof arg === 'object' && arg !== null)
+        typeof arg === "function" ||
+        (typeof arg === "object" && arg !== null)
       ) {
         let objectCache: WeakMap<Function | Object, CacheNode<T>> | null =
           cacheNode.o;
@@ -130,15 +130,15 @@ export function dedupe<A extends Array<unknown>, T>(
 export async function clearDedupeCacheForCurrentRequest(
   dedupedFn: (...args: unknown[]) => unknown,
 ) {
-  if (typeof dedupedFn !== 'function') {
-    throw new Error('dedupe: not a function');
+  if (typeof dedupedFn !== "function") {
+    throw new Error("dedupe: not a function");
   }
   const requestStore = cacheRegistry.get(dedupedFn);
 
   if (!requestStore) {
-    throw new Error('dedupe: cache not found');
+    throw new Error("dedupe: cache not found");
   }
-  const { headers } = await import('next/headers');
+  const { headers } = await import("next/headers");
   const h = await headers();
   return requestStore.delete(h);
 }

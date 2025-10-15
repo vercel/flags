@@ -1,25 +1,25 @@
-import { expect, it, describe } from 'vitest';
-import { getProviderData } from '..';
-import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll } from 'vitest';
-import { HttpResponse, http } from 'msw';
+import { expect, it, describe } from "vitest";
+import { getProviderData } from "..";
+import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll } from "vitest";
+import { HttpResponse, http } from "msw";
 
 const restHandlers = [
   http.get(
     `https://edge.hypertune.com/vercel-flag-definitions`,
     ({ request }) => {
-      if (!request.headers.get('Authorization')) {
+      if (!request.headers.get("Authorization")) {
         return HttpResponse.json({}, { status: 401 });
       }
 
       return HttpResponse.json({
-        'some-test-flag': {
-          description: 'some-test-description',
+        "some-test-flag": {
+          description: "some-test-description",
           origin:
-            'https://app.hypertune.com/projects/2645/draft?view=logic&selected_field_path=root%3EexampleFlag',
+            "https://app.hypertune.com/projects/2645/draft?view=logic&selected_field_path=root%3EexampleFlag",
           options: [
-            { value: false, label: 'Off' },
-            { value: true, label: 'On' },
+            { value: false, label: "Off" },
+            { value: true, label: "On" },
           ],
         },
       });
@@ -27,27 +27,27 @@ const restHandlers = [
   ),
 ];
 
-const hypertuneToken = 'hypertune-token';
+const hypertuneToken = "hypertune-token";
 const server = setupServer(...restHandlers);
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
 
-describe('getProviderData', () => {
-  describe('when called with valid params', () => {
-    it('should fetch and return', async () => {
+describe("getProviderData", () => {
+  describe("when called with valid params", () => {
+    it("should fetch and return", async () => {
       await expect(getProviderData({ token: hypertuneToken })).resolves.toEqual(
         {
           hints: [],
           definitions: {
-            'some-test-flag': {
-              description: 'some-test-description',
+            "some-test-flag": {
+              description: "some-test-description",
               options: [
-                { label: 'Off', value: false },
-                { label: 'On', value: true },
+                { label: "Off", value: false },
+                { label: "On", value: true },
               ],
               origin:
-                'https://app.hypertune.com/projects/2645/draft?view=logic&selected_field_path=root%3EexampleFlag',
+                "https://app.hypertune.com/projects/2645/draft?view=logic&selected_field_path=root%3EexampleFlag",
             },
           },
         },
@@ -55,15 +55,15 @@ describe('getProviderData', () => {
     });
   });
 
-  describe('when called with invalid params', () => {
-    it('should return appropriate hints', async () => {
+  describe("when called with invalid params", () => {
+    it("should return appropriate hints", async () => {
       // @ts-expect-error this is the case we are testing
       await expect(getProviderData({})).resolves.toEqual({
         definitions: {},
         hints: [
           {
-            key: 'hypertune/missing-token',
-            text: 'Missing Hypertune token',
+            key: "hypertune/missing-token",
+            text: "Missing Hypertune token",
           },
         ],
       });

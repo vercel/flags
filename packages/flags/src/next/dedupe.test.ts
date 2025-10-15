@@ -1,5 +1,5 @@
-import { describe, expect, it, Mock, vitest, vi } from 'vitest';
-import { clearDedupeCacheForCurrentRequest, dedupe } from './dedupe';
+import { describe, expect, it, Mock, vitest, vi } from "vitest";
+import { clearDedupeCacheForCurrentRequest, dedupe } from "./dedupe";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -10,8 +10,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('next/headers', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('next/headers')>();
+vi.mock("next/headers", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("next/headers")>();
   return {
     ...mod,
     // replace some exports
@@ -21,13 +21,13 @@ vi.mock('next/headers', async (importOriginal) => {
 });
 
 async function getHeadersMock() {
-  const headersMock = await import('next/headers').then((mod) => mod.headers);
+  const headersMock = await import("next/headers").then((mod) => mod.headers);
   return headersMock as Mock;
 }
 
-describe('dedupe', () => {
-  describe('no arguments', () => {
-    it('should dedupe within same request', async () => {
+describe("dedupe", () => {
+  describe("no arguments", () => {
+    it("should dedupe within same request", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -40,7 +40,7 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should not dedupe across requests', async () => {
+    it("should not dedupe across requests", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -56,38 +56,38 @@ describe('dedupe', () => {
     });
   });
 
-  describe('multiple arguments', () => {
-    it('should dedupe within same request', async () => {
+  describe("multiple arguments", () => {
+    it("should dedupe within same request", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
       const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
-      await deduped(1, 'a');
-      await deduped(1, 'a');
+      await deduped(1, "a");
+      await deduped(1, "a");
 
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should not dedupe across requests', async () => {
+    it("should not dedupe across requests", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
       const different = new Headers();
       const headersMock = await getHeadersMock();
       headersMock.mockReturnValueOnce(same);
-      await deduped(1, 'a');
+      await deduped(1, "a");
 
       headersMock.mockReturnValueOnce(different);
-      await deduped(1, 'b');
+      await deduped(1, "b");
 
       expect(fn).toHaveBeenCalledTimes(2);
     });
   });
 
-  describe('primitive arguments', () => {
-    it('should dedupe within same request when called with the same primitivearguments', async () => {
+  describe("primitive arguments", () => {
+    it("should dedupe within same request when called with the same primitivearguments", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -100,7 +100,7 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should not dedupe within same request when called with different primitive arguments', async () => {
+    it("should not dedupe within same request when called with different primitive arguments", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -114,8 +114,8 @@ describe('dedupe', () => {
     });
   });
 
-  describe('object arguments', () => {
-    it('should dedupe within same request when called with the same object references', async () => {
+  describe("object arguments", () => {
+    it("should dedupe within same request when called with the same object references", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -129,7 +129,7 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should not dedupe within same request when called with different object references', async () => {
+    it("should not dedupe within same request when called with different object references", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -142,8 +142,8 @@ describe('dedupe', () => {
     });
   });
 
-  describe('mutated object arguments', () => {
-    it('should dedupe within same request when called with the same complex arguments', async () => {
+  describe("mutated object arguments", () => {
+    it("should dedupe within same request when called with the same complex arguments", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -161,8 +161,8 @@ describe('dedupe', () => {
     });
   });
 
-  describe('function arguments', () => {
-    it('should dedupe within same request when called with the same fn arguments', async () => {
+  describe("function arguments", () => {
+    it("should dedupe within same request when called with the same fn arguments", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -175,7 +175,7 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should not dedupe within same request when called with different fn arguments', async () => {
+    it("should not dedupe within same request when called with different fn arguments", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -190,8 +190,8 @@ describe('dedupe', () => {
     });
   });
 
-  describe('clearCurrent', () => {
-    it('should allow dedupe to be cleared within same request', async () => {
+  describe("clearCurrent", () => {
+    it("should allow dedupe to be cleared within same request", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -207,7 +207,7 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(2);
     });
 
-    it('should not affect the cache of a different request', async () => {
+    it("should not affect the cache of a different request", async () => {
       const fn = vitest.fn();
       const deduped = dedupe(fn);
       const same = new Headers();
@@ -244,10 +244,10 @@ describe('dedupe', () => {
     });
   });
 
-  describe('promises', () => {
-    it('should dedupe even when the promise has not resolved yet', async () => {
+  describe("promises", () => {
+    it("should dedupe even when the promise has not resolved yet", async () => {
       let resolvePromise: (value: unknown) => void = () => {
-        throw new Error('resolvePromise not implemented');
+        throw new Error("resolvePromise not implemented");
       };
 
       const promise = new Promise((resolve) => {
@@ -270,9 +270,9 @@ describe('dedupe', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should dedupe even when the promise has not rejected yet', async () => {
+    it("should dedupe even when the promise has not rejected yet", async () => {
       let rejectPromise: (value: unknown) => void = () => {
-        throw new Error('resolvePromise not implemented');
+        throw new Error("resolvePromise not implemented");
       };
 
       const headersMock = await getHeadersMock();
@@ -286,15 +286,15 @@ describe('dedupe', () => {
       const same = new Headers();
       headersMock.mockReturnValue(same);
 
-      const result1Promise = expect(deduped()).rejects.toBe('artificial error');
-      const result2Promise = expect(deduped()).rejects.toBe('artificial error');
+      const result1Promise = expect(deduped()).rejects.toBe("artificial error");
+      const result2Promise = expect(deduped()).rejects.toBe("artificial error");
 
-      rejectPromise('artificial error');
+      rejectPromise("artificial error");
 
       // prevent unhandled promise rejection
       await promise.catch(() => {});
 
-      await expect(deduped()).rejects.toBe('artificial error');
+      await expect(deduped()).rejects.toBe("artificial error");
 
       await Promise.allSettled([result1Promise, result2Promise]);
 

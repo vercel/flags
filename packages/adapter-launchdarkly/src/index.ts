@@ -1,13 +1,13 @@
-import type { Adapter } from 'flags';
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import type { Adapter } from "flags";
+import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
 import {
   init,
   LDClient,
   type LDContext,
-} from '@launchdarkly/vercel-server-sdk';
-import { AsyncLocalStorage } from 'async_hooks';
+} from "@launchdarkly/vercel-server-sdk";
+import { AsyncLocalStorage } from "async_hooks";
 
-export { getProviderData } from './provider';
+export { getProviderData } from "./provider";
 export type { LDContext };
 
 interface AdapterOptions<ValueType> {
@@ -108,9 +108,9 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
-    const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
-    const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
+    const edgeConfigConnectionString = assertEnv("EDGE_CONFIG");
+    const clientSideId = assertEnv("LAUNCHDARKLY_CLIENT_SIDE_ID");
+    const projectSlug = assertEnv("LAUNCHDARKLY_PROJECT_SLUG");
 
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       projectSlug,

@@ -1,4 +1,4 @@
-import { ProductReviews } from './product-reviews';
+import { ProductReviews } from "./product-reviews";
 
 export function ProductHeader() {
   return (

@@ -46,22 +46,22 @@
   This is handy when you declare feature flags in code, and want to extend those definitions with data loaded from your feature flag provider.
 
   ```ts
-  import { verifyAccess, mergeProviderData, type ApiData } from '@vercel/flags';
-  import { getProviderData } from '@vercel/flags/next';
-  import { NextResponse, type NextRequest } from 'next/server';
-  import { getProviderData as getStatsigProviderData } from '@flags-sdk/statsig';
-  import * as flagsA from '../../../../flags-a'; // your feature flags file(s)
-  import * as flagsB from '../../../../flags-b'; // your feature flags file(s)
+  import { verifyAccess, mergeProviderData, type ApiData } from "@vercel/flags";
+  import { getProviderData } from "@vercel/flags/next";
+  import { NextResponse, type NextRequest } from "next/server";
+  import { getProviderData as getStatsigProviderData } from "@flags-sdk/statsig";
+  import * as flagsA from "../../../../flags-a"; // your feature flags file(s)
+  import * as flagsB from "../../../../flags-b"; // your feature flags file(s)
 
   export async function GET(request: NextRequest) {
-    const access = await verifyAccess(request.headers.get('Authorization'));
+    const access = await verifyAccess(request.headers.get("Authorization"));
     if (!access) return NextResponse.json(null, { status: 401 });
 
     const providerData = await mergeProviderData([
       // expose flags declared in code first
       getProviderData({ ...flagsA, ...flagsB }),
       // then enhance them with metadata from your flag provider
-      getStatsigProviderData({ consoleApiKey: '', projectId: '' }),
+      getStatsigProviderData({ consoleApiKey: "", projectId: "" }),
     ]);
 
     return NextResponse.json<ApiData>(providerData);
@@ -71,14 +71,12 @@
 ### Patch Changes
 
 - 2713ea7: Handle `undefined` values
-
   - fix: Fall back to `defaultValue` when a feature flag returns `undefined`
   - fix: Throw error when a flag resolves to `undefined` and no `defaultValue` is present
 
   The value `undefined` can not be serialized so feature flags should never resolve to `undefined`. Use `null` instead.
 
   Fix exports
-
   - fix: Export `Identify` and `Decide` types
 
 ## 3.0.2
@@ -98,7 +96,6 @@
 ### Major Changes
 
 - db89f0d: - **BREAKING CHANGE** removed all `unstable_` prefixes, e.g. `unstable_flag` is now `flag`
-
   - **BREAKING CHANGE** removed `getPrecomputationContext`, use `dedupe` instead (see below)
   - **BREAKING CHANGE** moved all provider functions to dedicated packages
     - `@vercel/flags/providers/launchdarkly` → `@flags-sdk/launchdarkly`
@@ -120,7 +117,7 @@
   `dedupe` is a middleware-friendly version of `React.cache`. It allows ensuring a function only ever runs once per request.
 
   ```ts
-  import { dedupe } from '@vercel/flags/next';
+  import { dedupe } from "@vercel/flags/next";
 
   let i = 0;
   const runOnce = dedupe(async () => {
@@ -136,16 +133,16 @@
   `dedupe` is also useful to optimistically generate a random visitor id to be set in a cookie, while also allowing each feature flag to access the id. You can call a dedupe'd function to generate the random id within your Edge Middleware and also within your feature flag's `decide` functions. The function will return a consistent id.
 
   ```ts
-  import { nanoid } from 'nanoid';
-  import { cookies, headers } from 'next/headers';
-  import { dedupe } from '@vercel/flags/next';
+  import { nanoid } from "nanoid";
+  import { cookies, headers } from "next/headers";
+  import { dedupe } from "@vercel/flags/next";
 
   /**
    * Reads the visitor id from a cookie or returns a new visitor id
    */
   export const getOrGenerateVisitorId = dedupe(
     async (): Promise<{ value: string; fresh: boolean }> => {
-      const visitorIdCookie = (await cookies()).get('visitor-id')?.value;
+      const visitorIdCookie = (await cookies()).get("visitor-id")?.value;
 
       return visitorIdCookie
         ? { value: visitorIdCookie, fresh: false }
@@ -180,20 +177,20 @@
   **Precomputed usage example**
 
   ```ts
-  import { bannerFlags, showFreeDeliveryBannerFlag } from './flags';
+  import { bannerFlags, showFreeDeliveryBannerFlag } from "./flags";
   import type {
     GetStaticPaths,
     GetStaticProps,
     InferGetStaticPropsType,
-  } from 'next';
-  import { unstable_generatePermutations as generatePermutations } from '@vercel/flags/next';
+  } from "next";
+  import { unstable_generatePermutations as generatePermutations } from "@vercel/flags/next";
 
   export const getStaticPaths = (async () => {
     const codes = await generatePermutations(bannerFlags);
 
     return {
       paths: codes.map((code) => ({ params: { code } })),
-      fallback: 'blocking',
+      fallback: "blocking",
     };
   }) satisfies GetStaticPaths;
 
@@ -383,7 +380,6 @@
 ### Major Changes
 
 - c1e29ea: BREAKING CHANGE: `VERCEL_FLAGS_SECRET` env var has been renamed to `FLAGS_SECRET`
-
   - Rename your `VERCEL_FLAGS_SECRET` environment variable to `FLAGS_SECRET` in your project settings on vercel.com
   - Pull down the latest environment variables using `vercel env pull .env.local`
 

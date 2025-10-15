@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { colorToImage, images } from '@/components/utils/images';
-import { useProductDetailPageContext } from '@/components/utils/product-detail-page-context';
-import clsx from 'clsx';
-import Image from 'next/image';
+import { colorToImage, images } from "@/components/utils/images";
+import { useProductDetailPageContext } from "@/components/utils/product-detail-page-context";
+import clsx from "clsx";
+import Image from "next/image";
 
 export function ImageGallery() {
   const { color } = useProductDetailPageContext();
@@ -23,8 +23,8 @@ export function ImageGallery() {
             alt="Product Image"
             src={image}
             className={clsx(
-              index === 0 ? 'lg:col-span-2 lg:row-span-2' : 'hidden lg:block',
-              'rounded-xl border border-gray-200',
+              index === 0 ? "lg:col-span-2 lg:row-span-2" : "hidden lg:block",
+              "rounded-xl border border-gray-200",
             )}
           />
         ))}

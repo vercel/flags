@@ -1,4 +1,4 @@
-import type { FlagOption, GenerousOption } from '../types';
+import type { FlagOption, GenerousOption } from "../types";
 
 export function normalizeOptions<T>(
   flagOptions: GenerousOption<T>[] | undefined,
@@ -6,9 +6,9 @@ export function normalizeOptions<T>(
   if (!Array.isArray(flagOptions)) return flagOptions;
 
   return flagOptions.map((option) => {
-    if (typeof option === 'boolean') return { value: option };
-    if (typeof option === 'number') return { value: option };
-    if (typeof option === 'string') return { value: option };
+    if (typeof option === "boolean") return { value: option };
+    if (typeof option === "number") return { value: option };
+    if (typeof option === "string") return { value: option };
     if (option === null) return { value: option };
 
     return option;

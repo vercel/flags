@@ -1,15 +1,15 @@
-export { getProviderData } from './provider';
-import type { Adapter } from 'flags';
+export { getProviderData } from "./provider";
+import type { Adapter } from "flags";
 import Statsig, {
   type StatsigUser,
   type StatsigOptions,
   type DynamicConfig,
   type Layer,
-} from 'statsig-node-lite';
+} from "statsig-node-lite";
 import {
   createEdgeConfigDataAdapter,
   createSyncingHandler,
-} from './edge-runtime-hooks';
+} from "./edge-runtime-hooks";
 
 // Export the Statsig instance
 export {
@@ -58,7 +58,7 @@ export function createStatsigAdapter(options: {
   };
 }): AdapterResponse {
   const initializeStatsig = async (): Promise<void> => {
-    let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
+    let dataAdapter: StatsigOptions["dataAdapter"] | undefined;
     if (options.edgeConfig) {
       dataAdapter = await createEdgeConfigDataAdapter({
         edgeConfigItemKey: options.edgeConfig.itemKey,
@@ -70,11 +70,11 @@ export function createStatsigAdapter(options: {
       dataAdapter,
       // ID list syncing is disabled by default
       // Can be opted in using `options.statsigOptions`
-      initStrategyForIDLists: 'none',
+      initStrategyForIDLists: "none",
       disableIdListsSync: true,
       // Set a shorter interval during development so developers see changes earlier
       rulesetsSyncIntervalMs:
-        process.env.NODE_ENV === 'development' ? 5_000 : undefined,
+        process.env.NODE_ENV === "development" ? 5_000 : undefined,
       ...options.statsigOptions,
     });
   };
@@ -97,7 +97,7 @@ export function createStatsigAdapter(options: {
   };
 
   const isStatsigUser = (user: unknown): user is StatsigUser => {
-    return user != null && typeof user === 'object';
+    return user != null && typeof user === "object";
   };
 
   const minSyncDelayMs = options.edgeConfig ? 1_000 : 5_000;
@@ -108,7 +108,7 @@ export function createStatsigAdapter(options: {
     syncHandler?.();
     if (!isStatsigUser(user)) {
       throw new Error(
-        '@flags-sdk/statsig: Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
+        "@flags-sdk/statsig: Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify",
       );
     }
     return user;
@@ -121,7 +121,7 @@ export function createStatsigAdapter(options: {
     return (key: string) => {
       // Allow unused suffix to be provided to flags to tell them apart.
       // Used for different treatments of the same Statsig entities.
-      const keyPart = key.split('.')[0] ?? '';
+      const keyPart = key.split(".")[0] ?? "";
       return `https://console.statsig.com/${options.statsigProjectId}/${prefix}/${keyPart}`;
     };
   }
@@ -144,7 +144,7 @@ export function createStatsigAdapter(options: {
     },
   ): Adapter<T, StatsigUser> {
     return {
-      origin: origin('gates'),
+      origin: origin("gates"),
       decide: async ({ key, entities }) => {
         const user = await predecide(entities);
         const gate = opts?.exposureLogging
@@ -173,10 +173,10 @@ export function createStatsigAdapter(options: {
     },
   ): Adapter<T, StatsigUser> {
     return {
-      origin: origin('dynamic_configs'),
+      origin: origin("dynamic_configs"),
       decide: async ({ key, entities }) => {
         const user = await predecide(entities);
-        const configKey = key.split('.')[0] ?? '';
+        const configKey = key.split(".")[0] ?? "";
         const config = opts?.exposureLogging
           ? Statsig.getConfigSync(user, configKey)
           : Statsig.getConfigWithExposureLoggingDisabledSync(user, configKey);
@@ -190,7 +190,7 @@ export function createStatsigAdapter(options: {
     opts?: { exposureLogging?: boolean },
   ): Adapter<T, StatsigUser> {
     return {
-      origin: origin('experiments'),
+      origin: origin("experiments"),
       decide: async ({ key, entities }) => {
         const user = await predecide(entities);
         const experiment = opts?.exposureLogging
@@ -206,7 +206,7 @@ export function createStatsigAdapter(options: {
     opts?: { exposureLogging?: boolean },
   ): Adapter<T, StatsigUser> {
     return {
-      origin: origin('autotune'),
+      origin: origin("autotune"),
       decide: async ({ key, entities }) => {
         const user = await predecide(entities);
         const autotune = opts?.exposureLogging
@@ -222,7 +222,7 @@ export function createStatsigAdapter(options: {
     opts?: { exposureLogging?: boolean },
   ): Adapter<T, StatsigUser> {
     return {
-      origin: origin('layers'),
+      origin: origin("layers"),
       decide: async ({ key, entities }) => {
         const user = await predecide(entities);
         const layer = opts?.exposureLogging

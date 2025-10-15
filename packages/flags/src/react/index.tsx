@@ -1,6 +1,6 @@
-import React from 'react';
-import type { FlagDefinitionsType, FlagValuesType } from '../types';
-import { safeJsonStringify } from '../lib/safe-json-stringify';
+import React from "react";
+import type { FlagDefinitionsType, FlagValuesType } from "../types";
+import { safeJsonStringify } from "../lib/safe-json-stringify";
 // the generic type T is not actually used but is great to
 // signal what is encrypted
 type Encrypted<T> = string;

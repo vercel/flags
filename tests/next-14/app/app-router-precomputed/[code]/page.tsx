@@ -1,4 +1,4 @@
-import { exampleFlag, hostFlag, cookieFlag, precomputedFlags } from '@/flags';
+import { exampleFlag, hostFlag, cookieFlag, precomputedFlags } from "@/flags";
 
 export const generateStaticParams = () => {
   return [];
@@ -10,7 +10,7 @@ export default async function Page({ params }: { params: { code: string } }) {
   const cookie = await cookieFlag(params.code, precomputedFlags);
   return (
     <div>
-      <h1>Example App Router Flag Value: {example ? 'true' : 'false'}</h1>
+      <h1>Example App Router Flag Value: {example ? "true" : "false"}</h1>
       <p>Host: {host}</p>
       <p>Cookie: {cookie}</p>
     </div>

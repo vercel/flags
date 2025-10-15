@@ -7,7 +7,7 @@ export class ReflectAdapter {
     receiver: unknown,
   ): any {
     const value = Reflect.get(target, prop, receiver);
-    if (typeof value === 'function') {
+    if (typeof value === "function") {
       return value.bind(target);
     }
 

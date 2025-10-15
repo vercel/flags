@@ -3,12 +3,12 @@ import type {
   GenerousOption as Opt,
   FlagDeclaration,
   Identify,
-} from 'flags';
-import { createClient } from '@vercel/edge-config';
+} from "flags";
+import { createClient } from "@vercel/edge-config";
 import {
   VercelEdgeConfigInitDataProvider,
   type CreateOptions,
-} from 'hypertune';
+} from "hypertune";
 
 type FlagDefinition = {
   description?: string;
@@ -109,7 +109,7 @@ export const createHypertuneAdapter = <
       adapterSource = createSource({
         token: (process.env.NEXT_PUBLIC_HYPERTUNE_TOKEN ??
           process.env.HYPERTUNE_TOKEN)!,
-        key: 'flags-sdk',
+        key: "flags-sdk",
         initDataProvider,
         ...createSourceOptions,
       });
@@ -173,11 +173,11 @@ export const createHypertuneAdapter = <
     },
     {
       get(target, prop) {
-        if (typeof prop === 'string' && !(prop in target)) {
+        if (typeof prop === "string" && !(prop in target)) {
           throw new Error(
             // biome-ignore lint/style/useTemplate: <explanation>
             `Attempted to access flag "${prop}" which is not found in the generated Hypertune code. ` +
-              'Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.',
+              "Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.",
           );
         }
         return target[prop as keyof typeof target];

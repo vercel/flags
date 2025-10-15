@@ -2,13 +2,13 @@ import {
   marketingAbTest,
   marketingFlags,
   secondMarketingAbTest,
-} from '../flags';
-import { DemoFlag } from '@/components/demo-flag';
-import { RegenerateIdButton } from '../regenerate-id-button';
-import { generatePermutations } from 'flags/next';
+} from "../flags";
+import { DemoFlag } from "@/components/demo-flag";
+import { RegenerateIdButton } from "../regenerate-id-button";
+import { generatePermutations } from "flags/next";
 
 // Ensure the page is static
-export const dynamic = 'error';
+export const dynamic = "error";
 
 // Generate all permutations (all combinations of flag 1 and flag 2).
 export async function generateStaticParams() {

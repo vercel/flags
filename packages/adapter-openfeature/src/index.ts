@@ -1,10 +1,10 @@
-import type { Adapter } from 'flags';
+import type { Adapter } from "flags";
 import type {
   Client,
   EvaluationContext,
   FlagEvaluationOptions,
   JsonValue,
-} from '@openfeature/server-sdk';
+} from "@openfeature/server-sdk";
 
 type AdapterResponse<ClientType> = {
   booleanValue: (
@@ -53,13 +53,13 @@ export function createOpenFeatureAdapter(
 export function createOpenFeatureAdapter(
   init: Client | (() => Promise<Client>),
 ): AdapterResponse<Client | (() => Promise<Client>)> {
-  let client: Client | null = typeof init === 'function' ? null : init;
+  let client: Client | null = typeof init === "function" ? null : init;
 
   let clientPromise: Promise<Client>;
   async function initialize() {
     if (client) return client;
     if (clientPromise) return clientPromise;
-    clientPromise = typeof init === 'function' ? init() : Promise.resolve(init);
+    clientPromise = typeof init === "function" ? init() : Promise.resolve(init);
     client = await clientPromise;
     return clientPromise;
   }
@@ -138,12 +138,12 @@ export function createOpenFeatureAdapter(
     numberValue,
     objectValue,
     client:
-      typeof init === 'function'
+      typeof init === "function"
         ? async () => {
             await initialize();
             if (!client)
               throw new Error(
-                '@flags-sdk/openfeature: OpenFeature client failed to initialize',
+                "@flags-sdk/openfeature: OpenFeature client failed to initialize",
               );
             return client;
           }

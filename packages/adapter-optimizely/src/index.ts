@@ -1,1 +1,1 @@
-export { getProviderData } from './provider';
+export { getProviderData } from "./provider";

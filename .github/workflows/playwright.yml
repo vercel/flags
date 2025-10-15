@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: ['*']
+    branches: ["*"]
 jobs:
   test:
     timeout-minutes: 5
@@ -21,8 +21,8 @@ jobs:
           version: 9
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright Browsers

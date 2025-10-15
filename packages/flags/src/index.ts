@@ -1,5 +1,5 @@
-export { version } from '../package.json';
-export { setTracerProvider } from './lib/tracing';
+export { version } from "../package.json";
+export { setTracerProvider } from "./lib/tracing";
 export type {
   Adapter,
   ProviderData,
@@ -15,8 +15,8 @@ export type {
   GenerousOption,
   Identify,
   Decide,
-} from './types';
-export { safeJsonStringify } from './lib/safe-json-stringify';
+} from "./types";
+export { safeJsonStringify } from "./lib/safe-json-stringify";
 export {
   createAccessProof,
   verifyAccessProof,
@@ -26,15 +26,15 @@ export {
   decryptFlagValues,
   encryptFlagDefinitions,
   decryptFlagDefinitions,
-} from './lib/crypto';
-export { verifyAccess } from './lib/verify-access';
-export { reportValue } from './lib/report-value';
+} from "./lib/crypto";
+export { verifyAccess } from "./lib/verify-access";
+export { reportValue } from "./lib/report-value";
 export {
   type ReadonlyHeaders,
   HeadersAdapter,
-} from './spec-extension/adapters/headers';
+} from "./spec-extension/adapters/headers";
 export {
   type ReadonlyRequestCookies,
   RequestCookiesAdapter,
-} from './spec-extension/adapters/request-cookies';
-export { mergeProviderData } from './lib/merge-provider-data';
+} from "./spec-extension/adapters/request-cookies";
+export { mergeProviderData } from "./lib/merge-provider-data";

@@ -2,4 +2,4 @@ export {
   RequestCookies,
   ResponseCookies,
   stringifyCookie,
-} from '@edge-runtime/cookies';
+} from "@edge-runtime/cookies";

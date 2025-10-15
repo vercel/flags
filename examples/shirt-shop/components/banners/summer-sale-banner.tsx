@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import pool from '@/public/images/pool.jpg';
+import Image from "next/image";
+import pool from "@/public/images/pool.jpg";
 
 export function SummerSaleBanner({ onClick }: { onClick: () => void }) {
   return (

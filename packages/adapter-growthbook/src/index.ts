@@ -1,5 +1,5 @@
-import type { Adapter } from 'flags';
-import { createClient } from '@vercel/edge-config';
+import type { Adapter } from "flags";
+import { createClient } from "@vercel/edge-config";
 import {
   GrowthBookClient,
   type Attributes,
@@ -11,9 +11,9 @@ import {
   type FeatureApiResponse,
   type StickyBucketService,
   type StickyAssignmentsDocument,
-} from '@growthbook/growthbook';
+} from "@growthbook/growthbook";
 
-export { getProviderData } from './provider';
+export { getProviderData } from "./provider";
 export {
   GrowthBookClient,
   type Attributes,
@@ -68,7 +68,7 @@ export function createGrowthbookAdapter(options: {
 
   const growthbook = new GrowthBookClient({
     clientKey: options.clientKey,
-    apiHost: options.apiHost || 'https://cdn.growthbook.io',
+    apiHost: options.apiHost || "https://cdn.growthbook.io",
     ...(options.clientOptions || {}),
   });
 
@@ -85,10 +85,10 @@ export function createGrowthbookAdapter(options: {
           options.edgeConfig.itemKey || options.clientKey,
         );
         if (!payload) {
-          console.error('No payload found in edge config');
+          console.error("No payload found in edge config");
         }
       } catch (e) {
-        console.error('Error fetching edge config', e);
+        console.error("Error fetching edge config", e);
       }
     }
 
@@ -117,7 +117,7 @@ export function createGrowthbookAdapter(options: {
 
   function origin(prefix: string) {
     return (key: string) => {
-      const appOrigin = options.appOrigin || 'https://app.growthbook.io';
+      const appOrigin = options.appOrigin || "https://app.growthbook.io";
       return `${appOrigin}/${prefix}/${key}`;
     };
   }
@@ -136,7 +136,7 @@ export function createGrowthbookAdapter(options: {
     },
   ): Adapter<T, Attributes> {
     return {
-      origin: origin('features'),
+      origin: origin("features"),
       decide: async ({ key, entities, defaultValue }) => {
         await initialize();
         const userContext: UserContext = {
@@ -202,9 +202,9 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
     return defaultGrowthbookAdapter;
   }
-  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY || '';
+  const clientKey = process.env.GROWTHBOOK_CLIENT_KEY || "";
   if (!clientKey) {
-    console.error('Missing GROWTHBOOK_CLIENT_KEY env var');
+    console.error("Missing GROWTHBOOK_CLIENT_KEY env var");
   }
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;

@@ -1,6 +1,6 @@
-import { getCart } from '@/lib/actions';
-import Link from 'next/link';
-import { Suspense } from 'react';
+import { getCart } from "@/lib/actions";
+import Link from "next/link";
+import { Suspense } from "react";
 
 function OrderSummaryFallback({
   showSummerBanner,
@@ -68,7 +68,7 @@ async function OrderSummaryContent({
           <p className="text-sm font-medium text-gray-900">
             <span className="line-through font-normal">
               {shipping.toFixed(2)} USD
-            </span>{' '}
+            </span>{" "}
             FREE
           </p>
         ) : (
@@ -113,7 +113,7 @@ export function OrderSummarySection({
 
       <div className="mt-6 text-center text-sm text-gray-500">
         <p>
-          or{' '}
+          or{" "}
           <Link
             href="/"
             className="font-medium text-blue-600 hover:text-blue-500"

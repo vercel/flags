@@ -1,12 +1,12 @@
-import { flag } from 'flags/next';
+import { flag } from "flags/next";
 
 export const firstPrecomputedFlag = flag<boolean>({
-  key: 'first-precomputed-flag',
+  key: "first-precomputed-flag",
   decide: () => Math.random() > 0.5,
 });
 
 export const secondPrecomputedFlag = flag<boolean>({
-  key: 'second-precomputed-flag',
+  key: "second-precomputed-flag",
   decide: () => Date.now() % 2 === 0,
 });
 

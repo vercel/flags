@@ -1,5 +1,5 @@
-import type { Adapter } from 'flags';
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import type { Adapter } from "flags";
+import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
 
 /**
  * An Edge Config adapter for the Flags SDK
@@ -12,14 +12,14 @@ export function createEdgeConfigAdapter(
   },
 ) {
   if (!connectionString) {
-    throw new Error('Edge Config Adapter: Missing connection string');
+    throw new Error("Edge Config Adapter: Missing connection string");
   }
   const edgeConfigClient =
-    typeof connectionString === 'string'
+    typeof connectionString === "string"
       ? createClient(connectionString)
       : connectionString;
 
-  const edgeConfigItemKey = options?.edgeConfigItemKey ?? 'flags';
+  const edgeConfigItemKey = options?.edgeConfigItemKey ?? "flags";
 
   return function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,

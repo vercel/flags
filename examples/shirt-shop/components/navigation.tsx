@@ -1,9 +1,9 @@
-import { getCart } from '@/lib/actions';
-import { ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
-import Link from 'next/link';
-import { Suspense } from 'react';
+import { getCart } from "@/lib/actions";
+import { ShoppingBagIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { Suspense } from "react";
 
-const navigation = ['Home', 'Sale', 'New', 'Shirts', 'Stickers'];
+const navigation = ["Home", "Sale", "New", "Shirts", "Stickers"];
 
 function ShoppingCartNavItemFallback() {
   return (
@@ -56,7 +56,7 @@ export function Navigation() {
                   key={page}
                   className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
                 >
-                  {page === 'Home' ? <Link href="/">Home</Link> : page}
+                  {page === "Home" ? <Link href="/">Home</Link> : page}
                 </span>
               );
             })}

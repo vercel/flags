@@ -1,5 +1,5 @@
-import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
-import { exampleFlag, hostFlag, cookieFlag } from '../flags';
+import type { InferGetServerSidePropsType, GetServerSideProps } from "next";
+import { exampleFlag, hostFlag, cookieFlag } from "../flags";
 
 export const getServerSideProps = (async ({ req }) => {
   const example = await exampleFlag(req);
@@ -19,7 +19,7 @@ export default function PagesRouter({
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return (
     <div>
-      <p>Example Pages Router Flag Value: {example ? 'true' : 'false'}</p>
+      <p>Example Pages Router Flag Value: {example ? "true" : "false"}</p>
       <p>Host: {host}</p>
       <p>Cookie: {cookie}</p>
     </div>

@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from 'flags';
+import type { JsonValue, ProviderData } from "flags";
 
 interface GrowthbookFeature {
   id: string;
@@ -8,7 +8,7 @@ interface GrowthbookFeature {
   description: string;
   owner: string;
   project: string;
-  valueType: 'string' | 'number' | 'boolean' | 'json';
+  valueType: "string" | "number" | "boolean" | "json";
   defaultValue: string;
   tags: string[];
   environments: Record<
@@ -44,8 +44,8 @@ export async function getProviderData(options: {
   clientKey?: string;
 }): Promise<ProviderData> {
   const apiKey = options.apiKey;
-  const appApiHost = options.appApiHost || 'https://api.growthbook.io';
-  const appOrigin = options.appOrigin || 'https://app.growthbook.io';
+  const appApiHost = options.appApiHost || "https://api.growthbook.io";
+  const appOrigin = options.appOrigin || "https://app.growthbook.io";
   const clientKey = options.clientKey;
 
   if (!apiKey) {
@@ -53,14 +53,14 @@ export async function getProviderData(options: {
       definitions: {},
       hints: [
         {
-          key: 'growthbook/missing-api-key',
-          text: 'Missing GrowthBook API Key',
+          key: "growthbook/missing-api-key",
+          text: "Missing GrowthBook API Key",
         },
       ],
     };
   }
 
-  const hints: ProviderData['hints'] = [];
+  const hints: ProviderData["hints"] = [];
 
   const features = await getFeatures({ apiKey, appApiHost, clientKey });
 
@@ -69,14 +69,14 @@ export async function getProviderData(options: {
       definitions: {},
       hints: [
         {
-          key: 'growthbook/fetch-failed',
+          key: "growthbook/fetch-failed",
           text: features.message,
         },
       ],
     };
   }
 
-  const definitions: ProviderData['definitions'] = {};
+  const definitions: ProviderData["definitions"] = {};
   for (const feature of features) {
     if (feature.archived) continue;
 
@@ -84,18 +84,18 @@ export async function getProviderData(options: {
     let invalidType: never;
 
     switch (feature.valueType) {
-      case 'boolean':
+      case "boolean":
         options = [
-          { label: 'On', value: true },
-          { label: 'Off', value: false },
+          { label: "On", value: true },
+          { label: "Off", value: false },
         ];
         break;
-      case 'string':
+      case "string":
         options = [
           { label: `"${feature.defaultValue}"`, value: feature.defaultValue },
         ];
         break;
-      case 'number':
+      case "number":
         options = [
           {
             label: String(feature.defaultValue),
@@ -103,10 +103,10 @@ export async function getProviderData(options: {
           },
         ];
         break;
-      case 'json':
+      case "json":
         options = [
           {
-            label: 'JSON',
+            label: "JSON",
             value: tryParseJSON(feature.defaultValue),
           },
         ];
@@ -114,13 +114,13 @@ export async function getProviderData(options: {
       default:
         invalidType = feature.valueType;
         hints.push({
-          key: 'growthbook/invalid-feature-type',
+          key: "growthbook/invalid-feature-type",
           text: `Invalid feature type: ${feature.valueType}`,
         });
     }
     const typeLabel =
-      feature.valueType === 'json'
-        ? 'JSON'
+      feature.valueType === "json"
+        ? "JSON"
         : feature.valueType.charAt(0).toUpperCase() +
           feature.valueType.slice(1);
 
@@ -145,24 +145,24 @@ async function getFeatures(options: {
   clientKey?: string;
 }): Promise<GrowthbookFeature[] | Error> {
   try {
-    const features: GrowthbookFeaturesResponse['features'] = [];
+    const features: GrowthbookFeaturesResponse["features"] = [];
 
     let offset = 0;
     let hasMore = true;
 
     while (hasMore) {
       const params = new URLSearchParams();
-      if (offset) params.append('offset', String(offset));
-      if (options.clientKey) params.append('clientKey', options.clientKey);
-      const qs = params.toString() ? `?${params.toString()}` : '';
+      if (offset) params.append("offset", String(offset));
+      if (options.clientKey) params.append("clientKey", options.clientKey);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const url = `${options.appApiHost}/api/v1/features${qs}`;
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers: {
           Authorization: `Bearer ${options.apiKey}`,
         },
         // @ts-expect-error some Next.js versions need this
-        cache: 'no-store',
+        cache: "no-store",
       });
 
       if (response.status !== 200) {

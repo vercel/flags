@@ -40,10 +40,10 @@ Create a file called flags.ts in your project and declare your first feature fla
 
 ```ts
 // app/flags.tsx
-import { flag } from 'flags/next';
+import { flag } from "flags/next";
 
 export const exampleFlag = flag<boolean>({
-  key: 'example-flag',
+  key: "example-flag",
   decide() {
     return true;
   },
@@ -54,11 +54,11 @@ Call your feature flag in a React Server Component:
 
 ```tsx
 // app/page.tsx
-import { exampleFlag } from './flags';
+import { exampleFlag } from "./flags";
 
 export default async function Page() {
   const example = await exampleFlag();
-  return <div>{example ? 'Flag is on' : 'Flag is off'}</div>;
+  return <div>{example ? "Flag is on" : "Flag is off"}</div>;
 }
 ```
 

@@ -1,7 +1,7 @@
-import { PostHog } from 'posthog-node';
-import type { PostHogAdapter, PostHogEntities, JsonType } from './types';
+import { PostHog } from "posthog-node";
+import type { PostHogAdapter, PostHogEntities, JsonType } from "./types";
 
-export { getProviderData } from './provider';
+export { getProviderData } from "./provider";
 export type { PostHogEntities, JsonType };
 
 export function createPostHogAdapter({
@@ -43,7 +43,7 @@ export function createPostHogAdapter({
             options,
           );
           if (flagValue === undefined) {
-            if (typeof defaultValue !== 'undefined') {
+            if (typeof defaultValue !== "undefined") {
               return defaultValue;
             }
             throw new Error(
@@ -65,7 +65,7 @@ export function createPostHogAdapter({
             options,
           );
           if (!payload) {
-            if (typeof defaultValue !== 'undefined') {
+            if (typeof defaultValue !== "undefined") {
               return defaultValue;
             }
             throw new Error(
@@ -84,8 +84,8 @@ export function createPostHogAdapter({
 function parseEntities(entities?: PostHogEntities): PostHogEntities {
   if (!entities) {
     throw new Error(
-      'PostHog Adapter: Missing entities, ' +
-        'flag must be defined with an identify() function.',
+      "PostHog Adapter: Missing entities, " +
+        "flag must be defined with an identify() function.",
     );
   }
   return entities;
@@ -103,16 +103,16 @@ function assertEnv(name: string): string {
 // This supports defining multiple flags with the same key
 // Ex. with my-flag.is-enabled, my-flag.variant and my-flag.payload
 function trimKey(key: string): string {
-  return key.split('.')[0] as string;
+  return key.split(".")[0] as string;
 }
 
 let defaultPostHogAdapter: ReturnType<typeof createPostHogAdapter> | undefined;
 function getOrCreateDefaultAdapter() {
   if (!defaultPostHogAdapter) {
     defaultPostHogAdapter = createPostHogAdapter({
-      postHogKey: assertEnv('NEXT_PUBLIC_POSTHOG_KEY'),
+      postHogKey: assertEnv("NEXT_PUBLIC_POSTHOG_KEY"),
       postHogOptions: {
-        host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
+        host: assertEnv("NEXT_PUBLIC_POSTHOG_HOST"),
         personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
         featureFlagsPollingInterval: 10_000,
         // Presumption: Server IP is likely not a good proxy for user location

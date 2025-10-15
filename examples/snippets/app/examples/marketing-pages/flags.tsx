@@ -1,6 +1,6 @@
-import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
-import { dedupe, flag } from 'flags/next';
-import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
+import { dedupe, flag } from "flags/next";
+import { getOrGenerateVisitorId } from "./get-or-generate-visitor-id";
 
 interface Entities {
   visitor?: { id: string };
@@ -20,9 +20,9 @@ const identify = dedupe(
 );
 
 export const marketingAbTest = flag<boolean, Entities>({
-  key: 'marketing-ab-test-flag',
+  key: "marketing-ab-test-flag",
   identify,
-  description: 'A/B test flag used on the Marketing Pages example',
+  description: "A/B test flag used on the Marketing Pages example",
   decide({ entities }) {
     if (!entities?.visitor) return false;
     // TODO use hashing algorithm?
@@ -31,9 +31,9 @@ export const marketingAbTest = flag<boolean, Entities>({
 });
 
 export const secondMarketingAbTest = flag<boolean, Entities>({
-  key: 'second-marketing-ab-test-flag',
+  key: "second-marketing-ab-test-flag",
   identify,
-  description: 'A/B test flag used on the Marketing Pages example',
+  description: "A/B test flag used on the Marketing Pages example",
   decide({ entities }) {
     if (!entities?.visitor) return false;
     // TODO use hashing algorithm?

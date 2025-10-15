@@ -1,7 +1,7 @@
-import { fullIdentifyExampleFlag } from './flags';
-import { DemoFlag } from '@/components/demo-flag';
-import { Button } from '@/components/ui/button';
-import { cookies } from 'next/headers';
+import { fullIdentifyExampleFlag } from "./flags";
+import { DemoFlag } from "@/components/demo-flag";
+import { Button } from "@/components/ui/button";
+import { cookies } from "next/headers";
 
 export default async function Page() {
   const full = await fullIdentifyExampleFlag();
@@ -13,9 +13,9 @@ export default async function Page() {
       <div className="flex gap-2">
         <Button
           onClick={async () => {
-            'use server';
+            "use server";
             const cookiesStore = await cookies();
-            cookiesStore.set('identify-example-user-id', 'user1');
+            cookiesStore.set("identify-example-user-id", "user1");
           }}
           variant="outline"
         >
@@ -23,9 +23,9 @@ export default async function Page() {
         </Button>
         <Button
           onClick={async () => {
-            'use server';
+            "use server";
             const cookiesStore = await cookies();
-            cookiesStore.set('identify-example-user-id', 'user2');
+            cookiesStore.set("identify-example-user-id", "user2");
           }}
           variant="outline"
         >
@@ -33,9 +33,9 @@ export default async function Page() {
         </Button>
         <Button
           onClick={async () => {
-            'use server';
+            "use server";
             const cookiesStore = await cookies();
-            cookiesStore.delete('identify-example-user-id');
+            cookiesStore.delete("identify-example-user-id");
           }}
           variant="outline"
         >

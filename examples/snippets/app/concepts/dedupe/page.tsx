@@ -1,4 +1,4 @@
-import { dedupe } from 'flags/next';
+import { dedupe } from "flags/next";
 
 const dedupeExample = dedupe(() => {
   return Math.random().toString().substring(0, 8);

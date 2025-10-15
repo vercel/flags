@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
-import { useRouter } from 'next/navigation';
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
 
 export function DevTools() {
   const router = useRouter();
 
   const deleteCookie = () => {
     document.cookie =
-      'stable-id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      "stable-id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     router.refresh();
   };
 

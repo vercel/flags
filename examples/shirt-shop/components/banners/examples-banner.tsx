@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export function ExamplesBanner() {
   return (
@@ -32,7 +32,7 @@ export function ExamplesBanner() {
                 <path d="M16.88 3.549L7.12 20.451"></path>
               </svg>
             </li>
-            <li className="font-medium" style={{ letterSpacing: '.01px' }}>
+            <li className="font-medium" style={{ letterSpacing: ".01px" }}>
               <Link
                 className="text-link hover:text-link-light transition-colors no-underline [&_code]:text-link [&_code]:hover:text-link-light [&_code]:transition-colors text-accents-6 duration-200 hover:text-accents-8 cursor-pointer"
                 target="_blank"

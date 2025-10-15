@@ -1,9 +1,9 @@
-import { DemoFlag } from '@/components/demo-flag';
+import { DemoFlag } from "@/components/demo-flag";
 import {
   firstPrecomputedFlag,
   secondPrecomputedFlag,
   marketingFlags,
-} from './flags';
+} from "./flags";
 
 type Params = Promise<{ code: string }>;
 

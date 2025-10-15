@@ -1,12 +1,12 @@
-import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { ShoppingBagIcon } from "@heroicons/react/24/outline";
 
 const navigation = [
-  'Home',
-  'About',
-  'Terms & Conditions',
-  'Shipping & Return Policy',
-  'Privacy Policy',
-  'FAQ',
+  "Home",
+  "About",
+  "Terms & Conditions",
+  "Shipping & Return Policy",
+  "Privacy Policy",
+  "FAQ",
 ];
 
 export function Footer() {

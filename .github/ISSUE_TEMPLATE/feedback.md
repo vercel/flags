@@ -1,7 +1,7 @@
 ---
 name: Feedback
 about: Leave feedback about the Flags SDK and flags-sdk.dev
-title: '[Feedback]'
+title: "[Feedback]"
 labels: feedback
 assignees: dferber90
 ---

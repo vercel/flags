@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from 'flags';
+import type { JsonValue, ProviderData } from "flags";
 
 // See: https://docs.statsig.com/console-api/gates/#get-/console/v1/gates
 interface StatsigFeatureGateResponse {
@@ -79,14 +79,14 @@ export async function getProviderData(
       definitions: {},
       hints: [
         {
-          key: 'statsig/missing-api-key',
-          text: 'Missing Statsig Console API Key',
+          key: "statsig/missing-api-key",
+          text: "Missing Statsig Console API Key",
         },
       ],
     };
   }
 
-  const hints: ProviderData['hints'] = [];
+  const hints: ProviderData["hints"] = [];
 
   // Abort early if called with incomplete options.
   const [gates, experiments] = await Promise.allSettled([
@@ -94,9 +94,9 @@ export async function getProviderData(
     getExperiments({ consoleApiKey }),
   ] as const);
 
-  const definitions: ProviderData['definitions'] = {};
+  const definitions: ProviderData["definitions"] = {};
 
-  if (gates.status === 'fulfilled') {
+  if (gates.status === "fulfilled") {
     gates.value.forEach((gate) => {
       definitions[gate.id] = {
         description: gate.description,
@@ -104,8 +104,8 @@ export async function getProviderData(
           ? `https://console.statsig.com/${options.projectId}/gates/${gate.id}`
           : undefined,
         options: [
-          { label: 'Off', value: false },
-          { label: 'On', value: true },
+          { label: "Off", value: false },
+          { label: "On", value: true },
         ],
         createdAt: gate.createdTime,
         updatedAt: gate.lastModifiedTime,
@@ -113,12 +113,12 @@ export async function getProviderData(
     });
   } else {
     hints.push({
-      key: 'statsig/failed-to-load-feature-gates',
+      key: "statsig/failed-to-load-feature-gates",
       text: gates.reason.message,
     });
   }
 
-  if (experiments.status === 'fulfilled') {
+  if (experiments.status === "fulfilled") {
     experiments.value.forEach((experiment) => {
       definitions[experiment.id] = {
         description: experiment.description,
@@ -137,7 +137,7 @@ export async function getProviderData(
     });
   } else {
     hints.push({
-      key: 'statsig/failed-to-load-experiments',
+      key: "statsig/failed-to-load-experiments",
       text: experiments.reason.message,
     });
   }
@@ -149,19 +149,19 @@ export async function getProviderData(
  * Fetch all Feature Gates.
  */
 async function getFeatureGates(options: { consoleApiKey: string }) {
-  const data: StatsigFeatureGateResponse['data'] = [];
+  const data: StatsigFeatureGateResponse["data"] = [];
 
-  let suffix: string | null = '/console/v1/gates';
+  let suffix: string | null = "/console/v1/gates";
 
   do {
     const response = await fetch(`https://statsigapi.net${suffix}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
+        "content-type": "application/json",
+        "STATSIG-API-KEY": options.consoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
-      cache: 'no-store',
+      cache: "no-store",
     });
 
     if (response.status !== 200) {
@@ -185,19 +185,19 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
  * Fetch all experiments.
  */
 async function getExperiments(options: { consoleApiKey: string }) {
-  const data: StatsigExperimentsResponse['data'] = [];
+  const data: StatsigExperimentsResponse["data"] = [];
 
-  let suffix: string | null = '/console/v1/experiments';
+  let suffix: string | null = "/console/v1/experiments";
 
   do {
     const response = await fetch(`https://statsigapi.net${suffix}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'content-type': 'application/json',
-        'STATSIG-API-KEY': options.consoleApiKey,
+        "content-type": "application/json",
+        "STATSIG-API-KEY": options.consoleApiKey,
       },
       // @ts-expect-error some Next.js versions need this
-      cache: 'no-store',
+      cache: "no-store",
     });
 
     if (response.status !== 200) {

@@ -1,6 +1,6 @@
-import { precompute } from 'flags/next';
-import { type NextRequest, NextResponse } from 'next/server';
-import { coreFlags } from './flags';
+import { precompute } from "flags/next";
+import { type NextRequest, NextResponse } from "next/server";
+import { coreFlags } from "./flags";
 
 export async function pprShellsMiddleware(request: NextRequest) {
   // precompute the flags

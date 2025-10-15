@@ -1,11 +1,11 @@
-import { OrderSummary } from '@/app/[code]/cart/order-summary';
-import { Main } from '@/components/main';
-import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
+import { OrderSummary } from "@/app/[code]/cart/order-summary";
+import { Main } from "@/components/main";
+import { ShoppingCart } from "@/components/shopping-cart/shopping-cart";
 import {
   productFlags,
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,
-} from '@/flags';
+} from "@/flags";
 
 export default async function CartPage({
   params,

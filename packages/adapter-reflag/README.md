@@ -15,17 +15,17 @@ pnpm i @flags-sdk/reflag
 You can import the default adapter instance `reflagAdapter` from `@flags-sdk/reflag`:
 
 ```ts
-import { reflagAdapter } from '@flags-sdk/reflag';
+import { reflagAdapter } from "@flags-sdk/reflag";
 ```
 
 ## Example
 
 ```ts
-import { flag } from 'flags/next';
-import { reflagAdapter } from '@flags-sdk/reflag';
+import { flag } from "flags/next";
+import { reflagAdapter } from "@flags-sdk/reflag";
 
 export const huddleFlag = flag<boolean>({
-  key: 'huddle',
+  key: "huddle",
   adapter: reflagAdapter.isEnabled(),
 });
 ```

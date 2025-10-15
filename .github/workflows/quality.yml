@@ -12,7 +12,7 @@ on:
 
 jobs:
   prettier:
-    name: 'Prettier'
+    name: "Prettier"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,8 +23,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -33,7 +33,7 @@ jobs:
         run: pnpm prettier-check
 
   eslint:
-    name: 'ESLint'
+    name: "ESLint"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,8 +44,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -54,7 +54,7 @@ jobs:
         run: pnpm run lint
 
   types:
-    name: 'TypeScript'
+    name: "TypeScript"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -65,8 +65,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -78,7 +78,7 @@ jobs:
         run: pnpm run attw
 
   publint:
-    name: 'publint'
+    name: "publint"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -89,8 +89,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install

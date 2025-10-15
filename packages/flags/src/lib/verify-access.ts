@@ -1,5 +1,5 @@
-import { verifyAccessProof } from './crypto';
-import { trace } from './tracing';
+import { verifyAccessProof } from "./crypto";
+import { trace } from "./tracing";
 
 /**
  * This function lets you verify whether a request to your application's .well-known/vercel/flags endpoint was made by the toolbar.
@@ -32,11 +32,11 @@ export const verifyAccess = trace(
     if (!authHeader) return false;
     if (!secret)
       throw new Error(
-        'flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
+        "flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.",
       );
 
     const valid = await verifyAccessProof(
-      authHeader.replace(/^Bearer /i, ''),
+      authHeader.replace(/^Bearer /i, ""),
       secret,
     );
 
@@ -44,6 +44,6 @@ export const verifyAccess = trace(
   },
   {
     isVerboseTrace: false,
-    name: 'verifyAccess',
+    name: "verifyAccess",
   },
 );

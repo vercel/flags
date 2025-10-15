@@ -1,5 +1,5 @@
-import clsx from 'clsx';
-import { StarIcon } from '@heroicons/react/20/solid';
+import clsx from "clsx";
+import { StarIcon } from "@heroicons/react/20/solid";
 
 export function ProductReviews() {
   return (
@@ -11,7 +11,7 @@ export function ProductReviews() {
             <StarIcon
               key={rating}
               aria-hidden="true"
-              className={clsx('text-yellow-400', 'size-5 shrink-0')}
+              className={clsx("text-yellow-400", "size-5 shrink-0")}
             />
           ))}
         </div>

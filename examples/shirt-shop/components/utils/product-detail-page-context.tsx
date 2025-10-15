@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from "react";
 
 export type ProductDetailPageContextType = {
   color: string;
@@ -15,8 +15,8 @@ export function useProductDetailPageContext(): ProductDetailPageContextType {
 
 export const ProductDetailPageContext =
   createContext<ProductDetailPageContextType>({
-    color: 'Black',
-    size: 'S',
+    color: "Black",
+    size: "S",
     setColor: () => {},
     setSize: () => {},
   });
@@ -27,8 +27,8 @@ export function ProductDetailPageProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState({
-    color: 'Black',
-    size: 'S',
+    color: "Black",
+    size: "S",
   });
 
   const context = useMemo<ProductDetailPageContextType>(

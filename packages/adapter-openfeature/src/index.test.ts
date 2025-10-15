@@ -1,9 +1,9 @@
-import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createOpenFeatureAdapter } from './index';
-import type { Client, EvaluationContext } from '@openfeature/server-sdk';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createOpenFeatureAdapter } from "./index";
+import type { Client, EvaluationContext } from "@openfeature/server-sdk";
 
-describe('OpenFeature Adapter', () => {
+describe("OpenFeature Adapter", () => {
   let mockClient: Client;
   let mockHeaders: Partial<ReadonlyHeaders>;
   let mockCookies: Partial<ReadonlyRequestCookies>;
@@ -20,13 +20,13 @@ describe('OpenFeature Adapter', () => {
     mockCookies = { get: vi.fn() };
   });
 
-  describe('sync client', () => {
-    describe('booleanValue', () => {
-      it('should call getBooleanValue with correct parameters', async () => {
+  describe("sync client", () => {
+    describe("booleanValue", () => {
+      it("should call getBooleanValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = false;
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getBooleanValue).mockResolvedValue(true);
@@ -49,15 +49,15 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    describe('stringValue', () => {
-      it('should call getStringValue with correct parameters', async () => {
+    describe("stringValue", () => {
+      it("should call getStringValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(mockClient);
-        const key = 'test-flag';
-        const defaultValue = 'default';
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const key = "test-flag";
+        const defaultValue = "default";
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
-        vi.mocked(mockClient.getStringValue).mockResolvedValue('test-value');
+        vi.mocked(mockClient.getStringValue).mockResolvedValue("test-value");
 
         const result = await adapter.stringValue(options).decide({
           key,
@@ -73,16 +73,16 @@ describe('OpenFeature Adapter', () => {
           entities,
           options,
         );
-        expect(result).toBe('test-value');
+        expect(result).toBe("test-value");
       });
     });
 
-    describe('numberValue', () => {
-      it('should call getNumberValue with correct parameters', async () => {
+    describe("numberValue", () => {
+      it("should call getNumberValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = 42;
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getNumberValue).mockResolvedValue(100);
@@ -105,12 +105,12 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    describe('objectValue', () => {
-      it('should call getObjectValue with correct parameters', async () => {
+    describe("objectValue", () => {
+      it("should call getObjectValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = { test: true };
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getObjectValue).mockResolvedValue({ test: false });
@@ -133,21 +133,21 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    describe('client', () => {
-      it('should expose the client instance', () => {
+    describe("client", () => {
+      it("should expose the client instance", () => {
         const adapter = createOpenFeatureAdapter(mockClient);
         expect(adapter.client).toBe(mockClient);
       });
     });
   });
 
-  describe('async client', () => {
-    describe('booleanValue', () => {
-      it('should call getBooleanValue with correct parameters', async () => {
+  describe("async client", () => {
+    describe("booleanValue", () => {
+      it("should call getBooleanValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(async () => mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = false;
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getBooleanValue).mockResolvedValue(true);
@@ -170,15 +170,15 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    describe('stringValue', () => {
-      it('should call getStringValue with correct parameters', async () => {
+    describe("stringValue", () => {
+      it("should call getStringValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(async () => mockClient);
-        const key = 'test-flag';
-        const defaultValue = 'default';
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const key = "test-flag";
+        const defaultValue = "default";
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
-        vi.mocked(mockClient.getStringValue).mockResolvedValue('test-value');
+        vi.mocked(mockClient.getStringValue).mockResolvedValue("test-value");
 
         const result = await adapter.stringValue(options).decide({
           key,
@@ -194,16 +194,16 @@ describe('OpenFeature Adapter', () => {
           entities,
           options,
         );
-        expect(result).toBe('test-value');
+        expect(result).toBe("test-value");
       });
     });
 
-    describe('numberValue', () => {
-      it('should call getNumberValue with correct parameters', async () => {
+    describe("numberValue", () => {
+      it("should call getNumberValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(async () => mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = 42;
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getNumberValue).mockResolvedValue(100);
@@ -226,12 +226,12 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    describe('objectValue', () => {
-      it('should call getObjectValue with correct parameters', async () => {
+    describe("objectValue", () => {
+      it("should call getObjectValue with correct parameters", async () => {
         const adapter = createOpenFeatureAdapter(async () => mockClient);
-        const key = 'test-flag';
+        const key = "test-flag";
         const defaultValue = { test: true };
-        const entities: EvaluationContext = { targetingKey: 'user-1' };
+        const entities: EvaluationContext = { targetingKey: "user-1" };
         const options = { hookHints: { test: true } };
 
         vi.mocked(mockClient.getObjectValue).mockResolvedValue({ test: false });
@@ -254,12 +254,12 @@ describe('OpenFeature Adapter', () => {
       });
     });
 
-    it('should expose the client instance', async () => {
+    it("should expose the client instance", async () => {
       const adapter = createOpenFeatureAdapter(async () => mockClient);
       await expect(adapter.client()).resolves.toBe(mockClient);
     });
 
-    it('should only initialize the client once', async () => {
+    it("should only initialize the client once", async () => {
       const delay = (ms: number) =>
         new Promise((resolve) => setTimeout(resolve, ms));
       const initFn = vi.fn(async () => {

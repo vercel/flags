@@ -1,27 +1,27 @@
-import PagesLayout from '@/components/pages-layout';
+import PagesLayout from "@/components/pages-layout";
 import type {
   GetStaticPaths,
   GetStaticProps,
   InferGetStaticPropsType,
-} from 'next';
+} from "next";
 import {
   exampleFlag,
   exampleFlags,
-} from '@/lib/pages-router-precomputed/flags';
-import { DemoFlag } from '@/components/demo-flag';
-import { generatePermutations } from 'flags/next';
+} from "@/lib/pages-router-precomputed/flags";
+import { DemoFlag } from "@/components/demo-flag";
+import { generatePermutations } from "flags/next";
 
 export const getStaticPaths = (async () => {
   const codes = await generatePermutations(exampleFlags);
 
   return {
     paths: codes.map((code) => ({ params: { code } })),
-    fallback: 'blocking',
+    fallback: "blocking",
   };
 }) satisfies GetStaticPaths;
 
 export const getStaticProps = (async (context) => {
-  if (typeof context.params?.code !== 'string') return { notFound: true };
+  if (typeof context.params?.code !== "string") return { notFound: true };
 
   const example = await exampleFlag(context.params.code, exampleFlags);
   return { props: { example } };

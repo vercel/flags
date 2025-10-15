@@ -1,4 +1,4 @@
-import type { FlagDefinitionsType, ProviderData } from 'flags';
+import type { FlagDefinitionsType, ProviderData } from "flags";
 
 // See: https://posthog.com/docs/api/feature-flags#get-api-projects-project_id-feature_flags
 interface ApiData {
@@ -26,12 +26,12 @@ export async function getProviderData(options: {
   projectId: string;
   appHost?: string;
 }): Promise<ProviderData> {
-  const hints: Exclude<ProviderData['hints'], undefined> = [];
+  const hints: Exclude<ProviderData["hints"], undefined> = [];
 
   if (!options.personalApiKey) {
     hints.push({
-      key: 'posthog/missing-personal-api-key',
-      text: 'Missing PostHog Personal API Key',
+      key: "posthog/missing-personal-api-key",
+      text: "Missing PostHog Personal API Key",
     });
   }
 
@@ -41,16 +41,16 @@ export async function getProviderData(options: {
       host = getAppHost();
     } catch (e) {
       hints.push({
-        key: 'posthog/missing-app-host',
-        text: 'Missing NEXT_PUBLIC_POSTHOG_HOST environment variable',
+        key: "posthog/missing-app-host",
+        text: "Missing NEXT_PUBLIC_POSTHOG_HOST environment variable",
       });
     }
   }
 
   if (!options.projectId) {
     hints.push({
-      key: 'posthog/missing-project-id',
-      text: 'Missing PostHog Project ID',
+      key: "posthog/missing-project-id",
+      text: "Missing PostHog Project ID",
     });
   }
 
@@ -65,10 +65,10 @@ export async function getProviderData(options: {
   const res = await fetch(
     `${host}/api/projects/${options.projectId}/feature_flags`,
     {
-      method: 'GET',
+      method: "GET",
       headers,
       // @ts-expect-error used by some Next.js versions
-      cache: 'no-store',
+      cache: "no-store",
     },
   );
 
@@ -86,17 +86,17 @@ export async function getProviderData(options: {
 
   try {
     const data = (await res.json()) as ApiData;
-    const items: ApiData['results'] = [...data.results];
+    const items: ApiData["results"] = [...data.results];
 
     // paginate in a parallel request
     for (let offset = 100; offset < data.count; offset += 100) {
       const paginatedRes = await fetch(
         `${host}/api/projects/${options.projectId}/feature_flags?offset=${offset}&limit=100`,
         {
-          method: 'GET',
+          method: "GET",
           headers,
           // @ts-expect-error used by some Next.js versions
-          cache: 'no-store',
+          cache: "no-store",
         },
       );
 
@@ -136,7 +136,7 @@ export async function getProviderData(options: {
       hints: [
         {
           key: `posthog/response-not-ok/${options.projectId}`,
-          text: 'Failed to fetch PostHog',
+          text: "Failed to fetch PostHog",
         },
       ],
     };
@@ -147,15 +147,15 @@ export const getAppHost = (apiHost?: string) => {
   const host = apiHost ?? process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
   if (!host) {
-    throw new Error('NEXT_PUBLIC_POSTHOG_HOST is not set');
+    throw new Error("NEXT_PUBLIC_POSTHOG_HOST is not set");
   }
 
-  if (host.includes('us.i.posthog.com')) {
-    return 'https://us.posthog.com';
+  if (host.includes("us.i.posthog.com")) {
+    return "https://us.posthog.com";
   }
 
-  if (host.includes('eu.i.posthog.com')) {
-    return 'https://eu.posthog.com';
+  if (host.includes("eu.i.posthog.com")) {
+    return "https://eu.posthog.com";
   }
 
   return host;

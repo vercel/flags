@@ -1,7 +1,7 @@
-import { getCart } from '@/lib/actions';
-import { Suspense } from 'react';
-import { ShoppingCartList } from './shopping-cart-list';
-import { EmptyShoppingCartItem, ShoppingCartItem } from './shopping-cart-item';
+import { getCart } from "@/lib/actions";
+import { Suspense } from "react";
+import { ShoppingCartList } from "./shopping-cart-list";
+import { EmptyShoppingCartItem, ShoppingCartItem } from "./shopping-cart-item";
 
 function ShoppingCartContentFallback() {
   return (
@@ -35,7 +35,7 @@ async function ShoppingCartContent() {
       ) : (
         items.map((item) => (
           <ShoppingCartItem
-            key={[item.id, item.color, item.size].join('/')}
+            key={[item.id, item.color, item.size].join("/")}
             item={item}
           />
         ))

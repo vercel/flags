@@ -1,6 +1,6 @@
 packages:
-  - 'packages/*'
-  - 'tooling/*'
-  - 'tests/*'
-  - 'examples/*'
-  - 'apps/*'
+  - "packages/*"
+  - "tooling/*"
+  - "tests/*"
+  - "examples/*"
+  - "apps/*"

@@ -1,9 +1,9 @@
-import { flag } from 'flags/next';
+import { flag } from "flags/next";
 
 export const hasAuthCookieFlag = flag<boolean>({
-  key: 'has-auth-cookie',
+  key: "has-auth-cookie",
   decide({ cookies }) {
-    return cookies.has('suspense-fallbacks-user-id');
+    return cookies.has("suspense-fallbacks-user-id");
   },
 });
 

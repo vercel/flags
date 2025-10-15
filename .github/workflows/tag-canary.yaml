@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'NPM version to tag as canary (e.g., 1.2.3)'
+        description: "NPM version to tag as canary (e.g., 1.2.3)"
         required: true
         type: string
 
@@ -38,8 +38,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          node-version-file: ".node-version"
+          cache: "pnpm"
 
       - name: Add npm auth token to pnpm
         run: pnpm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN_ELEVATED}"
