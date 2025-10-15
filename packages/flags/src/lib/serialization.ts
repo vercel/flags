@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { base64url, CompactSign, compactVerify } from 'jose';
 import type { JsonValue } from '..';
 import type { FlagOption } from '../types';

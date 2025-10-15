@@ -174,7 +174,6 @@ describe('getProviderData', () => {
     it('should fetch and return', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
         status: 200,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         json: (): Promise<any> => {
           throw new Error('Invalid JSON');
         },

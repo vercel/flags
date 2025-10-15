@@ -51,7 +51,6 @@ function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
   prop: Y,
 ): obj is X & Record<Y, unknown> {
-  // eslint-disable-next-line no-prototype-builtins
   return Object.hasOwn(obj, prop);
 }
 
@@ -82,7 +81,6 @@ type PromisesMap<T> = {
 
 async function resolveObjectPromises<T>(obj: PromisesMap<T>): Promise<T> {
   // Convert the object into an array of [key, promise] pairs
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const entries = Object.entries(obj) as [keyof T, Promise<any>][];
 
   // Use Promise.all to wait for all the promises to resolve
@@ -133,7 +131,6 @@ const requestMap = new WeakMap<Request, AsyncLocalContext>();
  */
 export function flag<
   ValueType extends JsonValue = boolean | string | number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   EntitiesType = any,
 >(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
   const decide = getDecide<ValueType, EntitiesType>(definition);
@@ -141,7 +138,6 @@ export function flag<
 
   const flagImpl = async function flagImpl(
     requestOrCode?: string | Request,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     flagsArrayOrSecret?: string | Flag<any>[],
   ): Promise<ValueType> {
     let store = flagStorage.getStore();
@@ -234,7 +230,6 @@ export function flag<
   return flagImpl;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
   const definitions = Object.values(flags).reduce<FlagDefinitionsType>(
     (acc, d) => {
@@ -299,7 +294,6 @@ export function createHandle({
   flags,
 }: {
   secret?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flags?: Record<string, Flag<any>>;
 }): Handle {
   return async function handle({ event, resolve }) {
@@ -346,7 +340,6 @@ export function createHandle({
 async function handleWellKnownFlagsRoute(
   event: RequestEvent<Partial<Record<string, string>>, string | null>,
   secret: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flags: Record<string, Flag<any>>,
 ) {
   const access = await verifyAccess(

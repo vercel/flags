@@ -6,7 +6,6 @@ export class ReflectAdapter {
     target: T,
     prop: string | symbol,
     receiver: unknown,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): any {
     const value = Reflect.get(target, prop, receiver);
     if (typeof value === 'function') {
@@ -19,9 +18,7 @@ export class ReflectAdapter {
   static set<T extends object>(
     target: T,
     prop: string | symbol,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value: any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     receiver: any,
   ): boolean {
     return Reflect.set(target, prop, value, receiver);

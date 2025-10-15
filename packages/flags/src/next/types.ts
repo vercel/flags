@@ -73,13 +73,11 @@ export type PrecomputedFlag<ValueType, EntitiesType> = {
   (): never;
   (
     groupCode: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     groupFlags: readonly Flag<any>[],
     secret?: string,
   ): Promise<ValueType>;
 } & FlagMeta<ValueType, EntitiesType>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Flag<ValueType extends JsonValue, EntitiesType = any> =
   | AppRouterFlag<ValueType, EntitiesType>
   | PagesRouterFlag<ValueType, EntitiesType>

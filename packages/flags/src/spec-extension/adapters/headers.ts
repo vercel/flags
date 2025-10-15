@@ -21,13 +21,10 @@ class ReadonlyHeadersError extends Error {
 
 export type ReadonlyHeaders = Headers & {
   /** @deprecated Method unavailable on `ReadonlyHeaders`. Read more: https://nextjs.org/docs/app/api-reference/functions/headers */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   append(...args: any[]): void;
   /** @deprecated Method unavailable on `ReadonlyHeaders`. Read more: https://nextjs.org/docs/app/api-reference/functions/headers */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   set(...args: any[]): void;
   /** @deprecated Method unavailable on `ReadonlyHeaders`. Read more: https://nextjs.org/docs/app/api-reference/functions/headers */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete(...args: any[]): void;
 };
 export class HeadersAdapter extends Headers {
@@ -195,7 +192,6 @@ export class HeadersAdapter extends Headers {
 
   public forEach(
     callbackfn: (value: string, name: string, parent: Headers) => void,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     thisArg?: any,
   ): void {
     for (const [name, value] of this.entries()) {

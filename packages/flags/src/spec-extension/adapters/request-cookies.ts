@@ -33,7 +33,6 @@ export type ReadonlyRequestCookies = Omit<
 // biome-ignore lint/complexity/noStaticOnlyClass: copied from Next.js
 export class RequestCookiesAdapter {
   public static seal(cookies: RequestCookies): ReadonlyRequestCookies {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return new Proxy(cookies as any, {
       get(target, prop, receiver) {
         switch (prop) {
@@ -54,7 +53,6 @@ const SYMBOL_MODIFY_COOKIE_VALUES = Symbol.for('next.mutated.cookies');
 export function getModifiedCookieValues(
   cookies: ResponseCookies,
 ): ResponseCookie[] {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const modified: ResponseCookie[] | undefined = (cookies as unknown as any)[
     SYMBOL_MODIFY_COOKIE_VALUES
   ];

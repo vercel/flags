@@ -2,7 +2,6 @@ import type { JsonValue } from '..';
 import * as s from '../lib/serialization';
 import type { Flag, FlagsArray } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ValuesArray = readonly any[];
 
 /**

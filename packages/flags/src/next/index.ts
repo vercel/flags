@@ -44,7 +44,6 @@ export type { Flag } from './types';
 // a map of (headers, flagKey, entitiesKey) => value
 const evaluationCache = new WeakMap<
   Headers | IncomingHttpHeaders,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Map</* flagKey */ string, Map</* entitiesKey */ string, any>>
 >();
 
@@ -55,7 +54,6 @@ function getCachedValuePromise(
   headers: Headers | IncomingHttpHeaders,
   flagKey: string,
   entitiesKey: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const map = evaluationCache.get(headers)?.get(flagKey);
   if (!map) return undefined;
@@ -69,9 +67,7 @@ function setCachedValuePromise(
   headers: Headers | IncomingHttpHeaders,
   flagKey: string,
   entitiesKey: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flagValue: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const byHeaders = evaluationCache.get(headers);
 
@@ -93,7 +89,6 @@ function setCachedValuePromise(
 }
 
 type IdentifyArgs = Parameters<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Exclude<FlagDeclaration<any, any>['identify'], undefined>
 >;
 const transformMap = new WeakMap<IncomingHttpHeaders, Headers>();
@@ -374,7 +369,6 @@ function getOrigin<ValueType, EntitiesType>(
  */
 export function flag<
   ValueType extends JsonValue = boolean | string | number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   EntitiesType = any,
 >(
   definition: FlagDeclaration<ValueType, EntitiesType>,
@@ -385,7 +379,6 @@ export function flag<
   const origin = getOrigin(definition);
 
   const flag = trace(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (...args: any[]) => {
       // Default method, may be overwritten by `getPrecomputed` or `run`
       // which is why we must not trace them directly in here,

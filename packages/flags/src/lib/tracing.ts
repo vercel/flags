@@ -41,7 +41,6 @@ export function setSpanAttribute(name: string, value: AttributeValue) {
   spanContext.getStore()?.set(name, value);
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export function trace<F extends (...args: any) => any>(
   fn: F,
   options: {
