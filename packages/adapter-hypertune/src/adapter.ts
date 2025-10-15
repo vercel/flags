@@ -1,46 +1,46 @@
 import { createClient } from "@vercel/edge-config";
 import type {
-  Adapter,
-  FlagDeclaration,
-  Identify,
-  GenerousOption as Opt,
+	Adapter,
+	FlagDeclaration,
+	Identify,
+	GenerousOption as Opt,
 } from "flags";
 import {
-  type CreateOptions,
-  VercelEdgeConfigInitDataProvider,
+	type CreateOptions,
+	VercelEdgeConfigInitDataProvider,
 } from "hypertune";
 
 type FlagDefinition = {
-  description?: string;
-  options?: Array<{ value: unknown; label: string }>;
-  origin?: string;
+	description?: string;
+	options?: Array<{ value: unknown; label: string }>;
+	origin?: string;
 };
 
 interface CreateSourceOptions extends CreateOptions {
-  token: string;
-  key?: string;
+	token: string;
+	key?: string;
 }
 
 type AdapterArgs<
-  TFlagValues extends Record<string, unknown>,
-  TContext extends Record<string, unknown>,
+	TFlagValues extends Record<string, unknown>,
+	TContext extends Record<string, unknown>,
 > = {
-  createSource: (options: CreateSourceOptions) => {
-    initIfNeeded: () => Promise<void>;
-    root: (args: { args: { context: TContext } }) => {
-      getFlagValues<FlagPath extends keyof TFlagValues & string>({
-        flagFallbacks,
-        flagPaths,
-      }: {
-        flagFallbacks: TFlagValues;
-        flagPaths: FlagPath[];
-      }): Pick<TFlagValues, FlagPath>;
-    };
-  };
-  flagFallbacks: TFlagValues;
-  flagDefinitions: Record<keyof TFlagValues, FlagDefinition>;
-  identify: Identify<TContext>;
-  createSourceOptions?: Partial<CreateSourceOptions>;
+	createSource: (options: CreateSourceOptions) => {
+		initIfNeeded: () => Promise<void>;
+		root: (args: { args: { context: TContext } }) => {
+			getFlagValues<FlagPath extends keyof TFlagValues & string>({
+				flagFallbacks,
+				flagPaths,
+			}: {
+				flagFallbacks: TFlagValues;
+				flagPaths: FlagPath[];
+			}): Pick<TFlagValues, FlagPath>;
+		};
+	};
+	flagFallbacks: TFlagValues;
+	flagDefinitions: Record<keyof TFlagValues, FlagDefinition>;
+	identify: Identify<TContext>;
+	createSourceOptions?: Partial<CreateSourceOptions>;
 };
 
 /**
@@ -83,107 +83,107 @@ type AdapterArgs<
  * ```
  */
 export const createHypertuneAdapter = <
-  TFlagValues extends Record<string, unknown>,
-  TContext extends Record<string, unknown>,
+	TFlagValues extends Record<string, unknown>,
+	TContext extends Record<string, unknown>,
 >({
-  createSource,
-  flagFallbacks,
-  flagDefinitions,
-  identify,
-  createSourceOptions,
+	createSource,
+	flagFallbacks,
+	flagDefinitions,
+	identify,
+	createSourceOptions,
 }: AdapterArgs<TFlagValues, TContext>) => {
-  let adapterSource: ReturnType<typeof createSource> | undefined;
+	let adapterSource: ReturnType<typeof createSource> | undefined;
 
-  const getSource = (): ReturnType<typeof createSource> => {
-    if (!adapterSource) {
-      const initDataProvider =
-        process.env.EXPERIMENTATION_CONFIG &&
-        process.env.EXPERIMENTATION_CONFIG_ITEM_KEY
-          ? new VercelEdgeConfigInitDataProvider({
-              edgeConfigClient: createClient(
-                process.env.EXPERIMENTATION_CONFIG,
-              ),
-              itemKey: process.env.EXPERIMENTATION_CONFIG_ITEM_KEY,
-            })
-          : undefined;
-      adapterSource = createSource({
-        token: (process.env.NEXT_PUBLIC_HYPERTUNE_TOKEN ??
-          process.env.HYPERTUNE_TOKEN)!,
-        key: "flags-sdk",
-        initDataProvider,
-        ...createSourceOptions,
-      });
-    }
-    return adapterSource;
-  };
+	const getSource = (): ReturnType<typeof createSource> => {
+		if (!adapterSource) {
+			const initDataProvider =
+				process.env.EXPERIMENTATION_CONFIG &&
+				process.env.EXPERIMENTATION_CONFIG_ITEM_KEY
+					? new VercelEdgeConfigInitDataProvider({
+							edgeConfigClient: createClient(
+								process.env.EXPERIMENTATION_CONFIG,
+							),
+							itemKey: process.env.EXPERIMENTATION_CONFIG_ITEM_KEY,
+						})
+					: undefined;
+			adapterSource = createSource({
+				token: (process.env.NEXT_PUBLIC_HYPERTUNE_TOKEN ??
+					process.env.HYPERTUNE_TOKEN)!,
+				key: "flags-sdk",
+				initDataProvider,
+				...createSourceOptions,
+			});
+		}
+		return adapterSource;
+	};
 
-  const hypertuneAdapter = <K extends keyof TFlagValues & string>(
-    key: K,
-  ): Adapter<TFlagValues[K], TContext> => {
-    return {
-      origin: flagDefinitions[key].origin,
-      async decide({ entities }) {
-        if (!entities) {
-          throw new Error(
-            `identify() is required to produce Context for Hypertune flag ${String(
-              key,
-            )}`,
-          );
-        }
-        const source = getSource();
-        await source.initIfNeeded();
-        const hypertune = source.root({ args: { context: entities } });
-        return hypertune.getFlagValues({ flagFallbacks, flagPaths: [key] })[
-          key
-        ];
-      },
-    };
-  };
+	const hypertuneAdapter = <K extends keyof TFlagValues & string>(
+		key: K,
+	): Adapter<TFlagValues[K], TContext> => {
+		return {
+			origin: flagDefinitions[key].origin,
+			async decide({ entities }) {
+				if (!entities) {
+					throw new Error(
+						`identify() is required to produce Context for Hypertune flag ${String(
+							key,
+						)}`,
+					);
+				}
+				const source = getSource();
+				await source.initIfNeeded();
+				const hypertune = source.root({ args: { context: entities } });
+				return hypertune.getFlagValues({ flagFallbacks, flagPaths: [key] })[
+					key
+				];
+			},
+		};
+	};
 
-  const createDeclaration = <K extends keyof TFlagValues & string>({
-    key,
-    options,
-  }: {
-    key: K;
-    options?: Opt<TFlagValues[K]>[];
-  }): FlagDeclaration<TFlagValues[K], TContext> => {
-    const definition = flagDefinitions[key];
-    const flagOptions = definition.options as Opt<TFlagValues[K]>[] | undefined;
-    return {
-      key: String(key),
-      adapter: hypertuneAdapter(key),
-      defaultValue: flagFallbacks[key],
-      description: definition.description,
-      options: options ?? flagOptions,
-      identify,
-    };
-  };
+	const createDeclaration = <K extends keyof TFlagValues & string>({
+		key,
+		options,
+	}: {
+		key: K;
+		options?: Opt<TFlagValues[K]>[];
+	}): FlagDeclaration<TFlagValues[K], TContext> => {
+		const definition = flagDefinitions[key];
+		const flagOptions = definition.options as Opt<TFlagValues[K]>[] | undefined;
+		return {
+			key: String(key),
+			adapter: hypertuneAdapter(key),
+			defaultValue: flagFallbacks[key],
+			description: definition.description,
+			options: options ?? flagOptions,
+			identify,
+		};
+	};
 
-  const declarations = new Proxy(
-    Object.keys(flagDefinitions).reduce(
-      (acc, key) => {
-        acc[key] = createDeclaration({
-          key: key as keyof TFlagValues & string,
-        });
-        return acc;
-      },
-      {} as Record<string, unknown>,
-    ) as {
-      [key in keyof TFlagValues]: FlagDeclaration<TFlagValues[key], TContext>;
-    },
-    {
-      get(target, prop) {
-        if (typeof prop === "string" && !(prop in target)) {
-          throw new Error(
-            `Attempted to access flag "${prop}" which is not found in the generated Hypertune code. ` +
-              "Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.",
-          );
-        }
-        return target[prop as keyof typeof target];
-      },
-    },
-  );
-  return { declarations, getSource };
+	const declarations = new Proxy(
+		Object.keys(flagDefinitions).reduce(
+			(acc, key) => {
+				acc[key] = createDeclaration({
+					key: key as keyof TFlagValues & string,
+				});
+				return acc;
+			},
+			{} as Record<string, unknown>,
+		) as {
+			[key in keyof TFlagValues]: FlagDeclaration<TFlagValues[key], TContext>;
+		},
+		{
+			get(target, prop) {
+				if (typeof prop === "string" && !(prop in target)) {
+					throw new Error(
+						`Attempted to access flag "${prop}" which is not found in the generated Hypertune code. ` +
+							"Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.",
+					);
+				}
+				return target[prop as keyof typeof target];
+			},
+		},
+	);
+	return { declarations, getSource };
 };
 
 /**

@@ -14,24 +14,24 @@ import type { ApiData } from "../types";
  * @returns a Next.js Route Handler
  */
 export function createFlagsDiscoveryEndpoint(
-  getApiData: (request: NextRequest) => Promise<ApiData> | ApiData,
-  options?: {
-    secret?: string | undefined;
-  },
+	getApiData: (request: NextRequest) => Promise<ApiData> | ApiData,
+	options?: {
+		secret?: string | undefined;
+	},
 ) {
-  return async (request: NextRequest): Promise<Response> => {
-    const access = await verifyAccess(
-      request.headers.get("Authorization"),
-      options?.secret,
-    );
-    if (!access) return Response.json(null, { status: 401 });
+	return async (request: NextRequest): Promise<Response> => {
+		const access = await verifyAccess(
+			request.headers.get("Authorization"),
+			options?.secret,
+		);
+		if (!access) return Response.json(null, { status: 401 });
 
-    const apiData = await getApiData(request);
-    return new Response(JSON.stringify(apiData), {
-      headers: {
-        "x-flags-sdk-version": version,
-        "content-type": "application/json",
-      },
-    });
-  };
+		const apiData = await getApiData(request);
+		return new Response(JSON.stringify(apiData), {
+			headers: {
+				"x-flags-sdk-version": version,
+				"content-type": "application/json",
+			},
+		});
+	};
 }

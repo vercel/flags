@@ -1,7 +1,7 @@
 import {
-  init,
-  type LDClient,
-  type LDContext,
+	init,
+	type LDClient,
+	type LDContext,
 } from "@launchdarkly/vercel-server-sdk";
 import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
 import { AsyncLocalStorage } from "async_hooks";
@@ -11,115 +11,115 @@ export { getProviderData } from "./provider";
 export type { LDContext };
 
 interface AdapterOptions<ValueType> {
-  defaultValue?: ValueType;
+	defaultValue?: ValueType;
 }
 
 type AdapterResponse = {
-  variation: <ValueType>(
-    options?: AdapterOptions<ValueType>,
-  ) => Adapter<ValueType, LDContext>;
-  /** The LaunchDarkly client instance used by the adapter. */
-  ldClient: LDClient;
+	variation: <ValueType>(
+		options?: AdapterOptions<ValueType>,
+	) => Adapter<ValueType, LDContext>;
+	/** The LaunchDarkly client instance used by the adapter. */
+	ldClient: LDClient;
 };
 
 let defaultLaunchDarklyAdapter:
-  | ReturnType<typeof createLaunchDarklyAdapter>
-  | undefined;
+	| ReturnType<typeof createLaunchDarklyAdapter>
+	| undefined;
 
 function assertEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `LaunchDarkly Adapter: Missing ${name} environment variable`,
-    );
-  }
-  return value;
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(
+			`LaunchDarkly Adapter: Missing ${name} environment variable`,
+		);
+	}
+	return value;
 }
 
 export function createLaunchDarklyAdapter({
-  projectSlug,
-  clientSideId,
-  edgeConfigConnectionString,
+	projectSlug,
+	clientSideId,
+	edgeConfigConnectionString,
 }: {
-  projectSlug: string;
-  clientSideId: string;
-  edgeConfigConnectionString: string;
+	projectSlug: string;
+	clientSideId: string;
+	edgeConfigConnectionString: string;
 }): AdapterResponse {
-  const edgeConfigClient = createClient(edgeConfigConnectionString);
+	const edgeConfigClient = createClient(edgeConfigConnectionString);
 
-  const store = new AsyncLocalStorage<WeakKey>();
-  const cache = new WeakMap<WeakKey, Promise<unknown>>();
+	const store = new AsyncLocalStorage<WeakKey>();
+	const cache = new WeakMap<WeakKey, Promise<unknown>>();
 
-  const patchedEdgeConfigClient: EdgeConfigClient = {
-    ...edgeConfigClient,
-    get: async <T>(key: string) => {
-      const h = store.getStore();
-      if (h) {
-        const cached = cache.get(h);
-        if (cached) {
-          return cached as Promise<T>;
-        }
-      }
+	const patchedEdgeConfigClient: EdgeConfigClient = {
+		...edgeConfigClient,
+		get: async <T>(key: string) => {
+			const h = store.getStore();
+			if (h) {
+				const cached = cache.get(h);
+				if (cached) {
+					return cached as Promise<T>;
+				}
+			}
 
-      const promise = edgeConfigClient.get<T>(key);
-      if (h) cache.set(h, promise);
+			const promise = edgeConfigClient.get<T>(key);
+			if (h) cache.set(h, promise);
 
-      return promise;
-    },
-  };
+			return promise;
+		},
+	};
 
-  let initPromise: Promise<unknown> | null = null;
+	let initPromise: Promise<unknown> | null = null;
 
-  const ldClient = init(clientSideId, patchedEdgeConfigClient);
+	const ldClient = init(clientSideId, patchedEdgeConfigClient);
 
-  function origin(key: string) {
-    return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
-  }
+	function origin(key: string) {
+		return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
+	}
 
-  function variation<ValueType>(
-    options: AdapterOptions<ValueType> = {},
-  ): Adapter<ValueType, LDContext> {
-    return {
-      origin,
-      async decide({ key, entities, headers }): Promise<ValueType> {
-        if (!ldClient.initialized()) {
-          if (!initPromise) initPromise = ldClient.waitForInitialization();
-          await initPromise;
-        }
+	function variation<ValueType>(
+		options: AdapterOptions<ValueType> = {},
+	): Adapter<ValueType, LDContext> {
+		return {
+			origin,
+			async decide({ key, entities, headers }): Promise<ValueType> {
+				if (!ldClient.initialized()) {
+					if (!initPromise) initPromise = ldClient.waitForInitialization();
+					await initPromise;
+				}
 
-        return store.run(
-          headers,
-          () =>
-            ldClient.variation(
-              key,
-              entities as LDContext,
-              options.defaultValue,
-            ) as ValueType,
-        );
-      },
-    };
-  }
+				return store.run(
+					headers,
+					() =>
+						ldClient.variation(
+							key,
+							entities as LDContext,
+							options.defaultValue,
+						) as ValueType,
+				);
+			},
+		};
+	}
 
-  return {
-    ldClient,
-    variation,
-  };
+	return {
+		ldClient,
+		variation,
+	};
 }
 
 function getOrCreateDeaultAdapter() {
-  if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv("EDGE_CONFIG");
-    const clientSideId = assertEnv("LAUNCHDARKLY_CLIENT_SIDE_ID");
-    const projectSlug = assertEnv("LAUNCHDARKLY_PROJECT_SLUG");
+	if (!defaultLaunchDarklyAdapter) {
+		const edgeConfigConnectionString = assertEnv("EDGE_CONFIG");
+		const clientSideId = assertEnv("LAUNCHDARKLY_CLIENT_SIDE_ID");
+		const projectSlug = assertEnv("LAUNCHDARKLY_PROJECT_SLUG");
 
-    defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
-      projectSlug,
-      clientSideId,
-      edgeConfigConnectionString,
-    });
-  }
+		defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
+			projectSlug,
+			clientSideId,
+			edgeConfigConnectionString,
+		});
+	}
 
-  return defaultLaunchDarklyAdapter;
+	return defaultLaunchDarklyAdapter;
 }
 
 /**
@@ -144,8 +144,8 @@ function getOrCreateDeaultAdapter() {
  * ```
  */
 export const ldAdapter: AdapterResponse = {
-  variation: (...args) => getOrCreateDeaultAdapter().variation(...args),
-  get ldClient() {
-    return getOrCreateDeaultAdapter().ldClient;
-  },
+	variation: (...args) => getOrCreateDeaultAdapter().variation(...args),
+	get ldClient() {
+		return getOrCreateDeaultAdapter().ldClient;
+	},
 };

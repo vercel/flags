@@ -12,18 +12,18 @@ import * as basicEdgeMiddlewareFlags from "../../../examples/feature-flags-in-ed
 import * as marketingFlags from "../../../examples/marketing-pages/flags";
 
 export async function GET(request: NextRequest) {
-  const access = await verifyAccess(request.headers.get("Authorization"));
-  if (!access) return NextResponse.json(null, { status: 401 });
+	const access = await verifyAccess(request.headers.get("Authorization"));
+	if (!access) return NextResponse.json(null, { status: 401 });
 
-  return NextResponse.json<ApiData>(
-    getProviderData({
-      ...marketingFlags,
-      ...dashboardFlags,
-      ...topLevelFlags,
-      ...adapterFlags,
-      ...basicEdgeMiddlewareFlags,
-      ...basicIdentifyFlags,
-      ...fullIdentifyFlags,
-    }),
-  );
+	return NextResponse.json<ApiData>(
+		getProviderData({
+			...marketingFlags,
+			...dashboardFlags,
+			...topLevelFlags,
+			...adapterFlags,
+			...basicEdgeMiddlewareFlags,
+			...basicIdentifyFlags,
+			...fullIdentifyFlags,
+		}),
+	);
 }

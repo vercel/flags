@@ -2,16 +2,16 @@ import { decryptOverrides } from "..";
 import { memoizeOne } from "../lib/async-memoize-one";
 
 const memoizedDecrypt = memoizeOne(
-  (text: string) => decryptOverrides(text),
-  (a, b) => a[0] === b[0], // only the first argument gets compared
-  { cachePromiseRejection: true },
+	(text: string) => decryptOverrides(text),
+	(a, b) => a[0] === b[0], // only the first argument gets compared
+	{ cachePromiseRejection: true },
 );
 
 export async function getOverrides(cookie: string | undefined) {
-  if (typeof cookie === "string" && cookie !== "") {
-    const cookieOverrides = await memoizedDecrypt(cookie);
-    return cookieOverrides ?? null;
-  }
+	if (typeof cookie === "string" && cookie !== "") {
+		const cookieOverrides = await memoizedDecrypt(cookie);
+		return cookieOverrides ?? null;
+	}
 
-  return null;
+	return null;
 }

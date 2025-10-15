@@ -22,28 +22,28 @@ import { trace } from "./tracing";
  * @returns True when the authorization header was valid
  */
 export const verifyAccess = trace(
-  async function verifyAccess(
-    // App Router returns null when a header is not defined
-    // Pages Router returns undefined when a header is not defined
-    // We support both so the API is slim in both cases
-    authHeader: string | null | undefined,
-    secret: string | undefined = process?.env?.FLAGS_SECRET,
-  ) {
-    if (!authHeader) return false;
-    if (!secret)
-      throw new Error(
-        "flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.",
-      );
+	async function verifyAccess(
+		// App Router returns null when a header is not defined
+		// Pages Router returns undefined when a header is not defined
+		// We support both so the API is slim in both cases
+		authHeader: string | null | undefined,
+		secret: string | undefined = process?.env?.FLAGS_SECRET,
+	) {
+		if (!authHeader) return false;
+		if (!secret)
+			throw new Error(
+				"flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.",
+			);
 
-    const valid = await verifyAccessProof(
-      authHeader.replace(/^Bearer /i, ""),
-      secret,
-    );
+		const valid = await verifyAccessProof(
+			authHeader.replace(/^Bearer /i, ""),
+			secret,
+		);
 
-    return valid;
-  },
-  {
-    isVerboseTrace: false,
-    name: "verifyAccess",
-  },
+		return valid;
+	},
+	{
+		isVerboseTrace: false,
+		name: "verifyAccess",
+	},
 );

@@ -11,18 +11,18 @@ const generateId = dedupe(async () => nanoid());
 // However, the generateId function will always generate the same id for the
 // same request, so it is safe to call it multiple times within the same runtime.
 export const getOrGenerateVisitorId = async (
-  cookies: ReadonlyRequestCookies | NextRequest["cookies"],
-  headers: ReadonlyHeaders | NextRequest["headers"],
+	cookies: ReadonlyRequestCookies | NextRequest["cookies"],
+	headers: ReadonlyHeaders | NextRequest["headers"],
 ) => {
-  // check cookies first
-  const cookieVisitorId = cookies.get("marketing-visitor-id")?.value;
-  if (cookieVisitorId) return cookieVisitorId;
+	// check cookies first
+	const cookieVisitorId = cookies.get("marketing-visitor-id")?.value;
+	if (cookieVisitorId) return cookieVisitorId;
 
-  // check headers in case middleware set a cookie on the response, as it will
-  // not be present on the initial request
-  const headerVisitorId = headers.get("x-marketing-visitor-id");
-  if (headerVisitorId) return headerVisitorId;
+	// check headers in case middleware set a cookie on the response, as it will
+	// not be present on the initial request
+	const headerVisitorId = headers.get("x-marketing-visitor-id");
+	if (headerVisitorId) return headerVisitorId;
 
-  // if no visitor id is found, generate a new one
-  return generateId();
+	// if no visitor id is found, generate a new one
+	return generateId();
 };

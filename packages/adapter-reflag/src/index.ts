@@ -1,8 +1,8 @@
 import {
-  type ClientOptions,
-  type Context,
-  type ContextWithTracking,
-  ReflagClient,
+	type ClientOptions,
+	type Context,
+	type ContextWithTracking,
+	ReflagClient,
 } from "@reflag/node-sdk";
 import type { Adapter, FlagDefinitionsType, ProviderData } from "flags";
 
@@ -11,68 +11,68 @@ export type { Context };
 type AdapterOptions = Pick<ContextWithTracking, "enableTracking" | "meta">;
 
 type AdapterResponse = {
-  isEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
-  /** The Reflag client instance used by the adapter. */
-  reflagClient: () => Promise<ReflagClient>;
+	isEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
+	/** The Reflag client instance used by the adapter. */
+	reflagClient: () => Promise<ReflagClient>;
 };
 
 let defaultReflagAdapter: ReturnType<typeof createReflagAdapter> | undefined;
 
 function assertEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`@flags-sdk/reflag: Missing ${name} environment variable`);
-  }
-  return value;
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(`@flags-sdk/reflag: Missing ${name} environment variable`);
+	}
+	return value;
 }
 
 export function createReflagAdapter(
-  clientOptions: ClientOptions,
+	clientOptions: ClientOptions,
 ): AdapterResponse {
-  let reflagClient: ReflagClient;
+	let reflagClient: ReflagClient;
 
-  async function initialize() {
-    if (!reflagClient) {
-      try {
-        reflagClient = new ReflagClient(clientOptions);
-      } catch (err) {
-        // explicitly log out the error, otherwise it's swallowed
-        console.error("@flags-sdk/reflag: Error creating reflagClient", err);
-        throw err;
-      }
-    }
+	async function initialize() {
+		if (!reflagClient) {
+			try {
+				reflagClient = new ReflagClient(clientOptions);
+			} catch (err) {
+				// explicitly log out the error, otherwise it's swallowed
+				console.error("@flags-sdk/reflag: Error creating reflagClient", err);
+				throw err;
+			}
+		}
 
-    // this can be called multiple times. Same promise is returned.
-    return reflagClient.initialize();
-  }
+		// this can be called multiple times. Same promise is returned.
+		return reflagClient.initialize();
+	}
 
-  function isEnabled(options?: AdapterOptions): Adapter<boolean, Context> {
-    return {
-      async decide({ key, entities }): Promise<boolean> {
-        await initialize();
+	function isEnabled(options?: AdapterOptions): Adapter<boolean, Context> {
+		return {
+			async decide({ key, entities }): Promise<boolean> {
+				await initialize();
 
-        return reflagClient.getFlag({ ...options, ...entities }, key).isEnabled;
-      },
-    };
-  }
+				return reflagClient.getFlag({ ...options, ...entities }, key).isEnabled;
+			},
+		};
+	}
 
-  return {
-    isEnabled,
-    reflagClient: async () => {
-      await initialize();
-      return reflagClient;
-    },
-  };
+	return {
+		isEnabled,
+		reflagClient: async () => {
+			await initialize();
+			return reflagClient;
+		},
+	};
 }
 
 function getOrCreateDefaultAdapter() {
-  if (!defaultReflagAdapter) {
-    const secretKey = assertEnv("REFLAG_SECRET_KEY");
+	if (!defaultReflagAdapter) {
+		const secretKey = assertEnv("REFLAG_SECRET_KEY");
 
-    defaultReflagAdapter = createReflagAdapter({ secretKey });
-  }
+		defaultReflagAdapter = createReflagAdapter({ secretKey });
+	}
 
-  return defaultReflagAdapter;
+	return defaultReflagAdapter;
 }
 
 /**
@@ -97,10 +97,10 @@ function getOrCreateDefaultAdapter() {
  * ```
  */
 export const reflagAdapter: AdapterResponse = {
-  isEnabled: (...args) => getOrCreateDefaultAdapter().isEnabled(...args),
-  reflagClient: async () => {
-    return getOrCreateDefaultAdapter().reflagClient();
-  },
+	isEnabled: (...args) => getOrCreateDefaultAdapter().isEnabled(...args),
+	reflagClient: async () => {
+		return getOrCreateDefaultAdapter().reflagClient();
+	},
 };
 
 /**
@@ -125,30 +125,30 @@ export const reflagAdapter: AdapterResponse = {
  * ```
  */
 export async function getProviderData({
-  reflagClient,
+	reflagClient,
 }: {
-  /**
-   * The ReflagClient instance.
-   */
-  reflagClient?: ReflagClient;
+	/**
+	 * The ReflagClient instance.
+	 */
+	reflagClient?: ReflagClient;
 } = {}): Promise<ProviderData> {
-  if (!reflagClient) {
-    reflagClient = await getOrCreateDefaultAdapter().reflagClient();
-  }
+	if (!reflagClient) {
+		reflagClient = await getOrCreateDefaultAdapter().reflagClient();
+	}
 
-  const features = await reflagClient.getFlagDefinitions();
+	const features = await reflagClient.getFlagDefinitions();
 
-  return {
-    definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
-      acc[item.key] = {
-        options: [
-          { label: "Disabled", value: false },
-          { label: "Enabled", value: true },
-        ],
-        description: item.description ?? undefined,
-      };
-      return acc;
-    }, {}),
-    hints: [],
-  };
+	return {
+		definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
+			acc[item.key] = {
+				options: [
+					{ label: "Disabled", value: false },
+					{ label: "Enabled", value: true },
+				],
+				description: item.description ?? undefined,
+			};
+			return acc;
+		}, {}),
+		hints: [],
+	};
 }

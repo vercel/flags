@@ -3,20 +3,20 @@ import { proceedToCheckoutColorFlag } from "@/flags";
 import { ProceedToCheckout } from "./proceed-to-checkout";
 
 export async function OrderSummary({
-  showSummerBanner,
-  freeDelivery,
+	showSummerBanner,
+	freeDelivery,
 }: {
-  showSummerBanner: boolean;
-  freeDelivery: boolean;
+	showSummerBanner: boolean;
+	freeDelivery: boolean;
 }) {
-  // This is a fast feature flag so we don't suspend on it
-  const proceedToCheckoutColor = await proceedToCheckoutColorFlag();
+	// This is a fast feature flag so we don't suspend on it
+	const proceedToCheckoutColor = await proceedToCheckoutColorFlag();
 
-  return (
-    <OrderSummarySection
-      showSummerBanner={showSummerBanner}
-      freeDelivery={freeDelivery}
-      proceedToCheckout={<ProceedToCheckout color={proceedToCheckoutColor} />}
-    />
-  );
+	return (
+		<OrderSummarySection
+			showSummerBanner={showSummerBanner}
+			freeDelivery={freeDelivery}
+			proceedToCheckout={<ProceedToCheckout color={proceedToCheckoutColor} />}
+		/>
+	);
 }

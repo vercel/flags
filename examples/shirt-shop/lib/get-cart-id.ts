@@ -6,16 +6,16 @@ import { cookies, headers } from "next/headers";
  * Reads the cart id from the cookie or returns a new cart id
  */
 export const getCartId = dedupe(async () => {
-  const cookiesStore = await cookies();
-  const header = await headers();
+	const cookiesStore = await cookies();
+	const header = await headers();
 
-  const generatedCartId = header.get("x-generated-cart-id");
+	const generatedCartId = header.get("x-generated-cart-id");
 
-  if (generatedCartId) {
-    return { value: generatedCartId, isFresh: false };
-  }
+	if (generatedCartId) {
+		return { value: generatedCartId, isFresh: false };
+	}
 
-  const cartId = cookiesStore.get("cart-id")?.value;
-  if (!cartId) return { value: nanoid(), isFresh: true };
-  return { value: cartId, isFresh: false };
+	const cartId = cookiesStore.get("cart-id")?.value;
+	if (!cartId) return { value: nanoid(), isFresh: true };
+	return { value: cartId, isFresh: false };
 });

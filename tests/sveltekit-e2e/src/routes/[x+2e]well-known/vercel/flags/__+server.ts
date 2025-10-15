@@ -17,11 +17,11 @@ import * as flags from "$lib/flags";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ request }) => {
-  const access = await verifyAccess(
-    request.headers.get("Authorization"),
-    FLAGS_SECRET,
-  );
-  if (!access) error(401);
+	const access = await verifyAccess(
+		request.headers.get("Authorization"),
+		FLAGS_SECRET,
+	);
+	if (!access) error(401);
 
-  return json({ definitions: getProviderData(flags) });
+	return json({ definitions: getProviderData(flags) });
 };

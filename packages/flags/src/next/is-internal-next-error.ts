@@ -7,12 +7,12 @@
 const REACT_POSTPONE_TYPE: symbol = Symbol.for("react.postpone");
 
 function isPostpone(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "$$typeof" in error &&
-    error.$$typeof === REACT_POSTPONE_TYPE
-  );
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"$$typeof" in error &&
+		error.$$typeof === REACT_POSTPONE_TYPE
+	);
 }
 
 /**
@@ -26,26 +26,26 @@ function isPostpone(error: unknown): boolean {
  * @returns True if the error is an error that shouldn't be treated as an error.
  */
 export function isInternalNextError(error: unknown): boolean {
-  if (isPostpone(error)) return true;
+	if (isPostpone(error)) return true;
 
-  // Next.js internal errors attach a special message to the `digest` property.
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("digest" in error) ||
-    typeof error.digest !== "string"
-  ) {
-    return false;
-  }
+	// Next.js internal errors attach a special message to the `digest` property.
+	if (
+		typeof error !== "object" ||
+		error === null ||
+		!("digest" in error) ||
+		typeof error.digest !== "string"
+	) {
+		return false;
+	}
 
-  // Redirect errors contain additional information delimited by a semicolon
-  // We only care about the error code, which is the first part of the digest
-  const errorCode = error.digest.split(";")[0];
+	// Redirect errors contain additional information delimited by a semicolon
+	// We only care about the error code, which is the first part of the digest
+	const errorCode = error.digest.split(";")[0];
 
-  return (
-    errorCode === "NEXT_REDIRECT" ||
-    errorCode === "DYNAMIC_SERVER_USAGE" ||
-    errorCode === "BAILOUT_TO_CLIENT_SIDE_RENDERING" ||
-    errorCode === "NEXT_NOT_FOUND"
-  );
+	return (
+		errorCode === "NEXT_REDIRECT" ||
+		errorCode === "DYNAMIC_SERVER_USAGE" ||
+		errorCode === "BAILOUT_TO_CLIENT_SIDE_RENDERING" ||
+		errorCode === "NEXT_NOT_FOUND"
+	);
 }

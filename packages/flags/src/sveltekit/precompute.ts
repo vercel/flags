@@ -11,12 +11,12 @@ type ValuesArray = readonly any[];
  * @returns - an array of evaluated flag values with one entry per flag
  */
 async function evaluate<T extends FlagsArray>(
-  flags: T,
-  request: Request,
+	flags: T,
+	request: Request,
 ): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
-  return Promise.all(flags.map((flag) => flag(request))) as Promise<{
-    [K in keyof T]: Awaited<ReturnType<T[K]>>;
-  }>;
+	return Promise.all(flags.map((flag) => flag(request))) as Promise<{
+		[K in keyof T]: Awaited<ReturnType<T[K]>>;
+	}>;
 }
 
 /**
@@ -28,12 +28,12 @@ async function evaluate<T extends FlagsArray>(
  * @returns - a string representing evaluated flags
  */
 export async function precompute<T extends FlagsArray>(
-  flags: T,
-  request: Request,
-  secret: string,
+	flags: T,
+	request: Request,
+	secret: string,
 ): Promise<string> {
-  const values = await evaluate(flags, request);
-  return serialize(flags, values, secret);
+	const values = await evaluate(flags, request);
+	return serialize(flags, values, secret);
 }
 
 /**
@@ -43,7 +43,7 @@ export async function precompute<T extends FlagsArray>(
  * @returns - A record where the keys are flag keys and the values are flag values.
  */
 function combine(flags: FlagsArray, values: ValuesArray) {
-  return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
+	return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
 }
 
 /**
@@ -59,11 +59,11 @@ function combine(flags: FlagsArray, values: ValuesArray) {
  * @returns - A short string representing the values.
  */
 async function serialize(
-  flags: FlagsArray,
-  values: ValuesArray,
-  secret: string,
+	flags: FlagsArray,
+	values: ValuesArray,
+	secret: string,
 ) {
-  return s.serialize(combine(flags, values), flags, secret);
+	return s.serialize(combine(flags, values), flags, secret);
 }
 
 /**
@@ -74,7 +74,7 @@ async function serialize(
  * @returns - An object consisting of each flag's key and its resolved value.
  */
 async function deserialize(flags: FlagsArray, code: string, secret: string) {
-  return s.deserialize(code, flags, secret);
+	return s.deserialize(code, flags, secret);
 }
 
 /**
@@ -86,20 +86,20 @@ async function deserialize(flags: FlagsArray, code: string, secret: string) {
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
-  flagKey: Flag<T>["key"],
-  precomputeFlags: FlagsArray,
-  code: string,
-  secret: string,
+	flagKey: Flag<T>["key"],
+	precomputeFlags: FlagsArray,
+	code: string,
+	secret: string,
 ): Promise<T> {
-  const flagSet = await deserialize(precomputeFlags, code, secret);
+	const flagSet = await deserialize(precomputeFlags, code, secret);
 
-  return flagSet[flagKey];
+	return flagSet[flagKey];
 }
 
 // see https://stackoverflow.com/a/44344803
 function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
-  const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
+	const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
+	for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**
@@ -110,30 +110,30 @@ function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
  * @returns An array of strings representing each permutation
  */
 export async function generatePermutations(
-  flags: FlagsArray,
-  filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
-  secret: string,
+	flags: FlagsArray,
+	filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
+	secret: string,
 ): Promise<string[]> {
-  const options = flags.map((flag) => {
-    // infer boolean permutations if you don't declare any options.
-    //
-    // to explicitly opt out you need to use "filter"
-    if (!flag.options) return [false, true];
-    return flag.options.map((option) => option.value);
-  });
+	const options = flags.map((flag) => {
+		// infer boolean permutations if you don't declare any options.
+		//
+		// to explicitly opt out you need to use "filter"
+		if (!flag.options) return [false, true];
+		return flag.options.map((option) => option.value);
+	});
 
-  const list: Record<string, JsonValue>[] = [];
+	const list: Record<string, JsonValue>[] = [];
 
-  for (const permutation of cartesianIterator(options)) {
-    const permObject = permutation.reduce<Record<string, JsonValue>>(
-      (acc, value, index) => {
-        acc[(flags[index] as Flag<unknown>).key] = value;
-        return acc;
-      },
-      {},
-    );
-    if (!filter || filter(permObject)) list.push(permObject);
-  }
+	for (const permutation of cartesianIterator(options)) {
+		const permObject = permutation.reduce<Record<string, JsonValue>>(
+			(acc, value, index) => {
+				acc[(flags[index] as Flag<unknown>).key] = value;
+				return acc;
+			},
+			{},
+		);
+		if (!filter || filter(permObject)) list.push(permObject);
+	}
 
-  return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
+	return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
 }

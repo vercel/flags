@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [],
-  test: { environment: "node" },
+	plugins: [],
+	test: { environment: "node" },
 });

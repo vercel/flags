@@ -10,31 +10,31 @@ import { ProductDetailPageProvider } from "@/components/utils/product-detail-pag
 import { productFlags, showSummerBannerFlag } from "@/flags";
 
 export default async function Page(props: {
-  params: Promise<{ code: string }>;
+	params: Promise<{ code: string }>;
 }) {
-  const params = await props.params;
+	const params = await props.params;
 
-  const showSummerBanner = await showSummerBannerFlag(
-    params.code,
-    productFlags,
-  );
+	const showSummerBanner = await showSummerBannerFlag(
+		params.code,
+		productFlags,
+	);
 
-  return (
-    <ProductDetailPageProvider>
-      <SummerSale show={showSummerBanner} />
-      <Main>
-        <div className="lg:grid lg:auto-rows-min lg:grid-cols-12 lg:gap-x-8">
-          <ProductHeader />
-          <ImageGallery />
+	return (
+		<ProductDetailPageProvider>
+			<SummerSale show={showSummerBanner} />
+			<Main>
+				<div className="lg:grid lg:auto-rows-min lg:grid-cols-12 lg:gap-x-8">
+					<ProductHeader />
+					<ImageGallery />
 
-          <div className="mt-8 lg:col-span-5">
-            <ColorPicker />
-            <SizePicker />
-            <AddToCart />
-            <ProductDetails />
-          </div>
-        </div>
-      </Main>
-    </ProductDetailPageProvider>
-  );
+					<div className="mt-8 lg:col-span-5">
+						<ColorPicker />
+						<SizePicker />
+						<AddToCart />
+						<ProductDetails />
+					</div>
+				</div>
+			</Main>
+		</ProductDetailPageProvider>
+	);
 }
