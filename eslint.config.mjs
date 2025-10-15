@@ -1,14 +1,17 @@
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
 import { defineConfig } from "eslint/config";
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
+import { FlatCompat } from "@eslint/eslintrc";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const compat = new FlatCompat({
+  // import.meta.dirname is available after Node.js v20.11.0
+  baseDirectory: import.meta.dirname,
+  recommendedConfig: eslint.configs.recommended,
+});
 
 export default defineConfig([
-  eslint.configs.recommended,
+  // uses @next/eslint-plugin-next
+  ...compat.config({ extends: ["eslint:recommended", "next"] }),
   tseslint.configs.recommended,
   {
     // When ignores is used without any other keys (besides name) in the configuration object,

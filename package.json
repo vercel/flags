@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "2.27.1",
+    "@next/eslint-plugin-next": "15.5.5",
     "@types/node": "22.9.0",
     "eslint": "9.37.0",
     "husky": "9.0.10",

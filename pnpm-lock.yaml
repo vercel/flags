@@ -11,6 +11,9 @@ importers:
       '@changesets/cli':
         specifier: 2.27.1
         version: 2.27.1
+      '@next/eslint-plugin-next':
+        specifier: 15.5.5
+        version: 15.5.5
       '@types/node':
         specifier: 22.9.0
         version: 22.9.0
@@ -832,7 +835,7 @@ importers:
     devDependencies:
       '@vercel/style-guide':
         specifier: 6.0.0
-        version: 6.0.0(eslint@8.57.1)(jest@29.7.0)(prettier@3.6.2)(typescript@5.3.3)
+        version: 6.0.0(@next/eslint-plugin-next@15.5.5)(eslint@8.57.1)(jest@29.7.0)(prettier@3.6.2)(typescript@5.3.3)
       typescript:
         specifier: 5.3.3
         version: 5.3.3
@@ -5933,7 +5936,7 @@ packages:
       - supports-color
     dev: true
 
-  /@vercel/style-guide@6.0.0(eslint@8.57.1)(jest@29.7.0)(prettier@3.6.2)(typescript@5.3.3):
+  /@vercel/style-guide@6.0.0(@next/eslint-plugin-next@15.5.5)(eslint@8.57.1)(jest@29.7.0)(prettier@3.6.2)(typescript@5.3.3):
     resolution: {integrity: sha512-tu0wFINGz91EPwaT5VjSqUwbvCY9pvLach7SPG4XyfJKPU9Vku2TFa6+AyzJ4oroGbo9fK+TQhIFHrnFl0nCdg==}
     engines: {node: '>=18.18'}
     peerDependencies:
@@ -5953,6 +5956,7 @@ packages:
     dependencies:
       '@babel/core': 7.26.10
       '@babel/eslint-parser': 7.28.4(@babel/core@7.26.10)(eslint@8.57.1)
+      '@next/eslint-plugin-next': 15.5.5
       '@rushstack/eslint-patch': 1.11.0
       '@typescript-eslint/eslint-plugin': 7.18.0(@typescript-eslint/parser@7.18.0)(eslint@8.57.1)(typescript@5.3.3)
       '@typescript-eslint/parser': 7.18.0(eslint@8.57.1)(typescript@5.3.3)
