@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --port 4015 --turbopack",
-    "lint": "next lint",
+    "lint": "eslint .",
     "start": "next start --port 4015",
     "test:e2e": "playwright test"
   },
@@ -16,10 +16,13 @@
     "react-dom": "19.0.0-rc-02c0e824-20241028"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@playwright/test": "1.48.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^9.37.0",
+    "eslint-config-next": "15.5.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
