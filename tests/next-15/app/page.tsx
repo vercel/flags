@@ -1,4 +1,4 @@
-import { exampleFlag, hostFlag, cookieFlag } from '../flags';
+import { cookieFlag, exampleFlag, hostFlag } from '../flags';
 
 export default async function Home() {
   const example = await exampleFlag();

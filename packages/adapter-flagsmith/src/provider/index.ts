@@ -1,4 +1,4 @@
-import type { FlagDefinitionType, ProviderData, FlagOptionType } from 'flags';
+import type { FlagDefinitionType, FlagOptionType, ProviderData } from 'flags';
 
 type FlagsmithApiData = {
   id: number;
@@ -122,7 +122,7 @@ export async function getProviderData(options: {
       definitions,
       hints: [],
     };
-  } catch (error) {
+  } catch {
     return {
       definitions: {},
       hints: [

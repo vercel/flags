@@ -1,11 +1,12 @@
 <script lang="ts">
-	import type { LayoutProps } from './$types';
-	import { mountVercelToolbar } from '@vercel/toolbar/vite';
-	import { onMount } from 'svelte';
+/** biome-ignore-all lint/correctness/noUnusedVariables: used in html */
+import { mountVercelToolbar } from '@vercel/toolbar/vite';
+import { onMount } from 'svelte';
+import type { LayoutProps } from './$types';
 
-	onMount(() => mountVercelToolbar());
+onMount(() => mountVercelToolbar());
 
-	let { data, children }: LayoutProps = $props();
+const { data, children }: LayoutProps = $props();
 </script>
 
 <header>

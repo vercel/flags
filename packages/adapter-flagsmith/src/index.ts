@@ -1,6 +1,6 @@
 import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
-import { IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
+import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
 
 export type { IIdentity } from 'flagsmith/types';
 export { getProviderData } from './provider';
@@ -35,7 +35,7 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         if (identity?.targetingKey) {
           const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
+          await flagsmith.identify(targetingKey, {
             ...traits,
           });
         }
@@ -66,7 +66,7 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         if (identity?.targetingKey) {
           const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
+          await flagsmith.identify(targetingKey, {
             ...traits,
           });
         }
@@ -90,7 +90,7 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         if (identity?.targetingKey) {
           const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
+          await flagsmith.identify(targetingKey, {
             ...traits,
           });
         }

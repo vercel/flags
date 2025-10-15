@@ -1,13 +1,13 @@
+import { generatePermutations } from 'flags/next';
 import type {
   GetStaticPaths,
   GetStaticProps,
   InferGetStaticPropsType,
 } from 'next';
-import { generatePermutations } from 'flags/next';
 import {
+  cookieFlag,
   exampleFlag,
   hostFlag,
-  cookieFlag,
   precomputedFlags,
 } from '../../../flags';
 

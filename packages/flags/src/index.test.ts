@@ -1,14 +1,14 @@
-import { expect, it, describe } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  encryptOverrides,
-  decryptOverrides,
   createAccessProof,
-  verifyAccessProof,
-  encryptFlagValues,
-  decryptFlagValues,
-  encryptFlagDefinitions,
   decryptFlagDefinitions,
+  decryptFlagValues,
+  decryptOverrides,
+  encryptFlagDefinitions,
+  encryptFlagValues,
+  encryptOverrides,
   verifyAccess,
+  verifyAccessProof,
   version,
 } from '.';
 

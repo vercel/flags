@@ -1,5 +1,5 @@
-import { expect, it, describe, vi } from 'vitest';
-import { getProviderData, flag } from '.';
+import { describe, expect, it, vi } from 'vitest';
+import { flag, getProviderData } from '.';
 
 vi.mock('$env/dynamic/private', () => ({ FLAGS_SECRET: 'secret' }));
 

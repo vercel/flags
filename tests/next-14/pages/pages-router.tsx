@@ -1,5 +1,5 @@
-import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
-import { exampleFlag, hostFlag, cookieFlag } from '../flags';
+import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import { cookieFlag, exampleFlag, hostFlag } from '../flags';
 
 export const getServerSideProps = (async ({ req }) => {
   const example = await exampleFlag(req);

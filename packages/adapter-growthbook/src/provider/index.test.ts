@@ -1,7 +1,7 @@
-import { getProviderData } from '..';
+import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { getProviderData } from '..';
 
 const restHandlers = [
   http.get('https://api.growthbook.io/api/v1/features', () => {

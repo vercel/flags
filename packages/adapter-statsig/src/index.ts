@@ -1,10 +1,11 @@
 export { getProviderData } from './provider';
+
 import type { Adapter } from 'flags';
 import Statsig, {
-  type StatsigUser,
-  type StatsigOptions,
   type DynamicConfig,
   type Layer,
+  type StatsigOptions,
+  type StatsigUser,
 } from 'statsig-node-lite';
 import {
   createEdgeConfigDataAdapter,

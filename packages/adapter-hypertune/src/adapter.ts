@@ -1,13 +1,13 @@
+import { createClient } from '@vercel/edge-config';
 import type {
   Adapter,
-  GenerousOption as Opt,
   FlagDeclaration,
   Identify,
+  GenerousOption as Opt,
 } from 'flags';
-import { createClient } from '@vercel/edge-config';
 import {
-  VercelEdgeConfigInitDataProvider,
   type CreateOptions,
+  VercelEdgeConfigInitDataProvider,
 } from 'hypertune';
 
 type FlagDefinition = {
@@ -175,7 +175,6 @@ export const createHypertuneAdapter = <
       get(target, prop) {
         if (typeof prop === 'string' && !(prop in target)) {
           throw new Error(
-            // biome-ignore lint/style/useTemplate: <explanation>
             `Attempted to access flag "${prop}" which is not found in the generated Hypertune code. ` +
               'Make sure it exists in the dashboard, and run `npx hypertune` to update your type-safe client.',
           );

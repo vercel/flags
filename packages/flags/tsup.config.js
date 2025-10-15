@@ -11,7 +11,6 @@ const defaultConfig = {
   external: [/^node:.*/, 'node_modules'],
 };
 
-// eslint-disable-next-line import/no-default-export -- [@vercel/style-guide@5 migration]
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
