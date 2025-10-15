@@ -34,7 +34,7 @@
   },
   "lint-staged": {
     "*": [
-      "biome format --write"
+      "biome check --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
   },
   "devDependencies": {
