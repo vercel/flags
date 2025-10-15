@@ -1,6 +1,11 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env", ".env.local", ".env.development.local"],
+  "globalDependencies": [
+    ".env",
+    ".env.local",
+    ".env.development.local",
+    "eslint.config.mjs"
+  ],
   "globalEnv": ["NPM_TOKEN", "DEPLOYMENT_PROTECTION_BYPASS"],
   "tasks": {
     "dev": {

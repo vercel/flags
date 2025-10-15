@@ -1,7 +1,0 @@
-{
-	"root": true,
-	"ignorePatterns": ["node_modules", ".vercel", ".turbo", "dist", ".svelte-kit"],
-	"rules": {
-		"no-console": "off"
-	}
-}

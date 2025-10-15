@@ -70,7 +70,6 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",

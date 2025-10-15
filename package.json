@@ -40,13 +40,10 @@
       "prettier --ignore-unknown --write"
     ]
   },
-  "prettier": "@vercel/style-guide/prettier",
   "devDependencies": {
     "@changesets/cli": "2.27.1",
     "@types/node": "22.9.0",
-    "@vercel/style-guide": "^6.0.0",
-    "eslint": "^8.57.0",
-    "eslint-config-custom": "workspace:*",
+    "eslint": "9.37.0",
     "husky": "9.0.10",
     "jest": "29.7.0",
     "lint-staged": "15.2.2",

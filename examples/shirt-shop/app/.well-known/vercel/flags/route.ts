@@ -1,7 +1,7 @@
-import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
-import * as flags from '../../../../flags';
+import { getProviderData, createFlagsDiscoveryEndpoint } from "flags/next";
+import * as flags from "../../../../flags";
 
-export const GET = createFlagsDiscoveryEndpoint(async (request) => {
-  const providerData = await getProviderData(flags);
+export const GET = createFlagsDiscoveryEndpoint(() => {
+  const providerData = getProviderData(flags);
   return providerData;
 });
