@@ -11,4 +11,9 @@ module.exports = {
       extends: [require.resolve('@vercel/style-guide/eslint/jest')],
     },
   ],
+  compilerOptions: {
+    lib: ['esnext'],
+    resolveJsonModule: true,
+    target: 'ES2020',
+  },
 };

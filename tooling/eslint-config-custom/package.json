@@ -5,9 +5,9 @@
   "license": "Apache-2.0",
   "main": "index.js",
   "dependencies": {
-    "@vercel/style-guide": "5.2.0",
-    "eslint": "8.48.0",
-    "eslint-config-prettier": "^9.0.0",
+    "@vercel/style-guide": "^6.0.0",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^9.1.2",
     "eslint-config-turbo": "1.10.13",
     "typescript": "5.6.3"
   }
