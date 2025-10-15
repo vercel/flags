@@ -1,32 +1,32 @@
 {
-	"name": "svelte-example",
-	"version": "0.0.6",
-	"private": true,
-	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "vite preview",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "biome check"
-	},
-	"dependencies": {
-		"@tailwindcss/typography": "0.5.16",
-		"@tailwindcss/vite": "4.0.15",
-		"@vercel/edge": "^1.2.1",
-		"@vercel/toolbar": "0.1.36",
-		"cookie": "^0.6.0",
-		"flags": "workspace:*",
-		"tailwindcss": "4.0.15"
-	},
-	"devDependencies": {
-		"@sveltejs/adapter-vercel": "^5.6.0",
-		"@sveltejs/kit": "^2.20.2",
-		"@sveltejs/vite-plugin-svelte": "^4.0.0",
-		"svelte": "^5.0.0",
-		"svelte-check": "^4.0.0",
-		"typescript": "^5.5.0",
-		"vite": "^5.4.4"
-	},
-	"type": "module"
+  "name": "svelte-example",
+  "version": "0.0.6",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "lint": "biome check"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "0.5.16",
+    "@tailwindcss/vite": "4.0.15",
+    "@vercel/edge": "^1.2.1",
+    "@vercel/toolbar": "0.1.36",
+    "cookie": "^0.6.0",
+    "flags": "workspace:*",
+    "tailwindcss": "4.0.15"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-vercel": "^5.6.0",
+    "@sveltejs/kit": "^2.20.2",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.4"
+  },
+  "type": "module"
 }

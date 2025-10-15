@@ -1,29 +1,29 @@
 enum Status {
-	UNTERMINATED = 0,
-	TERMINATED = 1,
-	ERRORED = 2,
+  UNTERMINATED = 0,
+  TERMINATED = 1,
+  ERRORED = 2,
 }
 
 type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
 
 type CacheNode<T> = {
-	s: Status;
-	v: T | undefined | unknown;
-	// biome-ignore lint/complexity/noBannedTypes: copied over
-	o: WeakMap<Function | Object, CacheNode<T>> | null;
-	p: Map<
-		string | number | null | undefined | symbol | boolean,
-		CacheNode<T>
-	> | null;
+  s: Status;
+  v: T | undefined | unknown;
+  // biome-ignore lint/complexity/noBannedTypes: copied over
+  o: WeakMap<Function | Object, CacheNode<T>> | null;
+  p: Map<
+    string | number | null | undefined | symbol | boolean,
+    CacheNode<T>
+  > | null;
 };
 
 function createCacheNode<T>(): CacheNode<T> {
-	return {
-		s: Status.UNTERMINATED,
-		v: undefined,
-		o: null,
-		p: null,
-	};
+  return {
+    s: Status.UNTERMINATED,
+    v: undefined,
+    o: null,
+    p: null,
+  };
 }
 
 /**
@@ -51,77 +51,77 @@ const cacheRegistry = new WeakMap<Function, RequestStore<unknown>>();
  * headers() API to dedupe, which is async.
  */
 export function dedupe<A extends Array<unknown>, T>(
-	fn: (...args: A) => T | Promise<T>,
+  fn: (...args: A) => T | Promise<T>,
 ): (...args: A) => Promise<T> {
-	const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
+  const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
-	const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
-		// async import required as turbopack errors in Pages Router
-		// when next/headers is imported at the top-level
-		const { headers } = await import("next/headers");
+  const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
+    // async import required as turbopack errors in Pages Router
+    // when next/headers is imported at the top-level
+    const { headers } = await import("next/headers");
 
-		const h = await headers();
-		let cacheNode = requestStore.get(h);
-		if (!cacheNode) {
-			cacheNode = createCacheNode<T>();
-			requestStore.set(h, cacheNode);
-		}
+    const h = await headers();
+    let cacheNode = requestStore.get(h);
+    if (!cacheNode) {
+      cacheNode = createCacheNode<T>();
+      requestStore.set(h, cacheNode);
+    }
 
-		for (let i = 0; i < args.length; i++) {
-			const arg = args[i];
-			if (
-				typeof arg === "function" ||
-				(typeof arg === "object" && arg !== null)
-			) {
-				// biome-ignore lint/complexity/noBannedTypes: copied over
-				let objectCache: WeakMap<Function | object, CacheNode<T>> | null =
-					cacheNode.o;
-				if (objectCache === null) {
-					cacheNode.o = objectCache = new WeakMap();
-				}
-				const objectNode = objectCache.get(arg);
-				if (objectNode === undefined) {
-					cacheNode = createCacheNode();
-					objectCache.set(arg, cacheNode);
-				} else {
-					cacheNode = objectNode;
-				}
-			} else {
-				let primitiveCache: Map<unknown, CacheNode<T>> | null = cacheNode.p;
-				if (primitiveCache === null) {
-					cacheNode.p = primitiveCache = new Map();
-				}
-				const primitiveNode = primitiveCache.get(arg);
-				if (primitiveNode === undefined) {
-					cacheNode = createCacheNode();
-					primitiveCache.set(arg, cacheNode);
-				} else {
-					cacheNode = primitiveNode;
-				}
-			}
-		}
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (
+        typeof arg === "function" ||
+        (typeof arg === "object" && arg !== null)
+      ) {
+        // biome-ignore lint/complexity/noBannedTypes: copied over
+        let objectCache: WeakMap<Function | object, CacheNode<T>> | null =
+          cacheNode.o;
+        if (objectCache === null) {
+          cacheNode.o = objectCache = new WeakMap();
+        }
+        const objectNode = objectCache.get(arg);
+        if (objectNode === undefined) {
+          cacheNode = createCacheNode();
+          objectCache.set(arg, cacheNode);
+        } else {
+          cacheNode = objectNode;
+        }
+      } else {
+        let primitiveCache: Map<unknown, CacheNode<T>> | null = cacheNode.p;
+        if (primitiveCache === null) {
+          cacheNode.p = primitiveCache = new Map();
+        }
+        const primitiveNode = primitiveCache.get(arg);
+        if (primitiveNode === undefined) {
+          cacheNode = createCacheNode();
+          primitiveCache.set(arg, cacheNode);
+        } else {
+          cacheNode = primitiveNode;
+        }
+      }
+    }
 
-		if (cacheNode.s === Status.TERMINATED) {
-			return cacheNode.v as T;
-		}
-		if (cacheNode.s === Status.ERRORED) {
-			throw cacheNode.v;
-		}
+    if (cacheNode.s === Status.TERMINATED) {
+      return cacheNode.v as T;
+    }
+    if (cacheNode.s === Status.ERRORED) {
+      throw cacheNode.v;
+    }
 
-		try {
-			const result = fn.apply(this, args);
-			cacheNode.s = Status.TERMINATED;
-			cacheNode.v = result;
-			return result;
-		} catch (error) {
-			cacheNode.s = Status.ERRORED;
-			cacheNode.v = error;
-			throw error;
-		}
-	};
+    try {
+      const result = fn.apply(this, args);
+      cacheNode.s = Status.TERMINATED;
+      cacheNode.v = result;
+      return result;
+    } catch (error) {
+      cacheNode.s = Status.ERRORED;
+      cacheNode.v = error;
+      throw error;
+    }
+  };
 
-	cacheRegistry.set(dedupedFn, requestStore);
-	return dedupedFn;
+  cacheRegistry.set(dedupedFn, requestStore);
+  return dedupedFn;
 }
 
 /**
@@ -131,17 +131,17 @@ export function dedupe<A extends Array<unknown>, T>(
  * the underlying cached information.
  */
 export async function clearDedupeCacheForCurrentRequest(
-	dedupedFn: (...args: unknown[]) => unknown,
+  dedupedFn: (...args: unknown[]) => unknown,
 ) {
-	if (typeof dedupedFn !== "function") {
-		throw new Error("dedupe: not a function");
-	}
-	const requestStore = cacheRegistry.get(dedupedFn);
+  if (typeof dedupedFn !== "function") {
+    throw new Error("dedupe: not a function");
+  }
+  const requestStore = cacheRegistry.get(dedupedFn);
 
-	if (!requestStore) {
-		throw new Error("dedupe: cache not found");
-	}
-	const { headers } = await import("next/headers");
-	const h = await headers();
-	return requestStore.delete(h);
+  if (!requestStore) {
+    throw new Error("dedupe: cache not found");
+  }
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  return requestStore.delete(h);
 }

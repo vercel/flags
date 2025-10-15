@@ -1,55 +1,55 @@
 {
-	"name": "@flags-sdk/hypertune",
-	"version": "0.3.0",
-	"description": "",
-	"keywords": [],
-	"license": "MIT",
-	"author": "",
-	"sideEffects": false,
-	"type": "module",
-	"exports": {
-		".": {
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
-		}
-	},
-	"main": "./dist/index.js",
-	"typesVersions": {
-		"*": {
-			".": [
-				"dist/*.d.ts",
-				"dist/*.d.cts"
-			]
-		}
-	},
-	"files": [
-		"dist",
-		"CHANGELOG.md"
-	],
-	"scripts": {
-		"build": "rimraf dist && tsup",
-		"dev": "tsup --watch --clean=false",
-		"lint": "biome check",
-		"test": "vitest --run",
-		"test:watch": "vitest",
-		"type-check": "tsc --noEmit"
-	},
-	"dependencies": {
-		"@vercel/edge-config": "1.4.0",
-		"hypertune": "2.8.3"
-	},
-	"devDependencies": {
-		"@types/node": "20.11.17",
-		"flags": "workspace:*",
-		"msw": "2.6.4",
-		"rimraf": "6.0.1",
-		"tsconfig": "workspace:*",
-		"tsup": "8.0.1",
-		"typescript": "5.6.3",
-		"vite": "5.1.1",
-		"vitest": "1.4.0"
-	},
-	"publishConfig": {
-		"access": "public"
-	}
+  "name": "@flags-sdk/hypertune",
+  "version": "0.3.0",
+  "description": "",
+  "keywords": [],
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "check": "biome check",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/edge-config": "1.4.0",
+    "hypertune": "2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.17",
+    "flags": "workspace:*",
+    "msw": "2.6.4",
+    "rimraf": "6.0.1",
+    "tsconfig": "workspace:*",
+    "tsup": "8.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.1.1",
+    "vitest": "1.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

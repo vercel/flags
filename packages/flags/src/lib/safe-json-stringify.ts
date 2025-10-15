@@ -11,9 +11,9 @@
  * @param space Adds indentation, white space, and line break characters to the return-value JSON text to make it easier to read.
  */
 export function safeJsonStringify(
-	value: any,
-	replacer?: (this: any, key: string, value: any) => any,
-	space?: string | number,
+  value: any,
+  replacer?: (this: any, key: string, value: any) => any,
+  space?: string | number,
 ): string;
 /**
  * Converts a JavaScript value to a JavaScript Object Notation (JSON) string.
@@ -26,15 +26,15 @@ export function safeJsonStringify(
  * @param space Adds indentation, white space, and line break characters to the return-value JSON text to make it easier to read.
  */
 export function safeJsonStringify(
-	value: any,
-	replacer?: (number | string)[] | null,
-	space?: string | number,
+  value: any,
+  replacer?: (number | string)[] | null,
+  space?: string | number,
 ): string;
 
 export function safeJsonStringify(
-	value: any,
-	replacer: any,
-	space: any,
+  value: any,
+  replacer: any,
+  space: any,
 ): string {
-	return JSON.stringify(value, replacer, space).replace(/</g, "\\u003c");
+  return JSON.stringify(value, replacer, space).replace(/</g, "\\u003c");
 }

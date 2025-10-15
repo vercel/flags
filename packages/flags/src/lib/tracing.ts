@@ -1,8 +1,8 @@
 import type {
-	Attributes,
-	AttributeValue,
-	Tracer,
-	TracerProvider,
+  Attributes,
+  AttributeValue,
+  Tracer,
+  TracerProvider,
 } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "async_hooks";
 import { name as pkgName, version } from "../../package.json";
@@ -16,134 +16,134 @@ const vercelFlagsTraceSymbol = Symbol.for("flags:global-trace");
  * for `flags` operations.
  */
 export function setTracerProvider(tracer: TracerProvider): void {
-	Reflect.set(globalThis, vercelFlagsTraceSymbol, tracer);
+  Reflect.set(globalThis, vercelFlagsTraceSymbol, tracer);
 }
 
 function getTracer(): Tracer | undefined {
-	const maybeTraceApi = Reflect.get(globalThis, vercelFlagsTraceSymbol) as
-		| undefined
-		| TracerProvider;
-	return maybeTraceApi?.getTracer(pkgName, version);
+  const maybeTraceApi = Reflect.get(globalThis, vercelFlagsTraceSymbol) as
+    | undefined
+    | TracerProvider;
+  return maybeTraceApi?.getTracer(pkgName, version);
 }
 
 function isPromise<T>(p: unknown): p is Promise<T> {
-	return (
-		p !== null &&
-		typeof p === "object" &&
-		"then" in p &&
-		typeof p.then === "function"
-	);
+  return (
+    p !== null &&
+    typeof p === "object" &&
+    "then" in p &&
+    typeof p.then === "function"
+  );
 }
 
 const spanContext = new AsyncLocalStorage<Map<string, AttributeValue>>();
 
 export function setSpanAttribute(name: string, value: AttributeValue) {
-	spanContext.getStore()?.set(name, value);
+  spanContext.getStore()?.set(name, value);
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function trace<F extends (...args: any) => any>(
-	fn: F,
-	options: {
-		name: string;
-		/** Defaults to `true`. If set to `false`, it'll trace regardless of `VERCEL_FLAGS_TRACE_VERBOSE`. */
-		isVerboseTrace?: boolean;
-		attributes?: Attributes;
-		attributesSuccess?: (
-			result: ReturnType<F> extends PromiseLike<infer U> ? U : ReturnType<F>,
-		) => Attributes;
-		attributesError?: (error: Error) => Attributes;
-	} = {
-		name: fn.name,
-	},
+  fn: F,
+  options: {
+    name: string;
+    /** Defaults to `true`. If set to `false`, it'll trace regardless of `VERCEL_FLAGS_TRACE_VERBOSE`. */
+    isVerboseTrace?: boolean;
+    attributes?: Attributes;
+    attributesSuccess?: (
+      result: ReturnType<F> extends PromiseLike<infer U> ? U : ReturnType<F>,
+    ) => Attributes;
+    attributesError?: (error: Error) => Attributes;
+  } = {
+    name: fn.name,
+  },
 ): F {
-	const traced = function (this: unknown, ...args: unknown[]): unknown {
-		const tracer = getTracer();
-		if (!tracer) return fn.apply(this, args);
+  const traced = function (this: unknown, ...args: unknown[]): unknown {
+    const tracer = getTracer();
+    if (!tracer) return fn.apply(this, args);
 
-		const shouldTrace =
-			process.env.VERCEL_FLAGS_TRACE_VERBOSE === "true" ||
-			options.isVerboseTrace === false;
-		if (!shouldTrace) return fn.apply(this, args);
+    const shouldTrace =
+      process.env.VERCEL_FLAGS_TRACE_VERBOSE === "true" ||
+      options.isVerboseTrace === false;
+    if (!shouldTrace) return fn.apply(this, args);
 
-		return spanContext.run(new Map(), () =>
-			tracer.startActiveSpan(options.name, (span) => {
-				if (options.attributes) span.setAttributes(options.attributes);
+    return spanContext.run(new Map(), () =>
+      tracer.startActiveSpan(options.name, (span) => {
+        if (options.attributes) span.setAttributes(options.attributes);
 
-				try {
-					const result = fn.apply(this, args);
+        try {
+          const result = fn.apply(this, args);
 
-					if (isPromise(result)) {
-						result
-							.then((value) => {
-								if (options.attributesSuccess) {
-									span.setAttributes(
-										options.attributesSuccess(
-											value as ReturnType<F> extends PromiseLike<infer U>
-												? U
-												: ReturnType<F>,
-										),
-									);
-								}
+          if (isPromise(result)) {
+            result
+              .then((value) => {
+                if (options.attributesSuccess) {
+                  span.setAttributes(
+                    options.attributesSuccess(
+                      value as ReturnType<F> extends PromiseLike<infer U>
+                        ? U
+                        : ReturnType<F>,
+                    ),
+                  );
+                }
 
-								spanContext.getStore()?.forEach((value, key) => {
-									span.setAttribute(key, value);
-								});
+                spanContext.getStore()?.forEach((value, key) => {
+                  span.setAttribute(key, value);
+                });
 
-								span.setStatus({ code: 1 }); // 1 = Ok
-								span.end();
-							})
-							.catch((error) => {
-								if (options.attributesError) {
-									span.setAttributes(options.attributesError(error));
-								}
+                span.setStatus({ code: 1 }); // 1 = Ok
+                span.end();
+              })
+              .catch((error) => {
+                if (options.attributesError) {
+                  span.setAttributes(options.attributesError(error));
+                }
 
-								span.setStatus({
-									code: 2, // 2 = Error
-									message: error instanceof Error ? error.message : undefined,
-								});
+                span.setStatus({
+                  code: 2, // 2 = Error
+                  message: error instanceof Error ? error.message : undefined,
+                });
 
-								spanContext.getStore()?.forEach((value, key) => {
-									span.setAttribute(key, value);
-								});
+                spanContext.getStore()?.forEach((value, key) => {
+                  span.setAttribute(key, value);
+                });
 
-								span.end();
-							});
-					} else {
-						if (options.attributesSuccess) {
-							span.setAttributes(options.attributesSuccess(result));
-						}
+                span.end();
+              });
+          } else {
+            if (options.attributesSuccess) {
+              span.setAttributes(options.attributesSuccess(result));
+            }
 
-						spanContext.getStore()?.forEach((value, key) => {
-							span.setAttribute(key, value);
-						});
+            spanContext.getStore()?.forEach((value, key) => {
+              span.setAttribute(key, value);
+            });
 
-						span.setStatus({ code: 1 }); // 1 = Ok
-						span.end();
-					}
+            span.setStatus({ code: 1 }); // 1 = Ok
+            span.end();
+          }
 
-					return result as unknown;
-				} catch (error: any) {
-					if (options.attributesError) {
-						span.setAttributes(options.attributesError(error as Error));
-					}
+          return result as unknown;
+        } catch (error: any) {
+          if (options.attributesError) {
+            span.setAttributes(options.attributesError(error as Error));
+          }
 
-					span.setStatus({
-						code: 2, // 2 = Error
-						message: error instanceof Error ? error.message : undefined,
-					});
+          span.setStatus({
+            code: 2, // 2 = Error
+            message: error instanceof Error ? error.message : undefined,
+          });
 
-					spanContext.getStore()?.forEach((value, key) => {
-						span.setAttribute(key, value);
-					});
+          spanContext.getStore()?.forEach((value, key) => {
+            span.setAttribute(key, value);
+          });
 
-					span.end();
+          span.end();
 
-					throw error;
-				}
-			}),
-		);
-	};
+          throw error;
+        }
+      }),
+    );
+  };
 
-	return traced as unknown as F;
+  return traced as unknown as F;
 }

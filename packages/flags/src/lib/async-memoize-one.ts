@@ -2,13 +2,13 @@
 // and https://github.com/alexreardon/memoize-one
 
 type MemoizeOneOptions = {
-	cachePromiseRejection?: boolean;
+  cachePromiseRejection?: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MemoizedFn<TFunc extends (this: any, ...args: any[]) => any> = (
-	this: ThisParameterType<TFunc>,
-	...args: Parameters<TFunc>
+  this: ThisParameterType<TFunc>,
+  ...args: Parameters<TFunc>
 ) => ReturnType<TFunc>;
 
 /**
@@ -16,34 +16,34 @@ type MemoizedFn<TFunc extends (this: any, ...args: any[]) => any> = (
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function memoizeOne<TFunc extends (this: any, ...newArgs: any[]) => any>(
-	fn: TFunc,
-	isEqual: (a: Parameters<TFunc>, b: Parameters<TFunc>) => boolean,
-	{ cachePromiseRejection = false }: MemoizeOneOptions = {},
+  fn: TFunc,
+  isEqual: (a: Parameters<TFunc>, b: Parameters<TFunc>) => boolean,
+  { cachePromiseRejection = false }: MemoizeOneOptions = {},
 ): MemoizedFn<TFunc> {
-	let calledOnce = false;
-	let oldArgs: Parameters<TFunc>;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let lastResult: any;
+  let calledOnce = false;
+  let oldArgs: Parameters<TFunc>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let lastResult: any;
 
-	function memoized(
-		this: ThisParameterType<TFunc>,
-		...newArgs: Parameters<TFunc>
-	) {
-		if (calledOnce && isEqual(newArgs, oldArgs)) return lastResult;
+  function memoized(
+    this: ThisParameterType<TFunc>,
+    ...newArgs: Parameters<TFunc>
+  ) {
+    if (calledOnce && isEqual(newArgs, oldArgs)) return lastResult;
 
-		lastResult = fn.apply(this, newArgs);
+    lastResult = fn.apply(this, newArgs);
 
-		if (!cachePromiseRejection && lastResult.catch) {
-			lastResult.catch(() => {
-				calledOnce = false;
-			});
-		}
+    if (!cachePromiseRejection && lastResult.catch) {
+      lastResult.catch(() => {
+        calledOnce = false;
+      });
+    }
 
-		calledOnce = true;
-		oldArgs = newArgs;
+    calledOnce = true;
+    oldArgs = newArgs;
 
-		return lastResult;
-	}
+    return lastResult;
+  }
 
-	return memoized;
+  return memoized;
 }

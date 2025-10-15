@@ -1,21 +1,21 @@
 {
-	"$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
-	"changelog": "@changesets/cli/changelog",
-	"commit": false,
-	"fixed": [],
-	"linked": [],
-	"access": "public",
-	"baseBranch": "main",
-	"updateInternalDependencies": "patch",
-	"ignore": [
-		"shirt-shop",
-		"svelte-example",
-		"next-14",
-		"next-15",
-		"sveltekit-e2e",
-		"snippets"
-	],
-	"snapshot": {
-		"useCalculatedVersion": true
-	}
+  "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "shirt-shop",
+    "svelte-example",
+    "next-14",
+    "next-15",
+    "sveltekit-e2e",
+    "snippets"
+  ],
+  "snapshot": {
+    "useCalculatedVersion": true
+  }
 }

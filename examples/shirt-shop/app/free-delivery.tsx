@@ -5,11 +5,11 @@ import { useEffect } from "react";
 import { FreeDeliveryBanner } from "@/components/banners/free-delivery-banner";
 
 export function FreeDelivery(props: { show: boolean }) {
-	useEffect(() => {
-		if (props.show) track("free_delivery_banner:viewed");
-	}, [props.show]);
+  useEffect(() => {
+    if (props.show) track("free_delivery_banner:viewed");
+  }, [props.show]);
 
-	if (!props.show) return null;
+  if (!props.show) return null;
 
-	return <FreeDeliveryBanner />;
+  return <FreeDeliveryBanner />;
 }

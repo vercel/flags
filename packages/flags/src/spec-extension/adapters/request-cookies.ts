@@ -7,15 +7,15 @@ import { ReflectAdapter } from "./reflect";
  * @internal
  */
 export class ReadonlyRequestCookiesError extends Error {
-	constructor() {
-		super(
-			"Cookies can only be modified in a Server Action or Route Handler. Read more: https://nextjs.org/docs/app/api-reference/functions/cookies#options",
-		);
-	}
+  constructor() {
+    super(
+      "Cookies can only be modified in a Server Action or Route Handler. Read more: https://nextjs.org/docs/app/api-reference/functions/cookies#options",
+    );
+  }
 
-	public static callable() {
-		throw new ReadonlyRequestCookiesError();
-	}
+  public static callable() {
+    throw new ReadonlyRequestCookiesError();
+  }
 }
 
 // We use this to type some APIs but we don't construct instances directly
@@ -25,74 +25,74 @@ export type { ResponseCookies };
 // we want to return the request cookie if it exists. For mutative methods like `.set()`,
 // we want to return the response cookie.
 export type ReadonlyRequestCookies = Omit<
-	RequestCookies,
-	"set" | "clear" | "delete"
+  RequestCookies,
+  "set" | "clear" | "delete"
 > &
-	Pick<ResponseCookies, "set" | "delete">;
+  Pick<ResponseCookies, "set" | "delete">;
 
 // biome-ignore lint/complexity/noStaticOnlyClass: copied from Next.js
 export class RequestCookiesAdapter {
-	public static seal(cookies: RequestCookies): ReadonlyRequestCookies {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return new Proxy(cookies as any, {
-			get(target, prop, receiver) {
-				switch (prop) {
-					case "clear":
-					case "delete":
-					case "set":
-						return ReadonlyRequestCookiesError.callable;
-					default:
-						return ReflectAdapter.get(target, prop, receiver);
-				}
-			},
-		});
-	}
+  public static seal(cookies: RequestCookies): ReadonlyRequestCookies {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new Proxy(cookies as any, {
+      get(target, prop, receiver) {
+        switch (prop) {
+          case "clear":
+          case "delete":
+          case "set":
+            return ReadonlyRequestCookiesError.callable;
+          default:
+            return ReflectAdapter.get(target, prop, receiver);
+        }
+      },
+    });
+  }
 }
 
 const SYMBOL_MODIFY_COOKIE_VALUES = Symbol.for("next.mutated.cookies");
 
 export function getModifiedCookieValues(
-	cookies: ResponseCookies,
+  cookies: ResponseCookies,
 ): ResponseCookie[] {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const modified: ResponseCookie[] | undefined = (cookies as unknown as any)[
-		SYMBOL_MODIFY_COOKIE_VALUES
-	];
-	if (!modified || !Array.isArray(modified) || modified.length === 0) {
-		return [];
-	}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modified: ResponseCookie[] | undefined = (cookies as unknown as any)[
+    SYMBOL_MODIFY_COOKIE_VALUES
+  ];
+  if (!modified || !Array.isArray(modified) || modified.length === 0) {
+    return [];
+  }
 
-	return modified;
+  return modified;
 }
 
 export function appendMutableCookies(
-	headers: Headers,
-	mutableCookies: ResponseCookies,
+  headers: Headers,
+  mutableCookies: ResponseCookies,
 ): boolean {
-	const modifiedCookieValues = getModifiedCookieValues(mutableCookies);
-	if (modifiedCookieValues.length === 0) {
-		return false;
-	}
+  const modifiedCookieValues = getModifiedCookieValues(mutableCookies);
+  if (modifiedCookieValues.length === 0) {
+    return false;
+  }
 
-	// Return a new response that extends the response with
-	// the modified cookies as fallbacks. `res` cookies
-	// will still take precedence.
-	const resCookies = new ResponseCookies(headers);
-	const returnedCookies = resCookies.getAll();
+  // Return a new response that extends the response with
+  // the modified cookies as fallbacks. `res` cookies
+  // will still take precedence.
+  const resCookies = new ResponseCookies(headers);
+  const returnedCookies = resCookies.getAll();
 
-	// Set the modified cookies as fallbacks.
-	for (const cookie of modifiedCookieValues) {
-		resCookies.set(cookie);
-	}
+  // Set the modified cookies as fallbacks.
+  for (const cookie of modifiedCookieValues) {
+    resCookies.set(cookie);
+  }
 
-	// Set the original cookies as the final values.
-	for (const cookie of returnedCookies) {
-		resCookies.set(cookie);
-	}
+  // Set the original cookies as the final values.
+  for (const cookie of returnedCookies) {
+    resCookies.set(cookie);
+  }
 
-	return true;
+  return true;
 }
 
 type ResponseCookie = NonNullable<
-	ReturnType<InstanceType<typeof ResponseCookies>["get"]>
+  ReturnType<InstanceType<typeof ResponseCookies>["get"]>
 >;

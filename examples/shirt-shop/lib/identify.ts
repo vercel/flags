@@ -3,11 +3,11 @@ import { dedupe } from "flags/next";
 import { getStableId } from "./get-stable-id";
 
 export type EvaluationContext = {
-	stableId?: string;
+  stableId?: string;
 };
 
 export const identify = dedupe(async () => {
-	const stableId = await getStableId();
+  const stableId = await getStableId();
 
-	return { stableId: stableId.value };
+  return { stableId: stableId.value };
 }) satisfies Identify<EvaluationContext>;

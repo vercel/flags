@@ -1,11 +1,11 @@
 export interface CartItem {
-	id: string;
-	color: string;
-	size: string;
-	quantity: number;
+  id: string;
+  color: string;
+  size: string;
+  quantity: number;
 }
 
 export interface Cart {
-	id: string;
-	items: CartItem[];
+  id: string;
+  items: CartItem[];
 }

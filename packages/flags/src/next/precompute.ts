@@ -13,11 +13,11 @@ type ValuesArray = readonly any[];
  * @returns - an array of evaluated flag values with one entry per flag
  */
 export async function evaluate<T extends FlagsArray>(
-	flags: T,
+  flags: T,
 ): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
-	return Promise.all(flags.map((flag) => flag())) as Promise<{
-		[K in keyof T]: Awaited<ReturnType<T[K]>>;
-	}>;
+  return Promise.all(flags.map((flag) => flag())) as Promise<{
+    [K in keyof T]: Awaited<ReturnType<T[K]>>;
+  }>;
 }
 
 /**
@@ -29,10 +29,10 @@ export async function evaluate<T extends FlagsArray>(
  * @returns - a string representing evaluated flags
  */
 export async function precompute<T extends FlagsArray>(
-	flags: T,
+  flags: T,
 ): Promise<string> {
-	const values = await evaluate(flags);
-	return serialize(flags, values);
+  const values = await evaluate(flags);
+  return serialize(flags, values);
 }
 
 /**
@@ -42,7 +42,7 @@ export async function precompute<T extends FlagsArray>(
  * @returns - A record where the keys are flag keys and the values are flag values.
  */
 export function combine(flags: FlagsArray, values: ValuesArray) {
-	return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
+  return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
 }
 
 /**
@@ -58,15 +58,15 @@ export function combine(flags: FlagsArray, values: ValuesArray) {
  * @returns - A short string representing the values.
  */
 export async function serialize(
-	flags: FlagsArray,
-	values: ValuesArray,
-	secret: string | undefined = process.env.FLAGS_SECRET,
+  flags: FlagsArray,
+  values: ValuesArray,
+  secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
-	if (!secret) {
-		throw new Error("flags: Can not serialize due to missing secret");
-	}
+  if (!secret) {
+    throw new Error("flags: Can not serialize due to missing secret");
+  }
 
-	return s.serialize(combine(flags, values), flags, secret);
+  return s.serialize(combine(flags, values), flags, secret);
 }
 
 /**
@@ -77,15 +77,15 @@ export async function serialize(
  * @returns - An object consisting of each flag's key and its resolved value.
  */
 export async function deserialize(
-	flags: FlagsArray,
-	code: string,
-	secret: string | undefined = process.env.FLAGS_SECRET,
+  flags: FlagsArray,
+  code: string,
+  secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
-	if (!secret) {
-		throw new Error("flags: Can not serialize due to missing secret");
-	}
+  if (!secret) {
+    throw new Error("flags: Can not serialize due to missing secret");
+  }
 
-	return s.deserialize(code, flags, secret);
+  return s.deserialize(code, flags, secret);
 }
 
 /**
@@ -97,11 +97,11 @@ export async function deserialize(
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	flag: Flag<T, any>,
-	precomputeFlags: FlagsArray,
-	code: string,
-	secret?: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  flag: Flag<T, any>,
+  precomputeFlags: FlagsArray,
+  code: string,
+  secret?: string,
 ): Promise<T>;
 
 /**
@@ -113,15 +113,15 @@ export async function getPrecomputed<T extends JsonValue>(
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<
-	T extends JsonValue,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	K extends readonly Flag<T, any>[],
+  T extends JsonValue,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  K extends readonly Flag<T, any>[],
 >(
-	flags: readonly [...K],
-	precomputeFlags: FlagsArray,
-	code: string,
-	secret?: string,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  flags: readonly [...K],
+  precomputeFlags: FlagsArray,
+  code: string,
+  secret?: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ [P in keyof K]: K[P] extends Flag<infer U, any> ? U : never }>;
 
 /**
@@ -133,35 +133,35 @@ export async function getPrecomputed<
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	flagOrFlags: Flag<T, any> | readonly Flag<T, any>[],
-	precomputeFlags: FlagsArray,
-	code: string,
-	secret: string | undefined = process.env.FLAGS_SECRET,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  flagOrFlags: Flag<T, any> | readonly Flag<T, any>[],
+  precomputeFlags: FlagsArray,
+  code: string,
+  secret: string | undefined = process.env.FLAGS_SECRET,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
-	if (!secret) {
-		throw new Error(
-			"flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.",
-		);
-	}
+  if (!secret) {
+    throw new Error(
+      "flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.",
+    );
+  }
 
-	const flagSet = await deserialize(precomputeFlags, code, secret);
+  const flagSet = await deserialize(precomputeFlags, code, secret);
 
-	if (Array.isArray(flagOrFlags)) {
-		// Handle case when an array of flags is passed
-		return flagOrFlags.map((flag) => flagSet[flag.key]);
-	} else {
-		// Handle case when a single flag is passed
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return flagSet[(flagOrFlags as Flag<T, any>).key];
-	}
+  if (Array.isArray(flagOrFlags)) {
+    // Handle case when an array of flags is passed
+    return flagOrFlags.map((flag) => flagSet[flag.key]);
+  } else {
+    // Handle case when a single flag is passed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return flagSet[(flagOrFlags as Flag<T, any>).key];
+  }
 }
 
 // see https://stackoverflow.com/a/44344803
 function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
-	const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-	for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
+  const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
+  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**
@@ -172,36 +172,36 @@ function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
  * @returns An array of strings representing each permutation
  */
 export async function generatePermutations(
-	flags: FlagsArray,
-	filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
-	secret: string = process.env.FLAGS_SECRET!,
+  flags: FlagsArray,
+  filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
+  secret: string = process.env.FLAGS_SECRET!,
 ): Promise<string[]> {
-	if (!secret) {
-		throw new Error(
-			"flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.",
-		);
-	}
+  if (!secret) {
+    throw new Error(
+      "flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.",
+    );
+  }
 
-	const options = flags.map((flag) => {
-		// infer boolean permutations if you don't declare any options.
-		//
-		// to explicitly opt out you need to use "filter"
-		if (!flag.options) return [false, true];
-		return flag.options.map((option) => option.value);
-	});
+  const options = flags.map((flag) => {
+    // infer boolean permutations if you don't declare any options.
+    //
+    // to explicitly opt out you need to use "filter"
+    if (!flag.options) return [false, true];
+    return flag.options.map((option) => option.value);
+  });
 
-	const list: Record<string, JsonValue>[] = [];
+  const list: Record<string, JsonValue>[] = [];
 
-	for (const permutation of cartesianIterator(options)) {
-		const permObject = permutation.reduce<Record<string, JsonValue>>(
-			(acc, value, index) => {
-				acc[flags[index]!.key] = value;
-				return acc;
-			},
-			{},
-		);
-		if (!filter || filter(permObject)) list.push(permObject);
-	}
+  for (const permutation of cartesianIterator(options)) {
+    const permObject = permutation.reduce<Record<string, JsonValue>>(
+      (acc, value, index) => {
+        acc[flags[index]!.key] = value;
+        return acc;
+      },
+      {},
+    );
+    if (!filter || filter(permObject)) list.push(permObject);
+  }
 
-	return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
+  return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
 }

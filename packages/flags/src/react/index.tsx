@@ -12,38 +12,38 @@ type Encrypted<T> = string;
  * Registers variant definitions with the toolbar
  */
 export function FlagDefinitions({
-	definitions,
+  definitions,
 }: {
-	definitions: FlagDefinitionsType | Encrypted<FlagDefinitionsType>;
+  definitions: FlagDefinitionsType | Encrypted<FlagDefinitionsType>;
 }) {
-	return (
-		<script
-			type="application/json"
-			data-flag-definitions
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: necessary here
-			dangerouslySetInnerHTML={{
-				__html: safeJsonStringify(definitions),
-			}}
-		/>
-	);
+  return (
+    <script
+      type="application/json"
+      data-flag-definitions
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: necessary here
+      dangerouslySetInnerHTML={{
+        __html: safeJsonStringify(definitions),
+      }}
+    />
+  );
 }
 
 /**
  * Registers variant values with the toolbar
  */
 export function FlagValues({
-	values,
+  values,
 }: {
-	values: FlagValuesType | Encrypted<FlagValuesType>;
+  values: FlagValuesType | Encrypted<FlagValuesType>;
 }) {
-	return (
-		<script
-			type="application/json"
-			data-flag-values
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: necessary  in this case
-			dangerouslySetInnerHTML={{
-				__html: safeJsonStringify(values),
-			}}
-		/>
-	);
+  return (
+    <script
+      type="application/json"
+      data-flag-values
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: necessary  in this case
+      dangerouslySetInnerHTML={{
+        __html: safeJsonStringify(values),
+      }}
+    />
+  );
 }

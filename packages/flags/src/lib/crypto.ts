@@ -7,9 +7,9 @@
  */
 import { base64url, EncryptJWT, jwtDecrypt } from "jose";
 import type {
-	FlagDefinitionsType,
-	FlagOverridesType,
-	FlagValuesType,
+  FlagDefinitionsType,
+  FlagOverridesType,
+  FlagValuesType,
 } from "../types";
 
 type ExpirationTime = string | number | Date;
@@ -24,9 +24,9 @@ type Purpose = string | string[];
  * @returns True if the purpose matches the expected purpose, false otherwise
  */
 const hasPurpose = (pur: Purpose, expectedPurpose: PurposeClaim): boolean => {
-	return Array.isArray(pur)
-		? pur.includes(expectedPurpose)
-		: pur === expectedPurpose;
+  return Array.isArray(pur)
+    ? pur.includes(expectedPurpose)
+    : pur === expectedPurpose;
 };
 
 /**
@@ -39,22 +39,22 @@ const hasPurpose = (pur: Purpose, expectedPurpose: PurposeClaim): boolean => {
  * @throws Error if the secret is invalid
  */
 async function encryptJwe<T extends object = Record<string, unknown>>(
-	payload: T,
-	secret: string,
-	expirationTime: ExpirationTime,
+  payload: T,
+  secret: string,
+  expirationTime: ExpirationTime,
 ): Promise<string> {
-	const encodedSecret = base64url.decode(secret);
+  const encodedSecret = base64url.decode(secret);
 
-	if (encodedSecret.length !== 32) {
-		throw new Error(
-			"flags: Invalid secret, it must be a 256-bit key (32 bytes)",
-		);
-	}
+  if (encodedSecret.length !== 32) {
+    throw new Error(
+      "flags: Invalid secret, it must be a 256-bit key (32 bytes)",
+    );
+  }
 
-	return new EncryptJWT(payload as Record<string, unknown>)
-		.setExpirationTime(expirationTime)
-		.setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-		.encrypt(encodedSecret);
+  return new EncryptJWT(payload as Record<string, unknown>)
+    .setExpirationTime(expirationTime)
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .encrypt(encodedSecret);
 }
 
 /**
@@ -67,27 +67,27 @@ async function encryptJwe<T extends object = Record<string, unknown>>(
  * @throws Error if the secret is invalid
  */
 async function decryptJwe<T extends string | object = Record<string, unknown>>(
-	text: string,
-	verify: (payload: T) => boolean,
-	secret: string,
+  text: string,
+  verify: (payload: T) => boolean,
+  secret: string,
 ): Promise<T | undefined> {
-	if (typeof text !== "string") return;
+  if (typeof text !== "string") return;
 
-	const encodedSecret = base64url.decode(secret);
+  const encodedSecret = base64url.decode(secret);
 
-	if (encodedSecret.length !== 32) {
-		throw new Error(
-			"flags: Invalid secret, it must be a 256-bit key (32 bytes)",
-		);
-	}
+  if (encodedSecret.length !== 32) {
+    throw new Error(
+      "flags: Invalid secret, it must be a 256-bit key (32 bytes)",
+    );
+  }
 
-	try {
-		const { payload } = await jwtDecrypt(text, encodedSecret);
-		const decoded = payload as T;
-		return verify(decoded) ? decoded : undefined;
-	} catch {
-		return undefined;
-	}
+  try {
+    const { payload } = await jwtDecrypt(text, encodedSecret);
+    const decoded = payload as T;
+    return verify(decoded) ? decoded : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -100,12 +100,12 @@ async function decryptJwe<T extends string | object = Record<string, unknown>>(
  * @throws Error if the secret is missing or invalid
  */
 export async function encryptOverrides(
-	overrides: FlagOverridesType,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
-	expirationTime: ExpirationTime = "1y",
+  overrides: FlagOverridesType,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
+  expirationTime: ExpirationTime = "1y",
 ) {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	return encryptJwe({ o: overrides, pur: "overrides" }, secret, expirationTime);
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  return encryptJwe({ o: overrides, pur: "overrides" }, secret, expirationTime);
 }
 
 /**
@@ -117,19 +117,19 @@ export async function encryptOverrides(
  * @throws Error if the secret is missing or invalid
  */
 export async function decryptOverrides(
-	encryptedData: string,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
+  encryptedData: string,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
 ): Promise<FlagOverridesType | undefined> {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	const contents = await decryptJwe<{
-		o: FlagOverridesType;
-		pur: Purpose;
-	}>(
-		encryptedData,
-		(data) => hasPurpose(data.pur, "overrides") && Object.hasOwn(data, "o"),
-		secret,
-	);
-	return contents?.o;
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  const contents = await decryptJwe<{
+    o: FlagOverridesType;
+    pur: Purpose;
+  }>(
+    encryptedData,
+    (data) => hasPurpose(data.pur, "overrides") && Object.hasOwn(data, "o"),
+    secret,
+  );
+  return contents?.o;
 }
 
 /**
@@ -142,12 +142,12 @@ export async function decryptOverrides(
  * @throws Error if the secret is missing or invalid
  */
 export async function encryptFlagValues(
-	flagValues: FlagValuesType,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
-	expirationTime: ExpirationTime = "1y",
+  flagValues: FlagValuesType,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
+  expirationTime: ExpirationTime = "1y",
 ) {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	return encryptJwe({ v: flagValues, pur: "values" }, secret, expirationTime);
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  return encryptJwe({ v: flagValues, pur: "values" }, secret, expirationTime);
 }
 
 /**
@@ -159,19 +159,19 @@ export async function encryptFlagValues(
  * @throws Error if the secret is missing or invalid
  */
 export async function decryptFlagValues(
-	encryptedData: string,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
+  encryptedData: string,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
 ): Promise<FlagValuesType | undefined> {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	const contents = await decryptJwe<{
-		v: FlagValuesType;
-		pur: Purpose;
-	}>(
-		encryptedData,
-		(data) => hasPurpose(data.pur, "values") && Object.hasOwn(data, "v"),
-		secret,
-	);
-	return contents?.v;
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  const contents = await decryptJwe<{
+    v: FlagValuesType;
+    pur: Purpose;
+  }>(
+    encryptedData,
+    (data) => hasPurpose(data.pur, "values") && Object.hasOwn(data, "v"),
+    secret,
+  );
+  return contents?.v;
 }
 
 /**
@@ -184,16 +184,16 @@ export async function decryptFlagValues(
  * @throws Error if the secret is missing or invalid
  */
 export async function encryptFlagDefinitions(
-	flagDefinitions: FlagDefinitionsType,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
-	expirationTime: ExpirationTime = "1y",
+  flagDefinitions: FlagDefinitionsType,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
+  expirationTime: ExpirationTime = "1y",
 ) {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	return encryptJwe(
-		{ d: flagDefinitions, pur: "definitions" },
-		secret,
-		expirationTime,
-	);
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  return encryptJwe(
+    { d: flagDefinitions, pur: "definitions" },
+    secret,
+    expirationTime,
+  );
 }
 
 /**
@@ -205,19 +205,19 @@ export async function encryptFlagDefinitions(
  * @throws Error if the secret is missing or invalid
  */
 export async function decryptFlagDefinitions(
-	encryptedData: string,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
+  encryptedData: string,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
 ): Promise<FlagDefinitionsType | undefined> {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	const contents = await decryptJwe<{
-		d: FlagDefinitionsType;
-		pur: string;
-	}>(
-		encryptedData,
-		(data) => data.pur === "definitions" && Object.hasOwn(data, "d"),
-		secret,
-	);
-	return contents?.d;
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  const contents = await decryptJwe<{
+    d: FlagDefinitionsType;
+    pur: string;
+  }>(
+    encryptedData,
+    (data) => data.pur === "definitions" && Object.hasOwn(data, "d"),
+    secret,
+  );
+  return contents?.d;
 }
 
 /**
@@ -229,11 +229,11 @@ export async function decryptFlagDefinitions(
  * @throws Error if the secret is missing or invalid
  */
 export async function createAccessProof(
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
-	expirationTime: ExpirationTime = "1y",
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
+  expirationTime: ExpirationTime = "1y",
 ) {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	return encryptJwe({ pur: "proof" }, secret, expirationTime);
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  return encryptJwe({ pur: "proof" }, secret, expirationTime);
 }
 
 /**
@@ -245,13 +245,13 @@ export async function createAccessProof(
  * @throws Error if the secret is missing or invalid
  */
 export async function verifyAccessProof(
-	encryptedData: string,
-	secret: string | undefined = process?.env?.FLAGS_SECRET,
+  encryptedData: string,
+  secret: string | undefined = process?.env?.FLAGS_SECRET,
 ) {
-	if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
-	const contents = await decryptJwe<{
-		pur: string;
-	}>(encryptedData, (data) => hasPurpose(data.pur, "proof"), secret);
+  if (!secret) throw new Error("flags: Missing FLAGS_SECRET");
+  const contents = await decryptJwe<{
+    pur: string;
+  }>(encryptedData, (data) => hasPurpose(data.pur, "proof"), secret);
 
-	return Boolean(contents);
+  return Boolean(contents);
 }

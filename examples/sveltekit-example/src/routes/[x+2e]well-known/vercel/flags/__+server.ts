@@ -14,8 +14,8 @@ import { FLAGS_SECRET } from "$env/static/private";
 import * as flags from "$lib/flags";
 
 export const GET = createFlagsDiscoveryEndpoint(
-	async () => {
-		return getProviderData(flags);
-	},
-	{ secret: FLAGS_SECRET },
+  async () => {
+    return getProviderData(flags);
+  },
+  { secret: FLAGS_SECRET },
 );

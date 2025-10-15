@@ -6,7 +6,7 @@ import white from "@/public/images/product/shirt-white.avif";
 export const images = [black, white, blue];
 
 export const colorToImage: Record<string, StaticImageData> = {
-	Black: black,
-	White: white,
-	Blue: blue,
+  Black: black,
+  White: white,
+  Blue: blue,
 };
