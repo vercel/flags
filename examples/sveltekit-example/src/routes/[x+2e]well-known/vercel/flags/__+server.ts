@@ -9,13 +9,13 @@
 // This folder needs to be called [x+2e]well-known as folders starting with a
 // dot like .well-known cause issues, so the [x+2e] encoding is necessary.
 // See https://github.com/sveltejs/kit/discussions/7562#discussioncomment-4206530
-import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
-import * as flags from '$lib/flags';
+import { createFlagsDiscoveryEndpoint, getProviderData } from "flags/sveltekit";
+import { FLAGS_SECRET } from "$env/static/private";
+import * as flags from "$lib/flags";
 
 export const GET = createFlagsDiscoveryEndpoint(
-	async () => {
-		return getProviderData(flags);
-	},
-	{ secret: FLAGS_SECRET }
+  async () => {
+    return getProviderData(flags);
+  },
+  { secret: FLAGS_SECRET },
 );

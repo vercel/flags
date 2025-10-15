@@ -1,5 +1,5 @@
-import { precompute } from 'flags/sveltekit';
-import { firstMarketingABTest, secondMarketingABTest } from './flags';
+import { precompute } from "flags/sveltekit";
+import { firstMarketingABTest, secondMarketingABTest } from "./flags";
 
 export const marketingFlags = [firstMarketingABTest, secondMarketingABTest];
 
@@ -9,13 +9,15 @@ export const marketingFlags = [firstMarketingABTest, secondMarketingABTest];
  * e.g. /marketing -> /marketing/asd-qwe-123
  */
 export async function computeInternalRoute(pathname: string, request: Request) {
-	if (pathname === '/examples/marketing-pages') {
-		return '/examples/marketing-pages/' + (await precompute(marketingFlags, request));
-	}
+  if (pathname === "/examples/marketing-pages") {
+    return (
+      "/examples/marketing-pages/" + (await precompute(marketingFlags, request))
+    );
+  }
 
-	return pathname;
+  return pathname;
 }
 
 export function createVisitorId() {
-	return crypto.randomUUID().replace(/-/g, '');
+  return crypto.randomUUID().replace(/-/g, "");
 }
