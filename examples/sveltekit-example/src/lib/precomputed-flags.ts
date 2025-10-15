@@ -10,9 +10,7 @@ export const marketingFlags = [firstMarketingABTest, secondMarketingABTest];
  */
 export async function computeInternalRoute(pathname: string, request: Request) {
   if (pathname === "/examples/marketing-pages") {
-    return (
-      "/examples/marketing-pages/" + (await precompute(marketingFlags, request))
-    );
+    return `/examples/marketing-pages/${await precompute(marketingFlags, request)}`;
   }
 
   return pathname;

@@ -1,4 +1,5 @@
 <script lang="ts">
+/** biome-ignore-all lint/correctness/noUnusedVariables: used in html */
 import "../app.css";
 import { mountVercelToolbar } from "@vercel/toolbar/vite";
 import { onMount } from "svelte";
@@ -10,5 +11,5 @@ const { children }: LayoutProps = $props();
 </script>
 
 <main class="mx-4 my-2">
-	{@render children()}
+  {@render children()}
 </main>
