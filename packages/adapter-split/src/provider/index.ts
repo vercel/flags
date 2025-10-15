@@ -68,7 +68,6 @@ export async function getProviderData(options: {
           "content-type": "application/json",
           Authorization: `Bearer ${options.adminApiKey}`,
         },
-        // @ts-expect-error used by some Next.js versions
         cache: "no-store",
       },
     );

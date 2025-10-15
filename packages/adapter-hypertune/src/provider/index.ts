@@ -16,7 +16,6 @@ export async function getProviderData(options: {
     `https://edge.hypertune.com/vercel-flag-definitions`,
     {
       headers: { Authorization: `Bearer ${options.token}` },
-      // @ts-expect-error used by some Next.js versions
       cache: "no-store",
     },
   );

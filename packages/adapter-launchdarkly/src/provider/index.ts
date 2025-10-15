@@ -56,7 +56,6 @@ export async function getProviderData(options: {
     {
       method: "GET",
       headers,
-      // @ts-expect-error used by some Next.js versions
       cache: "no-store",
     },
   );
@@ -84,7 +83,6 @@ export async function getProviderData(options: {
         {
           method: "GET",
           headers,
-          // @ts-expect-error used by some Next.js versions
           cache: "no-store",
         },
       );

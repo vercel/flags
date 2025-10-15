@@ -161,7 +161,6 @@ async function getFeatures(options: {
         headers: {
           Authorization: `Bearer ${options.apiKey}`,
         },
-        // @ts-expect-error some Next.js versions need this
         cache: "no-store",
       });
 

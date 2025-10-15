@@ -160,7 +160,6 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
         "content-type": "application/json",
         "STATSIG-API-KEY": options.consoleApiKey,
       },
-      // @ts-expect-error some Next.js versions need this
       cache: "no-store",
     });
 
@@ -196,7 +195,6 @@ async function getExperiments(options: { consoleApiKey: string }) {
         "content-type": "application/json",
         "STATSIG-API-KEY": options.consoleApiKey,
       },
-      // @ts-expect-error some Next.js versions need this
       cache: "no-store",
     });
 
