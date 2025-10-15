@@ -1,10 +1,10 @@
-import type { Adapter } from 'flags';
 import type {
   Client,
   EvaluationContext,
   FlagEvaluationOptions,
   JsonValue,
 } from '@openfeature/server-sdk';
+import type { Adapter } from 'flags';
 
 type AdapterResponse<ClientType> = {
   booleanValue: (

@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { StarIcon } from '@heroicons/react/20/solid';
+import clsx from 'clsx';
 
 export function ProductReviews() {
   return (

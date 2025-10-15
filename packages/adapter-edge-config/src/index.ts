@@ -1,5 +1,5 @@
-import type { Adapter, ReadonlyHeaders } from 'flags';
 import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import type { Adapter, ReadonlyHeaders } from 'flags';
 
 export type EdgeConfigFlags = {
   [key: string]: boolean | number | string | null;

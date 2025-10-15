@@ -82,7 +82,6 @@ export async function getProviderData(options: {
           'content-type': 'application/json',
           Authorization: `Bearer ${options.apiKey}`,
         },
-        // @ts-expect-error used by some Next.js versions
         cache: 'no-store',
       },
     );
@@ -182,7 +181,6 @@ async function getVariationsForFlag(options: {
           'content-type': 'application/json',
           Authorization: `Bearer ${options.apiKey}`,
         },
-        // @ts-expect-error used by some Next.js versions
         cache: 'no-store',
       },
     );

@@ -44,8 +44,7 @@
   "scripts": {
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "check": "biome check",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -53,7 +52,6 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",

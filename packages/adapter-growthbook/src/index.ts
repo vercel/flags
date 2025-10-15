@@ -1,17 +1,17 @@
-import type { Adapter } from 'flags';
-import { createClient } from '@vercel/edge-config';
 import {
-  GrowthBookClient,
   type Attributes,
   type ClientOptions,
+  type FeatureApiResponse,
+  GrowthBookClient,
   type InitOptions,
-  type UserContext,
+  type StickyAssignmentsDocument,
+  type StickyBucketService,
   type TrackingCallback,
   type TrackingCallbackWithUser,
-  type FeatureApiResponse,
-  type StickyBucketService,
-  type StickyAssignmentsDocument,
+  type UserContext,
 } from '@growthbook/growthbook';
+import { createClient } from '@vercel/edge-config';
+import type { Adapter } from 'flags';
 
 export { getProviderData } from './provider';
 export {
@@ -129,9 +129,7 @@ export function createGrowthbookAdapter(options: {
    * Implements `origin` to link to the flag in the GrowthBook app
    */
   function feature<T>(
-    opts: {
-      exposureLogging?: boolean;
-    } = {
+    opts: { exposureLogging?: boolean } = {
       exposureLogging: true,
     },
   ): Adapter<T, Attributes> {

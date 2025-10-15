@@ -19,10 +19,7 @@ export function ProductDetails() {
           Quality you can feel
         </h2>
         <div className="mt-4">
-          <ul
-            role="list"
-            className="list-disc space-y-1 pl-5 text-sm/6 text-gray-500 marker:text-gray-300"
-          >
+          <ul className="list-disc space-y-1 pl-5 text-sm/6 text-gray-500 marker:text-gray-300">
             <li className="pl-2">
               Premium-grade cotton blend for exceptional comfort
             </li>

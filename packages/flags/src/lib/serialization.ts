@@ -1,7 +1,7 @@
+import { base64url, CompactSign, compactVerify } from 'jose';
 import type { JsonValue } from '..';
-import { memoizeOne } from './async-memoize-one';
 import type { FlagOption } from '../types';
-import { CompactSign, base64url, compactVerify } from 'jose';
+import { memoizeOne } from './async-memoize-one';
 
 // 252 max options length allows storing index  0 to 251,
 // so 252 is the first SPECIAL_INTEGER
@@ -122,7 +122,7 @@ export async function deserialize(
  * We also cache the result of stringifying all options so in a Map so we only
  * ever need to stringify them once.
  */
-const matchIndex = (function () {
+const matchIndex = (() => {
   const stringifiedOptionsCache = new Map<FlagOption<any>[], string[]>();
   return function matchIndex(options: FlagOption<any>[], value: JsonValue) {
     const t = typeof value;
@@ -140,9 +140,7 @@ const matchIndex = (function () {
       stringifiedOptionsCache.set(options, stringifiedOptions);
     }
 
-    return stringifiedOptions.findIndex(
-      (stringifiedOption) => stringifiedOption === stringifiedValue,
-    );
+    return stringifiedOptions.indexOf(stringifiedValue);
   };
 })();
 
@@ -164,10 +162,7 @@ export async function serialize(
       const options = Array.isArray(flag.options) ? flag.options : [];
 
       const value = flagSet[flag.key];
-      if (
-        !Object.prototype.hasOwnProperty.call(flagSet, flag.key) ||
-        value === undefined
-      ) {
+      if (!Object.hasOwn(flagSet, flag.key) || value === undefined) {
         throw new Error(`flags: Missing value for flag "${flag.key}"`);
       }
 

@@ -1,8 +1,7 @@
-import { expect, it, describe } from 'vitest';
-import { getProviderData } from '..';
-import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll } from 'vitest';
 import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { getProviderData } from '..';
 
 const restHandlers = [
   http.get(`https://api.optimizely.com/flags/v1/projects/1000000/flags`, () => {

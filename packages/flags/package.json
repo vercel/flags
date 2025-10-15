@@ -72,8 +72,7 @@
     "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "check": "biome check",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
@@ -87,7 +86,6 @@
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
-    "eslint-config-custom": "workspace:*",
     "msw": "2.6.4",
     "next": "15.1.4",
     "react": "canary",

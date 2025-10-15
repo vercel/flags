@@ -1,6 +1,6 @@
-import { Flag } from './types';
 import type { JsonValue } from '..';
 import * as s from '../lib/serialization';
+import type { Flag } from './types';
 
 type FlagsArray = readonly Flag<any, any>[];
 type ValuesArray = readonly any[];
@@ -153,7 +153,7 @@ export async function getPrecomputed<T extends JsonValue>(
 // see https://stackoverflow.com/a/44344803
 function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
   const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-  for (let r of remainder) for (let h of items.at(0)!) yield [h, ...r];
+  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**

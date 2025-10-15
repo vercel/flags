@@ -16,9 +16,9 @@ You must use the code generation powered by `npx hypertune` to create an adapter
 Use `createHypertuneAdapter` from `@flags-sdk/hypertune` as shown below:
 
 ```ts
-import { createHypertuneAdapter } from '@flags-sdk/hypertune';
-import { Identify } from 'flags';
-import { dedupe, flag } from 'flags/next';
+import { createHypertuneAdapter } from "@flags-sdk/hypertune";
+import { Identify } from "flags";
+import { dedupe, flag } from "flags/next";
 /** Generated with `npx hypertune` */
 import {
   createSource,
@@ -26,15 +26,15 @@ import {
   vercelFlagDefinitions as flagDefinitions,
   Context,
   FlagValues,
-} from './generated/hypertune';
+} from "./generated/hypertune";
 
 const identify: Identify<Context> = dedupe(async ({ headers, cookies }) => {
   return {
     environment: process.env.NODE_ENV,
     user: {
-      id: 'e23cc9a8-0287-40aa-8500-6802df91e56a',
-      name: 'Example User',
-      email: 'user@example.com',
+      id: "e23cc9a8-0287-40aa-8500-6802df91e56a",
+      name: "Example User",
+      email: "user@example.com",
     },
   };
 });
@@ -67,10 +67,10 @@ export const proceedToCheckoutColorFlag = flag(
 export const delayFlag = flag({
   ...hypertuneAdapter.declarations.delay,
   options: [
-    { value: 0, label: 'No delay' },
-    { value: 1_000, label: '1 second' },
-    { value: 2_000, label: '2 seconds' },
-    { value: 3_000, label: '3 seconds' },
+    { value: 0, label: "No delay" },
+    { value: 1_000, label: "1 second" },
+    { value: 2_000, label: "2 seconds" },
+    { value: 3_000, label: "3 seconds" },
   ],
 });
 ```

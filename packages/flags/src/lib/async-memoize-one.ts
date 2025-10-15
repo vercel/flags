@@ -31,7 +31,9 @@ export function memoizeOne<TFunc extends (this: any, ...newArgs: any[]) => any>(
     lastResult = fn.apply(this, newArgs);
 
     if (!cachePromiseRejection && lastResult.catch) {
-      lastResult.catch(() => (calledOnce = false));
+      lastResult.catch(() => {
+        calledOnce = false;
+      });
     }
 
     calledOnce = true;

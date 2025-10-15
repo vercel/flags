@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
-import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
-import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
-import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
+import { NextResponse } from 'next/server';
 import { automaticPrecomputeMiddleware } from './app/concepts/precompute/automatic/[code]/middleware';
+import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
+import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
+import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
+import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
 import { pagesRouterMiddleware } from './lib/pages-router-precomputed/middleware';
 
 export function middleware(request: NextRequest) {

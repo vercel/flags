@@ -1,4 +1,6 @@
+import crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import type { JsonValue } from '../types';
 import {
   deserialize,
   type Flag,
@@ -7,8 +9,6 @@ import {
   getPrecomputed,
   serialize,
 } from './index';
-import crypto from 'node:crypto';
-import type { JsonValue } from '../types';
 
 /**
  * Helper function to assert the generated permutations.
@@ -17,8 +17,8 @@ import type { JsonValue } from '../types';
  * @param expected the expected permutations
  */
 async function expectPermutations(
-  group: Flag<any, any>[],
-  expected: any[],
+  group: Flag<unknown, unknown>[],
+  expected: unknown[],
   filter?: ((permutation: Record<string, JsonValue>) => boolean) | null,
 ) {
   const permutationsPromise = generatePermutations(group, filter);

@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
 import { execSync } from 'child_process';
+import fs from 'fs/promises';
 
 function install(command) {
   return execSync(command, { stdio: 'inherit' });
