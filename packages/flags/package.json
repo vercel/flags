@@ -72,7 +72,7 @@
     "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
-    "lint": "eslint .",
+    "lint": "biome check",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"

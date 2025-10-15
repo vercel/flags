@@ -44,7 +44,7 @@
   "scripts": {
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
-    "lint": "eslint .",
+    "lint": "biome check",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

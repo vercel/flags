@@ -4,7 +4,7 @@
     ".env",
     ".env.local",
     ".env.development.local",
-    "eslint.config.mjs"
+    "biome.json"
   ],
   "globalEnv": ["NPM_TOKEN", "DEPLOYMENT_PROTECTION_BYPASS"],
   "tasks": {
