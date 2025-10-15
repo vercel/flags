@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@vercel/style-guide": "^6.0.0",
-    "eslint": "^9.37.0",
+    "eslint": "^8.57.0",
     "typescript": "5.3.3"
   }
 }

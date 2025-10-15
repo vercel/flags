@@ -31,7 +31,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9.37.0",
+    "eslint": "^8.57.0",
     "eslint-config-next": "15.0.3",
     "postcss": "^8",
     "shiki": "1.24.0",
