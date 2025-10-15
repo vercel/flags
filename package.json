@@ -19,8 +19,6 @@
     "next-14": "pnpm dev -F next-14",
     "next-15": "pnpm dev -F next-15",
     "prepare": "husky",
-    "prettier-check": "prettier --check .",
-    "prettier-fix": "prettier --write .",
     "publint": "turbo publint",
     "registry": "pnpm dev -F registry",
     "release": "pnpm build && changeset publish",

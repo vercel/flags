@@ -56,6 +56,6 @@
     "test:integration": {
       "dependsOn": ["^build"]
     },
-    "prettier-check": {}
+    "biome:check": {}
   }
 }

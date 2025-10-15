@@ -30,7 +30,7 @@ jobs:
         run: pnpm install
 
       - name: Run Prettier check
-        run: pnpm prettier-check
+        run: pnpm biome ci
 
   eslint:
     name: "ESLint"
