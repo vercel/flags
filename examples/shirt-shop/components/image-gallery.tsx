@@ -1,9 +1,9 @@
 "use client";
 
-import { colorToImage, images } from "@/components/utils/images";
-import { useProductDetailPageContext } from "@/components/utils/product-detail-page-context";
 import clsx from "clsx";
 import Image from "next/image";
+import { colorToImage, images } from "@/components/utils/images";
+import { useProductDetailPageContext } from "@/components/utils/product-detail-page-context";
 
 export function ImageGallery() {
   const { color } = useProductDetailPageContext();
@@ -19,7 +19,7 @@ export function ImageGallery() {
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-3 lg:gap-8">
         {orderedImages.map((image, index) => (
           <Image
-            key={index}
+            key={image.src}
             alt="Product Image"
             src={image}
             className={clsx(

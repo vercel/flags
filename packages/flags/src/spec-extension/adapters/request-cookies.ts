@@ -1,7 +1,6 @@
 // copied from Next.js, and reduced
 // https://github.com/vercel/next.js/tree/canary/packages/next/src/server/web/spec-extension
-import { RequestCookies } from "../cookies";
-import { ResponseCookies } from "../cookies";
+import { type RequestCookies, ResponseCookies } from "../cookies";
 import { ReflectAdapter } from "./reflect";
 
 /**
@@ -31,6 +30,7 @@ export type ReadonlyRequestCookies = Omit<
 > &
   Pick<ResponseCookies, "set" | "delete">;
 
+// biome-ignore lint/complexity/noStaticOnlyClass: copied from Next.js
 export class RequestCookiesAdapter {
   public static seal(cookies: RequestCookies): ReadonlyRequestCookies {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

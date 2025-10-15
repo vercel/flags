@@ -1,5 +1,5 @@
-import type { Adapter } from "flags";
 import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
+import type { Adapter } from "flags";
 
 /**
  * An Edge Config adapter for the Flags SDK

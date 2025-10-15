@@ -9,12 +9,12 @@
 // This folder needs to be called [x+2e]well-known as folders starting with a
 // dot like .well-known cause issues, so we the [x+2e] encoding is necessary.
 // See https://github.com/sveltejs/kit/discussions/7562#discussioncomment-4206530
-import { json, error } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { verifyAccess } from 'flags';
 import { getProviderData } from 'flags/sveltekit';
-import type { RequestHandler } from './$types';
 import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ request }) => {
 	const access = await verifyAccess(request.headers.get('Authorization'), FLAGS_SECRET);

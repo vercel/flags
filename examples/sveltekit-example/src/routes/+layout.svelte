@@ -6,7 +6,7 @@
 
 	onMount(() => mountVercelToolbar());
 
-	let { children }: LayoutProps = $props();
+	const { children }: LayoutProps = $props();
 </script>
 
 <main class="mx-4 my-2">

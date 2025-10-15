@@ -1,40 +1,40 @@
 export { version } from "../package.json";
-export { setTracerProvider } from "./lib/tracing";
-export type {
-  Adapter,
-  ProviderData,
-  Origin,
-  ApiData,
-  JsonValue,
-  FlagOptionType,
-  FlagDefinitionType,
-  FlagDefinitionsType,
-  FlagValuesType,
-  FlagOverridesType,
-  FlagDeclaration,
-  GenerousOption,
-  Identify,
-  Decide,
-} from "./types";
-export { safeJsonStringify } from "./lib/safe-json-stringify";
 export {
   createAccessProof,
-  verifyAccessProof,
-  encryptOverrides,
-  decryptOverrides,
-  encryptFlagValues,
-  decryptFlagValues,
-  encryptFlagDefinitions,
   decryptFlagDefinitions,
+  decryptFlagValues,
+  decryptOverrides,
+  encryptFlagDefinitions,
+  encryptFlagValues,
+  encryptOverrides,
+  verifyAccessProof,
 } from "./lib/crypto";
-export { verifyAccess } from "./lib/verify-access";
+export { mergeProviderData } from "./lib/merge-provider-data";
 export { reportValue } from "./lib/report-value";
+export { safeJsonStringify } from "./lib/safe-json-stringify";
+export { setTracerProvider } from "./lib/tracing";
+export { verifyAccess } from "./lib/verify-access";
 export {
-  type ReadonlyHeaders,
   HeadersAdapter,
+  type ReadonlyHeaders,
 } from "./spec-extension/adapters/headers";
 export {
   type ReadonlyRequestCookies,
   RequestCookiesAdapter,
 } from "./spec-extension/adapters/request-cookies";
-export { mergeProviderData } from "./lib/merge-provider-data";
+export type {
+  Adapter,
+  ApiData,
+  Decide,
+  FlagDeclaration,
+  FlagDefinitionsType,
+  FlagDefinitionType,
+  FlagOptionType,
+  FlagOverridesType,
+  FlagValuesType,
+  GenerousOption,
+  Identify,
+  JsonValue,
+  Origin,
+  ProviderData,
+} from "./types";

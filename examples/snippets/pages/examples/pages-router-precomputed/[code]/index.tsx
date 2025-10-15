@@ -1,15 +1,15 @@
-import PagesLayout from "@/components/pages-layout";
+import { generatePermutations } from "flags/next";
 import type {
   GetStaticPaths,
   GetStaticProps,
   InferGetStaticPropsType,
 } from "next";
+import { DemoFlag } from "@/components/demo-flag";
+import PagesLayout from "@/components/pages-layout";
 import {
   exampleFlag,
   exampleFlags,
 } from "@/lib/pages-router-precomputed/flags";
-import { DemoFlag } from "@/components/demo-flag";
-import { generatePermutations } from "flags/next";
 
 export const getStaticPaths = (async () => {
   const codes = await generatePermutations(exampleFlags);

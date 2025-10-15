@@ -1,6 +1,6 @@
-import type { Flag, FlagsArray } from "./types";
 import type { JsonValue } from "..";
 import * as s from "../lib/serialization";
+import type { Flag, FlagsArray } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ValuesArray = readonly any[];
@@ -127,7 +127,7 @@ export async function generatePermutations(
   for (const permutation of cartesianIterator(options)) {
     const permObject = permutation.reduce<Record<string, JsonValue>>(
       (acc, value, index) => {
-        acc[flags[index]!.key] = value;
+        acc[(flags[index] as Flag<unknown>).key] = value;
         return acc;
       },
       {},

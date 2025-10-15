@@ -1,7 +1,7 @@
-import { fullIdentifyExampleFlag } from "./flags";
+import { cookies } from "next/headers";
 import { DemoFlag } from "@/components/demo-flag";
 import { Button } from "@/components/ui/button";
-import { cookies } from "next/headers";
+import { fullIdentifyExampleFlag } from "./flags";
 
 export default async function Page() {
   const full = await fullIdentifyExampleFlag();

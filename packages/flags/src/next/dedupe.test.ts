@@ -1,4 +1,4 @@
-import { describe, expect, it, Mock, vitest, vi } from "vitest";
+import { describe, expect, it, type Mock, vi, vitest } from "vitest";
 import { clearDedupeCacheForCurrentRequest, dedupe } from "./dedupe";
 
 const mocks = vi.hoisted(() => {

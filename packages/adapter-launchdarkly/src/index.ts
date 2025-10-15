@@ -1,11 +1,11 @@
-import type { Adapter } from "flags";
-import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
 import {
   init,
-  LDClient,
+  type LDClient,
   type LDContext,
 } from "@launchdarkly/vercel-server-sdk";
+import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
 import { AsyncLocalStorage } from "async_hooks";
+import type { Adapter } from "flags";
 
 export { getProviderData } from "./provider";
 export type { LDContext };

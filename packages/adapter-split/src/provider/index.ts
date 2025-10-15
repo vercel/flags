@@ -1,4 +1,4 @@
-import { ProviderData } from "flags";
+import type { ProviderData } from "flags";
 
 // See: https://docs.split.io/reference/get-feature-flag
 interface ListFeatureFlagsResponseBody {

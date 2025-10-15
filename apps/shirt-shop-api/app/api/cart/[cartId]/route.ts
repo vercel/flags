@@ -15,8 +15,8 @@ interface Cart {
 
 // Initialize Redis client
 const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
+  url: process.env.KV_REST_API_URL as string,
+  token: process.env.KV_REST_API_TOKEN as string,
 });
 
 // Helper function to get cart key

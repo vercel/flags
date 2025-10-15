@@ -1,8 +1,8 @@
 "use client";
 
-import { useProductDetailPageContext } from "@/components/utils/product-detail-page-context";
 import { Radio, RadioGroup } from "@headlessui/react";
 import clsx from "clsx";
+import { useProductDetailPageContext } from "@/components/utils/product-detail-page-context";
 
 const colors = [
   { name: "Black", bgColor: "bg-gray-900", selectedColor: "ring-gray-900" },

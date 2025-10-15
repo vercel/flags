@@ -1,5 +1,5 @@
 import type { ReadonlyRequestCookies } from "flags";
-import { flag, dedupe } from "flags/next";
+import { dedupe, flag } from "flags/next";
 
 interface Entities {
   user?: { id: string };

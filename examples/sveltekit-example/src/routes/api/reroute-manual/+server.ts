@@ -1,5 +1,5 @@
-import { marketingABTestManualApproach } from '$lib/flags.js';
 import { text } from '@sveltejs/kit';
+import { marketingABTestManualApproach } from '$lib/flags.js';
 
 export async function GET({ request, cookies }) {
 	let flag = cookies.get('marketingManual');

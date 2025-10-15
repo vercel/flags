@@ -1,6 +1,6 @@
-import { cookies, headers } from "next/headers";
 import { dedupe } from "flags/next";
 import { nanoid } from "nanoid";
+import { cookies, headers } from "next/headers";
 
 /**
  * Reads the cart id from the cookie or returns a new cart id

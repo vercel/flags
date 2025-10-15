@@ -5,8 +5,8 @@
  * specific purpose, as the output of one encrypt function could otherwise be
  * used as the input to another decrypt function.
  */
-import { base64url, jwtDecrypt, EncryptJWT } from "jose";
-import {
+import { base64url, EncryptJWT, jwtDecrypt } from "jose";
+import type {
   FlagDefinitionsType,
   FlagOverridesType,
   FlagValuesType,

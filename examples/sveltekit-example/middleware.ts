@@ -1,8 +1,8 @@
+import { normalizeUrl } from '@sveltejs/kit';
 import { rewrite } from '@vercel/edge';
 import { parse } from 'cookie';
-import { normalizeUrl } from '@sveltejs/kit';
-import { computeInternalRoute, createVisitorId } from './src/lib/precomputed-flags';
 import { marketingABTestManualApproach } from './src/lib/flags';
+import { computeInternalRoute, createVisitorId } from './src/lib/precomputed-flags';
 
 export const config = {
 	// Either run middleware on all but the internal asset paths ...

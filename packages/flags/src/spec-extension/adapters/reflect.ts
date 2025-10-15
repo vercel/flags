@@ -1,5 +1,6 @@
 // copied from Next.js, and reduced
 // https://github.com/vercel/next.js/tree/canary/packages/next/src/server/web/spec-extension
+// biome-ignore lint/complexity/noStaticOnlyClass: Copied over from Next.js
 export class ReflectAdapter {
   static get<T extends object>(
     target: T,

@@ -1,6 +1,6 @@
-import type { PageServerLoad } from './$types';
 import { firstMarketingABTest, secondMarketingABTest } from '$lib/flags';
 import { marketingFlags } from '$lib/precomputed-flags';
+import type { PageServerLoad } from './$types';
 // import { generatePermutations } from 'flags/sveltekit';
 
 // Use Vercel ISR:

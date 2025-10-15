@@ -1,9 +1,9 @@
 "use client";
 
-import { removeFromCart } from "@/lib/actions";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { CartItem } from "@/components/utils/cart-types";
+import type { CartItem } from "@/components/utils/cart-types";
+import { removeFromCart } from "@/lib/actions";
 
 function Spinner() {
   return (

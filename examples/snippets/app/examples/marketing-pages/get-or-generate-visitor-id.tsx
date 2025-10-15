@@ -1,6 +1,6 @@
-import { nanoid } from "nanoid";
-import { dedupe } from "flags/next";
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
+import { dedupe } from "flags/next";
+import { nanoid } from "nanoid";
 import type { NextRequest } from "next/server";
 
 const generateId = dedupe(async () => nanoid());

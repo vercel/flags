@@ -1,7 +1,7 @@
-import { dashboardFlag } from "./flags";
+import { cookies } from "next/headers";
 import { DemoFlag } from "@/components/demo-flag";
 import { Button } from "@/components/ui/button";
-import { cookies } from "next/headers";
+import { dashboardFlag } from "./flags";
 
 export default async function Page() {
   const dashboard = await dashboardFlag();

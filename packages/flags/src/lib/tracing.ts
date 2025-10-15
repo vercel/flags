@@ -1,11 +1,11 @@
 import type {
-  Tracer,
   Attributes,
-  TracerProvider,
   AttributeValue,
+  Tracer,
+  TracerProvider,
 } from "@opentelemetry/api";
-import { name as pkgName, version } from "../../package.json";
 import { AsyncLocalStorage } from "async_hooks";
+import { name as pkgName, version } from "../../package.json";
 
 // Use a symbol to avoid having global variable that is scoped to this file,
 // as it can lead to issues with cjs and mjs being used at the same time.

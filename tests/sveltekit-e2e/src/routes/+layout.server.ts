@@ -1,5 +1,5 @@
-import type { LayoutServerLoad } from './$types';
 import { showDashboard } from '$lib/flags';
+import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async () => {
 	const dashboard = await showDashboard();

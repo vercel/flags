@@ -1,5 +1,6 @@
 import type { ReadonlyHeaders } from "./spec-extension/adapters/headers";
 import type { ReadonlyRequestCookies } from "./spec-extension/adapters/request-cookies";
+
 export type { ReadonlyHeaders } from "./spec-extension/adapters/headers";
 export type { ReadonlyRequestCookies } from "./spec-extension/adapters/request-cookies";
 

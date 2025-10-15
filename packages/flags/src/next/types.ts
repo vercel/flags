@@ -1,6 +1,6 @@
-import type { FlagDeclaration, FlagOption } from "../types";
-import type { JsonValue } from "..";
 import type { IncomingMessage } from "node:http";
+import type { JsonValue } from "..";
+import type { FlagDeclaration, FlagOption } from "../types";
 
 type NextApiRequestCookies = Partial<{
   [key: string]: string;
@@ -59,9 +59,8 @@ type FlagMeta<ValueType, EntitiesType> = {
   }) => Promise<ValueType>;
 };
 
-export type AppRouterFlag<ValueType, EntitiesType> = {
-  (): Promise<ValueType>;
-} & FlagMeta<ValueType, EntitiesType>;
+export type AppRouterFlag<ValueType, EntitiesType> =
+  (() => Promise<ValueType>) & FlagMeta<ValueType, EntitiesType>;
 
 export type PagesRouterFlag<ValueType, EntitiesType> = {
   (): never;

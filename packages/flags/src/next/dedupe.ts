@@ -9,7 +9,7 @@ type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
 type CacheNode<T> = {
   s: Status;
   v: T | undefined | unknown;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type, @typescript-eslint/no-wrapper-object-types
+  // biome-ignore lint/complexity/noBannedTypes: copied over
   o: WeakMap<Function | Object, CacheNode<T>> | null;
   p: Map<
     string | number | null | undefined | symbol | boolean,
@@ -33,7 +33,7 @@ function createCacheNode<T>(): CacheNode<T> {
  * to retain its original type, and we need to be able to clear the cache for the
  * current request.
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// biome-ignore lint/complexity/noBannedTypes: copied over
 const cacheRegistry = new WeakMap<Function, RequestStore<unknown>>();
 
 /**
@@ -73,7 +73,7 @@ export function dedupe<A extends Array<unknown>, T>(
         typeof arg === "function" ||
         (typeof arg === "object" && arg !== null)
       ) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+        // biome-ignore lint/complexity/noBannedTypes: copied over
         let objectCache: WeakMap<Function | object, CacheNode<T>> | null =
           cacheNode.o;
         if (objectCache === null) {

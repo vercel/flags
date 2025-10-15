@@ -1,11 +1,11 @@
-import { expect, it, describe, vi, beforeEach } from "vitest";
+import type { EdgeConfigClient } from "@vercel/edge-config";
+import type { ReadonlyRequestCookies } from "flags";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createEdgeConfigAdapter,
   edgeConfigAdapter,
   resetDefaultEdgeConfigAdapter,
 } from ".";
-import type { EdgeConfigClient } from "@vercel/edge-config";
-import type { ReadonlyRequestCookies } from "flags";
 
 describe("createEdgeConfigAdapter", () => {
   it("should allow creating an adapter with a client", () => {

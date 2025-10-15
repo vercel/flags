@@ -1,9 +1,9 @@
 // Must not import anything other than types from next/server, as importing
 // the real next/server would prevent flags/next from working in Pages Router.
 import type { NextRequest } from "next/server";
-import { ApiData } from "../types";
-import { verifyAccess } from "../lib/verify-access";
 import { version } from "..";
+import { verifyAccess } from "../lib/verify-access";
+import type { ApiData } from "../types";
 
 /**
  * Creates the Flags Discovery Endpoint for Next.js, which is a well-known endpoint used

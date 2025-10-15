@@ -1,4 +1,4 @@
-import { FlagOption } from "../types";
+import type { FlagOption } from "../types";
 
 type FlagsMeta<ReturnValue> = {
   key: string;

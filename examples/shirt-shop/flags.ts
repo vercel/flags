@@ -1,6 +1,6 @@
 import { flag } from "flags/next";
-import { identify, type EvaluationContext } from "./lib/identify";
 import { xxHash32 } from "js-xxhash";
+import { type EvaluationContext, identify } from "./lib/identify";
 
 /**
  * Takes a string and puts it into a bucket.

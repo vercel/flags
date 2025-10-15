@@ -1,6 +1,6 @@
 import { DemoFlag } from "@/components/demo-flag";
-import { basicEdgeMiddlewareFlag } from "./flags";
 import { Button } from "@/components/ui/button";
+import { basicEdgeMiddlewareFlag } from "./flags";
 import { actAsFlaggedInUser, actAsFlaggedOutUser, clear } from "./handlers";
 
 // This component  does not actually use the feature flag, but the

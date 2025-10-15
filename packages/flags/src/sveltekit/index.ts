@@ -1,58 +1,58 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { RequestCookies } from "@edge-runtime/cookies";
 import {
   error,
-  json,
   type Handle,
+  json,
   type RequestEvent,
   type RequestHandler,
 } from "@sveltejs/kit";
-import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  decryptFlagDefinitions as _decryptFlagDefinitions,
+  decryptFlagValues as _decryptFlagValues,
+  decryptOverrides as _decryptOverrides,
+  encryptFlagDefinitions as _encryptFlagDefinitions,
+  encryptFlagValues as _encryptFlagValues,
+  encryptOverrides as _encryptOverrides,
   type ApiData,
+  type FlagDefinitionsType,
+  type JsonValue,
   reportValue,
   safeJsonStringify,
   verifyAccess,
-  type JsonValue,
-  type FlagDefinitionsType,
-  encryptFlagValues as _encryptFlagValues,
-  decryptFlagValues as _decryptFlagValues,
-  encryptOverrides as _encryptOverrides,
-  decryptOverrides as _decryptOverrides,
-  encryptFlagDefinitions as _encryptFlagDefinitions,
-  decryptFlagDefinitions as _decryptFlagDefinitions,
   version,
 } from "..";
+import { normalizeOptions } from "../lib/normalize-options";
 import {
+  HeadersAdapter,
+  type ReadonlyHeaders,
+} from "../spec-extension/adapters/headers";
+import {
+  type ReadonlyRequestCookies,
+  RequestCookiesAdapter,
+} from "../spec-extension/adapters/request-cookies";
+import type {
   Decide,
   FlagDeclaration,
   FlagOverridesType,
   FlagValuesType,
   Identify,
 } from "../types";
-import {
-  type ReadonlyHeaders,
-  HeadersAdapter,
-} from "../spec-extension/adapters/headers";
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from "../spec-extension/adapters/request-cookies";
-import { normalizeOptions } from "../lib/normalize-options";
-import { RequestCookies } from "@edge-runtime/cookies";
-import { Flag, FlagsArray } from "./types";
+import { tryGetSecret } from "./env";
 import {
   generatePermutations as _generatePermutations,
-  getPrecomputed,
   precompute as _precompute,
+  getPrecomputed,
 } from "./precompute";
-import { tryGetSecret } from "./env";
+import type { Flag, FlagsArray } from "./types";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+// biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
   prop: Y,
 ): obj is X & Record<Y, unknown> {
   // eslint-disable-next-line no-prototype-builtins
-  return obj.hasOwnProperty(prop);
+  return Object.hasOwn(obj, prop);
 }
 
 const headersMap = new WeakMap<Headers, ReadonlyHeaders>();

@@ -1,11 +1,11 @@
 "use client";
-import { CartItem } from "@/components/utils/cart-types";
 import { ShoppingBagIcon } from "@heroicons/react/24/outline";
-import { colorToImage } from "@/components/utils/images";
 import { motion } from "motion/react";
 import Image from "next/image";
-import { ShoppingCartRemoveButton } from "./shopping-cart-remove-button";
 import Link from "next/link";
+import type { CartItem } from "@/components/utils/cart-types";
+import { colorToImage } from "@/components/utils/images";
+import { ShoppingCartRemoveButton } from "./shopping-cart-remove-button";
 
 export function EmptyShoppingCartItem() {
   return (

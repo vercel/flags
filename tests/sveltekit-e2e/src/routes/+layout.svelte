@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { LayoutProps } from './$types';
 	import { mountVercelToolbar } from '@vercel/toolbar/vite';
 	import { onMount } from 'svelte';
+	import type { LayoutProps } from './$types';
 
 	onMount(() => mountVercelToolbar());
 
-	let { data, children }: LayoutProps = $props();
+	const { data, children }: LayoutProps = $props();
 </script>
 
 <header>

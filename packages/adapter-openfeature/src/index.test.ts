@@ -1,7 +1,7 @@
-import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createOpenFeatureAdapter } from "./index";
 import type { Client, EvaluationContext } from "@openfeature/server-sdk";
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createOpenFeatureAdapter } from "./index";
 
 describe("OpenFeature Adapter", () => {
   let mockClient: Client;

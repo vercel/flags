@@ -1,4 +1,4 @@
-import { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { flag } from 'flags/sveltekit';
 
 export const showDashboard = flag<boolean>({

@@ -1,5 +1,5 @@
-import type { PageServerLoad } from './$types';
 import { cookieFlag, hostFlag, showDashboard } from '$lib/flags';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
 	const dashboard = await showDashboard();

@@ -1,4 +1,6 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
+import type { JsonValue } from "../types";
 import {
   deserialize,
   type Flag,
@@ -7,8 +9,6 @@ import {
   getPrecomputed,
   serialize,
 } from "./index";
-import crypto from "node:crypto";
-import type { JsonValue } from "../types";
 
 /**
  * Helper function to assert the generated permutations.

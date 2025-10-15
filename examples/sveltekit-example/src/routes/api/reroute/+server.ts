@@ -14,7 +14,9 @@ export async function GET({ url, request, cookies, setHeaders }) {
 	}
 
 	// Add cache headers to not request the API as much (as the visitor id is not changing)
-	setHeaders({ 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' });
+	setHeaders({
+		'Cache-Control': 'private, max-age=300, stale-while-revalidate=600'
+	});
 
 	return text(await computeInternalRoute(url.searchParams.get('pathname')!, request));
 }

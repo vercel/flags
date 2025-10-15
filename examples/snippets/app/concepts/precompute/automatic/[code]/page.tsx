@@ -1,8 +1,8 @@
 import { DemoFlag } from "@/components/demo-flag";
 import {
   firstPrecomputedFlag,
-  secondPrecomputedFlag,
   marketingFlags,
+  secondPrecomputedFlag,
 } from "./flags";
 
 type Params = Promise<{ code: string }>;

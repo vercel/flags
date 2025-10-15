@@ -1,11 +1,11 @@
+import { generatePermutations } from "flags/next";
+import { DemoFlag } from "@/components/demo-flag";
 import {
   marketingAbTest,
   marketingFlags,
   secondMarketingAbTest,
 } from "../flags";
-import { DemoFlag } from "@/components/demo-flag";
 import { RegenerateIdButton } from "../regenerate-id-button";
-import { generatePermutations } from "flags/next";
 
 // Ensure the page is static
 export const dynamic = "error";

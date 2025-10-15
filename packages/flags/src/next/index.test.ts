@@ -1,10 +1,10 @@
-import { expect, it, describe, vi, beforeAll } from "vitest";
-import { flag, precompute, dedupe, clearDedupeCacheForCurrentRequest } from ".";
 import { IncomingMessage } from "node:http";
-import { NextApiRequestCookies } from "next/dist/server/api-utils";
-import { Readable } from "node:stream";
-import { type Adapter, encryptOverrides } from "..";
 import type { Socket } from "node:net";
+import { Readable } from "node:stream";
+import type { NextApiRequestCookies } from "next/dist/server/api-utils";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { type Adapter, encryptOverrides } from "..";
+import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from ".";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -38,7 +38,7 @@ function createRequest(cookies = {}): [
     cookies: NextApiRequestCookies;
   };
   request.cookies = cookies;
-  request.headers["cookie"] = Object.entries(cookies)
+  request.headers.cookie = Object.entries(cookies)
     .map(([key, value]) => `${key}=${value}`)
     .join("; ");
 

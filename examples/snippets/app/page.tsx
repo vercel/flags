@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Content } from "@/components/content";
 import {
   Card,
@@ -5,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import Link from "next/link";
 
 export const dynamic = "error";
 

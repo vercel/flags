@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { port } from '../../port';
 
 test('displays the flag value (full page hit, new visitor)', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { exampleFlag, hostFlag, cookieFlag, precomputedFlags } from "@/flags";
+import { cookieFlag, exampleFlag, hostFlag, precomputedFlags } from "@/flags";
 
 export const generateStaticParams = () => {
   return [];

@@ -1,11 +1,11 @@
-import { getCart } from "@/lib/actions";
 import { Suspense } from "react";
-import { ShoppingCartList } from "./shopping-cart-list";
+import { getCart } from "@/lib/actions";
 import { EmptyShoppingCartItem, ShoppingCartItem } from "./shopping-cart-item";
+import { ShoppingCartList } from "./shopping-cart-list";
 
 function ShoppingCartContentFallback() {
   return (
-    <ul role="list" className="-my-6 divide-y divide-gray-200">
+    <ul className="-my-6 divide-y divide-gray-200">
       <li className="flex py-6 animate-pulse">
         <div className="flex-shrink-0 size-24 overflow-hidden rounded-md border border-gray-200 bg-gray-200" />
         <div className="ml-4 flex flex-1 flex-col">
