@@ -1,9 +1,9 @@
 // Must not import anything other than types from next/server, as importing
 // the real next/server would prevent flags/next from working in Pages Router.
-import type { NextRequest } from "next/server";
-import { version } from "..";
-import { verifyAccess } from "../lib/verify-access";
-import type { ApiData } from "../types";
+import type { NextRequest } from 'next/server';
+import { version } from '..';
+import { verifyAccess } from '../lib/verify-access';
+import type { ApiData } from '../types';
 
 /**
  * Creates the Flags Discovery Endpoint for Next.js, which is a well-known endpoint used
@@ -21,7 +21,7 @@ export function createFlagsDiscoveryEndpoint(
 ) {
   return async (request: NextRequest): Promise<Response> => {
     const access = await verifyAccess(
-      request.headers.get("Authorization"),
+      request.headers.get('Authorization'),
       options?.secret,
     );
     if (!access) return Response.json(null, { status: 401 });
@@ -29,8 +29,8 @@ export function createFlagsDiscoveryEndpoint(
     const apiData = await getApiData(request);
     return new Response(JSON.stringify(apiData), {
       headers: {
-        "x-flags-sdk-version": version,
-        "content-type": "application/json",
+        'x-flags-sdk-version': version,
+        'content-type': 'application/json',
       },
     });
   };

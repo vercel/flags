@@ -1,4 +1,4 @@
-import type { FlagDefinitionsType, JsonValue, ProviderData } from "flags";
+import type { FlagDefinitionsType, JsonValue, ProviderData } from 'flags';
 
 // See: https://apidocs.launchdarkly.com/tag/Feature-flags#operation/getFeatureFlags
 interface LaunchDarklyApiData {
@@ -19,26 +19,26 @@ export async function getProviderData(options: {
   environment: string;
   projectKey: string;
 }): Promise<ProviderData> {
-  const hints: Exclude<ProviderData["hints"], undefined> = [];
+  const hints: Exclude<ProviderData['hints'], undefined> = [];
 
   if (!options.apiKey) {
     hints.push({
-      key: "launchdarkly/missing-api-key",
-      text: "Missing LaunchDarkly API Key",
+      key: 'launchdarkly/missing-api-key',
+      text: 'Missing LaunchDarkly API Key',
     });
   }
 
   if (!options.environment) {
     hints.push({
-      key: "launchdarkly/missing-environment",
-      text: "Missing LaunchDarkly API Key",
+      key: 'launchdarkly/missing-environment',
+      text: 'Missing LaunchDarkly API Key',
     });
   }
 
   if (!options.projectKey) {
     hints.push({
-      key: "launchdarkly/missing-environment",
-      text: "Missing LaunchDarkly Project Key",
+      key: 'launchdarkly/missing-environment',
+      text: 'Missing LaunchDarkly Project Key',
     });
   }
 
@@ -48,15 +48,15 @@ export async function getProviderData(options: {
 
   const headers = {
     Authorization: options.apiKey,
-    "LD-API-Version": "20240415",
+    'LD-API-Version': '20240415',
   };
 
   const res = await fetch(
     `https://app.launchdarkly.com/api/v2/flags/${options.projectKey}?offset=0&limit=100&sort=creationDate`,
     {
-      method: "GET",
+      method: 'GET',
       headers,
-      cache: "no-store",
+      cache: 'no-store',
     },
   );
 
@@ -74,16 +74,16 @@ export async function getProviderData(options: {
 
   try {
     const data = (await res.json()) as LaunchDarklyApiData;
-    const items: LaunchDarklyApiData["items"] = [...data.items];
+    const items: LaunchDarklyApiData['items'] = [...data.items];
 
     // paginate in a parallel
     for (let offset = 100; offset < data.totalCount; offset += 100) {
       const paginatedRes = await fetch(
         `https://app.launchdarkly.com/api/v2/flags/${options.projectKey}?offset=${offset}&limit=100&sort=creationDate`,
         {
-          method: "GET",
+          method: 'GET',
           headers,
-          cache: "no-store",
+          cache: 'no-store',
         },
       );
 

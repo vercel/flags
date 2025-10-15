@@ -1,4 +1,4 @@
-import type { Adapter } from "flags";
+import type { Adapter } from 'flags';
 
 type JsonType =
   | string

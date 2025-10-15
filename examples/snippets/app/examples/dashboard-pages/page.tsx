@@ -1,7 +1,7 @@
-import { cookies } from "next/headers";
-import { DemoFlag } from "@/components/demo-flag";
-import { Button } from "@/components/ui/button";
-import { dashboardFlag } from "./flags";
+import { cookies } from 'next/headers';
+import { DemoFlag } from '@/components/demo-flag';
+import { Button } from '@/components/ui/button';
+import { dashboardFlag } from './flags';
 
 export default async function Page() {
   const dashboard = await dashboardFlag();
@@ -12,9 +12,9 @@ export default async function Page() {
       <div className="flex gap-2">
         <Button
           onClick={async () => {
-            "use server";
+            'use server';
             const cookiesStore = await cookies();
-            cookiesStore.set("dashboard-user-id", "user1");
+            cookiesStore.set('dashboard-user-id', 'user1');
           }}
           variant="outline"
         >
@@ -22,9 +22,9 @@ export default async function Page() {
         </Button>
         <Button
           onClick={async () => {
-            "use server";
+            'use server';
             const cookiesStore = await cookies();
-            cookiesStore.set("dashboard-user-id", "user2");
+            cookiesStore.set('dashboard-user-id', 'user2');
           }}
           variant="outline"
         >
@@ -32,9 +32,9 @@ export default async function Page() {
         </Button>
         <Button
           onClick={async () => {
-            "use server";
+            'use server';
             const cookiesStore = await cookies();
-            cookiesStore.delete("dashboard-user-id");
+            cookiesStore.delete('dashboard-user-id');
           }}
           variant="outline"
         >

@@ -1,7 +1,7 @@
 // biome-ignore lint/correctness/noUnusedImports: needed in scope
-import React from "react";
-import { safeJsonStringify } from "../lib/safe-json-stringify";
-import type { FlagDefinitionsType, FlagValuesType } from "../types";
+import React from 'react';
+import { safeJsonStringify } from '../lib/safe-json-stringify';
+import type { FlagDefinitionsType, FlagValuesType } from '../types';
 
 // the generic type T is not actually used but is great to
 // signal what is encrypted

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   createAccessProof,
   decryptFlagDefinitions,
@@ -10,32 +10,32 @@ import {
   verifyAccess,
   verifyAccessProof,
   version,
-} from ".";
+} from '.';
 
-describe("exports", () => {
-  it("exports crypto functions", () => {
+describe('exports', () => {
+  it('exports crypto functions', () => {
     // these are tested in crypto.test.ts, but we ensure they are exported here
-    expect(createAccessProof).toBeTypeOf("function");
-    expect(verifyAccessProof).toBeTypeOf("function");
-    expect(encryptOverrides).toBeTypeOf("function");
-    expect(decryptOverrides).toBeTypeOf("function");
-    expect(encryptFlagValues).toBeTypeOf("function");
-    expect(decryptFlagValues).toBeTypeOf("function");
-    expect(encryptFlagDefinitions).toBeTypeOf("function");
-    expect(decryptFlagDefinitions).toBeTypeOf("function");
+    expect(createAccessProof).toBeTypeOf('function');
+    expect(verifyAccessProof).toBeTypeOf('function');
+    expect(encryptOverrides).toBeTypeOf('function');
+    expect(decryptOverrides).toBeTypeOf('function');
+    expect(encryptFlagValues).toBeTypeOf('function');
+    expect(decryptFlagValues).toBeTypeOf('function');
+    expect(encryptFlagDefinitions).toBeTypeOf('function');
+    expect(decryptFlagDefinitions).toBeTypeOf('function');
   });
 
-  it("exports version", () => {
-    expect(version).toBeTypeOf("string");
+  it('exports version', () => {
+    expect(version).toBeTypeOf('string');
     expect(version).toMatch(/^\d+\.\d+\.\d+(-\w+-\d+)?$/);
   });
 });
 
-describe("verifyAccess", () => {
-  it("should return true when the proof is valid", async () => {
-    const secret = "a".repeat(43);
-    const encrypted = await createAccessProof(secret, "1h");
-    expect(encrypted).toBeTypeOf("string");
+describe('verifyAccess', () => {
+  it('should return true when the proof is valid', async () => {
+    const secret = 'a'.repeat(43);
+    const encrypted = await createAccessProof(secret, '1h');
+    expect(encrypted).toBeTypeOf('string');
 
     // with Bearer prefix
     await expect(verifyAccess(`Bearer ${encrypted}`, secret)).resolves.toEqual(
@@ -46,21 +46,21 @@ describe("verifyAccess", () => {
     await expect(verifyAccess(encrypted, secret)).resolves.toEqual(true);
   });
 
-  it("should return false when the proof is invalid", async () => {
-    const secret = "a".repeat(43);
-    const otherSecret = "b".repeat(43);
-    const encrypted = await createAccessProof(secret, "1h");
-    expect(encrypted).toBeTypeOf("string");
+  it('should return false when the proof is invalid', async () => {
+    const secret = 'a'.repeat(43);
+    const otherSecret = 'b'.repeat(43);
+    const encrypted = await createAccessProof(secret, '1h');
+    expect(encrypted).toBeTypeOf('string');
 
     await expect(
       verifyAccess(`Bearer ${encrypted}`, otherSecret),
     ).resolves.toEqual(false);
   });
 
-  it("should return false when the proof is random text", async () => {
-    const secret = "a".repeat(43);
-    const encrypted = await createAccessProof(secret, "1h");
-    expect(encrypted).toBeTypeOf("string");
+  it('should return false when the proof is random text', async () => {
+    const secret = 'a'.repeat(43);
+    const encrypted = await createAccessProof(secret, '1h');
+    expect(encrypted).toBeTypeOf('string');
 
     await expect(verifyAccess(`Bearer b`, secret)).resolves.toEqual(false);
   });

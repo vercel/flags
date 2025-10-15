@@ -3,12 +3,12 @@ import {
   type Context,
   type ContextWithTracking,
   ReflagClient,
-} from "@reflag/node-sdk";
-import type { Adapter, FlagDefinitionsType, ProviderData } from "flags";
+} from '@reflag/node-sdk';
+import type { Adapter, FlagDefinitionsType, ProviderData } from 'flags';
 
 export type { Context };
 
-type AdapterOptions = Pick<ContextWithTracking, "enableTracking" | "meta">;
+type AdapterOptions = Pick<ContextWithTracking, 'enableTracking' | 'meta'>;
 
 type AdapterResponse = {
   isEnabled: (options?: AdapterOptions) => Adapter<boolean, Context>;
@@ -37,7 +37,7 @@ export function createReflagAdapter(
         reflagClient = new ReflagClient(clientOptions);
       } catch (err) {
         // explicitly log out the error, otherwise it's swallowed
-        console.error("@flags-sdk/reflag: Error creating reflagClient", err);
+        console.error('@flags-sdk/reflag: Error creating reflagClient', err);
         throw err;
       }
     }
@@ -67,7 +67,7 @@ export function createReflagAdapter(
 
 function getOrCreateDefaultAdapter() {
   if (!defaultReflagAdapter) {
-    const secretKey = assertEnv("REFLAG_SECRET_KEY");
+    const secretKey = assertEnv('REFLAG_SECRET_KEY');
 
     defaultReflagAdapter = createReflagAdapter({ secretKey });
   }
@@ -142,8 +142,8 @@ export async function getProviderData({
     definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
       acc[item.key] = {
         options: [
-          { label: "Disabled", value: false },
-          { label: "Enabled", value: true },
+          { label: 'Disabled', value: false },
+          { label: 'Enabled', value: true },
         ],
         description: item.description ?? undefined,
       };

@@ -1,13 +1,13 @@
-import Link from "next/link";
-import { Content } from "@/components/content";
+import Link from 'next/link';
+import { Content } from '@/components/content';
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 
-export const dynamic = "error";
+export const dynamic = 'error';
 
 function ConceptCard({
   title,
@@ -37,13 +37,13 @@ export default function Page() {
       <p>This page contains example snippets for the Flags SDK.</p>
       <p>
         See <Link href="https://flags-sdk.dev">flags-sdk.dev</Link> for the full
-        documentation, or{" "}
+        documentation, or{' '}
         <Link
           href="https://github.com/vercel/flags/tree/main/examples/snippets"
           target="_blank"
         >
           GitHub
-        </Link>{" "}
+        </Link>{' '}
         for the source code.
       </p>
       <h2>Snippets</h2>

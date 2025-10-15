@@ -1,5 +1,5 @@
-import { DemoFlag } from "@/components/demo-flag";
-import { customAdapterFlag } from "./flags";
+import { DemoFlag } from '@/components/demo-flag';
+import { customAdapterFlag } from './flags';
 
 export default async function Page() {
   const customAdapter = await customAdapterFlag();

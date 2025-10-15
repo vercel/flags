@@ -9,7 +9,7 @@ export class ReflectAdapter {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): any {
     const value = Reflect.get(target, prop, receiver);
-    if (typeof value === "function") {
+    if (typeof value === 'function') {
       return value.bind(target);
     }
 

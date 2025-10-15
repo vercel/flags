@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
-import type { CartItem } from "@/components/utils/cart-types";
-import { removeFromCart } from "@/lib/actions";
+import { AnimatePresence, motion } from 'motion/react';
+import { useState } from 'react';
+import type { CartItem } from '@/components/utils/cart-types';
+import { removeFromCart } from '@/lib/actions';
 
 function Spinner() {
   return (
@@ -11,7 +11,7 @@ function Spinner() {
       initial={{ scale: 0, x: 0, opacity: 0, rotate: 0 }}
       animate={{ scale: 1, x: 0, opacity: 1, rotate: 360 }}
       exit={{ scale: 0, x: 0, opacity: 0, rotate: 0 }}
-      transition={{ rotate: { duration: 1, ease: "linear", repeat: Infinity } }}
+      transition={{ rotate: { duration: 1, ease: 'linear', repeat: Infinity } }}
       className="inline-block size-4 rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"
     />
   );
@@ -39,7 +39,7 @@ export function ShoppingCartRemoveButton({ item }: { item: CartItem }) {
           key="text"
           initial={{ x: isLoading ? 12 : 0 }}
           animate={{ x: 0 }}
-          transition={{ type: "spring", bounce: 0.3 }}
+          transition={{ type: 'spring', bounce: 0.3 }}
         >
           Remove
         </motion.span>

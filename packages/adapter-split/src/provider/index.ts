@@ -1,4 +1,4 @@
-import type { ProviderData } from "flags";
+import type { ProviderData } from 'flags';
 
 // See: https://docs.split.io/reference/get-feature-flag
 interface ListFeatureFlagsResponseBody {
@@ -23,34 +23,34 @@ export async function getProviderData(options: {
   organizationId: string;
   environmentId: string;
 }): Promise<ProviderData> {
-  const hints: Exclude<ProviderData["hints"], undefined> = [];
-  const objects: ListFeatureFlagsResponseBody["objects"] = [];
+  const hints: Exclude<ProviderData['hints'], undefined> = [];
+  const objects: ListFeatureFlagsResponseBody['objects'] = [];
 
   if (!options.adminApiKey) {
     hints.push({
-      key: "split/missing-api-key",
-      text: "Missing Split Admin API Key",
+      key: 'split/missing-api-key',
+      text: 'Missing Split Admin API Key',
     });
   }
 
   if (!options.workspaceId) {
     hints.push({
-      key: "split/missing-workspace-id",
-      text: "Missing Split Workspace Id",
+      key: 'split/missing-workspace-id',
+      text: 'Missing Split Workspace Id',
     });
   }
 
   if (!options.organizationId) {
     hints.push({
-      key: "split/missing-organization-id",
-      text: "Missing Split Organization Id",
+      key: 'split/missing-organization-id',
+      text: 'Missing Split Organization Id',
     });
   }
 
   if (!options.environmentId) {
     hints.push({
-      key: "split/missing-environment-id",
-      text: "Missing Split Environment Id",
+      key: 'split/missing-environment-id',
+      text: 'Missing Split Environment Id',
     });
   }
 
@@ -63,12 +63,12 @@ export async function getProviderData(options: {
     const response = await fetch(
       `https://api.split.io/internal/api/v2/splits/ws/${options.workspaceId}/environments/${options.environmentId}?limit=50&offset=${objects.length}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
           Authorization: `Bearer ${options.adminApiKey}`,
         },
-        cache: "no-store",
+        cache: 'no-store',
       },
     );
 
@@ -80,7 +80,7 @@ export async function getProviderData(options: {
         definitions: {},
         hints: [
           {
-            key: "split/response-not-ok",
+            key: 'split/response-not-ok',
             text: `Failed to fetch Split (Received ${response.status} response)`,
           },
         ],
@@ -101,7 +101,7 @@ export async function getProviderData(options: {
     }
   }
 
-  const definitions = objects.reduce<ProviderData["definitions"]>(
+  const definitions = objects.reduce<ProviderData['definitions']>(
     (acc, item) => {
       acc[item.name] = {
         // TODO: We'd need to fetch each feature flag separately to get the description, do we want that?

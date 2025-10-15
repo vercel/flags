@@ -1,5 +1,5 @@
-import { cookieFlag, hostFlag, showDashboard } from "$lib/flags";
-import type { PageServerLoad } from "./$types";
+import { cookieFlag, hostFlag, showDashboard } from '$lib/flags';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
   const dashboard = await showDashboard();
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async () => {
 
   return {
     post: {
-      title: dashboard ? "New Dashboard" : `Old Dashboard`,
+      title: dashboard ? 'New Dashboard' : `Old Dashboard`,
       content: `Content for page goes here`,
     },
     dashboard,

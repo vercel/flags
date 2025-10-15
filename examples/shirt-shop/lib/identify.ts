@@ -1,6 +1,6 @@
-import type { Identify } from "flags";
-import { dedupe } from "flags/next";
-import { getStableId } from "./get-stable-id";
+import type { Identify } from 'flags';
+import { dedupe } from 'flags/next';
+import { getStableId } from './get-stable-id';
 
 export type EvaluationContext = {
   stableId?: string;

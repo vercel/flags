@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { base64url, CompactSign, compactVerify } from "jose";
-import type { JsonValue } from "..";
-import type { FlagOption } from "../types";
-import { memoizeOne } from "./async-memoize-one";
+import { base64url, CompactSign, compactVerify } from 'jose';
+import type { JsonValue } from '..';
+import type { FlagOption } from '../types';
+import { memoizeOne } from './async-memoize-one';
 
 // 252 max options length allows storing index  0 to 251,
 // so 252 is the first SPECIAL_INTEGER
@@ -20,7 +20,7 @@ enum SPECIAL_INTEGERS {
 const memoizedVerify = memoizeOne(
   (code: string, secret: string) =>
     compactVerify(code, base64url.decode(secret), {
-      algorithms: ["HS256"],
+      algorithms: ['HS256'],
     }),
   (a, b) => a[0] === b[0] && a[1] === b[1], // only first two args matter
   { cachePromiseRejection: true },
@@ -29,7 +29,7 @@ const memoizedVerify = memoizeOne(
 const memoizedSign = memoizeOne(
   (uint8Array: Uint8Array, secret) =>
     new CompactSign(uint8Array)
-      .setProtectedHeader({ alg: "HS256" })
+      .setProtectedHeader({ alg: 'HS256' })
       .sign(base64url.decode(secret)),
   (a, b) =>
     // matchedIndices array must be equal
@@ -130,7 +130,7 @@ const matchIndex = (() => {
     const t = typeof value;
 
     // we're looking for a literal value, so we can check using referntial equality
-    if (value === null || t === "boolean" || t === "string" || t === "number") {
+    if (value === null || t === 'boolean' || t === 'string' || t === 'number') {
       return options.findIndex((v) => v.value === value);
     }
 
@@ -153,7 +153,7 @@ function joinUint8Arrays(array1: Uint8Array, array2: Uint8Array): Uint8Array {
   return combined;
 }
 export async function serialize(
-  flagSet: Record<Flag["key"], JsonValue>,
+  flagSet: Record<Flag['key'], JsonValue>,
   flags: readonly Flag[],
   secret: string,
 ) {

@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from "flags";
+import type { JsonValue, ProviderData } from 'flags';
 
 // See: https://docs.developers.optimizely.com/feature-experimentation/reference/list_flags
 interface OptimizelyFeatureFlagsResponseBody {
@@ -44,27 +44,27 @@ export async function getProviderData(options: {
   projectId: string;
   apiKey: string;
 }): Promise<ProviderData> {
-  const hints: Exclude<ProviderData["hints"], undefined> = [];
+  const hints: Exclude<ProviderData['hints'], undefined> = [];
   const items: {
     key: string;
     name: string;
     description: string;
     created_time: string;
     updated_time: string;
-    variations: OptimizelyVariationsResponseBody["items"];
+    variations: OptimizelyVariationsResponseBody['items'];
   }[] = [];
 
   if (!options.apiKey) {
     hints.push({
-      key: "optimizely/missing-api-key",
-      text: "Missing Optimizely Admin API Key",
+      key: 'optimizely/missing-api-key',
+      text: 'Missing Optimizely Admin API Key',
     });
   }
 
   if (!options.projectId) {
     hints.push({
-      key: "optimizely/missing-project-id",
-      text: "Missing Optimizely Project Id",
+      key: 'optimizely/missing-project-id',
+      text: 'Missing Optimizely Project Id',
     });
   }
 
@@ -77,12 +77,12 @@ export async function getProviderData(options: {
     const response = await fetch(
       `https://api.optimizely.com/flags/v1${suffix}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
           Authorization: `Bearer ${options.apiKey}`,
         },
-        cache: "no-store",
+        cache: 'no-store',
       },
     );
 
@@ -94,7 +94,7 @@ export async function getProviderData(options: {
         definitions: {},
         hints: [
           {
-            key: "optimizely/response-not-ok",
+            key: 'optimizely/response-not-ok',
             text: `Failed to fetch Optimizely (Received ${response.status} response)`,
           },
         ],
@@ -115,7 +115,7 @@ export async function getProviderData(options: {
           definitions: {},
           hints: [
             {
-              key: "optimizely/response-not-ok",
+              key: 'optimizely/response-not-ok',
               text: variations.message,
             },
           ],
@@ -131,7 +131,7 @@ export async function getProviderData(options: {
     suffix = body.next_url?.[0];
   } while (suffix);
 
-  const definitions = items.reduce<ProviderData["definitions"]>((acc, item) => {
+  const definitions = items.reduce<ProviderData['definitions']>((acc, item) => {
     acc[item.name] = {
       description: item.description,
       options: item.variations.map((variation) => {
@@ -167,7 +167,7 @@ async function getVariationsForFlag(options: {
   apiKey: string;
   flagKey: string;
 }) {
-  const items: OptimizelyVariationsResponseBody["items"] = [];
+  const items: OptimizelyVariationsResponseBody['items'] = [];
 
   let suffix: undefined | string =
     `/projects/${options.projectId}/flags/${options.flagKey}/variations`;
@@ -176,12 +176,12 @@ async function getVariationsForFlag(options: {
     const response = await fetch(
       `https://api.optimizely.com/flags/v1${suffix}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
           Authorization: `Bearer ${options.apiKey}`,
         },
-        cache: "no-store",
+        cache: 'no-store',
       },
     );
 
@@ -204,24 +204,24 @@ async function getVariationsForFlag(options: {
  * Transform the raw `variables` to JSON.
  */
 function transformVariables(
-  variables: OptimizelyVariationsResponseBody["items"][number]["variables"],
+  variables: OptimizelyVariationsResponseBody['items'][number]['variables'],
 ) {
   return Object.keys(variables).reduce(
     (acc, nextKey) => {
       const variable = variables[nextKey]!;
 
       switch (variable.type) {
-        case "string":
+        case 'string':
           acc[nextKey] = variable.value;
           break;
-        case "integer":
-        case "double":
+        case 'integer':
+        case 'double':
           acc[nextKey] = Number(variable.value);
           break;
-        case "boolean":
-          acc[nextKey] = variable.value === "true";
+        case 'boolean':
+          acc[nextKey] = variable.value === 'true';
           break;
-        case "json":
+        case 'json':
           acc[nextKey] = JSON.parse(variable.value);
           break;
         default:

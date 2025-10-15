@@ -1,8 +1,8 @@
-import type { ReadonlyHeaders } from "./spec-extension/adapters/headers";
-import type { ReadonlyRequestCookies } from "./spec-extension/adapters/request-cookies";
+import type { ReadonlyHeaders } from './spec-extension/adapters/headers';
+import type { ReadonlyRequestCookies } from './spec-extension/adapters/request-cookies';
 
-export type { ReadonlyHeaders } from "./spec-extension/adapters/headers";
-export type { ReadonlyRequestCookies } from "./spec-extension/adapters/request-cookies";
+export type { ReadonlyHeaders } from './spec-extension/adapters/headers';
+export type { ReadonlyRequestCookies } from './spec-extension/adapters/request-cookies';
 
 export type FlagParamsType = {
   headers: ReadonlyHeaders;
@@ -22,11 +22,11 @@ export type ProviderData = {
  */
 export type Origin =
   | {
-      provider: "vercel";
+      provider: 'vercel';
       projectId: string;
     }
   | {
-      provider: "edge-config";
+      provider: 'edge-config';
       edgeConfigId: string;
       edgeConfigItemKey?: string;
       teamSlug: string;
@@ -46,13 +46,13 @@ export type ApiData = {
    * data from your flag provider fails. For example when the provider fails to
    * responed or the configuration is invalid due to a missing environment variable.
    */
-  hints?: ProviderData["hints"];
+  hints?: ProviderData['hints'];
   /**
    * Sets the encryption mode for the vercel-flag-overrides cookie
    * - when set to "encrypted" the toolbar will store encrypted overrides
    * - when set to "plaintext" the toolbar will store plaintext overrides
    */
-  overrideEncryptionMode?: "encrypted" | "plaintext";
+  overrideEncryptionMode?: 'encrypted' | 'plaintext';
 };
 
 /**

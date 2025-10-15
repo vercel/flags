@@ -1,4 +1,4 @@
-import type { ProviderData } from "../types";
+import type { ProviderData } from '../types';
 
 export async function mergeProviderData(
   itemsPromises: (Promise<ProviderData> | ProviderData)[],

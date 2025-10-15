@@ -1,7 +1,7 @@
 // copied from Next.js, and reduced
 // https://github.com/vercel/next.js/tree/canary/packages/next/src/server/web/spec-extension
-import { type RequestCookies, ResponseCookies } from "../cookies";
-import { ReflectAdapter } from "./reflect";
+import { type RequestCookies, ResponseCookies } from '../cookies';
+import { ReflectAdapter } from './reflect';
 
 /**
  * @internal
@@ -9,7 +9,7 @@ import { ReflectAdapter } from "./reflect";
 export class ReadonlyRequestCookiesError extends Error {
   constructor() {
     super(
-      "Cookies can only be modified in a Server Action or Route Handler. Read more: https://nextjs.org/docs/app/api-reference/functions/cookies#options",
+      'Cookies can only be modified in a Server Action or Route Handler. Read more: https://nextjs.org/docs/app/api-reference/functions/cookies#options',
     );
   }
 
@@ -26,9 +26,9 @@ export type { ResponseCookies };
 // we want to return the response cookie.
 export type ReadonlyRequestCookies = Omit<
   RequestCookies,
-  "set" | "clear" | "delete"
+  'set' | 'clear' | 'delete'
 > &
-  Pick<ResponseCookies, "set" | "delete">;
+  Pick<ResponseCookies, 'set' | 'delete'>;
 
 // biome-ignore lint/complexity/noStaticOnlyClass: copied from Next.js
 export class RequestCookiesAdapter {
@@ -37,9 +37,9 @@ export class RequestCookiesAdapter {
     return new Proxy(cookies as any, {
       get(target, prop, receiver) {
         switch (prop) {
-          case "clear":
-          case "delete":
-          case "set":
+          case 'clear':
+          case 'delete':
+          case 'set':
             return ReadonlyRequestCookiesError.callable;
           default:
             return ReflectAdapter.get(target, prop, receiver);
@@ -49,7 +49,7 @@ export class RequestCookiesAdapter {
   }
 }
 
-const SYMBOL_MODIFY_COOKIE_VALUES = Symbol.for("next.mutated.cookies");
+const SYMBOL_MODIFY_COOKIE_VALUES = Symbol.for('next.mutated.cookies');
 
 export function getModifiedCookieValues(
   cookies: ResponseCookies,
@@ -94,5 +94,5 @@ export function appendMutableCookies(
 }
 
 type ResponseCookie = NonNullable<
-  ReturnType<InstanceType<typeof ResponseCookies>["get"]>
+  ReturnType<InstanceType<typeof ResponseCookies>['get']>
 >;

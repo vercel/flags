@@ -1,10 +1,10 @@
-import { IncomingMessage } from "node:http";
-import type { Socket } from "node:net";
-import { Readable } from "node:stream";
-import type { NextApiRequestCookies } from "next/dist/server/api-utils";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { type Adapter, encryptOverrides } from "..";
-import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from ".";
+import { IncomingMessage } from 'node:http';
+import type { Socket } from 'node:net';
+import { Readable } from 'node:stream';
+import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { type Adapter, encryptOverrides } from '..';
+import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from '.';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -15,8 +15,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("next/headers", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("next/headers")>();
+vi.mock('next/headers', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('next/headers')>();
   return {
     ...mod,
     // replace some exports
@@ -40,47 +40,47 @@ function createRequest(cookies = {}): [
   request.cookies = cookies;
   request.headers.cookie = Object.entries(cookies)
     .map(([key, value]) => `${key}=${value}`)
-    .join("; ");
+    .join('; ');
 
   return [request, socket];
 }
 
-describe("exports", () => {
-  it("should export flag", () => {
-    expect(typeof flag).toBe("function");
+describe('exports', () => {
+  it('should export flag', () => {
+    expect(typeof flag).toBe('function');
   });
-  it("should export precompute", () => {
-    expect(typeof precompute).toBe("function");
+  it('should export precompute', () => {
+    expect(typeof precompute).toBe('function');
   });
-  it("should export dedupe", () => {
-    expect(typeof dedupe).toBe("function");
+  it('should export dedupe', () => {
+    expect(typeof dedupe).toBe('function');
   });
-  it("should export clearDedupeCacheForCurrentRequest", () => {
-    expect(typeof clearDedupeCacheForCurrentRequest).toBe("function");
+  it('should export clearDedupeCacheForCurrentRequest', () => {
+    expect(typeof clearDedupeCacheForCurrentRequest).toBe('function');
   });
 });
 
-describe("flag on app router", () => {
+describe('flag on app router', () => {
   beforeAll(() => {
     // a random secret for testing purposes
-    process.env.FLAGS_SECRET = "yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc";
+    process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
   });
-  it("allows declaring a flag", async () => {
+  it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: () => false,
     });
 
-    expect(f).toHaveProperty("key", "first-flag");
+    expect(f).toHaveProperty('key', 'first-flag');
     await expect(f()).resolves.toEqual(false);
   });
 
-  it("caches for the duration of a request", async () => {
+  it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = flag<number>({ key: "first-flag", decide });
+    const f = flag<number>({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -104,7 +104,7 @@ describe("flag on app router", () => {
     expect(decide).toHaveBeenCalledTimes(2);
   });
 
-  it("caches in-flight evaluations for the duration of a request", async () => {
+  it('caches in-flight evaluations for the duration of a request', async () => {
     let resolve: (value: boolean) => void;
     const promise = new Promise<boolean>((r) => {
       resolve = r;
@@ -113,7 +113,7 @@ describe("flag on app router", () => {
     const mockDecide = vi.fn(() => promise);
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
     });
 
@@ -135,30 +135,30 @@ describe("flag on app router", () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
-  it("respects overrides", async () => {
+  it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = flag<boolean>({ key: "first-flag", decide });
+    const f = flag<boolean>({ key: 'first-flag', decide });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
-    const override = await encryptOverrides({ "first-flag": true });
+    const override = await encryptOverrides({ 'first-flag': true });
     const cookieMock = vi.fn((cookieName) => {
-      if (cookieName === "vercel-flag-overrides") {
-        return { name: "vercel-flag-overrides", value: override };
+      if (cookieName === 'vercel-flag-overrides') {
+        return { name: 'vercel-flag-overrides', value: override };
       }
-      throw new Error("no cookie found");
+      throw new Error('no cookie found');
     });
     mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
     mocks.cookies.mockReturnValueOnce({ get: cookieMock });
     await expect(f()).resolves.toEqual(true);
-    expect(cookieMock).toHaveBeenCalledWith("vercel-flag-overrides");
+    expect(cookieMock).toHaveBeenCalledWith('vercel-flag-overrides');
     expect(decide).not.toHaveBeenCalled();
   });
 
-  it("uses precomputed values", async () => {
+  it('uses precomputed values', async () => {
     const decide = vi.fn(() => true);
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide,
       options: [false, true],
     });
@@ -169,9 +169,9 @@ describe("flag on app router", () => {
     expect(decide).toHaveBeenCalledTimes(1);
   });
 
-  it("uses precomputed values even when options are inferred", async () => {
+  it('uses precomputed values even when options are inferred', async () => {
     const decide = vi.fn(() => true);
-    const f = flag<boolean>({ key: "first-flag", decide });
+    const f = flag<boolean>({ key: 'first-flag', decide });
     const flagGroup = [f];
     const code = await precompute(flagGroup);
     expect(decide).toHaveBeenCalledTimes(1);
@@ -179,7 +179,7 @@ describe("flag on app router", () => {
     expect(decide).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the defaultValue if an async decide throws", async () => {
+  it('falls back to the defaultValue if an async decide throws', async () => {
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -189,7 +189,7 @@ describe("flag on app router", () => {
     const catchFn = vi.fn();
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
     });
@@ -200,7 +200,7 @@ describe("flag on app router", () => {
     const value1 = f().catch(catchFn);
 
     // @ts-expect-error this is defined
-    rejectPromise(new Error("custom error"));
+    rejectPromise(new Error('custom error'));
     await promise.catch(() => {});
 
     await expect(value1).resolves.toEqual(false);
@@ -208,13 +208,13 @@ describe("flag on app router", () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the defaultValue if a sync decide throws", async () => {
+  it('falls back to the defaultValue if a sync decide throws', async () => {
     const mockDecide = vi.fn(() => {
-      throw new Error("custom error");
+      throw new Error('custom error');
     });
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
     });
@@ -225,9 +225,9 @@ describe("flag on app router", () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the defaultValue when a decide function returns undefined", async () => {
+  it('falls back to the defaultValue when a decide function returns undefined', async () => {
     const syncFlag = flag<boolean>({
-      key: "sync-flag",
+      key: 'sync-flag',
       // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
@@ -236,7 +236,7 @@ describe("flag on app router", () => {
     await expect(syncFlag()).resolves.toEqual(true);
 
     const asyncFlag = flag<boolean>({
-      key: "async-flag",
+      key: 'async-flag',
       // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
@@ -245,9 +245,9 @@ describe("flag on app router", () => {
     await expect(asyncFlag()).resolves.toEqual(true);
   });
 
-  it("throws an error when the decide function returns undefined and no defaultValue is provided", async () => {
+  it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const syncFlag = flag<boolean>({
-      key: "sync-flag",
+      key: 'sync-flag',
       // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
@@ -257,7 +257,7 @@ describe("flag on app router", () => {
     );
 
     const asyncFlag = flag<string>({
-      key: "async-flag",
+      key: 'async-flag',
       // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
     });
@@ -268,21 +268,21 @@ describe("flag on app router", () => {
   });
 });
 
-describe("flag on pages router", () => {
+describe('flag on pages router', () => {
   beforeAll(() => {
     // a random secret for testing purposes
-    process.env.FLAGS_SECRET = "yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc";
+    process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
   });
 
-  it("allows declaring a flag", async () => {
+  it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: () => false,
     });
 
-    expect(f).toHaveProperty("key", "first-flag");
+    expect(f).toHaveProperty('key', 'first-flag');
 
     const [firstRequest, socket1] = createRequest();
 
@@ -290,10 +290,10 @@ describe("flag on pages router", () => {
     socket1.destroy();
   });
 
-  it("caches for the duration of a request", async () => {
+  it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);
-    const f = flag<number>({ key: "first-flag", decide });
+    const f = flag<number>({ key: 'first-flag', decide });
 
     const [firstRequest, socket1] = createRequest();
     const [secondRequest, socket2] = createRequest();
@@ -317,7 +317,7 @@ describe("flag on pages router", () => {
     socket2.destroy();
   });
 
-  it("caches in-flight evaluations for the duration of a request", async () => {
+  it('caches in-flight evaluations for the duration of a request', async () => {
     let resolve: (value: boolean) => void;
     const promise = new Promise<boolean>((r) => {
       resolve = r;
@@ -326,7 +326,7 @@ describe("flag on pages router", () => {
     const mockDecide = vi.fn(() => promise);
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
     });
 
@@ -347,26 +347,26 @@ describe("flag on pages router", () => {
     socket1.destroy();
   });
 
-  it("should re-throw errors when no defaultValue is provided", async () => {
+  it('should re-throw errors when no defaultValue is provided', async () => {
     const mockDecide = vi.fn(() => {
-      throw new Error("custom error");
+      throw new Error('custom error');
     });
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
     });
 
     const [firstRequest, socket1] = createRequest();
     expect(mockDecide).toHaveBeenCalledTimes(0);
-    await expect(() => f(firstRequest)).rejects.toThrow("custom error");
+    await expect(() => f(firstRequest)).rejects.toThrow('custom error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
     socket1.destroy();
   });
 
-  it("falls back to the defaultValue when a decide function returns undefined", async () => {
+  it('falls back to the defaultValue when a decide function returns undefined', async () => {
     const [firstRequest, socket1] = createRequest();
     const syncFlag = flag<boolean>({
-      key: "sync-flag",
+      key: 'sync-flag',
       // @ts-expect-error this is the case we are testing
       decide: () => undefined,
       defaultValue: true,
@@ -375,7 +375,7 @@ describe("flag on pages router", () => {
     await expect(syncFlag(firstRequest)).resolves.toEqual(true);
 
     const asyncFlag = flag<boolean>({
-      key: "async-flag",
+      key: 'async-flag',
       // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
       defaultValue: true,
@@ -386,10 +386,10 @@ describe("flag on pages router", () => {
     socket1.destroy();
   });
 
-  it("throws an error when the decide function returns undefined and no defaultValue is provided", async () => {
+  it('throws an error when the decide function returns undefined and no defaultValue is provided', async () => {
     const [firstRequest, socket1] = createRequest();
     const syncFlag = flag<boolean>({
-      key: "sync-flag",
+      key: 'sync-flag',
       // @ts-expect-error this is the case we are testing
       decide: () => undefined,
     });
@@ -399,7 +399,7 @@ describe("flag on pages router", () => {
     );
 
     const asyncFlag = flag<string>({
-      key: "async-flag",
+      key: 'async-flag',
       // @ts-expect-error this is the case we are testing
       decide: async () => undefined,
     });
@@ -411,23 +411,23 @@ describe("flag on pages router", () => {
     socket1.destroy();
   });
 
-  it("respects overrides", async () => {
+  it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = flag<boolean>({ key: "first-flag", decide });
-    const override = await encryptOverrides({ "first-flag": true });
+    const f = flag<boolean>({ key: 'first-flag', decide });
+    const override = await encryptOverrides({ 'first-flag': true });
 
     const [firstRequest, socket1] = createRequest({
-      "vercel-flag-overrides": override,
+      'vercel-flag-overrides': override,
     });
     await expect(f(firstRequest)).resolves.toEqual(true);
     expect(decide).not.toHaveBeenCalled();
     socket1.destroy();
   });
 
-  it("uses precomputed values", async () => {
+  it('uses precomputed values', async () => {
     const decide = vi.fn(() => true);
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide,
       options: [false, true],
     });
@@ -438,7 +438,7 @@ describe("flag on pages router", () => {
     expect(decide).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the defaultValue if an async decide throws", async () => {
+  it('falls back to the defaultValue if an async decide throws', async () => {
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -448,7 +448,7 @@ describe("flag on pages router", () => {
     const catchFn = vi.fn();
 
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
     });
@@ -459,7 +459,7 @@ describe("flag on pages router", () => {
     const value1 = f().catch(catchFn);
 
     // @ts-expect-error this is defined
-    rejectPromise(new Error("custom error"));
+    rejectPromise(new Error('custom error'));
     await promise.catch(() => {});
 
     await expect(value1).resolves.toEqual(false);
@@ -467,14 +467,14 @@ describe("flag on pages router", () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the defaultValue if a sync decide throws", async () => {
+  it('falls back to the defaultValue if a sync decide throws', async () => {
     const mockDecide = vi.fn(() => {
-      throw new Error("custom error");
+      throw new Error('custom error');
     });
 
     const [firstRequest, socket1] = createRequest();
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
     });
@@ -487,26 +487,26 @@ describe("flag on pages router", () => {
   });
 });
 
-describe("dynamic io", () => {
-  it("should re-throw dynamic usage erorrs even when a defaultValue is present", async () => {
+describe('dynamic io', () => {
+  it('should re-throw dynamic usage erorrs even when a defaultValue is present', async () => {
     const mockDecide = vi.fn(() => {
-      const error = new Error("dynamic usage error");
+      const error = new Error('dynamic usage error');
       (error as Error & { digest: string }).digest =
-        "DYNAMIC_SERVER_USAGE;dynamic usage error";
+        'DYNAMIC_SERVER_USAGE;dynamic usage error';
       throw error;
     });
     const f = flag<boolean>({
-      key: "first-flag",
+      key: 'first-flag',
       decide: mockDecide,
       defaultValue: false,
     });
     expect(mockDecide).toHaveBeenCalledTimes(0);
-    await expect(() => f()).rejects.toThrow("dynamic usage error");
+    await expect(() => f()).rejects.toThrow('dynamic usage error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("adapters", () => {
+describe('adapters', () => {
   function createTestAdapter() {
     return function testAdapter<ValueType, EntitiesType>(
       value: ValueType,
@@ -524,13 +524,13 @@ describe("adapters", () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
     const f = flag<number>({
-      key: "adapter-flag",
+      key: 'adapter-flag',
       adapter: testAdapter(5),
     });
 
-    expect(f).toHaveProperty("key", "adapter-flag");
+    expect(f).toHaveProperty('key', 'adapter-flag');
     await expect(f()).resolves.toEqual(5);
-    expect(f).toHaveProperty("origin", "fake-origin#adapter-flag");
+    expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
   });
 
   it("should throw when an adapter's decide function returns undefined", async () => {
@@ -539,23 +539,23 @@ describe("adapters", () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
     const f = flag<boolean>({
-      key: "adapter-flag",
+      key: 'adapter-flag',
       // @ts-expect-error this is the case we are testing
       adapter: testAdapter(undefined),
     });
 
-    expect(f).toHaveProperty("key", "adapter-flag");
+    expect(f).toHaveProperty('key', 'adapter-flag');
     await expect(f()).rejects.toThrow(
       'flags: Flag "adapter-flag" must have a defaultValue or a decide function that returns a value',
     );
-    expect(f).toHaveProperty("origin", "fake-origin#adapter-flag");
+    expect(f).toHaveProperty('origin', 'fake-origin#adapter-flag');
   });
 
   it("should pass the defaultValue to the adapter's decide function", async () => {
     const outerValue = Math.random();
 
     const exampleFlag = flag<number>({
-      key: "example-flag",
+      key: 'example-flag',
       defaultValue: outerValue,
       adapter: {
         decide: ({ defaultValue }) => defaultValue || -1,

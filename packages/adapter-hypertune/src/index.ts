@@ -1,2 +1,2 @@
-export * from "./adapter";
-export { getProviderData } from "./provider";
+export * from './adapter';
+export { getProviderData } from './provider';

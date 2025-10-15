@@ -1,6 +1,6 @@
-import type { JsonValue } from "..";
-import * as s from "../lib/serialization";
-import type { Flag, FlagsArray } from "./types";
+import type { JsonValue } from '..';
+import * as s from '../lib/serialization';
+import type { Flag, FlagsArray } from './types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ValuesArray = readonly any[];
@@ -86,7 +86,7 @@ async function deserialize(flags: FlagsArray, code: string, secret: string) {
  * @param secret - The secret to use for verifying the signature
  */
 export async function getPrecomputed<T extends JsonValue>(
-  flagKey: Flag<T>["key"],
+  flagKey: Flag<T>['key'],
   precomputeFlags: FlagsArray,
   code: string,
   secret: string,

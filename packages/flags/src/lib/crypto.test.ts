@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   createAccessProof,
   decryptFlagDefinitions,
@@ -8,15 +8,15 @@ import {
   encryptFlagValues,
   encryptOverrides,
   verifyAccessProof,
-} from "./crypto";
+} from './crypto';
 
-const expirationTime = "1h";
-const secret = "a".repeat(43);
-const otherSecret = "b".repeat(43);
+const expirationTime = '1h';
+const secret = 'a'.repeat(43);
+const otherSecret = 'b'.repeat(43);
 
-describe("overrides", () => {
-  it("should encrypt and decrypt overrides", async () => {
-    const overrides = { "feature-flag": true };
+describe('overrides', () => {
+  it('should encrypt and decrypt overrides', async () => {
+    const overrides = { 'feature-flag': true };
 
     const encrypted = await encryptOverrides(overrides, secret, expirationTime);
 
@@ -29,9 +29,9 @@ describe("overrides", () => {
   });
 });
 
-describe("flag values", () => {
-  it("should encrypt and decrypt flag values", async () => {
-    const flagValues = { "feature-flag": true };
+describe('flag values', () => {
+  it('should encrypt and decrypt flag values', async () => {
+    const flagValues = { 'feature-flag': true };
 
     const encrypted = await encryptFlagValues(
       flagValues,
@@ -48,9 +48,9 @@ describe("flag values", () => {
   });
 });
 
-describe("flag definitions", () => {
-  it("should encrypt and decrypt flag definitions", async () => {
-    const flagDefinitions = { "feature-flag": { options: [] } };
+describe('flag definitions', () => {
+  it('should encrypt and decrypt flag definitions', async () => {
+    const flagDefinitions = { 'feature-flag': { options: [] } };
     const encrypted = await encryptFlagDefinitions(flagDefinitions, secret);
 
     await expect(decryptFlagDefinitions(encrypted, secret)).resolves.toEqual(
@@ -62,8 +62,8 @@ describe("flag definitions", () => {
   });
 });
 
-describe("access proof", () => {
-  it("should create and verify access proof", async () => {
+describe('access proof', () => {
+  it('should create and verify access proof', async () => {
     const accessProof = await createAccessProof(secret, expirationTime);
     const encryptedFlagDefinitions = await encryptFlagDefinitions({}, secret);
 

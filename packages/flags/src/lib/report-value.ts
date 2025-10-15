@@ -1,4 +1,4 @@
-import { version } from "../../package.json";
+import { version } from '../../package.json';
 
 /**
  * This function lets you report the value of a resolved flag, which will make it available when viewing Monitoring, Logs, Analytics and Speed Insights on Vercel.
@@ -19,7 +19,7 @@ import { version } from "../../package.json";
  * @param value the resolved value of the flag
  */
 export function reportValue(key: string, value: unknown) {
-  const symbol = Symbol.for("@vercel/request-context");
+  const symbol = Symbol.for('@vercel/request-context');
   const ctx = Reflect.get(globalThis, symbol)?.get();
   ctx?.flags?.reportValue(key, value, {
     sdkVersion: version,
@@ -34,11 +34,11 @@ export function internalReportValue(
   value: unknown,
   data: {
     originProjectId?: string;
-    originProvider?: "vercel";
-    reason?: "override";
+    originProvider?: 'vercel';
+    reason?: 'override';
   },
 ) {
-  const symbol = Symbol.for("@vercel/request-context");
+  const symbol = Symbol.for('@vercel/request-context');
   const ctx = Reflect.get(globalThis, symbol)?.get();
   ctx?.flags?.reportValue(key, value, {
     sdkVersion: version,

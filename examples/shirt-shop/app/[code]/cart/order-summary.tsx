@@ -1,6 +1,6 @@
-import { OrderSummarySection } from "@/components/shopping-cart/order-summary-section";
-import { proceedToCheckoutColorFlag } from "@/flags";
-import { ProceedToCheckout } from "./proceed-to-checkout";
+import { OrderSummarySection } from '@/components/shopping-cart/order-summary-section';
+import { proceedToCheckoutColorFlag } from '@/flags';
+import { ProceedToCheckout } from './proceed-to-checkout';
 
 export async function OrderSummary({
   showSummerBanner,

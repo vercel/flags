@@ -1,4 +1,4 @@
-import type { ProviderData } from "flags";
+import type { ProviderData } from 'flags';
 
 export async function getProviderData(options: {
   token: string;
@@ -7,7 +7,7 @@ export async function getProviderData(options: {
     return {
       definitions: {},
       hints: [
-        { key: "hypertune/missing-token", text: "Missing Hypertune token" },
+        { key: 'hypertune/missing-token', text: 'Missing Hypertune token' },
       ],
     };
   }
@@ -16,7 +16,7 @@ export async function getProviderData(options: {
     `https://edge.hypertune.com/vercel-flag-definitions`,
     {
       headers: { Authorization: `Bearer ${options.token}` },
-      cache: "no-store",
+      cache: 'no-store',
     },
   );
 
@@ -25,13 +25,13 @@ export async function getProviderData(options: {
       definitions: {},
       hints: [
         {
-          key: "hypertune/response-not-ok",
+          key: 'hypertune/response-not-ok',
           text: `Failed to fetch Hypertune flag definitions (received ${response.status} response)`,
         },
       ],
     };
   }
 
-  const definitions = (await response.json()) as ProviderData["definitions"];
+  const definitions = (await response.json()) as ProviderData['definitions'];
   return { definitions, hints: [] };
 }

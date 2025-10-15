@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { manualPrecomputeFlag } from "./flags";
+import { type NextRequest, NextResponse } from 'next/server';
+import { manualPrecomputeFlag } from './flags';
 
 export async function manualPrecomputeMiddleware(request: NextRequest) {
   // use the flag
@@ -8,7 +8,7 @@ export async function manualPrecomputeMiddleware(request: NextRequest) {
   // rewrite the page to the variant
   return NextResponse.rewrite(
     new URL(
-      `/concepts/precompute/manual/${value ? "variant-a" : "variant-b"}`,
+      `/concepts/precompute/manual/${value ? 'variant-a' : 'variant-b'}`,
       request.url,
     ),
   );

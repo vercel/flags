@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from 'motion/react';
 
 function Spinner() {
   return (
@@ -12,7 +12,7 @@ function Spinner() {
       transition={{
         rotate: {
           duration: 1,
-          ease: "linear",
+          ease: 'linear',
           repeat: Infinity,
         },
       }}
@@ -43,7 +43,7 @@ export function AddToCartButton({
           key="text"
           initial={{ x: isLoading ? 12 : 0 }}
           animate={{ x: 0 }}
-          transition={{ type: "tween", ease: "anticipate" }}
+          transition={{ type: 'tween', ease: 'anticipate' }}
         >
           Add to cart
         </motion.span>

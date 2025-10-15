@@ -1,8 +1,8 @@
 // copied from Next.js, and reduced
 // https://github.com/vercel/next.js/tree/canary/packages/next/src/server/web/spec-extension
-import type { IncomingHttpHeaders } from "http";
+import type { IncomingHttpHeaders } from 'http';
 
-import { ReflectAdapter } from "./reflect";
+import { ReflectAdapter } from './reflect';
 
 /**
  * @internal
@@ -10,7 +10,7 @@ import { ReflectAdapter } from "./reflect";
 class ReadonlyHeadersError extends Error {
   constructor() {
     super(
-      "Headers cannot be modified. Read more: https://nextjs.org/docs/app/api-reference/functions/headers",
+      'Headers cannot be modified. Read more: https://nextjs.org/docs/app/api-reference/functions/headers',
     );
   }
 
@@ -43,7 +43,7 @@ export class HeadersAdapter extends Headers {
         // Because this is just an object, we expect that all "get" operations
         // are for properties. If it's a "get" for a symbol, we'll just return
         // the symbol.
-        if (typeof prop === "symbol") {
+        if (typeof prop === 'symbol') {
           return ReflectAdapter.get(target, prop, receiver);
         }
 
@@ -57,13 +57,13 @@ export class HeadersAdapter extends Headers {
         );
 
         // If the original casing doesn't exist, return undefined.
-        if (typeof original === "undefined") return;
+        if (typeof original === 'undefined') return;
 
         // If the original casing exists, return the value.
         return ReflectAdapter.get(target, original, receiver);
       },
       set(target, prop, value, receiver) {
-        if (typeof prop === "symbol") {
+        if (typeof prop === 'symbol') {
           return ReflectAdapter.set(target, prop, value, receiver);
         }
 
@@ -80,7 +80,7 @@ export class HeadersAdapter extends Headers {
         return ReflectAdapter.set(target, original ?? prop, value, receiver);
       },
       has(target, prop) {
-        if (typeof prop === "symbol") return ReflectAdapter.has(target, prop);
+        if (typeof prop === 'symbol') return ReflectAdapter.has(target, prop);
 
         const lowercased = prop.toLowerCase();
 
@@ -92,13 +92,13 @@ export class HeadersAdapter extends Headers {
         );
 
         // If the original casing doesn't exist, return false.
-        if (typeof original === "undefined") return false;
+        if (typeof original === 'undefined') return false;
 
         // If the original casing exists, return true.
         return ReflectAdapter.has(target, original);
       },
       deleteProperty(target, prop) {
-        if (typeof prop === "symbol")
+        if (typeof prop === 'symbol')
           return ReflectAdapter.deleteProperty(target, prop);
 
         const lowercased = prop.toLowerCase();
@@ -111,7 +111,7 @@ export class HeadersAdapter extends Headers {
         );
 
         // If the original casing doesn't exist, return true.
-        if (typeof original === "undefined") return true;
+        if (typeof original === 'undefined') return true;
 
         // If the original casing exists, delete the property.
         return ReflectAdapter.deleteProperty(target, original);
@@ -127,9 +127,9 @@ export class HeadersAdapter extends Headers {
     return new Proxy<ReadonlyHeaders>(headers, {
       get(target, prop, receiver) {
         switch (prop) {
-          case "append":
-          case "delete":
-          case "set":
+          case 'append':
+          case 'delete':
+          case 'set':
             return ReadonlyHeadersError.callable;
           default:
             return ReflectAdapter.get(target, prop, receiver);
@@ -146,7 +146,7 @@ export class HeadersAdapter extends Headers {
    * @returns a merged header value (a string)
    */
   private merge(value: string | string[]): string {
-    if (Array.isArray(value)) return value.join(", ");
+    if (Array.isArray(value)) return value.join(', ');
 
     return value;
   }
@@ -165,7 +165,7 @@ export class HeadersAdapter extends Headers {
 
   public append(name: string, value: string): void {
     const existing = this.headers[name];
-    if (typeof existing === "string") {
+    if (typeof existing === 'string') {
       this.headers[name] = [existing, value];
     } else if (Array.isArray(existing)) {
       existing.push(value);
@@ -180,13 +180,13 @@ export class HeadersAdapter extends Headers {
 
   public get(name: string): string | null {
     const value = this.headers[name];
-    if (typeof value !== "undefined") return this.merge(value);
+    if (typeof value !== 'undefined') return this.merge(value);
 
     return null;
   }
 
   public has(name: string): boolean {
-    return typeof this.headers[name] !== "undefined";
+    return typeof this.headers[name] !== 'undefined';
   }
 
   public set(name: string, value: string): void {

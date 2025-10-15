@@ -1,5 +1,5 @@
-import { Redis } from "@upstash/redis";
-import { NextResponse } from "next/server";
+import { Redis } from '@upstash/redis';
+import { NextResponse } from 'next/server';
 
 interface CartItem {
   id: string;
@@ -45,9 +45,9 @@ export async function GET(
 
     return NextResponse.json(cart);
   } catch (error) {
-    console.error("Error fetching cart:", error);
+    console.error('Error fetching cart:', error);
     return NextResponse.json(
-      { error: "Failed to fetch cart" },
+      { error: 'Failed to fetch cart' },
       { status: 500 },
     );
   }
@@ -88,9 +88,9 @@ export async function POST(
 
     return NextResponse.json(existingCart);
   } catch (error) {
-    console.error("Error adding item to cart:", error);
+    console.error('Error adding item to cart:', error);
     return NextResponse.json(
-      { error: "Failed to add item to cart" },
+      { error: 'Failed to add item to cart' },
       { status: 500 },
     );
   }
@@ -110,7 +110,7 @@ export async function DELETE(
     const existingCart = await redis.get<Cart>(cartKey);
 
     if (!existingCart) {
-      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Cart not found' }, { status: 404 });
     }
 
     // Find the index of the matching item
@@ -120,7 +120,7 @@ export async function DELETE(
 
     if (itemIndex === -1) {
       return NextResponse.json(
-        { error: "Item not found in cart" },
+        { error: 'Item not found in cart' },
         { status: 404 },
       );
     }
@@ -136,9 +136,9 @@ export async function DELETE(
 
     return NextResponse.json(existingCart);
   } catch (error) {
-    console.error("Error removing item from cart:", error);
+    console.error('Error removing item from cart:', error);
     return NextResponse.json(
-      { error: "Failed to remove item from cart" },
+      { error: 'Failed to remove item from cart' },
       { status: 500 },
     );
   }

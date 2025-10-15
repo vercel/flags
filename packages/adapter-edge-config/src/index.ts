@@ -1,5 +1,5 @@
-import { createClient, type EdgeConfigClient } from "@vercel/edge-config";
-import type { Adapter, ReadonlyHeaders } from "flags";
+import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import type { Adapter, ReadonlyHeaders } from 'flags';
 
 export type EdgeConfigFlags = {
   [key: string]: boolean | number | string | null;
@@ -21,7 +21,7 @@ export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
   // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
   if (!defaultEdgeConfigAdapter) {
     if (!process.env.EDGE_CONFIG) {
-      throw new Error("@flags-sdk/edge-config: Missing EDGE_CONFIG env var");
+      throw new Error('@flags-sdk/edge-config: Missing EDGE_CONFIG env var');
     }
 
     defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
@@ -47,14 +47,14 @@ export function createEdgeConfigAdapter(
   },
 ) {
   if (!connectionString) {
-    throw new Error("@flags-sdk/edge-config: Missing connection string");
+    throw new Error('@flags-sdk/edge-config: Missing connection string');
   }
   const edgeConfigClient =
-    typeof connectionString === "string"
+    typeof connectionString === 'string'
       ? createClient(connectionString)
       : connectionString;
 
-  const edgeConfigItemKey = options?.edgeConfigItemKey ?? "flags";
+  const edgeConfigItemKey = options?.edgeConfigItemKey ?? 'flags';
 
   /**
    * Per-request cache to ensure we only ever read Edge Config once per request.

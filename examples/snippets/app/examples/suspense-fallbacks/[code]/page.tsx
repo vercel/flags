@@ -1,8 +1,8 @@
-import { generatePermutations } from "flags/next";
-import { cookies, headers } from "next/headers";
-import Image from "next/image";
-import { Suspense } from "react";
-import { coreFlags, hasAuthCookieFlag } from "../flags";
+import { generatePermutations } from 'flags/next';
+import { cookies, headers } from 'next/headers';
+import Image from 'next/image';
+import { Suspense } from 'react';
+import { coreFlags, hasAuthCookieFlag } from '../flags';
 
 // opt into on parital prerendering for this page, which is necessary while
 // it's experimental, see https://nextjs.org/learn/dashboard-app/partial-prerendering
@@ -45,9 +45,9 @@ function AnonUser() {
   return (
     <form
       action={async function signIn() {
-        "use server";
+        'use server';
         const jar = await cookies();
-        jar.set("suspense-fallbacks-user-id", "1", {
+        jar.set('suspense-fallbacks-user-id', '1', {
           maxAge: 1000 * 60 * 60,
         });
       }}
@@ -68,9 +68,9 @@ async function User() {
 
   // artificially delay the auth state to simulate resolving the user's auth,
   // but only if we are not hanlding a server action
-  if (!headersStore.has("next-action")) await delay();
+  if (!headersStore.has('next-action')) await delay();
 
-  if (cookieStore.get("suspense-fallbacks-user-id")?.value !== "1")
+  if (cookieStore.get('suspense-fallbacks-user-id')?.value !== '1')
     return <AnonUser />;
 
   return (
@@ -88,9 +88,9 @@ async function User() {
 
       <form
         action={async function signOut() {
-          "use server";
+          'use server';
           const jar = await cookies();
-          jar.delete("suspense-fallbacks-user-id");
+          jar.delete('suspense-fallbacks-user-id');
         }}
       >
         <button

@@ -1,22 +1,22 @@
-import type { IncomingHttpHeaders } from "node:http";
-import { RequestCookies } from "@edge-runtime/cookies";
+import type { IncomingHttpHeaders } from 'node:http';
+import { RequestCookies } from '@edge-runtime/cookies';
 import {
   type FlagDefinitionsType,
   type FlagDefinitionType,
   type ProviderData,
   reportValue,
-} from "..";
-import { normalizeOptions } from "../lib/normalize-options";
-import { internalReportValue } from "../lib/report-value";
-import { setSpanAttribute, trace } from "../lib/tracing";
+} from '..';
+import { normalizeOptions } from '../lib/normalize-options';
+import { internalReportValue } from '../lib/report-value';
+import { setSpanAttribute, trace } from '../lib/tracing';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
-} from "../spec-extension/adapters/headers";
+} from '../spec-extension/adapters/headers';
 import {
   type ReadonlyRequestCookies,
   RequestCookiesAdapter,
-} from "../spec-extension/adapters/request-cookies";
+} from '../spec-extension/adapters/request-cookies';
 import type {
   Decide,
   FlagDeclaration,
@@ -24,11 +24,11 @@ import type {
   Identify,
   JsonValue,
   Origin,
-} from "../types";
-import { isInternalNextError } from "./is-internal-next-error";
-import { getOverrides } from "./overrides";
-import { getPrecomputed } from "./precompute";
-import type { Flag, PagesRouterFlag, PrecomputedFlag } from "./types";
+} from '../types';
+import { isInternalNextError } from './is-internal-next-error';
+import { getOverrides } from './overrides';
+import { getPrecomputed } from './precompute';
+import type { Flag, PagesRouterFlag, PrecomputedFlag } from './types';
 
 export {
   combine,
@@ -38,8 +38,8 @@ export {
   getPrecomputed,
   precompute,
   serialize,
-} from "./precompute";
-export type { Flag } from "./types";
+} from './precompute';
+export type { Flag } from './types';
 
 // a map of (headers, flagKey, entitiesKey) => value
 const evaluationCache = new WeakMap<
@@ -94,7 +94,7 @@ function setCachedValuePromise(
 
 type IdentifyArgs = Parameters<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Exclude<FlagDeclaration<any, any>["identify"], undefined>
+  Exclude<FlagDeclaration<any, any>['identify'], undefined>
 >;
 const transformMap = new WeakMap<IncomingHttpHeaders, Headers>();
 const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
@@ -147,13 +147,13 @@ function sealCookies(headers: Headers): ReadonlyRequestCookies {
 }
 
 function isIdentifyFunction<ValueType, EntitiesType>(
-  identify: FlagDeclaration<ValueType, EntitiesType>["identify"] | EntitiesType,
-): identify is FlagDeclaration<ValueType, EntitiesType>["identify"] {
-  return typeof identify === "function";
+  identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
+): identify is FlagDeclaration<ValueType, EntitiesType>['identify'] {
+  return typeof identify === 'function';
 }
 
 async function getEntities<ValueType, EntitiesType>(
-  identify: FlagDeclaration<ValueType, EntitiesType>["identify"] | EntitiesType,
+  identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
   dedupeCacheKey: Headers | IncomingHttpHeaders,
   readonlyHeaders: ReadonlyHeaders,
   readonlyCookies: ReadonlyRequestCookies,
@@ -175,10 +175,10 @@ function getDecide<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
   return function decide(params) {
-    if (typeof definition.decide === "function") {
+    if (typeof definition.decide === 'function') {
       return definition.decide(params);
     }
-    if (typeof definition.adapter?.decide === "function") {
+    if (typeof definition.adapter?.decide === 'function') {
       return definition.adapter.decide({ key: definition.key, ...params });
     }
     throw new Error(`flags: No decide function provided for ${definition.key}`);
@@ -189,10 +189,10 @@ function getIdentify<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Identify<EntitiesType> {
   return function identify(params) {
-    if (typeof definition.identify === "function") {
+    if (typeof definition.identify === 'function') {
       return definition.identify(params);
     }
-    if (typeof definition.adapter?.identify === "function") {
+    if (typeof definition.adapter?.identify === 'function') {
       return definition.adapter.identify(params);
     }
     return definition.identify;
@@ -202,7 +202,7 @@ function getIdentify<ValueType, EntitiesType>(
 type Run<ValueType, EntitiesType> = (options: {
   entities?: EntitiesType;
   identify?:
-    | FlagDeclaration<ValueType, EntitiesType>["identify"]
+    | FlagDeclaration<ValueType, EntitiesType>['identify']
     | EntitiesType;
   /**
    * For Pages Router only
@@ -231,7 +231,7 @@ function getRun<ValueType, EntitiesType>(
 
       // async import required as turbopack errors in Pages Router
       // when next/headers is imported at the top-level
-      const { headers, cookies } = await import("next/headers");
+      const { headers, cookies } = await import('next/headers');
 
       const [headersStore, cookiesStore] = await Promise.all([
         headers(),
@@ -243,7 +243,7 @@ function getRun<ValueType, EntitiesType>(
     }
 
     const overrides = await getOverrides(
-      readonlyCookies.get("vercel-flag-overrides")?.value,
+      readonlyCookies.get('vercel-flag-overrides')?.value,
     );
 
     // the flag is being used in app router
@@ -255,7 +255,7 @@ function getRun<ValueType, EntitiesType>(
     )) as EntitiesType | undefined;
 
     // check cache
-    const entitiesKey = JSON.stringify(entities) ?? "";
+    const entitiesKey = JSON.stringify(entities) ?? '';
 
     const cachedValue = getCachedValuePromise(
       readonlyHeaders,
@@ -263,13 +263,13 @@ function getRun<ValueType, EntitiesType>(
       entitiesKey,
     );
     if (cachedValue !== undefined) {
-      setSpanAttribute("method", "cached");
+      setSpanAttribute('method', 'cached');
       const value = await cachedValue;
       return value;
     }
 
     if (overrides && overrides[definition.key] !== undefined) {
-      setSpanAttribute("method", "override");
+      setSpanAttribute('method', 'override');
       const decision = overrides[definition.key] as ValueType;
       setCachedValuePromise(
         readonlyHeaders,
@@ -278,7 +278,7 @@ function getRun<ValueType, EntitiesType>(
         Promise.resolve(decision),
       );
       internalReportValue(definition.key, decision, {
-        reason: "override",
+        reason: 'override',
       });
       return decision;
     }
@@ -311,7 +311,7 @@ function getRun<ValueType, EntitiesType>(
 
           // try to recover if defaultValue is set
           if (definition.defaultValue !== undefined) {
-            if (process.env.NODE_ENV === "development") {
+            if (process.env.NODE_ENV === 'development') {
               console.info(
                 `flags: Flag "${definition.key}" is falling back to its defaultValue`,
               );
@@ -354,7 +354,7 @@ function getOrigin<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): string | Origin | undefined {
   if (definition.origin) return definition.origin;
-  if (typeof definition.adapter?.origin === "function")
+  if (typeof definition.adapter?.origin === 'function')
     return definition.adapter.origin(definition.key);
   return definition.adapter?.origin;
 }
@@ -390,15 +390,15 @@ export function flag<
       // Default method, may be overwritten by `getPrecomputed` or `run`
       // which is why we must not trace them directly in here,
       // as the attribute should be part of the `flag` function.
-      setSpanAttribute("method", "decided");
+      setSpanAttribute('method', 'decided');
 
       // the flag was precomputed, works for both App Router and Pages Router
-      if (typeof args[0] === "string" && Array.isArray(args[1])) {
+      if (typeof args[0] === 'string' && Array.isArray(args[1])) {
         const [precomputedCode, precomputedGroup, secret] = args as Parameters<
           PrecomputedFlag<ValueType, EntitiesType>
         >;
         if (precomputedCode && precomputedGroup) {
-          setSpanAttribute("method", "precomputed");
+          setSpanAttribute('method', 'precomputed');
           return getPrecomputed(
             flag,
             precomputedGroup,
@@ -414,7 +414,7 @@ export function flag<
       // to build time errors in the host application due to Edge Runtime,
       // so we check for headers on the first arg instead, which indicates an
       // IncomingMessage
-      if (args[0] && typeof args[0] === "object" && "headers" in args[0]) {
+      if (args[0] && typeof args[0] === 'object' && 'headers' in args[0]) {
         const [request] = args as Parameters<
           PagesRouterFlag<ValueType, EntitiesType>
         >;
@@ -425,7 +425,7 @@ export function flag<
       return run({ identify, request: undefined });
     },
     {
-      name: "flag",
+      name: 'flag',
       isVerboseTrace: false,
       attributes: { key: definition.key },
     },
@@ -439,18 +439,18 @@ export function flag<
   flag.identify = identify
     ? trace(identify, {
         isVerboseTrace: false,
-        name: "identify",
+        name: 'identify',
         attributes: { key: definition.key },
       })
     : identify;
   flag.decide = trace(decide, {
     isVerboseTrace: false,
-    name: "decide",
+    name: 'decide',
     attributes: { key: definition.key },
   });
   flag.run = trace(run, {
     isVerboseTrace: false,
-    name: "run",
+    name: 'run',
     attributes: { key: definition.key },
   });
 
@@ -491,5 +491,5 @@ export function getProviderData(
   return { definitions, hints: [] };
 }
 
-export { createFlagsDiscoveryEndpoint } from "./create-flags-discovery-endpoint";
-export { clearDedupeCacheForCurrentRequest, dedupe } from "./dedupe";
+export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';
+export { clearDedupeCacheForCurrentRequest, dedupe } from './dedupe';

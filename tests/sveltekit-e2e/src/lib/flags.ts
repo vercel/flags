@@ -1,10 +1,10 @@
-import type { ReadonlyHeaders, ReadonlyRequestCookies } from "flags";
-import { flag } from "flags/sveltekit";
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import { flag } from 'flags/sveltekit';
 
 export const showDashboard = flag<boolean>({
-  key: "showDashboard",
-  description: "Show the dashboard", // optional
-  origin: "https://example.com/#showdashbord", // optional
+  key: 'showDashboard',
+  description: 'Show the dashboard', // optional
+  origin: 'https://example.com/#showdashbord', // optional
   options: [{ value: true }, { value: false }], // optional
   // can be async and has access to the event
   decide(_event) {
@@ -13,13 +13,13 @@ export const showDashboard = flag<boolean>({
 });
 
 export const hostFlag = flag<string>({
-  key: "host",
-  decide: ({ headers }) => headers.get("host") || "no host",
+  key: 'host',
+  decide: ({ headers }) => headers.get('host') || 'no host',
 });
 
 export const cookieFlag = flag<string>({
-  key: "cookie",
-  decide: ({ cookies }) => cookies.get("example-cookie")?.value || "no cookie",
+  key: 'cookie',
+  decide: ({ cookies }) => cookies.get('example-cookie')?.value || 'no cookie',
 });
 
 interface Entities {
@@ -34,11 +34,11 @@ function identify({
   headers: ReadonlyHeaders;
 }): Entities {
   const visitorId =
-    cookies.get("visitorId")?.value ?? headers.get("x-visitorId");
+    cookies.get('visitorId')?.value ?? headers.get('x-visitorId');
 
   if (!visitorId) {
     throw new Error(
-      "Visitor ID not found - should have been set by middleware or within api/reroute",
+      'Visitor ID not found - should have been set by middleware or within api/reroute',
     );
   }
 
@@ -46,18 +46,18 @@ function identify({
 }
 
 export const precomputedFlag = flag<string, Entities>({
-  key: "precomputedFlag",
-  description: "A precomputed flag",
+  key: 'precomputedFlag',
+  description: 'A precomputed flag',
   identify,
   decide({ entities, cookies, headers }) {
-    if (!entities?.visitorId) return "fail";
+    if (!entities?.visitorId) return 'fail';
 
     return (
       entities.visitorId +
-      "|" +
-      (cookies.get("visitorId")?.value || "no cookie") +
-      "|" +
-      (headers.get("x-visitorId") || "no header")
+      '|' +
+      (cookies.get('visitorId')?.value || 'no cookie') +
+      '|' +
+      (headers.get('x-visitorId') || 'no header')
     );
   },
 });

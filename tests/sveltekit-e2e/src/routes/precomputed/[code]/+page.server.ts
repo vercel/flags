@@ -1,7 +1,7 @@
-import { generatePermutations } from "flags/sveltekit";
-import { precomputedFlag } from "$lib/flags";
-import { precomputedFlags } from "$lib/precomputed-flags";
-import type { PageServerLoad } from "./$types";
+import { generatePermutations } from 'flags/sveltekit';
+import { precomputedFlag } from '$lib/flags';
+import { precomputedFlags } from '$lib/precomputed-flags';
+import type { PageServerLoad } from './$types';
 
 export const prerender = true;
 

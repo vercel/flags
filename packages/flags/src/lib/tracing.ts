@@ -3,13 +3,13 @@ import type {
   AttributeValue,
   Tracer,
   TracerProvider,
-} from "@opentelemetry/api";
-import { AsyncLocalStorage } from "async_hooks";
-import { name as pkgName, version } from "../../package.json";
+} from '@opentelemetry/api';
+import { AsyncLocalStorage } from 'async_hooks';
+import { name as pkgName, version } from '../../package.json';
 
 // Use a symbol to avoid having global variable that is scoped to this file,
 // as it can lead to issues with cjs and mjs being used at the same time.
-const vercelFlagsTraceSymbol = Symbol.for("flags:global-trace");
+const vercelFlagsTraceSymbol = Symbol.for('flags:global-trace');
 
 /**
  * Allows setting the `@opentelemetry/api` tracer provider to generate traces
@@ -29,9 +29,9 @@ function getTracer(): Tracer | undefined {
 function isPromise<T>(p: unknown): p is Promise<T> {
   return (
     p !== null &&
-    typeof p === "object" &&
-    "then" in p &&
-    typeof p.then === "function"
+    typeof p === 'object' &&
+    'then' in p &&
+    typeof p.then === 'function'
   );
 }
 
@@ -62,7 +62,7 @@ export function trace<F extends (...args: any) => any>(
     if (!tracer) return fn.apply(this, args);
 
     const shouldTrace =
-      process.env.VERCEL_FLAGS_TRACE_VERBOSE === "true" ||
+      process.env.VERCEL_FLAGS_TRACE_VERBOSE === 'true' ||
       options.isVerboseTrace === false;
     if (!shouldTrace) return fn.apply(this, args);
 

@@ -1,6 +1,6 @@
-import { precompute } from "flags/next";
-import { type NextRequest, NextResponse } from "next/server";
-import { marketingFlags } from "./flags";
+import { precompute } from 'flags/next';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './flags';
 
 export async function automaticPrecomputeMiddleware(request: NextRequest) {
   // precompute the flags

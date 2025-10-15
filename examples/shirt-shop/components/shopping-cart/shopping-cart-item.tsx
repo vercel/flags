@@ -1,11 +1,11 @@
-"use client";
-import { ShoppingBagIcon } from "@heroicons/react/24/outline";
-import { motion } from "motion/react";
-import Image from "next/image";
-import Link from "next/link";
-import type { CartItem } from "@/components/utils/cart-types";
-import { colorToImage } from "@/components/utils/images";
-import { ShoppingCartRemoveButton } from "./shopping-cart-remove-button";
+'use client';
+import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { motion } from 'motion/react';
+import Image from 'next/image';
+import Link from 'next/link';
+import type { CartItem } from '@/components/utils/cart-types';
+import { colorToImage } from '@/components/utils/images';
+import { ShoppingCartRemoveButton } from './shopping-cart-remove-button';
 
 export function EmptyShoppingCartItem() {
   return (
@@ -17,7 +17,7 @@ export function EmptyShoppingCartItem() {
       transition={{ duration: 0.2 }}
       className="py-6 text-center text-gray-500"
     >
-      Your cart is empty.{" "}
+      Your cart is empty.{' '}
       <Link href="/" className="text-blue-600 hover:text-blue-500">
         Continue shopping
       </Link>

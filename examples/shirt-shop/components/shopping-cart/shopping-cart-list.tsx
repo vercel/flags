@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence } from 'motion/react';
 
 export function ShoppingCartList({ children }: { children: React.ReactNode }) {
   return (

@@ -1,4 +1,4 @@
-import Statsig from "statsig-node-lite";
+import Statsig from 'statsig-node-lite';
 
 declare global {
   var EdgeRuntime: string | undefined;
@@ -18,8 +18,8 @@ export async function createEdgeConfigDataAdapter(options: {
 }) {
   // Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
   // Since it is a peer dependency, we will import it dynamically
-  const { EdgeConfigDataAdapter } = await import("statsig-node-vercel");
-  const { createClient } = await import("@vercel/edge-config");
+  const { EdgeConfigDataAdapter } = await import('statsig-node-vercel');
+  const { createClient } = await import('@vercel/edge-config');
   return new EdgeConfigDataAdapter({
     edgeConfigItemKey: options.edgeConfigItemKey,
     edgeConfigClient: createClient(options.edgeConfigConnectionString, {
@@ -62,7 +62,7 @@ export const createSyncingHandler = (
           isSyncingConfigSpecs = false;
           nextConfigSpecSyncTime = Date.now() + minSyncDelayMs;
         });
-        import("@vercel/functions").then(({ waitUntil }) => {
+        import('@vercel/functions').then(({ waitUntil }) => {
           waitUntil(sync);
         });
       } catch {

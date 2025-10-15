@@ -1,7 +1,7 @@
-import { precompute } from "flags/next";
-import { type NextRequest, NextResponse } from "next/server";
-import { marketingFlags } from "./flags";
-import { getOrGenerateVisitorId } from "./get-or-generate-visitor-id";
+import { precompute } from 'flags/next';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './flags';
+import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
 
 export async function marketingMiddleware(request: NextRequest) {
   // assign a cookie to the visitor
@@ -19,12 +19,12 @@ export async function marketingMiddleware(request: NextRequest) {
     {
       headers: {
         // Set the cookie on the response
-        "Set-Cookie": `marketing-visitor-id=${visitorId}; Path=/`,
+        'Set-Cookie': `marketing-visitor-id=${visitorId}; Path=/`,
         // Add a request header, so the page knows the generated id even
         // on the first-ever request which has no request cookie yet.
         //
         // This is later used by the getOrGenerateVisitorId function.
-        "x-marketing-visitor-id": visitorId,
+        'x-marketing-visitor-id': visitorId,
       },
     },
   );

@@ -1,7 +1,7 @@
-import { flag } from "flags/next";
+import { flag } from 'flags/next';
 
 export const exampleFlag = flag<boolean>({
-  key: "pages-router-precomputed-example-flag",
+  key: 'pages-router-precomputed-example-flag',
   decide() {
     return true;
   },

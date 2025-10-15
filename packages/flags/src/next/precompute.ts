@@ -1,6 +1,6 @@
-import type { JsonValue } from "..";
-import * as s from "../lib/serialization";
-import type { Flag } from "./types";
+import type { JsonValue } from '..';
+import * as s from '../lib/serialization';
+import type { Flag } from './types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FlagsArray = readonly Flag<any, any>[];
@@ -63,7 +63,7 @@ export async function serialize(
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
   if (!secret) {
-    throw new Error("flags: Can not serialize due to missing secret");
+    throw new Error('flags: Can not serialize due to missing secret');
   }
 
   return s.serialize(combine(flags, values), flags, secret);
@@ -82,7 +82,7 @@ export async function deserialize(
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
   if (!secret) {
-    throw new Error("flags: Can not serialize due to missing secret");
+    throw new Error('flags: Can not serialize due to missing secret');
   }
 
   return s.deserialize(code, flags, secret);
@@ -142,7 +142,7 @@ export async function getPrecomputed<T extends JsonValue>(
 ): Promise<any> {
   if (!secret) {
     throw new Error(
-      "flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.",
+      'flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
 
@@ -178,7 +178,7 @@ export async function generatePermutations(
 ): Promise<string[]> {
   if (!secret) {
     throw new Error(
-      "flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.",
+      'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
 

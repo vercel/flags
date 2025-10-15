@@ -1,27 +1,27 @@
-import { generatePermutations } from "flags/next";
+import { generatePermutations } from 'flags/next';
 import type {
   GetStaticPaths,
   GetStaticProps,
   InferGetStaticPropsType,
-} from "next";
+} from 'next';
 import {
   cookieFlag,
   exampleFlag,
   hostFlag,
   precomputedFlags,
-} from "../../../flags";
+} from '../../../flags';
 
 export const getStaticPaths = (async () => {
   const codes = await generatePermutations(precomputedFlags);
 
   return {
     paths: codes.map((code) => ({ params: { code } })),
-    fallback: "blocking",
+    fallback: 'blocking',
   };
 }) satisfies GetStaticPaths;
 
 export const getStaticProps = (async (context) => {
-  if (typeof context.params?.code !== "string") return { notFound: true };
+  if (typeof context.params?.code !== 'string') return { notFound: true };
 
   const example = await exampleFlag(context.params.code, precomputedFlags);
   const host = await hostFlag(context.params.code, precomputedFlags);
@@ -37,7 +37,7 @@ export default function Page({
 }: InferGetStaticPropsType<typeof getStaticProps>) {
   return (
     <div>
-      <p>Pages Router Precomputed Example: {example ? "true" : "false"}</p>
+      <p>Pages Router Precomputed Example: {example ? 'true' : 'false'}</p>
       <p>Pages Router Precomputed Cookie: {cookie}</p>
       <p>Pages Router Precomputed Host: {host}</p>
     </div>

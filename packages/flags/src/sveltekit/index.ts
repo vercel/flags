@@ -1,12 +1,12 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { RequestCookies } from "@edge-runtime/cookies";
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
   json,
   type RequestEvent,
   type RequestHandler,
-} from "@sveltejs/kit";
+} from '@sveltejs/kit';
 import {
   decryptFlagDefinitions as _decryptFlagDefinitions,
   decryptFlagValues as _decryptFlagValues,
@@ -21,30 +21,30 @@ import {
   safeJsonStringify,
   verifyAccess,
   version,
-} from "..";
-import { normalizeOptions } from "../lib/normalize-options";
+} from '..';
+import { normalizeOptions } from '../lib/normalize-options';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
-} from "../spec-extension/adapters/headers";
+} from '../spec-extension/adapters/headers';
 import {
   type ReadonlyRequestCookies,
   RequestCookiesAdapter,
-} from "../spec-extension/adapters/request-cookies";
+} from '../spec-extension/adapters/request-cookies';
 import type {
   Decide,
   FlagDeclaration,
   FlagOverridesType,
   FlagValuesType,
   Identify,
-} from "../types";
-import { tryGetSecret } from "./env";
+} from '../types';
+import { tryGetSecret } from './env';
 import {
   generatePermutations as _generatePermutations,
   precompute as _precompute,
   getPrecomputed,
-} from "./precompute";
-import type { Flag, FlagsArray } from "./types";
+} from './precompute';
+import type { Flag, FlagsArray } from './types';
 
 // biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(
@@ -101,10 +101,10 @@ function getDecide<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
   return function decide(params) {
-    if (typeof definition.decide === "function") {
+    if (typeof definition.decide === 'function') {
       return definition.decide(params);
     }
-    if (typeof definition.adapter?.decide === "function") {
+    if (typeof definition.adapter?.decide === 'function') {
       return definition.adapter.decide({ key: definition.key, ...params });
     }
     throw new Error(`flags: No decide function provided for ${definition.key}`);
@@ -114,10 +114,10 @@ function getDecide<ValueType, EntitiesType>(
 function getIdentify<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Identify<EntitiesType> | undefined {
-  if (typeof definition.identify === "function") {
+  if (typeof definition.identify === 'function') {
     return definition.identify;
   }
-  if (typeof definition.adapter?.identify === "function") {
+  if (typeof definition.adapter?.identify === 'function') {
     return definition.adapter.identify;
   }
 }
@@ -157,12 +157,12 @@ export function flag<
           requestMap.set(requestOrCode, store);
         }
       } else {
-        throw new Error("flags: Neither context found nor Request provided");
+        throw new Error('flags: Neither context found nor Request provided');
       }
     }
 
     if (
-      typeof requestOrCode === "string" &&
+      typeof requestOrCode === 'string' &&
       Array.isArray(flagsArrayOrSecret)
     ) {
       return getPrecomputed(
@@ -175,7 +175,7 @@ export function flag<
 
     if (hasOwnProperty(store.usedFlags, definition.key)) {
       const valuePromise = store.usedFlags[definition.key];
-      if (typeof valuePromise !== "undefined") {
+      if (typeof valuePromise !== 'undefined') {
         return valuePromise as Promise<ValueType>;
       }
     }
@@ -183,14 +183,14 @@ export function flag<
     const headers = sealHeaders(store.request.headers);
     const cookies = sealCookies(store.request.headers);
 
-    const overridesCookie = cookies.get("vercel-flag-overrides")?.value;
+    const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
       ? await _decryptOverrides(overridesCookie, store.secret)
       : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
-      if (typeof value !== "undefined") {
+      if (typeof value !== 'undefined') {
         reportValue(definition.key, value);
         store.usedFlags[definition.key] = Promise.resolve(value as JsonValue);
         return value;
@@ -308,8 +308,8 @@ export function createHandle({
     if (
       flags &&
       // avoid creating the URL object for every request by checking with includes() first
-      event.request.url.includes("/.well-known/") &&
-      new URL(event.request.url).pathname === "/.well-known/vercel/flags"
+      event.request.url.includes('/.well-known/') &&
+      new URL(event.request.url).pathname === '/.well-known/vercel/flags'
     ) {
       return handleWellKnownFlagsRoute(event, secret, flags);
     }
@@ -334,7 +334,7 @@ export function createHandle({
           );
 
           return html.replace(
-            "</body>",
+            '</body>',
             `<script type="application/json" data-flag-values>${safeJsonStringify(encryptedFlagValues)}</script></body>`,
           );
         },
@@ -350,13 +350,13 @@ async function handleWellKnownFlagsRoute(
   flags: Record<string, Flag<any>>,
 ) {
   const access = await verifyAccess(
-    event.request.headers.get("Authorization"),
+    event.request.headers.get('Authorization'),
     secret,
   );
   if (!access) return new Response(null, { status: 401 });
   const providerData = getProviderData(flags);
   return Response.json(providerData, {
-    headers: { "x-flags-sdk-version": version },
+    headers: { 'x-flags-sdk-version': version },
   });
 }
 
@@ -444,13 +444,13 @@ export function createFlagsDiscoveryEndpoint(
 ) {
   const requestHandler: RequestHandler = async (event) => {
     const access = await verifyAccess(
-      event.request.headers.get("Authorization"),
+      event.request.headers.get('Authorization'),
       options?.secret,
     );
     if (!access) error(401);
 
     const apiData = await getApiData(event);
-    return json(apiData, { headers: { "x-flags-sdk-version": version } });
+    return json(apiData, { headers: { 'x-flags-sdk-version': version } });
   };
 
   return requestHandler;
