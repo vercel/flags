@@ -10,7 +10,7 @@ export const precomputedFlags = [precomputedFlag];
  */
 export async function computeInternalRoute(pathname: string, request: Request) {
   if (pathname === '/precomputed') {
-    return '/precomputed/' + (await precompute(precomputedFlags, request));
+    return `/precomputed/${await precompute(precomputedFlags, request)}`;
   }
 
   return pathname;
