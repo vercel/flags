@@ -31,7 +31,6 @@
     "sonner": "2.0.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
