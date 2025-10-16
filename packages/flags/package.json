@@ -26,6 +26,10 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./utils": {
+      "import": "./dist/utils.js",
+      "require": "./dist/utils.cjs"
+    },
     "./next": {
       "import": "./dist/next.js",
       "require": "./dist/next.cjs"
@@ -49,6 +53,10 @@
       "*": [
         "dist/*.d.ts",
         "dist/*.d.cts"
+      ],
+      "utils": [
+        "dist/utils.d.ts",
+        "dist/utils.d.cts"
       ],
       "next": [
         "dist/next.d.ts",
@@ -79,6 +87,7 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
+    "@vercel/edge-config": "^1.4.0",
     "jose": "^5.2.1"
   },
   "devDependencies": {
