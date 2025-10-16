@@ -60,7 +60,18 @@ export const maxItems = flag<number>({
 Create a custom adapter by using the `createFlagsmithAdapter` function:
 
 ```ts
-import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
+import { createFlagsmithAdapter, EntitiesType } from '@flags-sdk/flagsmith';
+
+const identify: Identify<EntitiesType> = dedupe(async () => {
+  return {
+    targetingKey: 'user',
+    traits: {
+      id: 'e23cc9a8-0287-40aa-8500-6802df91e56a',
+      name: 'John Doe',
+      email: 'johndoe@flagsmith.com',
+    },
+  };
+});
 
 const adapter = createFlagsmithAdapter({
   environmentID: 'your-environment-id',

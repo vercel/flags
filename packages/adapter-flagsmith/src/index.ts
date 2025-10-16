@@ -2,7 +2,6 @@ import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
 import { IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
 
-export type { IIdentity } from 'flagsmith/types';
 export { getProviderData } from './provider';
 
 let defaultFlagsmithAdapter: AdapterResponse | undefined;
@@ -11,7 +10,8 @@ export type FlagsmithValue = IFlagsmithFeature['value'];
 
 export type EntitiesType = {
   targetingKey: string;
-} & Record<string, string | number | boolean | null>;
+  traits: Record<string, string | number | boolean | null>;
+};
 
 export type AdapterResponse = {
   booleanValue: () => Adapter<boolean, EntitiesType>;
@@ -34,11 +34,10 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
         await initialize();
 
         if (identity?.targetingKey) {
-          const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
-            ...traits,
-          });
+          const { targetingKey, traits } = identity;
+          await flagsmith.identify(targetingKey, traits);
         }
+
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
 
@@ -65,10 +64,8 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
         await initialize();
 
         if (identity?.targetingKey) {
-          const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
-            ...traits,
-          });
+          const { targetingKey, traits } = identity;
+          await flagsmith.identify(targetingKey, traits);
         }
 
         const state = flagsmith.getState();
@@ -89,10 +86,8 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
         await initialize();
 
         if (identity?.targetingKey) {
-          const { targetingKey, ...traits } = identity;
-          await flagsmith.identify(identity.targetingKey, {
-            ...traits,
-          });
+          const { targetingKey, traits } = identity;
+          await flagsmith.identify(targetingKey, traits);
         }
 
         const state = flagsmith.getState();
