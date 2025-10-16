@@ -1,35 +1,11 @@
-import type { Adapter, FlagDeclaration } from 'flags';
 import {
   createFlagsClientFromConnectionString,
   type FlagsClient,
   getDefaultFlagsClient,
-} from './native-flags';
-import { Reason } from './native-flags/types';
-import { store } from './store';
-
-export {
-  createFlagsClient,
-  EdgeConfigDataSource,
-  type FlagsClient,
-  getFlagsEnvironment,
-  parseFlagsConnectionString,
-  resetDefaultFlagsClient,
-} from './native-flags';
-export {
-  type Comparator,
-  type ConnectionOptions,
-  type EnvironmentKey,
-  type EvaluationParams,
-  type EvaluationResult,
-  type FlagKey,
-  type Original,
-  OutcomeType,
-  type Packed,
   Reason,
-  type SegmentId,
-  type Value,
-  type VariantId,
-} from './native-flags/types';
+} from '@vercel/flags-core';
+import type { Adapter, FlagDeclaration } from 'flags';
+import { store } from './store';
 
 export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   FlagDeclaration<ValueType, EntitiesType>,

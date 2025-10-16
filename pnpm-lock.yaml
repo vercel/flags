@@ -628,6 +628,9 @@ importers:
 
   packages/adapter-vercel:
     dependencies:
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../vercel-flags
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -726,6 +729,46 @@ importers:
       vitest:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)
+
+  packages/vercel-flags:
+    dependencies:
+      jose:
+        specifier: 5.2.1
+        version: 5.2.1
+      js-xxhash:
+        specifier: 4.0.0
+        version: 4.0.0
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.17
+        version: 20.11.17
+      '@vercel/edge-config':
+        specifier: 1.4.0
+        version: 1.4.0(@opentelemetry/api@1.9.0)
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      msw:
+        specifier: 2.6.4
+        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      tsup:
+        specifier: 8.0.1
+        version: 8.0.1(typescript@5.6.3)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+      vite:
+        specifier: 6.0.3
+        version: 6.0.3(@types/node@20.11.17)
+      vitest:
+        specifier: 2.1.8
+        version: 2.1.8(@types/node@20.11.17)(msw@2.6.4)
 
   tests/next-14:
     dependencies:

@@ -11,6 +11,7 @@ export {
   EdgeConfigDataSource,
   type FlagsClient,
 } from './client';
+export { Reason } from './types';
 
 let defaultFlagsClient: FlagsClient | null = null;
 

@@ -1,5 +1,5 @@
 {
-  "name": "@flags-sdk/vercel",
+  "name": "@vercel/flags-core",
   "version": "0.1.0",
   "description": "",
   "keywords": [],
@@ -32,15 +32,13 @@
   },
   "dependencies": {
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "@vercel/flags-core": "workspace:*"
+    "js-xxhash": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
     "@vercel/edge-config": "1.4.0",
     "flags": "workspace:*",
     "msw": "2.6.4",
-    "next": "15.0.3",
     "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",

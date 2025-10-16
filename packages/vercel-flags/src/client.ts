@@ -1,7 +1,7 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
-import { store } from '../store';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
+import { store } from './store';
 import {
   type ConnectionOptions,
   type EvaluationResult,

@@ -1,3 +1,7 @@
+import {
+  getDefaultFlagsClient,
+  resetDefaultFlagsClient,
+} from '@vercel/flags-core';
 import type { Origin, ProviderData } from 'flags';
 import { flag, getProviderData } from 'flags/next';
 import {
@@ -15,7 +19,6 @@ import {
   resetDefaultVercelAdapter,
   vercelAdapter,
 } from '.';
-import { getDefaultFlagsClient, resetDefaultFlagsClient } from './native-flags';
 
 const mocks = vi.hoisted(() => {
   return {
