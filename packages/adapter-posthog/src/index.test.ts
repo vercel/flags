@@ -1,6 +1,6 @@
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
-import { expect, it, describe, vi, beforeAll } from 'vitest';
-import { postHogAdapter, type PostHogEntities } from '.';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { type PostHogEntities, postHogAdapter } from '.';
 
 const postHogClientMock = {
   isFeatureEnabled: vi.fn(),

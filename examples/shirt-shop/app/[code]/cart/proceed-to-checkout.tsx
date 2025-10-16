@@ -1,8 +1,8 @@
 'use client';
 
-import { ProceedToCheckoutButton } from '@/components/shopping-cart/proceed-to-checkout-button';
 import { track } from '@vercel/analytics';
 import { toast } from 'sonner';
+import { ProceedToCheckoutButton } from '@/components/shopping-cart/proceed-to-checkout-button';
 
 export function ProceedToCheckout({ color }: { color: string }) {
   return (

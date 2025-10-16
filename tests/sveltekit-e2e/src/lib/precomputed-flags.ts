@@ -9,13 +9,13 @@ export const precomputedFlags = [precomputedFlag];
  * e.g. /precomputed -> /precomputed/asd-qwe-123
  */
 export async function computeInternalRoute(pathname: string, request: Request) {
-	if (pathname === '/precomputed') {
-		return '/precomputed/' + (await precompute(precomputedFlags, request));
-	}
+  if (pathname === '/precomputed') {
+    return `/precomputed/${await precompute(precomputedFlags, request)}`;
+  }
 
-	return pathname;
+  return pathname;
 }
 
 export function createVisitorId() {
-	return 'visitorId';
+  return 'visitorId';
 }

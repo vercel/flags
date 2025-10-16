@@ -1,6 +1,6 @@
 import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
-import { IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
+import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
 
 export { getProviderData } from './provider';
 

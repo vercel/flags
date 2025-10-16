@@ -39,7 +39,7 @@ export async function getProviderData(options: {
   if (!host) {
     try {
       host = getAppHost();
-    } catch (e) {
+    } catch {
       hints.push({
         key: 'posthog/missing-app-host',
         text: 'Missing NEXT_PUBLIC_POSTHOG_HOST environment variable',
@@ -67,7 +67,6 @@ export async function getProviderData(options: {
     {
       method: 'GET',
       headers,
-      // @ts-expect-error used by some Next.js versions
       cache: 'no-store',
     },
   );
@@ -95,7 +94,6 @@ export async function getProviderData(options: {
         {
           method: 'GET',
           headers,
-          // @ts-expect-error used by some Next.js versions
           cache: 'no-store',
         },
       );
@@ -130,7 +128,7 @@ export async function getProviderData(options: {
       }, {}),
       hints,
     };
-  } catch (e) {
+  } catch {
     return {
       definitions: {},
       hints: [

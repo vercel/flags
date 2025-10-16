@@ -1,11 +1,11 @@
 import type {
-  Tracer,
   Attributes,
-  TracerProvider,
   AttributeValue,
+  Tracer,
+  TracerProvider,
 } from '@opentelemetry/api';
-import { name as pkgName, version } from '../../package.json';
 import { AsyncLocalStorage } from 'async_hooks';
+import { name as pkgName, version } from '../../package.json';
 
 // Use a symbol to avoid having global variable that is scoped to this file,
 // as it can lead to issues with cjs and mjs being used at the same time.
@@ -41,7 +41,6 @@ export function setSpanAttribute(name: string, value: AttributeValue) {
   spanContext.getStore()?.set(name, value);
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- bc */
 export function trace<F extends (...args: any) => any>(
   fn: F,
   options: {
@@ -95,7 +94,6 @@ export function trace<F extends (...args: any) => any>(
               })
               .catch((error) => {
                 if (options.attributesError) {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- k
                   span.setAttributes(options.attributesError(error));
                 }
 
@@ -112,7 +110,6 @@ export function trace<F extends (...args: any) => any>(
               });
           } else {
             if (options.attributesSuccess) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- k
               span.setAttributes(options.attributesSuccess(result));
             }
 
@@ -149,4 +146,3 @@ export function trace<F extends (...args: any) => any>(
 
   return traced as unknown as F;
 }
-/* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- k */

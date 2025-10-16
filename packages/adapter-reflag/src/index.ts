@@ -1,11 +1,10 @@
-import type { Adapter, FlagDefinitionsType } from 'flags';
 import {
+  type ClientOptions,
+  type Context,
+  type ContextWithTracking,
   ReflagClient,
-  ClientOptions,
-  Context,
-  ContextWithTracking,
 } from '@reflag/node-sdk';
-import { ProviderData } from 'flags';
+import type { Adapter, FlagDefinitionsType, ProviderData } from 'flags';
 
 export type { Context };
 

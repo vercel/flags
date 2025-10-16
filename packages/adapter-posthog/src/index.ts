@@ -1,5 +1,5 @@
 import { PostHog } from 'posthog-node';
-import type { PostHogAdapter, PostHogEntities, JsonType } from './types';
+import type { JsonType, PostHogAdapter, PostHogEntities } from './types';
 
 export { getProviderData } from './provider';
 export type { PostHogEntities, JsonType };

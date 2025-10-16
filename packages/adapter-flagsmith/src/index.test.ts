@@ -1,18 +1,18 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-  afterAll,
-  beforeAll,
-} from 'vitest';
-import flagsmith, { IState, IIdentity } from 'flagsmith';
+import flagsmith, { type IState } from 'flagsmith';
+import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import type { EntitiesType } from '.';
 import { getProviderData } from './provider';
-import { EntitiesType } from '.';
 
 vi.stubEnv('FLAGSMITH_ENVIRONMENT_ID', 'test-env-id');
 
@@ -249,9 +249,10 @@ describe('Flagsmith Adapter', () => {
         cookies: mockCookies,
       });
 
-      expect(flagsmith.identify).toHaveBeenCalledWith(identity.targetingKey, {
-        traits: identity.traits,
-      });
+      expect(flagsmith.identify).toHaveBeenCalledWith(
+        identity.targetingKey,
+        identity.traits,
+      );
     });
   });
 
@@ -302,7 +303,7 @@ describe('Flagsmith Adapter', () => {
             control_value: 'control',
             options: [{ value: 'variant_a' }, { value: 'variant_b' }],
           });
-        }
+        },
       ),
     ];
 
