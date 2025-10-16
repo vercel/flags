@@ -77,6 +77,12 @@ const adapter = createFlagsmithAdapter({
   environmentID: 'your-environment-id',
   // Additional Flagsmith config options
 });
+
+export const showBanner = flag<boolean, EntitiesType>({
+  key: 'show-banner',
+  identify,
+  adapter: adapter.booleanValue(),
+});
 ```
 
 ## Flags Discovery Endpoint
