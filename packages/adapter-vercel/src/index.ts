@@ -1,5 +1,5 @@
 import {
-  createFlagsClientFromConnectionString,
+  createClientFromConnectionString,
   type FlagsClient,
   getDefaultFlagsClient,
   Reason,
@@ -21,7 +21,7 @@ export function createVercelAdapter(
 ) {
   const flagsClient =
     typeof connectionStringOrFlagsClient === 'string'
-      ? createFlagsClientFromConnectionString(connectionStringOrFlagsClient)
+      ? createClientFromConnectionString(connectionStringOrFlagsClient)
       : connectionStringOrFlagsClient;
 
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<

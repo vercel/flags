@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createFlagsClient, type DataSource } from './client';
+import { createClient, type DataSource } from './client';
 import type { ConnectionOptions, Packed } from './types';
 
 class CustomDataSource implements DataSource {
@@ -20,14 +20,14 @@ const connectionOptions: ConnectionOptions = {
   edgeConfigItemKey: null,
 };
 
-describe('createFlagsClient', () => {
+describe('createClient', () => {
   it('should be a function', () => {
-    expect(typeof createFlagsClient).toBe('function');
+    expect(typeof createClient).toBe('function');
   });
 
   it('should allow a custom data source', () => {
     const customDataSource = new CustomDataSource({});
-    const flagsClient = createFlagsClient({
+    const flagsClient = createClient({
       dataSource: customDataSource,
       environment: 'production',
       connectionOptions,
@@ -43,7 +43,7 @@ describe('createFlagsClient', () => {
         'summer-sale': { environments: { production: 0 }, variants: [false] },
       },
     });
-    const flagsClient = createFlagsClient({
+    const flagsClient = createClient({
       dataSource: customDataSource,
       environment: 'production',
       connectionOptions,

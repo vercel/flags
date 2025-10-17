@@ -1,13 +1,9 @@
-import { createClient } from '@vercel/edge-config';
-import {
-  createFlagsClient,
-  EdgeConfigDataSource,
-  type FlagsClient,
-} from './client';
+import { createClient as createEdgeConfigClient } from '@vercel/edge-config';
+import { createClient, EdgeConfigDataSource, type FlagsClient } from './client';
 import type { ConnectionOptions } from './types';
 
 export {
-  createFlagsClient,
+  createClient,
   EdgeConfigDataSource,
   type FlagsClient,
 } from './client';
@@ -74,9 +70,7 @@ export function resetDefaultFlagsClient() {
   defaultFlagsClient = null;
 }
 
-export function createFlagsClientFromConnectionString(
-  connectionString: string,
-) {
+export function createClientFromConnectionString(connectionString: string) {
   if (!connectionString) {
     throw new Error('flags: Missing connection string');
   }
@@ -92,7 +86,7 @@ export function createFlagsClientFromConnectionString(
   // const edgeConfigConnectionString = `edge-config:id=${connectionOptions.edgeConfigId}&token=${connectionOptions.edgeConfigToken}`;
   const edgeConfigConnectionString = `https://edge-config.vercel.com/${connectionOptions.edgeConfigId}?token=${connectionOptions.edgeConfigToken}`;
 
-  const edgeConfigClient = createClient(edgeConfigConnectionString);
+  const edgeConfigClient = createEdgeConfigClient(edgeConfigConnectionString);
   const dataSource = new EdgeConfigDataSource({
     edgeConfigClient,
     edgeConfigItemKey,
@@ -100,7 +94,7 @@ export function createFlagsClientFromConnectionString(
 
   const environment = getFlagsEnvironment(connectionOptions.env);
 
-  return createFlagsClient({
+  return createClient({
     dataSource,
     environment,
     connectionOptions,
@@ -125,7 +119,7 @@ export function getDefaultFlagsClient() {
     throw new Error('flags: Missing environment variable FLAGS');
   }
 
-  defaultFlagsClient = createFlagsClientFromConnectionString(process.env.FLAGS);
+  defaultFlagsClient = createClientFromConnectionString(process.env.FLAGS);
   return defaultFlagsClient;
 }
 

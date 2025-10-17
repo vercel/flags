@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createFlagsClientFromConnectionString, type FlagsClient } from '.';
+import { createClientFromConnectionString, type FlagsClient } from '.';
 import { evaluate } from './evaluate';
 import {
   Comparator,
@@ -21,7 +21,7 @@ describe('integration evaluate', () => {
       );
     }
 
-    client = createFlagsClientFromConnectionString(connectionString);
+    client = createClientFromConnectionString(connectionString);
     defaultEnvironment = client.environment;
   });
 

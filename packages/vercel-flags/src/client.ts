@@ -88,7 +88,7 @@ export type FlagsClient = {
  *
  * @example
  *  const edgeConfigClient = createClient('');
- *  const flagsClient = createFlagsClient({
+ *  const flagsClient = createClient({
  *    dataSource: new EdgeConfigDataSource({
  *      edgeConfigItemKey: 'flags',
  *      edgeConfigClient,
@@ -96,7 +96,7 @@ export type FlagsClient = {
  *    environment: 'production',
  *  });
  */
-export function createFlagsClient({
+export function createClient({
   environment,
   dataSource,
   connectionOptions,
