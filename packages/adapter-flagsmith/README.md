@@ -10,54 +10,15 @@ The Flagsmith provider is available in the `@flags-sdk/flagsmith` module. You ca
 npm i @flags-sdk/flagsmith
 ```
 
-## Provider Instance
-
-You can import the default adapter instance `flagsmithAdapter` from `@flags-sdk/flagsmith`:
-
-```ts
-import { flagsmithAdapter } from "@flags-sdk/flagsmith";
-```
-
-## Configuration
-
-The adapter automatically initializes Flagsmith with the following configuration:
-
-- `environmentId`: From `FLAGSMITH_ENVIRONMENT_ID` environment variable
+Set the required environment variable:
 
 ```sh
 export FLAGSMITH_ENVIRONMENT_ID="your-environment-id"
 ```
 
-## Example
+## Usage
 
-```ts
-import { flag } from "flags/next";
-import { flagsmithAdapter } from "@flags-sdk/flagsmith";
-
-// Boolean flags
-export const showBanner = flag<boolean>({
-  key: "show-banner",
-  adapter: flagsmithAdapter.booleanValue(),
-});
-
-// String flags
-export const buttonColor = flag<string>({
-  key: "button-color",
-  defaultValue: "blue",
-  adapter: flagsmithAdapter.stringValue(),
-});
-
-// Number flags
-export const maxItems = flag<number>({
-  key: "max-items",
-  defaultValue: 10,
-  adapter: flagsmithAdapter.numberValue(),
-});
-```
-
-## Type Coercion with getValue
-
-The `getValue()` method provides flexible type coercion for flags where the configured type in Flagsmith may not match your expected type:
+The Flagsmith adapter provides a `getValue()` method with optional type coercion:
 
 ```ts
 import { flag } from "flags/next";
@@ -70,34 +31,38 @@ export const rawFlag = flag({
   adapter: flagsmithAdapter.getValue(),
 });
 
-// Coerce to string - converts numbers/booleans to strings
-export const welcomeMessage = flag<string>({
-  key: "welcome-message",
-  defaultValue: "Welcome",
+// Coerce to string type
+export const buttonColor = flag<string>({
+  key: "button-color",
+  defaultValue: "blue",
   adapter: flagsmithAdapter.getValue({ coerce: "string" }),
 });
 
-// Coerce to number - converts strings like "123" to numbers
-export const maxRetries = flag<number>({
-  key: "max-retries",
-  defaultValue: 3,
+// Coerce to number type
+export const maxItems = flag<number>({
+  key: "max-items",
+  defaultValue: 10,
   adapter: flagsmithAdapter.getValue({ coerce: "number" }),
 });
 
-// Coerce to boolean - converts "true"/"false" strings and 0/1 numbers
-export const maintenanceMode = flag<boolean>({
-  key: "maintenance-mode",
+// Coerce to boolean type
+export const showBanner = flag<boolean>({
+  key: "show-banner",
   defaultValue: false,
   adapter: flagsmithAdapter.getValue({ coerce: "boolean" }),
 });
 ```
 
-**Coercion behavior:**
-- Without `coerce`: Returns the raw value from Flagsmith (empty/null/undefined values return default)
-- With `coerce: "string"`: Converts values to strings (returns default for null/undefined/NaN)
-- With `coerce: "number"`: Converts strings to numbers (returns default if result is NaN)
-- With `coerce: "boolean"`: Converts "true"/"false" strings and 0/1 numbers to booleans (returns default for other values)
-```
+### Type Coercion Behavior
+
+- **Without `coerce`**: Returns the raw value from Flagsmith (empty/null/undefined values return default)
+- **`coerce: "string"`**: Converts any value to string (returns default for null/undefined/NaN)
+- **`coerce: "number"`**: Converts strings to numbers (returns default if result is NaN or invalid)
+- **`coerce: "boolean"`**:
+  - Converts `"true"`/`"false"` strings (case-insensitive) to boolean
+  - Converts `0` to `false` and `1` to `true`
+  - Falls back to the flag's enabled state for other values
+  - Returns default when flag is disabled
 
 ## Custom Adapter
 
@@ -125,7 +90,7 @@ const adapter = createFlagsmithAdapter({
 export const showBanner = flag<boolean, EntitiesType>({
   key: "show-banner",
   identify,
-  adapter: adapter.booleanValue(),
+  adapter: adapter.getValue({ coerce: "boolean" }),
 });
 ```
 
@@ -145,15 +110,7 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 });
 ```
 
-This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer. You'll need to set the `FLAGSMITH_PROJECT_ID` environment variable in addition to `FLAGSMITH_ENVIRONMENT_ID`.
-
-## Features
-
-- **Type-safe flag definitions**: Each method returns a properly typed adapter
-- **Automatic initialization**: Flagsmith client can be lazily initialized
-- **Identity support**: Full support for Flagsmith identity and traits
-- **Default value handling**: Proper fallback to default values when flags are disabled or not found
-- **Boolean flag**: Boolean flags use the `value` if it is of boolean type or the `enabled` state directly
+This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer.
 
 ## Environment Variables
 

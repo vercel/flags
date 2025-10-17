@@ -43,161 +43,6 @@ describe('Flagsmith Adapter', () => {
     vi.clearAllMocks();
   });
 
-  describe('booleanValue', () => {
-    it('should initialize the adapter', async () => {
-      const adapter = flagsmithAdapter.booleanValue();
-      expect(adapter).toBeDefined();
-      expect(adapter.decide).toBeDefined();
-    });
-
-    it('should initialize Flagsmith with correct environment ID', async () => {
-      const adapter = flagsmithAdapter.booleanValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.someValueFlag);
-
-      await adapter.decide({
-        key: 'test-flag',
-        defaultValue: false,
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(flagsmith.init).toHaveBeenCalledWith({
-        fetch: expect.any(Function),
-        environmentID: mockEnvironmentId,
-      });
-    });
-
-    it('should return flag enabled state for boolean values', async () => {
-      const adapter = flagsmithAdapter.booleanValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.someValueFlag);
-
-      const value = await adapter.decide({
-        key: 'test-flag',
-        defaultValue: false,
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe(true);
-    });
-
-    it('should return default value when flag is not found', async () => {
-      const adapter = flagsmithAdapter.booleanValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.emptyFlags);
-
-      const value = await adapter.decide({
-        key: 'non-existent-flag',
-        defaultValue: false,
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe(false);
-    });
-  });
-
-  describe('stringValue', () => {
-    it('should return string value when flag is enabled', async () => {
-      const adapter = flagsmithAdapter.stringValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.testValueFlag);
-
-      const value = await adapter.decide({
-        key: 'test-flag',
-        defaultValue: 'default',
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe('test-value');
-    });
-
-    it('should return default value when flag is disabled', async () => {
-      const adapter = flagsmithAdapter.stringValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.disabledStringFlag);
-
-      const value = await adapter.decide({
-        key: 'test-flag',
-        defaultValue: 'default',
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe('default');
-    });
-  });
-
-  describe('numberValue', () => {
-    it('should return number value when flag is enabled', async () => {
-      const adapter = flagsmithAdapter.numberValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.numberFlag);
-
-      const value = await adapter.decide({
-        key: 'test-flag',
-        defaultValue: 0,
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe(42);
-    });
-
-    it('should return default value when flag is disabled', async () => {
-      const adapter = flagsmithAdapter.numberValue();
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.disabledNumberFlag);
-
-      const value = await adapter.decide({
-        key: 'test-flag',
-        defaultValue: 0,
-        entities: undefined,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(value).toBe(0);
-    });
-  });
-
-  describe('identity handling', () => {
-    it('should identify user when entities are provided', async () => {
-      const adapter = flagsmithAdapter.booleanValue();
-      const identity: EntitiesType = {
-        targetingKey: 'test-id',
-        traits: {
-          name: 'john doe',
-          age: 30,
-        },
-      };
-
-      vi.mocked(flagsmith.getState).mockReturnValue(mocks.testValueFlag);
-
-      await adapter.decide({
-        key: 'test-flag',
-        defaultValue: false,
-        entities: identity,
-        headers: mockHeaders,
-        cookies: mockCookies,
-      });
-
-      expect(flagsmith.identify).toHaveBeenCalledWith(
-        identity.targetingKey,
-        identity.traits,
-      );
-    });
-  });
-
   describe('getValue', () => {
     describe('without coercion', () => {
       it('should return raw string value when no coercion is specified', async () => {
@@ -480,7 +325,7 @@ describe('Flagsmith Adapter', () => {
         expect(value).toBe(false);
       });
 
-      it('should return default value when value cannot be coerced to boolean', async () => {
+      it('should fall back to flagState.enabled when value cannot be coerced to boolean', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
         vi.mocked(flagsmith.getState).mockReturnValue(
@@ -495,10 +340,10 @@ describe('Flagsmith Adapter', () => {
           cookies: mockCookies,
         });
 
-        expect(value).toBe(false);
+        expect(value).toBe(true);
       });
 
-      it('should return default value when number is not 0 or 1', async () => {
+      it('should fall back to flagState.enabled when number is not 0 or 1', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
         vi.mocked(flagsmith.getState).mockReturnValue(
@@ -513,7 +358,25 @@ describe('Flagsmith Adapter', () => {
           cookies: mockCookies,
         });
 
-        expect(value).toBe(false);
+        expect(value).toBe(true);
+      });
+
+      it('should fall back to flagState.enabled when value cannot be coerced to boolean and flag is enabled', async () => {
+        const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
+
+        vi.mocked(flagsmith.getState).mockReturnValue(
+          mocks.nonBooleanValueEnabledFlag,
+        );
+
+        const value = await adapter.decide({
+          key: 'test-flag',
+          defaultValue: false,
+          entities: undefined,
+          headers: mockHeaders,
+          cookies: mockCookies,
+        });
+
+        expect(value).toBe(true);
       });
     });
   });

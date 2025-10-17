@@ -100,3 +100,13 @@ export const testValueFlag: IState<string> = {
   flags: { 'test-flag': { enabled: true, value: 'test-value' } },
   api: 'https://api.flagsmith.com/api/v1/',
 };
+
+export const nonBooleanValueEnabledFlag: IState<string> = {
+  flags: { 'test-flag': { enabled: true, value: 'some-random-string' } },
+  api: 'https://api.flagsmith.com/api/v1/',
+};
+
+export const nonBooleanValueDisabledFlag: IState<string> = {
+  flags: { 'test-flag': { enabled: false, value: 'some-random-string' } },
+  api: 'https://api.flagsmith.com/api/v1/',
+};
