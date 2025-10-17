@@ -225,8 +225,10 @@ describe('Flagsmith Adapter', () => {
       const adapter = flagsmithAdapter.booleanValue();
       const identity: EntitiesType = {
         targetingKey: 'test-id',
-        name: 'john doe',
-        age: 30,
+        traits: {
+          name: 'john doe',
+          age: 30,
+        },
       };
 
       vi.mocked(flagsmith.getState).mockReturnValue({
@@ -247,10 +249,10 @@ describe('Flagsmith Adapter', () => {
         cookies: mockCookies,
       });
 
-      expect(flagsmith.identify).toHaveBeenCalledWith(identity.targetingKey, {
-        name: identity.name,
-        age: identity.age,
-      });
+      expect(flagsmith.identify).toHaveBeenCalledWith(
+        identity.targetingKey,
+        identity.traits,
+      );
     });
   });
 

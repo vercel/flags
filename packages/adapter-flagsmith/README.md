@@ -15,7 +15,7 @@ npm i @flags-sdk/flagsmith
 You can import the default adapter instance `flagsmithAdapter` from `@flags-sdk/flagsmith`:
 
 ```ts
-import { flagsmithAdapter } from '@flags-sdk/flagsmith';
+import { flagsmithAdapter } from "@flags-sdk/flagsmith";
 ```
 
 ## Configuration
@@ -31,25 +31,25 @@ export FLAGSMITH_ENVIRONMENT_ID="your-environment-id"
 ## Example
 
 ```ts
-import { flag } from 'flags/next';
-import { flagsmithAdapter } from '@flags-sdk/flagsmith';
+import { flag } from "flags/next";
+import { flagsmithAdapter } from "@flags-sdk/flagsmith";
 
 // Boolean flags
 export const showBanner = flag<boolean>({
-  key: 'show-banner',
+  key: "show-banner",
   adapter: flagsmithAdapter.booleanValue(),
 });
 
 // String flags
 export const buttonColor = flag<string>({
-  key: 'button-color',
-  defaultValue: 'blue',
+  key: "button-color",
+  defaultValue: "blue",
   adapter: flagsmithAdapter.stringValue(),
 });
 
 // Number flags
 export const maxItems = flag<number>({
-  key: 'max-items',
+  key: "max-items",
   defaultValue: 10,
   adapter: flagsmithAdapter.numberValue(),
 });
@@ -60,11 +60,28 @@ export const maxItems = flag<number>({
 Create a custom adapter by using the `createFlagsmithAdapter` function:
 
 ```ts
-import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
+import { createFlagsmithAdapter, EntitiesType } from "@flags-sdk/flagsmith";
+
+const identify: Identify<EntitiesType> = dedupe(async () => {
+  return {
+    targetingKey: "user",
+    traits: {
+      id: "e23cc9a8-0287-40aa-8500-6802df91e56a",
+      name: "John Doe",
+      email: "johndoe@flagsmith.com",
+    },
+  };
+});
 
 const adapter = createFlagsmithAdapter({
-  environmentID: 'your-environment-id',
+  environmentID: "your-environment-id",
   // Additional Flagsmith config options
+});
+
+export const showBanner = flag<boolean, EntitiesType>({
+  key: "show-banner",
+  identify,
+  adapter: adapter.booleanValue(),
 });
 ```
 
@@ -73,8 +90,8 @@ const adapter = createFlagsmithAdapter({
 To enable the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer), create a discovery endpoint at `app/.well-known/vercel/flags/route.ts`:
 
 ```ts
-import { createFlagsDiscoveryEndpoint } from 'flags/next';
-import { getProviderData } from '@flags-sdk/flagsmith';
+import { createFlagsDiscoveryEndpoint } from "flags/next";
+import { getProviderData } from "@flags-sdk/flagsmith";
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
   return getProviderData({
