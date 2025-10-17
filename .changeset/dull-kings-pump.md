@@ -2,4 +2,4 @@
 '@flags-sdk/flagsmith': major
 ---
 
-Adds Flagsmith Adapter
+Add `@flags-sdk/flagsmith` adapter
