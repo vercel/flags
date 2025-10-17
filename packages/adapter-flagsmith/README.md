@@ -55,6 +55,50 @@ export const maxItems = flag<number>({
 });
 ```
 
+## Type Coercion with getValue
+
+The `getValue()` method provides flexible type coercion for flags where the configured type in Flagsmith may not match your expected type:
+
+```ts
+import { flag } from "flags/next";
+import { flagsmithAdapter } from "@flags-sdk/flagsmith";
+
+// No coercion - returns the raw value from Flagsmith
+export const rawFlag = flag({
+  key: "raw-value",
+  defaultValue: "default",
+  adapter: flagsmithAdapter.getValue(),
+});
+
+// Coerce to string - converts numbers/booleans to strings
+export const welcomeMessage = flag<string>({
+  key: "welcome-message",
+  defaultValue: "Welcome",
+  adapter: flagsmithAdapter.getValue({ coerce: "string" }),
+});
+
+// Coerce to number - converts strings like "123" to numbers
+export const maxRetries = flag<number>({
+  key: "max-retries",
+  defaultValue: 3,
+  adapter: flagsmithAdapter.getValue({ coerce: "number" }),
+});
+
+// Coerce to boolean - converts "true"/"false" strings and 0/1 numbers
+export const maintenanceMode = flag<boolean>({
+  key: "maintenance-mode",
+  defaultValue: false,
+  adapter: flagsmithAdapter.getValue({ coerce: "boolean" }),
+});
+```
+
+**Coercion behavior:**
+- Without `coerce`: Returns the raw value from Flagsmith (empty/null/undefined values return default)
+- With `coerce: "string"`: Converts values to strings (returns default for null/undefined/NaN)
+- With `coerce: "number"`: Converts strings to numbers (returns default if result is NaN)
+- With `coerce: "boolean"`: Converts "true"/"false" strings and 0/1 numbers to booleans (returns default for other values)
+```
+
 ## Custom Adapter
 
 Create a custom adapter by using the `createFlagsmithAdapter` function:

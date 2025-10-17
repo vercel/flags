@@ -1,6 +1,11 @@
 import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
 import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
+import {
+  type CoercedType,
+  type CoerceOption,
+  coerceValue,
+} from './type-coercion';
 
 export { getProviderData } from './provider';
 
@@ -17,6 +22,9 @@ export type AdapterResponse = {
   booleanValue: () => Adapter<boolean, EntitiesType>;
   stringValue: () => Adapter<string, EntitiesType>;
   numberValue: () => Adapter<number, EntitiesType>;
+  getValue: <T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }) => Adapter<CoercedType<T>, EntitiesType>;
 };
 
 export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
@@ -40,8 +48,9 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
+        const isFlagDisabled = !flagState || !flagState.enabled;
 
-        if (!flagState) {
+        if (isFlagDisabled) {
           return defaultValue as boolean;
         }
 
@@ -70,8 +79,14 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
+        const isFlagDisabled = !flagState || !flagState.enabled;
+        const isEmpty =
+          flagState &&
+          (flagState.value === null ||
+            flagState.value === undefined ||
+            flagState.value === '');
 
-        if (!flagState || !flagState.enabled) {
+        if (isFlagDisabled || isEmpty) {
           return defaultValue as string;
         }
 
@@ -92,8 +107,14 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
 
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
+        const isFlagDisabled = !flagState || !flagState.enabled;
+        const isEmpty =
+          flagState &&
+          (flagState.value === null ||
+            flagState.value === undefined ||
+            flagState.value === '');
 
-        if (!flagState || !flagState.enabled) {
+        if (isFlagDisabled || isEmpty) {
           return defaultValue as number;
         }
 
@@ -102,10 +123,58 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
     };
   }
 
+  function getValue<T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }): Adapter<CoercedType<T>, EntitiesType> {
+    return {
+      async decide({
+        key,
+        defaultValue,
+        entities: identity,
+      }): Promise<CoercedType<T>> {
+        await initialize();
+
+        if (identity?.targetingKey) {
+          const { targetingKey, traits } = identity;
+          await flagsmith.identify(targetingKey, traits);
+        }
+
+        const state = flagsmith.getState();
+        const flagState = state.flags?.[key];
+        const isFlagDisabled = !flagState || !flagState.enabled;
+        const isEmpty =
+          flagState &&
+          (flagState.value === null ||
+            flagState.value === undefined ||
+            flagState.value === '');
+
+        if (isFlagDisabled || isEmpty) {
+          return defaultValue as CoercedType<T>;
+        }
+
+        // Without coercion, return raw value
+        if (!options?.coerce) {
+          return flagState.value as CoercedType<T>;
+        }
+
+        // With coercion, attempt to coerce the value
+        const coercedValue = coerceValue(flagState.value, options.coerce);
+
+        // Return default value if coercion failed
+        if (coercedValue === undefined) {
+          return defaultValue as CoercedType<T>;
+        }
+
+        return coercedValue as CoercedType<T>;
+      },
+    };
+  }
+
   return {
     booleanValue,
     stringValue,
     numberValue,
+    getValue,
   };
 }
 
@@ -132,4 +201,7 @@ export const flagsmithAdapter: AdapterResponse = {
   booleanValue: () => getOrCreateDefaultFlagsmithAdapter().booleanValue(),
   stringValue: () => getOrCreateDefaultFlagsmithAdapter().stringValue(),
   numberValue: () => getOrCreateDefaultFlagsmithAdapter().numberValue(),
+  getValue: <T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }) => getOrCreateDefaultFlagsmithAdapter().getValue(options),
 };
