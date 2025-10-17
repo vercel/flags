@@ -14,6 +14,7 @@
   "scripts": {
     "attw": "turbo attw",
     "build": "turbo build",
+    "format": "biome check --write .",
     "dev": "turbo dev",
     "check": "turbo check",
     "next-14": "pnpm dev -F next-14",
