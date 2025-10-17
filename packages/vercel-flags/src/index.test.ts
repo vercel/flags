@@ -1,9 +1,32 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
+  createClient,
   getDefaultFlagsClient,
   getFlagsEnvironment,
   parseFlagsConnectionString,
 } from '.';
+
+describe('createClient', () => {
+  it('should allow creating a client', () => {
+    const client = createClient({
+      environment: 'production',
+      dataSource: {
+        async getData() {
+          return { definitions: {} };
+        },
+      },
+      // TODO connectionOptions should be part of the dataSource
+      connectionOptions: {
+        projectId: 'prj_fakeProjectId',
+        edgeConfigId: 'ecfg_fakeEdgeConfigId',
+        edgeConfigToken: 'fake',
+        edgeConfigItemKey: 'fake-item-key',
+        env: 'production',
+      },
+    });
+    expect(client).toBeDefined();
+  });
+});
 
 describe('getDefaultFlagsClient', () => {
   it('works', () => {
