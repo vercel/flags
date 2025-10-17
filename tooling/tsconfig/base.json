@@ -17,7 +17,7 @@
     "strict": true,
     "moduleResolution": "node",
     "module": "ES2020",
-    "types": ["@types/node", "jest"],
+    "types": ["@types/node"],
     "jsx": "react"
   },
   "exclude": ["node_modules"]
