@@ -8,13 +8,17 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./openfeature": "./dist/openfeature.js"
   },
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
       ".": [
         "dist/*.d.ts"
+      ],
+      "./openfeature": [
+        "dist/openfeature.d.ts"
       ]
     }
   },
