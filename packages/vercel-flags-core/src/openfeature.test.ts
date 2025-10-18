@@ -234,7 +234,7 @@ describe('VercelProvider', () => {
         definitions: {
           'object-flag': {
             environments: { production: 0 },
-            variants: [{ key: 'value' }],
+            variants: ['value'],
           } as Packed.FlagDefinition,
         },
         segments: {},
@@ -251,7 +251,7 @@ describe('VercelProvider', () => {
         {},
       );
 
-      expect(result.value).toEqual({ key: 'value' });
+      expect(result.value).toEqual('value');
       expect(result.reason).toBe(Reason.PAUSED);
     });
 
@@ -317,14 +317,7 @@ describe('VercelProvider', () => {
           'context-flag': {
             environments: {
               production: {
-                targets: [
-                  {},
-                  {
-                    user: {
-                      id: ['user-123'],
-                    },
-                  },
-                ],
+                targets: [{}, { user: { id: ['user-123'] } }],
                 fallthrough: 0,
               },
             },
@@ -342,11 +335,7 @@ describe('VercelProvider', () => {
       const result = await provider.resolveStringEvaluation(
         'context-flag',
         'default',
-        {
-          user: {
-            id: 'user-123',
-          },
-        },
+        { user: { id: 'user-123' } },
       );
 
       expect(result.value).toBe('variant-b');
