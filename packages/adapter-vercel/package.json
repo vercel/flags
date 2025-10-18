@@ -52,6 +52,6 @@
     "flags": "*"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   }
 }

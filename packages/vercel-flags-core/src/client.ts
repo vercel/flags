@@ -3,7 +3,6 @@ import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import { store } from './store';
 import {
-  type ConnectionOptions,
   type EvaluationResult,
   type Packed,
   Reason,
@@ -21,7 +20,14 @@ export type Source = {
  * A generic data source
  */
 export interface DataSource {
+  /**
+   * The datafile
+   */
   getData(): Promise<Packed.Data>;
+  /**
+   * The project for which these flags were loaded for
+   */
+  projectId?: string;
 }
 
 /**
@@ -32,14 +38,17 @@ export class EdgeConfigDataSource implements DataSource {
   edgeConfigClient: EdgeConfigClient;
   edgeConfigItemKey: string;
   requestCache: WeakMap<WeakKey, Promise<Packed.Data | undefined>>;
+  projectId?: string;
 
   constructor(options: {
     edgeConfigItemKey: string;
     edgeConfigClient: EdgeConfigClient;
+    projectId?: string;
   }) {
     this.edgeConfigClient = options.edgeConfigClient;
     this.edgeConfigItemKey = options.edgeConfigItemKey;
     this.requestCache = new WeakMap();
+    this.projectId = options.projectId;
   }
 
   // This is a temporary solution to avoid reading the Edge Config for every flag,
@@ -75,7 +84,6 @@ export class EdgeConfigDataSource implements DataSource {
 export type FlagsClient = {
   environment: string;
   dataSource: DataSource;
-  connectionOptions: ConnectionOptions;
   evaluate: <T = Value, E = Record<string, unknown>>(
     flagKey: string,
     defaultValue?: T,
@@ -99,16 +107,13 @@ export type FlagsClient = {
 export function createClient({
   environment,
   dataSource,
-  connectionOptions,
 }: {
   environment: string;
   dataSource: DataSource;
-  connectionOptions: ConnectionOptions;
 }): FlagsClient {
   return {
     dataSource,
     environment,
-    connectionOptions,
     async evaluate<T = Value, E = Record<string, unknown>>(
       flagKey: string,
       defaultValue?: T,
@@ -134,13 +139,15 @@ export function createClient({
         segments: data.segments,
       });
 
-      internalReportValue(flagKey, result.value, {
-        originProjectId: connectionOptions.projectId,
-        originProvider: 'vercel',
-        reason: result.reason,
-        outcomeType:
-          result.reason !== Reason.ERROR ? result.outcomeType : undefined,
-      });
+      if (dataSource.projectId) {
+        internalReportValue(flagKey, result.value, {
+          originProjectId: dataSource.projectId,
+          originProvider: 'vercel',
+          reason: result.reason,
+          outcomeType:
+            result.reason !== Reason.ERROR ? result.outcomeType : undefined,
+        });
+      }
 
       return result;
     },

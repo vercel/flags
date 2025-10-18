@@ -11,17 +11,10 @@ describe('createClient', () => {
     const client = createClient({
       environment: 'production',
       dataSource: {
+        projectId: 'prj_fakeProjectId',
         async getData() {
           return { definitions: {} };
         },
-      },
-      // TODO connectionOptions should be part of the dataSource
-      connectionOptions: {
-        projectId: 'prj_fakeProjectId',
-        edgeConfigId: 'ecfg_fakeEdgeConfigId',
-        edgeConfigToken: 'fake',
-        edgeConfigItemKey: 'fake-item-key',
-        env: 'production',
       },
     });
     expect(client).toBeDefined();

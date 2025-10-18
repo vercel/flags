@@ -1,24 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { createClient, type DataSource } from './client';
-import type { ConnectionOptions, Packed } from './types';
+import type { Packed } from './types';
 
 class CustomDataSource implements DataSource {
   private data: Partial<Packed.Data>;
-  constructor(data: Partial<Packed.Data>) {
+  public projectId?: string | undefined;
+  constructor(data: Partial<Packed.Data>, projectId?: string) {
     this.data = data;
+    this.projectId = projectId;
   }
   async getData(): Promise<Packed.Data> {
     return this.data as Packed.Data;
   }
 }
-
-const connectionOptions: ConnectionOptions = {
-  edgeConfigId: 'fake-edge-config-id',
-  projectId: 'fake-project-id',
-  edgeConfigToken: 'fake-edge-config-token',
-  env: null,
-  edgeConfigItemKey: null,
-};
 
 describe('createClient', () => {
   it('should be a function', () => {
@@ -30,7 +24,6 @@ describe('createClient', () => {
     const flagsClient = createClient({
       dataSource: customDataSource,
       environment: 'production',
-      connectionOptions,
     });
 
     expect(flagsClient.environment).toEqual('production');
@@ -46,7 +39,6 @@ describe('createClient', () => {
     const flagsClient = createClient({
       dataSource: customDataSource,
       environment: 'production',
-      connectionOptions,
     });
 
     await expect(

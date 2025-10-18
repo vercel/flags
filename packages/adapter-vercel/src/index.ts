@@ -31,7 +31,7 @@ export function createVercelAdapter(
     return {
       origin: {
         provider: 'vercel',
-        projectId: flagsClient.connectionOptions.projectId,
+        projectId: flagsClient.dataSource.projectId,
         env: flagsClient.environment,
       },
       config: { reportValue: false },

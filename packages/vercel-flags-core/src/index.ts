@@ -11,36 +11,12 @@ export { Reason } from './types';
 
 let defaultFlagsClient: FlagsClient | null = null;
 
+// TODO this should possibly be a generic parser for the URL, which
+// can be used with sources other than Edge Config at some point
 export function parseFlagsConnectionString(
   connectionString: string,
 ): ConnectionOptions {
   const errorMessage = 'flags: Invalid connection string';
-
-  if (!connectionString.startsWith('flags:')) {
-    // temporary backwards compatibility
-    const [id, token, settingsString] = connectionString.split(':');
-
-    if (!id || !token) {
-      throw new Error(errorMessage);
-    }
-
-    const connectionSettings = new URLSearchParams(settingsString);
-    const edgeConfigId = connectionSettings.get('edgeConfigId');
-    const edgeConfigToken = connectionSettings.get('edgeConfigToken');
-    // fall back to id here for backwards compatibility
-    const projectId = connectionSettings.get('projectId') ?? id;
-    if (!edgeConfigId || !edgeConfigToken || !projectId) {
-      throw new Error(errorMessage);
-    }
-
-    return {
-      edgeConfigId,
-      edgeConfigToken,
-      projectId,
-      edgeConfigItemKey: connectionSettings.get('edgeConfigItemKey'),
-      env: connectionSettings.get('env'),
-    };
-  }
 
   try {
     const params = new URLSearchParams(connectionString.slice(6));
@@ -87,18 +63,15 @@ export function createClientFromConnectionString(connectionString: string) {
   const edgeConfigConnectionString = `https://edge-config.vercel.com/${connectionOptions.edgeConfigId}?token=${connectionOptions.edgeConfigToken}`;
 
   const edgeConfigClient = createEdgeConfigClient(edgeConfigConnectionString);
+
   const dataSource = new EdgeConfigDataSource({
     edgeConfigClient,
     edgeConfigItemKey,
+    projectId: connectionOptions.projectId,
   });
 
   const environment = getFlagsEnvironment(connectionOptions.env);
-
-  return createClient({
-    dataSource,
-    environment,
-    connectionOptions,
-  });
+  return createClient({ dataSource, environment });
 }
 
 /**
@@ -143,16 +116,3 @@ export function getFlagsEnvironment(connectionOptionsEnv: string | null) {
   }
   return 'preview';
 }
-
-// export function getValue(
-//   key: string,
-//   entities?: Record<string, unknown>,
-//   settings?: {
-//     flagsClient?: FlagsClient;
-//   },
-// ) {
-//   const flagsClient =
-//     settings?.flagsClient ?? getDefaultFlagsClient();
-
-//   return flagsClient.resolve(key, entities);
-// }
