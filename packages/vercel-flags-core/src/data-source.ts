@@ -68,10 +68,12 @@ export class EdgeConfigDataSource implements DataSource {
 }
 
 export class InlineDataSource implements DataSource {
-  data: Packed.Data;
+  private data: Packed.Data;
+  public projectId?: string;
 
-  constructor(data: Packed.Data) {
+  constructor(data: Packed.Data, projectId?: string) {
     this.data = data;
+    this.projectId = projectId;
   }
 
   async getData() {

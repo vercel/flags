@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createClient, type DataSource } from './client';
-import type { Packed } from './types';
-
-class CustomDataSource implements DataSource {
-  private data: Partial<Packed.Data>;
-  public projectId?: string | undefined;
-  constructor(data: Partial<Packed.Data>, projectId?: string) {
-    this.data = data;
-    this.projectId = projectId;
-  }
-  async getData(): Promise<Packed.Data> {
-    return this.data as Packed.Data;
-  }
-}
+import { createClient } from './client';
+import { InlineDataSource } from './data-source';
 
 describe('createClient', () => {
   it('should be a function', () => {
@@ -20,18 +8,18 @@ describe('createClient', () => {
   });
 
   it('should allow a custom data source', () => {
-    const customDataSource = new CustomDataSource({});
+    const inlineDataSource = new InlineDataSource({ definitions: {} });
     const flagsClient = createClient({
-      dataSource: customDataSource,
+      dataSource: inlineDataSource,
       environment: 'production',
     });
 
     expect(flagsClient.environment).toEqual('production');
-    expect(flagsClient.dataSource).toEqual(customDataSource);
+    expect(flagsClient.dataSource).toEqual(inlineDataSource);
   });
 
   it('should evaluate', async () => {
-    const customDataSource = new CustomDataSource({
+    const customDataSource = new InlineDataSource({
       definitions: {
         'summer-sale': { environments: { production: 0 }, variants: [false] },
       },
