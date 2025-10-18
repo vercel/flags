@@ -24,7 +24,7 @@ describe('createClient', () => {
 describe('getDefaultFlagsClient', () => {
   it('works', () => {
     process.env.FLAGS =
-      'someProjectId:unused:edgeConfigId=ecfg_fakeEdgeConfigId&edgeConfigItemKey=fake-item-key&edgeConfigToken=fake';
+      'flags:projectId=someProjectId&edgeConfigId=ecfg_fakeEdgeConfigId&edgeConfigItemKey=fake-item-key&edgeConfigToken=fake';
     process.env.VERCEL_ENV = 'development';
     expect(getDefaultFlagsClient().environment).toEqual('development');
     delete process.env.VERCEL_ENV;
@@ -32,20 +32,6 @@ describe('getDefaultFlagsClient', () => {
 });
 
 describe('parseFlagsConnectionString', () => {
-  it('should parse deprecated connection strings', () => {
-    expect(
-      parseFlagsConnectionString(
-        'prj_xxx:readonlyToken:edgeConfigId=a&edgeConfigToken=b&edgeConfigItemKey=c',
-      ),
-    ).toEqual({
-      edgeConfigId: 'a',
-      edgeConfigToken: 'b',
-      edgeConfigItemKey: 'c',
-      projectId: 'prj_xxx',
-      env: null,
-    });
-  });
-
   it('should parse connection strings', () => {
     expect(
       parseFlagsConnectionString(

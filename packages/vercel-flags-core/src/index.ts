@@ -1,12 +1,13 @@
 import { createClient as createEdgeConfigClient } from '@vercel/edge-config';
-import { createClient, EdgeConfigDataSource, type FlagsClient } from './client';
+import { createClient, type FlagsClient } from './client';
+import { EdgeConfigDataSource } from './data-source';
 import type { ConnectionOptions } from './types';
 
 export {
   createClient,
-  EdgeConfigDataSource,
   type FlagsClient,
 } from './client';
+export { EdgeConfigDataSource, InlineDataSource } from './data-source';
 export { Reason } from './types';
 
 let defaultFlagsClient: FlagsClient | null = null;

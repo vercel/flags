@@ -14,7 +14,9 @@ describe('integration evaluate', () => {
   let defaultEnvironment: string;
 
   beforeAll(async () => {
-    const connectionString = process.env.INTEGRATION_TEST_CONNECTION_STRING;
+    // It's okay that this is commited as it's public
+    const connectionString =
+      'flags:edgeConfigId=ecfg_konthhfbklvwhukdfzco4lkqdhq1&edgeConfigToken=91614cf9-7cb2-414f-aa76-40842e2a07b9&projectId=prj_VGCv1T9ruFqnQoWR3pp78lvtvsfr';
     if (!connectionString) {
       throw new Error(
         'integration-tests: Missing env var INTEGRATION_TEST_CONNECTION_STRING',

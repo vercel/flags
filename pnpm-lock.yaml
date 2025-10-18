@@ -729,6 +729,9 @@ importers:
 
   packages/vercel-flags-core:
     dependencies:
+      '@openfeature/server-sdk':
+        specifier: 1.18.0
+        version: 1.18.0(@openfeature/core@1.7.2)
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -2384,6 +2387,12 @@ packages:
 
   '@openfeature/server-sdk@1.17.1':
     resolution: {integrity: sha512-z5MaVvSNnk1SpRSuU02usnoX9rY9BtnLBNp9T08JOitwiuXs4byR8R5Es4WpsGRnnzBSoBQJL1iGIIYEeeEyxw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@openfeature/core': ^1.7.0
+
+  '@openfeature/server-sdk@1.18.0':
+    resolution: {integrity: sha512-uP8nqEGBS58s3iWXx6d8vnJ6ZVt3DACJL4PWADOAuwIS4xXpID91783e9f6zQ0i1ijQpj3yx+3ZuCB2LfQMUMA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@openfeature/core': ^1.7.0
@@ -8048,6 +8057,10 @@ snapshots:
   '@openfeature/core@1.7.2': {}
 
   '@openfeature/server-sdk@1.17.1(@openfeature/core@1.7.2)':
+    dependencies:
+      '@openfeature/core': 1.7.2
+
+  '@openfeature/server-sdk@1.18.0(@openfeature/core@1.7.2)':
     dependencies:
       '@openfeature/core': 1.7.2
 

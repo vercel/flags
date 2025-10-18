@@ -47,7 +47,13 @@
   },
   "peerDependencies": {
     "@vercel/edge-config": "^1.2.0",
-    "flags": "*"
+    "flags": "*",
+    "@openfeature/server-sdk": "1.18.0"
+  },
+  "peerDependenciesMeta": {
+    "@openfeature/server-sdk": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"
