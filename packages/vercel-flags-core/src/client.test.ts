@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from './client';
-import { InlineDataSource } from './data-source';
+import { InMemoryDataSource } from './data-source';
 
 describe('createClient', () => {
   it('should be a function', () => {
@@ -8,7 +8,7 @@ describe('createClient', () => {
   });
 
   it('should allow a custom data source', () => {
-    const inlineDataSource = new InlineDataSource({ definitions: {} });
+    const inlineDataSource = new InMemoryDataSource({ definitions: {} });
     const flagsClient = createClient({
       dataSource: inlineDataSource,
       environment: 'production',
@@ -19,7 +19,7 @@ describe('createClient', () => {
   });
 
   it('should evaluate', async () => {
-    const customDataSource = new InlineDataSource({
+    const customDataSource = new InMemoryDataSource({
       definitions: {
         'summer-sale': { environments: { production: 0 }, variants: [false] },
       },

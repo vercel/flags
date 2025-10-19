@@ -79,7 +79,7 @@ export class EdgeConfigDataSource implements DataSource {
   }
 }
 
-export class InlineDataSource implements DataSource {
+export class InMemoryDataSource implements DataSource {
   private data: Packed.Data;
   public projectId?: string;
 

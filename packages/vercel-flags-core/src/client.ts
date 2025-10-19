@@ -1,7 +1,10 @@
+// TODO should we store the context schema (entities schema) in Edge Config and validate context?
+// TODO should we make evaluate return the variant ids as well?
 import type { DataSource } from './data-source';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
+  ErrorCode,
   type EvaluationResult,
   type Packed,
   ResolutionReason,
@@ -73,6 +76,7 @@ export function createClient({
         return {
           value: defaultValue,
           reason: ResolutionReason.ERROR,
+          errorCode: ErrorCode.FLAG_NOT_FOUND,
           errorMessage: `Definition not found for flag "${flagKey}"`,
         };
       }

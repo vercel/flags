@@ -18,6 +18,45 @@ export type EvaluationParams<T> = {
   defaultValue?: T;
 };
 
+// Copied from the OpenFeature ErrorCode and commented out unused types
+/**
+ * ErrorCodes that can happen during evaluation
+ */
+export enum ErrorCode {
+  /**
+   * The value was resolved before the provider was ready.
+   */
+  // PROVIDER_NOT_READY = 'PROVIDER_NOT_READY',
+  /**
+   * The provider has entered an irrecoverable error state.
+   */
+  // PROVIDER_FATAL = 'PROVIDER_FATAL',
+  /**
+   * The flag could not be found.
+   */
+  FLAG_NOT_FOUND = 'FLAG_NOT_FOUND',
+  /**
+   * An error was encountered parsing data, such as a flag configuration.
+   */
+  // PARSE_ERROR = 'PARSE_ERROR',
+  /**
+   * The type of the flag value does not match the expected type.
+   */
+  // TYPE_MISMATCH = 'TYPE_MISMATCH',
+  /**
+   * The provider requires a targeting key and one was not provided in the evaluation context.
+   */
+  // TARGETING_KEY_MISSING = 'TARGETING_KEY_MISSING',
+  /**
+   * The evaluation context does not meet provider requirements.
+   */
+  // INVALID_CONTEXT = 'INVALID_CONTEXT',
+  /**
+   * An error with an unspecified code.
+   */
+  // GENERAL = 'GENERAL',
+}
+
 /**
  * The detailed result of a flag evaluation as returned by the `evaluate` function.
  */
@@ -36,10 +75,12 @@ export type EvaluationResult<T> =
        */
       reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
       errorMessage?: never;
+      errorCode?: never;
     }
   | {
       reason: ResolutionReason.ERROR;
       errorMessage: string;
+      errorCode?: ErrorCode;
       /**
        * In cases of errors this is the he defaultValue if one was provided
        */

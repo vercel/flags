@@ -86,8 +86,17 @@ export class VercelProvider implements Provider {
       };
     }
 
+    if (typeof result.value !== 'boolean') {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.TYPE_MISMATCH,
+        errorMessage: `Expected boolean value for flag "${flagKey}"`,
+      };
+    }
+
     return {
-      value: result.value ?? defaultValue,
+      value: result.value,
       reason: mapReason(result.reason),
     };
   }
@@ -102,8 +111,27 @@ export class VercelProvider implements Provider {
       defaultValue,
       context,
     );
+
+    if (result.reason === Reason.ERROR) {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.GENERAL,
+        errorMessage: result.errorMessage,
+      };
+    }
+
+    if (typeof result.value !== 'string') {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.TYPE_MISMATCH,
+        errorMessage: `Expected string value for flag "${flagKey}"`,
+      };
+    }
+
     return {
-      value: result.value ?? defaultValue,
+      value: result.value,
       reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
@@ -119,8 +147,27 @@ export class VercelProvider implements Provider {
       defaultValue,
       context,
     );
+
+    if (result.reason === Reason.ERROR) {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.GENERAL,
+        errorMessage: result.errorMessage,
+      };
+    }
+
+    if (typeof result.value !== 'number') {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.TYPE_MISMATCH,
+        errorMessage: `Expected number value for flag "${flagKey}"`,
+      };
+    }
+
     return {
-      value: result.value ?? defaultValue,
+      value: result.value,
       reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
@@ -136,8 +183,18 @@ export class VercelProvider implements Provider {
       defaultValue,
       context,
     );
+
+    if (result.reason === Reason.ERROR) {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.GENERAL,
+        errorMessage: result.errorMessage,
+      };
+    }
+
     return {
-      value: result.value ?? defaultValue,
+      value: result.value,
       reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
