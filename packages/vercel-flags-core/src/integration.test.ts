@@ -6,7 +6,7 @@ import {
   type EvaluationResult,
   OutcomeType,
   type Packed,
-  Reason,
+  ResolutionReason,
 } from './types';
 
 describe('integration evaluate', () => {
@@ -34,7 +34,7 @@ describe('integration evaluate', () => {
   it('should evaluate active flags', async () => {
     expect(await client.evaluate('active')).toEqual({
       value: true,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -42,7 +42,7 @@ describe('integration evaluate', () => {
   it('should evaluate paused flags', async () => {
     expect(await client.evaluate('paused')).toEqual({
       value: true,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -51,7 +51,7 @@ describe('integration evaluate', () => {
     it('should fall back to the defaultValue', async () => {
       expect(await client.evaluate('does-not-exist', true)).toEqual({
         value: true,
-        reason: Reason.ERROR,
+        reason: ResolutionReason.ERROR,
         errorMessage: 'Definition not found for flag "does-not-exist"',
       });
     });
@@ -59,7 +59,7 @@ describe('integration evaluate', () => {
     it('should error for missing environment config', async () => {
       client.environment = 'this-env-does-not-exist-and-will-cause-an-error';
       expect(await client.evaluate('active')).toEqual({
-        reason: Reason.ERROR,
+        reason: ResolutionReason.ERROR,
         errorMessage:
           'Could not find envConfig for "this-env-does-not-exist-and-will-cause-an-error"',
       });
@@ -71,7 +71,7 @@ describe('integration evaluate', () => {
       await client.evaluate('username', false, { user: { name: 'Joe' } }),
     ).toEqual({
       value: true,
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -79,13 +79,13 @@ describe('integration evaluate', () => {
   it('should not fail on partial entities', async () => {
     expect(await client.evaluate('username', false, { user: {} })).toEqual({
       value: false,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
 
     expect(await client.evaluate('username', false, {})).toEqual({
       value: false,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -93,7 +93,7 @@ describe('integration evaluate', () => {
   it('should respect a collapsed envConfig', async () => {
     expect(await client.evaluate('collapsed')).toEqual({
       value: false,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -105,7 +105,7 @@ describe('integration evaluate', () => {
       await client.evaluate('reuse', undefined, { user: { name: 'Joe' } }),
     ).toEqual({
       value: true,
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -118,7 +118,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.TARGET_MATCH,
+        reason: ResolutionReason.TARGET_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -130,7 +130,7 @@ describe('integration evaluate', () => {
         await client.evaluate('reuse', undefined, { user: { name: 'Joe' } }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -142,7 +142,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -182,7 +182,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
 
@@ -204,7 +204,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -224,7 +224,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -252,7 +252,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
 
@@ -278,7 +278,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });

@@ -1,13 +1,32 @@
 import {
+  ErrorCode,
   type EvaluationContext,
   type JsonValue,
   type Provider,
   type ProviderMetadata,
   ProviderStatus,
   type ResolutionDetails,
+  type ResolutionReason,
+  StandardResolutionReasons,
 } from '@openfeature/server-sdk';
-import { createClientFromConnectionString } from '.';
+import { createClientFromConnectionString, Reason } from '.';
 import type { FlagsClient } from './client';
+
+function mapReason(reason: Reason): ResolutionReason {
+  switch (reason) {
+    case Reason.ERROR:
+      return StandardResolutionReasons.ERROR;
+    case Reason.PAUSED:
+      return StandardResolutionReasons.STATIC;
+    case Reason.FALLTHROUGH:
+      return StandardResolutionReasons.DEFAULT;
+    case Reason.TARGET_MATCH:
+    case Reason.RULE_MATCH:
+      return StandardResolutionReasons.TARGETING_MATCH;
+    default:
+      return StandardResolutionReasons.UNKNOWN;
+  }
+}
 
 export class VercelProvider implements Provider {
   readonly metadata: ProviderMetadata = {
@@ -40,12 +59,11 @@ export class VercelProvider implements Provider {
   }
 
   async initialize(context?: EvaluationContext): Promise<void> {
-    // wait until init
-    // await this.client.initialize();
+    await this.client.initialize();
   }
 
-  async onClose(): Promise<void> {
-    // await this.client.close();
+  async onClose() {
+    await this.client.shutdown();
   }
 
   async resolveBooleanEvaluation(
@@ -58,10 +76,19 @@ export class VercelProvider implements Provider {
       defaultValue,
       context,
     );
+
+    if (result.reason === Reason.ERROR) {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.GENERAL,
+        errorMessage: result.errorMessage,
+      };
+    }
+
     return {
       value: result.value ?? defaultValue,
-      reason: result.reason,
-      errorMessage: result.errorMessage,
+      reason: mapReason(result.reason),
     };
   }
 
@@ -77,7 +104,7 @@ export class VercelProvider implements Provider {
     );
     return {
       value: result.value ?? defaultValue,
-      reason: result.reason,
+      reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
   }
@@ -94,7 +121,7 @@ export class VercelProvider implements Provider {
     );
     return {
       value: result.value ?? defaultValue,
-      reason: result.reason,
+      reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
   }
@@ -111,7 +138,7 @@ export class VercelProvider implements Provider {
     );
     return {
       value: result.value ?? defaultValue,
-      reason: result.reason,
+      reason: mapReason(result.reason),
       errorMessage: result.errorMessage,
     };
   }

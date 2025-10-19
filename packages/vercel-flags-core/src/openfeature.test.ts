@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createClient } from './client';
 import { InlineDataSource } from './data-source';
 import { VercelProvider } from './openfeature';
-import { Reason, type Packed } from './types';
+import { ResolutionReason, type Packed } from './types';
 
 describe('VercelProvider', () => {
   describe('constructor', () => {
@@ -72,7 +72,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe(true);
-      expect(result.reason).toBe(Reason.PAUSED);
+      expect(result.reason).toBe(ResolutionReason.PAUSED);
     });
 
     it('should return default value when flag is not found', async () => {
@@ -93,7 +93,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe(false);
-      expect(result.reason).toBe(Reason.ERROR);
+      expect(result.reason).toBe(ResolutionReason.ERROR);
       expect(result.errorMessage).toContain('Definition not found');
     });
 
@@ -124,7 +124,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe(true);
-      expect(result.reason).toBe(Reason.FALLTHROUGH);
+      expect(result.reason).toBe(ResolutionReason.FALLTHROUGH);
     });
   });
 
@@ -152,7 +152,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe('variant-a');
-      expect(result.reason).toBe(Reason.PAUSED);
+      expect(result.reason).toBe(ResolutionReason.PAUSED);
     });
 
     it('should return default value when flag is not found', async () => {
@@ -173,7 +173,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe('default');
-      expect(result.reason).toBe(Reason.ERROR);
+      expect(result.reason).toBe(ResolutionReason.ERROR);
       expect(result.errorMessage).toContain('Definition not found');
     });
   });
@@ -202,7 +202,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe(42);
-      expect(result.reason).toBe(Reason.PAUSED);
+      expect(result.reason).toBe(ResolutionReason.PAUSED);
     });
 
     it('should return default value when flag is not found', async () => {
@@ -223,7 +223,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe(100);
-      expect(result.reason).toBe(Reason.ERROR);
+      expect(result.reason).toBe(ResolutionReason.ERROR);
       expect(result.errorMessage).toContain('Definition not found');
     });
   });
@@ -252,7 +252,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toEqual('value');
-      expect(result.reason).toBe(Reason.PAUSED);
+      expect(result.reason).toBe(ResolutionReason.PAUSED);
     });
 
     it('should return default value when flag is not found', async () => {
@@ -273,7 +273,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toEqual({ default: true });
-      expect(result.reason).toBe(Reason.ERROR);
+      expect(result.reason).toBe(ResolutionReason.ERROR);
       expect(result.errorMessage).toContain('Definition not found');
     });
   });
@@ -339,7 +339,7 @@ describe('VercelProvider', () => {
       );
 
       expect(result.value).toBe('variant-b');
-      expect(result.reason).toBe(Reason.TARGET_MATCH);
+      expect(result.reason).toBe(ResolutionReason.TARGET_MATCH);
     });
   });
 });

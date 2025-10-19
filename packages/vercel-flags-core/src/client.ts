@@ -4,7 +4,7 @@ import { internalReportValue } from './lib/report-value';
 import {
   type EvaluationResult,
   type Packed,
-  Reason,
+  ResolutionReason,
   type Value,
 } from './types';
 
@@ -23,6 +23,8 @@ export type FlagsClient = {
     defaultValue?: T,
     entities?: E,
   ) => Promise<EvaluationResult<T>>;
+  initialize(): void | Promise<void>;
+  shutdown(): void | Promise<void>;
 };
 
 /**
@@ -48,6 +50,16 @@ export function createClient({
   return {
     dataSource,
     environment,
+    initialize: () => {
+      if (dataSource && typeof dataSource.initialize === 'function') {
+        return dataSource.initialize();
+      }
+    },
+    shutdown: () => {
+      if (dataSource && typeof dataSource.shutdown === 'function') {
+        return dataSource.shutdown();
+      }
+    },
     async evaluate<T = Value, E = Record<string, unknown>>(
       flagKey: string,
       defaultValue?: T,
@@ -60,7 +72,7 @@ export function createClient({
       if (flagDefinition === undefined) {
         return {
           value: defaultValue,
-          reason: Reason.ERROR,
+          reason: ResolutionReason.ERROR,
           errorMessage: `Definition not found for flag "${flagKey}"`,
         };
       }
@@ -79,7 +91,9 @@ export function createClient({
           originProvider: 'vercel',
           reason: result.reason,
           outcomeType:
-            result.reason !== Reason.ERROR ? result.outcomeType : undefined,
+            result.reason !== ResolutionReason.ERROR
+              ? result.outcomeType
+              : undefined,
         });
       }
 

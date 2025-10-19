@@ -34,11 +34,11 @@ export type EvaluationResult<T> =
       /**
        * Indicates why the flag evaluated to a certain value
        */
-      reason: Exclude<Reason, Reason.ERROR>;
+      reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
       errorMessage?: never;
     }
   | {
-      reason: Reason.ERROR;
+      reason: ResolutionReason.ERROR;
       errorMessage: string;
       /**
        * In cases of errors this is the he defaultValue if one was provided
@@ -52,13 +52,12 @@ export type EnvironmentKey = string;
 export type SegmentId = string;
 export type Value = string | number | boolean;
 
-export enum Reason {
+export enum ResolutionReason {
   PAUSED = 'paused',
   TARGET_MATCH = 'target_match',
   RULE_MATCH = 'rule_match',
   FALLTHROUGH = 'fallthrough',
   ERROR = 'error',
-  INTERCEPTED = 'intercepted',
 }
 
 export enum OutcomeType {

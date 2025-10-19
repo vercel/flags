@@ -1,5 +1,5 @@
 import { version } from '../../package.json';
-import type { OutcomeType, Reason } from '../types';
+import type { OutcomeType, ResolutionReason } from '../types';
 
 /**
  * Only used interally for now.
@@ -11,7 +11,7 @@ export function internalReportValue(
     originProjectId?: string;
     originProvider?: 'vercel';
     outcomeType?: OutcomeType;
-    reason?: Reason | 'override';
+    reason?: ResolutionReason | 'override';
   },
 ) {
   const symbol = Symbol.for('@vercel/request-context');

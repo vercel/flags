@@ -3,7 +3,7 @@ import { store } from './store';
 import type { Packed } from './types';
 
 /**
- * A generic data source
+ * DataSource interface for the Vercel Flags client
  */
 export interface DataSource {
   /**
@@ -14,6 +14,18 @@ export interface DataSource {
    * The project for which these flags were loaded for
    */
   projectId?: string;
+  /**
+   * Initialize the data source by fetching the initial file or setting up polling or
+   * subscriptions.
+   *
+   * @see https://openfeature.dev/specification/sections/providers#requirement-241
+   */
+  initialize?: () => Promise<void>;
+
+  /**
+   * End polling or subscriptions.
+   */
+  shutdown?(): void;
 }
 
 /**

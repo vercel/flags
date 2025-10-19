@@ -8,7 +8,7 @@ export {
   type FlagsClient,
 } from './client';
 export { EdgeConfigDataSource, InlineDataSource } from './data-source';
-export { Reason } from './types';
+export { ResolutionReason as Reason } from './types';
 
 let defaultFlagsClient: FlagsClient | null = null;
 

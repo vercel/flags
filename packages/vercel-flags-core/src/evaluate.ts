@@ -5,7 +5,7 @@ import {
   type EvaluationResult,
   OutcomeType,
   Packed,
-  Reason,
+  ResolutionReason,
 } from './types';
 import { exhaustivenessCheck } from './utils';
 
@@ -359,12 +359,15 @@ export function evaluate<T>(
 
   // handle shortcut where a value is a number directly
   if (typeof envConfig === 'number') {
-    return { ...handleOutcome<T>(params, envConfig), reason: Reason.PAUSED };
+    return {
+      ...handleOutcome<T>(params, envConfig),
+      reason: ResolutionReason.PAUSED,
+    };
   }
 
   if (!envConfig) {
     return {
-      reason: Reason.ERROR,
+      reason: ResolutionReason.ERROR,
       errorMessage: `Could not find envConfig for "${params.environment}"`,
       value: params.defaultValue,
     };
@@ -392,7 +395,7 @@ export function evaluate<T>(
     if (matchedIndex > -1) {
       return {
         ...handleOutcome<T>(params, matchedIndex),
-        reason: Reason.TARGET_MATCH,
+        reason: ResolutionReason.TARGET_MATCH,
       };
     }
   }
@@ -404,13 +407,13 @@ export function evaluate<T>(
   if (firstMatchingRule) {
     return {
       ...handleOutcome<T>(params, firstMatchingRule.outcome),
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
     };
   }
 
   return {
     ...handleOutcome<T>(params, envConfig.fallthrough),
-    reason: Reason.FALLTHROUGH,
+    reason: ResolutionReason.FALLTHROUGH,
   };
 }
 

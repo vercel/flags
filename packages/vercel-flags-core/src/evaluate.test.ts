@@ -5,7 +5,7 @@ import {
   type EvaluationResult,
   OutcomeType,
   type Packed,
-  Reason,
+  ResolutionReason,
 } from './types';
 
 describe('evaluate', () => {
@@ -23,7 +23,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -40,7 +40,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -59,7 +59,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.ERROR,
+        reason: ResolutionReason.ERROR,
         errorMessage:
           'Could not find envConfig for "this-env-does-not-exist-and-will-cause-an-error"',
       });
@@ -88,7 +88,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -115,7 +115,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
 
@@ -140,7 +140,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
-      reason: Reason.FALLTHROUGH,
+      reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -167,7 +167,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -183,7 +183,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -199,7 +199,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -237,7 +237,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
-      reason: Reason.RULE_MATCH,
+      reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -258,7 +258,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
-      reason: Reason.PAUSED,
+      reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -281,7 +281,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.TARGET_MATCH,
+        reason: ResolutionReason.TARGET_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -335,7 +335,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -352,7 +352,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -376,7 +376,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
 
@@ -398,7 +398,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -417,7 +417,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -442,7 +442,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
 
@@ -464,7 +464,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -484,7 +484,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -512,7 +512,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
-        reason: Reason.RULE_MATCH,
+        reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
 
@@ -538,7 +538,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
     });
@@ -1333,7 +1333,9 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: result,
-      reason: result ? Reason.RULE_MATCH : Reason.FALLTHROUGH,
+      reason: result
+        ? ResolutionReason.RULE_MATCH
+        : ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
   });
@@ -1438,7 +1440,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: result,
-        reason: Reason.FALLTHROUGH,
+        reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.SPLIT,
       });
     });
