@@ -40,7 +40,7 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.6",
+    "@biomejs/biome": "2.2.7",
     "@changesets/cli": "2.27.1",
     "@types/node": "22.9.0",
     "husky": "9.0.10",
