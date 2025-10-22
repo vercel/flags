@@ -45,7 +45,7 @@
     "@types/node": "22.9.0",
     "husky": "9.0.10",
     "lint-staged": "15.2.2",
-    "playwright": "1.56.0",
+    "playwright": "1.56.1",
     "publint": "0.3.14",
     "turbo": "2.3.3",
     "typescript": "^5.3.3",

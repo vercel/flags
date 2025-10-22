@@ -7,7 +7,7 @@
     "dev": "next dev --port 4015 --turbopack",
     "check": "biome check",
     "start": "next start --port 4015",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --ui"
   },
   "dependencies": {
     "flags": "workspace:*",
