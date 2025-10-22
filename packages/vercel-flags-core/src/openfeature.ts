@@ -4,7 +4,6 @@ import {
   type JsonValue,
   type Provider,
   type ProviderMetadata,
-  ProviderStatus,
   type ResolutionDetails,
   type ResolutionReason,
   StandardResolutionReasons,
@@ -50,12 +49,6 @@ export class VercelProvider implements Provider {
     } else {
       this.client = clientOrConnectionString;
     }
-  }
-
-  get status(): ProviderStatus {
-    // TODO implement states
-    if (!this.client) return ProviderStatus.NOT_READY;
-    return ProviderStatus.READY;
   }
 
   async initialize(context?: EvaluationContext): Promise<void> {

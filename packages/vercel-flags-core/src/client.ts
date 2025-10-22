@@ -68,6 +68,11 @@ export function createClient({
       defaultValue?: T,
       entities?: E,
     ): Promise<EvaluationResult<T>> {
+      // TODO dataSource.getData should move into "initialize" and set up the subscription.
+      //
+      // From OpenFeature: "It's recommended to provide non-blocking mechanisms for flag
+      // evaluation, particularly in languages or environments wherein there's a
+      // single thread of execution.
       const data = await dataSource.getData();
 
       const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
