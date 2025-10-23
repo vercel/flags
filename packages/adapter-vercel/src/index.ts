@@ -3,9 +3,9 @@ import {
   type FlagsClient,
   getDefaultFlagsClient,
   Reason,
+  store,
 } from '@vercel/flags-core';
 import type { Adapter, FlagDeclaration } from 'flags';
-import { store } from './store';
 
 export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   FlagDeclaration<ValueType, EntitiesType>,

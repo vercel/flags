@@ -55,7 +55,9 @@ export class EdgeConfigDataSource implements DataSource {
     const cacheKey = store.getStore();
     if (cacheKey) {
       const cached = this.requestCache.get(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
     }
     const promise = this.edgeConfigClient.get<Packed.Data>(
       this.edgeConfigItemKey,
