@@ -1,32 +1,7 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
-import { store } from './store';
-import type { Packed } from './types';
-
-/**
- * DataSource interface for the Vercel Flags client
- */
-export interface DataSource {
-  /**
-   * The datafile
-   */
-  getData(): Promise<Packed.Data>;
-  /**
-   * The project for which these flags were loaded for
-   */
-  projectId?: string;
-  /**
-   * Initialize the data source by fetching the initial file or setting up polling or
-   * subscriptions.
-   *
-   * @see https://openfeature.dev/specification/sections/providers#requirement-241
-   */
-  initialize?: () => Promise<void>;
-
-  /**
-   * End polling or subscriptions.
-   */
-  shutdown?(): void;
-}
+import type { DataSource } from './interface';
+import type { Packed } from '../types';
+import { store } from '../store';
 
 /**
  * Implements the DataSource interface for Edge Config.
@@ -78,19 +53,5 @@ export class EdgeConfigDataSource implements DataSource {
     }
 
     return data;
-  }
-}
-
-export class InMemoryDataSource implements DataSource {
-  private data: Packed.Data;
-  public projectId?: string;
-
-  constructor(data: Packed.Data, projectId?: string) {
-    this.data = data;
-    this.projectId = projectId;
-  }
-
-  async getData() {
-    return this.data;
   }
 }

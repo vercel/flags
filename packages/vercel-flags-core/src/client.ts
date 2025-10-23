@@ -1,6 +1,6 @@
 // TODO should we store the context schema (entities schema) in Edge Config and validate context?
 // TODO should we make evaluate return the variant ids as well?
-import type { DataSource } from './data-source';
+import type { DataSource } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
