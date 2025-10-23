@@ -1,33 +1,13 @@
 import { flag } from 'flags/next';
-import { xxHash32 } from 'js-xxhash';
 import { type EvaluationContext, identify } from './lib/identify';
-
-/**
- * Takes a string and puts it into a bucket.
- *
- * Typically the key consists of the experiment name and the stableId, such that
- * every experiment has a different outcome. If it would depend on the stableId only,
- * then a user would consistently get assigned the same bucket for all experiments,
- * which we need to avoid.
- *
- * @param key - The key to hash.
- * @param buckets - The number of buckets to use.
- * @returns The determined bucket number.
- */
-function bucket(key: string, buckets: number = 2) {
-  const hashNum = xxHash32(key);
-  return hashNum % buckets;
-}
+import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
   key: 'summer-sale',
   description: 'Shows a bright yellow banner for a 20% discount',
   defaultValue: false,
   identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) return this.defaultValue!;
-    return bucket(`${this.key}/${entities.stableId}`) === 1;
-  },
+  adapter: vercelAdapter(),
 });
 
 export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
@@ -35,10 +15,7 @@ export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
   description: 'Show a black free delivery banner at the top of the page',
   defaultValue: false,
   identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) return this.defaultValue!;
-    return bucket(`${this.key}/${entities.stableId}`) === 1;
-  },
+  adapter: vercelAdapter(),
 });
 
 export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
@@ -47,14 +24,7 @@ export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
   defaultValue: 'blue',
   options: ['blue', 'green', 'red'],
   identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) {
-      return this.defaultValue as string;
-    }
-    return this.options![
-      bucket(`${this.key}/${entities.stableId}`, this.options!.length)
-    ] as string;
-  },
+  adapter: vercelAdapter(),
 });
 
 export const delayFlag = flag<number>({
