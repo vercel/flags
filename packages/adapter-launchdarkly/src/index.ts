@@ -3,9 +3,9 @@ import {
   type LDClient,
   type LDContext,
 } from '@launchdarkly/vercel-server-sdk';
-import { createClient } from '@vercel/edge-config';
+import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
-import { createCachedEdgeConfigClient as cacheEdgeConfigClient } from 'flags/utils';
 
 export { getProviderData } from './provider';
 export type { LDContext };
@@ -46,10 +46,31 @@ export function createLaunchDarklyAdapter({
   edgeConfigConnectionString: string;
 }): AdapterResponse {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
-  const { run, client } = cacheEdgeConfigClient(edgeConfigClient);
+
+  const store = new AsyncLocalStorage<WeakKey>();
+  const cache = new WeakMap<WeakKey, Promise<unknown>>();
+
+  const patchedEdgeConfigClient: EdgeConfigClient = {
+    ...edgeConfigClient,
+    get: async <T>(key: string) => {
+      const h = store.getStore();
+      if (h) {
+        const cached = cache.get(h);
+        if (cached) {
+          return cached as Promise<T>;
+        }
+      }
+
+      const promise = edgeConfigClient.get<T>(key);
+      if (h) cache.set(h, promise);
+
+      return promise;
+    },
+  };
 
   let initPromise: Promise<unknown> | null = null;
-  const ldClient = init(clientSideId, client);
+
+  const ldClient = init(clientSideId, patchedEdgeConfigClient);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
@@ -66,7 +87,7 @@ export function createLaunchDarklyAdapter({
           await initPromise;
         }
 
-        return run(
+        return store.run(
           headers,
           () =>
             ldClient.variation(

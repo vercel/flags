@@ -14,7 +14,6 @@ const defaultConfig = {
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    utils: 'src/utils.ts',
     next: 'src/next/index.ts',
     sveltekit: 'src/sveltekit/index.ts',
     react: 'src/react/index.tsx',

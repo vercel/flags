@@ -680,9 +680,6 @@ importers:
       '@sveltejs/kit':
         specifier: '*'
         version: 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.1.1(@types/node@20.11.17)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.1.1(@types/node@20.11.17)(lightningcss@1.30.2))
-      '@vercel/edge-config':
-        specifier: ^1.4.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       jose:
         specifier: ^5.2.1
         version: 5.2.1
@@ -9257,13 +9254,6 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023)
-
-  '@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
-    dependencies:
-      '@vercel/edge-config-fs': 0.1.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-      next: 15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023)
 
   '@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@15.5.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
     dependencies:
