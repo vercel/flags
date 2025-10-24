@@ -1,9 +1,9 @@
 import { ProviderStatus } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
 import { createClient } from './client';
-import { InMemoryDataSource } from './data-source';
+import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import { VercelProvider } from './openfeature';
-import { ResolutionReason, type Packed } from './types';
+import { type Packed, ResolutionReason } from './types';
 
 describe('VercelProvider', () => {
   describe('constructor', () => {

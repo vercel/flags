@@ -1,7 +1,7 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
-import type { DataSource } from './interface';
-import type { Packed } from '../types';
 import { store } from '../store';
+import type { Packed } from '../types';
+import type { DataSource } from './interface';
 
 /**
  * Implements the DataSource interface for Edge Config.
