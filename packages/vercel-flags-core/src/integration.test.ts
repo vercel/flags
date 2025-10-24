@@ -52,6 +52,7 @@ describe('integration evaluate', () => {
       expect(await client.evaluate('does-not-exist', true)).toEqual({
         value: true,
         reason: ResolutionReason.ERROR,
+        errorCode: 'FLAG_NOT_FOUND',
         errorMessage: 'Definition not found for flag "does-not-exist"',
       });
     });
