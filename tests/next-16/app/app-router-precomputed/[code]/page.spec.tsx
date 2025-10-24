@@ -9,11 +9,14 @@ test('displays the flag value', async ({ page }) => {
 });
 
 test('can read request headers', async ({ page }) => {
-  const res = await page.goto(`http://localhost:${port}/app-router-static`);
+  await page.goto(`http://localhost:${port}/app-router-static`);
   await expect(page.getByText(`Host: localhost:${port}`)).toBeVisible();
+});
 
-  // ensure we were rewritten
-  expect(res?.headers()['x-middleware-rewrite']).toBeDefined();
+test('keeps page static', async ({ page }) => {
+  const res = await page.goto(`http://localhost:${port}/app-router-static`);
+  expect(res?.headers()['x-nextjs-cache']).toBe('HIT');
+  expect(res?.headers()['x-nextjs-prerender']).toBe('1');
 });
 
 test('can read cookies', async ({ page }) => {

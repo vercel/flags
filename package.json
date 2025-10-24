@@ -19,6 +19,7 @@
     "format": "biome check --write .",
     "next-14": "pnpm dev -F next-14",
     "next-15": "pnpm dev -F next-15",
+    "next-16": "pnpm dev -F next-16",
     "prepare": "husky",
     "publint": "turbo publint",
     "registry": "pnpm dev -F registry",
@@ -39,12 +40,12 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.6",
+    "@biomejs/biome": "2.2.7",
     "@changesets/cli": "2.27.1",
     "@types/node": "22.9.0",
     "husky": "9.0.10",
     "lint-staged": "15.2.2",
-    "playwright": "1.56.0",
+    "playwright": "1.56.1",
     "publint": "0.3.14",
     "turbo": "2.3.3",
     "typescript": "^5.3.3",
