@@ -10,7 +10,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@flags-sdk/vercel": "workspace:*",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
     "@tailwindcss/aspect-ratio": "0.4.2",
@@ -23,6 +22,7 @@
     "@vercel/toolbar": "0.1.36",
     "clsx": "2.1.1",
     "flags": "workspace:*",
+    "js-xxhash": "4.0.0",
     "motion": "12.12.1",
     "nanoid": "5.1.2",
     "next": "15.2.2-canary.4",
