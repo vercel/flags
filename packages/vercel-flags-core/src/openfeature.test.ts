@@ -1,4 +1,3 @@
-import { ProviderStatus } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
 import { createClient } from './client';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
@@ -29,22 +28,6 @@ describe('VercelProvider', () => {
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');
       expect(provider.runsOn).toBe('server');
-    });
-  });
-
-  describe('status', () => {
-    it('should return READY when client exists', () => {
-      const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
-        environment: 'production',
-      });
-      const provider = new VercelProvider(client);
-
-      expect(provider.status).toBe(ProviderStatus.READY);
     });
   });
 

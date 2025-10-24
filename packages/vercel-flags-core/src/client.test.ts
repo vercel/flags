@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from './client';
-import { InMemoryDataSource } from './data-source';
+import { InMemoryDataSource } from './data-source/in-memory-data-source';
 
 describe('createClient', () => {
   it('should be a function', () => {
