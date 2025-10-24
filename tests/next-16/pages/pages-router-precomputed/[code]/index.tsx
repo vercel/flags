@@ -12,10 +12,8 @@ import {
 } from '../../../flags';
 
 export const getStaticPaths = (async () => {
-  const codes = await generatePermutations(precomputedFlags);
-
   return {
-    paths: codes.map((code) => ({ params: { code } })),
+    paths: [],
     fallback: 'blocking',
   };
 }) satisfies GetStaticPaths;
