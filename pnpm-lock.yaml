@@ -100,8 +100,8 @@ importers:
         specifier: 1.2.1
         version: 1.2.1
       '@vercel/edge-config':
-        specifier: 1.4.0
-        version: 1.4.0(@opentelemetry/api@1.9.0)
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
       '@vercel/toolbar':
         specifier: 0.1.36
         version: 0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
@@ -167,11 +167,11 @@ importers:
         specifier: 1.1.4
         version: 1.1.4(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       '@vercel/edge-config':
-        specifier: 1.2.0
-        version: 1.2.0(@opentelemetry/api@1.9.0)
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(2lgla5rxsq7ywb7wuck55d6dcq)
+        version: 0.1.36(ec91d1bf7282b1f3bc66f532efd60f50)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -277,8 +277,8 @@ importers:
   packages/adapter-edge-config:
     dependencies:
       '@vercel/edge-config':
-        specifier: ^1.2.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -311,8 +311,8 @@ importers:
         specifier: ^1.5.1
         version: 1.6.1
       '@vercel/edge-config':
-        specifier: ^1.2.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -348,8 +348,8 @@ importers:
   packages/adapter-hypertune:
     dependencies:
       '@vercel/edge-config':
-        specifier: 1.4.0
-        version: 1.4.0(@opentelemetry/api@1.9.0)
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       hypertune:
         specifier: 2.8.3
         version: 2.8.3
@@ -388,8 +388,8 @@ importers:
         specifier: ^1.3.34
         version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       '@vercel/edge-config':
-        specifier: ^1.4.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -485,8 +485,8 @@ importers:
   packages/adapter-posthog:
     dependencies:
       '@vercel/edge-config':
-        specifier: ^1.4.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       posthog-node:
         specifier: 4.11.1
         version: 4.11.1
@@ -586,8 +586,8 @@ importers:
   packages/adapter-statsig:
     dependencies:
       '@vercel/edge-config':
-        specifier: ^1.2.0
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -596,7 +596,7 @@ importers:
         version: 0.5.2
       statsig-node-vercel:
         specifier: ^0.7.0
-        version: 0.7.0(@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023)))
+        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023)))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -629,8 +629,8 @@ importers:
   packages/adapter-vercel:
     dependencies:
       '@vercel/edge-config':
-        specifier: ^1.4.2
-        version: 1.4.2(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../vercel-flags-core
@@ -740,8 +740,8 @@ importers:
         specifier: 20.11.17
         version: 20.11.17
       '@vercel/edge-config':
-        specifier: 1.4.0
-        version: 1.4.0(@opentelemetry/api@1.9.0)
+        specifier: ^1.4.3
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       flags:
         specifier: workspace:*
         version: link:../flags
@@ -3446,26 +3446,8 @@ packages:
   '@vercel/edge-config-fs@0.1.0':
     resolution: {integrity: sha512-NRIBwfcS0bUoUbRWlNGetqjvLSwgYH/BqKqDN7vK1g32p7dN96k0712COgaz6VFizAm9b0g6IG6hR6+hc0KCPg==}
 
-  '@vercel/edge-config@1.2.0':
-    resolution: {integrity: sha512-ouX+hJK4KzXE31Wi2Xs7IEXb+6gImcOXgeOT9P48YKsZb7oNG2uyhvKDDkAyOJ739AnCJ5tKxavXjIoit6dWtw==}
-    engines: {node: '>=14.6'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.7.0
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-
-  '@vercel/edge-config@1.4.0':
-    resolution: {integrity: sha512-69Wg5gw9DzwnyUmnjToSeLRm1nm8mCPgN0kflX8EHRHyqvzH80wPem5A8rI2LXPb2Y9tJNoqN3vXPcQhS2Wh5g==}
-    engines: {node: '>=14.6'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.7.0
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-
-  '@vercel/edge-config@1.4.2':
-    resolution: {integrity: sha512-hUTqMLNxs/PEtuvOX67JoN84B3Z8mpSkMTCoMJ4g4G0DrAc3sNu1cUlsFatHOlxQdZLM4iipY7w28qZP4Vy26g==}
+  '@vercel/edge-config@1.4.3':
+    resolution: {integrity: sha512-8vTDATodRrH49wMzKEjZ8/5H2qs1aPkD0uRK585f/Fx4YN2wfHfY/3td9OFrh+gdnCq07z8A5f0hoY6xhBcPkg==}
     engines: {node: '>=14.6'}
     peerDependencies:
       '@opentelemetry/api': ^1.7.0
@@ -8093,7 +8075,7 @@ snapshots:
   '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge': 2.6.9
-      '@vercel/edge-config': 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       crypto-js: 4.2.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -9375,26 +9357,28 @@ snapshots:
 
   '@vercel/edge-config-fs@0.1.0': {}
 
-  '@vercel/edge-config@1.2.0(@opentelemetry/api@1.9.0)':
-    dependencies:
-      '@vercel/edge-config-fs': 0.1.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-
-  '@vercel/edge-config@1.4.0(@opentelemetry/api@1.9.0)':
-    dependencies:
-      '@vercel/edge-config-fs': 0.1.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-
-  '@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023)
 
-  '@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
+    dependencies:
+      '@vercel/edge-config-fs': 0.1.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
+    dependencies:
+      '@vercel/edge-config-fs': 0.1.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
@@ -9404,26 +9388,6 @@ snapshots:
   '@vercel/edge@1.2.1': {}
 
   '@vercel/functions@1.6.0': {}
-
-  '@vercel/microfrontends@1.1.0(2lgla5rxsq7ywb7wuck55d6dcq)':
-    dependencies:
-      ajv: 8.17.1
-      commander: 12.1.0
-      cookie: 0.4.0
-      fast-glob: 3.3.3
-      http-proxy: 1.18.1
-      jsonc-parser: 3.3.1
-      nanoid: 3.3.11
-      path-to-regexp: 6.2.1
-    optionalDependencies:
-      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
-      vite: 6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - debug
 
   '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
     dependencies:
@@ -9465,6 +9429,26 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  '@vercel/microfrontends@1.1.0(ec91d1bf7282b1f3bc66f532efd60f50)':
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.11
+      path-to-regexp: 6.2.1
+    optionalDependencies:
+      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1))
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
+      vite: 6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - debug
+
   '@vercel/nft@0.30.3(rollup@4.52.5)':
     dependencies:
       '@mapbox/node-pre-gyp': 2.0.0
@@ -9483,28 +9467,6 @@ snapshots:
       - encoding
       - rollup
       - supports-color
-
-  '@vercel/toolbar@0.1.36(2lgla5rxsq7ywb7wuck55d6dcq)':
-    dependencies:
-      '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(2lgla5rxsq7ywb7wuck55d6dcq)
-      chokidar: 3.6.0
-      execa: 5.1.1
-      fast-glob: 3.3.3
-      find-up: 5.0.0
-      get-port: 5.1.1
-      jsonc-parser: 3.3.1
-      strip-ansi: 6.0.1
-    optionalDependencies:
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      vite: 6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - '@sveltejs/kit'
-      - '@vercel/analytics'
-      - '@vercel/speed-insights'
-      - debug
-      - react-dom
 
   '@vercel/toolbar@0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
     dependencies:
@@ -9543,6 +9505,28 @@ snapshots:
       next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       vite: 6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
+
+  '@vercel/toolbar@0.1.36(ec91d1bf7282b1f3bc66f532efd60f50)':
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(ec91d1bf7282b1f3bc66f532efd60f50)
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      strip-ansi: 6.0.1
+    optionalDependencies:
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      vite: 6.2.5(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@sveltejs/kit'
       - '@vercel/analytics'
@@ -12540,9 +12524,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))):
+  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))):
     dependencies:
-      '@vercel/edge-config': 1.4.2(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
       statsig-node-lite: 0.4.4
     transitivePeerDependencies:
       - encoding
