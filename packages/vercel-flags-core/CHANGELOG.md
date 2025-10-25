@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 0.1.2
+
+### Patch Changes
+
+- bfe9080: export DataSource type
+
 ## 0.1.1
 
 ### Patch Changes
