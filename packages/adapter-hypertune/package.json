@@ -35,7 +35,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "1.4.0",
+    "@vercel/edge-config": "^1.4.3",
     "hypertune": "2.8.3"
   },
   "devDependencies": {

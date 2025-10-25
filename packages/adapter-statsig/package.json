@@ -62,7 +62,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.2.0",
+    "@vercel/edge-config": "^1.4.3",
     "@vercel/functions": "^1.5.2",
     "statsig-node-lite": "^0.5.2",
     "statsig-node-vercel": "^0.7.0"
