@@ -2,6 +2,7 @@ import { createClient as createEdgeConfigClient } from '@vercel/edge-config';
 import { createClient, type FlagsClient } from './client';
 import { EdgeConfigDataSource } from './data-source/edge-config-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
+import type { DataSource } from './data-source/interface';
 import type { ConnectionOptions } from './types';
 
 export {
@@ -11,6 +12,7 @@ export {
 export { EdgeConfigDataSource, InMemoryDataSource };
 export { store } from './store';
 export { ResolutionReason as Reason } from './types';
+export type { DataSource };
 
 let defaultFlagsClient: FlagsClient | null = null;
 
