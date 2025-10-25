@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/statsig",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Statsig provider for the Flags SDK",
   "keywords": [
     "flags-sdk",

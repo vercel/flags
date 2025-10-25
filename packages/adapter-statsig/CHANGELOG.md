@@ -1,5 +1,11 @@
 # @flags-sdk/statsig
 
+## 0.2.4
+
+### Patch Changes
+
+- ff052f0: upgrade internal @vercel/edge-config dependency to v1.4.3
+
 ## 0.2.3
 
 ### Patch Changes
