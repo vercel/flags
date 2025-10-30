@@ -10,50 +10,59 @@ The Flagsmith provider is available in the `@flags-sdk/flagsmith` module. You ca
 npm i @flags-sdk/flagsmith
 ```
 
-## Provider Instance
-
-You can import the default adapter instance `flagsmithAdapter` from `@flags-sdk/flagsmith`:
-
-```ts
-import { flagsmithAdapter } from "@flags-sdk/flagsmith";
-```
-
-## Configuration
-
-The adapter automatically initializes Flagsmith with the following configuration:
-
-- `environmentId`: From `FLAGSMITH_ENVIRONMENT_ID` environment variable
+Set the required environment variable:
 
 ```sh
 export FLAGSMITH_ENVIRONMENT_ID="your-environment-id"
 ```
 
-## Example
+## Usage
+
+The Flagsmith adapter provides a `getValue()` method with optional type coercion:
 
 ```ts
 import { flag } from "flags/next";
 import { flagsmithAdapter } from "@flags-sdk/flagsmith";
 
-// Boolean flags
-export const showBanner = flag<boolean>({
-  key: "show-banner",
-  adapter: flagsmithAdapter.booleanValue(),
+// No coercion - returns the raw value from Flagsmith
+export const rawFlag = flag({
+  key: "raw-value",
+  defaultValue: "default",
+  adapter: flagsmithAdapter.getValue(),
 });
 
-// String flags
+// Coerce to string type
 export const buttonColor = flag<string>({
   key: "button-color",
   defaultValue: "blue",
-  adapter: flagsmithAdapter.stringValue(),
+  adapter: flagsmithAdapter.getValue({ coerce: "string" }),
 });
 
-// Number flags
+// Coerce to number type
 export const maxItems = flag<number>({
   key: "max-items",
   defaultValue: 10,
-  adapter: flagsmithAdapter.numberValue(),
+  adapter: flagsmithAdapter.getValue({ coerce: "number" }),
+});
+
+// Coerce to boolean type
+export const showBanner = flag<boolean>({
+  key: "show-banner",
+  defaultValue: false,
+  adapter: flagsmithAdapter.getValue({ coerce: "boolean" }),
 });
 ```
+
+### Type Coercion Behavior
+
+- **Without `coerce`**: Returns the raw value from Flagsmith (empty/null/undefined values return default)
+- **`coerce: "string"`**: Converts any value to string (returns default for null/undefined/NaN)
+- **`coerce: "number"`**: Converts strings to numbers (returns default if result is NaN or invalid)
+- **`coerce: "boolean"`**:
+  - Converts `"true"`/`"false"` strings (case-insensitive) to boolean
+  - Converts `0` to `false` and `1` to `true`
+  - Falls back to the flag's enabled state for other values
+  - Returns default when flag is disabled
 
 ## Custom Adapter
 
@@ -81,7 +90,7 @@ const adapter = createFlagsmithAdapter({
 export const showBanner = flag<boolean, EntitiesType>({
   key: "show-banner",
   identify,
-  adapter: adapter.booleanValue(),
+  adapter: adapter.getValue({ coerce: "boolean" }),
 });
 ```
 
@@ -101,15 +110,7 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 });
 ```
 
-This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer. You'll need to set the `FLAGSMITH_PROJECT_ID` environment variable in addition to `FLAGSMITH_ENVIRONMENT_ID`.
-
-## Features
-
-- **Type-safe flag definitions**: Each method returns a properly typed adapter
-- **Automatic initialization**: Flagsmith client can be lazily initialized
-- **Identity support**: Full support for Flagsmith identity and traits
-- **Default value handling**: Proper fallback to default values when flags are disabled or not found
-- **Boolean flag**: Boolean flags use the `value` if it is of boolean type or the `enabled` state directly
+This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer.
 
 ## Environment Variables
 
