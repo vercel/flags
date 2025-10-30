@@ -338,7 +338,7 @@ export function createHandle({
 }
 
 async function handleWellKnownFlagsRoute(
-  event: RequestEvent<Partial<Record<string, string>>, string | null>,
+  event: RequestEvent<Record<string, string>, string | null>,
   secret: string,
   flags: Record<string, Flag<any>>,
 ) {

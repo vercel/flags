@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/edge-config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -34,11 +34,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.2.0"
+    "@vercel/edge-config": "^1.4.3"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "@vercel/edge-config": "1.2.0",
     "flags": "workspace:*",
     "rimraf": "6.0.1",
     "tsconfig": "workspace:*",

@@ -9,8 +9,11 @@ test('displays the flag value', async ({ page }) => {
 });
 
 test('can read request headers', async ({ page }) => {
-  await page.goto(`http://localhost:${port}/app-router-static`);
+  const res = await page.goto(`http://localhost:${port}/app-router-static`);
   await expect(page.getByText(`Host: localhost:${port}`)).toBeVisible();
+
+  // ensure we were rewritten
+  expect(res?.headers()['x-middleware-rewrite']).toBeDefined();
 });
 
 test('can read cookies', async ({ page }) => {

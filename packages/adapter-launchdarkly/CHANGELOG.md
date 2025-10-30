@@ -1,5 +1,11 @@
 # @flags-sdk/launchdarkly
 
+## 0.3.3
+
+### Patch Changes
+
+- ff052f0: upgrade internal @vercel/edge-config dependency to v1.4.3
+
 ## 0.3.2
 
 ### Patch Changes
@@ -9,6 +15,7 @@
   This release avoids JSON.stringify and JSON.parse overhead which earlier versions of `@launchdarkly/vercel-server-sdk` had.
 
   See
+
   - https://github.com/launchdarkly/js-core/releases/tag/vercel-server-sdk-v1.3.34
   - https://github.com/launchdarkly/js-core/pull/918
 
