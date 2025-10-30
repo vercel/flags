@@ -1,4 +1,3 @@
-import { generatePermutations } from 'flags/next';
 import type {
   GetStaticPaths,
   GetStaticProps,

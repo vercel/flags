@@ -305,6 +305,40 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)(lightningcss@1.30.2)
 
+  packages/adapter-flagsmith:
+    dependencies:
+      flagsmith:
+        specifier: ^9.0.5
+        version: 9.3.2
+    devDependencies:
+      '@types/node':
+        specifier: 20.11.17
+        version: 20.11.17
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      msw:
+        specifier: 2.6.4
+        version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      tsup:
+        specifier: 8.0.1
+        version: 8.0.1(postcss@8.5.6)(typescript@5.6.3)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+      vite:
+        specifier: 5.1.1
+        version: 5.1.1(@types/node@20.11.17)(lightningcss@1.30.2)
+      vitest:
+        specifier: 1.4.0
+        version: 1.4.0(@types/node@20.11.17)(lightningcss@1.30.2)
+
   packages/adapter-growthbook:
     dependencies:
       '@growthbook/growthbook':
@@ -4380,6 +4414,9 @@ packages:
 
   find-yarn-workspace-root2@1.2.16:
     resolution: {integrity: sha512-hr6hb1w8ePMpPVUK39S4RlwJzi+xPLuVuG8XlwXU3KD5Yn3qgBWVfy3AzNlDhWvE1EORCE65/Qm26rFQt3VLVA==}
+
+  flagsmith@9.3.2:
+    resolution: {integrity: sha512-dpU1U8fjLBf6uzuJuOHRGS2forpiHING0amCFtF9ych+Yeth4cYMy3ZT0cx0lhE7S4o2v9itU0fge+toP3Td6A==}
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -10551,6 +10588,8 @@ snapshots:
     dependencies:
       micromatch: 4.0.8
       pkg-dir: 4.2.0
+
+  flagsmith@9.3.2: {}
 
   flat-cache@4.0.1:
     dependencies:
