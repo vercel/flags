@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 0.1.3
+
+### Patch Changes
+
+- 9ecc4de: export Packed type
+
 ## 0.1.2
 
 ### Patch Changes
