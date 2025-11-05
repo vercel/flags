@@ -13,6 +13,7 @@ export { EdgeConfigDataSource, InMemoryDataSource };
 export { store } from './store';
 export { type Packed, ResolutionReason as Reason } from './types';
 export type { DataSource };
+export { evaluate } from './evaluate';
 
 let defaultFlagsClient: FlagsClient | null = null;
 
