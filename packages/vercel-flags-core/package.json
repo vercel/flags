@@ -8,17 +8,25 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
-    "./openfeature": "./dist/openfeature.js"
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./openfeature": {
+      "import": "./dist/openfeature.js",
+      "require": "./dist/openfeature.cjs"
+    }
   },
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/*.d.ts"
+        "dist/*.d.ts",
+        "dist/*.d.cts"
       ],
       "./openfeature": [
-        "dist/openfeature.d.ts"
+        "dist/openfeature.d.ts",
+        "dist/openfeature.d.cts"
       ]
     }
   },
