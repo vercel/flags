@@ -1,5 +1,13 @@
 # @flags-sdk/vercel
 
+## 0.1.5
+
+### Patch Changes
+
+- 6a7313a: publish cjs bundles besides esm
+- Updated dependencies [6a7313a]
+  - @vercel/flags-core@0.1.5
+
 ## 0.1.4
 
 ### Patch Changes
