@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 0.1.4
+
+### Patch Changes
+
+- df76e2c: export evaluate fn
+
 ## 0.1.3
 
 ### Patch Changes

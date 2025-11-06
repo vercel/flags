@@ -1,5 +1,11 @@
 # @flags-sdk/growthbook
 
+## 0.1.2
+
+### Patch Changes
+
+- d43589a: support strings in Edge Config
+
 ## 0.1.1
 
 ### Patch Changes
