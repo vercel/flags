@@ -75,7 +75,7 @@ export function createGrowthbookAdapter(options: {
   let _initializePromise: Promise<void> | undefined;
 
   const initializeGrowthBook = async (): Promise<void> => {
-    let payload: FeatureApiResponse | undefined;
+    let payload: FeatureApiResponse | string | undefined;
     if (options.edgeConfig) {
       try {
         const edgeConfigClient = createClient(
@@ -89,6 +89,22 @@ export function createGrowthbookAdapter(options: {
         }
       } catch (e) {
         console.error('Error fetching edge config', e);
+      }
+    }
+
+    // Older GrowthBook integrations use WebHooks directly to store
+    // data in Edge Config, but they store the data as a string.
+    //
+    // We need to parse the string to JSON before passing it to GrowthBook.
+    //
+    // https://docs.growthbook.io/app/webhooks/sdk-webhooks#vercel-edge-config
+    // https://github.com/vercel/flags/issues/209
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload) as FeatureApiResponse;
+      } catch {
+        console.error('Invalid payload format');
+        payload = undefined;
       }
     }
 
