@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.0.2
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 4.0.1
 
 ### Patch Changes
@@ -71,12 +77,14 @@
 ### Patch Changes
 
 - 2713ea7: Handle `undefined` values
+
   - fix: Fall back to `defaultValue` when a feature flag returns `undefined`
   - fix: Throw error when a flag resolves to `undefined` and no `defaultValue` is present
 
   The value `undefined` can not be serialized so feature flags should never resolve to `undefined`. Use `null` instead.
 
   Fix exports
+
   - fix: Export `Identify` and `Decide` types
 
 ## 3.0.2
@@ -96,6 +104,7 @@
 ### Major Changes
 
 - db89f0d: - **BREAKING CHANGE** removed all `unstable_` prefixes, e.g. `unstable_flag` is now `flag`
+
   - **BREAKING CHANGE** removed `getPrecomputationContext`, use `dedupe` instead (see below)
   - **BREAKING CHANGE** moved all provider functions to dedicated packages
     - `@vercel/flags/providers/launchdarkly` → `@flags-sdk/launchdarkly`
@@ -147,7 +156,7 @@
       return visitorIdCookie
         ? { value: visitorIdCookie, fresh: false }
         : { value: nanoid(), fresh: true };
-    },
+    }
   );
   ```
 
@@ -197,7 +206,7 @@
   export const getStaticProps = (async (context) => {
     const showFreeDeliveryBanner = await showFreeDeliveryBannerFlag(
       context.params!.code as string,
-      bannerFlags,
+      bannerFlags
     );
 
     return { props: { showFreeDeliveryBanner } };

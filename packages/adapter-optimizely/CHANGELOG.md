@@ -1,5 +1,11 @@
 # @flags-sdk/optimizely
 
+## 0.1.1
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 0.1.0
 
 ### Minor Changes

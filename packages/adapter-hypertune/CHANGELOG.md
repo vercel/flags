@@ -1,5 +1,11 @@
 # @flags-sdk/hypertune
 
+## 0.3.2
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 0.3.1
 
 ### Patch Changes

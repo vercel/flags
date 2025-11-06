@@ -1,5 +1,13 @@
 # @vercel/flags-core
 
+## 0.1.6
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+- Updated dependencies [5f3757a]
+  - flags@4.0.2
+
 ## 0.1.5
 
 ### Patch Changes

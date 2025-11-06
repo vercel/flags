@@ -1,5 +1,11 @@
 # @flags-sdk/launchdarkly
 
+## 0.3.4
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 0.3.3
 
 ### Patch Changes
