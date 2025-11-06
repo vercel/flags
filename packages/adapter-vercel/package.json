@@ -8,13 +8,17 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   },
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/*.d.ts"
+        "dist/*.d.ts",
+        "dist/*.d.cts"
       ]
     }
   },
