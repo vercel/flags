@@ -1,5 +1,11 @@
 # @flags-sdk/statsig
 
+## 0.2.5
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 0.2.4
 
 ### Patch Changes

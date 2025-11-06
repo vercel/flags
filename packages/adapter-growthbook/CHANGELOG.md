@@ -1,5 +1,11 @@
 # @flags-sdk/growthbook
 
+## 0.1.3
+
+### Patch Changes
+
+- 5f3757a: drop tsconfig dependency
+
 ## 0.1.2
 
 ### Patch Changes
