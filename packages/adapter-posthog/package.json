@@ -58,7 +58,6 @@
     "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
-    "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.8.2",
     "vite": "6.2.5",

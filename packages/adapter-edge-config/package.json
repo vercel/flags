@@ -40,7 +40,6 @@
     "@types/node": "20.11.17",
     "flags": "workspace:*",
     "rimraf": "6.0.1",
-    "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
     "vite": "5.1.1",
