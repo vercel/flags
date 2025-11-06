@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/edge-config",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -28,22 +28,18 @@
   "scripts": {
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "check": "biome check",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.2.0"
+    "@vercel/edge-config": "^1.4.3"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "@vercel/edge-config": "1.2.0",
-    "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "rimraf": "6.0.1",
-    "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
     "vite": "5.1.1",

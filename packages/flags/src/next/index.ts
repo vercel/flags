@@ -1,10 +1,22 @@
+import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
+  type FlagDefinitionsType,
   type FlagDefinitionType,
   type ProviderData,
   reportValue,
-  type FlagDefinitionsType,
 } from '..';
+import { normalizeOptions } from '../lib/normalize-options';
+import { internalReportValue } from '../lib/report-value';
+import { setSpanAttribute, trace } from '../lib/tracing';
+import {
+  HeadersAdapter,
+  type ReadonlyHeaders,
+} from '../spec-extension/adapters/headers';
+import {
+  type ReadonlyRequestCookies,
+  RequestCookiesAdapter,
+} from '../spec-extension/adapters/request-cookies';
 import type {
   Decide,
   FlagDeclaration,
@@ -13,34 +25,21 @@ import type {
   JsonValue,
   Origin,
 } from '../types';
-import type { Flag, PrecomputedFlag, PagesRouterFlag } from './types';
-import { getOverrides } from './overrides';
-import { normalizeOptions } from '../lib/normalize-options';
-import { getPrecomputed } from './precompute';
-import type { IncomingHttpHeaders } from 'node:http';
-import {
-  type ReadonlyHeaders,
-  HeadersAdapter,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
-import { setSpanAttribute, trace } from '../lib/tracing';
-import { internalReportValue } from '../lib/report-value';
 import { isInternalNextError } from './is-internal-next-error';
-
-export type { Flag } from './types';
+import { getOverrides } from './overrides';
+import { getPrecomputed } from './precompute';
+import type { Flag, PagesRouterFlag, PrecomputedFlag } from './types';
 
 export {
-  getPrecomputed,
   combine,
-  serialize,
   deserialize,
   evaluate,
-  precompute,
   generatePermutations,
+  getPrecomputed,
+  precompute,
+  serialize,
 } from './precompute';
+export type { Flag } from './types';
 
 // a map of (headers, flagKey, entitiesKey) => value
 const evaluationCache = new WeakMap<
@@ -111,7 +110,9 @@ function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
   for (const [key, value] of Object.entries(incomingHeaders)) {
     if (Array.isArray(value)) {
       // If the value is an array, add each item separately
-      value.forEach((item) => headers.append(key, item));
+      value.forEach((item) => {
+        headers.append(key, item);
+      });
     } else if (value !== undefined) {
       // If it's a single value, add it directly
       headers.append(key, value);
@@ -483,5 +484,5 @@ export function getProviderData(
   return { definitions, hints: [] };
 }
 
-export { dedupe, clearDedupeCacheForCurrentRequest } from './dedupe';
 export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';
+export { clearDedupeCacheForCurrentRequest, dedupe } from './dedupe';

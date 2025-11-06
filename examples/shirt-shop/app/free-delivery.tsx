@@ -1,8 +1,8 @@
 'use client';
 
-import { FreeDeliveryBanner } from '@/components/banners/free-delivery-banner';
 import { track } from '@vercel/analytics';
 import { useEffect } from 'react';
+import { FreeDeliveryBanner } from '@/components/banners/free-delivery-banner';
 
 export function FreeDelivery(props: { show: boolean }) {
   useEffect(() => {

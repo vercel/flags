@@ -1,4 +1,4 @@
-import { Identify } from 'flags';
+import type { Identify } from 'flags';
 import { dedupe } from 'flags/next';
 import { getStableId } from './get-stable-id';
 

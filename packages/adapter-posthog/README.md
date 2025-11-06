@@ -13,12 +13,12 @@ pnpm i @flags-sdk/posthog
 ## Example Usage
 
 ```ts
-import { flag } from 'flags/next';
-import { postHogAdapter } from '@flags-sdk/posthog';
+import { flag } from "flags/next";
+import { postHogAdapter } from "@flags-sdk/posthog";
 
 export const marketingGate = flag<boolean>({
   // The key in PostHog
-  key: 'my_posthog_flag_key_here',
+  key: "my_posthog_flag_key_here",
   // The PostHog feature to use (isFeatureEnabled, featureFlagValue, featureFlagPayload)
   adapter: postHogAdapter.featureFlagValue(),
 });

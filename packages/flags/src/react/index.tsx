@@ -1,8 +1,11 @@
+// biome-ignore lint/correctness/noUnusedImports: needed in scope
 import React from 'react';
-import type { FlagDefinitionsType, FlagValuesType } from '../types';
 import { safeJsonStringify } from '../lib/safe-json-stringify';
+import type { FlagDefinitionsType, FlagValuesType } from '../types';
+
 // the generic type T is not actually used but is great to
 // signal what is encrypted
+// biome-ignore lint/correctness/noUnusedVariables: generic necessary so the payload can be tagged
 type Encrypted<T> = string;
 
 /**
@@ -17,6 +20,7 @@ export function FlagDefinitions({
     <script
       type="application/json"
       data-flag-definitions
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: necessary here
       dangerouslySetInnerHTML={{
         __html: safeJsonStringify(definitions),
       }}
@@ -36,6 +40,7 @@ export function FlagValues({
     <script
       type="application/json"
       data-flag-values
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: necessary  in this case
       dangerouslySetInnerHTML={{
         __html: safeJsonStringify(values),
       }}

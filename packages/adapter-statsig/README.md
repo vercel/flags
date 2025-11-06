@@ -15,17 +15,17 @@ pnpm i @flags-sdk/statsig
 You can import the default adapter instance `statigAdapter` from `@flags-sdk/statsig`:
 
 ```ts
-import { statsigAdapter } from '@flags-sdk/statsig';
+import { statsigAdapter } from "@flags-sdk/statsig";
 ```
 
 ## Example
 
 ```ts
-import { flag } from 'flags/next';
-import { statsigAdapter } from '@flags-sdk/statsig';
+import { flag } from "flags/next";
+import { statsigAdapter } from "@flags-sdk/statsig";
 
 export const marketingGate = flag<boolean>({
-  key: 'marketing_gate',
+  key: "marketing_gate",
   adapter: statsigAdapter.featureGate((config) => config.value),
 });
 ```

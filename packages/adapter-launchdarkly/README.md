@@ -17,7 +17,7 @@ npm i @flags-sdk/launchdarkly
 Import the default adapter instance `ldAdapter` from `@flags-sdk/launchdarkly`:
 
 ```ts
-import { ldAdapter } from '@flags-sdk/launchdarkly';
+import { ldAdapter } from "@flags-sdk/launchdarkly";
 ```
 
 The default adapter uses the following environment variables to configure itself:
@@ -32,17 +32,17 @@ export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-x
 ## Example
 
 ```ts
-import { flag, dedupe } from 'flags/next';
-import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
+import { flag, dedupe } from "flags/next";
+import { ldAdapter, type LDContext } from "@flags-sdk/launchdarkly";
 
 const identify = dedupe(async (): Promise<LDContext> => {
   return {
-    key: 'user_123',
+    key: "user_123",
   };
 });
 
 export const showBanner = flag<boolean, LDContext>({
-  key: 'show-banner',
+  key: "show-banner",
   identify,
   adapter: ldAdapter.variation(),
 });
@@ -53,11 +53,11 @@ export const showBanner = flag<boolean, LDContext>({
 Create an adapter by using the `createLaunchDarklyAdapter` function:
 
 ```ts
-import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
+import { createLaunchDarklyAdapter } from "@flags-sdk/launchdarkly";
 
 const adapter = createLaunchDarklyAdapter({
-  projectSlug: 'my-project',
-  ldClientSideKey: '612376f91b8f5713a58777a1',
+  projectSlug: "my-project",
+  ldClientSideKey: "612376f91b8f5713a58777a1",
   edgeConfigConnectionString: process.env.EDGE_CONFIG,
 });
 ```

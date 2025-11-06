@@ -39,7 +39,7 @@ export async function getProviderData(options: {
   if (!host) {
     try {
       host = getAppHost();
-    } catch (e) {
+    } catch {
       hints.push({
         key: 'posthog/missing-app-host',
         text: 'Missing NEXT_PUBLIC_POSTHOG_HOST environment variable',
@@ -63,11 +63,10 @@ export async function getProviderData(options: {
   };
 
   const res = await fetch(
-    `${host}/api/projects/${options.projectId}/feature_flags?active=true`,
+    `${host}/api/projects/${options.projectId}/feature_flags`,
     {
       method: 'GET',
       headers,
-      // @ts-expect-error used by some Next.js versions
       cache: 'no-store',
     },
   );
@@ -91,11 +90,10 @@ export async function getProviderData(options: {
     // paginate in a parallel request
     for (let offset = 100; offset < data.count; offset += 100) {
       const paginatedRes = await fetch(
-        `${host}/api/projects/${options.projectId}/feature_flags?active=true&offset=${offset}&limit=100`,
+        `${host}/api/projects/${options.projectId}/feature_flags?offset=${offset}&limit=100`,
         {
           method: 'GET',
           headers,
-          // @ts-expect-error used by some Next.js versions
           cache: 'no-store',
         },
       );
@@ -130,7 +128,7 @@ export async function getProviderData(options: {
       }, {}),
       hints,
     };
-  } catch (e) {
+  } catch {
     return {
       definitions: {},
       hints: [

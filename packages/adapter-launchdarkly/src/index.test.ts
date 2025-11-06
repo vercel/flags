@@ -1,10 +1,11 @@
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
-import { expect, it, describe, vi, beforeAll } from 'vitest';
-import { ldAdapter, type LDContext } from '.';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { type LDContext, ldAdapter } from '.';
 
 const ldClientMock = {
   waitForInitialization: vi.fn(),
   variation: vi.fn(),
+  initialized: vi.fn(() => true),
 };
 
 vi.mock('@launchdarkly/vercel-server-sdk', () => ({

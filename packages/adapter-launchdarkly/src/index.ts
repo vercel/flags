@@ -1,10 +1,11 @@
-import type { Adapter } from 'flags';
-import { createClient } from '@vercel/edge-config';
 import {
   init,
-  LDClient,
+  type LDClient,
   type LDContext,
 } from '@launchdarkly/vercel-server-sdk';
+import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { AsyncLocalStorage } from 'async_hooks';
+import type { Adapter } from 'flags';
 
 export { getProviderData } from './provider';
 export type { LDContext };
@@ -45,7 +46,31 @@ export function createLaunchDarklyAdapter({
   edgeConfigConnectionString: string;
 }): AdapterResponse {
   const edgeConfigClient = createClient(edgeConfigConnectionString);
-  const ldClient = init(clientSideId, edgeConfigClient);
+
+  const store = new AsyncLocalStorage<WeakKey>();
+  const cache = new WeakMap<WeakKey, Promise<unknown>>();
+
+  const patchedEdgeConfigClient: EdgeConfigClient = {
+    ...edgeConfigClient,
+    get: async <T>(key: string) => {
+      const h = store.getStore();
+      if (h) {
+        const cached = cache.get(h);
+        if (cached) {
+          return cached as Promise<T>;
+        }
+      }
+
+      const promise = edgeConfigClient.get<T>(key);
+      if (h) cache.set(h, promise);
+
+      return promise;
+    },
+  };
+
+  let initPromise: Promise<unknown> | null = null;
+
+  const ldClient = init(clientSideId, patchedEdgeConfigClient);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
@@ -56,13 +81,21 @@ export function createLaunchDarklyAdapter({
   ): Adapter<ValueType, LDContext> {
     return {
       origin,
-      async decide({ key, entities }): Promise<ValueType> {
-        await ldClient.waitForInitialization();
-        return ldClient.variation(
-          key,
-          entities as LDContext,
-          options.defaultValue,
-        ) as ValueType;
+      async decide({ key, entities, headers }): Promise<ValueType> {
+        if (!ldClient.initialized()) {
+          if (!initPromise) initPromise = ldClient.waitForInitialization();
+          await initPromise;
+        }
+
+        return store.run(
+          headers,
+          () =>
+            ldClient.variation(
+              key,
+              entities as LDContext,
+              options.defaultValue,
+            ) as ValueType,
+        );
       },
     };
   }

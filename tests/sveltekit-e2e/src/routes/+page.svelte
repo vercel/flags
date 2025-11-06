@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { PageProps } from './$types';
+/** biome-ignore-all lint/correctness/noUnusedVariables: used in html */
+import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+const { data }: PageProps = $props();
 </script>
 
 <h1>{data.post.title}</h1>
