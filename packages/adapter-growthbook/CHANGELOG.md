@@ -1,5 +1,11 @@
 # @flags-sdk/growthbook
 
+## 0.2.0
+
+### Minor Changes
+
+- 0da9c49: Auto-refresh flag definitions with a stale-while-revalidate strategy
+
 ## 0.1.3
 
 ### Patch Changes
