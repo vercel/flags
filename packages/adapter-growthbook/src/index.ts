@@ -74,14 +74,15 @@ export function createGrowthbookAdapter(options: {
   });
 
   let _initializePromise: Promise<void> | undefined;
+  let _edgeConfigClient: ReturnType<typeof createClient> | undefined;
 
   const getEdgePayload = async (): Promise<FeatureApiResponse | undefined> => {
     if (!options.edgeConfig) return;
     try {
-      const edgeConfigClient = createClient(
-        options.edgeConfig.connectionString,
-      );
-      const payload = await edgeConfigClient.get<FeatureApiResponse | string>(
+      if (!_edgeConfigClient) {
+        _edgeConfigClient = createClient(options.edgeConfig.connectionString);
+      }
+      const payload = await _edgeConfigClient.get<FeatureApiResponse | string>(
         options.edgeConfig.itemKey || options.clientKey,
       );
       if (!payload) {
