@@ -417,7 +417,6 @@ export namespace Original {
   };
 
   export type FlagDefinition = {
-    happykitFlagId?: string;
     variants: FlagVariant[];
     environments: Record<EnvironmentKey, EnvironmentConfig>;
 
@@ -597,8 +596,6 @@ export namespace Packed {
   };
 
   export type FlagDefinition = {
-    /** for backwards compatibility with HappyKit */
-    happykitFlagId?: string;
     /** for backwards compatibility with HappyKit */
     variantIds?: string[];
     /**  variants, packed down to just their values */
