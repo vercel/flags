@@ -11,6 +11,7 @@ import {
   type UserContext,
 } from '@growthbook/growthbook';
 import { createClient } from '@vercel/edge-config';
+import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
 
 export { getProviderData } from './provider';
@@ -36,6 +37,7 @@ type EdgeConfig = {
 type AdapterResponse = {
   feature: <T>() => Adapter<T, Attributes>;
   initialize: () => Promise<GrowthBookClient>;
+  refresh: () => Promise<void>;
   setTrackingCallback: (cb: TrackingCallback) => void;
   setStickyBucketService: (stickyBucketService: StickyBucketService) => void;
   stickyBucketService?: StickyBucketService;
@@ -72,49 +74,70 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  let _initializePromise: Promise<void> | undefined;
+  const edgeConfigClient = options.edgeConfig
+    ? createClient(options.edgeConfig.connectionString)
+    : null;
+  const edgeConfigKey = options.edgeConfig?.itemKey || options.clientKey;
 
-  const initializeGrowthBook = async (): Promise<void> => {
-    let payload: FeatureApiResponse | string | undefined;
-    if (options.edgeConfig) {
-      try {
-        const edgeConfigClient = createClient(
-          options.edgeConfig.connectionString,
-        );
-        payload = await edgeConfigClient.get<FeatureApiResponse>(
-          options.edgeConfig.itemKey || options.clientKey,
-        );
+  const store = new AsyncLocalStorage<WeakKey>();
+  const cache = new WeakMap<WeakKey, Promise<FeatureApiResponse | null>>();
+
+  const getEdgePayload = async (): Promise<FeatureApiResponse | null> => {
+    if (!edgeConfigClient) return null;
+
+    // Only do this once per request using AsyncLocalStorage
+    const currentRequest = store.getStore();
+    if (currentRequest) {
+      const cached = cache.get(currentRequest);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    // Fetch from Edge Config
+    const payloadPromise = edgeConfigClient
+      .get<FeatureApiResponse | string>(edgeConfigKey)
+      .then((payload) => {
         if (!payload) {
           console.error('No payload found in edge config');
+          return null;
+        } else if (typeof payload === 'string') {
+          // Older GrowthBook integrations use WebHooks directly to store
+          // data in Edge Config, but they store the data as a string.
+          //
+          // We need to parse the string to JSON before passing it to GrowthBook.
+          //
+          // https://docs.growthbook.io/app/webhooks/sdk-webhooks#vercel-edge-config
+          // https://github.com/vercel/flags/issues/209
+          try {
+            return JSON.parse(payload) as FeatureApiResponse;
+          } catch {
+            console.error('Invalid payload format');
+            return null;
+          }
+        } else {
+          return payload;
         }
-      } catch (e) {
+      })
+      .catch((e) => {
         console.error('Error fetching edge config', e);
-      }
-    }
+        return null;
+      });
 
-    // Older GrowthBook integrations use WebHooks directly to store
-    // data in Edge Config, but they store the data as a string.
-    //
-    // We need to parse the string to JSON before passing it to GrowthBook.
-    //
-    // https://docs.growthbook.io/app/webhooks/sdk-webhooks#vercel-edge-config
-    // https://github.com/vercel/flags/issues/209
-    if (typeof payload === 'string') {
-      try {
-        payload = JSON.parse(payload) as FeatureApiResponse;
-      } catch {
-        console.error('Invalid payload format');
-        payload = undefined;
-      }
-    }
+    if (currentRequest) cache.set(currentRequest, payloadPromise);
+    return payloadPromise;
+  };
 
+  const initializeGrowthBook = async (): Promise<void> => {
+    const payload = await getEdgePayload();
     await growthbook.init({
       streaming: false,
-      payload,
+      payload: payload ?? undefined,
       ...(options.initOptions || {}),
     });
   };
 
+  let _initializePromise: Promise<void> | undefined;
   /**
    * Initialize the GrowthBook SDK.
    *
@@ -129,6 +152,18 @@ export function createGrowthbookAdapter(options: {
     }
     await _initializePromise;
     return growthbook;
+  };
+
+  const refresh = async (): Promise<void> => {
+    if (options.edgeConfig) {
+      const payload = await getEdgePayload();
+      if (payload && payload !== growthbook.getPayload()) {
+        await growthbook.setPayload(payload);
+      }
+    } else {
+      // Init does a refresh with a stale-while-revalidate strategy
+      await growthbook.init();
+    }
   };
 
   function origin(prefix: string) {
@@ -151,8 +186,12 @@ export function createGrowthbookAdapter(options: {
   ): Adapter<T, Attributes> {
     return {
       origin: origin('features'),
-      decide: async ({ key, entities, defaultValue }) => {
-        await initialize();
+      decide: async ({ key, entities, defaultValue, headers }) => {
+        await store.run(headers, async () => {
+          await initialize();
+          await refresh();
+        });
+
         const userContext: UserContext = {
           attributes: entities as Attributes,
           trackingCallback: opts.exposureLogging ? trackingCallback : undefined,
@@ -186,6 +225,7 @@ export function createGrowthbookAdapter(options: {
   return {
     feature,
     initialize,
+    refresh,
     setTrackingCallback,
     setStickyBucketService,
     stickyBucketService,
@@ -269,6 +309,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
 export const growthbookAdapter: AdapterResponse = {
   feature: (...args) => getOrCreateDefaultGrowthbookAdapter().feature(...args),
   initialize: () => getOrCreateDefaultGrowthbookAdapter().initialize(),
+  refresh: () => getOrCreateDefaultGrowthbookAdapter().refresh(),
   setTrackingCallback: (...args) =>
     getOrCreateDefaultGrowthbookAdapter().setTrackingCallback(...args),
   setStickyBucketService: (...args) =>
