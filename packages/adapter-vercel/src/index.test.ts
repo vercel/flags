@@ -130,7 +130,6 @@ describe.skip('vercelAdapter', () => {
     const get = vi.fn().mockReturnValueOnce({
       definitions: {
         'test-flag': {
-          happykitFlagId: undefined,
           variantIds: undefined,
           environments: [Object],
           variants: [Array],
