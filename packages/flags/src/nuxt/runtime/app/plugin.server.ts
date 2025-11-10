@@ -1,13 +1,12 @@
+import { defineNuxtPlugin, useRoute } from 'nuxt/app';
+// @ts-expect-error
+import { toolbarEnabled } from '#build/flags/config.mjs';
+import type { FlagStore } from '#flags-implementation';
+// @ts-expect-error
+import { useHead } from '#imports';
 import { encryptFlagValues } from '../../../lib/crypto';
 import { safeJsonStringify } from '../../../lib/safe-json-stringify';
 import { resolveObjectPromises } from '../../../shared';
-
-import type { FlagStore } from '#flags-implementation';
-// @ts-ignore
-import { useHead } from '#imports';
-// @ts-ignore
-import { toolbarEnabled } from '#build/flags/config.mjs';
-import { defineNuxtPlugin, useRoute } from 'nuxt/app';
 
 export default defineNuxtPlugin(async (nuxtApp) => {
   const flagStore: FlagStore = {

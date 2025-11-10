@@ -1,48 +1,49 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   error,
-  json,
   type Handle,
+  json,
   type RequestEvent,
   type RequestHandler,
 } from '@sveltejs/kit';
-import { AsyncLocalStorage } from 'node:async_hooks';
 import {
+  decryptFlagDefinitions as _decryptFlagDefinitions,
+  decryptFlagValues as _decryptFlagValues,
+  decryptOverrides as _decryptOverrides,
+  encryptFlagDefinitions as _encryptFlagDefinitions,
+  encryptFlagValues as _encryptFlagValues,
+  encryptOverrides as _encryptOverrides,
   type ApiData,
+  type FlagDefinitionsType,
+  type JsonValue,
   reportValue,
   safeJsonStringify,
   verifyAccess,
-  type JsonValue,
-  type FlagDefinitionsType,
-  encryptFlagValues as _encryptFlagValues,
-  decryptFlagValues as _decryptFlagValues,
-  encryptOverrides as _encryptOverrides,
-  decryptOverrides as _decryptOverrides,
-  encryptFlagDefinitions as _encryptFlagDefinitions,
-  decryptFlagDefinitions as _decryptFlagDefinitions,
   version,
 } from '..';
-import {
-  FlagDeclaration,
-  FlagOverridesType,
-  FlagValuesType,
-  Identify,
-} from '../types';
 import { normalizeOptions } from '../lib/normalize-options';
-import { Flag, FlagsArray } from './types';
-import {
-  generatePermutations as _generatePermutations,
-  getPrecomputed,
-  precompute as _precompute,
-} from './precompute';
-import { tryGetSecret } from './env';
 import {
   getDecide,
   getIdentify,
+  // biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
   hasOwnProperty,
   resolveObjectPromises,
   sealCookies,
   sealHeaders,
 } from '../shared';
+import type {
+  FlagDeclaration,
+  FlagOverridesType,
+  FlagValuesType,
+  Identify,
+} from '../types';
+import { tryGetSecret } from './env';
+import {
+  generatePermutations as _generatePermutations,
+  precompute as _precompute,
+  getPrecomputed,
+} from './precompute';
+import type { Flag, FlagsArray } from './types';
 
 /**
  * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
@@ -262,7 +263,7 @@ export function createHandle({
 }
 
 async function handleWellKnownFlagsRoute(
-  event: RequestEvent<Partial<Record<string, string>>, string | null>,
+  event: RequestEvent<Record<string, string>, string | null>,
   secret: string,
   flags: Record<string, Flag<any>>,
 ) {

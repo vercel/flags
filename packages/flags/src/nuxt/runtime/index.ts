@@ -1,21 +1,21 @@
 /// <reference types="nuxt/app" />
 
-import { Flag } from '../types';
-import { FlagDeclaration, JsonValue } from '../../types';
-import { normalizeOptions } from '../../lib/normalize-options';
+import type { H3Event } from 'h3';
+import type { FlagStore } from '#flags-implementation';
+import { getState, getStore } from '#flags-implementation';
 import { decryptOverrides } from '../../lib/crypto';
+import { normalizeOptions } from '../../lib/normalize-options';
 import { reportValue } from '../../lib/report-value';
 import {
   getDecide,
   getIdentify,
+  // biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
   hasOwnProperty,
   sealCookies,
   sealHeaders,
 } from '../../shared';
-
-import type { H3Event } from 'h3';
-import { getState, getStore } from '#flags-implementation';
-import type { FlagStore } from '#flags-implementation';
+import type { FlagDeclaration, JsonValue } from '../../types';
+import type { Flag } from '../types';
 
 // TODO: add precomputed support
 export function defineFlag<

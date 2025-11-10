@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/flagsmith",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Flagsmith provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
@@ -43,8 +43,7 @@
   "scripts": {
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "check": "biome check",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
@@ -54,11 +53,9 @@
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
-    "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
     "vite": "5.1.1",

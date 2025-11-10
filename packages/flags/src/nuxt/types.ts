@@ -1,5 +1,5 @@
-import { H3Event } from 'h3';
-import { FlagOption } from '../types';
+import type { H3Event } from 'h3';
+import type { FlagOption } from '../types';
 
 type FlagsMeta<ReturnValue> = {
   key: string;

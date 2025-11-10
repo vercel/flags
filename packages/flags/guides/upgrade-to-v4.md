@@ -23,8 +23,8 @@ Flags Explorer now requires your flags discovery endpoint (`/.well-known/vercel/
 If you are using Next.js App Router, we recommend switching to the new `createFlagsDiscoveryEndpoint` function:
 
 ```ts
-import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
-import * as flags from '../../../../flags';
+import { getProviderData, createFlagsDiscoveryEndpoint } from "flags/next";
+import * as flags from "../../../../flags";
 
 // This function handles the authorization check for you
 export const GET = createFlagsDiscoveryEndpoint(async (request) => {
@@ -42,20 +42,20 @@ This helper function automatically handles the authorization check and adds the 
 <summary>You can alternatively check the authorization and add the `x-flags-sdk-version` response header manually.</summary>
 
 ```ts
-import { type ApiData, verifyAccess, version } from 'flags';
-import { getProviderData } from 'flags/next';
-import { NextResponse, type NextRequest } from 'next/server';
-import * as flags from '../../../../flags';
+import { type ApiData, verifyAccess, version } from "flags";
+import { getProviderData } from "flags/next";
+import { NextResponse, type NextRequest } from "next/server";
+import * as flags from "../../../../flags";
 
 export async function GET(request: NextRequest) {
-  const access = await verifyAccess(request.headers.get('Authorization'));
+  const access = await verifyAccess(request.headers.get("Authorization"));
   if (!access) return NextResponse.json(null, { status: 401 });
 
   // Forward info from Flags in Code
   const providerData = await getProviderData(flags);
 
   return NextResponse.json<ApiData>(providerData, {
-    headers: { 'x-flags-sdk-version': version },
+    headers: { "x-flags-sdk-version": version },
   });
 }
 ```
@@ -67,19 +67,19 @@ export async function GET(request: NextRequest) {
 If you are using Next.js Pages Router, forward the version manually:
 
 ```ts
-import { verifyAccess, version } from 'flags';
-import { getProviderData } from 'flags/next';
-import * as flags from '../../../flags';
+import { verifyAccess, version } from "flags";
+import { getProviderData } from "flags/next";
+import * as flags from "../../../flags";
 
 export default async function handler(request, response) {
-  const access = await verifyAccess(request.headers['authorization']);
+  const access = await verifyAccess(request.headers["authorization"]);
   if (!access) return response.status(401).json(null);
 
   const apiData = getProviderData(flags);
 
   // set the required response header here, so it is
   // available on successful responses but not on the 401 above
-  response.setHeader('x-flags-sdk-version', version);
+  response.setHeader("x-flags-sdk-version", version);
 
   return response.json(apiData);
 }
@@ -92,9 +92,9 @@ If you are using `createHandle` in SvelteKit then the upgrade will be handled au
 If you rely on a custom `src/routes/[x+2e]well-known/vercel/flags/server.ts` file you use the new `createFlagsDiscoveryEndpoint` helper function to create your flags discovery endpoint:
 
 ```ts
-import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
-import * as flags from '$lib/flags';
+import { createFlagsDiscoveryEndpoint, getProviderData } from "flags/sveltekit";
+import { FLAGS_SECRET } from "$env/static/private";
+import * as flags from "$lib/flags";
 
 export const GET = createFlagsDiscoveryEndpoint(
   async () => {

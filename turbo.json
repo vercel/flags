@@ -1,6 +1,11 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env", ".env.local", ".env.development.local"],
+  "globalDependencies": [
+    ".env",
+    ".env.local",
+    ".env.development.local",
+    "biome.json"
+  ],
   "globalEnv": ["NPM_TOKEN", "DEPLOYMENT_PROTECTION_BYPASS"],
   "tasks": {
     "dev": {
@@ -26,7 +31,7 @@
         ".vercel/**"
       ]
     },
-    "lint": {
+    "check": {
       "dependsOn": ["^build"]
     },
     "type-check": {
@@ -51,6 +56,6 @@
     "test:integration": {
       "dependsOn": ["^build"]
     },
-    "prettier-check": {}
+    "biome:check": {}
   }
 }

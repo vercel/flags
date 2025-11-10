@@ -15,17 +15,17 @@ pnpm i @flags-sdk/growthbook
 You can import the default adapter instance `growthbookAdapter` from `@flags-sdk/growthbook`:
 
 ```ts
-import { growthBookAdapter } from '@flags-sdk/growthbook';
+import { growthBookAdapter } from "@flags-sdk/growthbook";
 ```
 
 ## Example
 
 ```ts
-import { flag } from 'flags/next';
-import { growthBookAdapter } from '@flags-sdk/growthbook';
+import { flag } from "flags/next";
+import { growthBookAdapter } from "@flags-sdk/growthbook";
 
 export const summerBannerFlag = feature<boolean>({
-  key: 'summer-banner',
+  key: "summer-banner",
   adapter: growthBookAdapter.feature(),
 });
 ```
@@ -35,12 +35,12 @@ export const summerBannerFlag = feature<boolean>({
 In order to run GrowthBook experiments, you must define a back-end tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`).
 
 ```ts
-import { after } from 'next/server';
+import { after } from "next/server";
 
 growthbookAdapter.setTrackingCallback((experiment, result) => {
   // Safely fire and forget async calls (Next.js)
   after(async () => {
-    console.log('Viewed Experiment', {
+    console.log("Viewed Experiment", {
       experimentId: experiment.key,
       variationId: result.key,
     });
@@ -55,8 +55,8 @@ In some situations, you may prefer to use a front-end tracking callback. This re
 To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `flags.ts`). We recommend using our Redis service for ease of implementation.
 
 ```ts
-import { RedisStickyBucketService } from '@growthbook/growthbook';
-import Redis from 'ioredis';
+import { RedisStickyBucketService } from "@growthbook/growthbook";
+import Redis from "ioredis";
 
 const redis = new Redis(process.env.REDIS_CONNECTION_URL);
 const redisStickyBucketService = new RedisStickyBucketService({ redis });

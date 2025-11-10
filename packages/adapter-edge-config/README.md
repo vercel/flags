@@ -13,11 +13,11 @@ npm install @flags-sdk/edge-config
 This adapter will connect to the Edge Config available under the `EDGE_CONFIG` environment variable, and read items from a key in the Edge Config called `flags`.
 
 ```ts
-import { flag } from 'flags/next';
-import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+import { flag } from "flags/next";
+import { edgeConfigAdapter } from "@flags-sdk/edge-config";
 
 export const exampleFlag = flag({
-  key: 'example-flag',
+  key: "example-flag",
   adapter: edgeConfigAdapter(),
 });
 ```
@@ -37,16 +37,16 @@ Your Edge Config should look like this:
 You can specify a custom adapter which connects to a different Edge Config, and reads
 
 ```ts
-import { flag } from 'flags/next';
-import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
+import { flag } from "flags/next";
+import { createEdgeConfigAdapter } from "@flags-sdk/edge-config";
 
 const edgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG, {
-  teamSlug: 'your-team-slug',
-  edgeConfigItemKey: 'my-flags',
+  teamSlug: "your-team-slug",
+  edgeConfigItemKey: "my-flags",
 });
 
 export const exampleFlag = flag({
-  key: 'example-flag',
+  key: "example-flag",
   adapter: edgeConfigAdapter(),
 });
 ```

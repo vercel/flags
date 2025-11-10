@@ -1,108 +1,120 @@
 import type { Adapter } from 'flags';
 import flagsmith from 'flagsmith';
-import { IIdentity, IInitConfig, IFlagsmithFeature } from 'flagsmith/types';
+import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
+import {
+  type CoercedType,
+  type CoerceOption,
+  coerceValue,
+} from './type-coercion';
 
-export type { IIdentity } from 'flagsmith/types';
 export { getProviderData } from './provider';
 
 let defaultFlagsmithAdapter: AdapterResponse | undefined;
 
 export type FlagsmithValue = IFlagsmithFeature['value'];
 
-export type EntitiesType = IIdentity;
-
-export type AdapterResponse = {
-  booleanValue: () => Adapter<boolean, EntitiesType>;
-  stringValue: () => Adapter<string, EntitiesType>;
-  numberValue: () => Adapter<number, EntitiesType>;
+export type EntitiesType = {
+  targetingKey: string;
+  traits: Record<string, string | number | boolean | null>;
 };
 
-function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
+export type AdapterResponse = {
+  getValue: <T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }) => Adapter<CoercedType<T>, EntitiesType>;
+};
+
+export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
   async function initialize() {
     await flagsmith.init({ fetch: globalThis.fetch, ...params });
   }
 
-  function booleanValue(): Adapter<boolean, EntitiesType> {
+  /**
+   * Returns an adapter for flag evaluation with optional type coercion.
+   *
+   * @param options - Configuration options
+   * @param options.coerce - Optional type coercion: "string", "number", or "boolean"
+   *
+   * @returns An adapter that evaluates flags based on the coercion option
+   *
+   * @remarks
+   * Behavior varies based on coercion option:
+   * - No coercion: Returns raw value from Flagsmith
+   * - "string": Converts values to string
+   * - "number": Converts values to number
+   * - "boolean": Converts values to boolean, falls back to flag's enabled state if coercion fails
+   *
+   * Returns default value when:
+   * - Flag is disabled
+   * - Value is null, undefined, or empty string
+   * - Coercion fails (except boolean coercion, which falls back to enabled state)
+   */
+  function getValue<T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }): Adapter<CoercedType<T>, EntitiesType> {
     return {
       async decide({
         key,
         defaultValue,
         entities: identity,
-      }): Promise<boolean> {
+      }): Promise<CoercedType<T>> {
         await initialize();
 
-        if (identity) {
-          await flagsmith.identify(identity);
+        if (identity?.targetingKey) {
+          const { targetingKey, traits } = identity;
+          await flagsmith.identify(targetingKey, traits);
         }
+
         const state = flagsmith.getState();
         const flagState = state.flags?.[key];
+        const isFlagDisabled = !flagState || !flagState.enabled;
 
-        if (!flagState) {
-          return defaultValue as boolean;
+        if (isFlagDisabled) {
+          return defaultValue as CoercedType<T>;
         }
 
-        return flagState.enabled;
-      },
-    };
-  }
+        const isEmpty =
+          flagState.value === null ||
+          flagState.value === undefined ||
+          flagState.value === '';
 
-  function stringValue(): Adapter<string, EntitiesType> {
-    return {
-      async decide({ key, defaultValue, entities: identity }): Promise<string> {
-        await initialize();
-
-        if (identity) {
-          await flagsmith.identify(identity);
-        }
-        const state = flagsmith.getState();
-        const flagState = state.flags?.[key];
-
-        if (!flagState || !flagState.enabled) {
-          return defaultValue as string;
+        if (isEmpty) {
+          return defaultValue as CoercedType<T>;
         }
 
-        return flagState.value as string;
-      },
-    };
-  }
-
-  function numberValue(): Adapter<number, EntitiesType> {
-    return {
-      async decide({ key, defaultValue, entities: identity }): Promise<number> {
-        await initialize();
-
-        if (identity) {
-          await flagsmith.identify(identity);
-        }
-        const state = flagsmith.getState();
-        const flagState = state.flags?.[key];
-
-        if (!flagState || !flagState.enabled) {
-          return defaultValue as number;
+        if (!options?.coerce) {
+          return flagState.value as CoercedType<T>;
         }
 
-        return flagState.value as number;
+        const coercedValue = coerceValue(flagState.value, options.coerce);
+
+        if (coercedValue === undefined && options.coerce === 'boolean') {
+          return flagState.enabled as CoercedType<T>;
+        }
+
+        if (coercedValue === undefined) {
+          return defaultValue as CoercedType<T>;
+        }
+
+        return coercedValue as CoercedType<T>;
       },
     };
   }
 
   return {
-    booleanValue,
-    stringValue,
-    numberValue,
+    getValue,
   };
 }
 
 function assertEnv(name: string): string {
   const value = process.env[name];
-  console.log('value', process.env);
   if (!value) {
     throw new Error(`Flagsmith Adapter: Missing ${name} environment variable`);
   }
   return value;
 }
 
-export const getOrCreateDefaultFlagsmithAdapter = () => {
+const getOrCreateDefaultFlagsmithAdapter = () => {
   if (!defaultFlagsmithAdapter) {
     const environmentId = assertEnv('FLAGSMITH_ENVIRONMENT_ID');
     defaultFlagsmithAdapter = createFlagsmithAdapter({
@@ -113,5 +125,8 @@ export const getOrCreateDefaultFlagsmithAdapter = () => {
 };
 
 // Lazy default adapter
-export const flagsmithAdapter: AdapterResponse =
-  getOrCreateDefaultFlagsmithAdapter();
+export const flagsmithAdapter: AdapterResponse = {
+  getValue: <T extends CoerceOption | undefined = undefined>(options?: {
+    coerce?: T;
+  }) => getOrCreateDefaultFlagsmithAdapter().getValue(options),
+};

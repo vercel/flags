@@ -19,7 +19,7 @@ Import the `createOpenFeatureAdapter` function from `@flags-sdk/openfeature` and
 For usage with regular providers, pass the client directly:
 
 ```ts
-import { createOpenFeatureAdapter } from '@flags-sdk/openfeature';
+import { createOpenFeatureAdapter } from "@flags-sdk/openfeature";
 
 OpenFeature.setProvider(new YourProviderOfChoice());
 const openFeatureAdapter = createOpenFeatureAdapter(OpenFeature.getClient());
@@ -28,7 +28,7 @@ const openFeatureAdapter = createOpenFeatureAdapter(OpenFeature.getClient());
 For usage with async providers, pass an init function, and return the client:
 
 ```ts
-import { createOpenFeatureAdapter } from '@flags-sdk/openfeature';
+import { createOpenFeatureAdapter } from "@flags-sdk/openfeature";
 
 // pass an init function, and return the client
 const openFeatureAdapter = createOpenFeatureAdapter(async () => {

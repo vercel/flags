@@ -1,9 +1,10 @@
-import { expect, it, describe, vi, beforeAll } from 'vitest';
-import { flag, precompute, dedupe, clearDedupeCacheForCurrentRequest } from '.';
 import { IncomingMessage } from 'node:http';
-import { NextApiRequestCookies } from 'next/dist/server/api-utils';
+import type { Socket } from 'node:net';
 import { Readable } from 'node:stream';
+import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Adapter, encryptOverrides } from '..';
+import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from '.';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -31,11 +32,13 @@ function createRequest(cookies = {}): [
   Readable,
 ] {
   const socket = new Readable();
-  const request = new IncomingMessage(socket as any) as IncomingMessage & {
+  const request = new IncomingMessage(
+    socket as unknown as Socket,
+  ) as IncomingMessage & {
     cookies: NextApiRequestCookies;
   };
   request.cookies = cookies;
-  request.headers['cookie'] = Object.entries(cookies)
+  request.headers.cookie = Object.entries(cookies)
     .map(([key, value]) => `${key}=${value}`)
     .join('; ');
 
@@ -488,7 +491,8 @@ describe('dynamic io', () => {
   it('should re-throw dynamic usage erorrs even when a defaultValue is present', async () => {
     const mockDecide = vi.fn(() => {
       const error = new Error('dynamic usage error');
-      (error as any).digest = 'DYNAMIC_SERVER_USAGE;dynamic usage error';
+      (error as Error & { digest: string }).digest =
+        'DYNAMIC_SERVER_USAGE;dynamic usage error';
       throw error;
     });
     const f = flag<boolean>({

@@ -1,24 +1,25 @@
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
+  HeadersAdapter,
+  type ReadonlyHeaders,
+} from './spec-extension/adapters/headers';
+import { RequestCookiesAdapter } from './spec-extension/adapters/request-cookies';
+import type {
   Decide,
   FlagDeclaration,
   Identify,
   ReadonlyRequestCookies,
 } from './types';
-import { RequestCookiesAdapter } from './spec-extension/adapters/request-cookies';
-import {
-  HeadersAdapter,
-  ReadonlyHeaders,
-} from './spec-extension/adapters/headers';
 
 const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
 const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
 
+// biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
 export function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   obj: X,
   prop: Y,
 ): obj is X & Record<Y, unknown> {
-  return obj.hasOwnProperty(prop);
+  return Object.hasOwn(obj, prop);
 }
 
 export function sealHeaders(headers: Headers): ReadonlyHeaders {

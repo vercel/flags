@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/posthog",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "PostHog adapter for the Flags SDK",
   "keywords": [
     "flags-sdk",
@@ -44,23 +44,20 @@
   "scripts": {
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
-    "eslint": "eslint-runner",
-    "eslint:fix": "eslint-runner --fix",
+    "check": "biome check",
     "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.4.0",
+    "@vercel/edge-config": "^1.4.3",
     "posthog-node": "4.11.1"
   },
   "devDependencies": {
     "@types/node": "22.14.0",
-    "eslint-config-custom": "workspace:*",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "rimraf": "6.0.1",
-    "tsconfig": "workspace:*",
     "tsup": "8.0.1",
     "typescript": "5.8.2",
     "vite": "6.2.5",

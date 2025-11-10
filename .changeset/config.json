@@ -10,9 +10,9 @@
   "ignore": [
     "shirt-shop",
     "svelte-example",
-    "next-13",
     "next-14",
     "next-15",
+    "next-16",
     "sveltekit-e2e",
     "snippets"
   ],

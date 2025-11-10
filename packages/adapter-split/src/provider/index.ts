@@ -1,4 +1,4 @@
-import { ProviderData } from 'flags';
+import type { ProviderData } from 'flags';
 
 // See: https://docs.split.io/reference/get-feature-flag
 interface ListFeatureFlagsResponseBody {
@@ -68,7 +68,6 @@ export async function getProviderData(options: {
           'content-type': 'application/json',
           Authorization: `Bearer ${options.adminApiKey}`,
         },
-        // @ts-expect-error used by some Next.js versions
         cache: 'no-store',
       },
     );

@@ -1,15 +1,19 @@
 import {
   defineEventHandler,
-  setResponseStatus,
-  setResponseHeader,
   getRequestHeader,
+  setResponseHeader,
+  setResponseStatus,
 } from 'h3';
-import { ApiData, FlagDefinitionsType, verifyAccess, version } from '../../..';
-import { Flag } from '../../types';
-import { normalizeOptions } from '../../../lib/normalize-options';
-
-// @ts-ignore
+// @ts-expect-error
 import { flags } from '#flags/defined-flags';
+import {
+  type ApiData,
+  type FlagDefinitionsType,
+  verifyAccess,
+  version,
+} from '../../..';
+import { normalizeOptions } from '../../../lib/normalize-options';
+import type { Flag } from '../../types';
 
 export default defineEventHandler(async (event) => {
   const auth = getRequestHeader(event, 'authorization') as string;

@@ -1,6 +1,5 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { provider } from 'std-env';
 import { resolveModulePath } from 'exsolve';
 import {
   addImports,
@@ -16,6 +15,7 @@ import {
   defineNuxtModule,
   resolveAlias,
 } from 'nuxt/kit';
+import { provider } from 'std-env';
 
 interface ModuleOptions {
   /** The directory to scan for exported feature flags */

@@ -5,17 +5,15 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --turbopack",
-    "lint": "next lint",
+    "check": "biome check",
     "start": "next start"
   },
   "dependencies": {
-    "@flags-sdk/launchdarkly": "workspace:*",
-    "@launchdarkly/vercel-server-sdk": "1.3.21",
     "@radix-ui/react-dialog": "1.1.2",
     "@radix-ui/react-separator": "1.1.0",
     "@radix-ui/react-slot": "1.1.0",
     "@radix-ui/react-tooltip": "1.1.4",
-    "@vercel/edge-config": "1.2.0",
+    "@vercel/edge-config": "^1.4.3",
     "@vercel/toolbar": "0.1.36",
     "class-variance-authority": "0.7.1",
     "clsx": "2.0.0",
@@ -33,8 +31,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.3",
     "postcss": "^8",
     "shiki": "1.24.0",
     "tailwindcss": "^3.4.1",

@@ -1,4 +1,4 @@
-import type { FlagDefinitionType, ProviderData } from 'flags';
+import type { FlagDefinitionType, FlagOptionType, ProviderData } from 'flags';
 
 type FlagsmithApiData = {
   id: number;
@@ -17,6 +17,11 @@ type FlagsmithApiData = {
   feature_segment: number;
   enabled: boolean;
 }[];
+
+type FlagsmithMultivariateApiData = {
+  control_value?: string | number | boolean;
+  options?: { value: string | number | boolean }[];
+};
 
 export async function getProviderData(options: {
   environmentKey: string;
@@ -63,29 +68,61 @@ export async function getProviderData(options: {
     }
 
     const data = (await res.json()) as FlagsmithApiData;
-    const definitions = data?.reduce<Record<string, FlagDefinitionType>>(
-      (acc, flag) => {
-        acc[flag.feature.name] = {
-          origin: `https://app.flagsmith.com/project/${options.projectId}/environment/${options.environmentKey}/features/?feature=${flag?.id}`,
-          description: flag.feature.description,
-          createdAt: new Date(flag.feature.created_date).getTime(),
-          options: [
+    const definitions: Record<string, FlagDefinitionType> = {};
+    for (const flag of data || []) {
+      let featureOptions: FlagOptionType[] = [
+        {
+          value: false,
+          label: 'Off',
+        },
+        {
+          value: true,
+          label: 'On',
+        },
+      ];
+
+      if (flag.feature.type === 'MULTIVARIATE') {
+        try {
+          const mvResponse = await fetch(
+            `https://api.flagsmith.com/api/v1/flags/${flag.feature.id}/multivariate-options/`,
             {
-              value: flag.feature_state_value,
-              label: flag.feature_state_value,
+              method: 'GET',
+              headers: { 'X-Environment-Key': options.environmentKey },
             },
-          ],
-        };
-        return acc;
-      },
-      {},
-    );
+          );
+          if (mvResponse.ok) {
+            const body =
+              (await mvResponse.json()) as FlagsmithMultivariateApiData;
+            const { control_value, options } = body;
+
+            const mvOptions = [
+              ...(control_value !== undefined ? [control_value] : []),
+              ...(options?.map((o) => o.value) ?? []),
+            ].filter((value) => value !== undefined);
+
+            if (mvOptions?.length > 0) {
+              featureOptions = mvOptions.map((value) => ({
+                value: value as any,
+                label: String(value),
+              }));
+            }
+          }
+        } catch {}
+      }
+
+      definitions[flag.feature.name] = {
+        origin: `https://app.flagsmith.com/project/${options.projectId}/environment/${options.environmentKey}/features/?feature=${flag.id}`,
+        description: flag.feature.description,
+        createdAt: new Date(flag.feature.created_date).getTime(),
+        options: featureOptions,
+      };
+    }
 
     return {
       definitions,
       hints: [],
     };
-  } catch (error) {
+  } catch {
     return {
       definitions: {},
       hints: [
