@@ -8,8 +8,8 @@
     "dev": "nuxt dev --port 4016",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e": "nuxt prepare && playwright test",
+    "test:e2e:ui": "nuxt prepare && playwright test --ui"
   },
   "dependencies": {
     "flags": "workspace:*",
