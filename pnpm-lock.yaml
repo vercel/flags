@@ -46,7 +46,7 @@ importers:
         version: 1.34.4
       next:
         specifier: 15.5.5
-        version: 15.5.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 15.5.5(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: ^19.0.0
         version: 19.2.0
@@ -95,16 +95,16 @@ importers:
         version: 0.5.16(tailwindcss@4.0.15)
       '@vercel/analytics':
         specifier: 1.5.0
-        version: 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
+        version: 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
       '@vercel/edge':
         specifier: 1.2.1
         version: 1.2.1
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(a96068f595d817e4260bd937a8c02dde)
+        version: 0.1.36(0ad3130eec4441a88ee723c97935596f)
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -122,7 +122,7 @@ importers:
         version: 5.1.2
       next:
         specifier: 15.2.2-canary.4
-        version: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: ^19.0.0
         version: 19.2.0
@@ -168,10 +168,10 @@ importers:
         version: 1.1.4(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(f4b2a1607466a46e2fef9caf9ecfb657)
+        version: 0.1.36(34e87e48724ac9b29bf4d866afc95030)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -186,7 +186,7 @@ importers:
         version: 5.0.7
       next:
         specifier: 15.2.2-canary.4
-        version: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+        version: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       next-themes:
         specifier: 0.4.4
         version: 0.4.4(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
@@ -241,7 +241,7 @@ importers:
         version: 1.2.1
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))
+        version: 0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))
       cookie:
         specifier: ^0.6.0
         version: 0.6.0
@@ -278,7 +278,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -340,7 +340,7 @@ importers:
         version: 1.6.1
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -374,7 +374,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       hypertune:
         specifier: 2.8.3
         version: 2.8.3
@@ -408,10 +408,10 @@ importers:
     dependencies:
       '@launchdarkly/vercel-server-sdk':
         specifier: ^1.3.34
-        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -499,7 +499,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       posthog-node:
         specifier: 4.11.1
         version: 4.11.1
@@ -591,7 +591,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -600,7 +600,7 @@ importers:
         version: 0.5.2
       statsig-node-vercel:
         specifier: ^0.7.0
-        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)))
+        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -631,7 +631,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../vercel-flags-core
@@ -653,7 +653,7 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.0.3
-        version: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
+        version: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
       tsup:
         specifier: 8.0.1
         version: 8.0.1(postcss@8.5.6)(typescript@5.6.3)
@@ -696,7 +696,7 @@ importers:
         version: 0.17.3
       '@nuxt/test-utils':
         specifier: 3.20.1
-        version: 3.20.1(@playwright/test@1.51.1)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
+        version: 3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
@@ -714,7 +714,7 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 15.1.4
-        version: 15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
+        version: 15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
       nuxt:
         specifier: 4.2.1
         version: 4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@20.11.17)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(magicast@0.5.1)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.6.3)(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1)
@@ -751,7 +751,7 @@ importers:
         version: 20.11.17
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       flags:
         specifier: workspace:*
         version: link:../flags
@@ -881,6 +881,40 @@ importers:
       typescript:
         specifier: ^5
         version: 5.8.2
+
+  tests/nuxt:
+    dependencies:
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
+      nuxt:
+        specifier: ^4.2.1
+        version: 4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1)
+      vue:
+        specifier: ^3.5.24
+        version: 3.5.24(typescript@5.9.3)
+    devDependencies:
+      '@nuxt/devtools':
+        specifier: ^3.1.0
+        version: 3.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
+      '@nuxt/test-utils':
+        specifier: ^3.20.1
+        version: 3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(playwright-core@1.56.1)(typescript@5.9.3)(vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1))
+      '@playwright/test':
+        specifier: ^1.56.1
+        version: 1.56.1
+      '@vue/test-utils':
+        specifier: ^2.4.6
+        version: 2.4.6
+      playwright-core:
+        specifier: ^1.56.1
+        version: 1.56.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.8
+        version: 4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1)
 
   tests/sveltekit-e2e:
     dependencies:
@@ -2649,6 +2683,9 @@ packages:
       rolldown:
         optional: true
 
+  '@one-ini/wasm@0.1.1':
+    resolution: {integrity: sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==}
+
   '@open-draft/deferred-promise@2.2.0':
     resolution: {integrity: sha512-CecwLWx3rhxVQF6V4bAgPS5t+So2sTbPgAzafKkVizyi7tlwpcFpdFqq+wqF2OwNBmqFuu6tOyouTuxgpMfzmA==}
 
@@ -3041,6 +3078,11 @@ packages:
 
   '@playwright/test@1.51.1':
     resolution: {integrity: sha512-nM+kEaTSAoVlXmMPH10017vn3FSiFqr/bh4fKg9vmAdMfd9SDqRZNvPSiAHADc/itWak+qPvMPZQOPwCBW7k7Q==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  '@playwright/test@1.56.1':
+    resolution: {integrity: sha512-vSMYtL/zOcFpvJCW71Q/OEGQb7KYBPAdKh35WNSkaZA75JlAO8ED8UN6GUNTm3drWomcbcqRPFqQbLae8yBTdg==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4338,6 +4380,13 @@ packages:
   '@vue/shared@3.5.24':
     resolution: {integrity: sha512-9cwHL2EsJBdi8NY22pngYYWzkTDhld6fAD6jlaeloNGciNSJL6bLpbxVgXl96X00Jtc6YWQv96YA/0sxex/k1A==}
 
+  '@vue/test-utils@2.4.6':
+    resolution: {integrity: sha512-FMxEjOpYNYiFe0GkaHsnJPXFHxQ6m4t8vI/ElPGpMWxZKpmRvQ33OIrvRXemy6yha03RxhOlQuy+gZMC3CQSow==}
+
+  abbrev@2.0.0:
+    resolution: {integrity: sha512-6/mh1E2u2YgEsCHdY0Yx5oW+61gZU+1vXaoiHHrpKeuRNNgFvS+/jrwHiQhB5apAf5oB7UB7E19ol2R2LKH8hQ==}
+    engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
+
   abbrev@3.0.1:
     resolution: {integrity: sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg==}
     engines: {node: ^18.17.0 || >=20.5.0}
@@ -4844,6 +4893,9 @@ packages:
   confbox@0.2.2:
     resolution: {integrity: sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ==}
 
+  config-chain@1.1.13:
+    resolution: {integrity: sha512-qj+f8APARXHrM0hraqXYb2/bOVSV4PvJQlNZ/DVj0QrmNM2q2euizkeuVckQ57J+W0mRH6Hvi+k50M4Jul2VRQ==}
+
   consola@3.4.2:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
     engines: {node: ^14.18.0 || >=16.10.0}
@@ -5178,6 +5230,11 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  editorconfig@1.0.4:
+    resolution: {integrity: sha512-L9Qe08KWTlqYMVvMcTIvMAdl1cDUubzRNYL+WfA4bLDMHe4nemKkpmYzkznE1FwLKu0EEmy6obgQKzMJrg4x9Q==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -5816,6 +5873,9 @@ packages:
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
+  ini@1.3.8:
+    resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
+
   ini@4.1.1:
     resolution: {integrity: sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -6065,6 +6125,15 @@ packages:
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
+
+  js-beautify@1.15.4:
+    resolution: {integrity: sha512-9/KXeZUKKJwqCXUdBxFJ3vPh467OCckSBmYDwSK/EtV090K+iMJ7zx2S3HLVDIWFQdqMIsZWbnaGiba18aWhaA==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  js-cookie@3.0.5:
+    resolution: {integrity: sha512-cEiJEAEoIbWfCZYKWhVwFuvPX1gETRYPw6LlaTKoxD3s2AkXzkCjnp6h0V77ozyqj0jakteJ4YqDJT830+lVGw==}
+    engines: {node: '>=14'}
 
   js-sha256@0.11.0:
     resolution: {integrity: sha512-6xNlKayMZvds9h1Y1VWc0fQHQ82BxTXizWPEtEeGvmOUYpBRy4gbWroHLpzowe6xiQhHpelCQiE7HEdznyBL9Q==}
@@ -6543,6 +6612,10 @@ packages:
     resolution: {integrity: sha512-lKwV/1brpG6mBUFHtb7NUmtABCb2WZZmm2wNiOA5hAb8VdCS4B3dtMWyvcoViccwAW/COERjXLt0zP1zXUN26g==}
     engines: {node: '>=10'}
 
+  minimatch@9.0.1:
+    resolution: {integrity: sha512-0jWhJpD/MdhPXwPuiRkCbfYfSKp2qnn2eOc279qI7f+osl/l+prKSrvhg157zSYvx/1nmgn2NqdT6k2Z7zSH9w==}
+    engines: {node: '>=16 || 14 >=14.17'}
+
   minimatch@9.0.5:
     resolution: {integrity: sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==}
     engines: {node: '>=16 || 14 >=14.17'}
@@ -6827,6 +6900,11 @@ packages:
 
   node-releases@2.0.26:
     resolution: {integrity: sha512-S2M9YimhSjBSvYnlr5/+umAnPHE++ODwt5e2Ij6FoX45HA/s4vHdkDx1eax2pAPeAOqu4s9b7ppahsyEFdVqQA==}
+
+  nopt@7.2.1:
+    resolution: {integrity: sha512-taM24ViiimT/XntxbPyJQzCG+p4EKOpgD3mxFwW38mGjVUrfERQOeY4EDHjdnptttfHuHQXFx+lTP08Q+mLa/w==}
+    engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
+    hasBin: true
 
   nopt@8.1.0:
     resolution: {integrity: sha512-ieGu42u/Qsa4TFktmaKEwM6MQH0pOWnaB3htzh0JRtx84+Mebc0cbZYN5bC+6WTZ4+77xrL9Pn5m7CV6VIkV7A==}
@@ -7428,6 +7506,9 @@ packages:
 
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
+
+  proto-list@1.2.4:
+    resolution: {integrity: sha512-vtK/94akxsTMhe0/cbfpR+syPuszcuwhqVjJq26CuNDgFGj682oRBXOP5MJpv2r7JtE8MsiepGIqvvOTBwn2vA==}
 
   protocols@2.0.2:
     resolution: {integrity: sha512-hHVTzba3wboROl0/aWRRG9dMytgH6ow//STBZh43l/wQgmMhYhOFi0EHWAPtoCz9IAUymsyP0TSBHkhgMEGNnQ==}
@@ -8429,6 +8510,11 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   ua-parser-js@1.0.41:
     resolution: {integrity: sha512-LbBDqdIC5s8iROCUjMbW1f5dJQTEFB1+KO9ogbvlb3nm9n4YHa5p4KTvFPWvh2Hs8gZMBuiB1/8+pdfe/tDPug==}
     hasBin: true
@@ -9010,6 +9096,9 @@ packages:
 
   vue-bundle-renderer@2.2.0:
     resolution: {integrity: sha512-sz/0WEdYH1KfaOm0XaBmRZOWgYTEvUDt6yPYaUzl4E52qzgWLlknaPPTTZmp6benaPTlQAI/hN1x3tAzZygycg==}
+
+  vue-component-type-helpers@2.2.12:
+    resolution: {integrity: sha512-YbGqHZ5/eW4SnkPNR44mKVc6ZKQoRs/Rux1sxC6rdwXb4qpbOSYfDr9DsTHolOTGmIKgM9j141mZbBeg05R1pw==}
 
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
@@ -10322,10 +10411,10 @@ snapshots:
       '@launchdarkly/js-sdk-common': 2.19.0
       semver: 7.5.4
 
-  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
+  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge': 2.6.9
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       crypto-js: 4.2.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -10586,6 +10675,14 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
+  '@nuxt/devtools-kit@3.1.0(magicast@0.5.1)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))':
+    dependencies:
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      execa: 8.0.1
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - magicast
+
   '@nuxt/devtools-wizard@3.1.0':
     dependencies:
       consola: 3.4.2
@@ -10630,6 +10727,47 @@ snapshots:
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
       vite-plugin-inspect: 11.3.3(@nuxt/kit@4.2.1(magicast@0.5.1))(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
       vite-plugin-vue-tracer: 1.1.3(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.6.3))
+      which: 5.0.0
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - vue
+
+  '@nuxt/devtools@3.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@nuxt/devtools-kit': 3.1.0(magicast@0.5.1)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      '@nuxt/devtools-wizard': 3.1.0
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      '@vue/devtools-core': 8.0.3(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
+      '@vue/devtools-kit': 8.0.3
+      birpc: 2.8.0
+      consola: 3.4.2
+      destr: 2.0.5
+      error-stack-parser-es: 1.0.5
+      execa: 8.0.1
+      fast-npm-meta: 0.4.7
+      get-port-please: 3.2.0
+      hookable: 5.5.3
+      image-meta: 0.2.2
+      is-installed-globally: 1.0.0
+      launch-editor: 2.12.0
+      local-pkg: 1.1.2
+      magicast: 0.5.1
+      nypm: 0.6.2
+      ohash: 2.0.11
+      pathe: 2.0.3
+      perfect-debounce: 2.0.0
+      pkg-types: 2.3.0
+      semver: 7.7.3
+      simple-git: 3.30.0
+      sirv: 3.0.2
+      structured-clone-es: 1.0.0
+      tinyglobby: 0.2.15
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite-plugin-inspect: 11.3.3(@nuxt/kit@4.2.1)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      vite-plugin-vue-tracer: 1.1.3(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
       which: 5.0.0
       ws: 8.18.3
     transitivePeerDependencies:
@@ -10753,6 +10891,70 @@ snapshots:
       - uploadthing
       - xml2js
 
+  '@nuxt/nitro-server@4.2.1(@upstash/redis@1.34.4)(db0@0.3.4)(ioredis@5.8.2)(nuxt@4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1))(typescript@5.9.3)':
+    dependencies:
+      '@nuxt/devalue': 2.0.2
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      '@unhead/vue': 2.0.19(vue@3.5.24(typescript@5.9.3))
+      '@vue/shared': 3.5.24
+      consola: 3.4.2
+      defu: 6.1.4
+      destr: 2.0.5
+      devalue: 5.4.2
+      errx: 0.1.0
+      escape-string-regexp: 5.0.0
+      exsolve: 1.0.8
+      h3: 1.15.4
+      impound: 1.0.0
+      klona: 2.0.6
+      mocked-exports: 0.1.1
+      nitropack: 2.12.9(@upstash/redis@1.34.4)
+      nuxt: 4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1)
+      pathe: 2.0.3
+      pkg-types: 2.3.0
+      radix3: 1.1.2
+      std-env: 3.10.0
+      ufo: 1.6.1
+      unctx: 2.4.1
+      unstorage: 1.17.2(@upstash/redis@1.34.4)(db0@0.3.4)(ioredis@5.8.2)
+      vue: 3.5.24(typescript@5.9.3)
+      vue-bundle-renderer: 2.2.0
+      vue-devtools-stub: 0.1.0
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@electric-sql/pglite'
+      - '@libsql/client'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bare-abort-controller
+      - better-sqlite3
+      - db0
+      - drizzle-orm
+      - encoding
+      - idb-keyval
+      - ioredis
+      - magicast
+      - mysql2
+      - react-native-b4a
+      - rolldown
+      - sqlite3
+      - supports-color
+      - typescript
+      - uploadthing
+      - xml2js
+
   '@nuxt/schema@4.2.1':
     dependencies:
       '@vue/shared': 3.5.24
@@ -10778,7 +10980,7 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
-  '@nuxt/test-utils@3.20.1(@playwright/test@1.51.1)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))':
+  '@nuxt/test-utils@3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))':
     dependencies:
       '@nuxt/kit': 4.2.1(magicast@0.5.1)
       c12: 3.3.1(magicast@0.5.1)
@@ -10802,12 +11004,48 @@ snapshots:
       tinyexec: 1.0.2
       ufo: 1.6.1
       unplugin: 2.3.10
-      vitest-environment-nuxt: 1.0.1(@playwright/test@1.51.1)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
+      vitest-environment-nuxt: 1.0.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
       vue: 3.5.24(typescript@5.6.3)
     optionalDependencies:
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
+      '@vue/test-utils': 2.4.6
       playwright-core: 1.56.1
       vitest: 4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - magicast
+      - typescript
+
+  '@nuxt/test-utils@3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(playwright-core@1.56.1)(typescript@5.9.3)(vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1))':
+    dependencies:
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      c12: 3.3.1(magicast@0.5.1)
+      consola: 3.4.2
+      defu: 6.1.4
+      destr: 2.0.5
+      estree-walker: 3.0.3
+      fake-indexeddb: 6.2.5
+      get-port-please: 3.2.0
+      h3: 1.15.4
+      local-pkg: 1.1.2
+      magic-string: 0.30.21
+      node-fetch-native: 1.6.7
+      node-mock-http: 1.0.3
+      ofetch: 1.5.1
+      pathe: 2.0.3
+      perfect-debounce: 2.0.0
+      radix3: 1.1.2
+      scule: 1.3.0
+      std-env: 3.10.0
+      tinyexec: 1.0.2
+      ufo: 1.6.1
+      unplugin: 2.3.10
+      vitest-environment-nuxt: 1.0.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(playwright-core@1.56.1)(typescript@5.9.3)(vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1))
+      vue: 3.5.24(typescript@5.9.3)
+    optionalDependencies:
+      '@playwright/test': 1.56.1
+      '@vue/test-utils': 2.4.6
+      playwright-core: 1.56.1
+      vitest: 4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - magicast
       - typescript
@@ -10870,6 +11108,67 @@ snapshots:
       - vti
       - vue-tsc
       - yaml
+
+  '@nuxt/vite-builder@4.2.1(@biomejs/biome@2.2.7)(@types/node@22.14.0)(eslint@9.38.0(jiti@2.6.1))(lightningcss@1.30.2)(nuxt@4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1))(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3))(yaml@2.8.1)':
+    dependencies:
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      '@rollup/plugin-replace': 6.0.3(rollup@4.52.5)
+      '@vitejs/plugin-vue': 6.0.1(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
+      '@vitejs/plugin-vue-jsx': 5.1.1(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
+      autoprefixer: 10.4.21(postcss@8.5.6)
+      consola: 3.4.2
+      cssnano: 7.1.2(postcss@8.5.6)
+      defu: 6.1.4
+      esbuild: 0.25.12
+      escape-string-regexp: 5.0.0
+      exsolve: 1.0.8
+      get-port-please: 3.2.0
+      h3: 1.15.4
+      jiti: 2.6.1
+      knitwork: 1.2.0
+      magic-string: 0.30.21
+      mlly: 1.8.0
+      mocked-exports: 0.1.1
+      nuxt: 4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1)
+      pathe: 2.0.3
+      pkg-types: 2.3.0
+      postcss: 8.5.6
+      rollup-plugin-visualizer: 6.0.5(rollup@4.52.5)
+      seroval: 1.3.2
+      std-env: 3.10.0
+      ufo: 1.6.1
+      unenv: 2.0.0-rc.24
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite-node: 5.0.0(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite-plugin-checker: 0.11.0(@biomejs/biome@2.2.7)(eslint@9.38.0(jiti@2.6.1))(optionator@0.9.4)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      vue: 3.5.24(typescript@5.9.3)
+      vue-bundle-renderer: 2.2.0
+    transitivePeerDependencies:
+      - '@biomejs/biome'
+      - '@types/node'
+      - eslint
+      - less
+      - lightningcss
+      - magicast
+      - meow
+      - optionator
+      - oxlint
+      - rollup
+      - sass
+      - sass-embedded
+      - stylelint
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+      - tsx
+      - typescript
+      - vls
+      - vti
+      - vue-tsc
+      - yaml
+
+  '@one-ini/wasm@0.1.1': {}
 
   '@open-draft/deferred-promise@2.2.0': {}
 
@@ -11106,6 +11405,10 @@ snapshots:
   '@playwright/test@1.51.1':
     dependencies:
       playwright: 1.51.1
+
+  '@playwright/test@1.56.1':
+    dependencies:
+      playwright: 1.56.1
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -12218,6 +12521,12 @@ snapshots:
       unhead: 2.0.19
       vue: 3.5.24(typescript@5.6.3)
 
+  '@unhead/vue@2.0.19(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      hookable: 5.5.3
+      unhead: 2.0.19
+      vue: 3.5.24(typescript@5.9.3)
+
   '@upstash/redis@1.34.4':
     dependencies:
       crypto-js: 4.2.0
@@ -12232,20 +12541,30 @@ snapshots:
       vue-router: 4.6.3(vue@3.5.24(typescript@5.8.2))
     optional: true
 
-  '@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))':
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))':
+    optionalDependencies:
+      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))
+      next: 16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react: 19.2.0
+      svelte: 5.41.3
+      vue: 3.5.24(typescript@5.8.2)
+      vue-router: 4.6.3(vue@3.5.24(typescript@5.8.2))
+    optional: true
+
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))':
     optionalDependencies:
       '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       react: 19.0.0-rc.1
       svelte: 5.41.3
       vue: 3.5.24(typescript@5.8.2)
       vue-router: 4.6.3(vue@3.5.24(typescript@5.8.2))
     optional: true
 
-  '@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))':
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))':
     optionalDependencies:
       '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       svelte: 5.41.3
       vue: 3.5.24(typescript@5.8.2)
@@ -12253,37 +12572,77 @@ snapshots:
 
   '@vercel/edge-config-fs@0.1.0': {}
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
+      next: 15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
+      next: 16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107)
 
   '@vercel/edge@1.2.1': {}
 
   '@vercel/functions@1.6.0': {}
+
+  '@vercel/microfrontends@1.1.0(0ad3130eec4441a88ee723c97935596f)':
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.11
+      path-to-regexp: 6.2.1
+    optionalDependencies:
+      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - debug
+
+  '@vercel/microfrontends@1.1.0(34e87e48724ac9b29bf4d866afc95030)':
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.11
+      path-to-regexp: 6.2.1
+    optionalDependencies:
+      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
+      vite: 7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - debug
 
   '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))':
     dependencies:
@@ -12305,7 +12664,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@vercel/microfrontends@1.1.0(a96068f595d817e4260bd937a8c02dde)':
+  '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))':
     dependencies:
       ajv: 8.17.1
       commander: 12.1.0
@@ -12316,32 +12675,12 @@ snapshots:
       nanoid: 3.3.11
       path-to-regexp: 6.2.1
     optionalDependencies:
-      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
+      next: 16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
-      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - debug
-
-  '@vercel/microfrontends@1.1.0(f4b2a1607466a46e2fef9caf9ecfb657)':
-    dependencies:
-      ajv: 8.17.1
-      commander: 12.1.0
-      cookie: 0.4.0
-      fast-glob: 3.3.3
-      http-proxy: 1.18.1
-      jsonc-parser: 3.3.1
-      nanoid: 3.3.11
-      path-to-regexp: 6.2.1
-    optionalDependencies:
-      '@sveltejs/kit': 2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(svelte@5.41.3)(vite@7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)))(next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2))
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
-      vite: 7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite: 5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)
     transitivePeerDependencies:
       - debug
 
@@ -12363,6 +12702,50 @@ snapshots:
       - encoding
       - rollup
       - supports-color
+
+  '@vercel/toolbar@0.1.36(0ad3130eec4441a88ee723c97935596f)':
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(0ad3130eec4441a88ee723c97935596f)
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      strip-ansi: 6.0.1
+    optionalDependencies:
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react: 19.2.0
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
+
+  '@vercel/toolbar@0.1.36(34e87e48724ac9b29bf4d866afc95030)':
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(34e87e48724ac9b29bf4d866afc95030)
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      strip-ansi: 6.0.1
+    optionalDependencies:
+      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      vite: 7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
 
   '@vercel/toolbar@0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))':
     dependencies:
@@ -12386,10 +12769,10 @@ snapshots:
       - debug
       - react-dom
 
-  '@vercel/toolbar@0.1.36(a96068f595d817e4260bd937a8c02dde)':
+  '@vercel/toolbar@0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))':
     dependencies:
       '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(a96068f595d817e4260bd937a8c02dde)
+      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.8.2)))(vue@3.5.24(typescript@5.8.2)))(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1))
       chokidar: 3.6.0
       execa: 5.1.1
       fast-glob: 3.3.3
@@ -12398,31 +12781,9 @@ snapshots:
       jsonc-parser: 3.3.1
       strip-ansi: 6.0.1
     optionalDependencies:
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
-      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - '@sveltejs/kit'
-      - '@vercel/analytics'
-      - '@vercel/speed-insights'
-      - debug
-      - react-dom
-
-  '@vercel/toolbar@0.1.36(f4b2a1607466a46e2fef9caf9ecfb657)':
-    dependencies:
-      '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(f4b2a1607466a46e2fef9caf9ecfb657)
-      chokidar: 3.6.0
-      execa: 5.1.1
-      fast-glob: 3.3.3
-      find-up: 5.0.0
-      get-port: 5.1.1
-      jsonc-parser: 3.3.1
-      strip-ansi: 6.0.1
-    optionalDependencies:
-      next: 15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      vite: 7.2.2(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite: 5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)
     transitivePeerDependencies:
       - '@sveltejs/kit'
       - '@vercel/analytics'
@@ -12453,11 +12814,29 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@vitejs/plugin-vue-jsx@5.1.1(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@babel/core': 7.28.5
+      '@babel/plugin-syntax-typescript': 7.27.1(@babel/core@7.28.5)
+      '@babel/plugin-transform-typescript': 7.28.5(@babel/core@7.28.5)
+      '@rolldown/pluginutils': 1.0.0-beta.47
+      '@vue/babel-plugin-jsx': 1.5.0(@babel/core@7.28.5)
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vue: 3.5.24(typescript@5.9.3)
+    transitivePeerDependencies:
+      - supports-color
+
   '@vitejs/plugin-vue@6.0.1(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.6.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.29
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
       vue: 3.5.24(typescript@5.6.3)
+
+  '@vitejs/plugin-vue@6.0.1(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@rolldown/pluginutils': 1.0.0-beta.29
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vue: 3.5.24(typescript@5.9.3)
 
   '@vitest/expect@1.4.0':
     dependencies:
@@ -12498,6 +12877,15 @@ snapshots:
     optionalDependencies:
       msw: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+
+  '@vitest/mocker@4.0.8(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))':
+    dependencies:
+      '@vitest/spy': 4.0.8
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      msw: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
 
   '@vitest/pretty-format@2.1.8':
     dependencies:
@@ -12589,6 +12977,16 @@ snapshots:
     optionalDependencies:
       vue: 3.5.24(typescript@5.6.3)
 
+  '@vue-macros/common@3.1.1(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@vue/compiler-sfc': 3.5.24
+      ast-kit: 2.2.0
+      local-pkg: 1.1.2
+      magic-string-ast: 1.0.3
+      unplugin-utils: 0.3.1
+    optionalDependencies:
+      vue: 3.5.24(typescript@5.9.3)
+
   '@vue/babel-helper-vue-transform-on@1.5.0': {}
 
   '@vue/babel-plugin-jsx@1.5.0(@babel/core@7.28.5)':
@@ -12662,6 +13060,18 @@ snapshots:
     transitivePeerDependencies:
       - vite
 
+  '@vue/devtools-core@8.0.3(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@vue/devtools-kit': 8.0.3
+      '@vue/devtools-shared': 8.0.3
+      mitt: 3.0.1
+      nanoid: 5.1.6
+      pathe: 2.0.3
+      vite-hot-client: 2.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      vue: 3.5.24(typescript@5.9.3)
+    transitivePeerDependencies:
+      - vite
+
   '@vue/devtools-kit@8.0.3':
     dependencies:
       '@vue/devtools-shared': 8.0.3
@@ -12687,6 +13097,18 @@ snapshots:
       picomatch: 4.0.3
     optionalDependencies:
       typescript: 5.6.3
+
+  '@vue/language-core@3.1.3(typescript@5.9.3)':
+    dependencies:
+      '@volar/language-core': 2.4.23
+      '@vue/compiler-dom': 3.5.24
+      '@vue/shared': 3.5.24
+      alien-signals: 3.1.0
+      muggle-string: 0.4.1
+      path-browserify: 1.0.1
+      picomatch: 4.0.3
+    optionalDependencies:
+      typescript: 5.9.3
 
   '@vue/reactivity@3.5.24':
     dependencies:
@@ -12717,7 +13139,20 @@ snapshots:
       vue: 3.5.24(typescript@5.8.2)
     optional: true
 
+  '@vue/server-renderer@3.5.24(vue@3.5.24(typescript@5.9.3))':
+    dependencies:
+      '@vue/compiler-ssr': 3.5.24
+      '@vue/shared': 3.5.24
+      vue: 3.5.24(typescript@5.9.3)
+
   '@vue/shared@3.5.24': {}
+
+  '@vue/test-utils@2.4.6':
+    dependencies:
+      js-beautify: 1.15.4
+      vue-component-type-helpers: 2.2.12
+
+  abbrev@2.0.0: {}
 
   abbrev@3.0.1: {}
 
@@ -13228,6 +13663,11 @@ snapshots:
 
   confbox@0.2.2: {}
 
+  config-chain@1.1.13:
+    dependencies:
+      ini: 1.3.8
+      proto-list: 1.2.4
+
   consola@3.4.2: {}
 
   convert-source-map@2.0.0: {}
@@ -13523,6 +13963,13 @@ snapshots:
   duplexer@0.1.2: {}
 
   eastasianwidth@0.2.0: {}
+
+  editorconfig@1.0.4:
+    dependencies:
+      '@one-ini/wasm': 0.1.1
+      commander: 10.0.1
+      minimatch: 9.0.1
+      semver: 7.7.3
 
   ee-first@1.1.1: {}
 
@@ -14318,6 +14765,8 @@ snapshots:
 
   inherits@2.0.4: {}
 
+  ini@1.3.8: {}
+
   ini@4.1.1: {}
 
   internal-slot@1.1.0:
@@ -14551,6 +15000,16 @@ snapshots:
   jose@5.2.1: {}
 
   joycon@3.1.1: {}
+
+  js-beautify@1.15.4:
+    dependencies:
+      config-chain: 1.1.13
+      editorconfig: 1.0.4
+      glob: 10.4.5
+      js-cookie: 3.0.5
+      nopt: 7.2.1
+
+  js-cookie@3.0.5: {}
 
   js-sha256@0.11.0: {}
 
@@ -15001,6 +15460,10 @@ snapshots:
     dependencies:
       brace-expansion: 2.0.2
 
+  minimatch@9.0.1:
+    dependencies:
+      brace-expansion: 2.0.2
+
   minimatch@9.0.5:
     dependencies:
       brace-expansion: 2.0.2
@@ -15102,6 +15565,32 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
+  msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3):
+    dependencies:
+      '@bundled-es-modules/cookie': 2.0.1
+      '@bundled-es-modules/statuses': 1.0.1
+      '@bundled-es-modules/tough-cookie': 0.1.6
+      '@inquirer/confirm': 5.1.19(@types/node@22.14.0)
+      '@mswjs/interceptors': 0.36.10
+      '@open-draft/deferred-promise': 2.2.0
+      '@open-draft/until': 2.1.0
+      '@types/cookie': 0.6.0
+      '@types/statuses': 2.0.6
+      chalk: 4.1.2
+      graphql: 16.11.0
+      headers-polyfill: 4.0.3
+      is-node-process: 1.2.0
+      outvariant: 1.4.3
+      path-to-regexp: 6.3.0
+      strict-event-emitter: 0.5.1
+      type-fest: 4.41.0
+      yargs: 17.7.2
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - '@types/node'
+    optional: true
+
   muggle-string@0.4.1: {}
 
   mute-stream@2.0.0: {}
@@ -15158,7 +15647,7 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
+  next@15.0.3(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
     dependencies:
       '@next/env': 15.0.3
       '@swc/counter': 0.1.3
@@ -15168,7 +15657,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.3.0-canary-fa50caf5-20251107
       react-dom: 19.2.0(react@19.3.0-canary-fa50caf5-20251107)
-      styled-jsx: 5.1.6(react@19.3.0-canary-fa50caf5-20251107)
+      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-fa50caf5-20251107)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.0.3
       '@next/swc-darwin-x64': 15.0.3
@@ -15179,13 +15668,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.0.3
       '@next/swc-win32-x64-msvc': 15.0.3
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
       sharp: 0.33.5
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
+  next@15.1.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
     dependencies:
       '@next/env': 15.1.4
       '@swc/counter': 0.1.3
@@ -15206,13 +15695,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.1.4
       '@next/swc-win32-x64-msvc': 15.1.4
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
       sharp: 0.33.5
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1):
+  next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1):
     dependencies:
       '@next/env': 15.2.2-canary.4
       '@swc/counter': 0.1.3
@@ -15233,13 +15722,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.2.2-canary.4
       '@next/swc-win32-x64-msvc': 15.2.2-canary.4
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
       sharp: 0.33.5
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  next@15.2.2-canary.4(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@next/env': 15.2.2-canary.4
       '@swc/counter': 0.1.3
@@ -15260,7 +15749,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.2.2-canary.4
       '@next/swc-win32-x64-msvc': 15.2.2-canary.4
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
       sharp: 0.33.5
     transitivePeerDependencies:
       - '@babel/core'
@@ -15291,7 +15780,7 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.5.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  next@15.5.5(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@next/env': 15.5.5
       '@swc/helpers': 0.5.15
@@ -15310,7 +15799,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.5.5
       '@next/swc-win32-x64-msvc': 15.5.5
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
@@ -15341,15 +15830,15 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
+  next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@next/env': 16.0.0
       '@swc/helpers': 0.5.15
       caniuse-lite: 1.0.30001751
       postcss: 8.4.31
-      react: 19.3.0-canary-fa50caf5-20251107
-      react-dom: 19.2.0(react@19.3.0-canary-fa50caf5-20251107)
-      styled-jsx: 5.1.6(react@19.3.0-canary-fa50caf5-20251107)
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
+      styled-jsx: 5.1.6(react@19.2.0)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.0.0
       '@next/swc-darwin-x64': 16.0.0
@@ -15360,7 +15849,33 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.0.0
       '@next/swc-win32-x64-msvc': 16.0.0
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.56.1
+      sharp: 0.34.4
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
+    optional: true
+
+  next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107):
+    dependencies:
+      '@next/env': 16.0.0
+      '@swc/helpers': 0.5.15
+      caniuse-lite: 1.0.30001751
+      postcss: 8.4.31
+      react: 19.3.0-canary-fa50caf5-20251107
+      react-dom: 19.2.0(react@19.3.0-canary-fa50caf5-20251107)
+      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-fa50caf5-20251107)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 16.0.0
+      '@next/swc-darwin-x64': 16.0.0
+      '@next/swc-linux-arm64-gnu': 16.0.0
+      '@next/swc-linux-arm64-musl': 16.0.0
+      '@next/swc-linux-x64-gnu': 16.0.0
+      '@next/swc-linux-x64-musl': 16.0.0
+      '@next/swc-win32-arm64-msvc': 16.0.0
+      '@next/swc-win32-x64-msvc': 16.0.0
+      '@opentelemetry/api': 1.9.0
+      '@playwright/test': 1.56.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
@@ -15492,6 +16007,10 @@ snapshots:
 
   node-releases@2.0.26: {}
 
+  nopt@7.2.1:
+    dependencies:
+      abbrev: 2.0.0
+
   nopt@8.1.0:
     dependencies:
       abbrev: 3.0.1
@@ -15586,6 +16105,127 @@ snapshots:
     optionalDependencies:
       '@parcel/watcher': 2.5.1
       '@types/node': 20.11.17
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@biomejs/biome'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@electric-sql/pglite'
+      - '@libsql/client'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - '@vitejs/devtools'
+      - '@vue/compiler-sfc'
+      - aws4fetch
+      - bare-abort-controller
+      - better-sqlite3
+      - bufferutil
+      - db0
+      - drizzle-orm
+      - encoding
+      - eslint
+      - idb-keyval
+      - ioredis
+      - less
+      - lightningcss
+      - magicast
+      - meow
+      - mysql2
+      - optionator
+      - oxlint
+      - react-native-b4a
+      - rolldown
+      - rollup
+      - sass
+      - sass-embedded
+      - sqlite3
+      - stylelint
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+      - tsx
+      - typescript
+      - uploadthing
+      - utf-8-validate
+      - vite
+      - vls
+      - vti
+      - vue-tsc
+      - xml2js
+      - yaml
+
+  nuxt@4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1):
+    dependencies:
+      '@dxup/nuxt': 0.2.1(magicast@0.5.1)
+      '@nuxt/cli': 3.30.0(magicast@0.5.1)
+      '@nuxt/devtools': 3.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+      '@nuxt/nitro-server': 4.2.1(@upstash/redis@1.34.4)(db0@0.3.4)(ioredis@5.8.2)(nuxt@4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1))(typescript@5.9.3)
+      '@nuxt/schema': 4.2.1
+      '@nuxt/telemetry': 2.6.6(magicast@0.5.1)
+      '@nuxt/vite-builder': 4.2.1(@biomejs/biome@2.2.7)(@types/node@22.14.0)(eslint@9.38.0(jiti@2.6.1))(lightningcss@1.30.2)(nuxt@4.2.1(@biomejs/biome@2.2.7)(@parcel/watcher@2.5.1)(@types/node@22.14.0)(@upstash/redis@1.34.4)(@vue/compiler-sfc@3.5.24)(db0@0.3.4)(eslint@9.38.0(jiti@2.6.1))(ioredis@5.8.2)(lightningcss@1.30.2)(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(yaml@2.8.1))(optionator@0.9.4)(rollup@4.52.5)(terser@5.44.1)(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3))(yaml@2.8.1)
+      '@unhead/vue': 2.0.19(vue@3.5.24(typescript@5.9.3))
+      '@vue/shared': 3.5.24
+      c12: 3.3.1(magicast@0.5.1)
+      chokidar: 4.0.3
+      compatx: 0.2.0
+      consola: 3.4.2
+      cookie-es: 2.0.0
+      defu: 6.1.4
+      destr: 2.0.5
+      devalue: 5.4.2
+      errx: 0.1.0
+      escape-string-regexp: 5.0.0
+      exsolve: 1.0.8
+      h3: 1.15.4
+      hookable: 5.5.3
+      ignore: 7.0.5
+      impound: 1.0.0
+      jiti: 2.6.1
+      klona: 2.0.6
+      knitwork: 1.2.0
+      magic-string: 0.30.21
+      mlly: 1.8.0
+      nanotar: 0.2.0
+      nypm: 0.6.2
+      ofetch: 1.5.1
+      ohash: 2.0.11
+      on-change: 6.0.1
+      oxc-minify: 0.96.0
+      oxc-parser: 0.96.0
+      oxc-transform: 0.96.0
+      oxc-walker: 0.5.2(oxc-parser@0.96.0)
+      pathe: 2.0.3
+      perfect-debounce: 2.0.0
+      pkg-types: 2.3.0
+      radix3: 1.1.2
+      scule: 1.3.0
+      semver: 7.7.3
+      std-env: 3.10.0
+      tinyglobby: 0.2.15
+      ufo: 1.6.1
+      ultrahtml: 1.6.0
+      uncrypto: 0.1.3
+      unctx: 2.4.1
+      unimport: 5.5.0
+      unplugin: 2.3.10
+      unplugin-vue-router: 0.16.1(@vue/compiler-sfc@3.5.24)(typescript@5.9.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))
+      untyped: 2.0.0
+      vue: 3.5.24(typescript@5.9.3)
+      vue-router: 4.6.3(vue@3.5.24(typescript@5.9.3))
+    optionalDependencies:
+      '@parcel/watcher': 2.5.1
+      '@types/node': 22.14.0
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -16195,6 +16835,8 @@ snapshots:
       sisteransi: 1.0.5
 
   property-information@7.1.0: {}
+
+  proto-list@1.2.4: {}
 
   protocols@2.0.2: {}
 
@@ -16833,9 +17475,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))):
+  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))):
     dependencies:
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.3.0-canary-fa50caf5-20251107))(react@19.3.0-canary-fa50caf5-20251107))
       statsig-node-lite: 0.4.4
     transitivePeerDependencies:
       - encoding
@@ -16980,11 +17622,6 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.2.0
-
-  styled-jsx@5.1.6(react@19.3.0-canary-fa50caf5-20251107):
-    dependencies:
-      client-only: 0.0.1
-      react: 19.3.0-canary-fa50caf5-20251107
 
   stylehacks@7.0.7(postcss@8.5.6):
     dependencies:
@@ -17365,6 +18002,8 @@ snapshots:
 
   typescript@5.8.2: {}
 
+  typescript@5.9.3: {}
+
   ua-parser-js@1.0.41: {}
 
   ufo@1.6.1: {}
@@ -17485,6 +18124,32 @@ snapshots:
       - typescript
       - vue
 
+  unplugin-vue-router@0.16.1(@vue/compiler-sfc@3.5.24)(typescript@5.9.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3)):
+    dependencies:
+      '@babel/generator': 7.28.5
+      '@vue-macros/common': 3.1.1(vue@3.5.24(typescript@5.9.3))
+      '@vue/compiler-sfc': 3.5.24
+      '@vue/language-core': 3.1.3(typescript@5.9.3)
+      ast-walker-scope: 0.8.3
+      chokidar: 4.0.3
+      json5: 2.2.3
+      local-pkg: 1.1.2
+      magic-string: 0.30.21
+      mlly: 1.8.0
+      muggle-string: 0.4.1
+      pathe: 2.0.3
+      picomatch: 4.0.3
+      scule: 1.3.0
+      tinyglobby: 0.2.15
+      unplugin: 2.3.10
+      unplugin-utils: 0.3.1
+      yaml: 2.8.1
+    optionalDependencies:
+      vue-router: 4.6.3(vue@3.5.24(typescript@5.9.3))
+    transitivePeerDependencies:
+      - typescript
+      - vue
+
   unplugin@2.3.10:
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -17593,9 +18258,19 @@ snapshots:
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
       vite-hot-client: 2.1.0(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
 
+  vite-dev-rpc@1.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
+    dependencies:
+      birpc: 2.8.0
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite-hot-client: 2.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+
   vite-hot-client@2.1.0(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
     dependencies:
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+
+  vite-hot-client@2.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
+    dependencies:
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
 
   vite-node@1.4.0(@types/node@20.11.17)(lightningcss@1.30.2)(terser@5.44.1):
     dependencies:
@@ -17672,6 +18347,27 @@ snapshots:
       - tsx
       - yaml
 
+  vite-node@5.0.0(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1):
+    dependencies:
+      cac: 6.7.14
+      debug: 4.4.3
+      es-module-lexer: 1.7.0
+      pathe: 2.0.3
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@types/node'
+      - jiti
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+      - tsx
+      - yaml
+
   vite-plugin-checker@0.11.0(@biomejs/biome@2.2.7)(eslint@9.38.0(jiti@2.6.1))(optionator@0.9.4)(typescript@5.6.3)(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
     dependencies:
       '@babel/code-frame': 7.27.1
@@ -17688,6 +18384,23 @@ snapshots:
       eslint: 9.38.0(jiti@2.6.1)
       optionator: 0.9.4
       typescript: 5.6.3
+
+  vite-plugin-checker@0.11.0(@biomejs/biome@2.2.7)(eslint@9.38.0(jiti@2.6.1))(optionator@0.9.4)(typescript@5.9.3)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
+    dependencies:
+      '@babel/code-frame': 7.27.1
+      chokidar: 4.0.3
+      npm-run-path: 6.0.0
+      picocolors: 1.1.1
+      picomatch: 4.0.3
+      tiny-invariant: 1.3.3
+      tinyglobby: 0.2.15
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vscode-uri: 3.1.0
+    optionalDependencies:
+      '@biomejs/biome': 2.2.7
+      eslint: 9.38.0(jiti@2.6.1)
+      optionator: 0.9.4
+      typescript: 5.9.3
 
   vite-plugin-inspect@11.3.3(@nuxt/kit@4.2.1(magicast@0.5.1))(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
     dependencies:
@@ -17706,6 +18419,23 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  vite-plugin-inspect@11.3.3(@nuxt/kit@4.2.1)(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)):
+    dependencies:
+      ansis: 4.2.0
+      debug: 4.4.3
+      error-stack-parser-es: 1.0.5
+      ohash: 2.0.11
+      open: 10.2.0
+      perfect-debounce: 2.0.0
+      sirv: 3.0.2
+      unplugin-utils: 0.3.1
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vite-dev-rpc: 1.1.0(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+    optionalDependencies:
+      '@nuxt/kit': 4.2.1(magicast@0.5.1)
+    transitivePeerDependencies:
+      - supports-color
+
   vite-plugin-vue-tracer@1.1.3(vite@7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.6.3)):
     dependencies:
       estree-walker: 3.0.3
@@ -17715,6 +18445,16 @@ snapshots:
       source-map-js: 1.2.1
       vite: 7.2.2(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
       vue: 3.5.24(typescript@5.6.3)
+
+  vite-plugin-vue-tracer@1.1.3(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3)):
+    dependencies:
+      estree-walker: 3.0.3
+      exsolve: 1.0.8
+      magic-string: 0.30.21
+      pathe: 2.0.3
+      source-map-js: 1.2.1
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      vue: 3.5.24(typescript@5.9.3)
 
   vite@5.1.1(@types/node@20.11.17)(lightningcss@1.30.2)(terser@5.44.1):
     dependencies:
@@ -17823,7 +18563,6 @@ snapshots:
       lightningcss: 1.30.2
       terser: 5.44.1
       yaml: 2.8.1
-    optional: true
 
   vitefu@1.1.1(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)(terser@5.44.1)):
     optionalDependencies:
@@ -17843,9 +18582,26 @@ snapshots:
       vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
     optional: true
 
-  vitest-environment-nuxt@1.0.1(@playwright/test@1.51.1)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1)):
+  vitest-environment-nuxt@1.0.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1)):
     dependencies:
-      '@nuxt/test-utils': 3.20.1(@playwright/test@1.51.1)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
+      '@nuxt/test-utils': 3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(magicast@0.5.1)(playwright-core@1.56.1)(typescript@5.6.3)(vitest@4.0.8(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@20.11.17)(typescript@5.6.3))(terser@5.44.1)(yaml@2.8.1))
+    transitivePeerDependencies:
+      - '@cucumber/cucumber'
+      - '@jest/globals'
+      - '@playwright/test'
+      - '@testing-library/vue'
+      - '@vitest/ui'
+      - '@vue/test-utils'
+      - happy-dom
+      - jsdom
+      - magicast
+      - playwright-core
+      - typescript
+      - vitest
+
+  vitest-environment-nuxt@1.0.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(playwright-core@1.56.1)(typescript@5.9.3)(vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1)):
+    dependencies:
+      '@nuxt/test-utils': 3.20.1(@playwright/test@1.56.1)(@vue/test-utils@2.4.6)(playwright-core@1.56.1)(typescript@5.9.3)(vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1))
     transitivePeerDependencies:
       - '@cucumber/cucumber'
       - '@jest/globals'
@@ -18001,11 +18757,51 @@ snapshots:
       - tsx
       - yaml
 
+  vitest@4.0.8(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(terser@5.44.1)(yaml@2.8.1):
+    dependencies:
+      '@vitest/expect': 4.0.8
+      '@vitest/mocker': 4.0.8(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))
+      '@vitest/pretty-format': 4.0.8
+      '@vitest/runner': 4.0.8
+      '@vitest/snapshot': 4.0.8
+      '@vitest/spy': 4.0.8
+      '@vitest/utils': 4.0.8
+      debug: 4.4.3
+      es-module-lexer: 1.7.0
+      expect-type: 1.2.2
+      magic-string: 0.30.21
+      pathe: 2.0.3
+      picomatch: 4.0.3
+      std-env: 3.10.0
+      tinybench: 2.9.0
+      tinyexec: 0.3.2
+      tinyglobby: 0.2.15
+      tinyrainbow: 3.0.3
+      vite: 7.2.2(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 22.14.0
+    transitivePeerDependencies:
+      - jiti
+      - less
+      - lightningcss
+      - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+      - tsx
+      - yaml
+
   vscode-uri@3.1.0: {}
 
   vue-bundle-renderer@2.2.0:
     dependencies:
       ufo: 1.6.1
+
+  vue-component-type-helpers@2.2.12: {}
 
   vue-devtools-stub@0.1.0: {}
 
@@ -18019,6 +18815,11 @@ snapshots:
       '@vue/devtools-api': 6.6.4
       vue: 3.5.24(typescript@5.8.2)
     optional: true
+
+  vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)):
+    dependencies:
+      '@vue/devtools-api': 6.6.4
+      vue: 3.5.24(typescript@5.9.3)
 
   vue@3.5.24(typescript@5.6.3):
     dependencies:
@@ -18040,6 +18841,16 @@ snapshots:
     optionalDependencies:
       typescript: 5.8.2
     optional: true
+
+  vue@3.5.24(typescript@5.9.3):
+    dependencies:
+      '@vue/compiler-dom': 3.5.24
+      '@vue/compiler-sfc': 3.5.24
+      '@vue/runtime-dom': 3.5.24
+      '@vue/server-renderer': 3.5.24(vue@3.5.24(typescript@5.9.3))
+      '@vue/shared': 3.5.24
+    optionalDependencies:
+      typescript: 5.9.3
 
   wcwidth@1.0.1:
     dependencies:
