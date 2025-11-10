@@ -1,5 +1,5 @@
 import { readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { resolveModulePath } from 'exsolve';
 import {
   addImports,
@@ -32,7 +32,7 @@ export default defineNuxtModule<ModuleOptions>().with({
     configKey: 'flags',
   },
   defaults: (nuxt) => ({
-    dir: '#shared/flags',
+    dir: '~~/flags',
     toolbar: {
       enabled:
         provider === 'vercel' ||
@@ -118,7 +118,17 @@ export {}
     );
 
     if (options.dir) {
-      const path = resolveAlias(options.dir, nuxt.options.alias);
+      const path = resolve(
+        nuxt.options.rootDir,
+        resolveAlias(options.dir, nuxt.options.alias),
+      );
+
+      nuxt.options.alias['#flags'] = path;
+
+      nuxt.hook('prepare:types', (opts) => {
+        opts.sharedTsConfig.include ||= [];
+        opts.sharedTsConfig.include.push(`${path}/**/*.ts`);
+      });
 
       addImportsDir(path);
       addServerImportsDir(path);
