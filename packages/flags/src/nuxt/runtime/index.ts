@@ -1,6 +1,7 @@
 /// <reference types="nuxt/app" />
 
 import type { H3Event } from 'h3';
+import { getHeaders } from 'h3';
 import type { FlagStore } from '#flags-implementation';
 import { getState, getStore } from '#flags-implementation';
 import { decryptOverrides } from '../../lib/crypto';
@@ -29,7 +30,20 @@ export function defineFlag<
     const state = getState<ValueType>(definition.key, event);
 
     if (import.meta.client) {
-      return state.value;
+      if (state.value !== undefined) {
+        // If we have a cached value from SSR, return it
+        return state.value;
+      }
+
+      // evaluate the flag on client-side navigation
+      const emptyHeaders = new Headers();
+      const value = await decide({
+        headers: sealHeaders(emptyHeaders),
+        cookies: sealCookies(emptyHeaders),
+        entities: undefined,
+      });
+      state.value = value;
+      return value;
     }
 
     const store = getStore<FlagStore>(event);
@@ -41,8 +55,13 @@ export function defineFlag<
       }
     }
 
-    const headers = sealHeaders(store.event.headers);
-    const cookies = sealCookies(store.event.headers);
+    const headersInit = Object.entries(getHeaders(store.event)) as [
+      string,
+      string,
+    ][];
+    const webHeaders = new Headers(headersInit);
+    const headers = sealHeaders(webHeaders);
+    const cookies = sealCookies(webHeaders);
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = overridesCookie
