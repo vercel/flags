@@ -11,6 +11,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import type { EntitiesType } from '.';
 import { getProviderData } from './provider';
 import * as mocks from './test-mocks';
 

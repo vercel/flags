@@ -3,16 +3,11 @@ import {
   HeadersAdapter,
   type ReadonlyHeaders,
 } from './spec-extension/adapters/headers';
-import { RequestCookiesAdapter } from './spec-extension/adapters/request-cookies';
-import type {
-  Decide,
-  FlagDeclaration,
-  Identify,
-  ReadonlyRequestCookies,
-} from './types';
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
+import {
+  type ReadonlyRequestCookies,
+  RequestCookiesAdapter,
+} from './spec-extension/adapters/request-cookies';
+import type { Decide, FlagDeclaration, Identify } from './types';
 
 // biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
 export function hasOwnProperty<X extends {}, Y extends PropertyKey>(
@@ -21,6 +16,9 @@ export function hasOwnProperty<X extends {}, Y extends PropertyKey>(
 ): obj is X & Record<Y, unknown> {
   return Object.hasOwn(obj, prop);
 }
+
+const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
+const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
 
 export function sealHeaders(headers: Headers): ReadonlyHeaders {
   const cached = headersMap.get(headers);
@@ -38,6 +36,28 @@ export function sealCookies(headers: Headers): ReadonlyRequestCookies {
   const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
   cookiesMap.set(headers, sealed);
   return sealed;
+}
+
+type PromisesMap<T> = {
+  [K in keyof T]: Promise<T[K]>;
+};
+
+export async function resolveObjectPromises<T>(
+  obj: PromisesMap<T>,
+): Promise<T> {
+  // Convert the object into an array of [key, promise] pairs
+  const entries = Object.entries(obj) as [keyof T, Promise<any>][];
+
+  // Use Promise.all to wait for all the promises to resolve
+  const resolvedEntries = await Promise.all(
+    entries.map(async ([key, promise]) => {
+      const value = await promise;
+      return [key, value] as [keyof T, T[keyof T]];
+    }),
+  );
+
+  // Convert the array of resolved [key, value] pairs back into an object
+  return Object.fromEntries(resolvedEntries) as T;
 }
 
 export function getDecide<ValueType, EntitiesType>(
@@ -63,26 +83,4 @@ export function getIdentify<ValueType, EntitiesType>(
   if (typeof definition.adapter?.identify === 'function') {
     return definition.adapter.identify;
   }
-}
-
-type PromisesMap<T> = {
-  [K in keyof T]: Promise<T[K]>;
-};
-
-export async function resolveObjectPromises<T>(
-  obj: PromisesMap<T>,
-): Promise<T> {
-  // Convert the object into an array of [key, promise] pairs
-  const entries = Object.entries(obj) as [keyof T, Promise<any>][];
-
-  // Use Promise.all to wait for all the promises to resolve
-  const resolvedEntries = await Promise.all(
-    entries.map(async ([key, promise]) => {
-      const value = await promise;
-      return [key, value] as [keyof T, T[keyof T]];
-    }),
-  );
-
-  // Convert the array of resolved [key, value] pairs back into an object
-  return Object.fromEntries(resolvedEntries) as T;
 }
