@@ -3,7 +3,7 @@
 import type { H3Event } from 'h3';
 import { getHeaders } from 'h3';
 import type { FlagStore } from '#flags-implementation';
-import { getState, getStore } from '#flags-implementation';
+import { getEvent, getState, getStore } from '#flags-implementation';
 import { decryptOverrides } from '../../lib/crypto';
 import { normalizeOptions } from '../../lib/normalize-options';
 import { reportValue } from '../../lib/report-value';
@@ -26,7 +26,7 @@ export function defineFlag<
   const decide = getDecide<ValueType, EntitiesType>(definition);
   const identify = getIdentify(definition);
 
-  async function flagImpl(event?: H3Event): Promise<ValueType> {
+  async function flagImpl(event = getEvent()): Promise<ValueType> {
     const state = getState<ValueType>(definition.key, event);
 
     if (import.meta.client) {

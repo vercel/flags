@@ -8,6 +8,8 @@ declare module '#flags-implementation' {
   ): { value: ValueType };
   export function getStore<T>(event?: H3Event): T;
 
+  export function getEvent(): H3Event | undefined;
+
   export interface FlagStore {
     event: H3Event;
     secret: string;

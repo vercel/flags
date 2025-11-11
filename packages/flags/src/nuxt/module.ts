@@ -58,6 +58,8 @@ export default defineNuxtModule<ModuleOptions>().with({
       getContents() {
         return `
 import { getRouterParams } from 'h3'
+import { useEvent } from 'nitropack/runtime'
+
 export function getStore(event) {
   return event.context.flags ||= {
     event,
@@ -66,6 +68,13 @@ export function getStore(event) {
     usedFlags: {},
     identifiers: new Map(),
   };
+}
+export function getEvent() {
+  try {
+    return useEvent()
+  } catch {
+    throw new Error('If you do not have nitro.experimental.asyncContext enabled, you must pass the event explicitly to flag functions.')
+  }
 }
 export function getState(key) {
   return { value: undefined }
@@ -77,7 +86,11 @@ export function getState(key) {
     addTemplate({
       filename: 'flags/implementation.mjs',
       getContents: () => `
-import { useNuxtApp, useState } from "#imports"
+import { useNuxtApp, useRequestEvent, useState } from "#imports"
+
+export function getEvent() {
+  return useRequestEvent()
+}
 
 export function getStore() {
   return useNuxtApp().$flagStore
