@@ -86,7 +86,7 @@ test.describe('Nuxt Integration', () => {
     await goto('/api-test', { waitUntil: 'hydration' });
 
     await page.click('[data-testid="fetch-button"]');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('[data-testid="api-response"]');
 
     const responseText = await page.getByTestId('api-response').textContent();
     expect(responseText).toContain('exampleFlag');
@@ -149,7 +149,7 @@ test.describe('Nuxt Integration', () => {
       {
         name: 'example-cookie',
         value: 'persistent-value',
-        domain: 'localhost',
+        domain: '127.0.0.1',
         path: '/',
       },
     ]);
@@ -168,14 +168,13 @@ test.describe('Nuxt Integration', () => {
     expect(firstValue).toBe(secondValue);
   });
 
-  test('flags from shared/flags directory are auto-imported', async ({
+  test('flags from flags directory are auto-imported', async ({
     page,
     goto,
   }) => {
-    // Tests that the flags: { dir: './shared/flags' } config works
     await goto('/basic', { waitUntil: 'hydration' });
 
-    // These flags come from shared/flags/index.ts
+    // These flags come from flags/index.ts
     await expect(page.getByTestId('example-flag')).toBeVisible();
     await expect(page.getByTestId('feature-toggle')).toBeVisible();
   });
