@@ -208,6 +208,12 @@ export {}
         base: join(nuxt.options.buildDir, 'flags-precompute'),
       };
 
+      nitroConfig.storage ||= {};
+      nitroConfig.storage['flags-static-cache'] = {
+        driver: 'lru-cache',
+        max: 200,
+      };
+
       nitroConfig.virtual ||= {};
       nitroConfig.virtual['#flags-prerender-middleware'] =
         `export { prerenderMiddleware as default } from 'flags/nuxt/runtime'`;

@@ -7,6 +7,7 @@ import {
   setResponseHeaders,
   setResponseStatus,
 } from 'h3';
+import type { Storage } from 'unstorage';
 import * as s from '../../lib/serialization';
 import { cartesianIterator, combineFlags } from '../../shared';
 import type { JsonValue } from '../../types';
@@ -195,9 +196,7 @@ async function handlePrerender(
   // we save the possible permutations for this route into a runtime, bundled storage
   // which nitro can access at runtime
 
-  // @ts-expect-error this will be auto-imported by nitro
-  // biome-ignore lint/correctness/useHookAtTopLevel: this is not a react hook
-  const storage = useStorage('flags-precompute');
+  const storage = getPermutationsStorage();
   await storage.setItem(`${event.path}.json`, permutations);
 
   for (const p of permutations) {
@@ -218,24 +217,12 @@ async function handlePrerender(
   return null;
 }
 
-interface CachedResponse {
-  bytes: Uint8Array;
-  status: number;
-  headers: Record<string, string>;
-}
-const responseCache = new Map<
-  string,
-  CachedResponse | Promise<CachedResponse>
->();
-
 async function handleRuntime(
   event: H3Event,
   flags: FlagsArray,
   secret: string,
 ) {
-  // @ts-expect-error this will be auto-imported by nitro
-  // biome-ignore lint/correctness/useHookAtTopLevel: this is not a react hook
-  const storage = useStorage('flags-precompute');
+  const storage = getPermutationsStorage();
 
   const hashes = await storage.getItem(`${event.path}.json`);
   if (!Array.isArray(hashes) || hashes.length === 0) {
@@ -249,25 +236,25 @@ async function handleRuntime(
     return;
   }
 
+  const responseCache = getStaticCache();
   const key = `/${hash}${event.path}`;
-  const value = responseCache.get(key);
+  const value = await responseCache.getItemRaw<CachedResponse>(key);
   if (value) {
-    const res = await value;
-    setResponseHeaders(event, res.headers);
-    setResponseStatus(event, res.status);
-    return res.bytes;
+    setResponseHeaders(event, value.headers);
+    setResponseStatus(event, value.status);
+    return value.bytes;
   }
 
   const fetchPromise = fetch(constructHashedURL(event, hash), {
     redirect: 'follow',
   });
-  const cachedPromise = fetchPromise.then(async (res) => {
-    const cachedResponse = await getCachedResponse(res.clone());
-    responseCache.set(key, cachedResponse);
-    return cachedResponse;
-  });
-  responseCache.set(key, cachedPromise);
-  event.waitUntil(cachedPromise);
+  event.waitUntil(
+    fetchPromise.then(async (res) => {
+      const cachedResponse = await getCachedResponse(res.clone());
+      await responseCache.setItemRaw(key, cachedResponse);
+      return cachedResponse;
+    }),
+  );
 
   return fetchPromise;
 }
@@ -280,6 +267,24 @@ function constructHashedURL(event: H3Event, hash: string) {
   url.pathname = `/${hash}${event.path}`;
 
   return url;
+}
+
+function getPermutationsStorage() {
+  // @ts-expect-error this will be auto-imported by nitro
+  // biome-ignore lint/correctness/useHookAtTopLevel: this is not a react hook
+  return useStorage('flags-precompute') as Storage<string[]>;
+}
+
+interface CachedResponse {
+  bytes: Uint8Array;
+  status: number;
+  headers: Record<string, string>;
+}
+
+function getStaticCache() {
+  // @ts-expect-error this will be auto-imported by nitro
+  // biome-ignore lint/correctness/useHookAtTopLevel: this is not a react hook
+  return useStorage('flags-static-cache') as Storage<CachedResponse>;
 }
 
 async function getCachedResponse(res: Response): Promise<CachedResponse> {

@@ -49,7 +49,8 @@
     "publint": "0.3.14",
     "turbo": "2.3.3",
     "typescript": "^5.3.3",
-    "typescript-eslint": "8.46.1"
+    "typescript-eslint": "8.46.1",
+    "unstorage": "1.17.2"
   },
   "packageManager": "pnpm@10.19.0",
   "engines": {
