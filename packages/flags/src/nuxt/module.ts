@@ -208,12 +208,6 @@ export {}
         base: join(nuxt.options.buildDir, 'flags-precompute'),
       };
 
-      nitroConfig.storage ||= {};
-      nitroConfig.storage['flags-static-cache'] = {
-        driver: 'lru-cache',
-        max: 200,
-      };
-
       nitroConfig.virtual ||= {};
       nitroConfig.virtual['#flags-prerender-middleware'] =
         `export { prerenderMiddleware as default } from 'flags/nuxt/runtime'`;
@@ -239,6 +233,12 @@ export {}
         );
         return;
       }
+
+      nitro.options.storage ||= {};
+      nitro.options.storage['flags-static-cache'] = {
+        driver: 'lru-cache',
+        max: 200,
+      };
 
       nitro.hooks.hook('prerender:generate', (route) => {
         if (route.contentType?.includes('x-skip-prerender=1')) {
