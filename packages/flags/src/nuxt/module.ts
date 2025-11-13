@@ -13,6 +13,7 @@ import {
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
+  isIgnored,
   resolveAlias,
 } from 'nuxt/kit';
 import { provider } from 'std-env';
@@ -56,7 +57,7 @@ export default defineNuxtModule<ModuleOptions>().with({
     addServerTemplate({
       filename: '#flags-implementation',
       getContents() {
-        return `
+        return /* js */ `
 import { getRouterParams } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 
@@ -85,7 +86,7 @@ export function getState(key) {
 
     addTemplate({
       filename: 'flags/implementation.mjs',
-      getContents: () => `
+      getContents: () => /* js */ `
 import { useNuxtApp, useRequestEvent, useState } from "#imports"
 
 export function getEvent() {
@@ -105,13 +106,15 @@ export function getState(key) {
     nuxt.options.alias['#flags-implementation'] =
       '#build/flags/implementation.mjs';
 
-    addImports({
-      name: 'defineFlag',
-      from: 'flags/nuxt/runtime',
-    });
+    const exports = ['defineFlag'];
+    for (const name of exports) {
+      addImports({ name, from: 'flags/nuxt/runtime' });
+      addServerImports({ name, from: 'flags/nuxt/runtime' });
+    }
 
+    // server-only utils
     addServerImports({
-      name: 'defineFlag',
+      name: 'handlePrecomputedPaths',
       from: 'flags/nuxt/runtime',
     });
 
@@ -153,28 +156,34 @@ export {}
         handler: resolver.resolve('./nuxt/runtime/server/flags.js'),
       });
 
+      const noDefinedFlags = 'export const flags = {}';
       addServerTemplate({
         filename: '#flags/defined-flags',
         getContents() {
           if (!options.dir) {
-            return 'export const flags = {}';
+            return noDefinedFlags;
           }
           const path = resolveAlias(options.dir, nuxt.options.alias);
           try {
             const isDir = statSync(path).isDirectory();
-            if (isDir) {
-              const files = readdirSync(path);
-              const lines = files.map(
-                (f, index) =>
-                  `import * as n${index} from ${JSON.stringify(join(path, f))}`,
-              );
-              return (
-                lines.join('\n') +
-                `\nexport const flags = {${files.map((f, index) => `...n${index}`).join(', ')}}`
-              );
+            if (!isDir) {
+              return noDefinedFlags;
             }
+            const files = readdirSync(path).filter(
+              (f) =>
+                /\.(ts|js|mjs|cjs)$/.test(f) &&
+                !isIgnored(f, nuxt.options.ignore),
+            );
+            const lines = files.map(
+              (f, index) =>
+                `import * as n${index} from ${JSON.stringify(join(path, f))}`,
+            );
+            return (
+              lines.join('\n') +
+              `\nexport const flags = {${files.map((f, index) => `...n${index}`).join(', ')}}`
+            );
           } catch {}
-          return 'export const flags = {}';
+          return noDefinedFlags;
         },
       });
     }
@@ -186,5 +195,76 @@ export {}
     });
 
     addPluginTemplate(resolver.resolve('./nuxt/runtime/app/plugin.server.js'));
+
+    let hasPrecompute = false;
+
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.bundledStorage ||= [];
+      nitroConfig.bundledStorage.push('flags-precompute');
+
+      nitroConfig.devStorage ||= {};
+      nitroConfig.devStorage['flags-precompute'] = {
+        driver: 'fs',
+        base: join(nuxt.options.buildDir, 'flags-precompute'),
+      };
+
+      nitroConfig.virtual ||= {};
+      nitroConfig.virtual['#flags-prerender-middleware'] =
+        `export { prerenderMiddleware as default } from 'flags/nuxt/runtime'`;
+
+      nitroConfig.handlers ||= [];
+      nitroConfig.handlers.unshift({
+        handler: '#flags-prerender-middleware',
+        route: '',
+        middleware: true,
+      });
+    });
+
+    nuxt.hook('nitro:init', (nitro) => {
+      hasPrecompute =
+        nitro.options.static ||
+        nitro.options.prerender.routes.length > 0 ||
+        nitro.options.prerender.crawlLinks ||
+        Object.values(nitro.options.routeRules).some((rule) => rule.prerender);
+
+      if (!hasPrecompute) {
+        nitro.options.bundledStorage = nitro.options.bundledStorage?.filter(
+          (s) => s !== 'flags-precompute',
+        );
+        return;
+      }
+
+      nitro.hooks.hook('prerender:generate', (route) => {
+        if (route.contentType?.includes('x-skip-prerender=1')) {
+          // better display in the console
+          route.route = `/[precomputed-hash?]${route.route}`;
+          delete route.error;
+        }
+      });
+    });
+
+    addPluginTemplate({
+      filename: 'flags/plugin-precompute.server.mjs',
+      getContents: () => /* js */ `
+import { defineNuxtPlugin } from '#app';
+/**
+ * Nuxt plugin that strips hash prefixes from URLs during prerendering.
+ * This runs before the router initializes, allowing Vue Router to see the correct path.
+ */
+export default defineNuxtPlugin({
+  name: 'flags:precompute-rewrite',
+  order: -50,
+  setup(nuxtApp) {
+    ${hasPrecompute ? '' : 'return;'}
+    if (import.meta.server && import.meta.prerender && nuxtApp.ssrContext) {
+      const hash = nuxtApp.ssrContext.event.context?.precomputedFlags?.hash;
+      if (hash) {
+        nuxtApp.ssrContext.url = nuxtApp.payload.path = nuxtApp.ssrContext.url.replace(\`/\${hash}\`, '');
+      }
+    }
+  },
+});
+      `,
+    });
   },
 });

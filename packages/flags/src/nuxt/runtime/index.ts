@@ -7,6 +7,7 @@ import { getEvent, getState, getStore } from '#flags-implementation';
 import { decryptOverrides } from '../../lib/crypto';
 import { normalizeOptions } from '../../lib/normalize-options';
 import { reportValue } from '../../lib/report-value';
+import { getPrecomputed } from '../../precompute';
 import {
   getDecide,
   getIdentify,
@@ -16,9 +17,8 @@ import {
   sealHeaders,
 } from '../../shared';
 import type { FlagDeclaration, JsonValue } from '../../types';
-import type { Flag } from '../types';
+import type { Flag, FlagsArray } from '../types';
 
-// TODO: add precomputed support
 export function defineFlag<
   ValueType extends JsonValue = boolean | string | number,
   EntitiesType = any,
@@ -27,7 +27,20 @@ export function defineFlag<
   const identify = getIdentify(definition);
 
   async function flagImpl(event = getEvent()): Promise<ValueType> {
-    const state = getState<ValueType>(definition.key, event);
+    // get precomputed hash + flags array from context
+    const { hash, flags } = event?.context.precomputedFlags || {};
+    if (typeof hash === 'string' && Array.isArray(flags)) {
+      if (import.meta.client) {
+        throw new Error(
+          'flags: Precomputed flags can only be evaluated on the server. ' +
+            'Call them in a server context (e.g., in a page script with SSR) and pass the values to the client.',
+        );
+      }
+      const store = getStore<FlagStore>();
+      return getPrecomputed(definition.key, flags, hash, store.secret);
+    }
+
+    const state = getState<ValueType>(definition.key, event as H3Event);
 
     if (import.meta.client) {
       if (state.value !== undefined) {
@@ -116,4 +129,17 @@ export function defineFlag<
   flagImpl.identify = identify;
 
   return flagImpl;
+}
+
+// Re-export precompute utilities
+export { handlePrecomputedPaths, prerenderMiddleware } from './precompute';
+
+declare module 'h3' {
+  interface H3EventContext {
+    flags?: FlagStore;
+    precomputedFlags?: {
+      hash?: string;
+      flags?: FlagsArray;
+    };
+  }
 }

@@ -16,7 +16,7 @@ import { normalizeOptions } from '../../../lib/normalize-options';
 import type { Flag } from '../../types';
 
 export default defineEventHandler(async (event) => {
-  const auth = getRequestHeader(event, 'authorization') as string;
+  const auth = getRequestHeader(event, 'authorization');
   const access = await verifyAccess(auth, process.env.FLAGS_SECRET);
   if (!access) {
     setResponseStatus(event, 401);

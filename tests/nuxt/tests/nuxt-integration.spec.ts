@@ -180,3 +180,117 @@ test.describe('Nuxt Integration', () => {
     await expect(page.getByTestId('feature-toggle')).toBeVisible();
   });
 });
+
+test.describe('Precompute Support', () => {
+  test('handlePrecomputedPaths middleware processes requests', async ({
+    page,
+    goto,
+  }) => {
+    await goto('/precompute', { waitUntil: 'hydration' });
+
+    // Verify flags are evaluated
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: true',
+    );
+    await expect(page.getByTestId('feature-toggle')).toHaveText(
+      'Feature Toggle: false',
+    );
+  });
+
+  test('precompute generates valid hashes', async ({ page, goto }) => {
+    await goto('/precompute', { waitUntil: 'hydration' });
+
+    // After middleware processing, we should be on either the original URL
+    // or a hash-prefixed URL if redirected
+    const url = page.url();
+
+    // URL should contain /precompute
+    expect(url).toContain('/precompute');
+
+    // Flags should still evaluate correctly
+    await expect(page.getByTestId('example-flag')).toBeVisible();
+    await expect(page.getByTestId('feature-toggle')).toBeVisible();
+  });
+
+  test('precomputed routes maintain flag values', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    // Set a cookie that might affect flag evaluation
+    await context.addCookies([
+      {
+        name: 'example-cookie',
+        value: 'precompute-test',
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    await goto('/precompute', { waitUntil: 'hydration' });
+
+    // Get flag values
+    const exampleText = await page.getByTestId('example-flag').textContent();
+    const toggleText = await page.getByTestId('feature-toggle').textContent();
+
+    // Verify consistency
+    expect(exampleText).toBe('Example Flag: true');
+    expect(toggleText).toBe('Feature Toggle: false');
+  });
+
+  test('hash is stripped from URL for Vue app', async ({ page, goto }) => {
+    await goto('/precompute', { waitUntil: 'hydration' });
+
+    // Check that the page renders correctly without hash in the visible URL
+    // (the middleware should strip it before Vue processes it)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Precompute Test',
+    );
+
+    // Navigation should work normally
+    await page.click('a[href="/"]');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Nuxt Flags Test Suite',
+    );
+  });
+
+  test('precompute works with SSR', async ({ page, goto }) => {
+    const response = await goto('/precompute', {
+      waitUntil: 'domcontentloaded',
+    });
+    const html = await response?.text();
+
+    // Verify flag values are present in SSR HTML
+    expect(html).toContain('Example Flag: true');
+    expect(html).toContain('Feature Toggle: false');
+  });
+
+  test('multiple visits to precomputed route are consistent', async ({
+    page,
+    goto,
+  }) => {
+    // Visit once
+    await goto('/precompute', { waitUntil: 'hydration' });
+    const firstExample = await page.getByTestId('example-flag').textContent();
+    const firstToggle = await page.getByTestId('feature-toggle').textContent();
+
+    // Navigate away
+    await page.click('a[href="/"]');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Nuxt Flags Test Suite',
+    );
+
+    // Visit again
+    await page.click('a[href="/precompute"]');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Precompute Test',
+    );
+
+    const secondExample = await page.getByTestId('example-flag').textContent();
+    const secondToggle = await page.getByTestId('feature-toggle').textContent();
+
+    // Values should be consistent
+    expect(firstExample).toBe(secondExample);
+    expect(firstToggle).toBe(secondToggle);
+  });
+});

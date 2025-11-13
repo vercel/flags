@@ -22,7 +22,7 @@ type PrecomputedFlag<ReturnValue> = {
   (
     /** The route parameter that contains the precomputed flag values */
     code: string,
-    /** The flags which were used to create the code (i.e. the same array you passed to `precompute(...)`) */
+    /** The flags which were used to create the code (i.e. the same array you passed to `precomputeFlags(...)`) */
     flagsArray: FlagsArray,
   ): ReturnValue | Promise<ReturnValue>;
 } & FlagsMeta<ReturnValue>;
