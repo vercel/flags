@@ -1,4 +1,4 @@
-import type { JsonValue } from '..';
+import type { JsonValue } from '.';
 import * as s from './lib/serialization';
 
 type FlagsArray = readonly s.CommonFlag<any>[];
