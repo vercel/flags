@@ -22,6 +22,7 @@ import {
   version,
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
+import { getPrecomputed } from '../precompute';
 import {
   getDecide,
   getIdentify,
@@ -41,7 +42,6 @@ import { tryGetSecret } from './env';
 import {
   generatePermutations as _generatePermutations,
   precompute as _precompute,
-  getPrecomputed,
 } from './precompute';
 import type { Flag, FlagsArray } from './types';
 

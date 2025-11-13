@@ -84,3 +84,22 @@ export function getIdentify<ValueType, EntitiesType>(
     return definition.adapter.identify;
   }
 }
+
+// see https://stackoverflow.com/a/44344803
+export function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
+  const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
+  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
+}
+
+/**
+ * Combines flag declarations with values.
+ * @param flags - flag declarations
+ * @param values - flag values
+ * @returns - A record where the keys are flag keys and the values are flag values.
+ */
+export function combineFlags<T extends { key: string }>(
+  flags: readonly T[],
+  values: readonly any[],
+): Record<string, any> {
+  return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
+}
