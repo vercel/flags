@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
@@ -23,16 +22,17 @@ import {
   version,
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
+import { getPrecomputed } from '../precompute';
 import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
+  getDecide,
+  getIdentify,
+  // biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
+  hasOwnProperty,
+  resolveObjectPromises,
+  sealCookies,
+  sealHeaders,
+} from '../shared';
 import type {
-  Decide,
   FlagDeclaration,
   FlagOverridesType,
   FlagValuesType,
@@ -42,83 +42,8 @@ import { tryGetSecret } from './env';
 import {
   generatePermutations as _generatePermutations,
   precompute as _precompute,
-  getPrecomputed,
 } from './precompute';
 import type { Flag, FlagsArray } from './types';
-
-// biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
-function hasOwnProperty<X extends {}, Y extends PropertyKey>(
-  obj: X,
-  prop: Y,
-): obj is X & Record<Y, unknown> {
-  return Object.hasOwn(obj, prop);
-}
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
-
-type PromisesMap<T> = {
-  [K in keyof T]: Promise<T[K]>;
-};
-
-async function resolveObjectPromises<T>(obj: PromisesMap<T>): Promise<T> {
-  // Convert the object into an array of [key, promise] pairs
-  const entries = Object.entries(obj) as [keyof T, Promise<any>][];
-
-  // Use Promise.all to wait for all the promises to resolve
-  const resolvedEntries = await Promise.all(
-    entries.map(async ([key, promise]) => {
-      const value = await promise;
-      return [key, value] as [keyof T, T[keyof T]];
-    }),
-  );
-
-  // Convert the array of resolved [key, value] pairs back into an object
-  return Object.fromEntries(resolvedEntries) as T;
-}
-
-function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Decide<ValueType, EntitiesType> {
-  return function decide(params) {
-    if (typeof definition.decide === 'function') {
-      return definition.decide(params);
-    }
-    if (typeof definition.adapter?.decide === 'function') {
-      return definition.adapter.decide({ key: definition.key, ...params });
-    }
-    throw new Error(`flags: No decide function provided for ${definition.key}`);
-  };
-}
-
-function getIdentify<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Identify<EntitiesType> | undefined {
-  if (typeof definition.identify === 'function') {
-    return definition.identify;
-  }
-  if (typeof definition.adapter?.identify === 'function') {
-    return definition.adapter.identify;
-  }
-}
 
 /**
  * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
