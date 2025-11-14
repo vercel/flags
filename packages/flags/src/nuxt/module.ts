@@ -11,9 +11,9 @@ import {
   addServerTemplate,
   addTemplate,
   addTypeTemplate,
+  createIsIgnored,
   createResolver,
   defineNuxtModule,
-  isIgnored,
   resolveAlias,
 } from 'nuxt/kit';
 import { provider } from 'std-env';
@@ -159,6 +159,7 @@ export {}
       });
 
       const noDefinedFlags = 'export const flags = {}';
+      const isIgnored = createIsIgnored(nuxt);
       addServerTemplate({
         filename: '#flags/defined-flags',
         getContents() {
@@ -173,8 +174,8 @@ export {}
             }
             const files = readdirSync(path).filter(
               (f) =>
-                /\.(ts|js|mjs|cjs)$/.test(f) &&
-                !isIgnored(f, nuxt.options.ignore),
+                /\.[cm]?[tj]s$/.test(f) &&
+                !isIgnored(join(path, f), nuxt.options.ignore),
             );
             const lines = files.map(
               (f, index) =>
