@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@nuxt/test-utils/playwright';
+import { encryptOverrides } from 'flags';
 
 test.describe('Nuxt Integration', () => {
   test('flags are auto-imported and work in pages', async ({ page, goto }) => {
@@ -177,6 +179,98 @@ test.describe('Nuxt Integration', () => {
     // These flags come from flags/index.ts
     await expect(page.getByTestId('example-flag')).toBeVisible();
     await expect(page.getByTestId('feature-toggle')).toBeVisible();
+  });
+
+  test('flags can be overridden with encrypted cookie', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    const encryptedOverrides = await encryptOverrides(
+      // normally true
+      { 'example-flag': false },
+      getSecret(),
+    );
+
+    await context.addCookies([
+      {
+        name: 'vercel-flag-overrides',
+        value: encryptedOverrides,
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    await goto('/basic', { waitUntil: 'hydration' });
+
+    // The flag should now be false instead of true
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: false',
+    );
+  });
+
+  test('flags ignore overrides with wrong secret', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    const wrongSecret = getSecret().replace(/testing-/, 'invalid-');
+
+    // Try to override with wrong secret
+    const encryptedOverrides = await encryptOverrides(
+      { 'example-flag': false },
+      wrongSecret,
+    );
+
+    await context.addCookies([
+      {
+        name: 'vercel-flag-overrides',
+        value: encryptedOverrides,
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    await goto('/basic', { waitUntil: 'hydration' });
+
+    // The flag should keep its original value (true) since the secret is wrong
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: true',
+    );
+  });
+
+  test('multiple flags can be overridden at once', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    // Override multiple flags
+    const encryptedOverrides = await encryptOverrides(
+      {
+        'example-flag': false,
+        'feature-toggle': true,
+      },
+      getSecret(),
+    );
+
+    await context.addCookies([
+      {
+        name: 'vercel-flag-overrides',
+        value: encryptedOverrides,
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    await goto('/basic', { waitUntil: 'hydration' });
+
+    // Both flags should be overridden
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: false',
+    );
+    await expect(page.getByTestId('feature-toggle')).toHaveText(
+      'Feature Toggle: true',
+    );
   });
 });
 
@@ -379,4 +473,53 @@ test.describe('Precompute Support', () => {
       /^Hash: [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
     );
   });
+
+  test('flags can be overridden on precomputed pages', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    // Override exampleFlag to false (normally true) and user-role to 'admin' (normally 'guest')
+    const encryptedOverrides = await encryptOverrides(
+      {
+        'example-flag': false,
+        'user-role': 'admin',
+      },
+      getSecret(),
+    );
+
+    await context.addCookies([
+      {
+        name: 'vercel-flag-overrides',
+        value: encryptedOverrides,
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    await goto('/precompute', { waitUntil: 'hydration' });
+
+    // Overridden flags should show their override values
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: false',
+    );
+    await expect(page.getByTestId('user-role-flag')).toHaveText(
+      'User Role: admin',
+    );
+
+    // Non-overridden flags should still work normally
+    await expect(page.getByTestId('cookie-flag')).toHaveText(
+      'Cookie: no cookie',
+    );
+  });
 });
+
+function getSecret() {
+  const secret = readFileSync(new URL('../.env', import.meta.url), 'utf-8')
+    .match(/FLAGS_SECRET=(.+)/)?.[1]
+    .trim();
+  if (!secret) {
+    throw new Error('FLAGS_SECRET not found in .env file');
+  }
+  return secret;
+}
