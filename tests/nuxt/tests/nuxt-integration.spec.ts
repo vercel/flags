@@ -214,7 +214,7 @@ test.describe('Nuxt Integration', () => {
     goto,
     context,
   }) => {
-    const wrongSecret = getSecret().replace(/testing-/, 'invalid-');
+    const wrongSecret = getSecret().replace(/.{8}/, 'invalid-');
 
     // Try to override with wrong secret
     const encryptedOverrides = await encryptOverrides(
