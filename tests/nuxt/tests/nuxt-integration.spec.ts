@@ -191,8 +191,11 @@ test.describe('Precompute Support', () => {
     await expect(page.getByTestId('example-flag')).toHaveText(
       'Example Flag: true',
     );
-    await expect(page.getByTestId('feature-toggle')).toHaveText(
-      'Feature Toggle: false',
+    await expect(page.getByTestId('cookie-flag')).toHaveText(
+      'Cookie: no cookie',
+    );
+    await expect(page.getByTestId('user-role-flag')).toHaveText(
+      'User Role: guest',
     );
   });
 
@@ -208,7 +211,8 @@ test.describe('Precompute Support', () => {
 
     // Flags should still evaluate correctly
     await expect(page.getByTestId('example-flag')).toBeVisible();
-    await expect(page.getByTestId('feature-toggle')).toBeVisible();
+    await expect(page.getByTestId('cookie-flag')).toBeVisible();
+    await expect(page.getByTestId('user-role-flag')).toBeVisible();
   });
 
   test('precomputed routes maintain flag values', async ({
@@ -224,17 +228,25 @@ test.describe('Precompute Support', () => {
         domain: '127.0.0.1',
         path: '/',
       },
+      {
+        name: 'user-role',
+        value: 'user',
+        domain: '127.0.0.1',
+        path: '/',
+      },
     ]);
 
     await goto('/precompute', { waitUntil: 'hydration' });
 
     // Get flag values
     const exampleText = await page.getByTestId('example-flag').textContent();
-    const toggleText = await page.getByTestId('feature-toggle').textContent();
+    const cookieText = await page.getByTestId('cookie-flag').textContent();
+    const roleText = await page.getByTestId('user-role-flag').textContent();
 
     // Verify consistency
     expect(exampleText).toBe('Example Flag: true');
-    expect(toggleText).toBe('Feature Toggle: false');
+    expect(cookieText).toBe('Cookie: precompute-test');
+    expect(roleText).toBe('User Role: user');
   });
 
   test('hash is stripped from URL for Vue app', async ({ page, goto }) => {
@@ -261,7 +273,15 @@ test.describe('Precompute Support', () => {
 
     // Verify flag values are present in SSR HTML
     expect(html).toContain('Example Flag: true');
-    expect(html).toContain('Feature Toggle: false');
+    expect(html).toContain('Cookie: no cookie');
+    expect(html).toContain('User Role: guest');
+
+    // Precompute hash should be present
+    await expect(page.getByTestId('precompute-hash')).toBeVisible();
+    const hashText = await page.getByTestId('precompute-hash').textContent();
+    expect(hashText).toMatch(
+      /^Hash: [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+    );
   });
 
   test('multiple visits to precomputed route are consistent', async ({
@@ -271,7 +291,8 @@ test.describe('Precompute Support', () => {
     // Visit once
     await goto('/precompute', { waitUntil: 'hydration' });
     const firstExample = await page.getByTestId('example-flag').textContent();
-    const firstToggle = await page.getByTestId('feature-toggle').textContent();
+    const firstCookie = await page.getByTestId('cookie-flag').textContent();
+    const firstRole = await page.getByTestId('user-role-flag').textContent();
 
     // Navigate away
     await page.click('a[href="/"]');
@@ -286,10 +307,76 @@ test.describe('Precompute Support', () => {
     );
 
     const secondExample = await page.getByTestId('example-flag').textContent();
-    const secondToggle = await page.getByTestId('feature-toggle').textContent();
+    const secondCookie = await page.getByTestId('cookie-flag').textContent();
+    const secondRole = await page.getByTestId('user-role-flag').textContent();
 
     // Values should be consistent
     expect(firstExample).toBe(secondExample);
-    expect(firstToggle).toBe(secondToggle);
+    expect(firstCookie).toBe(secondCookie);
+    expect(firstRole).toBe(secondRole);
+
+    // Precompute hash should be present
+    await expect(page.getByTestId('precompute-hash')).toBeVisible();
+    const hashText = await page.getByTestId('precompute-hash').textContent();
+    expect(hashText).toMatch(
+      /^Hash: [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+    );
+  });
+
+  test('client-side navigation to precomputed page shows correct flag values', async ({
+    page,
+    goto,
+    context,
+  }) => {
+    // Set cookies that affect flag evaluation
+    await context.addCookies([
+      {
+        name: 'example-cookie',
+        value: 'nav-test-value',
+        domain: '127.0.0.1',
+        path: '/',
+      },
+      {
+        name: 'user-role',
+        value: 'admin',
+        domain: '127.0.0.1',
+        path: '/',
+      },
+    ]);
+
+    // Start from home page
+    await goto('/', { waitUntil: 'hydration' });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Nuxt Flags Test Suite',
+    );
+
+    // Navigate to precomputed page using client-side navigation
+    await page.click('a[href="/precompute"]');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Precompute Test',
+    );
+
+    // Static flag should have correct value
+    await expect(page.getByTestId('example-flag')).toBeVisible();
+    await expect(page.getByTestId('example-flag')).toHaveText(
+      'Example Flag: true',
+    );
+
+    // Cookie-based flags should reflect the cookies we set
+    await expect(page.getByTestId('cookie-flag')).toBeVisible();
+    await expect(page.getByTestId('cookie-flag')).toHaveText(
+      'Cookie: nav-test-value',
+    );
+    await expect(page.getByTestId('user-role-flag')).toBeVisible();
+    await expect(page.getByTestId('user-role-flag')).toHaveText(
+      'User Role: admin',
+    );
+
+    // Precompute hash should be present
+    await expect(page.getByTestId('precompute-hash')).toBeVisible();
+    const hashText = await page.getByTestId('precompute-hash').textContent();
+    expect(hashText).toMatch(
+      /^Hash: [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+    );
   });
 });

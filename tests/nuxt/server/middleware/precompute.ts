@@ -1,4 +1,4 @@
-import { exampleFlag, featureToggleFlag } from '#flags';
+import { cookieFlag, exampleFlag, userRoleFlag } from '#flags';
 
 // Example of using precomputed routes in Nuxt
 // This middleware will:
@@ -6,6 +6,10 @@ import { exampleFlag, featureToggleFlag } from '#flags';
 // 2. At runtime: redirect to the appropriate precomputed route
 export default defineEventHandler((event) => {
   if (event.path.startsWith('/precompute')) {
-    return handlePrecomputedPaths(event, [exampleFlag, featureToggleFlag]);
+    return handlePrecomputedPaths(event, [
+      exampleFlag,
+      cookieFlag,
+      userRoleFlag,
+    ]);
   }
 });

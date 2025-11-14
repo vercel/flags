@@ -87,7 +87,7 @@ export function getState(key) {
     addTemplate({
       filename: 'flags/implementation.mjs',
       getContents: () => /* js */ `
-import { useNuxtApp, useRequestEvent, useState } from "#imports"
+import { toRef, useNuxtApp, useRequestEvent } from "#imports"
 
 export function getEvent() {
   return useRequestEvent()
@@ -97,8 +97,10 @@ export function getStore() {
   return useNuxtApp().$flagStore
 }
 
-export function getState(key) {
-  return useState(\`flag:$\{key}\`);
+export function getState(_key) {
+  const nuxtApp = useNuxtApp();
+  const key = \`flag:$\{_key}\`;
+  return toRef(key in nuxtApp.static.data ? nuxtApp.static.data : nuxtApp.payload.data, key);
 }
       `,
     });
@@ -242,10 +244,28 @@ export {}
 
       nitro.hooks.hook('prerender:generate', (route) => {
         if (route.contentType?.includes('x-skip-prerender=1')) {
+          delete route.error;
+
+          nitro._prerenderedRoutes ||= [];
+          nitro._prerenderedRoutes.push({ ...route });
+
           // better display in the console
           route.route = `/[precomputed-hash?]${route.route}`;
-          delete route.error;
         }
+      });
+
+      // strip out hashed routes from nuxt manifest
+      nitro.hooks.hook('prerender:done', async (ctx) => {
+        const prerenderedRoutes =
+          await nitro.storage.getKeys('flags-precompute');
+        const hashes = await Promise.all(
+          prerenderedRoutes.map((k) => nitro.storage.getItem<string[]>(k)),
+        );
+        const prefix = new Set(hashes.flat());
+        nitro._prerenderedRoutes = nitro._prerenderedRoutes?.filter((r) => {
+          const hash = r.route.split('/')[1];
+          return !hash || !prefix.has(hash);
+        });
       });
     });
 

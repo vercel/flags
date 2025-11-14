@@ -17,7 +17,7 @@ export const cookieFlag = defineFlag<string>({
   key: 'cookie',
   description: 'Flag that reads cookies',
   decide: ({ cookies }) => cookies.get('example-cookie')?.value || 'no cookie',
-  options: [{ value: 'no cookie' }],
+  options: [{ value: 'no cookie' }, { value: 'nav-test-value' }],
 });
 
 export const userRoleFlag = defineFlag<string>({

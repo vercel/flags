@@ -29,6 +29,7 @@ export function defineFlag<
   async function flagImpl(event = getEvent()): Promise<ValueType> {
     // get precomputed hash + flags array from context
     const { hash, flags } = event?.context.precomputedFlags || {};
+    const state = getState<ValueType>(definition.key, event as H3Event);
     if (typeof hash === 'string' && Array.isArray(flags)) {
       if (import.meta.client) {
         throw new Error(
@@ -37,10 +38,14 @@ export function defineFlag<
         );
       }
       const store = getStore<FlagStore>();
-      return getPrecomputed(definition.key, flags, hash, store.secret);
+      state.value = await getPrecomputed<ValueType>(
+        definition.key,
+        flags,
+        hash,
+        store.secret,
+      );
+      return state.value;
     }
-
-    const state = getState<ValueType>(definition.key, event as H3Event);
 
     if (import.meta.client) {
       if (state.value !== undefined) {

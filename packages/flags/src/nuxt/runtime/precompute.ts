@@ -224,7 +224,8 @@ async function handleRuntime(
 ) {
   const storage = getPermutationsStorage();
 
-  const hashes = await storage.getItem(`${event.path}.json`);
+  const path = event.path.replace(/\?.*$/, '');
+  const hashes = await storage.getItem(`${path}.json`);
   if (!Array.isArray(hashes) || hashes.length === 0) {
     return;
   }
@@ -237,7 +238,7 @@ async function handleRuntime(
   }
 
   const responseCache = getStaticCache();
-  const key = `/${hash}${event.path}`;
+  const key = `/${hash}${path}`;
   const value = await responseCache.getItemRaw<CachedResponse>(key);
   if (value) {
     setResponseHeaders(event, value.headers);
@@ -264,7 +265,7 @@ function constructHashedURL(event: H3Event, hash: string) {
     xForwardedHost: true,
     xForwardedProto: true,
   });
-  url.pathname = `/${hash}${event.path}`;
+  url.pathname = `/${hash}${event.path.replace(/\?.*$/, '')}`;
 
   return url;
 }
