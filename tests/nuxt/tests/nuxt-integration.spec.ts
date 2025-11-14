@@ -515,6 +515,9 @@ test.describe('Precompute Support', () => {
 });
 
 function getSecret() {
+  if (process.env.FLAGS_SECRET) {
+    return process.env.FLAGS_SECRET;
+  }
   const secret = readFileSync(new URL('../.env', import.meta.url), 'utf-8')
     .match(/FLAGS_SECRET=(.+)/)?.[1]
     .trim();
