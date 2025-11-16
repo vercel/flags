@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/openfeature.ts'],
+  entry: [
+    'src/index.ts',
+    'src/openfeature/server.ts',
+    'src/openfeature/ofrep.ts',
+  ],
   format: ['esm', 'cjs'],
   splitting: true,
   sourcemap: true,

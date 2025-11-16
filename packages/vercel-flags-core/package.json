@@ -12,9 +12,13 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./openfeature": {
-      "import": "./dist/openfeature.js",
-      "require": "./dist/openfeature.cjs"
+    "./openfeature/server": {
+      "import": "./dist/openfeature/server.js",
+      "require": "./dist/openfeature/server.cjs"
+    },
+    "./openfeature/ofrep": {
+      "import": "./dist/openfeature/ofrep.js",
+      "require": "./dist/openfeature/ofrep.cjs"
     }
   },
   "main": "./dist/index.js",
@@ -24,9 +28,13 @@
         "dist/*.d.ts",
         "dist/*.d.cts"
       ],
-      "./openfeature": [
-        "dist/openfeature.d.ts",
-        "dist/openfeature.d.cts"
+      "./openfeature/server": [
+        "dist/openfeature/server.d.ts",
+        "dist/openfeature/server.d.cts"
+      ],
+      "./openfeature/ofrep": [
+        "dist/openfeature/ofrep.d.ts",
+        "dist/openfeature/ofrep.d.cts"
       ]
     }
   },

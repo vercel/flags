@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none">
+  <rect width="16" height="16" fill="var(--ds-gray-1000)" rx="4" />
+  <path
+    fill="var(--ds-background-100)"
+    d="M6.5 9.75c-1.25 0-2 .75-2 .75V6s.75-.75 2-.75 1.75 1 3 1 2-.625 2-.625v4.5s-.75.625-2 .625-1.75-1-3-1Z"
+  />
+</svg>

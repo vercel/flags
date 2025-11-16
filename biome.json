@@ -30,6 +30,9 @@
       "style": {
         "useNodejsImportProtocol": "off",
         "noNonNullAssertion": "off"
+      },
+      "complexity": {
+        "noImportantStyles": "off"
       }
     }
   },

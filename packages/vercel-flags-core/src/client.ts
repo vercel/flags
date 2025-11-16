@@ -26,6 +26,9 @@ export type FlagsClient = {
     defaultValue?: T,
     entities?: E,
   ) => Promise<EvaluationResult<T>>;
+  evaluateAll: <E = Record<string, unknown>>(
+    entities?: E,
+  ) => Promise<Record<string, EvaluationResult<any>>>;
   initialize(): void | Promise<void>;
   shutdown(): void | Promise<void>;
 };
@@ -106,6 +109,26 @@ export function createClient({
         });
       }
 
+      return result;
+    },
+
+    async evaluateAll<E = Record<string, unknown>>(
+      entities?: E,
+    ): Promise<Record<string, EvaluationResult<any>>> {
+      // TODO dataSource.getData should move into "initialize" and set up the subscription.
+      const data = await dataSource.getData();
+      const e = entities ?? {};
+
+      const result: Record<string, EvaluationResult<any>> = {};
+      for (const [flagKey, definition] of Object.entries(data.definitions)) {
+        result[flagKey] = evaluate({
+          defaultValue: undefined,
+          definition,
+          environment: this.environment,
+          entities: e,
+          segments: data.segments,
+        });
+      }
       return result;
     },
   };

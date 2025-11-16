@@ -1,11 +1,11 @@
 import { StandardResolutionReasons } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
-import { createClient } from './client';
-import { InMemoryDataSource } from './data-source/in-memory-data-source';
-import { VercelProvider } from './openfeature';
-import type { Packed } from './types';
+import { createClient } from '../client';
+import { InMemoryDataSource } from '../data-source/in-memory-data-source';
+import type { Packed } from '../types';
+import { VercelFlagsServerProvider } from './server';
 
-describe('VercelProvider', () => {
+describe('VercelFlagsServerProvider', () => {
   describe('constructor', () => {
     it('should accept a FlagsClient', () => {
       const dataSource = new InMemoryDataSource({
@@ -16,7 +16,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');
       expect(provider.runsOn).toBe('server');
@@ -25,7 +25,7 @@ describe('VercelProvider', () => {
     it('should accept a connection string', () => {
       const connectionString =
         'flags:edgeConfigId=test&edgeConfigToken=test&projectId=test';
-      const provider = new VercelProvider(connectionString);
+      const provider = new VercelFlagsServerProvider(connectionString);
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');
       expect(provider.runsOn).toBe('server');
@@ -47,7 +47,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
         'boolean-flag',
@@ -68,7 +68,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
         'nonexistent-flag',
@@ -99,7 +99,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
         'active-flag',
@@ -127,7 +127,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveStringEvaluation(
         'string-flag',
@@ -148,7 +148,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveStringEvaluation(
         'nonexistent-flag',
@@ -177,7 +177,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveNumberEvaluation(
         'number-flag',
@@ -198,7 +198,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveNumberEvaluation(
         'nonexistent-flag',
@@ -227,7 +227,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveObjectEvaluation(
         'object-flag',
@@ -248,7 +248,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveObjectEvaluation(
         'nonexistent-flag',
@@ -272,7 +272,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       await expect(provider.initialize()).resolves.toBeUndefined();
     });
@@ -288,7 +288,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       await expect(provider.onClose()).resolves.toBeUndefined();
     });
@@ -314,7 +314,7 @@ describe('VercelProvider', () => {
         dataSource,
         environment: 'production',
       });
-      const provider = new VercelProvider(client);
+      const provider = new VercelFlagsServerProvider(client);
 
       const result = await provider.resolveStringEvaluation(
         'context-flag',

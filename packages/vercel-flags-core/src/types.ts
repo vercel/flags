@@ -451,6 +451,10 @@ export namespace Packed {
     definitions: Record<FlagKey, FlagDefinition>;
     /** segments keyed by id */
     segments?: Record<SegmentId, Segment>;
+    /** Hash of the data source contents */
+    digest?: string;
+    /** when the last update to the data source contents was made */
+    updatedAt?: number;
   };
 
   export enum AccessorType {

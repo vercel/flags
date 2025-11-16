@@ -5,29 +5,13 @@ import {
   type Provider,
   type ProviderMetadata,
   type ResolutionDetails,
-  type ResolutionReason,
   StandardResolutionReasons,
 } from '@openfeature/server-sdk';
-import { createClientFromConnectionString, Reason } from '.';
-import type { FlagsClient } from './client';
+import { createClientFromConnectionString, Reason } from '..';
+import type { FlagsClient } from '../client';
+import { mapReason } from './utils';
 
-function mapReason(reason: Reason): ResolutionReason {
-  switch (reason) {
-    case Reason.ERROR:
-      return StandardResolutionReasons.ERROR;
-    case Reason.PAUSED:
-      return StandardResolutionReasons.STATIC;
-    case Reason.FALLTHROUGH:
-      return StandardResolutionReasons.DEFAULT;
-    case Reason.TARGET_MATCH:
-    case Reason.RULE_MATCH:
-      return StandardResolutionReasons.TARGETING_MATCH;
-    default:
-      return StandardResolutionReasons.UNKNOWN;
-  }
-}
-
-export class VercelProvider implements Provider {
+export class VercelFlagsServerProvider implements Provider {
   readonly metadata: ProviderMetadata = {
     name: 'vercel-nodejs-provider',
   } as const;
@@ -36,11 +20,11 @@ export class VercelProvider implements Provider {
   private client: FlagsClient;
 
   /**
-   * Creates a VercelProvider from an existing FlagsClient
+   * Creates a VercelFlagsServerProvider from an existing FlagsClient
    */
   constructor(client: FlagsClient);
   /**
-   * Creates a VercelProvider from a connection string
+   * Creates a VercelFlagsServerProvider from a connection string
    */
   constructor(connectionString: string);
   constructor(clientOrConnectionString: FlagsClient | string) {
