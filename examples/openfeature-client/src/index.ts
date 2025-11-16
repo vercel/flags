@@ -7,6 +7,7 @@ const flagsClient = createClientFromConnectionString(
   process.env.FLAGS as string,
 );
 
+// TODO Bun.serve does not work on Vercel yet
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
