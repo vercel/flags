@@ -28,9 +28,13 @@ export type FlagsClient = {
   ) => Promise<EvaluationResult<T>>;
   evaluateAll: <E = Record<string, unknown>>(
     entities?: E,
-  ) => Promise<Record<string, EvaluationResult<any>>>;
+  ) => Promise<BulkEvaluationResult>;
   initialize(): void | Promise<void>;
   shutdown(): void | Promise<void>;
+};
+
+export type BulkEvaluationResult = {
+  flags: Record<string, EvaluationResult<any>>;
 };
 
 /**
@@ -114,14 +118,14 @@ export function createClient({
 
     async evaluateAll<E = Record<string, unknown>>(
       entities?: E,
-    ): Promise<Record<string, EvaluationResult<any>>> {
+    ): Promise<BulkEvaluationResult> {
       // TODO dataSource.getData should move into "initialize" and set up the subscription.
       const data = await dataSource.getData();
       const e = entities ?? {};
 
-      const result: Record<string, EvaluationResult<any>> = {};
+      const flags: Record<string, EvaluationResult<any>> = {};
       for (const [flagKey, definition] of Object.entries(data.definitions)) {
-        result[flagKey] = evaluate({
+        flags[flagKey] = evaluate({
           defaultValue: undefined,
           definition,
           environment: this.environment,
@@ -129,7 +133,8 @@ export function createClient({
           segments: data.segments,
         });
       }
-      return result;
+
+      return { flags };
     },
   };
 }

@@ -2,22 +2,23 @@
 
 Shows how to use Vercel Flags client-side with the OpenFeature SDK.
 
-To install dependencies:
+### Architecture
 
-```bash
-bun install
-```
+App sets up a OpenFeature Remote Evaluation Protocol (OFREP) endpoint at `/ofrep` using hono. This endpoint returns fully evaluated feature flags for the provided evaluation context from the server.
 
-To start a development server:
+The client uses the `@openfeature/ofrep-web-provider` package to connect to the app's OFREP endpoint. In this example it is using React with `@openfeature/react-sdk`, but this is optional.
 
-```bash
-bun dev
-```
+This means your application provides its own flag evaluation endpoint.
 
-To run for production:
+### Tradeoffs
 
-```bash
-bun start
-```
-
-This project was created using `bun init` in bun v1.3.1. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+- **same domain**: the `/ofrep` endpoint is implemented within the application
+  - leads to fast DNS resolution as it's the same domain
+  - avoids CORS issues
+  - avoids potential ad blocker issues
+- **waterfalls**
+  - the client first loads the page before sending a request to the OFREP endpoint, leading to waterfalls
+  - the example app uses Suspense boundaries to display a loading state
+  - these loading spinners could be avoided if using the feature flags server side
+- **no live updates**
+  - the `@openfeature/ofrep-web-provider` does not support streaming updates, so it relies on polling

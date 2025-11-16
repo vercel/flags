@@ -76,11 +76,19 @@ export type EvaluationResult<T> =
       reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
       errorMessage?: never;
       errorCode?: never;
+      // TODO this is not implemented yet
+      dataSourceDigest?: string;
+      // TODO this is not implemented yet
+      dataSourceUpdatedAt?: string;
     }
   | {
       reason: ResolutionReason.ERROR;
       errorMessage: string;
       errorCode?: ErrorCode;
+      // TODO this is not implemented yet
+      dataSourceDigest?: string;
+      // TODO this is not implemented yet
+      dataSourceUpdatedAt?: string;
       /**
        * In cases of errors this is the he defaultValue if one was provided
        */

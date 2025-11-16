@@ -10,6 +10,8 @@ export function createOfrepHandler(flagsClient: FlagsClient) {
     const url = new URL(req.url);
 
     if (url.pathname !== '/ofrep/v1/evaluate/flags') {
+      // TODO implement single evaluateFlag endpoint
+      // https://openfeature.dev/docs/reference/other-technologies/ofrep/openapi#tag/OFREP-Core/operation/evaluateFlag
       return Response.json({ error: 'Invalid endpoint' }, { status: 404 });
     }
 
@@ -19,16 +21,15 @@ export function createOfrepHandler(flagsClient: FlagsClient) {
 
     // TODO parse ETag and skip content if unchanged
     // TODO create ETag from content + flag config
-    // TODO read connected Edge Config and return values
     //
     // TODO edge config client must be able to return { digest, updatedAt } along with the data
     // TODO data source must forward the digest along with the data
     // TODO evaluateAll must return { results, digest }
-    const results = await flagsClient.evaluateAll(context);
+    const { flags } = await flagsClient.evaluateAll(context);
 
     return Response.json(
       {
-        flags: Object.entries(results).map(([key, result]) => ({
+        flags: Object.entries(flags).map(([key, result]) => ({
           key,
           reason: mapReason(result.reason),
           // variant: reason.variant, // Vercel Flags does not have variant ids
