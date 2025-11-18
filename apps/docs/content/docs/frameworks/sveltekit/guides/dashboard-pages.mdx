@@ -1,0 +1,65 @@
+---
+title: Dashboard Pages
+description: Use feature flags on dynamic pages.
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import { LearnMore } from '@/components/learn-more';
+
+Dashboard pages are rendered at request time, and may require authenticated
+users.
+
+The example below shows how to use feature flags to show a feature to
+specific users on a dashboard page. They are flagged in based a specific cookie. The buttons below allow you to either act as a flagged in user
+or as a regular user.
+
+<IframeBrowser
+  src="sveltekit-snippets:/examples/dashboard-pages"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/sveltekit-example/src/routes/examples/dashboard-pages"
+/>
+
+## Definition
+
+The example above works by first defining a feature flag.
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+export const showNewDashboard = flag<boolean>({
+  key: 'showNewDashboard',
+  decide({ cookies }) {
+    return cookies.get('showNewDashboard')?.value === 'true';
+  },
+});
+```
+
+The example reads the value directly from the cookie. In a real
+dashboard you would likely read a signed JWT instead.
+
+## Usage
+
+Any server `load` functions can evaluate the feature flag by calling it.
+
+```ts title="src/routes/+page.server.ts"
+import type { PageServerLoad } from './$types';
+import { showNewDashboard } from '$lib/flags';
+
+export const load: PageServerLoad = async () => {
+  const dashboard = await showNewDashboard();
+
+  return {
+    title: dashboard ? 'New Dashboard' : `Old Dashboard`,
+  };
+};
+```
+
+Since dashboard pages are typically dynamic anyhow the async call to
+evaluate the feature flag should fit right in.
+
+## Evaluation Context
+
+Feature Flags used on dashboards will usually run in the Serverless
+Function Region, close to the database. This means it is acceptable for
+a feature flag's `decide` function to read the database
+when establishing the evaluation context. However, ideally, it would
+only read from the JWT as this will lead to lower overall latency.

@@ -1,0 +1,48 @@
+---
+title: 'Optimizely'
+---
+
+import { LearnMore } from '@/components/learn-more';
+
+The `@flags-sdk/optimizely` package provides
+
+- An adapter for loading feature flags from this provider (coming soon)
+- A `getProviderData` function for use with the Flags Explorer (available today)
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+### getProviderData
+
+A provider function to load flag metadata from Optimizely for use with the Flags Explorer. Accepts an `options` object with the following keys.
+
+| Options key | Type     | Description           |
+| ----------- | -------- | --------------------- |
+| `apiKey`    | `string` | Optimizely API key    |
+| `projectId` | `string` | Optimizely project ID |
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData as getOptimizelyProviderData } from '@flags-sdk/optimizely';
+import { mergeProviderData } from 'flags';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return mergeProviderData([
+    getProviderData(flags),
+    getOptimizelyProviderData({
+      projectId: process.env.OPTIMIZELY_PROJECT_ID,
+      apiKey: process.env.OPTIMIZELY_API_KEY,
+    }),
+  ]);
+});
+```
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/feature-flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>

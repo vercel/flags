@@ -1,0 +1,17 @@
+{
+  "title": "Next.js",
+  "defaultOpen": false,
+  "root": true,
+  "pages": [
+    "index",
+    "------",
+    "---Concepts---",
+    "precompute",
+    "evaluation-context",
+    "dedupe",
+    "---Guides---",
+    "...guides",
+    "---Examples---",
+    "...examples"
+  ]
+}

@@ -1,0 +1,107 @@
+---
+title: Quickstart
+description: Learn how to start using the Flags SDK in your Next.js project.
+---
+
+import { LearnMore } from '@/components/learn-more';
+import { IframeBrowser } from '@/components/iframe-browser';
+import Link from 'next/link';
+
+From the creators of Next.js, the Flags SDK is a free open-source library for implementing feature flags and A/B tests in your applications.
+
+- Works with any flag provider or custom setup.
+- Compatible with App Router, Pages Router, and Middleware.
+
+## Installation
+
+Install the Flags SDK using your preferred package manager:
+
+```sh title="Terminal"
+npm install flags
+```
+
+## Declaring a feature flag
+
+Create a `flags.ts` file in your project and declare a feature flag there:
+
+```tsx title="flags.ts#next"
+import { flag } from 'flags/next';
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  decide() {
+    return Math.random() > 0.5;
+  },
+});
+```
+
+This produces an `exampleFlag` function.
+
+## App Router
+
+If you're using the App Router, you can call the flag function from a page, component, or middleware to evaluate the flag.
+
+```tsx title="app/page.tsx#next"
+import { exampleFlag } from '../flags';
+
+export default async function Page() {
+  const example = await exampleFlag();
+
+  return <div>{example ? 'Flag is on' : 'Flag is off'}</div>;
+}
+```
+
+That's it! Run `next dev` and open your browser to see the _"Flag is on"_ or _"Flag is off"_ text.
+
+## Pages Router
+
+If you're using the Pages Router, you can call the flag function inside `getServerSideProps` and pass the values to the page as props.
+
+```tsx title="pages/index.tsx#next"
+import type { InferGetServerSidePropsType, GetServerSideProps } from 'next'
+import { exampleFlag } from '../flags';
+
+export const getServerSideProps = (async ({ req }) => {
+  const example = await exampleFlag(req);
+  return { props: { example } };
+}) satisfies GetServerSideProps<{ example: boolean }>;
+
+export default function Page({
+  example
+}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  return <div>{example ? 'Flag is on' : 'Flag is off'}</div>;
+}
+```
+
+That's it! Run `next dev` and open your browser to see the _"Flag is on"_ or _"Flag is off"_ text.
+
+## Flags Explorer
+
+The [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) is a feature of the [Vercel Toolbar](https://vercel.com/docs/workflow-collaboration/vercel-toolbar) which allows overriding feature flags for your session only, without affecting your team members. The Flags SDK will automatically respect overrides set by the Flags Explorer.
+
+This is useful when working with feature flags, as you can try out different states without actually changing the feature flag configuration in the flag provider.
+
+<video
+  width="800"
+  height="500"
+  controls
+  preload="auto"
+  className="rounded-lg shadow"
+  muted
+>
+  <source
+    src="https://mxikj9vd8fb4tfe4.public.blob.vercel-storage.com/flags-explorer-demo-md-S4qQfSdVOe2JIiJ2l8BD0sA9QqjyWQ.mp4"
+    type="video/mp4"
+  />
+  Your browser does not support the video tag.
+</video>
+
+## Next steps
+
+<LearnMore href="/frameworks/next/precompute" icon="arrow">
+  <div>Learn more about precompute in Next.js</div>
+</LearnMore>
+
+<LearnMore icon="arrow" href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fexamples%2Ftree%2Fmain%2Fsolutions%2Fflags-sdk&env=FLAGS_SECRET&envDescription=The%20FLAGS_SECRET%20will%20be%20used%20by%20the%20Flags%20Explorer%20to%20securely%20overwrite%20feature%20flags.%20Must%20be%2032%20random%20bytes%2C%20base64-encoded.%20Use%20the%20generated%20value%20or%20set%20your%20own.&envLink=https%3A%2F%2Fvercel.com%2Fdocs%2Fworkflow-collaboration%2Ffeature-flags%2Fsupporting-feature-flags%23flags_secret-environment-variable&project-name=flags-sdk-example&repository-name=flags-sdk-example" target="_blank">
+  <div>Clone the Flags SDK example</div>
+</LearnMore>

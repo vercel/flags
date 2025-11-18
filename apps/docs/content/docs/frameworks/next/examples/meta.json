@@ -1,0 +1,5 @@
+{
+  "title": "Examples",
+  "pages": ["edge-middleware", "suspense-fallbacks"],
+  "defaultOpen": false
+}

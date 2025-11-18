@@ -1,0 +1,137 @@
+---
+title: 'Hypertune'
+---
+
+import { LearnMore } from '@/components/learn-more';
+
+The `@flags-sdk/hypertune` package provides a managed [Hypertune](https://www.hypertune.com/) provider for the Flags SDK.
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+## Getting started
+
+Install the required dependencies:
+
+```bash
+pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/edge-config
+```
+
+Set up Hypertune environment variables based on your framework and app structure:
+
+```bash title=".env.local"
+NEXT_PUBLIC_HYPERTUNE_TOKEN=token
+HYPERTUNE_FRAMEWORK=nextApp
+HYPERTUNE_OUTPUT_DIRECTORY_PATH=generated
+```
+
+Read more about type-safe client generation on [docs.hypertune.com](https://docs.hypertune.com/sdk-reference/type-safe-client-generation).
+
+Run Hypertune's code generation with `npx hypertune`.
+
+Use the generated code to declare your feature flags with `createHypertuneAdapter`:
+
+```ts title="flags.ts"
+import { createHypertuneAdapter } from '@flags-sdk/hypertune'
+import { type Identify } from 'flags'
+import { dedupe, flag } from 'flags/next'
+/** Generated with `npx hypertune` */
+import {
+  createSource,
+  flagFallbacks,
+  vercelFlagDefinitions as flagDefinitions,
+  type Context,
+  type FlagValues,
+} from './generated/hypertune'
+
+const identify: Identify<Context> = dedupe(
+  async ({ headers, cookies }) => {
+    return {
+      environment: process.env.NODE_ENV,
+      user: {
+        id: 'e23cc9a8-0287-40aa-8500-6802df91e56a',
+        name: 'Example User',
+        email: 'user@example.com',
+      },
+    }
+  }
+)
+
+const hypertuneAdapter = createHypertuneAdapter<
+  FlagValues,
+  Context
+>({ createSource, flagFallbacks, flagDefinitions, identify })
+
+export const exampleFlag = flag(
+  hypertuneAdapter.declarations.exampleFlag
+)
+```
+
+Then use it in your framework:
+
+```tsx title="app/page.tsx"
+import { exampleFlag } from '@/flags'
+
+export default async function Page() {
+  const exampleFlagValue = await exampleFlag()
+
+  return <div>Example Flag: {String(exampleFlagValue)}</div>
+}
+```
+
+## Flags Explorer
+
+You can inform the Flags Explorer about your Hypertune flags with a `.well-known/vercel/flags` route.
+
+This lets you view and override your Hypertune flags using the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer).
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { createFlagsDiscoveryEndpoint } from 'flags/next'
+/** Generated with `npx hypertune` */
+import { vercelFlagDefinitions } from '../../../../generated/hypertune'
+
+export const GET = createFlagsDiscoveryEndpoint(() => {
+  return { definitions: vercelFlagDefinitions }
+})
+```
+
+<LearnMore icon="arrow" href="https://vercel.com/docs/feature-flags/flags-explorer" target="_blank">
+  Learn more about the Flags Explorer
+</LearnMore>
+
+## How to configure Edge Config
+
+If Hypertune is syncing to Vercel Edge Config, you can configure that through environment variables or through the adapter.
+
+```bash title=".env.local"
+EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_xyz?token=abc"
+EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_99999"
+```
+
+```ts title="flags.ts"
+import { VercelEdgeConfigInitDataProvider } from 'hypertune'
+import { createClient } from "@vercel/edge-config"
+
+const hypertuneAdapter = createHypertuneAdapter<
+  FlagValues,
+  Context
+>({
+  // ... previous initialization code
+  createSourceOptions: {
+    initDataProvider: new VercelEdgeConfigInitDataProvider({
+      edgeConfigClient: createClient(
+        'https://edge-config.vercel.com/ecfg_xyz?token=abc'
+      ),
+      itemKey: 'hypertune_99999',
+    }),
+  },
+})
+```
+
+## More resources
+
+- [Hypertune Documentation](https://docs.hypertune.com/)
+- [Vercel Edge Config](https://vercel.com/docs/edge-config)
+- [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer)
+- [Hypertune OpenFeature Provider](/providers/openfeature/hypertune)
