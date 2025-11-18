@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useSidebar } from "fumadocs-ui/contexts/sidebar";
-import { MenuIcon } from "lucide-react";
-import { Button } from "../ui/button";
+import { useSidebar } from 'fumadocs-ui/contexts/sidebar';
+import { MenuIcon } from 'lucide-react';
+import { Button } from '../ui/button';
 
 export const MobileMenu = () => {
   const { setOpen, open } = useSidebar();

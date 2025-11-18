@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { track } from "@vercel/analytics";
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { track } from '@vercel/analytics';
+import { CheckIcon, CopyIcon } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-} from "@/components/ui/input-group";
+} from '@/components/ui/input-group';
 
 const COPY_TIMEOUT = 2000;
 
@@ -23,10 +23,10 @@ export const Installer = ({ command }: InstallerProps) => {
 
   const handleCopy = () => {
     navigator.clipboard.writeText(command);
-    toast.success("Copied to clipboard");
+    toast.success('Copied to clipboard');
     setCopied(true);
 
-    track("Copied installer command");
+    track('Copied installer command');
     setTimeout(() => {
       setCopied(false);
     }, COPY_TIMEOUT);

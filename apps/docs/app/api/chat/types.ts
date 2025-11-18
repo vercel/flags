@@ -1,9 +1,9 @@
-import type { InferUITools, UIMessage } from "ai";
-import { z } from "zod/v3";
-import type { createTools } from "./tools";
+import type { InferUITools, UIMessage } from 'ai';
+import { z } from 'zod/v3';
+import type { createTools } from './tools';
 
 const dataPartsSchema = z.object({
-  "stream-end": z.object({
+  'stream-end': z.object({
     message: z.string(),
   }),
   notification: z.object({

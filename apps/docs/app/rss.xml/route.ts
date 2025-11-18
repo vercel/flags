@@ -1,17 +1,17 @@
-import { Feed } from "feed";
-import { source } from "@/lib/geistdocs/source";
+import { Feed } from 'feed';
+import { source } from '@/lib/geistdocs/source';
 
-const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
 const baseUrl = `${protocol}://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
 
 export const revalidate = false;
 
 export const GET = () => {
   const feed = new Feed({
-    title: "Geistdocs Documentation",
+    title: 'Geistdocs Documentation',
     id: baseUrl,
     link: baseUrl,
-    language: "en",
+    language: 'en',
     copyright: `All rights reserved ${new Date().getFullYear()}, Vercel`,
   });
 
@@ -25,7 +25,7 @@ export const GET = () => {
 
       author: [
         {
-          name: "Vercel",
+          name: 'Vercel',
         },
       ],
     });
@@ -35,7 +35,7 @@ export const GET = () => {
 
   return new Response(rss, {
     headers: {
-      "Content-Type": "application/rss+xml",
+      'Content-Type': 'application/rss+xml',
     },
   });
 };

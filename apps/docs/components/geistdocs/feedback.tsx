@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { SiGithub, SiMarkdown } from "@icons-pack/react-simple-icons";
-import { ThumbsUpIcon } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { type SyntheticEvent, useEffect, useState, useTransition } from "react";
-import { sendFeedback } from "@/app/actions/feedback";
-import { emotions } from "@/app/actions/feedback/emotions";
-import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Textarea } from "../ui/textarea";
+import { SiGithub, SiMarkdown } from '@icons-pack/react-simple-icons';
+import { ThumbsUpIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { type SyntheticEvent, useEffect, useState, useTransition } from 'react';
+import { sendFeedback } from '@/app/actions/feedback';
+import { emotions } from '@/app/actions/feedback/emotions';
+import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Textarea } from '../ui/textarea';
 
-type Emotion = (typeof emotions)[number]["name"];
+type Emotion = (typeof emotions)[number]['name'];
 
 export type Feedback = {
   emotion: Emotion;
@@ -31,7 +31,7 @@ export const Feedback = () => {
   const url = usePathname();
   const [previous, setPrevious] = useState<Result | null>(null);
   const [emotion, setEmotion] = useState<Emotion | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export const Feedback = () => {
           response,
           ...feedback,
         });
-        setMessage("");
+        setMessage('');
         setEmotion(null);
       });
     });
@@ -138,7 +138,7 @@ export const Feedback = () => {
                   className="max-h-48 min-h-24 shadow-none"
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={(e) => {
-                    if (!e.shiftKey && e.key === "Enter") {
+                    if (!e.shiftKey && e.key === 'Enter') {
                       submit(e);
                     }
                   }}
@@ -156,8 +156,8 @@ export const Feedback = () => {
                   {emotions.map((e) => (
                     <Button
                       className={cn(
-                        "text-muted-foreground hover:text-foreground",
-                        activeEmotion === e.name && "bg-accent text-foreground"
+                        'text-muted-foreground hover:text-foreground',
+                        activeEmotion === e.name && 'bg-accent text-foreground',
                       )}
                       key={e.name}
                       onClick={() => setEmotion(e.name)}

@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
 import type {
   Folder as FolderType,
   Item as ItemType,
   Separator as SeparatorType,
-} from "fumadocs-core/page-tree";
-import { ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+} from 'fumadocs-core/page-tree';
+import { ChevronRightIcon, ExternalLinkIcon } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 type FolderProps = {
   item: FolderType;
@@ -29,8 +29,8 @@ export const Folder = ({ item, level, children }: FolderProps) => {
   const linkInner = item.index ? (
     <Link
       className={cn(
-        "text-pretty font-medium text-sm",
-        isActive && "text-primary"
+        'text-pretty font-medium text-sm',
+        isActive && 'text-primary',
       )}
       href={item.index.url}
     >
@@ -79,8 +79,8 @@ export const Item = ({ item }: ItemProps) => {
     <li className="flex items-center justify-between gap-2">
       <Link
         className={cn(
-          "w-full truncate text-pretty py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground",
-          isActive && "text-primary"
+          'w-full truncate text-pretty py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground',
+          isActive && 'text-primary',
         )}
         href={item.url}
       >

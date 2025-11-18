@@ -1,31 +1,31 @@
-"use server";
+'use server';
 
-import { App, type Octokit } from "octokit";
-import type { ActionResponse, Feedback } from "@/components/geistdocs/feedback";
-import { emotions } from "./emotions";
+import { App, type Octokit } from 'octokit';
+import type { ActionResponse, Feedback } from '@/components/geistdocs/feedback';
+import { emotions } from './emotions';
 
 const getOctokit = async (): Promise<Octokit> => {
   const repo = process.env.NEXT_PUBLIC_GEISTDOCS_REPO;
   const owner = process.env.NEXT_PUBLIC_GEISTDOCS_OWNER;
   const category = process.env.NEXT_PUBLIC_GEISTDOCS_CATEGORY;
   const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
   if (!(repo && owner && category && appId && privateKey)) {
-    throw new Error("Missing environment variables");
+    throw new Error('Missing environment variables');
   }
 
   const app = new App({ appId, privateKey });
 
   const { data } = await app.octokit.request(
-    "GET /repos/{owner}/{repo}/installation",
+    'GET /repos/{owner}/{repo}/installation',
     {
       owner,
       repo,
       headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-    }
+    },
   );
 
   return await app.getInstallationOctokit(data.id);
@@ -47,7 +47,7 @@ const getFeedbackDestination = async () => {
   const repo = process.env.NEXT_PUBLIC_GEISTDOCS_REPO;
 
   if (!(owner && repo)) {
-    throw new Error("Missing environment variables");
+    throw new Error('Missing environment variables');
   }
 
   const {
@@ -70,25 +70,25 @@ const getFeedbackDestination = async () => {
 
 export const sendFeedback = async (
   url: string,
-  feedback: Feedback
+  feedback: Feedback,
 ): Promise<ActionResponse> => {
   const owner = process.env.NEXT_PUBLIC_GEISTDOCS_OWNER;
   const repo = process.env.NEXT_PUBLIC_GEISTDOCS_REPO;
   const docsCategory = process.env.NEXT_PUBLIC_GEISTDOCS_CATEGORY;
 
   if (!(owner && repo && docsCategory)) {
-    throw new Error("Missing environment variables");
+    throw new Error('Missing environment variables');
   }
 
   const octokit = await getOctokit();
   const destination = await getFeedbackDestination();
   const category = destination.discussionCategories.nodes.find(
-    ({ name }) => name === docsCategory
+    ({ name }) => name === docsCategory,
   );
 
   if (!category) {
     throw new Error(
-      `Please create a "${docsCategory}" category in GitHub Discussion`
+      `Please create a "${docsCategory}" category in GitHub Discussion`,
     );
   }
 

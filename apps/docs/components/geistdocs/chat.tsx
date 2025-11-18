@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import type { UIMessage } from "@ai-sdk/react";
-import { useChat } from "@ai-sdk/react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronRightIcon, MessagesSquareIcon, Trash } from "lucide-react";
-import { Portal } from "radix-ui";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import type { MyUIMessage } from "@/app/api/chat/types";
+import type { UIMessage } from '@ai-sdk/react';
+import { useChat } from '@ai-sdk/react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronRightIcon, MessagesSquareIcon, Trash } from 'lucide-react';
+import { Portal } from 'radix-ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import type { MyUIMessage } from '@/app/api/chat/types';
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
+} from '@/components/ai-elements/conversation';
 import {
   Message,
   MessageContent,
   MessageResponse,
-} from "@/components/ai-elements/message";
+} from '@/components/ai-elements/message';
 import {
   PromptInput,
   PromptInputAttachment,
@@ -28,29 +28,29 @@ import {
   PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
-import { useChatContext } from "@/hooks/geistdocs/use-chat";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { db } from "@/lib/geistdocs/db";
-import { cn } from "@/lib/utils";
-import { ButtonGroup } from "../ui/button-group";
-import { Kbd, KbdGroup } from "../ui/kbd";
-import { Spinner } from "../ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { CopyChat } from "./copy-chat";
-import { MessageMetadata } from "./message-metadata";
+} from '@/components/ai-elements/prompt-input';
+import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
+import { Button } from '@/components/ui/button';
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { useChatContext } from '@/hooks/geistdocs/use-chat';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { db } from '@/lib/geistdocs/db';
+import { cn } from '@/lib/utils';
+import { ButtonGroup } from '../ui/button-group';
+import { Kbd, KbdGroup } from '../ui/kbd';
+import { Spinner } from '../ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { CopyChat } from './copy-chat';
+import { MessageMetadata } from './message-metadata';
 
 export const useChatPersistence = () => {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
+    undefined,
   );
 
   // Load messages from Dexie with live query
   const storedMessages = useLiveQuery(() =>
-    db.messages.orderBy("sequence").toArray()
+    db.messages.orderBy('sequence').toArray(),
   );
 
   const initialMessages =
@@ -73,12 +73,12 @@ export const useChatPersistence = () => {
           sequence: index,
         }));
 
-        await db.transaction("rw", db.messages, async () => {
+        await db.transaction('rw', db.messages, async () => {
           await db.messages.clear();
           await db.messages.bulkAdd(messagesToStore);
         });
       } catch (error) {
-        console.error("Failed to save messages:", error);
+        console.error('Failed to save messages:', error);
       }
     }, 300);
   }, []);
@@ -88,7 +88,7 @@ export const useChatPersistence = () => {
     try {
       await db.messages.clear();
     } catch (error) {
-      console.error("Failed to clear messages:", error);
+      console.error('Failed to clear messages:', error);
     }
   }, []);
 
@@ -99,7 +99,7 @@ export const useChatPersistence = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     },
-    []
+    [],
   );
 
   return {
@@ -112,7 +112,7 @@ export const useChatPersistence = () => {
 
 const ChatInner = ({ suggestions }: ChatProps) => {
   const [isInitialized, setIsInitialized] = useState(false);
-  const [localPrompt, setLocalPrompt] = useState("");
+  const [localPrompt, setLocalPrompt] = useState('');
   const [providerKey, setProviderKey] = useState(0);
   const { prompt, setPrompt, setIsOpen } = useChatContext();
   const { initialMessages, isLoading, saveMessages, clearMessages } =
@@ -154,11 +154,11 @@ const ChatInner = ({ suggestions }: ChatProps) => {
 
   const handleSuggestionClick = async (suggestion: string) => {
     await sendMessage({ text: suggestion });
-    setLocalPrompt("");
-    setPrompt("");
+    setLocalPrompt('');
+    setPrompt('');
   };
 
-  const handleSubmit: PromptInputProps["onSubmit"] = async (message, event) => {
+  const handleSubmit: PromptInputProps['onSubmit'] = async (message, event) => {
     event.preventDefault();
 
     const { text } = message;
@@ -168,18 +168,18 @@ const ChatInner = ({ suggestions }: ChatProps) => {
     }
 
     await sendMessage({ text });
-    setLocalPrompt("");
-    setPrompt("");
+    setLocalPrompt('');
+    setPrompt('');
   };
 
   const handleClearChat = async () => {
     try {
       await clearMessages();
       setMessages([]);
-      toast.success("Chat history cleared");
+      toast.success('Chat history cleared');
     } catch (error) {
-      toast.error("Failed to clear chat history", {
-        description: error instanceof Error ? error.message : "Unknown error",
+      toast.error('Failed to clear chat history', {
+        description: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };
@@ -238,11 +238,11 @@ const ChatInner = ({ suggestions }: ChatProps) => {
               key={message.id}
             >
               <MessageMetadata
-                inProgress={status === "submitted"}
-                parts={message.parts as MyUIMessage["parts"]}
+                inProgress={status === 'submitted'}
+                parts={message.parts as MyUIMessage['parts']}
               />
               {message.parts
-                .filter((part) => part.type === "text")
+                .filter((part) => part.type === 'text')
                 .map((part, index) => (
                   <MessageContent key={`${message.id}-${part.type}-${index}`}>
                     <MessageResponse className="text-wrap">
@@ -252,7 +252,7 @@ const ChatInner = ({ suggestions }: ChatProps) => {
                 ))}
             </Message>
           ))}
-          {status === "submitted" && (
+          {status === 'submitted' && (
             <div className="size-12 text-muted-foreground text-sm">
               <Spinner />
             </div>
@@ -276,7 +276,7 @@ const ChatInner = ({ suggestions }: ChatProps) => {
               ))}
             </Suggestions>
             <p className="text-muted-foreground text-sm">
-              Tip: You can open and close chat with{" "}
+              Tip: You can open and close chat with{' '}
               <KbdGroup>
                 <Kbd className="border bg-transparent">⌘</Kbd>
                 <Kbd className="border bg-transparent">I</Kbd>
@@ -326,7 +326,7 @@ export const Chat = ({ suggestions }: ChatProps) => {
         (event.metaKey || event.ctrlKey) &&
         !event.altKey &&
         !event.shiftKey &&
-        event.key.toLowerCase() === "i"
+        event.key.toLowerCase() === 'i'
       ) {
         event.preventDefault();
 
@@ -334,10 +334,10 @@ export const Chat = ({ suggestions }: ChatProps) => {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [setIsOpen]);
 
@@ -356,11 +356,11 @@ export const Chat = ({ suggestions }: ChatProps) => {
       <Portal.Root className="hidden md:block">
         <div
           className={cn(
-            "fixed z-50 flex flex-col gap-4 bg-background transition-all",
-            "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
-            "translate-x-full data-[state=open]:translate-x-0"
+            'fixed z-50 flex flex-col gap-4 bg-background transition-all',
+            'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+            'translate-x-full data-[state=open]:translate-x-0',
           )}
-          data-state={isOpen ? "open" : "closed"}
+          data-state={isOpen ? 'open' : 'closed'}
         >
           <ChatInner suggestions={suggestions} />
         </div>

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
+import { CheckIcon, CopyIcon } from 'lucide-react';
 
 type CopyPageProps = {
   text: string;

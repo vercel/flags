@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useTheme } from "next-themes";
-import { use, useEffect, useId, useState } from "react";
+import { useTheme } from 'next-themes';
+import { use, useEffect, useId, useState } from 'react';
 
 export const Mermaid = ({ chart }: { chart: string }) => {
   const [mounted, setMounted] = useState(false);
@@ -21,7 +21,7 @@ const cache = new Map<string, Promise<unknown>>();
 
 function cachePromise<T>(
   key: string,
-  setPromise: () => Promise<T>
+  setPromise: () => Promise<T>,
 ): Promise<T> {
   const cached = cache.get(key);
   if (cached) {
@@ -37,21 +37,21 @@ function MermaidContent({ chart }: { chart: string }) {
   const id = useId();
   const { resolvedTheme } = useTheme();
   const { default: mermaid } = use(
-    cachePromise("mermaid", () => import("mermaid"))
+    cachePromise('mermaid', () => import('mermaid')),
   );
 
   mermaid.initialize({
     startOnLoad: false,
-    securityLevel: "loose",
-    fontFamily: "inherit",
-    themeCSS: "margin: 1.5rem auto 0;",
-    theme: resolvedTheme === "dark" ? "dark" : "default",
+    securityLevel: 'loose',
+    fontFamily: 'inherit',
+    themeCSS: 'margin: 1.5rem auto 0;',
+    theme: resolvedTheme === 'dark' ? 'dark' : 'default',
   });
 
   const { svg, bindFunctions } = use(
     cachePromise(`${chart}-${resolvedTheme}`, () =>
-      mermaid.render(id, chart.replaceAll("\\n", "\n"))
-    )
+      mermaid.render(id, chart.replaceAll('\\n', '\n')),
+    ),
   );
 
   return (

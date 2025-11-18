@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { RootProvider } from "fumadocs-ui/provider/next";
-import type { ComponentProps } from "react";
-import { Toaster } from "@/components/ui/sonner";
-import { useChatContext } from "@/hooks/geistdocs/use-chat";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { TooltipProvider } from "../ui/tooltip";
-import { SearchDialog } from "./search";
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import type { ComponentProps } from 'react';
+import { Toaster } from '@/components/ui/sonner';
+import { useChatContext } from '@/hooks/geistdocs/use-chat';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
+import { TooltipProvider } from '../ui/tooltip';
+import { SearchDialog } from './search';
 
 type GeistdocsProviderProps = ComponentProps<typeof RootProvider> & {
   basePath?: string;
@@ -17,7 +17,7 @@ type GeistdocsProviderProps = ComponentProps<typeof RootProvider> & {
 };
 
 export const GeistdocsProvider = ({
-  basePath = "",
+  basePath = '',
   search,
   className,
   ...props
@@ -29,9 +29,9 @@ export const GeistdocsProvider = ({
   return (
     <div
       className={cn(
-        "transition-all",
-        isOpen && !isMobile && "pr-[384px]!",
-        className
+        'transition-all',
+        isOpen && !isMobile && 'pr-[384px]!',
+        className,
       )}
     >
       <TooltipProvider>

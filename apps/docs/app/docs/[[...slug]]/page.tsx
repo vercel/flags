@@ -1,7 +1,7 @@
-import { createRelativeLink } from "fumadocs-ui/mdx";
-import { notFound } from "next/navigation";
-import { AskAI } from "@/components/geistdocs/ask-ai";
-import { CopyPage } from "@/components/geistdocs/copy-page";
+import { createRelativeLink } from 'fumadocs-ui/mdx';
+import { notFound } from 'next/navigation';
+import { AskAI } from '@/components/geistdocs/ask-ai';
+import { CopyPage } from '@/components/geistdocs/copy-page';
 import {
   DocsBody,
   DocsDescription,
@@ -9,16 +9,16 @@ import {
   DocsTitle,
   generatePageMetadata,
   generateStaticPageParams,
-} from "@/components/geistdocs/docs-page";
-import { EditSource } from "@/components/geistdocs/edit-source";
-import { Feedback } from "@/components/geistdocs/feedback";
-import { getMDXComponents } from "@/components/geistdocs/mdx-components";
-import { OpenInChat } from "@/components/geistdocs/open-in-chat";
-import { ScrollTop } from "@/components/geistdocs/scroll-top";
-import { TableOfContents } from "@/components/geistdocs/toc";
-import { getLLMText, source } from "@/lib/geistdocs/source";
+} from '@/components/geistdocs/docs-page';
+import { EditSource } from '@/components/geistdocs/edit-source';
+import { Feedback } from '@/components/geistdocs/feedback';
+import { getMDXComponents } from '@/components/geistdocs/mdx-components';
+import { OpenInChat } from '@/components/geistdocs/open-in-chat';
+import { ScrollTop } from '@/components/geistdocs/scroll-top';
+import { TableOfContents } from '@/components/geistdocs/toc';
+import { getLLMText, source } from '@/lib/geistdocs/source';
 
-const Page = async (props: PageProps<"/docs/[[...slug]]">) => {
+const Page = async (props: PageProps<'/docs/[[...slug]]'>) => {
   const params = await props.params;
 
   const page = source.getPage(params.slug);
@@ -65,7 +65,7 @@ const Page = async (props: PageProps<"/docs/[[...slug]]">) => {
 export const generateStaticParams = generateStaticPageParams;
 
 export const generateMetadata = async (
-  props: PageProps<"/docs/[[...slug]]">
+  props: PageProps<'/docs/[[...slug]]'>,
 ) => {
   const params = await props.params;
 

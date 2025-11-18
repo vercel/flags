@@ -1,41 +1,41 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { ImageResponse } from "next/og";
-import type { NextRequest } from "next/server";
-import { getPageImage, source } from "@/lib/geistdocs/source";
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { ImageResponse } from 'next/og';
+import type { NextRequest } from 'next/server';
+import { getPageImage, source } from '@/lib/geistdocs/source';
 
 export const GET = async (
   _request: NextRequest,
-  { params }: RouteContext<"/og/[...slug]">
+  { params }: RouteContext<'/og/[...slug]'>,
 ) => {
   const { slug } = await params;
   const page = source.getPage(slug.slice(0, -1));
 
   if (!page) {
-    return new Response("Not found", { status: 404 });
+    return new Response('Not found', { status: 404 });
   }
 
   const { title, description } = page.data;
 
   const regularFont = await readFile(
-    join(process.cwd(), "app/og/[...slug]/geist-sans-regular.ttf")
+    join(process.cwd(), 'app/og/[...slug]/geist-sans-regular.ttf'),
   );
 
   const semiboldFont = await readFile(
-    join(process.cwd(), "app/og/[...slug]/geist-sans-semibold.ttf")
+    join(process.cwd(), 'app/og/[...slug]/geist-sans-semibold.ttf'),
   );
 
   const backgroundImage = await readFile(
-    join(process.cwd(), "app/og/[...slug]/background.png")
+    join(process.cwd(), 'app/og/[...slug]/background.png'),
   );
 
   const backgroundImageData = backgroundImage.buffer.slice(
     backgroundImage.byteOffset,
-    backgroundImage.byteOffset + backgroundImage.byteLength
+    backgroundImage.byteOffset + backgroundImage.byteLength,
   );
 
   return new ImageResponse(
-    <div style={{ fontFamily: "Geist" }} tw="flex h-full w-full bg-black">
+    <div style={{ fontFamily: 'Geist' }} tw="flex h-full w-full bg-black">
       {/** biome-ignore lint/performance/noImgElement: "Required for Satori" */}
       <img
         alt="Vercel OpenGraph Background"
@@ -46,7 +46,7 @@ export const GET = async (
       <div tw="flex flex-col absolute h-full w-[750px] justify-center left-[50px] pr-[50px] pt-[116px] pb-[86px]">
         <div
           style={{
-            textWrap: "balance",
+            textWrap: 'balance',
           }}
           tw="text-5xl font-medium text-white tracking-tight flex leading-[1.1] mb-4"
         >
@@ -54,9 +54,9 @@ export const GET = async (
         </div>
         <div
           style={{
-            color: "#8B8B8B",
-            lineHeight: "44px",
-            textWrap: "balance",
+            color: '#8B8B8B',
+            lineHeight: '44px',
+            textWrap: 'balance',
           }}
           tw="text-[32px]"
         >
@@ -69,17 +69,17 @@ export const GET = async (
       height: 628,
       fonts: [
         {
-          name: "Geist",
+          name: 'Geist',
           data: regularFont,
           weight: 400,
         },
         {
-          name: "Geist",
+          name: 'Geist',
           data: semiboldFont,
           weight: 500,
         },
       ],
-    }
+    },
   );
 };
 

@@ -1,14 +1,14 @@
-import { SiVercel } from "@icons-pack/react-simple-icons";
-import Link from "next/link";
-import type { ReactNode } from "react";
-import { Chat } from "./chat";
-import { DesktopMenu } from "./desktop-menu";
-import { GitHubButton } from "./github-button";
-import { SlashIcon } from "./icons";
-import { MobileMenu } from "./mobile-menu";
-import { RSSButton } from "./rss-button";
-import { SearchButton } from "./search";
-import { ThemeToggle } from "./theme-toggle";
+import { SiVercel } from '@icons-pack/react-simple-icons';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { Chat } from './chat';
+import { DesktopMenu } from './desktop-menu';
+import { GitHubButton } from './github-button';
+import { SlashIcon } from './icons';
+import { MobileMenu } from './mobile-menu';
+import { RSSButton } from './rss-button';
+import { SearchButton } from './search';
+import { ThemeToggle } from './theme-toggle';
 
 type NavbarProps = {
   children: ReactNode;

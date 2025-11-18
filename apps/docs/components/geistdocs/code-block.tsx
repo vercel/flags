@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from 'lucide-react';
 import {
   type CSSProperties,
   type ReactNode,
   useCallback,
   useRef,
   useState,
-} from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+} from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type CodeBlockProps = {
   children: ReactNode;
@@ -34,15 +34,15 @@ export const CodeBlock = ({
   const [isCopied, setIsCopied] = useState(false);
 
   const copyToClipboard = useCallback(async () => {
-    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {
-      toast.error("Clipboard API not available");
+    if (typeof window === 'undefined' || !navigator?.clipboard?.writeText) {
+      toast.error('Clipboard API not available');
       return;
     }
 
     const code = ref.current?.innerText;
 
     if (!code) {
-      toast.error("No code to copy");
+      toast.error('No code to copy');
       return;
     }
 
@@ -51,7 +51,7 @@ export const CodeBlock = ({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : 'Unknown error';
 
       toast.error(message);
     }
@@ -63,10 +63,10 @@ export const CodeBlock = ({
     (props: { className?: string }) => (
       <pre
         className={cn(
-          "not-prose flex-1 overflow-x-auto rounded-sm border bg-background py-3 text-sm outline-none",
-          "[&>code]:grid",
+          'not-prose flex-1 overflow-x-auto rounded-sm border bg-background py-3 text-sm outline-none',
+          '[&>code]:grid',
           className,
-          props.className
+          props.className,
         )}
         ref={ref}
         style={style}
@@ -75,7 +75,7 @@ export const CodeBlock = ({
         {children}
       </pre>
     ),
-    [children, style, tabIndex, className]
+    [children, style, tabIndex, className],
   );
 
   if (!title) {
@@ -84,8 +84,8 @@ export const CodeBlock = ({
         <CodeBlockComponent />
         <Button
           className={cn(
-            "absolute top-[5px] right-[5px] bg-background/80 backdrop-blur-sm",
-            className
+            'absolute top-[5px] right-[5px] bg-background/80 backdrop-blur-sm',
+            className,
           )}
           onClick={copyToClipboard}
           size="icon"
@@ -109,7 +109,7 @@ export const CodeBlock = ({
           {title}
         </CardTitle>
         <Button
-          className={cn("shrink-0", className)}
+          className={cn('shrink-0', className)}
           onClick={copyToClipboard}
           size="icon"
           variant="ghost"

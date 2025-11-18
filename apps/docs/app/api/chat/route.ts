@@ -4,10 +4,10 @@ import {
   createUIMessageStreamResponse,
   stepCountIs,
   streamText,
-} from "ai";
-import { createTools } from "./tools";
-import type { MyUIMessage } from "./types";
-import { createSystemPrompt } from "./utils";
+} from 'ai';
+import { createTools } from './tools';
+import type { MyUIMessage } from './types';
+import { createSystemPrompt } from './utils';
 
 export const maxDuration = 800;
 
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     // Filter out UI-only page context messages (they're just visual feedback)
     const actualMessages = messages.filter(
-      (msg) => !msg.metadata?.isPageContext
+      (msg) => !msg.metadata?.isPageContext,
     );
 
     // If pageContext is provided, prepend it to the last user message
@@ -40,18 +40,18 @@ export async function POST(req: Request) {
       if (!lastMessage) {
         return new Response(
           JSON.stringify({
-            error: "No last message found",
+            error: 'No last message found',
           }),
-          { status: 500 }
+          { status: 500 },
         );
       }
 
-      if (lastMessage.role === "user") {
+      if (lastMessage.role === 'user') {
         // Extract text content from the message parts
         const userQuestion = lastMessage.parts
-          .filter((part) => part.type === "text")
+          .filter((part) => part.type === 'text')
           .map((part) => part.text)
-          .join("\n");
+          .join('\n');
 
         processedMessages = [
           ...actualMessages.slice(0, -1),
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
             ...lastMessage,
             parts: [
               {
-                type: "text",
+                type: 'text',
                 text: `Here's the content from the current page:
 
 **Page:** ${pageContext.title}
@@ -83,13 +83,13 @@ User question: ${userQuestion}`,
       originalMessages: messages,
       execute: ({ writer }) => {
         const result = streamText({
-          model: "openai/gpt-5",
+          model: 'openai/gpt-5',
           providerOptions: {
             openai: {
-              reasoningEffort: "minimal",
-              reasoningSummary: "auto",
-              textVerbosity: "medium",
-              serviceTier: "priority",
+              reasoningEffort: 'minimal',
+              reasoningSummary: 'auto',
+              textVerbosity: 'medium',
+              serviceTier: 'priority',
             },
           },
           messages: convertToModelMessages(processedMessages),
@@ -104,16 +104,16 @@ User question: ${userQuestion}`,
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
-    console.error("AI chat API error:", error);
+    console.error('AI chat API error:', error);
 
     return new Response(
       JSON.stringify({
-        error: "Failed to process chat request. Please try again.",
+        error: 'Failed to process chat request. Please try again.',
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+        headers: { 'Content-Type': 'application/json' },
+      },
     );
   }
 }

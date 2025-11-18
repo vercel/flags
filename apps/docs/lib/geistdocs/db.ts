@@ -1,5 +1,5 @@
-import type { UIMessage } from "@ai-sdk/react";
-import Dexie, { type EntityTable } from "dexie";
+import type { UIMessage } from '@ai-sdk/react';
+import Dexie, { type EntityTable } from 'dexie';
 
 interface StoredMessage extends UIMessage {
   timestamp: number;
@@ -7,12 +7,12 @@ interface StoredMessage extends UIMessage {
 }
 
 class ChatDatabase extends Dexie {
-  messages!: EntityTable<StoredMessage, "id">;
+  messages!: EntityTable<StoredMessage, 'id'>;
 
   constructor() {
-    super("ChatMessagesDB");
+    super('ChatMessagesDB');
     this.version(1).stores({
-      messages: "id, timestamp, sequence",
+      messages: 'id, timestamp, sequence',
     });
   }
 }

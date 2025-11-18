@@ -1,7 +1,7 @@
-import { type ToolSet, tool, type UIMessageStreamWriter } from "ai";
-import { initAdvancedSearch } from "fumadocs-core/search/server";
-import z from "zod";
-import { source } from "@/lib/geistdocs/source";
+import { type ToolSet, tool, type UIMessageStreamWriter } from 'ai';
+import { initAdvancedSearch } from 'fumadocs-core/search/server';
+import z from 'zod';
+import { source } from '@/lib/geistdocs/source';
 
 const pages = source.getPages();
 
@@ -21,9 +21,9 @@ const log = (message: string) => {
 
 const search_docs = (writer: UIMessageStreamWriter) =>
   tool({
-    description: "Search through documentation content by query",
+    description: 'Search through documentation content by query',
     inputSchema: z.object({
-      query: z.string().describe("Search query to find relevant documentation"),
+      query: z.string().describe('Search query to find relevant documentation'),
     }),
     execute: async ({ query }) => {
       try {
@@ -37,7 +37,7 @@ const search_docs = (writer: UIMessageStreamWriter) =>
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `No documentation found for query: "${query}"`,
               },
             ],
@@ -47,7 +47,7 @@ const search_docs = (writer: UIMessageStreamWriter) =>
         log(`Processing ${results.length} results...`);
 
         const promises = results.map(({ url }) => {
-          const segments = url.split("#").at(0)?.split("/") ?? [];
+          const segments = url.split('#').at(0)?.split('/') ?? [];
 
           if (segments.length === 0) {
             log(`🤖 [Geistdocs] No segments found for ${url}, skipping...`);
@@ -66,7 +66,7 @@ const search_docs = (writer: UIMessageStreamWriter) =>
           const { page } = result;
 
           log(
-            `Found page for ${url}: ${page.data.title}, ${page.data.description}`
+            `Found page for ${url}: ${page.data.title}, ${page.data.description}`,
           );
 
           return {
@@ -112,7 +112,7 @@ const search_docs = (writer: UIMessageStreamWriter) =>
         for (const [index, doc] of trimmedResults.entries()) {
           log(`Writing doc: ${doc.title}, ${doc.slug}`);
           writer.write({
-            type: "source-url",
+            type: 'source-url',
             sourceId: `doc-${index}-${doc.slug}`,
             url: doc.slug,
             title: doc.title,
@@ -123,17 +123,17 @@ const search_docs = (writer: UIMessageStreamWriter) =>
           .map(
             (doc) =>
               `**${doc.title}**\nURL: ${doc.slug}\n${
-                doc.description || ""
+                doc.description || ''
               }\n\n${doc.content.slice(0, 1500)}${
-                doc.content.length > 1500 ? "..." : ""
-              }\n\n---\n`
+                doc.content.length > 1500 ? '...' : ''
+              }\n\n---\n`,
           )
-          .join("\n");
+          .join('\n');
 
         return `Found ${trimmedResults.length} documentation pages for "${query}":\n\n${formattedResultsString}`;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Unknown error";
+          error instanceof Error ? error.message : 'Unknown error';
 
         return `Error processing results: ${message}`;
       }
@@ -146,7 +146,7 @@ const get_doc_page = tool({
   inputSchema: z.object({
     slug: z
       .string()
-      .describe("The slug/path of the documentation page or guide to retrieve"),
+      .describe('The slug/path of the documentation page or guide to retrieve'),
   }),
   // biome-ignore lint/suspicious/useAwait: "tool calls must be async"
   execute: async ({ slug }) => {
@@ -156,7 +156,7 @@ const get_doc_page = tool({
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: `Documentation page not found: "${slug}"`,
           },
         ],
@@ -164,20 +164,21 @@ const get_doc_page = tool({
     }
 
     return `# ${doc.data.title}\n\n${
-      doc.data.description ? `${doc.data.description}\n\n` : ""
+      doc.data.description ? `${doc.data.description}\n\n` : ''
     }${doc.data.structuredData.contents}`;
   },
 });
 
 const list_docs = tool({
-  description: "Get a list of all available documentation pages and guides",
+  description: 'Get a list of all available documentation pages and guides',
   inputSchema: z.object({}),
   execute: () => {
     const docsList = pages
       .map(
-        (doc) => `- **${doc.data.title}** (${doc.url}): ${doc.data.description}`
+        (doc) =>
+          `- **${doc.data.title}** (${doc.url}): ${doc.data.description}`,
       )
-      .join("\n");
+      .join('\n');
 
     return `Available Documentation Pages (${pages.length} total):\n\n${docsList}`;
   },

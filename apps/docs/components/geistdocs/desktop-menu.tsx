@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-import { useIsMobile } from "@/hooks/use-mobile";
+} from '@/components/ui/navigation-menu';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type DesktopMenuProps = {
   items: { label: string; href: string }[];

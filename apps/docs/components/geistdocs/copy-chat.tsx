@@ -1,13 +1,13 @@
-import type { UIMessage } from "ai";
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import type { UIMessage } from 'ai';
+import { CheckIcon, CopyIcon } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from '@/components/ui/tooltip';
 
 export const CopyChat = ({ messages }: { messages: UIMessage[] }) => {
   const [copied, setCopied] = useState(false);
@@ -15,23 +15,23 @@ export const CopyChat = ({ messages }: { messages: UIMessage[] }) => {
   const handleCopyChat = async () => {
     const markdown = messages
       .map((message) => {
-        const role = message.role === "user" ? "You" : "AI";
+        const role = message.role === 'user' ? 'You' : 'AI';
         const content = message.parts
-          .filter((part) => part.type === "text")
+          .filter((part) => part.type === 'text')
           .map((part) => part.text)
-          .join("\n");
+          .join('\n');
         return `**${role}:**\n${content}`;
       })
-      .join("\n\n---\n\n");
+      .join('\n\n---\n\n');
 
     try {
       await navigator.clipboard.writeText(markdown);
-      toast.success("Chat copied to clipboard");
+      toast.success('Chat copied to clipboard');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error("Failed to copy chat", {
-        description: error instanceof Error ? error.message : "Unknown error",
+      toast.error('Failed to copy chat', {
+        description: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };

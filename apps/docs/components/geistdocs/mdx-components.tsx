@@ -1,24 +1,24 @@
-import { TypeTable } from "fumadocs-ui/components/type-table";
-import defaultMdxComponents from "fumadocs-ui/mdx";
-import type { MDXComponents } from "mdx/types";
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
 import {
   Callout,
   CalloutContainer,
   CalloutDescription,
   CalloutTitle,
-} from "./callout";
-import { CodeBlock } from "./code-block";
+} from './callout';
+import { CodeBlock } from './code-block';
 import {
   CodeBlockTab,
   CodeBlockTabs,
   CodeBlockTabsList,
   CodeBlockTabsTrigger,
-} from "./code-block-tabs";
-import { Mermaid } from "./mermaid";
-import { Video } from "./video";
+} from './code-block-tabs';
+import { Mermaid } from './mermaid';
+import { Video } from './video';
 
 export const getMDXComponents = (
-  components?: MDXComponents
+  components?: MDXComponents,
 ): MDXComponents => ({
   ...defaultMdxComponents,
   ...components,

@@ -1,6 +1,6 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps } from 'react';
 
-export const SlashIcon = (props: ComponentProps<"svg">) => (
+export const SlashIcon = (props: ComponentProps<'svg'>) => (
   <svg aria-hidden="true" strokeLinejoin="round" viewBox="0 0 16 16" {...props}>
     <title>Slash</title>
     <path
