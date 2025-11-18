@@ -1,11 +1,9 @@
 'use client';
 
-import { useToasts } from '@vercel/geist/components';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 
 export function Toaster() {
-  const toasts = useToasts();
-
   useEffect(() => {
     const message = sessionStorage.getItem('toast');
 
@@ -14,10 +12,8 @@ export function Toaster() {
     let timeoutId: NodeJS.Timeout | undefined;
     if (message) {
       timeoutId = setTimeout(() => {
-        toasts.message({
-          text: message,
-          preserve: true,
-          timeout: 9000,
+        toast(message, {
+          duration: 9000,
         });
         sessionStorage.removeItem('toast');
       }, 500);
@@ -26,7 +22,7 @@ export function Toaster() {
         clearTimeout(timeoutId);
       };
     }
-  }, [toasts]);
+  }, []);
 
   return null;
 }

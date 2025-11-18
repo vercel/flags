@@ -1,5 +1,4 @@
 import Fumalink from 'fumadocs-core/link';
-import { ThemeSwitcher } from '@/components/theme-switcher';
 import { cn } from '@/lib/utils';
 
 export const VercelLogo = ({ className }: { className?: string }) => (
@@ -81,7 +80,6 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        <ThemeSwitcher className="md:ml-auto" />
       </div>
     </footer>
   );

@@ -1,9 +1,5 @@
-import { Toasts } from '@vercel/geist/components';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
 import type { ReactNode } from 'react';
-import { baseOptions } from '@/app/layout.config';
-import { enableBannerFlag, rootFlags } from '@/flags';
-import { Toaster } from './toaster';
+import { enableBannerFlag, rootFlags } from '@/lib/custom/flags';
 
 export default async function Layout({
   children,
@@ -22,11 +18,7 @@ export default async function Layout({
           SvelteKit.
         </div>
       ) : null}
-      <HomeLayout className="p-0" {...baseOptions}>
-        {children}
-      </HomeLayout>
-      <Toaster />
-      <Toasts />
+      {children}
     </>
   );
 }

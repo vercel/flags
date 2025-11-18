@@ -1,9 +1,11 @@
 'use client';
 import { track } from '@vercel/analytics';
-import { Select, Toggle, useToasts } from '@vercel/geist/components';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { Toggle } from '@/components/ui/toggle';
 
 const oneYearInSeconds = 31_536_000;
 
@@ -20,7 +22,6 @@ function message(flagKey: string) {
  */
 function useInitSlowConnectionWarning() {
   const pair = useState(false);
-  const toasts = useToasts();
   const [shown, setShown] = pair;
 
   useEffect(() => {
@@ -28,17 +29,19 @@ function useInitSlowConnectionWarning() {
 
     const timeout = setTimeout(() => {
       if (sessionStorage.getItem('toast')) {
-        toasts.warning({
-          text: 'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
-          preserve: true,
-        });
+        toast.warning(
+          'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
+          {
+            duration: 9000,
+          },
+        );
       }
     }, 1150);
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [shown, toasts.warning]);
+  }, [shown]);
 
   const show = useCallback(() => {
     setShown(true);

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, ButtonLink, Input, Tooltip } from '@vercel/geist/components';
-import { Code, External, RefreshClockwise } from '@vercel/geist/icons';
+import { CodeIcon, ExternalLinkIcon, RefreshClockwiseIcon } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 export function IframeBrowser({
@@ -42,7 +42,7 @@ export function IframeBrowser({
             type="secondary"
             onClick={refresh}
           >
-            <RefreshClockwise size={14} />
+            <RefreshClockwiseIcon size={14} />
           </Button>
         </Tooltip>
         <Tooltip desktopOnly text="Show source code">
@@ -54,7 +54,7 @@ export function IframeBrowser({
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Code size={14} />
+            <CodeIcon size={14} />
           </ButtonLink>
         </Tooltip>
 
@@ -67,7 +67,7 @@ export function IframeBrowser({
             target="_blank"
             rel="noopener noreferrer"
           >
-            <External size={14} />
+            <ExternalLinkIcon size={14} />
           </ButtonLink>
         </Tooltip>
       </div>
