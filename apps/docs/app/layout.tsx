@@ -34,8 +34,20 @@ const Logo = () => (
 
 const links = [
   {
-    label: 'Docs',
-    href: '/docs',
+    label: 'Principles',
+    href: '/principles',
+  },
+  {
+    label: 'Frameworks',
+    href: '/frameworks',
+  },
+  {
+    label: 'Providers',
+    href: '/providers',
+  },
+  {
+    label: 'API Reference',
+    href: '/api-reference',
   },
 ];
 
