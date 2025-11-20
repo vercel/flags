@@ -1,5 +1,12 @@
 # @flags-sdk/vercel
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [43293a3]
+  - @vercel/flags-core@0.1.7
+
 ## 0.1.6
 
 ### Patch Changes

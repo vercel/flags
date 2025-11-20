@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 0.1.7
+
+### Patch Changes
+
+- 43293a3: depend directly on @vercel/edge-config (removed as peer dep)
+
 ## 0.1.6
 
 ### Patch Changes
