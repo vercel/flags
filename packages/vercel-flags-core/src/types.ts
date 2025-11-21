@@ -324,7 +324,7 @@ export namespace Original {
   export type List = {
     // backwards compatibility, we should only use "list" going forward
     type: 'list/inline' | 'list';
-    items: { label: string; value: string | number }[];
+    items: { note: string; value: string | number }[];
     id?: never;
   };
 
@@ -387,7 +387,7 @@ export namespace Original {
    */
   export type TargetList = Record<
     string,
-    Record<string, { label: string; value: string }[]>
+    Record<string, { note: string; value: string }[]>
   >;
 
   /**
