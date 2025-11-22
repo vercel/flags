@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 0.1.8
+
+### Patch Changes
+
+- 620974c: [internal] change label to note
+
 ## 0.1.7
 
 ### Patch Changes
