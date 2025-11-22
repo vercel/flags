@@ -324,7 +324,7 @@ export namespace Original {
   export type List = {
     // backwards compatibility, we should only use "list" going forward
     type: 'list/inline' | 'list';
-    items: { note: string; value: string | number }[];
+    items: { note?: string; value: string | number }[];
     id?: never;
   };
 
@@ -382,12 +382,12 @@ export namespace Original {
    *
    * @example
    * {
-   *   user: { id: { label: string; value: string }[] }
+   *   user: { id: { note?: string; value: string }[] }
    * }
    */
   export type TargetList = Record<
     string,
-    Record<string, { note: string; value: string }[]>
+    Record<string, { note?: string; value: string }[]>
   >;
 
   /**
@@ -401,7 +401,7 @@ export namespace Original {
      *
      * @example
      * include: {
-     *   user: { id: { label: string, value: string }[] }
+     *   user: { id: { note?: string, value: string }[] }
      * }
      */
     include: TargetList;
@@ -410,7 +410,7 @@ export namespace Original {
      *
      * @example
      * exclude: {
-     *   user: { id: { label: string, value: string }[] }
+     *   user: { id: { note?: string, value: string }[] }
      * }
      */
     exclude: TargetList;
