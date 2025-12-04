@@ -7,8 +7,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export const dynamic = 'error';
-
 function ConceptCard({
   title,
   description,

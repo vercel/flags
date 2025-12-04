@@ -7,7 +7,7 @@ import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
 import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
 import { pagesRouterMiddleware } from './lib/pages-router-precomputed/middleware';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === '/concepts/precompute/manual') {
     return manualPrecomputeMiddleware(request);
   }
