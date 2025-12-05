@@ -1,36 +1,34 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { automaticPrecomputeMiddleware } from './app/concepts/precompute/automatic/[code]/middleware';
-import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
-import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-edge-middleware/middleware';
-import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
-import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
-import { pagesRouterMiddleware } from './lib/pages-router-precomputed/middleware';
+import { automaticPrecomputeProxy } from './app/concepts/precompute/automatic/[code]/proxy';
+import { manualPrecomputeProxy } from './app/concepts/precompute/manual/proxy';
+import { featureFlagsInProxy } from './app/examples/feature-flags-in-proxy/proxy';
+import { marketingProxy } from './app/examples/marketing-pages/proxy';
+import { pprShellsProxy } from './app/examples/suspense-fallbacks/proxy';
+import { pagesRouterProxy } from './lib/pages-router-precomputed/proxy';
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === '/concepts/precompute/manual') {
-    return manualPrecomputeMiddleware(request);
+    return manualPrecomputeProxy(request);
   }
 
   if (request.nextUrl.pathname === '/concepts/precompute/automatic') {
-    return automaticPrecomputeMiddleware(request);
+    return automaticPrecomputeProxy(request);
   }
 
   if (request.nextUrl.pathname === '/examples/marketing-pages') {
-    return marketingMiddleware(request);
+    return marketingProxy(request);
   }
 
-  if (
-    request.nextUrl.pathname === '/examples/feature-flags-in-edge-middleware'
-  ) {
-    return featureFlagsInEdgeMiddleware(request);
+  if (request.nextUrl.pathname === '/examples/feature-flags-in-proxy') {
+    return featureFlagsInProxy(request);
   }
 
   if (request.nextUrl.pathname === '/examples/pages-router-precomputed') {
-    return pagesRouterMiddleware(request);
+    return pagesRouterProxy(request);
   }
   if (request.nextUrl.pathname === '/examples/suspense-fallbacks') {
-    return pprShellsMiddleware(request);
+    return pprShellsProxy(request);
   }
 
   return NextResponse.next();
@@ -41,7 +39,7 @@ export const config = {
     '/concepts/precompute/manual',
     '/concepts/precompute/automatic',
     '/examples/marketing-pages',
-    '/examples/feature-flags-in-edge-middleware',
+    '/examples/feature-flags-in-proxy',
     '/examples/pages-router-precomputed',
     '/examples/suspense-fallbacks',
   ],

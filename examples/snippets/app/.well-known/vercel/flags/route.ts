@@ -6,7 +6,7 @@ import * as adapterFlags from '../../../concepts/adapters/flags';
 import * as basicIdentifyFlags from '../../../concepts/identify/basic/flags';
 import * as fullIdentifyFlags from '../../../concepts/identify/full/flags';
 import * as dashboardFlags from '../../../examples/dashboard-pages/flags';
-import * as basicEdgeMiddlewareFlags from '../../../examples/feature-flags-in-edge-middleware/flags';
+import * as basicProxyFlags from '../../../examples/feature-flags-in-proxy/flags';
 // The @/ import is not working in the ".well-known" folder due do the dot in the path.
 // We need to use relative paths instead. This seems like a TypeScript issue.
 import * as marketingFlags from '../../../examples/marketing-pages/flags';
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       ...dashboardFlags,
       ...topLevelFlags,
       ...adapterFlags,
-      ...basicEdgeMiddlewareFlags,
+      ...basicProxyFlags,
       ...basicIdentifyFlags,
       ...fullIdentifyFlags,
     }),

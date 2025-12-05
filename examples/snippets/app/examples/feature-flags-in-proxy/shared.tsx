@@ -1,6 +1,6 @@
 import { DemoFlag } from '@/components/demo-flag';
 import { Button } from '@/components/ui/button';
-import { basicEdgeMiddlewareFlag } from './flags';
+import { basicProxyFlag } from './flags';
 import { actAsFlaggedInUser, actAsFlaggedOutUser, clear } from './handlers';
 
 // This component  does not actually use the feature flag, but the
@@ -8,7 +8,7 @@ import { actAsFlaggedInUser, actAsFlaggedOutUser, clear } from './handlers';
 export function Shared({ variant }: { variant: 'on' | 'off' }) {
   return (
     <>
-      <DemoFlag name={basicEdgeMiddlewareFlag.key} value={variant === 'on'} />
+      <DemoFlag name={basicProxyFlag.key} value={variant === 'on'} />
       <div className="flex gap-2">
         <Button onClick={actAsFlaggedInUser} variant="outline">
           Act as a flagged in user

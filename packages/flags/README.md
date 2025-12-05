@@ -7,7 +7,7 @@ The feature flags toolkit for Next.js and SvelteKit.
 From the creators of Next.js, the Flags SDK is a free open-source library that gives you the tools you need to use feature flags in Next.js and SvelteKit applications.
 
 - Works with any flag provider, custom setups or no flag provider at all
-- Compatible with App Router, Pages Router, and Edge Middleware
+- Compatible with App Router, Pages Router, and Routing Middleware
 - Built for feature flags and experimentation
 
 See [flags-sdk.dev](https://flags-sdk.dev/) for full docs and examples.
@@ -62,7 +62,7 @@ export default async function Page() {
 }
 ```
 
-Feature Flags can also be called in Edge Middleware and API Routes.
+Feature Flags can also be called in Routing Middleware and API Routes.
 
 ## Adapters
 

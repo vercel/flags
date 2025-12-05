@@ -33,7 +33,7 @@ export const marketingGate = flag<boolean>({
 
 Note: `posthog-node` does not support the Edge Runtime.
 
-To use with middleware and precompute, read more: [Middleware now supports Node.js](https://vercel.com/changelog/middleware-now-supports-node-js)
+To use with Routing Middleware and precompute, read more: [Middleware now supports Node.js](https://vercel.com/changelog/middleware-now-supports-node-js)
 
 ## Documentation
 

@@ -2,7 +2,7 @@ import { precompute } from 'flags/next';
 import { type NextRequest, NextResponse } from 'next/server';
 import { marketingFlags } from './flags';
 
-export async function automaticPrecomputeMiddleware(request: NextRequest) {
+export async function automaticPrecomputeProxy(request: NextRequest) {
   // precompute the flags
   const code = await precompute(marketingFlags);
 

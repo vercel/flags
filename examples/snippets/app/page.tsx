@@ -89,9 +89,9 @@ export default function Page() {
           href="/examples/marketing-pages"
         />
         <ConceptCard
-          title="Feature Flags in Edge Middleware"
-          description="Manually using feature flags in Edge Middleware"
-          href="/examples/feature-flags-in-edge-middleware"
+          title="Feature Flags in Proxy"
+          description="Manually using feature flags in Proxy"
+          href="/examples/feature-flags-in-proxy"
         />
         <ConceptCard
           title="Pages Router (Basic)"

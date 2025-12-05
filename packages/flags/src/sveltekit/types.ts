@@ -10,7 +10,7 @@ type FlagsMeta<ReturnValue> = {
 type RegularFlag<ReturnValue> = {
   (): ReturnValue | Promise<ReturnValue>;
   (
-    /** Only provide this if you're retrieving the flag value outside of the lifecycle of the `handle` hook, e.g. when calling it inside edge middleware. */
+    /** Only provide this if you're retrieving the flag value outside of the lifecycle of the `handle` hook, e.g. when calling it inside routing functions. */
     request?: Request,
     secret?: string,
   ): ReturnValue | Promise<ReturnValue>;
