@@ -1,5 +1,5 @@
 // We're doing this dance so that the flags package is usable both in the SvelteKit environment
-// as well as other environments that don't know about '$env/dynamic/private', such as Routing Functions
+// as well as other environments that don't know about '$env/dynamic/private', such as Routing Middleware
 let default_secret: string | undefined = process.env.FLAGS_SECRET;
 
 export async function tryGetSecret(secret?: string): Promise<string> {
