@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { automaticPrecomputeMiddleware } from './app/concepts/precompute/automatic/[code]/middleware';
 import { manualPrecomputeMiddleware } from './app/concepts/precompute/manual/middleware';
-import { featureFlagsInEdgeMiddleware } from './app/examples/feature-flags-in-proxy/middleware';
+import { featureFlagsInProxy } from './app/examples/feature-flags-in-proxy/middleware';
 import { marketingMiddleware } from './app/examples/marketing-pages/middleware';
 import { pprShellsMiddleware } from './app/examples/suspense-fallbacks/middleware';
 import { pagesRouterMiddleware } from './lib/pages-router-precomputed/middleware';
@@ -21,7 +21,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname === '/examples/feature-flags-in-proxy') {
-    return featureFlagsInEdgeMiddleware(request);
+    return featureFlagsInProxy(request);
   }
 
   if (request.nextUrl.pathname === '/examples/pages-router-precomputed') {
