@@ -1,8 +1,8 @@
 import { flag } from 'flags/next';
 
-export const basicEdgeMiddlewareFlag = flag<boolean>({
-  key: 'basic-edge-middleware-flag',
+export const basicProxyFlag = flag<boolean>({
+  key: 'basic-proxy-flag',
   decide({ cookies }) {
-    return cookies.get('basic-edge-middleware-flag')?.value === '1';
+    return cookies.get('basic-proxy-flag')?.value === '1';
   },
 });

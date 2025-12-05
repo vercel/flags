@@ -1,14 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { basicEdgeMiddlewareFlag } from './flags';
+import { basicProxyFlag } from './flags';
 
 export async function featureFlagsInEdgeMiddleware(request: NextRequest) {
-  const active = await basicEdgeMiddlewareFlag();
+  const active = await basicProxyFlag();
   const variant = active ? 'variant-on' : 'variant-off';
 
   return NextResponse.rewrite(
-    new URL(
-      `/examples/feature-flags-in-edge-middleware/${variant}`,
-      request.url,
-    ),
+    new URL(`/examples/feature-flags-in-proxy/${variant}`, request.url),
   );
 }
