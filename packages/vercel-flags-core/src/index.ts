@@ -1,21 +1,33 @@
 import { createClient as createEdgeConfigClient } from '@vercel/edge-config';
-import { createClient, type FlagsClient } from './client';
+import { createRawClient, type FlagsClient } from './client';
 import { EdgeConfigDataSource } from './data-source/edge-config-data-source';
+import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import type { DataSource } from './data-source/interface';
 import type { ConnectionOptions } from './types';
 
 export {
-  createClient,
+  createRawClient,
   type FlagsClient,
 } from './client';
-export { EdgeConfigDataSource, InMemoryDataSource };
+export { EdgeConfigDataSource, InMemoryDataSource, FlagNetworkDataSource };
 export { store } from './store';
 export { type Packed, ResolutionReason as Reason } from './types';
 export type { DataSource };
 export { evaluate } from './evaluate';
 
 let defaultFlagsClient: FlagsClient | null = null;
+
+// Insights
+// - data source must specify the environment & projectId as sdkKey has that info
+// - "reuse" functionality relies on the data source having the data for all envs
+export function createClient(sdkKey: string) {
+  if (!sdkKey) throw new Error('flags: Missing sdkKey');
+
+  // sdk key contains the environment
+  const dataSource = new FlagNetworkDataSource({ sdkKey });
+  return createRawClient({ dataSource });
+}
 
 // TODO this should possibly be a generic parser for the URL, which
 // can be used with sources other than Edge Config at some point
@@ -70,14 +82,15 @@ export function createClientFromConnectionString(connectionString: string) {
 
   const edgeConfigClient = createEdgeConfigClient(edgeConfigConnectionString);
 
+  const environment = getFlagsEnvironment(connectionOptions.env);
   const dataSource = new EdgeConfigDataSource({
     edgeConfigClient,
     edgeConfigItemKey,
     projectId: connectionOptions.projectId,
+    environment,
   });
 
-  const environment = getFlagsEnvironment(connectionOptions.env);
-  return createClient({ dataSource, environment });
+  return createRawClient({ dataSource });
 }
 
 /**
