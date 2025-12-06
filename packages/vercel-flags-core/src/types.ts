@@ -617,3 +617,20 @@ export namespace Packed {
     seed?: number;
   };
 }
+
+// -----------------------------------------------------------------------------
+// Other types
+// -----------------------------------------------------------------------------
+
+export type DataSourceData = Packed.Data & {
+  /**
+   * If a data source is used with a specific sdk key then
+   * the sdk key or data source might contain information
+   * about the environment to be evaluated
+   */
+  environment: string;
+  /**
+   * The project for which these flags were loaded for
+   */
+  projectId: string;
+};

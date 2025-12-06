@@ -1,4 +1,4 @@
-import type { Packed } from '../types';
+import type { DataSourceData } from '../types';
 
 /**
  * DataSource interface for the Vercel Flags client
@@ -7,11 +7,8 @@ export interface DataSource {
   /**
    * The datafile
    */
-  getData(): Promise<Packed.Data>;
-  /**
-   * The project for which these flags were loaded for
-   */
-  projectId?: string;
+  getData(): Promise<DataSourceData>;
+
   /**
    * Initialize the data source by fetching the initial file or setting up polling or
    * subscriptions.

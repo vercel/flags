@@ -19,7 +19,7 @@ export type Source = {
 };
 
 export type FlagsClient = {
-  environment: string;
+  // environment: string;
   dataSource: DataSource;
   evaluate: <T = Value, E = Record<string, unknown>>(
     flagKey: string,
@@ -43,16 +43,13 @@ export type FlagsClient = {
  *    environment: 'production',
  *  });
  */
-export function createClient({
-  environment,
+export function createRawClient({
   dataSource,
 }: {
-  environment: string;
   dataSource: DataSource;
 }): FlagsClient {
   return {
     dataSource,
-    environment,
     initialize: () => {
       if (dataSource && typeof dataSource.initialize === 'function') {
         return dataSource.initialize();
@@ -74,7 +71,6 @@ export function createClient({
       // evaluation, particularly in languages or environments wherein there's a
       // single thread of execution.
       const data = await dataSource.getData();
-
       const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
       if (flagDefinition === undefined) {
@@ -89,14 +85,14 @@ export function createClient({
       const result = evaluate<T>({
         defaultValue,
         definition: flagDefinition,
-        environment: this.environment,
+        environment: data.environment,
         entities: entities ?? {},
         segments: data.segments,
       });
 
-      if (dataSource.projectId) {
+      if (data.projectId) {
         internalReportValue(flagKey, result.value, {
-          originProjectId: dataSource.projectId,
+          originProjectId: data.projectId,
           originProvider: 'vercel',
           reason: result.reason,
           outcomeType:

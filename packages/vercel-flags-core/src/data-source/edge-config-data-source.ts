@@ -1,6 +1,6 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
 import { store } from '../store';
-import type { Packed } from '../types';
+import type { DataSourceData, Packed } from '../types';
 import type { DataSource } from './interface';
 
 /**
@@ -10,33 +10,41 @@ export class EdgeConfigDataSource implements DataSource {
   connectionString?: string;
   edgeConfigClient: EdgeConfigClient;
   edgeConfigItemKey: string;
-  requestCache: WeakMap<WeakKey, Promise<Packed.Data | undefined>>;
-  projectId?: string;
+  requestCache: WeakMap<WeakKey, Promise<DataSourceData | undefined>>;
+  projectId: string;
+  environment: string;
 
   constructor(options: {
     edgeConfigItemKey: string;
     edgeConfigClient: EdgeConfigClient;
-    projectId?: string;
+    projectId: string;
+    environment: string;
   }) {
     this.edgeConfigClient = options.edgeConfigClient;
     this.edgeConfigItemKey = options.edgeConfigItemKey;
     this.requestCache = new WeakMap();
     this.projectId = options.projectId;
+    this.environment = options.environment;
   }
 
   // This is a temporary solution to avoid reading the Edge Config for every flag,
   // and instead reading it once per request.
-  private async getCachedData() {
+  private async getCachedData(): Promise<DataSourceData | undefined> {
     const cacheKey = store.getStore();
     if (cacheKey) {
       const cached = this.requestCache.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
+      if (cached) return cached;
     }
-    const promise = this.edgeConfigClient.get<Packed.Data>(
-      this.edgeConfigItemKey,
-    );
+    const promise = this.edgeConfigClient
+      .get<Packed.Data>(this.edgeConfigItemKey)
+      .then<DataSourceData | undefined>((data) => {
+        if (!data) return undefined;
+        return {
+          ...data,
+          projectId: this.projectId,
+          environment: this.environment,
+        } satisfies DataSourceData;
+      });
 
     if (cacheKey) this.requestCache.set(cacheKey, promise);
 
