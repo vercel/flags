@@ -22,18 +22,20 @@ export function createVercelAdapter(
   const flagsClient =
     typeof sdkKeyOrFlagsClient === 'string'
       ? createClient(sdkKeyOrFlagsClient)
-      : connectionStringOrFlagsClient;
+      : sdkKeyOrFlagsClient;
 
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
   > {
     return {
-      origin: {
-        provider: 'vercel',
-        projectId: flagsClient.dataSource.projectId,
-        env: flagsClient.environment,
-      },
+      origin:
+        typeof sdkKeyOrFlagsClient === 'string'
+          ? {
+              provider: 'vercel',
+              sdkKey: sdkKeyOrFlagsClient,
+            }
+          : undefined,
       config: { reportValue: false },
       async decide({ key, entities, headers }): Promise<ValueType> {
         const evaluationResultPromise = store.run(headers, async () => {
