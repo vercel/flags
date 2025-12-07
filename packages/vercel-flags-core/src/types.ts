@@ -6,6 +6,33 @@ export interface ConnectionOptions {
   projectId: string;
 }
 
+export type DataSourceData = Packed.Data & {
+  /**
+   * If a data source is used with a specific sdk key then
+   * the sdk key or data source might contain information
+   * about the environment to be evaluated
+   */
+  environment: string;
+  /**
+   * The project for which these flags were loaded for
+   */
+  projectId: string;
+};
+
+export type BundledDefinition = {
+  /** vercel project id of the source of these flags  */
+  projectId: string;
+  /** when the data was last updated */
+  updatedAt: number;
+  /** hash of the data */
+  digest: string;
+  /** version number of the dat */
+  revision: number;
+  /** comes from the SDK Key */
+  environment: string;
+  data: Packed.Data;
+};
+
 // -----------------------------------------------------------------------------
 // Shared data
 // -----------------------------------------------------------------------------
@@ -617,20 +644,3 @@ export namespace Packed {
     seed?: number;
   };
 }
-
-// -----------------------------------------------------------------------------
-// Other types
-// -----------------------------------------------------------------------------
-
-export type DataSourceData = Packed.Data & {
-  /**
-   * If a data source is used with a specific sdk key then
-   * the sdk key or data source might contain information
-   * about the environment to be evaluated
-   */
-  environment: string;
-  /**
-   * The project for which these flags were loaded for
-   */
-  projectId: string;
-};

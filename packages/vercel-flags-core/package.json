@@ -15,7 +15,8 @@
     "./openfeature": {
       "import": "./dist/openfeature.js",
       "require": "./dist/openfeature.cjs"
-    }
+    },
+    "./dist/definitions.json": "./dist/definitions.json"
   },
   "main": "./dist/index.js",
   "typesVersions": {
@@ -43,9 +44,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@vercel/edge-config": "^1.4.3",
+    "commander": "14.0.2",
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "@vercel/edge-config": "^1.4.3"
+    "js-xxhash": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
@@ -57,8 +59,8 @@
     "vitest": "2.1.8"
   },
   "peerDependencies": {
-    "flags": "*",
-    "@openfeature/server-sdk": "1.18.0"
+    "@openfeature/server-sdk": "1.18.0",
+    "flags": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {

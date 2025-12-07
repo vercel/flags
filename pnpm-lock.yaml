@@ -683,7 +683,7 @@ importers:
         version: 5.2.1
       react-dom:
         specifier: '*'
-        version: 19.2.0(react@19.3.0-canary-408b38ef-20251023)
+        version: 19.2.0(react@19.3.0-canary-378973b3-20251205)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -702,10 +702,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 16.0.7
-        version: 16.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-408b38ef-20251023))(react@19.3.0-canary-408b38ef-20251023)
+        version: 16.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-378973b3-20251205))(react@19.3.0-canary-378973b3-20251205)
       react:
         specifier: canary
-        version: 19.3.0-canary-408b38ef-20251023
+        version: 19.3.0-canary-378973b3-20251205
       tsup:
         specifier: 8.0.1
         version: 8.0.1(postcss@8.5.6)(typescript@5.6.3)
@@ -727,6 +727,9 @@ importers:
       '@vercel/edge-config':
         specifier: ^1.4.3
         version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
+      commander:
+        specifier: 14.0.2
+        version: 14.0.2
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -3559,6 +3562,10 @@ packages:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
+  commander@14.0.2:
+    resolution: {integrity: sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==}
+    engines: {node: '>=20'}
+
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
     engines: {node: '>= 6'}
@@ -5433,8 +5440,8 @@ packages:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
     engines: {node: '>=0.10.0'}
 
-  react@19.3.0-canary-408b38ef-20251023:
-    resolution: {integrity: sha512-BIUCz/dXM8ksGwMZC1xn0OZAj+v9exV/Hu8eRrMkaAS67TyJwEjAtd/Yz9b9RYC1lzQ4t/NpY+OYikPNvK0eAw==}
+  react@19.3.0-canary-378973b3-20251205:
+    resolution: {integrity: sha512-u6xCPsRVwStpTCzenkQcGOSR4OAr3wKMR6Sp0iH2fYvz1wOWH5Bt4iWe/WZRc33uBKyXxXMglT3tzMnZKEiUPw==}
     engines: {node: '>=0.10.0'}
 
   react@19.3.0-canary-6160773f-20251023:
@@ -9262,6 +9269,8 @@ snapshots:
 
   commander@12.1.0: {}
 
+  commander@14.0.2: {}
+
   commander@4.1.1: {}
 
   concat-map@0.0.1: {}
@@ -10765,15 +10774,15 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-408b38ef-20251023))(react@19.3.0-canary-408b38ef-20251023):
+  next@16.0.7(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-378973b3-20251205))(react@19.3.0-canary-378973b3-20251205):
     dependencies:
       '@next/env': 16.0.7
       '@swc/helpers': 0.5.15
       caniuse-lite: 1.0.30001751
       postcss: 8.4.31
-      react: 19.3.0-canary-408b38ef-20251023
-      react-dom: 19.2.0(react@19.3.0-canary-408b38ef-20251023)
-      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-408b38ef-20251023)
+      react: 19.3.0-canary-378973b3-20251205
+      react-dom: 19.2.0(react@19.3.0-canary-378973b3-20251205)
+      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-378973b3-20251205)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.0.7
       '@next/swc-darwin-x64': 16.0.7
@@ -11208,9 +11217,9 @@ snapshots:
       react: 19.2.0
       scheduler: 0.27.0
 
-  react-dom@19.2.0(react@19.3.0-canary-408b38ef-20251023):
+  react-dom@19.2.0(react@19.3.0-canary-378973b3-20251205):
     dependencies:
-      react: 19.3.0-canary-408b38ef-20251023
+      react: 19.3.0-canary-378973b3-20251205
       scheduler: 0.27.0
 
   react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023):
@@ -11255,7 +11264,7 @@ snapshots:
 
   react@19.2.0: {}
 
-  react@19.3.0-canary-408b38ef-20251023: {}
+  react@19.3.0-canary-378973b3-20251205: {}
 
   react@19.3.0-canary-6160773f-20251023: {}
 
@@ -11728,10 +11737,10 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  styled-jsx@5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-408b38ef-20251023):
+  styled-jsx@5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-378973b3-20251205):
     dependencies:
       client-only: 0.0.1
-      react: 19.3.0-canary-408b38ef-20251023
+      react: 19.3.0-canary-378973b3-20251205
     optionalDependencies:
       '@babel/core': 7.28.5
 
