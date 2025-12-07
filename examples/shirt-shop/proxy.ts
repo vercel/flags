@@ -11,7 +11,9 @@ export const config = {
 export async function proxy(request: NextRequest) {
   const stableId = await getStableId();
   const cartId = await getCartId();
+  console.log(process.pid, 'before precompute');
   const code = await precompute(productFlags);
+  console.log(process.pid, 'after precompute');
 
   // rewrites the request to the variant for this flag combination
   const nextUrl = new URL(

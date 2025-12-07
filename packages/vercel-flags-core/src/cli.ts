@@ -3,7 +3,7 @@
  * Edge Config CLI
  *
  * command: prepare
- *   Reads all connected Edge Configs and emits a single stores.json file.
+ *   Reads all connected Edge Configs and emits a single definitions.json file.
  *   that can be accessed at runtime by the mockable-import function.
  *
  *   Attaches the updatedAt timestamp from the header to the emitted file, since
@@ -18,8 +18,8 @@ import { version } from '../package.json';
 import type { BundledDefinitions } from './types';
 
 // TODO replace with actual host
-const host = 'localhost:3000';
-// const host = "flags.vercel.com"
+const host = 'http://localhost:3030';
+// const host = "https://flags.vercel.com"
 
 // Get the directory where this CLI script is located
 const __filename = fileURLToPath(import.meta.url);
@@ -65,9 +65,12 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
     Object.values(process.env).reduce<Set<string>>((acc, value) => {
       if (typeof value !== 'string') return acc;
 
-      // works
+      // old format with `flags:` prefix
       const sdkKey = parseSdkKeyFromFlagsConnectionString(value);
       if (sdkKey) acc.add(sdkKey);
+
+      // new format with `vf_` prefix
+      if (value.startsWith('vf_')) acc.add(value);
 
       return acc;
     }, new Set<string>()),
@@ -91,7 +94,7 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
         headers.set('x-vercel-region', process.env.VERCEL_REGION);
       }
 
-      const res = await fetch(`https://${host}/datafile`, { headers });
+      const res = await fetch(`${host}/datafile`, { headers });
 
       if (!res.ok) {
         throw new Error(
@@ -134,10 +137,12 @@ program
 
 program
   .command('prepare')
-  .description('Prepare Edge Config stores.json file for build time embedding')
+  .description(
+    'Prepare Edge Config definitions.json file for build time embedding',
+  )
   .option('--verbose', 'Enable verbose logging')
   .action(async (options: PrepareOptions) => {
-    const output = join(__dirname, '..', 'dist', 'stores.json');
+    const output = join(__dirname, '..', 'dist', 'definitions.json');
     await prepare(output, options);
   });
 
