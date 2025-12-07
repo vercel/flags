@@ -107,6 +107,8 @@ export function createClientFromConnectionString(connectionString: string) {
 export function getDefaultFlagsClient() {
   if (defaultFlagsClient) return defaultFlagsClient;
 
+  console.log('CREATING NEW DEFAULT FLAGS CLIENT');
+
   if (!process.env.FLAGS) {
     throw new Error('flags: Missing environment variable FLAGS');
   }
