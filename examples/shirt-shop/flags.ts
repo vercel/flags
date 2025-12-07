@@ -1,6 +1,5 @@
 import { vercelAdapter } from '@flags-sdk/vercel';
 import { flag } from 'flags/next';
-import { xxHash32 } from 'js-xxhash';
 import { type EvaluationContext, identify } from './lib/identify';
 
 export const showSummerBannerFlag = flag<boolean, EvaluationContext>({

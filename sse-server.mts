@@ -1,8 +1,47 @@
+/**
+ * Run this file with bun --watch run ./sse-server.mts
+ *
+ * Then, in a separate terminal, run:
+ *   cd packages/vercel-flags-core
+ *   pnpm build
+ *
+ * And in a third terminal, run
+ *   cd examples/shirt-shop
+ *   export FLAGS="vf_development_123"
+ *   pnpm build
+ *   pnpm start
+ *
+ *   # or
+ *   pnpm dev
+ */
+
 import http from 'node:http';
 
 const PORT = 3030;
 
 const connectedClients = new Set();
+
+function createDatafile() {
+  return {
+    projectId: 'prj_123',
+    environment: 'development',
+    definitions: {
+      'free-delivery': {
+        variants: [false, true],
+        environments: { development: 0 },
+      },
+      'summer-sale': {
+        variants: [false, true],
+        environments: { development: 0 },
+      },
+      'proceed-to-checkout-color': {
+        variants: ['blue', 'green', 'red'],
+        environments: { development: Math.floor(Date.now() / 1000) % 3 },
+      },
+    },
+    segments: {},
+  };
+}
 
 const d = () => {
   const date = new Date();
@@ -20,6 +59,14 @@ setInterval(() => {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
+
+  if (url.pathname === '/datafile') {
+    console.log('/datafile responding');
+    return res
+      .writeHead(200, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify(createDatafile()));
+  }
+
   const intervalParam = url.searchParams.get('interval');
   const interval = intervalParam ? Number.parseInt(intervalParam, 10) : 1000;
 
@@ -42,25 +89,7 @@ const server = http.createServer((req, res) => {
   });
 
   const intervalId = setInterval(() => {
-    const data = JSON.stringify({
-      projectId: 'prj_123',
-      environment: 'development',
-      definitions: {
-        'free-delivery': {
-          variants: [false, true],
-          environments: { development: 0 },
-        },
-        'summer-sale': {
-          variants: [false, true],
-          environments: { development: 0 },
-        },
-        'proceed-to-checkout-color': {
-          variants: ['blue', 'green', 'red'],
-          environments: { development: Date.now() % 3 },
-        },
-      },
-      segments: {},
-    });
+    const data = JSON.stringify(createDatafile());
     res.write(data);
   }, interval);
 
