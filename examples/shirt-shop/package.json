@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "vercel-flags prepare",
     "build": "next build",
     "dev": "next dev",
     "install:compat": "node scripts/install.mjs",
@@ -10,6 +11,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@flags-sdk/vercel": "workspace:*",
+    "@vercel/flags-core": "workspace:*",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "2.2.0",
     "@tailwindcss/aspect-ratio": "0.4.2",

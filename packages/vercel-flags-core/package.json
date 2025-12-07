@@ -35,6 +35,9 @@
     "dist",
     "CHANGELOG.md"
   ],
+  "bin": {
+    "vercel-flags": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

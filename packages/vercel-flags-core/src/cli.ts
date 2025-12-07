@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { version } from '../package.json';
-import type { BundledDefinition } from '../src/types';
+import type { BundledDefinitions } from './types';
 
 // TODO replace with actual host
 const host = 'localhost:3000';
@@ -54,7 +54,7 @@ function parseSdkKeyFromFlagsConnectionString(text: string): string | null {
   return null;
 }
 
-type DefinitionsJson = Record<string, BundledDefinition>;
+type DefinitionsJson = Record<string, BundledDefinitions>;
 
 type PrepareOptions = {
   verbose?: boolean;
@@ -73,8 +73,8 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
     }, new Set<string>()),
   );
 
-  const values: BundledDefinition[] = await Promise.all(
-    sdkKeys.map<Promise<BundledDefinition>>(async (sdkKey) => {
+  const values: BundledDefinitions[] = await Promise.all(
+    sdkKeys.map<Promise<BundledDefinitions>>(async (sdkKey) => {
       const headers = new Headers();
       headers.set('authorization', `Bearer ${sdkKey}`);
       headers.set('user-agent', `@vercel/flags-core@${version} (prepare)`);
@@ -99,7 +99,7 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
         );
       }
 
-      const data: BundledDefinition = await res.json();
+      const data: BundledDefinitions = await res.json();
       return data;
     }),
   );
