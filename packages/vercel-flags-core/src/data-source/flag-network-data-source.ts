@@ -21,8 +21,28 @@ export class FlagNetworkDataSource implements DataSource {
 
   // called once per flag rather than once per request
   async getData() {
-    const data = this.bundledDefinitions;
-    if (!data) throw new Error(`No definitions found`);
-    return data;
+    // const data = this.bundledDefinitions;
+    // if (!data) throw new Error(`No definitions found`);
+    // return data;
+
+    return {
+      projectId: 'prj_123',
+      environment: 'development',
+      definitions: {
+        'free-delivery': {
+          variants: [false, true],
+          environments: { development: 0 },
+        },
+        'summer-sale': {
+          variants: [false, true],
+          environments: { development: 0 },
+        },
+        'proceed-to-checkout-color': {
+          variants: ['blue', 'green', 'red'],
+          environments: { development: 1 },
+        },
+      },
+      segments: {},
+    };
   }
 }

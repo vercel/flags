@@ -75,6 +75,9 @@ importers:
 
   examples/shirt-shop:
     dependencies:
+      '@flags-sdk/vercel':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vercel
       '@headlessui/react':
         specifier: ^2.2.0
         version: 2.2.9(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -102,6 +105,9 @@ importers:
       '@vercel/edge-config':
         specifier: ^1.4.3
         version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../../packages/vercel-flags-core
       '@vercel/toolbar':
         specifier: 0.1.36
         version: 0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.2.5(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
@@ -632,9 +638,6 @@ importers:
       '@vercel/edge-config':
         specifier: ^1.4.3
         version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-6160773f-20251023))(react@19.3.0-canary-6160773f-20251023))
-      '@vercel/flags-core':
-        specifier: workspace:*
-        version: link:../vercel-flags-core
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -645,6 +648,9 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../vercel-flags-core
       flags:
         specifier: workspace:*
         version: link:../flags

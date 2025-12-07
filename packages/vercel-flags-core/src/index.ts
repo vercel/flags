@@ -111,7 +111,7 @@ export function getDefaultFlagsClient() {
     throw new Error('flags: Missing environment variable FLAGS');
   }
 
-  defaultFlagsClient = createClientFromConnectionString(process.env.FLAGS);
+  defaultFlagsClient = createClient(process.env.FLAGS);
   return defaultFlagsClient;
 }
 
