@@ -19,16 +19,16 @@
 import definitions from '@vercel/flags-core/dist/definitions.json' with {
   type: 'json',
 };
-import type { BundledDefinition } from '../types';
+import type { BundledDefinitions } from '../types';
 
 /**
  * Reads the local edge config that gets bundled at build time (definitions.json).
  */
-export function readBundledDefinition(id: string): BundledDefinition | null {
+export function readBundledDefinitions(id: string): BundledDefinitions | null {
   try {
     // "vercel-flags prepare" script did not run
     if (definitions === null) return null;
-    return (definitions[id] as BundledDefinition | undefined) ?? null;
+    return (definitions[id] as BundledDefinitions | undefined) ?? null;
   } catch (error) {
     console.error(
       '@vercel/flags-core: Failed to read bundled definitions:',

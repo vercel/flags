@@ -13,24 +13,18 @@ export type DataSourceData = Packed.Data & {
    * about the environment to be evaluated
    */
   environment: string;
-  /**
-   * The project for which these flags were loaded for
-   */
+  /** Vercel project id of the source of these flags  */
   projectId: string;
 };
 
-export type BundledDefinition = {
-  /** vercel project id of the source of these flags  */
-  projectId: string;
+/** Flag Definitions of a Vercel project */
+export type BundledDefinitions = DataSourceData & {
   /** when the data was last updated */
   updatedAt: number;
   /** hash of the data */
   digest: string;
   /** version number of the dat */
   revision: number;
-  /** comes from the SDK Key */
-  environment: string;
-  data: Packed.Data;
 };
 
 // -----------------------------------------------------------------------------
