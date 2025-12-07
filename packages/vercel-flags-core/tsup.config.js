@@ -10,4 +10,6 @@ export default defineConfig({
   skipNodeModulesBundle: true,
   dts: true,
   external: ['node_modules'],
+  // copies over the definitions.json file to dist/
+  publicDir: 'public',
 });
