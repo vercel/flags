@@ -21,7 +21,7 @@ const PORT = 3030;
 
 const connectedClients = new Set();
 
-function createDatafile() {
+function createDatafile(init?: number) {
   return {
     projectId: 'prj_123',
     environment: 'development',
@@ -36,7 +36,9 @@ function createDatafile() {
       },
       'proceed-to-checkout-color': {
         variants: ['blue', 'green', 'red'],
-        environments: { development: Math.floor(Date.now() / 1000) % 3 },
+        environments: {
+          development: init ?? Math.floor(Date.now() / 1000) % 3,
+        },
       },
     },
     segments: {},
@@ -64,11 +66,11 @@ const server = http.createServer((req, res) => {
     console.log('/datafile responding');
     return res
       .writeHead(200, { 'Content-Type': 'application/json' })
-      .end(JSON.stringify(createDatafile()));
+      .end(JSON.stringify(createDatafile(0)));
   }
 
   const intervalParam = url.searchParams.get('interval');
-  const interval = intervalParam ? Number.parseInt(intervalParam, 10) : 1000;
+  const interval = intervalParam ? Number.parseInt(intervalParam, 10) : 5_000;
 
   if (Number.isNaN(interval) || interval < 100) {
     res.writeHead(400, { 'Content-Type': 'text/plain' });

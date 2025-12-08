@@ -11,7 +11,11 @@ export const config = {
 export async function proxy(request: NextRequest) {
   const stableId = await getStableId();
   const cartId = await getCartId();
-  console.log(process.pid, 'before precompute');
+  console.log(
+    process.pid,
+    'before precompute',
+    Math.floor(Date.now() / 1000) % 3,
+  );
   const code = await precompute(productFlags);
   console.log(process.pid, 'after precompute');
 
