@@ -1,10 +1,7 @@
 import { withVercelToolbar } from '@vercel/toolbar/plugins/next';
+import type { NextConfig } from 'next';
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    ppr: 'incremental' as const,
-  },
+const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {

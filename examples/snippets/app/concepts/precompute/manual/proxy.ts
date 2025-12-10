@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { manualPrecomputeFlag } from './flags';
 
-export async function manualPrecomputeMiddleware(request: NextRequest) {
+export async function manualPrecomputeProxy(request: NextRequest) {
   // use the flag
   const value = await manualPrecomputeFlag();
 

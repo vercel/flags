@@ -1,6 +1,6 @@
 {
   "name": "@vercel/flags-core",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -44,11 +44,11 @@
   },
   "dependencies": {
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0"
+    "js-xxhash": "4.0.0",
+    "@vercel/edge-config": "^1.4.3"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "@vercel/edge-config": "^1.4.3",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "tsup": "8.0.1",
@@ -57,15 +57,11 @@
     "vitest": "2.1.8"
   },
   "peerDependencies": {
-    "@vercel/edge-config": "^1.2.0",
     "flags": "*",
     "@openfeature/server-sdk": "1.18.0"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {
-      "optional": true
-    },
-    "@vercel/edge-config": {
       "optional": true
     }
   },

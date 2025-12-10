@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { marketingFlags } from './flags';
 import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
 
-export async function marketingMiddleware(request: NextRequest) {
+export async function marketingProxy(request: NextRequest) {
   // assign a cookie to the visitor
   const visitorId = await getOrGenerateVisitorId(
     request.cookies,

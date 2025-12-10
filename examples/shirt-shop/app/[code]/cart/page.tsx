@@ -1,11 +1,13 @@
-import { OrderSummary } from '@/app/[code]/cart/order-summary';
 import { Main } from '@/components/main';
+import { OrderSummarySection } from '@/components/shopping-cart/order-summary-section';
 import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
 import {
+  proceedToCheckoutColorFlag,
   productFlags,
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,
 } from '@/flags';
+import { ProceedToCheckout } from './proceed-to-checkout';
 
 export default async function CartPage({
   params,
@@ -18,14 +20,21 @@ export default async function CartPage({
     code,
     productFlags,
   );
+  const proceedToCheckoutColor = await proceedToCheckoutColorFlag(
+    code,
+    productFlags,
+  );
 
   return (
     <Main>
       <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
         <ShoppingCart />
-        <OrderSummary
+        <OrderSummarySection
           showSummerBanner={showSummerBanner}
           freeDelivery={freeDeliveryBanner}
+          proceedToCheckout={
+            <ProceedToCheckout color={proceedToCheckoutColor} />
+          }
         />
       </div>
     </Main>

@@ -47,7 +47,7 @@ import type { Flag, FlagsArray } from './types';
 
 /**
  * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
- * This could be the case when the flag is called from edge middleware.
+ * This could be the case when the flag is called from routing functions.
  */
 const requestMap = new WeakMap<Request, AsyncLocalContext>();
 

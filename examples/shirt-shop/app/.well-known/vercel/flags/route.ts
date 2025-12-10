@@ -4,4 +4,4 @@ import * as flags from '../../../../flags';
 export const GET = createFlagsDiscoveryEndpoint(() => {
   const providerData = getProviderData(flags);
   return providerData;
-});
+}) as any;
