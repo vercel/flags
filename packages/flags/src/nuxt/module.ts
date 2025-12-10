@@ -159,10 +159,10 @@ export {}
         viteConfig.build.rollupOptions ||= {};
         viteConfig.build.rollupOptions.external ||= [];
         viteConfig.resolve ||= {};
-        viteConfig.resolve.external ||= [];
+        (viteConfig.resolve as any).external ||= [];
         for (const configPart of [
           viteConfig.ssr.external,
-          viteConfig.resolve.external,
+          (viteConfig.resolve as any).external,
           viteConfig.build.rollupOptions.external,
         ]) {
           if (Array.isArray(configPart)) {
