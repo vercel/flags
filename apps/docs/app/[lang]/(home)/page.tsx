@@ -59,7 +59,6 @@ const textGridSection = [
 const HomePage = () => (
   <div className="container mx-auto max-w-5xl">
     <Hero
-      badge="Geistdocs is now in beta"
       description={description}
       title={title}
     >
