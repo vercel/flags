@@ -1,6 +1,5 @@
 {
-  "name": "template",
-  "description": "Template for Geistdocs projects.",
+  "name": "docs",
   "version": "0.0.0",
   "private": true,
   "scripts": {
