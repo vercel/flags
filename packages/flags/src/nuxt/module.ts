@@ -15,14 +15,25 @@ import {
   createIsIgnored,
   createResolver,
   defineNuxtModule,
+  extendViteConfig,
+  extendWebpackConfig,
   resolveAlias,
 } from 'nuxt/kit';
 import { provider } from 'std-env';
 import { FlagsPlugin } from './plugins';
+import {
+  clientImplementation,
+  FLAG_LIST_ID,
+  injectFlagsTemplate,
+  pluginPrecomputeServerTemplate,
+  serverImplementation,
+} from './templates';
 
 interface ModuleOptions {
   /** The directory to scan for exported feature flags */
   dir: string | false;
+  /** Whether to eagerly evaluate all flags on the server (which are defined in `flags.dir`) */
+  injectAllFlags: boolean;
   /** Whether to enable support for the Vercel Toolbar */
   toolbar: {
     enabled: boolean;
@@ -36,6 +47,7 @@ export default defineNuxtModule<ModuleOptions>().with({
   },
   defaults: (nuxt) => ({
     dir: '~~/flags',
+    injectAllFlags: true,
     toolbar: {
       enabled:
         provider === 'vercel' ||
@@ -58,53 +70,12 @@ export default defineNuxtModule<ModuleOptions>().with({
 
     addServerTemplate({
       filename: '#flags-implementation',
-      getContents() {
-        return /* js */ `
-import { getRouterParams } from 'h3'
-import { useEvent } from 'nitropack/runtime'
-
-export function getStore(event) {
-  return event.context.flags ||= {
-    event,
-    secret: process.env.FLAGS_SECRET,
-    params: getRouterParams(event),
-    usedFlags: {},
-    identifiers: new Map(),
-  };
-}
-export function getEvent() {
-  try {
-    return useEvent()
-  } catch {
-    throw new Error('If you do not have nitro.experimental.asyncContext enabled, you must pass the event explicitly to flag functions.')
-  }
-}
-export function getState(key) {
-  return { value: undefined }
-}
-        `;
-      },
+      getContents: () => serverImplementation,
     });
 
     addTemplate({
       filename: 'flags/implementation.mjs',
-      getContents: () => /* js */ `
-import { toRef, useNuxtApp, useRequestEvent } from "#imports"
-
-export function getEvent() {
-  return useRequestEvent()
-}
-
-export function getStore() {
-  return useNuxtApp().$flagStore
-}
-
-export function getState(_key) {
-  const nuxtApp = useNuxtApp();
-  const key = \`flag:$\{_key}\`;
-  return toRef(key in nuxtApp.static.data ? nuxtApp.static.data : nuxtApp.payload.data, key);
-}
-      `,
+      getContents: () => clientImplementation,
     });
 
     nuxt.options.alias['#flags-implementation'] =
@@ -116,7 +87,29 @@ export function getState(_key) {
       addServerImports({ name, from: 'flags/nuxt/runtime' });
     }
 
-    const buildPlugin = FlagsPlugin({ dir: options.dir });
+    const resolvedDir =
+      options.dir &&
+      resolve(
+        nuxt.options.rootDir,
+        resolveAlias(options.dir, nuxt.options.alias),
+      );
+
+    if (resolvedDir) {
+      nuxt.options.alias['#flags'] = resolvedDir;
+
+      nuxt.hook('prepare:types', (opts) => {
+        opts.sharedTsConfig.include ||= [];
+        opts.sharedTsConfig.include.push(`${resolvedDir}/**/*.ts`);
+      });
+
+      addImportsDir(resolvedDir);
+      addServerImportsDir(resolvedDir);
+    }
+
+    const buildPlugin = FlagsPlugin({
+      dir: resolvedDir,
+      injectAllFlags: options.injectAllFlags,
+    });
 
     addBuildPlugin(buildPlugin.client, { server: false });
     addBuildPlugin(buildPlugin.server, { client: false });
@@ -150,52 +143,68 @@ export {}
       { shared: true },
     );
 
-    if (options.dir) {
-      const path = resolve(
-        nuxt.options.rootDir,
-        resolveAlias(options.dir, nuxt.options.alias),
-      );
-
-      nuxt.options.alias['#flags'] = path;
-
-      nuxt.hook('prepare:types', (opts) => {
-        opts.sharedTsConfig.include ||= [];
-        opts.sharedTsConfig.include.push(`${path}/**/*.ts`);
-      });
-
-      addImportsDir(path);
-      addServerImportsDir(path);
-    }
-
     // TODO: check if user has provided their own flag
     if (options.toolbar?.enabled) {
       addServerHandler({
         route: '/.well-known/vercel/flags',
         handler: resolver.resolve('./nuxt/runtime/server/flags.js'),
       });
+    }
 
+    if (options.injectAllFlags && resolvedDir) {
+      extendViteConfig((viteConfig) => {
+        viteConfig.ssr ||= {};
+        viteConfig.ssr.external ||= [];
+        viteConfig.build ||= {};
+        viteConfig.build.rollupOptions ||= {};
+        viteConfig.build.rollupOptions.external ||= [];
+        viteConfig.resolve ||= {};
+        viteConfig.resolve.external ||= [];
+        for (const configPart of [
+          viteConfig.ssr.external,
+          viteConfig.resolve.external,
+          viteConfig.build.rollupOptions.external,
+        ]) {
+          if (Array.isArray(configPart)) {
+            configPart.push(FLAG_LIST_ID);
+          }
+        }
+      });
+      extendWebpackConfig((webpackConfig) => {
+        webpackConfig.externals ||= [];
+        if (Array.isArray(webpackConfig.externals)) {
+          webpackConfig.externals.push(FLAG_LIST_ID);
+        }
+      });
+      addPluginTemplate({
+        mode: 'server',
+        filename: 'flags/inject-all-flags.mjs',
+        getContents: () => injectFlagsTemplate,
+      });
+    }
+
+    if (options.toolbar?.enabled || options.injectAllFlags) {
       const noDefinedFlags = 'export const flags = {}';
       const isIgnored = createIsIgnored(nuxt);
       addServerTemplate({
-        filename: '#flags/defined-flags',
+        filename: FLAG_LIST_ID,
         getContents() {
-          if (!options.dir) {
+          if (!resolvedDir) {
             return noDefinedFlags;
           }
-          const path = resolveAlias(options.dir, nuxt.options.alias);
           try {
-            const isDir = statSync(path).isDirectory();
+            const isDir = statSync(resolvedDir).isDirectory();
             if (!isDir) {
               return noDefinedFlags;
             }
-            const files = readdirSync(path).filter(
+            const files = readdirSync(resolvedDir).filter(
               (f) =>
                 /\.[cm]?[tj]s$/.test(f) &&
-                !isIgnored(join(path, f), nuxt.options.ignore),
+                !isIgnored(join(resolvedDir, f), nuxt.options.ignore),
             );
             const lines = files.map(
               (f, index) =>
-                `import * as n${index} from ${JSON.stringify(join(path, f))}`,
+                `import * as n${index} from ${JSON.stringify(join(resolvedDir, f))}`,
             );
             return (
               lines.join('\n') +
@@ -288,26 +297,7 @@ export {}
 
     addPluginTemplate({
       filename: 'flags/plugin-precompute.server.mjs',
-      getContents: () => /* js */ `
-import { defineNuxtPlugin } from '#app';
-/**
- * Nuxt plugin that strips hash prefixes from URLs during prerendering.
- * This runs before the router initializes, allowing Vue Router to see the correct path.
- */
-export default defineNuxtPlugin({
-  name: 'flags:precompute-rewrite',
-  order: -50,
-  setup(nuxtApp) {
-    ${hasPrecompute ? '' : 'return;'}
-    if (import.meta.server && import.meta.prerender && nuxtApp.ssrContext) {
-      const hash = nuxtApp.ssrContext.event.context?.precomputedFlags?.hash;
-      if (hash) {
-        nuxtApp.ssrContext.url = nuxtApp.payload.path = nuxtApp.ssrContext.url.replace(\`/\${hash}\`, '');
-      }
-    }
-  },
-});
-      `,
+      getContents: () => pluginPrecomputeServerTemplate(hasPrecompute),
     });
   },
 });

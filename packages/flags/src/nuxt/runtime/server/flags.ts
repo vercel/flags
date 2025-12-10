@@ -5,7 +5,7 @@ import {
   setResponseStatus,
 } from 'h3';
 // @ts-expect-error
-import { flags } from '#flags/defined-flags';
+import { flags } from '#flags-defined-flags';
 import {
   type ApiData,
   type FlagDefinitionsType,

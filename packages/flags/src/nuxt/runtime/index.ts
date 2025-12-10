@@ -42,7 +42,7 @@ export function defineFlag<
             'Call them in a server context (e.g., in a page script with SSR) and pass the values to the client.',
         );
       }
-      const store = getStore<FlagStore>();
+      const store = getStore<FlagStore>(event);
       state.value = await getPrecomputed<ValueType>(
         key,
         flags,

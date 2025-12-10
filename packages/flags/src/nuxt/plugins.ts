@@ -6,12 +6,17 @@ import { createUnplugin } from 'unplugin';
 
 const FLAG_RE = /defineFlag[^(]*\(\s*{[\s\S]*?}\s*/;
 
+interface FlagsPluginOptions {
+  dir?: string | false;
+  injectAllFlags: boolean;
+}
+
 /**
  * This plugin removes the content of the flag definition object on the client side
  */
-export const FlagsPlugin = (opts: { dir?: string | false }) => {
+export const FlagsPlugin = (opts: FlagsPluginOptions) => {
   const keys = new Set<string>();
-  const server = createUnplugin((opts, meta) => ({
+  const server = createUnplugin((_opts, meta) => ({
     name: 'flags:server',
     transform: {
       filter: {
@@ -58,7 +63,7 @@ export const FlagsPlugin = (opts: { dir?: string | false }) => {
 
           const s = annotateWithKeys(id, code, ast as unknown as Program, {
             mode: 'replace',
-            stripImports: !!opts.dir,
+            stripImports: !!opts.dir && id.startsWith(opts.dir),
             keys,
           });
           if (s.hasChanged()) {
@@ -134,11 +139,11 @@ function annotateWithKeys(
       // strip any imports that are not of 'flags/nuxt/runtime' or '#imports'
       if (opts.stripImports && node.type === 'ImportDeclaration') {
         const source = node.source.value;
+        const validImports = ['flags/nuxt/runtime', '#imports'];
         if (
           source &&
           typeof source === 'string' &&
-          !source.startsWith('flags/nuxt/runtime') &&
-          !source.startsWith('#imports')
+          !validImports.some((i) => source.startsWith(i))
         ) {
           s.remove(withRanges(node).start, withRanges(node).end);
         }
