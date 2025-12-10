@@ -7,7 +7,7 @@ import {
 } from "next/server";
 import { i18n } from "@/lib/geistdocs/i18n";
 
-const { rewrite: rewriteLLM } = rewritePath("/docs/*path", "/llms.mdx/*path");
+const { rewrite: rewriteLLM } = rewritePath("/{api-reference,frameworks,principles,providers}/*path", "/llms.mdx/*path");
 
 const internationalizer = createI18nMiddleware(i18n);
 

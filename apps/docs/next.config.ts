@@ -12,11 +12,11 @@ const config: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/docs/:path*.mdx",
+        source: "/{api-reference,frameworks,principles,providers}/:path*.mdx",
         destination: "/llms.mdx/:path*",
       },
       {
-        source: "/docs/:path*.md",
+        source: "/{api-reference,frameworks,principles,providers}/:path*.md",
         destination: "/llms.mdx/:path*",
       },
     ];
