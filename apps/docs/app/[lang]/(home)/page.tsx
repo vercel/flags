@@ -20,21 +20,21 @@ export const metadata: Metadata = {
 
 const templates = [
   {
-    title: "Template 1",
-    description: "Description of template 1",
-    link: "https://example.com/template-1",
+    title: "Shirt Shop Example",
+    description: "A simple example of using Flags SDK to implement feature flags in a shirt shop.",
+    link: "https://github.com/vercel/flags/tree/main/examples/shirt-shop",
     image: "https://placehold.co/600x400.png",
   },
   {
-    title: "Template 2",
-    description: "Description of template 2",
-    link: "https://example.com/template-2",
+    title: "Snippets",
+    description: "A collection of example snippets for the Flags SDK.",
+    link: "https://github.com/vercel/flags/tree/main/examples/snippets",
     image: "https://placehold.co/600x400.png",
   },
   {
-    title: "Template 3",
-    description: "Description of template 3",
-    link: "https://example.com/template-3",
+    title: "SvelteKit Example",
+    description: "A simple example of using Flags SDK in SvelteKit.",
+    link: "https://github.com/vercel/flags/tree/main/examples/sveltekit-example",
     image: "https://placehold.co/600x400.png",
   },
 ];
