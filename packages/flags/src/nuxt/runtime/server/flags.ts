@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 function getProviderData(flags: Record<string, Flag<any>>): ApiData {
   const definitions = Object.values(flags).reduce<FlagDefinitionsType>(
     (acc, d) => {
-      acc[d.key] = {
+      acc[(d as any)._key || d.key] = {
         options: normalizeOptions(d.options),
         origin: d.origin,
         description: d.description,

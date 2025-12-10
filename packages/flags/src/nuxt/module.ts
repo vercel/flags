@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveModulePath } from 'exsolve';
 import {
+  addBuildPlugin,
   addImports,
   addImportsDir,
   addPluginTemplate,
@@ -17,6 +18,7 @@ import {
   resolveAlias,
 } from 'nuxt/kit';
 import { provider } from 'std-env';
+import { FlagsPlugin } from './plugins';
 
 interface ModuleOptions {
   /** The directory to scan for exported feature flags */
@@ -114,6 +116,19 @@ export function getState(_key) {
       addServerImports({ name, from: 'flags/nuxt/runtime' });
     }
 
+    const buildPlugin = FlagsPlugin({ dir: options.dir });
+
+    addBuildPlugin(buildPlugin.client, { server: false });
+    addBuildPlugin(buildPlugin.server, { client: false });
+
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.rollupConfig ||= {};
+      nitroConfig.rollupConfig.plugins ||= [];
+      (nitroConfig.rollupConfig.plugins as any[]).push(
+        buildPlugin.server.rollup(),
+      );
+    });
+
     // server-only utils
     addServerImports({
       name: 'handlePrecomputedPaths',
@@ -152,6 +167,7 @@ export {}
       addServerImportsDir(path);
     }
 
+    // TODO: check if user has provided their own flag
     if (options.toolbar?.enabled) {
       addServerHandler({
         route: '/.well-known/vercel/flags',

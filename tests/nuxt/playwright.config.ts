@@ -14,6 +14,11 @@ export default defineConfig<ConfigOptions>({
     trace: 'on-first-retry',
     nuxt: {
       rootDir: fileURLToPath(new URL('.', import.meta.url)),
+      nuxtConfig: {
+        flags: {
+          toolbar: { enabled: true },
+        },
+      },
     },
   },
 

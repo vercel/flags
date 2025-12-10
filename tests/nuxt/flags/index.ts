@@ -1,3 +1,6 @@
+// biome-ignore lint/correctness/noUnusedImports: testing to ensure this doesn't make it into client bundle
+import {} from 'node:async_hooks';
+
 export const exampleFlag = defineFlag<boolean>({
   key: 'example-flag',
   description: 'An example boolean flag',

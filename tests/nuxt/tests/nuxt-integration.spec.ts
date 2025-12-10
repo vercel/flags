@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@nuxt/test-utils/playwright';
-import { encryptOverrides } from 'flags';
+import { createAccessProof, encryptOverrides } from 'flags';
 
 test.describe('Nuxt Integration', () => {
   test('flags are auto-imported and work in pages', async ({ page, goto }) => {
@@ -511,6 +511,46 @@ test.describe('Precompute Support', () => {
     await expect(page.getByTestId('cookie-flag')).toHaveText(
       'Cookie: no cookie',
     );
+  });
+});
+
+test.describe('Toolbar Integration', () => {
+  test('preserves original name of flags in toolbar response', async ({
+    page,
+    goto,
+  }) => {
+    const overrides = await page.request.get('/.well-known/vercel/flags', {
+      headers: {
+        Authorization: `Bearer ${await createAccessProof(getSecret())}`,
+      },
+    });
+    expect(overrides.status()).toBe(200);
+    const json = await overrides.json();
+    expect(json).toEqual({
+      definitions: {
+        cookie: {
+          description: 'Flag that reads cookies',
+          options: [{ value: 'no cookie' }, { value: 'nav-test-value' }],
+        },
+        'feature-toggle': {
+          description: 'Simple feature toggle',
+          options: [{ value: false }, { value: true }],
+        },
+        host: {
+          description: 'Flag that reads the host header',
+          options: [{ value: 'no host' }, { value: 'localhost' }],
+        },
+        'example-flag': {
+          description: 'An example boolean flag',
+          options: [{ value: false }, { value: true }],
+        },
+        'user-role': {
+          description: 'Flag for user role based features',
+          options: [{ value: 'guest' }, { value: 'user' }, { value: 'admin' }],
+        },
+      },
+      hints: [],
+    });
   });
 });
 

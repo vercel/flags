@@ -22,14 +22,19 @@ import type { Flag, FlagsArray } from '../types';
 export function defineFlag<
   ValueType extends JsonValue = boolean | string | number,
   EntitiesType = any,
->(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
-  const decide = getDecide<ValueType, EntitiesType>(definition);
-  const identify = getIdentify(definition);
-
+>(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType>;
+export function defineFlag<
+  ValueType extends JsonValue = boolean | string | number,
+  EntitiesType = any,
+>(
+  definition: FlagDeclaration<ValueType, EntitiesType>,
+  _key?: string,
+): Flag<ValueType> {
+  const key = typeof _key === 'string' ? _key : definition.key;
   async function flagImpl(event = getEvent()): Promise<ValueType> {
     // get precomputed hash + flags array from context
     const { hash, flags } = event?.context.precomputedFlags || {};
-    const state = getState<ValueType>(definition.key, event as H3Event);
+    const state = getState<ValueType>(key, event as H3Event);
     if (typeof hash === 'string' && Array.isArray(flags)) {
       if (import.meta.client) {
         throw new Error(
@@ -39,7 +44,7 @@ export function defineFlag<
       }
       const store = getStore<FlagStore>();
       state.value = await getPrecomputed<ValueType>(
-        definition.key,
+        key,
         flags,
         hash,
         store.secret,
@@ -48,20 +53,8 @@ export function defineFlag<
     }
 
     if (import.meta.client) {
-      if (state.value !== undefined) {
-        // If we have a cached value from SSR, return it
-        return state.value;
-      }
-
-      // evaluate the flag on client-side navigation
-      const emptyHeaders = new Headers();
-      const value = await decide({
-        headers: sealHeaders(emptyHeaders),
-        cookies: sealCookies(emptyHeaders),
-        entities: undefined,
-      });
-      state.value = value;
-      return value;
+      // If we have a cached value from SSR, return it
+      return state.value;
     }
 
     const store = getStore<FlagStore>(event);
@@ -97,6 +90,7 @@ export function defineFlag<
     }
 
     let entities: EntitiesType | undefined;
+    const identify = flagImpl.identify;
     if (identify) {
       // Deduplicate calls to identify, key being the function itself
       if (!store.identifiers.has(identify)) {
@@ -110,7 +104,7 @@ export function defineFlag<
       entities = (await store.identifiers.get(identify)) as EntitiesType;
     }
 
-    const valuePromise = decide({
+    const valuePromise = flagImpl.decide({
       headers,
       cookies,
       entities,
@@ -125,13 +119,19 @@ export function defineFlag<
     return value;
   }
 
-  flagImpl.key = definition.key;
+  flagImpl.key = key;
+  if (import.meta.client) {
+    return flagImpl;
+  }
+
   flagImpl.defaultValue = definition.defaultValue;
   flagImpl.origin = definition.origin;
   flagImpl.description = definition.description;
   flagImpl.options = normalizeOptions(definition.options);
-  flagImpl.decide = decide;
-  flagImpl.identify = identify;
+  flagImpl.decide = getDecide<ValueType, EntitiesType>(definition);
+  flagImpl.identify = getIdentify(definition);
+  // track original key for toolbar integration
+  flagImpl._key = definition.key;
 
   return flagImpl;
 }
