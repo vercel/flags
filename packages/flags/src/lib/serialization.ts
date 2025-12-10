@@ -50,14 +50,14 @@ function splitUint8Array(
 /**
  * Common subset of the flag type used in here
  */
-type Flag = {
+export type CommonFlag<T = any> = {
   key: string;
-  options?: FlagOption<any>[];
+  options?: FlagOption<T>[];
 };
 
 export async function deserialize(
   code: string,
-  flags: readonly Flag[],
+  flags: readonly CommonFlag[],
   secret: string,
 ): Promise<Record<string, JsonValue>> {
   // TODO what happens when verification fails?
@@ -151,8 +151,8 @@ function joinUint8Arrays(array1: Uint8Array, array2: Uint8Array): Uint8Array {
   return combined;
 }
 export async function serialize(
-  flagSet: Record<Flag['key'], JsonValue>,
-  flags: readonly Flag[],
+  flagSet: Record<CommonFlag['key'], JsonValue>,
+  flags: readonly CommonFlag[],
   secret: string,
 ) {
   const unlistedValues: JsonValue[] = [];
