@@ -1,4 +1,4 @@
-import { type InferPageType, loader } from "fumadocs-core/source";
+import { type InferPageType, loader, Source } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import {
   apiReference as apiReferenceServer,
@@ -42,13 +42,13 @@ export const source = loader({
   i18n,
   baseUrl: "/",
   source: {
-    files: {
+    files: [
       ...apiReferenceServer.toFumadocsSource().files,
       ...frameworksServer.toFumadocsSource().files,
       ...principlesServer.toFumadocsSource().files,
       ...providersServer.toFumadocsSource().files,
-    }
-  },
+    ],
+  } as Source,
   plugins: [lucideIconsPlugin()],
 });
 
