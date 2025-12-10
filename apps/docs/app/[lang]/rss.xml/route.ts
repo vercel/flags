@@ -24,9 +24,11 @@ export const GET = async (
   for (const page of source.getPages(lang)) {
     feed.addItem({
       id: page.url,
+      // @ts-expect-error - source issue
       title: page.data.title,
       description: page.data.description,
       link: `${baseUrl}${page.url}`,
+      // @ts-expect-error - source issue
       date: new Date(page.data.lastModified ?? new Date()),
       author: [
         {
