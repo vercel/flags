@@ -52,7 +52,7 @@ export const source = loader({
   plugins: [lucideIconsPlugin()],
 });
 
-export const getPageImage = (page: InferPageType<typeof apiReference | typeof frameworks | typeof principles | typeof providers>) => {
+export const getPageImage = (page: InferPageType<typeof source | typeof apiReference | typeof frameworks | typeof principles | typeof providers>) => {
   const segments = [...page.slugs, "image.png"];
 
   return {
@@ -63,7 +63,7 @@ export const getPageImage = (page: InferPageType<typeof apiReference | typeof fr
   };
 };
 
-export const getLLMText = async (page: InferPageType<typeof apiReference | typeof frameworks | typeof principles | typeof providers>) => {
+export const getLLMText = async (page: InferPageType<typeof source | typeof apiReference | typeof frameworks | typeof principles | typeof providers>) => {
   const processed = await page.data.getText("processed");
 
   return `# ${page.data.title}
