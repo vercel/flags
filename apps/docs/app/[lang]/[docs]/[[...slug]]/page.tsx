@@ -81,8 +81,12 @@ const Page = async ({ params }: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
   );
 };
 
-export const generateStaticParams = async ({ params }: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
-  const { lang, docs } = await params;
+export const generateStaticParams = async ({
+  params
+}: {
+  params: { lang: string; docs: string }
+}) => {
+  const { lang, docs } = params;
   const source = sources[docs as keyof typeof sources];
 
   if (!source) {
