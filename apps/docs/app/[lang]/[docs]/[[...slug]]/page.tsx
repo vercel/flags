@@ -15,13 +15,26 @@ import { getMDXComponents } from "@/components/geistdocs/mdx-components";
 import { OpenInChat } from "@/components/geistdocs/open-in-chat";
 import { ScrollTop } from "@/components/geistdocs/scroll-top";
 import { Separator } from "@/components/ui/separator";
-import { getLLMText, getPageImage, source } from "@/lib/geistdocs/source";
+import { getLLMText, getPageImage, apiReference, frameworks, principles, providers } from "@/lib/geistdocs/source";
 import { IframeBrowser } from "@/components/custom/iframe-browser";
 import { LearnMore } from "@/components/custom/learn-more";
 import { ProviderList } from "@/components/custom/provider-list";
 
-const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
-  const { slug, lang } = await params;
+const sources = {
+  "api-reference": apiReference,
+  "frameworks": frameworks,
+  "principles": principles,
+  "providers": providers,
+};
+
+const Page = async ({ params }: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
+  const { slug, lang, docs } = await params;
+  const source = sources[docs as keyof typeof sources];
+
+  if (!source) {
+    notFound();
+  }
+
   const page = source.getPage(slug, lang);
 
   if (!page) {
@@ -68,12 +81,27 @@ const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
   );
 };
 
-export const generateStaticParams = () => source.generateParams();
+export const generateStaticParams = async ({ params }: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
+  const { lang, docs } = await params;
+  const source = sources[docs as keyof typeof sources];
+
+  if (!source) {
+    notFound();
+  }
+
+  return source.generateParams(lang);
+};
 
 export const generateMetadata = async ({
   params,
-}: PageProps<"/[lang]/docs/[[...slug]]">) => {
-  const { slug, lang } = await params;
+}: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
+  const { lang, docs } = await params;
+  const source = sources[docs as keyof typeof sources];
+
+  if (!source) {
+    notFound();
+  }
+
   const page = source.getPage(slug, lang);
 
   if (!page) {
