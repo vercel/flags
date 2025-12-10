@@ -62,7 +62,7 @@ const HomePage = () => (
       description={description}
       title={title}
     >
-      <div className="mx-auto inline-flex w-fit items-center gap-3">
+      <div className="mx-auto inline-flex w-72 items-center gap-3">
         <Button asChild className="px-4" size="lg">
           <DynamicLink href="/[lang]/docs/getting-started">
             Get Started
