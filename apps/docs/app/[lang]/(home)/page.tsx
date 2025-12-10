@@ -9,9 +9,8 @@ import { OneTwoSection } from "./components/one-two-section";
 import { Templates } from "./components/templates";
 import { TextGridSection } from "./components/text-grid-section";
 
-const title = "Geistdocs";
-const description =
-  "A Vercel documentation template built with Next.js and Fumadocs. Designed for spinning up documentation sites quickly and consistently.";
+const title = "Ship faster with feature flags";
+const description = "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.";
 
 export const metadata: Metadata = {
   title,
@@ -42,18 +41,18 @@ const templates = [
 const textGridSection = [
   {
     id: "1",
-    title: "Text Grid Section",
-    description: "Description of text grid section",
+    title: "Works with any provider",
+    description: "Use any flag provider, or none at all. Flexible integrations for your projects.",
   },
   {
     id: "2",
-    title: "Text Grid Section",
-    description: "Description of text grid section",
+    title: "Effortless integration",
+    description: "Integrate with App Router, Pages Router, and Routing Middleware.",
   },
   {
     id: "3",
-    title: "Text Grid Section",
-    description: "Description of text grid section",
+    title: "Release strategically",
+    description: "Ideal for A/B testing and controlled rollouts. Experiment with confidence.",
   },
 ];
 
@@ -70,7 +69,7 @@ const HomePage = () => (
             Get Started
           </DynamicLink>
         </Button>
-        <Installer command="npx @vercel/geistdocs init" />
+        <Installer command="npm i flags" />
       </div>
     </Hero>
     <div className="grid divide-y border-y sm:border-x">
