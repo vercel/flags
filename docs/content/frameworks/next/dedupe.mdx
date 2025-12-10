@@ -1,0 +1,77 @@
+---
+title: Dedupe
+description: Prevent duplicate work by deduplicating function calls.
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import { LearnMore } from '@/components/learn-more';
+
+Any function wrapped in `dedupe` will only ever run once for
+the same request within the same runtime and given the same arguments.
+
+The `dedupe` function is an integral piece when working with
+the Flags SDK.
+
+## Example
+
+```tsx title="app/page.tsx#next"
+import { dedupe } from 'flags/next';
+
+const dedupeExample = dedupe(() => {
+  return Math.random();
+});
+
+export default async function Page() {
+  const random1 = await dedupeExample();
+  const random2 = await dedupeExample();
+  const random3 = await dedupeExample();
+
+  // these will all be the same random number
+  return (
+    <div>
+      {random1} {random2} {random3}
+    </div>
+  );
+}
+```
+
+Example of output:
+
+<IframeBrowser
+  src="snippets:/concepts/dedupe"
+  codeSrc="https://github.com/vercel/flags/blob/main/examples/snippets/app/concepts/dedupe/page.tsx"
+/>
+
+## Use cases
+
+### Avoiding duplicate work
+
+This helper is useful in combination with the `identify` function, as it
+allows the identification to only happen once per request.
+This prevents overhead when passing the same{" "}
+`identify` function to multiple feature flags, or when using the same flag multiple times.
+
+### Generating consistent random IDs
+
+When experimenting on anonymous visitors it is common to set a cookie
+containing a random id from Proxy. This random id is later
+used to consistently assign users to specific groups of A/B tests.
+
+For this use case, the function generating the random id can be wrapped
+in `dedupe`. The deduplicated function is then called in Routing
+Functions to produce the random id, and from a flag&apos;s{" "}
+`identify` function to identify the user even on the first
+page visit when no cookie is present yet.
+
+As the function is guaranteed to generate the same id the Routing
+Functions can set a cookie containing the generated id in a response,
+and the feature flag can already use the generated id even if the
+original request did not contain the id.
+
+## Limitations
+
+Note that `dedupe` is not available in Pages Router.
+
+<LearnMore href="/frameworks/next/guides/marketing-pages" icon="arrow">
+  See the Marketing Pages example
+</LearnMore>

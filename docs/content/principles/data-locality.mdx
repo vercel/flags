@@ -1,0 +1,124 @@
+---
+title: Data Locality
+---
+
+import Link from 'next/link';
+import { LearnMore } from '@/components/learn-more';
+
+This document describes information on where feature flags are
+evaluated, the data they need to be evaluated, and the consequences this
+has on latency.
+
+In order to evaluate feature flags two types of data are needed:
+
+- The **definition** contains the rules for evaluating the feature,
+  such as who the feature flag should be enabled for. This is typically
+  loaded from a feature flag provided.
+- The **evaluation context** is data about the user or entity the feature flags are evaluated for.
+
+A feature flag evaluation can be thought of like this:
+
+```
+evaluate(definition, evaluation context) = value
+```
+
+Evaluating a feature flag requires the definition and the evaluation
+context.
+
+A simple feature flag which is on or off for all users does not need an
+evaluation context. An advanced feature flag which is only on for some
+users needs an evaluation context.
+
+## Where feature flags can be evaluated
+
+- **Server-side** runs in the [Serverless Function Region](https://vercel.com/docs/functions/configuring-functions/region) configured for the project and is used for React Server Components, API Routes, and Server Actions.
+- **Routing Middleware** runs globally, in a CDN.
+- **Client-side** runs in your browser.
+
+There are different considerations for how the definitions and the
+evaluation context are loaded or established. For example, it has
+disastrous consequences if an application needs to make a network
+request from Routing Middleware in order to establish the current user for
+the evaluation context.
+
+## How feature flag definitions are loaded
+
+Feature flag SDKs initially need to bootstrap the feature flag
+definitions. Typically this happens using a network request. They then
+typically establish a websocket connection to get notified about any
+changes to the feature flag configuration in the flag provider.
+
+This model works well with long-running servers, but is not a great fit
+for the serverless world. Serverless functions have a much shorter
+lifetime than long-running servers, especially at the edge. This means
+applications need to pay the latency cost of bootstrapping feature flags
+more frequently. Having multiple websocket connections to the same flag
+provider also increases load on the provider.
+
+## Vercel Edge Config
+
+Vercel offers a solution called Edge Config to this problem. It is
+specifically designed for storing feature flag definitions. Edge Config
+can be read in under 1ms at p90 and under 15ms at p95, including the
+network latency from your Serverless Function or Routing Middleware.
+
+To put this into perspective, [according to this benchmark](https://github.com/dvassallo/s3-benchmark), an AWS S3 bucket does not even send the first byte by the time an Edge
+Config is fully read.
+
+Using Edge Config is optional, but highly recommended, when using the
+Flags SDK.
+
+## Evaluating on the server
+
+Feature flags can be evaluated on the server using the Flags SDK. This
+is the most common way to evaluate feature flags, and is the easiest to
+implement.
+
+The serverless function region is typically close to your
+application&apos;s database, so it is somewhat okay to make a network
+request to establish the evaluation context.
+
+## Evaluating at the edge
+
+In order to evaluate feature flags at the edge it&apos;s necessary to
+have the definition and the evaluation context available at the edge.
+
+Using Edge Config allows storing definitions at the Edge as shown in the
+previous section. This means you can use feature flags in Routing
+Functions at ultra low latency.
+
+However, some feature flags might need an evaluation context in order to
+evaluate. Since the evaluation context depends on the application it is
+up to the application to provide it at low latency.
+
+Making a network request or reading a database to get the evaluation
+context inside of Routing Middleware should be avoided at all cost.
+
+Instead, it is wise to store the information necessary to evaluate
+feature flags in a cookie when users sign into an application. The
+browser will then forward the necessary information when making
+requests, such that Routing Middleware can establish the evaluation context
+based on the provided cookie. Where necessary, the cookie stored on the
+client can be signed or even encrypted to avoid manipulation or leaking
+information.
+
+## Deduplicating effort
+
+No matter whether feature flags are evaluated in Serverless Functions or
+in Routing Middleware it is wise to deduplicate the effort of establishing
+the evaluation context.
+
+<LearnMore href="/frameworks/next/dedupe" icon="arrow">
+  Learn more about `dedupe`
+</LearnMore>
+
+## Evaluating on the client
+
+Feature flags can also be evaluated on the client. The Flags SDK does
+not have a built-in pattern for doing so currently.
+
+It is however possible to evalaute feature flags on the server and pass
+the evaluated value down to the client.
+
+There is also a pattern, independent of the Flags SDK, which is
+recommended in case you must absolutely use client-side feature flags.

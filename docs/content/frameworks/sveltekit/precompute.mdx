@@ -1,0 +1,287 @@
+---
+title: Precompute
+description: Using the precompute pattern in SvelteKit
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import { LearnMore } from '@/components/learn-more';
+
+This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
+Ensure you've read about the general precompute concept to understand the pattern and benefits:
+
+<LearnMore href="/principles/precompute" icon="arrow">
+  <div>Read the introduction to precompute</div>
+</LearnMore>
+
+The following assumes you've already set up the Flags SDK for SvelteKit as described in the [Quickstart guide](/frameworks/sveltekit).
+
+## Manual approach
+
+The simplest approach is to have a flag, evaluate it before the CDN is hit, and rewrite a path like `/pricing` to either `/pricing-variant-a` or `/pricing-variant-b`.
+At a high level you use Routing Middleware and SvelteKit's [`reroute` hook](https://svelte.dev/docs/kit/hooks#Universal-hooks-reroute) to rewrite the incoming request between static versions of
+the page. These static versions are hardcoded, i.e. created upfront, and rewriting to one of them happens as hardcoded logic aswell.
+
+<IframeBrowser
+  src="sveltekit-snippets:/examples/marketing-pages-manual-approach"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/sveltekit-example/src/routes/examples/(marketing-pages-manual-approach)"
+/>
+
+This approach works well for simple cases, but has a few downsides:
+
+- It can be cumbersome having to maintain both `/pricing-variant-a/+page.svelte` and `/pricing-variant-b/+page.svelte`.
+- It doesn't scale well when a feature flag is used on more than one page, or when multiple feature flags or flags with many variants are used on a single page.
+
+## Why both Routing Middleware and reroute
+
+You may wonder why we need to use both Routing Middleware and SvelteKit's [`reroute` hook](https://svelte.dev/docs/kit/hooks#Universal-hooks-reroute). In short:
+
+- `middleware.ts` takes care of the initial full page visit
+- `reroute` takes care of all subsequent client-side navigations
+- `middleware.ts` will be ignored during development, as SvelteKit doesn't know about it. `reroute` will also take care of the initial full page visit in that case
+- `middleware.ts` has access to cookies and private environment variables, `reroute` does not, which is why the latter needs to defer to the server to compute the result
+
+### Reroute hook
+
+When SvelteKit resolves a URL to a route, it does so using a route manifest that is
+sent to the client on startup. Before the route is resolved, the `reroute` hook runs, which can rewrite the URL under the hood. That way
+we can keep the visible URL as e.g. `/pricing` while under the hood we reroute to one of the static versions of the page, e.g. `/pricing-variant-a`.
+
+`reroute` runs on the client, but we need to access cookies and precompute a value to know which static version of the page to load, which in turn uses private environment variables.
+That means that `reroute` needs to make a request to the server to let the logic happen there.
+
+```ts title="src/hooks.ts"
+export async function reroute({ url, fetch }) {
+  if (url.pathname === '/pricing') {
+    const destination = new URL('/api/reroute-manual', url);
+
+    return fetch(destination).then((response) => response.text());
+  }
+}
+```
+
+The server can resolve the flag value (which may use cookies or headers which may be decrypted). Depending on that a rewritten pathname is returned, which SvelteKit's route resolution logic then uses to decide which components and data to load.
+
+```ts title="src/routes/api/reroute-manual/+server.ts"
+import { exampleFlag } from '$lib/flags.js';
+import { text } from '@sveltejs/kit';
+
+export async function GET({ request, cookies }) {
+  const example = await exampleFlag(request);
+  return text(example ? '/pricing-variant-a' : '/pricing-variant-b');
+}
+```
+
+### Routing Middleware
+
+`reroute` is used at development time for all requests, both client and server-side. It is also called in production during soft navigations.
+
+However when doing a full page visit (i.e. when a user first hits your page) in production
+we need to run something _before_ the SvelteKit runtime, as we are using ISR or prerendering. `reroute` would run as part of the SvelteKit runtime, so it's too late. For that reason,
+we need to duplicate a bit of code within `proxy.ts`, which will be deployed by Vercel as Routing Middleware, which will run before the CDN is hit. Inside the middleware we use flags
+to rewrite the URL to a static variant of the page, similar to what we did in the server request as part of `reroute`.
+
+```ts title="middleware.ts"
+import { rewrite } from '@vercel/edge';
+import { exampleFlag } from './src/lib/flags';
+
+export const config = {
+  matcher: ['/pricing'],
+};
+
+export default async function middleware(request: Request) {
+  const example = await exampleFlag(request);
+
+    // Get destination URL based on the feature flag
+  return rewrite(example ? '/pricing-variant-a' : '/pricing-variant-b');
+}
+```
+
+## Precomputing
+
+Use the precompute functionality of the Flags SDK to work around the limitations of the manual approach.
+Use the precompute pattern to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
+
+At a high level you still use Routing Middleware and the `reroute` hook to rewrite the incoming request between static versions of
+the page. The difference is that you no longer hardcode those static versions, instead you create a dynamic route segment which is then
+filled with a hash that is generated from all the flag values used on that page.
+
+### Prerequisites
+
+Make sure you've set up the Flags SDK for SvelteKit as described in the [Quickstart guide](/docs/getting-started/sveltekit). Additionally, install the `@vercel/edge` dependency from npm.
+
+### 1. Create flags to be precomputed
+
+Create one or multiple flags.
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+export const firstPricingABTest = flag({
+  key: 'firstPricingABTest',
+  decide: () => false,
+});
+
+export const secondPricingABTest = flag({
+  key: 'secondPricingABTest',
+  decide: () => false,
+});
+```
+
+Export them as an array to be precomputed. Put them into a different file to later colocate other logic related to precomputing.
+
+```ts title="src/lib/precomputed-flags.ts"
+import { firstPricingABTest, secondPricingABTest } from './flags';
+
+export const pricingFlags = [firstPricingABTest, secondPricingABTest];
+```
+
+### 2. Precompute flags from reroute hook
+
+Set up the reroute hook to defer resolution of the pricing URL to the server.
+
+```ts title="src/hooks.ts"
+export async function reroute({ url, fetch }) {
+  if (url.pathname === '/pricing') {
+    const destination = new URL('/api/reroute', url);
+    destination.searchParams.set('pathname', url.pathname);
+
+    return fetch(destination).then((response) => response.text());
+  }
+}
+```
+
+Add the server endpoint and compute the URL that should be routed to under the hood.
+
+```ts title="src/routes/api/reroute/+server.ts"
+import { text } from '@sveltejs/kit';
+import { computeInternalRoute } from '$lib/precomputed-flags';
+
+export async function GET({ url, request, cookies, setHeaders }) {
+  const destination = await computeInternalRoute(
+    url.searchParams.get('pathname')!,
+    request,
+  );
+  return text(destination);
+}
+```
+
+This makes use of `computeInternalRoute`, which you add to the file where you exported the flags array from.
+This is where the precomputation happens by using the `precompute` function which you pass the flags used on that page and the current request.
+`precompute` will use these to invoke each flag, retrieve their value, and encode it as a route segment. As a result the user-visible URL `/pricing` is
+internally rewritten to something like `/pricing/asd-qwe-123`.
+
+```ts title="src/lib/precomputed-flags.ts"
+import { precompute } from 'flags/sveltekit';
+
+export async function computeInternalRoute(pathname: string, request: Request) {
+  if (pathname === '/pricing') {
+    return '/pricing/' + (await precompute(pricingFlags, request));
+  }
+
+  // You can easily enhance this function to add more precomputed routes
+
+  return pathname;
+}
+```
+
+### 3. Precompute flags from middleware
+
+Add similar logic to Routing Middleware, reusing the shared logic from `precomputed-flags.ts`.
+
+```ts title="middleware.ts"
+import { rewrite } from '@vercel/edge';
+import { normalizeUrl } from '@sveltejs/kit';
+import { computeInternalRoute } from './src/lib/precomputed-flags';
+
+export const config = {
+  matcher: ['/pricing'],
+};
+
+export default async function middleware(request: Request) {
+  const { url, denormalize } = normalizeUrl(request.url);
+
+  if (url.pathname === '/pricing') {
+    return rewrite(
+      // Get destination URL based on the feature flag
+      denormalize(await computeInternalRoute(url.pathname, request)),
+    );
+  }
+}
+```
+
+### 4. Access the precomputation result from a page
+
+Next, import the feature flags you created earlier while providing the code from the URL and the pricingFlags list of flags used in the precomputation.
+
+When e.g. the `firstPricingABTest` flag is called within this server load function it reads the result from the precomputation, and it does not invoke the flag's decide function again:
+
+```ts title="src/routes/pricing/[code]/+page.server.ts"
+import type { PageServerLoad } from './$types';
+import { firstPricingABTest, secondPricingABTest } from '$lib/flags';
+import { pricingFlags } from '$lib/precomputed-flags';
+
+export const load: PageServerLoad = async ({ params }) => {
+  const flag1 = await firstPricingABTest(params.code, pricingFlags);
+  const flag2 = await secondPricingABTest(params.code, pricingFlags);
+
+  return {
+    first: `First flag evaluated to ${flag1}`,
+    second: `Second flag evaluated to ${flag2}`,
+  };
+};
+```
+
+```ts title="src/routes/pricing/[code]/+page.svelte"
+<script>
+  let { data } = $props();
+</script>
+
+<p>{data.first}</p>
+<p>{data.second}</p>
+```
+
+## Enabling ISR (optional)
+
+Now that the flags are precomputed, you should make sure to cache the result. You can do that by using Incremental Static Regeneration (ISR) on Vercel:
+
+```ts title="src/routes/pricing/[code]/+page.server.ts"
+export const config = {
+  isr: {
+    expiration: false,
+  },
+};
+
+export const load: PageServerLoad = async ({ params }) => {
+  // ...
+};
+```
+
+## Enabling prerendering (optional)
+
+You can precompute the results at build time instead of at runtime and prerender the results. For this, opt in to SvelteKit's prerendering using `export const prerender = true`.
+Then use `generatePermutations` within `entries`, through which you tell SvelteKit what variants of (in this example) the `/pricing/[code]` route exist, which it will then prerender.
+
+```ts title="src/routes/pricing/[code]/+page.server.ts"
+import { pricingFlags } from '$lib/precomputed-flags';
+import { generatePermutations } from 'flags/sveltekit';
+
+export const prerender = true;
+
+export async function entries() {
+  return (await generatePermutations(pricingFlags)).map((code) => ({ code }));
+}
+
+export const load: PageServerLoad = async ({ params }) => {
+  // ...
+};
+```
+
+## Next steps
+
+You now know how to use the precompute pattern within SvelteKit.
+The above example didn't get into details about how to use e.g. cookies to determine the value of the flag.
+This and more is covered in the Marketing Pages guide.
+
+<LearnMore href="/frameworks/sveltekit/guides/marketing-pages" icon="arrow">
+  See the Marketing Pages example which implements this pattern
+</LearnMore>

@@ -1,0 +1,275 @@
+---
+title: 'OpenFeature'
+---
+
+import { LearnMore } from '@/components/learn-more';
+
+[OpenFeature](https://openfeature.dev/) is an open specification that provides a vendor-agnostic, community-driven API for feature flagging that works with your favorite feature flag management tool or in-house solution. The Flags SDK OpenFeature adapter allows you to use the Flags SDK with any OpenFeature provider.
+
+
+_If there is a native Flags SDK adapter for your provider, we recommend using that instead. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Edge Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters)_
+
+The `@flags-sdk/openfeature` package provides an [adapter](#provider-instance) for loading flags from OpenFeature.
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/templates/next.js/flags-sdk-openfeature"
+  target="_blank"
+>
+  Clone the OpenFeature template
+</LearnMore>
+
+---
+
+## Setup
+
+The OpenFeature provider is available in the `@flags-sdk/openfeature` module. Install it with
+
+```bash
+npm i @flags-sdk/openfeature @openfeature/server-sdk
+```
+
+The command also installs the `@openfeature/server-sdk` peer dependency, as the OpenFeature adapter depends on the [OpenFeature Node.js SDK](https://openfeature.dev/docs/reference/technologies/server/javascript/).
+
+---
+
+## Provider Instance
+
+Import the `createOpenFeatureAdapter` function from `@flags-sdk/openfeature` and create an adapter instance with your OpenFeature client.
+
+For usage with regular providers, pass the client directly:
+
+```ts
+import { createOpenFeatureAdapter } from "@flags-sdk/openfeature"
+
+OpenFeature.setProvider(new YourProviderOfChoice())
+const openFeatureAdapter = createOpenFeatureAdapter(OpenFeature.getClient());
+```
+
+For usage with async providers, pass an init function, and return the client:
+
+```ts
+import { createOpenFeatureAdapter } from "@flags-sdk/openfeature"
+
+// pass an init function, and return the client
+const openFeatureAdapter = createOpenFeatureAdapter(async () => {
+  const provider = new YourProviderOfChoice()
+  await OpenFeature.setProviderAndWait(provider);
+  return OpenFeature.getClient();
+});
+```
+
+| Option key                   | Type                                | Description         |
+| ---------------------------- | ------------------------------------| ------------------- |
+| `client`                     | `Client \| (() => Promise<Client>)` | OpenFeature client  |
+
+
+
+---
+
+## Identify Users
+
+OpenFeature relies on an [Evaluation Context](https://openfeature.dev/docs/reference/concepts/evaluation-context/) object to evaluate the flags for a given request.
+
+Use the `identify` function to determine the Evaluation Context.
+
+```ts
+import type { Identify } from "flags";
+import { dedupe, flag } from "flags/next";
+import type { EvaluationContext } from "@openfeature/server-sdk";
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  // Your own logic to identify the user
+  // Identifying the user should rely on reading cookies and headers only, and
+  // not make any network requests, as it's important to keep latency low here.
+  const user = await getUser(headers, cookies);
+
+  const context: EvaluationContext = {
+    targetingKey: user.id,
+    // .. other properties ..
+  };
+
+  return context;
+}));
+
+const openFeatureAdapter = createOpenFeatureAdapter(async () => {
+  const provider = new YourProviderOfChoice()
+  await OpenFeature.setProviderAndWait(provider);
+  return OpenFeature.getClient();
+});
+
+export const exampleFlag = flag<boolean, EvaluationContext>({
+  key: "example-flag",
+  identify,
+  defaultValue: false,
+  adapter: openFeatureAdapter.booleanValue(),
+});
+```
+
+
+<LearnMore icon="arrow" href="/frameworks/next/dedupe">
+  Learn more about `dedupe`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/principles/evaluation-context">
+  Learn more about `identify`
+</LearnMore>
+
+---
+
+## Methods
+
+The OpenFeature adapter provides methods for evaluating flags.
+
+### `booleanValue`
+
+```ts
+export const exampleFlag = flag<boolean, EvaluationContext>({
+  key: 'example-flag',
+  identify,
+  defaultValue: false,
+  adapter: openFeatureAdapter.booleanValue(),
+});
+```
+
+- `identify` must return the [Evaluation Context](https://openfeature.dev/docs/reference/concepts/evaluation-context/).
+- `defaultValue` must be provided when used with the OpenFeature adapter.
+
+### `stringValue`
+
+```ts
+export const exampleFlag = flag<string, EvaluationContext>({
+  key: 'example-flag',
+  identify,
+  defaultValue: "",
+  adapter: openFeatureAdapter.stringValue(),
+});
+```
+
+- `identify` must return the [Evaluation Context](https://openfeature.dev/docs/reference/concepts/evaluation-context/).
+- `defaultValue` must be provided when used with the OpenFeature adapter.
+
+### `numberValue`
+
+```ts
+export const exampleFlag = flag<number, EvaluationContext>({
+  key: 'example-flag',
+  identify,
+  defaultValue: -1,
+  adapter: openFeatureAdapter.numberValue(),
+});
+```
+
+- `identify` must return the [Evaluation Context](https://openfeature.dev/docs/reference/concepts/evaluation-context/).
+- `defaultValue` must be provided when used with the OpenFeature adapter.
+
+### `objectValue`
+
+```ts
+export const exampleFlag = flag<YourCustomObjectType, EvaluationContext>({
+  key: 'example-flag',
+  identify,
+  defaultValue: {},
+  adapter: openFeatureAdapter.objectValue(),
+});
+```
+
+- `identify` must return the [Evaluation Context](https://openfeature.dev/docs/reference/concepts/evaluation-context/).
+- `defaultValue` must be provided when used with the OpenFeature adapter.
+
+### `client`
+
+When the `openFeatureAdapter` was created synchronously, this contains the OpenFeature client.
+
+```ts
+openFeatureAdapter.client;
+```
+
+When the `openFeatureAdapter` was created asynchronously, this is an async function which returns the OpenFeature client returned by the `init` function.
+
+```ts
+await openFeatureAdapter.client();
+```
+
+---
+
+## Edge Config
+
+The OpenFeature adapter does not integrate with Edge Config directly.
+
+We recommend using a native Flags SDK adapter for your provider instead of using the OpenFeature adapter. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Edge Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters).
+
+If no native Flags SDK adapter is available, your OpenFeature provider might still allow you to configure Edge Config integration.
+
+---
+
+## Flags Explorer
+
+The [Flags Explorer](https://vercel.com/docs/feature-flags/using-vercel-toolbar) is a tool for viewing and overriding flags.
+
+All feature flags using the Flags SDK can be overwritten by the Flags Explorer.
+
+To make the Flags Explorer aware of your OpenFeature flags, you need to provide a route which the Flags Explorer will load your flags metadata from.
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return getProviderData(flags);
+});
+```
+
+---
+
+## Caveats
+
+### Edge Runtime compatibility
+
+The OpenFeature provider of your choice may not be compatible with Edge Runtime, which can prevent usage in Routing Middleware and Edge Functions. This depends on the provider you use OpenFeature with.
+
+### Flags Explorer metadata
+
+Due to limitations in the OpenFeature specification, the `@flags-sdk/openfeature` adapter is not capable of providing additional metadata like descriptions and available options to the Flags Explorer. Flags Explorer can still display the descriptions and options you define when declaring feature flags in code.
+
+---
+
+## Read More
+
+Read more about OpenFeature, Flags SDK, and the OpenFeature Node.js SDK.
+
+
+<LearnMore
+  icon="arrow"
+  href="/docs/adapters/supported-providers"
+>
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/templates/next.js/flags-sdk-openfeature"
+  target="_blank"
+>
+  Clone the OpenFeature template
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/feature-flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://openfeature.dev/docs/reference/technologies/server/javascript/"
+  target="_blank"
+>
+  Learn more about the OpenFeature Node.js SDK
+</LearnMore>

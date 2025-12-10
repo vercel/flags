@@ -1,0 +1,145 @@
+---
+title: 'PostHog'
+---
+
+import { LearnMore } from '@/components/learn-more';
+import { ExternalSmall } from '@vercel/geist/icons';
+
+The [PostHog](https://posthog.com/) package provides a managed PostHog adapter for the Flags SDK.
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore icon="arrow" href="https://vercel.com/templates/edge-middleware/posthog-with-flags-sdk-and-next-js" target="_blank">
+  Deploy the template
+</LearnMore>
+
+## Example Usage
+
+```tsx title="flags.ts"
+import { flag } from "flags/next";
+import { postHogAdapter } from '@flags-sdk/posthog'
+import identify from "@/lib/identify";
+
+export const myFlag = flag({
+  key: "posthog-is-feature-enabled",
+  adapter: postHogAdapter.isFeatureEnabled(),
+  identify,
+});
+
+export const myFlagVariant = flag({
+  key: "posthog-feature-flag-value",
+  adapter: postHogAdapter.featureFlagValue(),
+  identify,
+});
+
+export const myFlagPayload = flag({
+  key: "posthog-feature-flag-payload",
+  adapter: postHogAdapter.featureFlagPayload((v) => v),
+  defaultValue: {},
+  identify,
+});
+```
+
+## Getting Started
+
+Install the required dependencies:
+
+```bash
+pnpm i @flags-sdk/posthog
+```
+
+Set up required environment variables:
+
+```bash title=".env.local"
+# https://posthog.com/docs/libraries/next-js
+# Or Settings > Project > Project API Key
+NEXT_PUBLIC_POSTHOG_KEY=key
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+Import the PostHog adapter for Flags SDK, which uses the enviroment variables above as defaults:
+
+```ts title="flags.ts"
+import { postHogAdapter } from '@flags-sdk/posthog'
+```
+
+If needed, you can instead initialize the adapter with your own options by importing `createPostHogAdapter`
+
+```ts title="flags.ts"
+import { createPostHogAdapter } from '@flags-sdk/posthog'
+
+const postHogAdapter = createPostHogAdapter({
+  postHogKey: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+  postHogOptions: {
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    // ...
+  },
+})
+```
+
+You can define flags using the PostHog adapter's methods, which are:
+
+- `isFeatureEnabled`: Returns a boolean indicating whether a feature flag is enabled
+- `featureFlagValue`: Returns a boolean, or a `string` for multivariate flags
+- `featureFlagPayload`: Maps a PostHog flag's payload to a structured flag value
+
+```ts title="app/flags.ts"
+import { flag } from 'flags/next'
+import { postHogAdapter } from '@flags-sdk/posthog'
+import { identify } from '@/lib/identify'
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  defaultValue: false,
+  adapter: postHogAdapter.isFeatureEnabled(),
+  identify,
+})
+```
+
+Then use it in your framework:
+
+```tsx title="app/page.tsx"
+import { exampleFlag } from "@/flags";
+
+export default async function Page() {
+  const exampleValue = await exampleFlag();
+
+  return <div>Example Flag: {String(exampleValue)}</div>;
+}
+```
+
+## Flags Explorer
+
+### How to inform the Flags Explorer about flags
+
+You can view and override these flags using the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer)
+
+For getProviderData, you will also need a personal API key and your project ID.
+
+```bash title=".env.local"
+# Settings > User > Personal API keys
+POSTHOG_PERSONAL_API_KEY=key
+# Settings > Project > Project ID
+POSTHOG_PROJECT_ID=projectId
+```
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { createFlagsDiscoveryEndpoint } from 'flags/next'
+import { getProviderData as getPostHogProviderData } from '@flags-sdk/posthog'
+import * as flags from '../../../../flags'
+
+export const GET = createFlagsDiscoveryEndpoint(() => getPostHogProviderData({
+  personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+  projectId: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_ID,
+}))
+```
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/feature-flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>

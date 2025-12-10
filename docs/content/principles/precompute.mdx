@@ -1,0 +1,37 @@
+---
+title: Precompute
+description: Precomputing describes a pattern where Routing Middleware uses feature flags to decide which variant of a page to show. This allows you to keep the page itself static, which leads to incredibly low latency globally as the page can be served by a CDN or Edge Network.
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import Image from 'next/image';
+import Link from 'next/link';
+import { LearnMore } from '@/components/learn-more';
+import precomputeImage from './precompute.png';
+
+<Image
+  src={precomputeImage}
+  width={1252}
+  height={618}
+  alt="Precompute manual"
+/>
+
+With precompute, you can:
+
+- Combine multiple feature flags on a single, static page.
+- Use middleware to make routing decisions.
+- Generate pages for each flag combination at build time or lazily, the first time it's accessed.
+- Cache pages with Incremental Static Regeneration (ISR).
+
+Precompute works by using dynamic route segments to transport an encoded version of the feature flags computed within Routing Middleware. Encoding the values within the URL allows the page itself to access the precomputed values, and also ensures there is a unique URL for each combination of feature flags on a page. Because the system works using rewrites, the visitor will never see the URL containing the flags. They will only see the clean, original URL.
+
+Rewriting to static variants of a page can be done manually, but this quickly becomes cumbersome as the number of feature flags and pages increase. To address this, the Flags SDK offers helper functions which allow precomputing multiple flags at once, and then accessing the precomputed values from a page.
+
+
+<LearnMore href="/frameworks/next/precompute" icon="arrow">
+  <div>Learn how to implement the precompute pattern in Next.js</div>
+</LearnMore>
+
+<LearnMore href="/frameworks/sveltekit/precompute" icon="arrow">
+  <div>Learn how to implement the precompute pattern in SvelteKit</div>
+</LearnMore>
