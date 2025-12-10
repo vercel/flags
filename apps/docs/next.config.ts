@@ -22,6 +22,26 @@ const config: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/principles",
+        destination: "/principles/flags-as-code",
+        permanent: true,
+      },
+      {
+        source: "/frameworks",
+        destination: "/frameworks/next",
+        permanent: true,
+      },
+      {
+        source: "/api-reference",
+        destination: "/api-reference/core/core",
+        permanent: true,
+      },
+    ];
+  },
+
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

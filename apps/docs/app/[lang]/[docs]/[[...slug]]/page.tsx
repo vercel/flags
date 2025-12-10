@@ -86,7 +86,7 @@ export const generateStaticParams = async ({ params }: PageProps<"/[lang]/[docs]
   const source = sources[docs as keyof typeof sources];
 
   if (!source) {
-    notFound();
+    return [];
   }
 
   return source.generateParams(lang);
@@ -95,17 +95,23 @@ export const generateStaticParams = async ({ params }: PageProps<"/[lang]/[docs]
 export const generateMetadata = async ({
   params,
 }: PageProps<"/[lang]/[docs]/[[...slug]]">) => {
-  const { lang, docs } = await params;
+  const { lang, docs, slug } = await params;
   const source = sources[docs as keyof typeof sources];
 
   if (!source) {
-    notFound();
+    return {
+      title: "Not found",
+      description: "Not found",
+    };
   }
 
   const page = source.getPage(slug, lang);
 
   if (!page) {
-    notFound();
+    return {
+      title: "Not found",
+      description: "Not found",
+    };
   }
 
   const metadata: Metadata = {
