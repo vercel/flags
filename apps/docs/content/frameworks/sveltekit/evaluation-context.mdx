@@ -1,0 +1,136 @@
+---
+title: Evaluation Context
+description: Segment by any criteria, using an evaluation context
+---
+
+It is common for features to be on for some users, but off for others.
+For example team members working on a new setting might need to see and
+use the setting, while the rest of the team need the setting to be
+hidden.
+
+The `flag` declaration accepts an `identify`
+function. The entities returned from the `identify` function
+are passed as an argument to the `decide` function.
+
+## Example
+
+A trivial case to illustrate the concept:
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+export const exampleFlag = flag<boolean>({
+  key: 'identify-example-flag',
+  identify() {
+    return { user: { id: 'user1' } };
+  },
+  decide({ entities }) {
+    return entities?.user?.id === 'user1';
+  },
+});
+```
+
+Having first-class support for an evaluation context allows decoupling
+the identifying step from the decision making step.
+
+## Type safety
+
+The entities can be typed using the `flag` function.
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+interface Entities {
+  user?: { id: string };
+}
+
+export const exampleFlag = flag<boolean, Entities>({
+  key: 'identify-example-flag',
+  identify() {
+    return { user: { id: 'user1' } };
+  },
+  decide({ entities }) {
+    return entities?.user?.id === 'user1';
+  },
+});
+```
+
+## Headers and Cookies
+
+The `identify` function is called with `headers`{" "}
+and `cookies` arguments, which is useful when dealing with
+anonymous or authenticated users.
+
+The arguments are normalized to a common format so the same flag to be
+used in Routing Middleware and within SvelteKit server contexts (load functions, server endpoints) without having to
+worry about the differences in how `headers` and{" "}
+`cookies` are represented there.
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+export const exampleFlag = flag<boolean, Entities>({
+  // ...
+  identify({ headers, cookies }) {
+    // access to normalized headers and cookies here
+    headers.get('auth');
+    cookies.get('auth')?.value;
+    // ...
+  },
+  // ...
+});
+```
+
+## Deduplication
+
+Calls to `identify` will be deduped based on the object id of the passed function. That means, in order to ensure that an `identify` function is only called once per request,
+make sure to extract it to a named function and reuse it across your flags.
+
+```ts title="src/lib/flags.ts"
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import { flag } from 'flags/sveltekit';
+
+interface Entities {
+  visitorId?: string;
+}
+
+function identify({
+  cookies,
+  headers,
+}: {
+  cookies: ReadonlyRequestCookies;
+  headers: ReadonlyHeaders;
+}): Entities {
+  const visitorId =
+    cookies.get('visitorId')?.value ?? headers.get('x-visitorId');
+
+  return { visitorId };
+}
+
+export const exampleFlag1 = flag<boolean, Entities>({
+  key: 'exampleFlag1',
+  identify,
+  decide({ entities }) {
+    // ...
+  },
+});
+
+export const exampleFlag2 = flag<boolean, Entities>({
+  key: 'exampleFlag2',
+  identify,
+  decide({ entities }) {
+    // ...
+  },
+});
+```
+
+## Precomputing and targeting
+
+The [Marketing Pages](/frameworks/sveltekit/guides/marketing-pages) example which shows how to identify and target users using cookies when
+precomputing pages.
+
+### Full example
+
+<LearnMore href="/frameworks/sveltekit/guides/marketing-pages" icon="arrow">
+  See the Marketing Pages example
+</LearnMore>

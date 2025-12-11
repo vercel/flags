@@ -1,0 +1,26 @@
+{
+  "root": true,
+  "title": "Providers",
+  "pages": [
+    "index",
+    "custom-adapters",
+    "openfeature/index",
+    "------",
+    "---Featured---",
+    "statsig",
+    "hypertune",
+    "growthbook",
+    "edge-config",
+    "---Adapters---",
+    "launchdarkly",
+    "reflag",
+    "posthog",
+    "flagsmith",
+    "---OpenFeature---",
+    "...openfeature",
+    "---Others---",
+    "optimizely",
+    "split"
+  ],
+  "defaultOpen": true
+}

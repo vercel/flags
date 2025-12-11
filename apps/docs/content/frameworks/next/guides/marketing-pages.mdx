@@ -1,0 +1,177 @@
+---
+title: Marketing Pages
+description: Use feature flags on marketing pages.
+---
+
+import Link from 'next/link';
+
+This example shows how to use feature flags for marketing pages.
+Marketing pages are typically static, and served from a CDN at the edge.
+
+When A/B testing on marketing pages it's important to avoid layout
+shift and jank, and to keep the pages static. At first glance this seems
+at odds with the dynamic nature of feature flags. This example shows
+how to keep a page static and serveable from the CDN even when running
+multiple A/B tests on the page.
+
+## Precomputing
+
+The approach used to keep pages static even when using feature flags on
+them is described in more detail on the [Precompute](/principles/precompute) section. At a high level we use Proxy to rewrite the incoming request between static versions of
+the page. These static versions represent the different feature flag states and
+can be computed at build time or at request time. If they are computed at
+request time we can use Incremental Static Regeneration (ISR). Relying on ISR
+avoids the combinatory explosion which would otherwise increase the build time,
+while simulatenously allowing pages to stay cached after the first time they
+were requested.
+
+<LearnMore href="/principles/precompute" icon="arrow">
+  Learn more about `precompute`
+</LearnMore>
+
+## Identifying
+
+This example uses a random id stored in a cookie to target users.
+Next.js can't set cookies while rendering pages, so you must use
+Proxy to generate the random id and store it in a cookie.
+
+This also allows the page to stay static as the page will never access
+cookies. Instead, the flags using cookies will be evaluated in Routing
+Functions and only the resulting flags will be available when rendering
+the page.
+
+```tsx title="proxy.ts#next"
+import { precompute } from 'flags/next';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './flags';
+import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
+
+export async function marketingMiddleware(request: NextRequest) {
+  // assign a cookie to the visitor
+  const visitorId = await getOrGenerateVisitorId(
+    request.cookies,
+    request.headers,
+  );
+
+  // precompute the flags
+  const code = await precompute(marketingFlags);
+
+  // rewrite the page with the code and set the cookie
+  return NextResponse.rewrite(
+    new URL(`/examples/marketing-pages/${code}`, request.url),
+    {
+      headers: {
+        // Set the cookie on the response
+        'Set-Cookie': `marketing-visitor-id=${visitorId}; Path=/`,
+        // Add a request header, so the page knows the generated id even
+        // on the first-ever request which has no request cookie yet.
+        //
+        // This is later used by the getOrGenerateVisitorId function.
+        'x-marketing-visitor-id': visitorId,
+      },
+    },
+  );
+}
+```
+
+The `getOrGenerateVisitorId` function generates a random id,
+or returns the one stored in a cookie if one already exists. The
+function is further [deduplicated](/docs/concepts/dedupe) to
+ensure it generates the same id for the same request, even when called
+multiple times.
+
+```ts title="get-or-generate-visitor-id.ts#next"
+import { nanoid } from 'nanoid';
+import { dedupe } from 'flags/next';
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import type { NextRequest } from 'next/server';
+
+const generateId = dedupe(async () => nanoid());
+
+// This function is not deduplicated, as it is called with
+// two different cookies objects, so it can not be deduplicated.
+//
+// However, the generateId function will always generate the same id for the
+// same request, so it is safe to call it multiple times within the same runtime.
+export const getOrGenerateVisitorId = async (
+  cookies: ReadonlyRequestCookies | NextRequest['cookies'],
+  headers: ReadonlyHeaders | NextRequest['headers'],
+) => {
+  // check cookies first
+  const cookieVisitorId = cookies.get('marketing-visitor-id')?.value;
+  if (cookieVisitorId) return cookieVisitorId;
+
+  // check headers in case middleware set a cookie on the response, as it will
+  // not be present on the initial request
+  const headerVisitorId = headers.get('x-marketing-visitor-id');
+  if (headerVisitorId) return headerVisitorId;
+
+  // if no visitor id is found, generate a new one
+  return generateId();
+};
+```
+
+Having a reliable `getOrGenerateVisitorId` function means we
+can call it in Edge Runtime and in our flag's `identify`{" "}
+function and both will see the exact same id, even when no cookie was
+present initially.
+
+```tsx title="flags.tsx#next"
+// identify who is requesting the page
+const identify = dedupe(
+  async ({
+    cookies,
+  }: {
+    cookies: ReadonlyRequestCookies;
+  }): Promise<Entities> => {
+    const visitorId = await getOrGenerateVisitorId(cookies);
+    return { visitor: visitorId ? { id: visitorId } : undefined };
+  },
+);
+
+export const marketingAbTest = flag<boolean, Entities>({
+  key: 'marketing-ab-test-flag',
+  // use identify to establish the evaluation context,
+  // which will be passed as "entities" to the decide function
+  identify,
+  decide({ entities }) {
+    if (!entities?.visitor) return false;
+    return /^[a-n0-5]/i.test(entities.visitor.id);
+  },
+});
+```
+
+<LearnMore href="/principles/evaluation-context" icon="arrow">
+  Learn more about `identify`
+</LearnMore>
+
+## Ensuring the generated id is always available
+
+When a user visits the page for the first time they will not have the{" "}
+`marketing-visitor-id` cookie. Proxy will generate
+an id and store that in a cookie. However, this means the page will not
+see the generated cookie as it will only be supplied with the next
+request. This means a dynamic page would have no knowledge of the
+generated id.
+
+To solve this issue the approach above also sets a{" "}
+`x-marketing-visitor-id` request header from Proxy,
+which holds the parsed or generated id. This allows the{" "}
+`getOrGenerateVisitorId` function to always see the id by
+either reading it from the cookie or the header. This works even when
+the id was freshly generated by Proxy and no cookie is present
+on the request.
+
+This is only relevant when the underlying page is dynamic, as a static
+page can by definition not read any cookies or headers.
+
+## Example
+
+The example below shows the usage of two feature flags on a static page.
+These flags represent two A/B tests which you could be running
+simulatenously.
+
+<IframeBrowser
+  src="snippets:/examples/marketing-pages"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/examples/marketing-pages"
+/>

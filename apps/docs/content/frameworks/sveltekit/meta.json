@@ -1,0 +1,14 @@
+{
+  "title": "SvelteKit",
+  "defaultOpen": false,
+  "root": true,
+  "pages": [
+    "index",
+    "------",
+    "---Concepts---",
+    "precompute",
+    "evaluation-context",
+    "---Guides---",
+    "...guides"
+  ]
+}

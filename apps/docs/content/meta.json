@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "frameworks/next",
+    "frameworks/sveltekit",
+    "principles",
+    "providers",
+    "api-reference"
+  ]
+}
