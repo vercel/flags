@@ -11,6 +11,10 @@ import { TextGridSection } from "./components/text-grid-section";
 import Testimonials from "./components/testimonials";
 import { Demo } from "./components/demo";
 import HeroImage from "./components/hero-image";
+import { Adaptable, Effortless, Flexible } from "./components/illustrations";
+import { FlagsConfig } from "./components/flags-config";
+import { FlagValues } from "flags/react";
+import { enableBannerFlag, enableDitheredHeroFlag, enableHeroTextFlag, rootFlags } from "./components/flags";
 
 const title = "Ship faster with feature flags";
 const description = "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.";
@@ -44,59 +48,85 @@ const templates = [
 const textGridSection = [
   {
     id: "1",
+    image: <Flexible />,
     title: "Works with any provider",
     description: "Use any flag provider, or none at all. Flexible integrations for your projects.",
   },
   {
     id: "2",
+    image: <Effortless />,
     title: "Effortless integration",
     description: "Integrate with App Router, Pages Router, and Routing Middleware.",
   },
   {
     id: "3",
+    image: <Adaptable />,
     title: "Release strategically",
     description: "Ideal for A/B testing and controlled rollouts. Experiment with confidence.",
   },
 ];
 
-const HomePage = () => (
-  <div className="container mx-auto max-w-5xl">
-    <Hero
-      description={description}
-      title={title}
-    >
-      <div className="mx-auto inline-flex w-72 items-center gap-3">
-        <Button asChild className="px-4" size="lg">
-          <DynamicLink href="/[lang]/docs/getting-started">
-            Get Started
-          </DynamicLink>
-        </Button>
-        <Installer command="npm i flags" />
-      </div>
-    </Hero>
-    <div className="grid divide-y border-y sm:border-x">
-      <OneTwoSection
-        description="The SDK sits between your application and the source of your flags, helping you follow best practices and keep your website fast."
-        title="Using flags as code"
-      >
-        <HeroImage />
-      </OneTwoSection>
-      <TextGridSection data={textGridSection} />
-      <CenteredSection
-        description="With a simple declarative API to define and use your feature flags."
-        title="Effortless setup"
-      >
-        <Demo />
-      </CenteredSection>
-      <Testimonials />
-      <Templates
-        data={templates}
-        description="See Geistdocs in action with one of our templates."
-        title="Get started quickly"
+type HomePageProps = {
+  params: Promise<{ code: string }>;
+};
+
+const HomePage = async ({ params }: HomePageProps) => {
+  const { code } = await params;
+  const [bannerFlag, ditheredHeroFlag, heroTextFlag] = await Promise.all([
+    enableBannerFlag(code, rootFlags),
+    enableDitheredHeroFlag(code, rootFlags),
+    enableHeroTextFlag(code, rootFlags),
+  ]);
+
+  return (
+    <div className="container mx-auto max-w-5xl">
+      <FlagValues
+        values={{
+          [enableBannerFlag.key]: bannerFlag,
+          [enableDitheredHeroFlag.key]: ditheredHeroFlag,
+          [enableHeroTextFlag.key]: heroTextFlag,
+        }}
       />
-      <CTA cta="Get started" href="/docs" title="Start your docs today" />
+      <Hero
+        description={description}
+        title={title}
+      >
+        <div className="mx-auto inline-flex w-72 items-center gap-3">
+          <Button asChild className="px-4" size="lg">
+            <DynamicLink href="/[lang]/docs/getting-started">
+              Get Started
+            </DynamicLink>
+          </Button>
+          <Installer command="npm i flags" />
+        </div>
+      </Hero>
+      <div className="grid divide-y border-y sm:border-x">
+        <OneTwoSection
+          description="The SDK sits between your application and the source of your flags, helping you follow best practices and keep your website fast."
+          title="Using flags as code"
+        >
+          {ditheredHeroFlag ? (
+            <HeroImage />
+          ) : null}
+          <FlagsConfig />
+        </OneTwoSection>
+        <TextGridSection data={textGridSection} />
+        <CenteredSection
+          description="With a simple declarative API to define and use your feature flags."
+          title="Effortless setup"
+        >
+          <Demo />
+        </CenteredSection>
+        <Testimonials />
+        <Templates
+          data={templates}
+          description="See Geistdocs in action with one of our templates."
+          title="Get started quickly"
+        />
+        <CTA cta="Get started" href="/docs" title="Start your docs today" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default HomePage;
