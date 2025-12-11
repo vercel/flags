@@ -47,8 +47,12 @@ const config: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "placehold.co",
+        hostname: "assets.vercel.com",
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+      }
     ],
   },
 };

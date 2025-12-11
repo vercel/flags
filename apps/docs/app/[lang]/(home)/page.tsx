@@ -8,6 +8,9 @@ import { Hero } from "./components/hero";
 import { OneTwoSection } from "./components/one-two-section";
 import { Templates } from "./components/templates";
 import { TextGridSection } from "./components/text-grid-section";
+import Testimonials from "./components/testimonials";
+import { Demo } from "./components/demo";
+import HeroImage from "./components/hero-image";
 
 const title = "Ship faster with feature flags";
 const description = "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.";
@@ -72,19 +75,20 @@ const HomePage = () => (
       </div>
     </Hero>
     <div className="grid divide-y border-y sm:border-x">
+      <OneTwoSection
+        description="The SDK sits between your application and the source of your flags, helping you follow best practices and keep your website fast."
+        title="Using flags as code"
+      >
+        <HeroImage />
+      </OneTwoSection>
       <TextGridSection data={textGridSection} />
       <CenteredSection
-        description="Description of centered section"
-        title="Centered Section"
+        description="With a simple declarative API to define and use your feature flags."
+        title="Effortless setup"
       >
-        <div className="aspect-video rounded-lg border bg-background" />
+        <Demo />
       </CenteredSection>
-      <OneTwoSection
-        description="Description of one/two section"
-        title="One/Two Section"
-      >
-        <div className="aspect-video rounded-lg border bg-background" />
-      </OneTwoSection>
+      <Testimonials />
       <Templates
         data={templates}
         description="See Geistdocs in action with one of our templates."
