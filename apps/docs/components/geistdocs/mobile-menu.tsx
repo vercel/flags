@@ -9,7 +9,7 @@ export const MobileMenu = () => {
 
   return (
     <Button
-      className="md:hidden"
+      className="xl:hidden"
       onClick={() => setIsOpen(!isOpen)}
       size="icon-sm"
       variant="ghost"
