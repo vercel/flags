@@ -1,11 +1,13 @@
 {
   "name": "flags",
   "version": "4.0.2",
-  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
+  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js, Nuxt and SvelteKit",
   "keywords": [
     "feature flags",
     "Next.js",
+    "Nuxt",
     "react",
+    "vue",
     "toolbar",
     "overrides",
     "SvelteKit"
@@ -30,6 +32,8 @@
       "import": "./dist/next.js",
       "require": "./dist/next.cjs"
     },
+    "./nuxt": "./dist/nuxt.js",
+    "./nuxt/runtime": "./dist/nuxt/runtime/index.js",
     "./analytics": {
       "import": "./dist/analytics.js",
       "require": "./dist/analytics.cjs"
@@ -53,6 +57,12 @@
       "next": [
         "dist/next.d.ts",
         "dist/next.d.cts"
+      ],
+      "nuxt": [
+        "dist/nuxt.d.ts"
+      ],
+      "nuxt/runtime": [
+        "dist/nuxt/runtime.d.ts"
       ],
       "react": [
         "dist/react.d.ts",
@@ -79,25 +89,36 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
-    "jose": "^5.2.1"
+    "exsolve": "^1.0.8",
+    "jose": "^5.2.1",
+    "magic-string": "0.30.21",
+    "ohash": "2.0.11",
+    "std-env": "^3.10.0",
+    "ts-blank-space": "0.6.2",
+    "unplugin": "^2.3.11"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.17.3",
+    "@nuxt/test-utils": "3.20.1",
+    "@types/estree": "1.0.8",
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
+    "h3": "1.15.4",
     "msw": "2.6.4",
     "next": "16.0.10",
+    "nuxt": "4.2.1",
     "react": "canary",
     "tsup": "8.0.1",
     "typescript": "5.6.3",
-    "vite": "5.1.1",
+    "vite": "7.2.2",
     "vitest": "1.4.0"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
     "@sveltejs/kit": "*",
     "next": "*",
+    "nuxt": ">=3.0.0",
     "react": "*",
     "react-dom": "*"
   },
@@ -109,6 +130,9 @@
       "optional": true
     },
     "next": {
+      "optional": true
+    },
+    "nuxt": {
       "optional": true
     },
     "react": {

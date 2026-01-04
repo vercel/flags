@@ -2,9 +2,9 @@
 
 # Flags SDK
 
-The feature flags toolkit for Next.js and SvelteKit.
+The feature flags toolkit for Next.js, Nuxt, and SvelteKit.
 
-From the creators of Next.js, the Flags SDK is a free open-source library that gives you the tools you need to use feature flags in Next.js and SvelteKit applications.
+From the creators of Next.js, the Flags SDK is a free open-source library that gives you the tools you need to use feature flags in Next.js, Nuxt, and SvelteKit applications.
 
 - Works with any flag provider, custom setups or no flag provider at all
 - Compatible with App Router, Pages Router, and Routing Middleware
