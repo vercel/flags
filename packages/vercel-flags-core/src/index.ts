@@ -5,6 +5,7 @@ import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import type { DataSource } from './data-source/interface';
 import type { ConnectionOptions } from './types';
+import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 export {
   createRawClient,
@@ -114,7 +115,11 @@ export function getDefaultFlagsClient() {
     throw new Error('flags: Missing environment variable FLAGS');
   }
 
-  defaultFlagsClient = createClient(process.env.FLAGS);
+  const sdkKey = parseSdkKeyFromFlagsConnectionString(process.env.FLAGS);
+  if (!sdkKey) {
+    throw new Error('flags: Missing sdkKey');
+  }
+  defaultFlagsClient = createClient(sdkKey);
   return defaultFlagsClient;
 }
 
