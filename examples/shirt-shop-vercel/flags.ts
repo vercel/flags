@@ -32,7 +32,7 @@ export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
 export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
   key: 'free-delivery',
   description: 'Show a black free delivery banner at the top of the page',
-  // defaultValue: false,
+  defaultValue: false,
   identify,
   adapter: vercelAdapter(),
 });
