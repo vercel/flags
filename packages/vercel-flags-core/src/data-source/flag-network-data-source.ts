@@ -59,8 +59,8 @@ export class FlagNetworkDataSource implements DataSource {
       this.rejectStreamInitPromise = reject;
     });
 
-    this._loopPromise = this.createLoop().catch(() => {
-      console.error('Failed to create loop');
+    this._loopPromise = this.createLoop().catch((error) => {
+      console.error('Failed to create loop', error);
       this.breakLoop = true;
     });
 
@@ -69,10 +69,14 @@ export class FlagNetworkDataSource implements DataSource {
 
   async createLoop() {
     console.log(process.pid, 'createLoop → MAKE STREAM');
-    const response = await fetch(`http://localhost:3030/stream`);
+    const response = await fetch(`https://flags.vercel.com/v1/sse`, {
+      headers: {
+        Authorization: `Bearer ${this.sdkKey}`,
+      },
+    });
 
     if (!response.ok) {
-      const error = new Error(`Failed to fetch stream`);
+      const error = new Error(`Failed to fetch stream: ${response.statusText}`);
       this.rejectStreamInitPromise!(error);
       throw error;
     }
@@ -83,24 +87,50 @@ export class FlagNetworkDataSource implements DataSource {
       throw error;
     }
 
+    let buffer = '';
+
     // Wait for the server to push some data
     for await (const chunk of streamAsyncIterable(response.body)) {
       if (this.breakLoop) break;
-      const text = new TextDecoder().decode(chunk);
-      const data = JSON.parse(text) as BundledDefinitions;
-      this.definitions = data;
-      // console.log(
-      //   process.pid,
-      //   'loop → update',
-      //   JSON.stringify(
-      //     data.definitions['proceed-to-checkout-color']?.environments
-      //       .development,
-      //     null,
-      //     2,
-      //   ),
-      // );
-      // only resolves once anyhow
-      this.resolveStreamInitPromise!(data);
+      buffer += new TextDecoder().decode(chunk);
+
+      // SSE events are separated by double newlines
+      let eventBoundary = buffer.indexOf('\n\n');
+      while (eventBoundary !== -1) {
+        const eventBlock = buffer.slice(0, eventBoundary);
+        buffer = buffer.slice(eventBoundary + 2);
+
+        // Parse the SSE event block
+        let eventType: string | null = null;
+        let eventData: string | null = null;
+
+        for (const line of eventBlock.split('\n')) {
+          // Skip empty lines and comment lines (like ": ping")
+          if (line === '' || line.startsWith(':')) continue;
+
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7);
+          } else if (line.startsWith('data: ')) {
+            eventData = line.slice(6);
+          }
+        }
+
+        // Only process datafile events
+        if (eventType === 'datafile' && eventData) {
+          const data = JSON.parse(eventData) as BundledDefinitions;
+          this.definitions = {
+            ...data,
+            // TODO: get projectId and environment from the sdk key
+            projectId: 'prj_PADdqpFWbMVQijMfVzqcuh8wc9Rq',
+            environment: 'development',
+          };
+          console.log(process.pid, 'loop → data', data);
+          this.resolveStreamInitPromise!(data);
+        }
+
+        // Check for more events in the buffer
+        eventBoundary = buffer.indexOf('\n\n');
+      }
     }
 
     console.log(process.pid, 'loop → done');

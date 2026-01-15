@@ -16,10 +16,11 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { version } from '../package.json';
 import type { BundledDefinitions } from './types';
+import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 // TODO replace with actual host
-const host = 'http://localhost:3030';
-// const host = "https://flags.vercel.com"
+// const host = 'http://localhost:3030';
+const host = 'https://flags.vercel.com';
 
 // Get the directory where this CLI script is located
 const __filename = fileURLToPath(import.meta.url);
@@ -36,22 +37,6 @@ function obfuscate(sdkKey: string, prefixLength: number = 18): string {
   return (
     sdkKey.slice(0, prefixLength) + '*'.repeat(sdkKey.length - prefixLength)
   );
-}
-
-/**
- * Parses sdk keys from connection strings with the following format:
- * `flags:edgeConfigId=ecfg_abcd&edgeConfigToken=xxx&sdkKey=xxx`
- */
-function parseSdkKeyFromFlagsConnectionString(text: string): string | null {
-  try {
-    if (!text.startsWith('flags:')) return null;
-    const params = new URLSearchParams(text.slice(6));
-    return params.get('sdkKey');
-  } catch {
-    // no-op
-  }
-
-  return null;
 }
 
 type DefinitionsJson = Record<string, BundledDefinitions>;
@@ -94,7 +79,7 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
         headers.set('x-vercel-region', process.env.VERCEL_REGION);
       }
 
-      const res = await fetch(`${host}/datafile`, { headers });
+      const res = await fetch(`${host}/v1/datafile`, { headers });
 
       if (!res.ok) {
         throw new Error(
