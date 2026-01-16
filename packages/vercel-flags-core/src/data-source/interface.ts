@@ -1,3 +1,4 @@
+import type { Origin } from 'flags';
 import type { DataSourceData } from '../types';
 
 /**
@@ -21,4 +22,6 @@ export interface DataSource {
    * End polling or subscriptions.
    */
   shutdown?(): void;
+
+  getOrigin(): Promise<Origin>;
 }

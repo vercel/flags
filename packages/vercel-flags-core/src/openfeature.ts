@@ -8,7 +8,7 @@ import {
   type ResolutionReason,
   StandardResolutionReasons,
 } from '@openfeature/server-sdk';
-import { createClientFromConnectionString, Reason } from '.';
+import { createClient, Reason } from '.';
 import type { FlagsClient } from './client';
 
 function mapReason(reason: Reason): ResolutionReason {
@@ -45,7 +45,7 @@ export class VercelProvider implements Provider {
   constructor(connectionString: string);
   constructor(clientOrConnectionString: FlagsClient | string) {
     if (typeof clientOrConnectionString === 'string') {
-      this.client = createClientFromConnectionString(clientOrConnectionString);
+      this.client = createClient(clientOrConnectionString);
     } else {
       this.client = clientOrConnectionString;
     }

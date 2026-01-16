@@ -1,3 +1,4 @@
+import type { Origin } from 'flags';
 import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { DataSource } from './interface';
@@ -28,6 +29,8 @@ export class FlagNetworkDataSource implements DataSource {
   resolveStreamInitPromise: undefined | ((value: BundledDefinitions) => void);
   rejectStreamInitPromise: undefined | ((reason?: any) => void);
   initialized?: boolean = false;
+
+  readonly host = 'https://flags.vercel.com';
 
   constructor(options: {
     sdkKey: string;
@@ -69,7 +72,7 @@ export class FlagNetworkDataSource implements DataSource {
 
   async createLoop() {
     console.log(process.pid, 'createLoop → MAKE STREAM');
-    const response = await fetch(`https://flags.vercel.com/v1/stream`, {
+    const response = await fetch(`${this.host}/v1/stream`, {
       headers: {
         Authorization: `Bearer ${this.sdkKey}`,
       },
@@ -129,6 +132,26 @@ export class FlagNetworkDataSource implements DataSource {
     }
 
     console.log(process.pid, 'loop → done');
+  }
+
+  async fetchData(): Promise<BundledDefinitions> {
+    const headers = new Headers();
+    headers.set('authorization', `Bearer ${this.sdkKey}`);
+
+    const res = await fetch(`${this.host}/v1/datafile`, { headers });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch data: ${res.statusText}`);
+    }
+
+    return (await res.json()) as BundledDefinitions;
+  }
+
+  async getOrigin(): Promise<Origin> {
+    const data = await this.fetchData();
+    return {
+      projectId: data.projectId,
+      provider: 'flags',
+    };
   }
 
   // called once per flag rather than once per request,

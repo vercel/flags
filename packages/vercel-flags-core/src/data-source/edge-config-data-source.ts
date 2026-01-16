@@ -1,4 +1,5 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
+import type { Origin } from 'flags';
 import { store } from '../store';
 import type { DataSourceData, Packed } from '../types';
 import type { DataSource } from './interface';
@@ -49,6 +50,13 @@ export class EdgeConfigDataSource implements DataSource {
     if (cacheKey) this.requestCache.set(cacheKey, promise);
 
     return promise;
+  }
+
+  async getOrigin(): Promise<Origin> {
+    return {
+      projectId: this.projectId,
+      provider: 'flags',
+    };
   }
 
   async getData() {
