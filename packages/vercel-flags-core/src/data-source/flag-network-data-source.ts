@@ -1,7 +1,6 @@
-import type { Origin } from 'flags';
 import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
-import type { DataSource } from './interface';
+import type { DataSource, DataSourceMetadata } from './interface';
 
 async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -146,12 +145,9 @@ export class FlagNetworkDataSource implements DataSource {
     return (await res.json()) as BundledDefinitions;
   }
 
-  async getOrigin(): Promise<Origin> {
+  async getMetadata(): Promise<DataSourceMetadata> {
     const data = await this.fetchData();
-    return {
-      projectId: data.projectId,
-      provider: 'flags',
-    };
+    return { projectId: data.projectId };
   }
 
   // called once per flag rather than once per request,

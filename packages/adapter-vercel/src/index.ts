@@ -105,7 +105,7 @@ export async function getProviderData(
   >,
 ): Promise<ProviderData> {
   const flagsClient = getDefaultFlagsClient();
-  const origin = await flagsClient.getOrigin();
+  const metadata = await flagsClient.getMetadata();
 
   const definitions = Object.values(flags)
     // filter out precomputed arrays
@@ -113,7 +113,10 @@ export async function getProviderData(
     .reduce<FlagDefinitionsType>((acc, d) => {
       acc[d.key] = {
         options: d.options,
-        origin: origin,
+        origin: {
+          provider: 'vercel',
+          projectId: metadata.projectId,
+        },
         description: d.description,
         defaultValue: d.defaultValue,
         declaredInCode: true,
