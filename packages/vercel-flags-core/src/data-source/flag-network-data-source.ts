@@ -69,7 +69,7 @@ export class FlagNetworkDataSource implements DataSource {
 
   async createLoop() {
     console.log(process.pid, 'createLoop → MAKE STREAM');
-    const response = await fetch(`https://flags.vercel.com/v1/sse`, {
+    const response = await fetch(`https://flags.vercel.com/v1/stream`, {
       headers: {
         Authorization: `Bearer ${this.sdkKey}`,
       },
@@ -118,12 +118,7 @@ export class FlagNetworkDataSource implements DataSource {
         // Only process datafile events
         if (eventType === 'datafile' && eventData) {
           const data = JSON.parse(eventData) as BundledDefinitions;
-          this.definitions = {
-            ...data,
-            // TODO: get projectId and environment from the sdk key
-            projectId: 'prj_PADdqpFWbMVQijMfVzqcuh8wc9Rq',
-            environment: 'development',
-          };
+          this.definitions = data;
           console.log(process.pid, 'loop → data', data);
           this.resolveStreamInitPromise!(data);
         }
