@@ -1,6 +1,5 @@
-import type { Origin } from 'flags';
 import type { DataSourceData, Packed } from '../types';
-import type { DataSource } from './interface';
+import type { DataSource, DataSourceMetadata } from './interface';
 
 export class InMemoryDataSource implements DataSource {
   dataSourceData: DataSourceData;
@@ -17,11 +16,8 @@ export class InMemoryDataSource implements DataSource {
     };
   }
 
-  async getOrigin(): Promise<Origin> {
-    return {
-      projectId: this.dataSourceData.projectId,
-      provider: 'flags',
-    };
+  async getMetadata(): Promise<DataSourceMetadata> {
+    return { projectId: this.dataSourceData.projectId };
   }
 
   async getData() {

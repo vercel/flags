@@ -1,5 +1,8 @@
-import type { Origin } from 'flags';
 import type { DataSourceData } from '../types';
+
+export type DataSourceMetadata = {
+  projectId: string;
+};
 
 /**
  * DataSource interface for the Vercel Flags client
@@ -23,5 +26,5 @@ export interface DataSource {
    */
   shutdown?(): void;
 
-  getOrigin(): Promise<Origin>;
+  getMetadata(): Promise<DataSourceMetadata>;
 }

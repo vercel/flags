@@ -1,8 +1,7 @@
 // TODO should we store the context schema (entities schema) in Edge Config and validate context?
 // TODO should we make evaluate return the variant ids as well?
 
-import type { Origin } from 'flags';
-import type { DataSource } from './data-source/interface';
+import type { DataSource, DataSourceMetadata } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
@@ -30,7 +29,7 @@ export type FlagsClient = {
   ) => Promise<EvaluationResult<T>>;
   initialize(): void | Promise<void>;
   shutdown(): void | Promise<void>;
-  getOrigin(): Promise<Origin>;
+  getMetadata(): Promise<{ projectId: string }>;
 };
 
 /**
@@ -53,8 +52,8 @@ export function createRawClient({
 }): FlagsClient {
   return {
     dataSource,
-    async getOrigin(): Promise<Origin> {
-      return dataSource.getOrigin();
+    async getMetadata(): Promise<DataSourceMetadata> {
+      return dataSource.getMetadata();
     },
     initialize: () => {
       if (dataSource && typeof dataSource.initialize === 'function') {

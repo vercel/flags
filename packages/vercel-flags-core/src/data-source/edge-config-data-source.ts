@@ -1,8 +1,7 @@
 import type { EdgeConfigClient } from '@vercel/edge-config';
-import type { Origin } from 'flags';
 import { store } from '../store';
 import type { DataSourceData, Packed } from '../types';
-import type { DataSource } from './interface';
+import type { DataSource, DataSourceMetadata } from './interface';
 
 /**
  * Implements the DataSource interface for Edge Config.
@@ -52,11 +51,8 @@ export class EdgeConfigDataSource implements DataSource {
     return promise;
   }
 
-  async getOrigin(): Promise<Origin> {
-    return {
-      projectId: this.projectId,
-      provider: 'flags',
-    };
+  async getMetadata(): Promise<DataSourceMetadata> {
+    return { projectId: this.projectId };
   }
 
   async getData() {
