@@ -5,7 +5,14 @@ import {
   Reason,
   store,
 } from '@vercel/flags-core';
-import type { Adapter, FlagDeclaration } from 'flags';
+import type {
+  Adapter,
+  FlagDeclaration,
+  FlagDefinitionsType,
+  FlagDefinitionType,
+  ProviderData,
+} from 'flags';
+import type { KeyedFlagDefinitionType } from 'flags/next';
 
 export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   FlagDeclaration<ValueType, EntitiesType>,
@@ -88,4 +95,31 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   }
 
   return defaultVercelAdapter<ValueType, EntitiesType>();
+}
+
+export async function getProviderData(
+  flags: Record<
+    string,
+    // accept an unknown array
+    KeyedFlagDefinitionType | readonly unknown[]
+  >,
+): Promise<ProviderData> {
+  const flagsClient = getDefaultFlagsClient();
+  const origin = await flagsClient.getOrigin();
+
+  const definitions = Object.values(flags)
+    // filter out precomputed arrays
+    .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i))
+    .reduce<FlagDefinitionsType>((acc, d) => {
+      acc[d.key] = {
+        options: d.options,
+        origin: origin,
+        description: d.description,
+        defaultValue: d.defaultValue,
+        declaredInCode: true,
+      } satisfies FlagDefinitionType;
+      return acc;
+    }, {});
+
+  return { definitions, hints: [] };
 }

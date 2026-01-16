@@ -107,7 +107,6 @@ export function createClientFromConnectionString(connectionString: string) {
  */
 export function getDefaultFlagsClient() {
   if (defaultFlagsClient) {
-    console.log(process.pid, 'REUSING DEFAULT FLAGS CLIENT');
     return defaultFlagsClient;
   }
 

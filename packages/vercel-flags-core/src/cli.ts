@@ -18,8 +18,6 @@ import { version } from '../package.json';
 import type { BundledDefinitions } from './types';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
-// TODO replace with actual host
-// const host = 'http://localhost:3030';
 const host = 'https://flags.vercel.com';
 
 // Get the directory where this CLI script is located
