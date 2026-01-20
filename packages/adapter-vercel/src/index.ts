@@ -1,11 +1,18 @@
 import {
-  createClientFromConnectionString,
+  createClient,
   type FlagsClient,
   getDefaultFlagsClient,
   Reason,
   store,
 } from '@vercel/flags-core';
-import type { Adapter, FlagDeclaration } from 'flags';
+import type {
+  Adapter,
+  FlagDeclaration,
+  FlagDefinitionsType,
+  FlagDefinitionType,
+  ProviderData,
+} from 'flags';
+import type { KeyedFlagDefinitionType } from 'flags/next';
 
 export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   FlagDeclaration<ValueType, EntitiesType>,
@@ -17,23 +24,25 @@ export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
  */
 export function createVercelAdapter(
   // usually a connection string, but can also be a pre-configured FlagsClient
-  connectionStringOrFlagsClient: string | FlagsClient,
+  sdkKeyOrFlagsClient: string | FlagsClient,
 ) {
   const flagsClient =
-    typeof connectionStringOrFlagsClient === 'string'
-      ? createClientFromConnectionString(connectionStringOrFlagsClient)
-      : connectionStringOrFlagsClient;
+    typeof sdkKeyOrFlagsClient === 'string'
+      ? createClient(sdkKeyOrFlagsClient)
+      : sdkKeyOrFlagsClient;
 
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
   > {
     return {
-      origin: {
-        provider: 'vercel',
-        projectId: flagsClient.dataSource.projectId,
-        env: flagsClient.environment,
-      },
+      origin:
+        typeof sdkKeyOrFlagsClient === 'string'
+          ? {
+              provider: 'vercel',
+              sdkKey: sdkKeyOrFlagsClient,
+            }
+          : undefined,
       config: { reportValue: false },
       async decide({ key, entities, headers }): Promise<ValueType> {
         const evaluationResultPromise = store.run(headers, async () => {
@@ -86,4 +95,34 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   }
 
   return defaultVercelAdapter<ValueType, EntitiesType>();
+}
+
+export async function getProviderData(
+  flags: Record<
+    string,
+    // accept an unknown array
+    KeyedFlagDefinitionType | readonly unknown[]
+  >,
+): Promise<ProviderData> {
+  const flagsClient = getDefaultFlagsClient();
+  const metadata = await flagsClient.getMetadata();
+
+  const definitions = Object.values(flags)
+    // filter out precomputed arrays
+    .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i))
+    .reduce<FlagDefinitionsType>((acc, d) => {
+      acc[d.key] = {
+        options: d.options,
+        origin: {
+          provider: 'vercel',
+          projectId: metadata.projectId,
+        },
+        description: d.description,
+        defaultValue: d.defaultValue,
+        declaredInCode: true,
+      } satisfies FlagDefinitionType;
+      return acc;
+    }, {});
+
+  return { definitions, hints: [] };
 }

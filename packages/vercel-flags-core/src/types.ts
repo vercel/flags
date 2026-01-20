@@ -6,6 +6,27 @@ export interface ConnectionOptions {
   projectId: string;
 }
 
+export type DataSourceData = Packed.Data & {
+  /**
+   * If a data source is used with a specific sdk key then
+   * the sdk key or data source might contain information
+   * about the environment to be evaluated
+   */
+  environment: string;
+  /** Vercel project id of the source of these flags  */
+  projectId: string;
+};
+
+/** Flag Definitions of a Vercel project */
+export type BundledDefinitions = DataSourceData & {
+  /** when the data was last updated */
+  updatedAt: number;
+  /** hash of the data */
+  digest: string;
+  /** version number of the dat */
+  revision: number;
+};
+
 // -----------------------------------------------------------------------------
 // Shared data
 // -----------------------------------------------------------------------------

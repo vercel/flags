@@ -1,6 +1,7 @@
 // TODO should we store the context schema (entities schema) in Edge Config and validate context?
 // TODO should we make evaluate return the variant ids as well?
-import type { DataSource } from './data-source/interface';
+
+import type { DataSource, DataSourceMetadata } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
@@ -19,7 +20,7 @@ export type Source = {
 };
 
 export type FlagsClient = {
-  environment: string;
+  // environment: string;
   dataSource: DataSource;
   evaluate: <T = Value, E = Record<string, unknown>>(
     flagKey: string,
@@ -28,6 +29,7 @@ export type FlagsClient = {
   ) => Promise<EvaluationResult<T>>;
   initialize(): void | Promise<void>;
   shutdown(): void | Promise<void>;
+  getMetadata(): Promise<{ projectId: string }>;
 };
 
 /**
@@ -43,16 +45,16 @@ export type FlagsClient = {
  *    environment: 'production',
  *  });
  */
-export function createClient({
-  environment,
+export function createRawClient({
   dataSource,
 }: {
-  environment: string;
   dataSource: DataSource;
 }): FlagsClient {
   return {
     dataSource,
-    environment,
+    async getMetadata(): Promise<DataSourceMetadata> {
+      return dataSource.getMetadata();
+    },
     initialize: () => {
       if (dataSource && typeof dataSource.initialize === 'function') {
         return dataSource.initialize();
@@ -74,7 +76,6 @@ export function createClient({
       // evaluation, particularly in languages or environments wherein there's a
       // single thread of execution.
       const data = await dataSource.getData();
-
       const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
       if (flagDefinition === undefined) {
@@ -89,14 +90,14 @@ export function createClient({
       const result = evaluate<T>({
         defaultValue,
         definition: flagDefinition,
-        environment: this.environment,
+        environment: data.environment,
         entities: entities ?? {},
         segments: data.segments,
       });
 
-      if (dataSource.projectId) {
+      if (data.projectId) {
         internalReportValue(flagKey, result.value, {
-          originProjectId: dataSource.projectId,
+          originProjectId: data.projectId,
           originProvider: 'vercel',
           reason: result.reason,
           outcomeType:

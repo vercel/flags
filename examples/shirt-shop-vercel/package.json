@@ -1,0 +1,45 @@
+{
+  "name": "shirt-shop-vercel",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "vercel-flags prepare",
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "biome check",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.2.7",
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "2.2.0",
+    "@tailwindcss/aspect-ratio": "0.4.2",
+    "@tailwindcss/forms": "0.5.10",
+    "@tailwindcss/postcss": "^4.0.9",
+    "@tailwindcss/typography": "0.5.16",
+    "@flags-sdk/vercel": "workspace:*",
+    "@vercel/flags-core": "workspace:*",
+    "@vercel/analytics": "1.5.0",
+    "@vercel/edge": "1.2.2",
+    "@vercel/edge-config": "1.4.3",
+    "@vercel/toolbar": "0.1.36",
+    "clsx": "2.1.1",
+    "flags": "4.0.1",
+    "js-xxhash": "4.0.0",
+    "motion": "12.12.1",
+    "nanoid": "5.1.2",
+    "next": "16.0.10",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sonner": "2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.0.9",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+}
