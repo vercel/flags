@@ -121,45 +121,34 @@ export class FlagNetworkDataSource implements DataSource {
         // Reset retry count on successful connection
         this.retryCount = 0;
 
+        const decoder = new TextDecoder();
         let buffer = '';
 
-        // Wait for the server to push some data
         for await (const chunk of streamAsyncIterable(response.body)) {
           if (this.breakLoop) break;
-          buffer += new TextDecoder().decode(chunk);
+          buffer += decoder.decode(chunk, { stream: true });
 
-          // SSE events are separated by double newlines
-          let eventBoundary = buffer.indexOf('\n\n');
-          while (eventBoundary !== -1) {
-            const eventBlock = buffer.slice(0, eventBoundary);
-            buffer = buffer.slice(eventBoundary + 2);
+          const lines = buffer.split('\n');
+          buffer = lines.pop()!; // Keep incomplete line in buffer
 
-            // Parse the SSE event block
-            let eventType: string | null = null;
-            let eventData: string | null = null;
+          for (const line of lines) {
+            if (line === '') continue;
 
-            for (const line of eventBlock.split('\n')) {
-              // Skip empty lines and comment lines (like ": ping")
-              if (line === '' || line.startsWith(':')) continue;
+            const message = JSON.parse(line) as
+              | { type: 'datafile'; data: BundledDefinitions }
+              | { type: 'terminate'; reason: string }
+              | { type: 'ping' };
 
-              if (line.startsWith('event: ')) {
-                eventType = line.slice(7);
-              } else if (line.startsWith('data: ')) {
-                eventData = line.slice(6);
-              }
-            }
-
-            // Only process datafile events
-            if (eventType === 'datafile' && eventData) {
-              const data = JSON.parse(eventData) as BundledDefinitions;
-              this.definitions = data;
+            if (message.type === 'datafile') {
+              this.definitions = message.data;
               this.hasReceivedData = true;
-              console.log(process.pid, 'loop → data', data);
-              this.resolveStreamInitPromise!(data);
+              console.log(process.pid, 'loop → data', message.data);
+              this.resolveStreamInitPromise!(message.data);
+            } else if (message.type === 'terminate') {
+              console.log(process.pid, 'loop → terminate:', message.reason);
+              this.breakLoop = true;
+              break;
             }
-
-            // Check for more events in the buffer
-            eventBoundary = buffer.indexOf('\n\n');
           }
         }
 
