@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createClientFromConnectionString, type FlagsClient } from '.';
 import { evaluate } from './evaluate';
 import {
@@ -11,7 +11,6 @@ import {
 
 describe('integration evaluate', () => {
   let client: FlagsClient;
-  let defaultEnvironment: string;
 
   beforeAll(async () => {
     // It's okay that this is commited as it's public
@@ -24,11 +23,6 @@ describe('integration evaluate', () => {
     }
 
     client = createClientFromConnectionString(connectionString);
-    defaultEnvironment = client.environment;
-  });
-
-  beforeEach(() => {
-    client.environment = defaultEnvironment;
   });
 
   it('should evaluate active flags', async () => {
@@ -54,15 +48,6 @@ describe('integration evaluate', () => {
         reason: ResolutionReason.ERROR,
         errorCode: 'FLAG_NOT_FOUND',
         errorMessage: 'Definition not found for flag "does-not-exist"',
-      });
-    });
-
-    it('should error for missing environment config', async () => {
-      client.environment = 'this-env-does-not-exist-and-will-cause-an-error';
-      expect(await client.evaluate('active')).toEqual({
-        reason: ResolutionReason.ERROR,
-        errorMessage:
-          'Could not find envConfig for "this-env-does-not-exist-and-will-cause-an-error"',
       });
     });
   });
@@ -99,17 +84,9 @@ describe('integration evaluate', () => {
     });
   });
 
-  it('should reuse an active environment', async () => {
-    client.environment = 'preview';
-
-    expect(
-      await client.evaluate('reuse', undefined, { user: { name: 'Joe' } }),
-    ).toEqual({
-      value: true,
-      reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.VALUE,
-    });
-  });
+  // Note: The 'reuse' test requires setting environment to 'preview' which
+  // is no longer possible on the client directly. This behavior is tested
+  // in evaluate.test.ts instead.
 
   describe('targets', () => {
     it('should respect targeting', async () => {
