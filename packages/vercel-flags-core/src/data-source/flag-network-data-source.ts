@@ -28,6 +28,10 @@ export class FlagNetworkDataSource implements DataSource {
   resolveStreamInitPromise: undefined | ((value: BundledDefinitions) => void);
   rejectStreamInitPromise: undefined | ((reason?: any) => void);
   initialized?: boolean = false;
+  private hasReceivedData: boolean = false;
+  private retryCount: number = 0;
+  private readonly maxRetryDelay: number = 30000; // 30 seconds max delay
+  private readonly baseRetryDelay: number = 1000; // 1 second initial delay
 
   readonly host = 'https://flags.vercel.com';
 
@@ -39,6 +43,19 @@ export class FlagNetworkDataSource implements DataSource {
     // preload from embedded json AND set up stream,
     // and only ever read from in-memory data
     this.bundledDefinitions = readBundledDefinitions(this.sdkKey);
+  }
+
+  private getRetryDelay(): number {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (capped)
+    const delay = Math.min(
+      this.baseRetryDelay * Math.pow(2, this.retryCount),
+      this.maxRetryDelay,
+    );
+    return delay;
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async subscribe() {
@@ -70,63 +87,105 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async createLoop() {
-    console.log(process.pid, 'createLoop → MAKE STREAM');
-    const response = await fetch(`${this.host}/v1/stream`, {
-      headers: {
-        Authorization: `Bearer ${this.sdkKey}`,
-      },
-    });
+    while (!this.breakLoop) {
+      try {
+        console.log(process.pid, 'createLoop → MAKE STREAM');
+        const response = await fetch(`${this.host}/v1/stream`, {
+          headers: {
+            Authorization: `Bearer ${this.sdkKey}`,
+          },
+        });
 
-    if (!response.ok) {
-      const error = new Error(`Failed to fetch stream: ${response.statusText}`);
-      this.rejectStreamInitPromise!(error);
-      throw error;
-    }
+        if (!response.ok) {
+          const error = new Error(
+            `Failed to fetch stream: ${response.statusText}`,
+          );
+          // Only reject the init promise if we haven't received data yet
+          if (!this.hasReceivedData) {
+            this.rejectStreamInitPromise!(error);
+            throw error;
+          }
+          // Otherwise, throw to trigger retry
+          throw error;
+        }
 
-    if (!response.body) {
-      const error = new Error(`No body found`);
-      this.rejectStreamInitPromise!(error);
-      throw error;
-    }
+        if (!response.body) {
+          const error = new Error(`No body found`);
+          if (!this.hasReceivedData) {
+            this.rejectStreamInitPromise!(error);
+            throw error;
+          }
+          throw error;
+        }
 
-    let buffer = '';
+        // Reset retry count on successful connection
+        this.retryCount = 0;
 
-    // Wait for the server to push some data
-    for await (const chunk of streamAsyncIterable(response.body)) {
-      if (this.breakLoop) break;
-      buffer += new TextDecoder().decode(chunk);
+        let buffer = '';
 
-      // SSE events are separated by double newlines
-      let eventBoundary = buffer.indexOf('\n\n');
-      while (eventBoundary !== -1) {
-        const eventBlock = buffer.slice(0, eventBoundary);
-        buffer = buffer.slice(eventBoundary + 2);
+        // Wait for the server to push some data
+        for await (const chunk of streamAsyncIterable(response.body)) {
+          if (this.breakLoop) break;
+          buffer += new TextDecoder().decode(chunk);
 
-        // Parse the SSE event block
-        let eventType: string | null = null;
-        let eventData: string | null = null;
+          // SSE events are separated by double newlines
+          let eventBoundary = buffer.indexOf('\n\n');
+          while (eventBoundary !== -1) {
+            const eventBlock = buffer.slice(0, eventBoundary);
+            buffer = buffer.slice(eventBoundary + 2);
 
-        for (const line of eventBlock.split('\n')) {
-          // Skip empty lines and comment lines (like ": ping")
-          if (line === '' || line.startsWith(':')) continue;
+            // Parse the SSE event block
+            let eventType: string | null = null;
+            let eventData: string | null = null;
 
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7);
-          } else if (line.startsWith('data: ')) {
-            eventData = line.slice(6);
+            for (const line of eventBlock.split('\n')) {
+              // Skip empty lines and comment lines (like ": ping")
+              if (line === '' || line.startsWith(':')) continue;
+
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7);
+              } else if (line.startsWith('data: ')) {
+                eventData = line.slice(6);
+              }
+            }
+
+            // Only process datafile events
+            if (eventType === 'datafile' && eventData) {
+              const data = JSON.parse(eventData) as BundledDefinitions;
+              this.definitions = data;
+              this.hasReceivedData = true;
+              console.log(process.pid, 'loop → data', data);
+              this.resolveStreamInitPromise!(data);
+            }
+
+            // Check for more events in the buffer
+            eventBoundary = buffer.indexOf('\n\n');
           }
         }
 
-        // Only process datafile events
-        if (eventType === 'datafile' && eventData) {
-          const data = JSON.parse(eventData) as BundledDefinitions;
-          this.definitions = data;
-          console.log(process.pid, 'loop → data', data);
-          this.resolveStreamInitPromise!(data);
+        // Stream ended - if not intentional, retry
+        if (!this.breakLoop) {
+          console.log(process.pid, 'loop → stream closed, will retry');
+        }
+      } catch (error) {
+        // If we haven't received data and this is the initial connection,
+        // the error was already propagated via rejectStreamInitPromise
+        if (!this.hasReceivedData) {
+          throw error;
         }
 
-        // Check for more events in the buffer
-        eventBoundary = buffer.indexOf('\n\n');
+        console.error(process.pid, 'loop → error, will retry', error);
+      }
+
+      // Retry logic with exponential backoff
+      if (!this.breakLoop) {
+        const delay = this.getRetryDelay();
+        this.retryCount++;
+        console.log(
+          process.pid,
+          `loop → retrying in ${delay}ms (attempt ${this.retryCount})`,
+        );
+        await this.sleep(delay);
       }
     }
 
@@ -148,6 +207,10 @@ export class FlagNetworkDataSource implements DataSource {
   async getMetadata(): Promise<DataSourceMetadata> {
     const data = await this.fetchData();
     return { projectId: data.projectId };
+  }
+
+  shutdown(): void {
+    this.breakLoop = true;
   }
 
   // called once per flag rather than once per request,
