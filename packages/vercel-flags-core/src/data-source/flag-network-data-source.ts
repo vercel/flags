@@ -2,6 +2,11 @@ import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { DataSource, DataSourceMetadata } from './interface';
 
+const debugLog = (...args: any[]) => {
+  if (process.env.DEBUG !== '1') return;
+  console.log(...args);
+};
+
 async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
   try {
@@ -16,7 +21,7 @@ async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
 }
 
 /**
- * Implements the DataSource interface for Edge Config.
+ * Implements the DataSource interface for flags.vercel.com.
  */
 export class FlagNetworkDataSource implements DataSource {
   sdkKey?: string;
@@ -89,7 +94,7 @@ export class FlagNetworkDataSource implements DataSource {
   async createLoop() {
     while (!this.breakLoop) {
       try {
-        console.log(process.pid, 'createLoop → MAKE STREAM');
+        debugLog(process.pid, 'createLoop → MAKE STREAM');
         const response = await fetch(`${this.host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${this.sdkKey}`,
@@ -142,10 +147,10 @@ export class FlagNetworkDataSource implements DataSource {
             if (message.type === 'datafile') {
               this.definitions = message.data;
               this.hasReceivedData = true;
-              console.log(process.pid, 'loop → data', message.data);
+              debugLog(process.pid, 'loop → data', message.data);
               this.resolveStreamInitPromise!(message.data);
             } else if (message.type === 'terminate') {
-              console.log(process.pid, 'loop → terminate:', message.reason);
+              debugLog(process.pid, 'loop → terminate:', message.reason);
               this.breakLoop = true;
               break;
             }
@@ -154,7 +159,7 @@ export class FlagNetworkDataSource implements DataSource {
 
         // Stream ended - if not intentional, retry
         if (!this.breakLoop) {
-          console.log(process.pid, 'loop → stream closed, will retry');
+          debugLog(process.pid, 'loop → stream closed, will retry');
         }
       } catch (error) {
         // If we haven't received data and this is the initial connection,
@@ -178,7 +183,7 @@ export class FlagNetworkDataSource implements DataSource {
       }
     }
 
-    console.log(process.pid, 'loop → done');
+    debugLog(process.pid, 'loop → done');
   }
 
   async fetchData(): Promise<BundledDefinitions> {
@@ -206,22 +211,22 @@ export class FlagNetworkDataSource implements DataSource {
   // but it's okay since we only ever read from memory here
   async getData() {
     if (!this.initialized) {
-      console.log(process.pid, 'getData → init');
+      debugLog(process.pid, 'getData → init');
       await this.subscribe();
     }
     if (this.streamInitPromise) {
-      console.log(process.pid, 'getData → await');
+      debugLog(process.pid, 'getData → await');
       await this.streamInitPromise;
     }
     if (this.definitions) {
-      console.log(process.pid, 'getData → definitions');
+      debugLog(process.pid, 'getData → definitions');
       return this.definitions;
     }
     if (this.bundledDefinitions) {
-      console.log(process.pid, 'getData → bundledDefinitions');
+      debugLog(process.pid, 'getData → bundledDefinitions');
       return this.bundledDefinitions;
     }
-    console.log(process.pid, 'getData → throw');
+    debugLog(process.pid, 'getData → throw');
     throw new Error('No definitions found');
   }
 }
