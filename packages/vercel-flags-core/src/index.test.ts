@@ -29,7 +29,7 @@ describe('createRawClient', () => {
 
 describe('getDefaultFlagsClient', () => {
   it('works', () => {
-    process.env.FLAGS = 'flags:sdkKey=flgk_test123&projectId=someProjectId';
+    process.env.FLAGS = 'vf_server_testkey';
     process.env.VERCEL_ENV = 'development';
     const client = getDefaultFlagsClient();
     expect(client).toBeDefined();
