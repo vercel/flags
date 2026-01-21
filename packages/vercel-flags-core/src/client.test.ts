@@ -1,32 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { createClient } from './client';
+import { createRawClient } from './client';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
 
-describe('createClient', () => {
+describe('createRawClient', () => {
   it('should be a function', () => {
-    expect(typeof createClient).toBe('function');
+    expect(typeof createRawClient).toBe('function');
   });
 
   it('should allow a custom data source', () => {
-    const inlineDataSource = new InMemoryDataSource({ definitions: {} });
-    const flagsClient = createClient({
-      dataSource: inlineDataSource,
+    const inlineDataSource = new InMemoryDataSource({
+      data: { definitions: {}, segments: {} },
+      projectId: 'test',
       environment: 'production',
     });
+    const flagsClient = createRawClient({
+      dataSource: inlineDataSource,
+    });
 
-    expect(flagsClient.environment).toEqual('production');
     expect(flagsClient.dataSource).toEqual(inlineDataSource);
   });
 
   it('should evaluate', async () => {
     const customDataSource = new InMemoryDataSource({
-      definitions: {
-        'summer-sale': { environments: { production: 0 }, variants: [false] },
+      data: {
+        definitions: {
+          'summer-sale': { environments: { production: 0 }, variants: [false] },
+        },
+        segments: {},
       },
-    });
-    const flagsClient = createClient({
-      dataSource: customDataSource,
+      projectId: 'test',
       environment: 'production',
+    });
+    const flagsClient = createRawClient({
+      dataSource: customDataSource,
     });
 
     await expect(

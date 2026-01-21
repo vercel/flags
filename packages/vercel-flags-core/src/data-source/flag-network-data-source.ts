@@ -2,6 +2,11 @@ import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { DataSource, DataSourceMetadata } from './interface';
 
+const debugLog = (...args: any[]) => {
+  if (process.env.DEBUG !== '1') return;
+  console.log(...args);
+};
+
 async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
   try {
@@ -16,7 +21,7 @@ async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
 }
 
 /**
- * Implements the DataSource interface for Edge Config.
+ * Implements the DataSource interface for flags.vercel.com.
  */
 export class FlagNetworkDataSource implements DataSource {
   sdkKey?: string;
@@ -89,7 +94,7 @@ export class FlagNetworkDataSource implements DataSource {
   async createLoop() {
     while (!this.breakLoop) {
       try {
-        console.log(process.pid, 'createLoop → MAKE STREAM');
+        debugLog(process.pid, 'createLoop → MAKE STREAM');
         const response = await fetch(`${this.host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${this.sdkKey}`,
@@ -100,12 +105,20 @@ export class FlagNetworkDataSource implements DataSource {
           const error = new Error(
             `Failed to fetch stream: ${response.statusText}`,
           );
+          // Stop retrying on 4xx client errors (won't fix itself on retry)
+          if (response.status >= 400 && response.status < 500) {
+            this.breakLoop = true;
+            if (!this.hasReceivedData) {
+              this.rejectStreamInitPromise!(error);
+            }
+            throw error;
+          }
           // Only reject the init promise if we haven't received data yet
           if (!this.hasReceivedData) {
             this.rejectStreamInitPromise!(error);
             throw error;
           }
-          // Otherwise, throw to trigger retry
+          // Otherwise, throw to trigger retry (5xx errors, etc.)
           throw error;
         }
 
@@ -121,51 +134,35 @@ export class FlagNetworkDataSource implements DataSource {
         // Reset retry count on successful connection
         this.retryCount = 0;
 
+        const decoder = new TextDecoder();
         let buffer = '';
 
-        // Wait for the server to push some data
         for await (const chunk of streamAsyncIterable(response.body)) {
           if (this.breakLoop) break;
-          buffer += new TextDecoder().decode(chunk);
+          buffer += decoder.decode(chunk, { stream: true });
 
-          // SSE events are separated by double newlines
-          let eventBoundary = buffer.indexOf('\n\n');
-          while (eventBoundary !== -1) {
-            const eventBlock = buffer.slice(0, eventBoundary);
-            buffer = buffer.slice(eventBoundary + 2);
+          const lines = buffer.split('\n');
+          buffer = lines.pop()!; // Keep incomplete line in buffer
 
-            // Parse the SSE event block
-            let eventType: string | null = null;
-            let eventData: string | null = null;
+          for (const line of lines) {
+            if (line === '') continue;
 
-            for (const line of eventBlock.split('\n')) {
-              // Skip empty lines and comment lines (like ": ping")
-              if (line === '' || line.startsWith(':')) continue;
+            const message = JSON.parse(line) as
+              | { type: 'datafile'; data: BundledDefinitions }
+              | { type: 'ping' };
 
-              if (line.startsWith('event: ')) {
-                eventType = line.slice(7);
-              } else if (line.startsWith('data: ')) {
-                eventData = line.slice(6);
-              }
-            }
-
-            // Only process datafile events
-            if (eventType === 'datafile' && eventData) {
-              const data = JSON.parse(eventData) as BundledDefinitions;
-              this.definitions = data;
+            if (message.type === 'datafile') {
+              this.definitions = message.data;
               this.hasReceivedData = true;
-              console.log(process.pid, 'loop → data', data);
-              this.resolveStreamInitPromise!(data);
+              debugLog(process.pid, 'loop → data', message.data);
+              this.resolveStreamInitPromise!(message.data);
             }
-
-            // Check for more events in the buffer
-            eventBoundary = buffer.indexOf('\n\n');
           }
         }
 
         // Stream ended - if not intentional, retry
         if (!this.breakLoop) {
-          console.log(process.pid, 'loop → stream closed, will retry');
+          debugLog(process.pid, 'loop → stream closed, will retry');
         }
       } catch (error) {
         // If we haven't received data and this is the initial connection,
@@ -189,7 +186,7 @@ export class FlagNetworkDataSource implements DataSource {
       }
     }
 
-    console.log(process.pid, 'loop → done');
+    debugLog(process.pid, 'loop → done');
   }
 
   async fetchData(): Promise<BundledDefinitions> {
@@ -217,22 +214,22 @@ export class FlagNetworkDataSource implements DataSource {
   // but it's okay since we only ever read from memory here
   async getData() {
     if (!this.initialized) {
-      console.log(process.pid, 'getData → init');
+      debugLog(process.pid, 'getData → init');
       await this.subscribe();
     }
     if (this.streamInitPromise) {
-      console.log(process.pid, 'getData → await');
+      debugLog(process.pid, 'getData → await');
       await this.streamInitPromise;
     }
     if (this.definitions) {
-      console.log(process.pid, 'getData → definitions');
+      debugLog(process.pid, 'getData → definitions');
       return this.definitions;
     }
     if (this.bundledDefinitions) {
-      console.log(process.pid, 'getData → bundledDefinitions');
+      debugLog(process.pid, 'getData → bundledDefinitions');
       return this.bundledDefinitions;
     }
-    console.log(process.pid, 'getData → throw');
+    debugLog(process.pid, 'getData → throw');
     throw new Error('No definitions found');
   }
 }

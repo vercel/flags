@@ -1,19 +1,25 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
-  createClient,
+  createRawClient,
   getDefaultFlagsClient,
   getFlagsEnvironment,
   parseFlagsConnectionString,
 } from '.';
 
-describe('createClient', () => {
+describe('createRawClient', () => {
   it('should allow creating a client', () => {
-    const client = createClient({
-      environment: 'production',
+    const client = createRawClient({
       dataSource: {
-        projectId: 'prj_fakeProjectId',
         async getData() {
-          return { definitions: {} };
+          return {
+            definitions: {},
+            segments: {},
+            projectId: 'test',
+            environment: 'production',
+          };
+        },
+        async getMetadata() {
+          return { projectId: 'test' };
         },
       },
     });
@@ -23,10 +29,11 @@ describe('createClient', () => {
 
 describe('getDefaultFlagsClient', () => {
   it('works', () => {
-    process.env.FLAGS =
-      'flags:projectId=someProjectId&edgeConfigId=ecfg_fakeEdgeConfigId&edgeConfigItemKey=fake-item-key&edgeConfigToken=fake';
+    process.env.FLAGS = 'vf_server_testkey';
     process.env.VERCEL_ENV = 'development';
-    expect(getDefaultFlagsClient().environment).toEqual('development');
+    const client = getDefaultFlagsClient();
+    expect(client).toBeDefined();
+    expect(client.dataSource).toBeDefined();
     delete process.env.VERCEL_ENV;
   });
 });
