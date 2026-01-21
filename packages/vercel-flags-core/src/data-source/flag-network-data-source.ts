@@ -105,12 +105,20 @@ export class FlagNetworkDataSource implements DataSource {
           const error = new Error(
             `Failed to fetch stream: ${response.statusText}`,
           );
+          // Stop retrying on 4xx client errors (won't fix itself on retry)
+          if (response.status >= 400 && response.status < 500) {
+            this.breakLoop = true;
+            if (!this.hasReceivedData) {
+              this.rejectStreamInitPromise!(error);
+            }
+            throw error;
+          }
           // Only reject the init promise if we haven't received data yet
           if (!this.hasReceivedData) {
             this.rejectStreamInitPromise!(error);
             throw error;
           }
-          // Otherwise, throw to trigger retry
+          // Otherwise, throw to trigger retry (5xx errors, etc.)
           throw error;
         }
 
@@ -141,7 +149,6 @@ export class FlagNetworkDataSource implements DataSource {
 
             const message = JSON.parse(line) as
               | { type: 'datafile'; data: BundledDefinitions }
-              | { type: 'terminate'; reason: string }
               | { type: 'ping' };
 
             if (message.type === 'datafile') {
@@ -149,10 +156,6 @@ export class FlagNetworkDataSource implements DataSource {
               this.hasReceivedData = true;
               debugLog(process.pid, 'loop → data', message.data);
               this.resolveStreamInitPromise!(message.data);
-            } else if (message.type === 'terminate') {
-              debugLog(process.pid, 'loop → terminate:', message.reason);
-              this.breakLoop = true;
-              break;
             }
           }
         }
