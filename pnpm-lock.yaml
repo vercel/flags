@@ -815,6 +815,9 @@ importers:
       '@vercel/edge-config':
         specifier: ^1.4.3
         version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211))
+      '@vercel/functions':
+        specifier: ^3.3.6
+        version: 3.3.6
       commander:
         specifier: 14.0.2
         version: 14.0.2
@@ -3346,6 +3349,15 @@ packages:
       '@aws-sdk/credential-provider-web-identity':
         optional: true
 
+  '@vercel/functions@3.3.6':
+    resolution: {integrity: sha512-mLKK3H+v1XjzTiksYN7XV4sl/n8tqb0DeavoUzjFKRQMmx5x+vy1jIl24GY4C8D2dinQPV1ZuCSPhJptBeeE/A==}
+    engines: {node: '>= 20'}
+    peerDependencies:
+      '@aws-sdk/credential-provider-web-identity': '*'
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-web-identity':
+        optional: true
+
   '@vercel/microfrontends@1.1.0':
     resolution: {integrity: sha512-w7SeCV10hsLh3xUB4M1xsqbBSo+ry5PPL9/pkX9St5ZDRUHGZT/UEQd4vhOcSgwObn/1gbcuV0Il/unXmPty9A==}
     hasBin: true
@@ -3377,6 +3389,10 @@ packages:
     resolution: {integrity: sha512-UEq+eF0ocEf9WQCV1gktxKhha36KDs7jln5qii6UpPf5clMqDc0p3E7d9l2Smx0i9Pm1qpq4S4lLfNl97bbv6w==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@vercel/oidc@3.1.0':
+    resolution: {integrity: sha512-Fw28YZpRnA3cAHHDlkt7xQHiJ0fcL+NRcIqsocZQUSmbzeIKRpwttJjik5ZGanXP+vlA4SbTg+AbA3bP363l+w==}
+    engines: {node: '>= 20'}
 
   '@vercel/toolbar@0.1.36':
     resolution: {integrity: sha512-hEY4dx2XkR6p7uWT1pvP9brVWGM8cY6Ga9WG7utAsmayie+wNRKN/oVSGAVWTp4A55S0bYZshYBKwoZ7ng9FxA==}
@@ -9068,6 +9084,10 @@ snapshots:
 
   '@vercel/functions@1.6.0': {}
 
+  '@vercel/functions@3.3.6':
+    dependencies:
+      '@vercel/oidc': 3.1.0
+
   '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
     dependencies:
       ajv: 8.17.1
@@ -9146,6 +9166,8 @@ snapshots:
       - encoding
       - rollup
       - supports-color
+
+  '@vercel/oidc@3.1.0': {}
 
   '@vercel/toolbar@0.1.36(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.47.3(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
     dependencies:

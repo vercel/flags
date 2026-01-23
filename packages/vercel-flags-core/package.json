@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@vercel/edge-config": "^1.4.3",
+    "@vercel/functions": "^3.3.6",
     "commander": "14.0.2",
     "jose": "5.2.1",
     "js-xxhash": "4.0.0"
