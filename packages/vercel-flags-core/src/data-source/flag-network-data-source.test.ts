@@ -4,6 +4,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -11,14 +12,22 @@ import {
 } from 'vitest';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
+let ingestRequests: { body: unknown; headers: Headers }[] = [];
+
 const server = setupServer(
-  // Default handler for ingest endpoint to suppress MSW warnings
-  http.post('https://flags.vercel.com/v1/ingest', () => {
+  http.post('https://flags.vercel.com/v1/ingest', async ({ request }) => {
+    ingestRequests.push({
+      body: await request.json(),
+      headers: request.headers,
+    });
     return HttpResponse.json({ ok: true });
   }),
 );
 
 beforeAll(() => server.listen());
+beforeEach(() => {
+  ingestRequests = [];
+});
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
@@ -34,6 +43,30 @@ function createNdjsonStream(messages: object[], delayMs = 0): ReadableStream {
       controller.close();
     },
   });
+}
+
+async function assertIngestRequest(
+  sdkKey: string,
+  expectedEvents: Array<{ type: string; payload?: object }>,
+) {
+  await vi.waitFor(() => {
+    expect(ingestRequests.length).toBeGreaterThan(0);
+  });
+
+  const request = ingestRequests[0]!;
+  expect(request.headers.get('Authorization')).toBe(`Bearer ${sdkKey}`);
+  expect(request.headers.get('Content-Type')).toBe('application/json');
+  expect(request.headers.get('User-Agent')).toMatch(/^VercelFlagsCore\//);
+
+  expect(request.body).toEqual(
+    expectedEvents.map((event) =>
+      expect.objectContaining({
+        type: event.type,
+        ts: expect.any(Number),
+        payload: event.payload ?? expect.any(Object),
+      }),
+    ),
+  );
 }
 
 describe('FlagNetworkDataSource', () => {
@@ -56,6 +89,9 @@ describe('FlagNetworkDataSource', () => {
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
+
+    dataSource.shutdown();
+    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should ignore ping messages', async () => {
@@ -81,6 +117,9 @@ describe('FlagNetworkDataSource', () => {
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
+
+    dataSource.shutdown();
+    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should stop reconnecting after shutdown is called', async () => {
@@ -109,6 +148,7 @@ describe('FlagNetworkDataSource', () => {
     await dataSource._loopPromise;
 
     expect(dataSource.breakLoop).toBe(true);
+    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should handle messages split across chunks', async () => {
@@ -141,6 +181,9 @@ describe('FlagNetworkDataSource', () => {
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
+
+    dataSource.shutdown();
+    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should update definitions when new datafile messages arrive', async () => {
@@ -168,5 +211,6 @@ describe('FlagNetworkDataSource', () => {
 
     dataSource.shutdown();
     await dataSource._loopPromise;
+    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 });
