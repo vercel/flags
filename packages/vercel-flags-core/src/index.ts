@@ -9,7 +9,12 @@ export {
   type FlagsClient,
 } from './client';
 export { InMemoryDataSource, FlagNetworkDataSource };
-export { type Packed, ResolutionReason as Reason } from './types';
+export {
+  type EvaluationParams,
+  type EvaluationResult,
+  type Packed,
+  ResolutionReason as Reason,
+} from './types';
 export type { DataSource };
 export { evaluate } from './evaluate';
 
@@ -18,7 +23,7 @@ let defaultFlagsClient: FlagsClient | null = null;
 // Insights
 // - data source must specify the environment & projectId as sdkKey has that info
 // - "reuse" functionality relies on the data source having the data for all envs
-export function createClient(sdkKey: string) {
+export function createClient(sdkKey: string): FlagsClient {
   if (!sdkKey) throw new Error('flags: Missing sdkKey');
 
   // sdk key contains the environment
@@ -44,7 +49,7 @@ export function resetDefaultFlagsClient() {
  * @param connectionString - usually from process.env.FLAGS
  * @returns - a flags client
  */
-export function getDefaultFlagsClient() {
+export function getDefaultFlagsClient(): FlagsClient {
   if (defaultFlagsClient) {
     return defaultFlagsClient;
   }
