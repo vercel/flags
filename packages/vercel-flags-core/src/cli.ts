@@ -114,8 +114,8 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
 
 const program = new Command();
 program
-  .name('@vercel/edge-config')
-  .description('Vercel Edge Config CLI')
+  .name('@vercel/flags-core')
+  .description('Vercel Flags Core CLI')
   .version(version);
 
 program

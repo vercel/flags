@@ -812,9 +812,6 @@ importers:
       '@openfeature/server-sdk':
         specifier: 1.18.0
         version: 1.18.0(@openfeature/core@1.9.1)
-      '@vercel/edge-config':
-        specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.0.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211))
       '@vercel/functions':
         specifier: ^3.3.6
         version: 3.3.6
