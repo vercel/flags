@@ -3,7 +3,6 @@ import {
   type FlagsClient,
   getDefaultFlagsClient,
   Reason,
-  store,
 } from '@vercel/flags-core';
 import type {
   Adapter,
@@ -45,15 +44,11 @@ export function createVercelAdapter(
           : undefined,
       config: { reportValue: false },
       async decide({ key, entities, headers }): Promise<ValueType> {
-        const evaluationResultPromise = store.run(headers, async () => {
-          return flagsClient.evaluate<ValueType, EntitiesType>(
-            key,
-            undefined,
-            entities,
-          );
-        });
+        const evaluationResult = await flagsClient.evaluate<
+          ValueType,
+          EntitiesType
+        >(key, undefined, entities);
 
-        const evaluationResult = await evaluationResultPromise;
         if (evaluationResult.value === undefined) {
           // if there was no defaultValue we need to throw
           throw new Error(
