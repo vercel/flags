@@ -1,11 +1,3 @@
-export interface ConnectionOptions {
-  edgeConfigId: string;
-  edgeConfigToken: string;
-  edgeConfigItemKey: string | null;
-  env: string | null;
-  projectId: string;
-}
-
 export type DataSourceData = Packed.Data & {
   /**
    * If a data source is used with a specific sdk key then

@@ -36,13 +36,8 @@ export type FlagsClient = {
  * Creates a Vercel Flags client
  *
  * @example
- *  const edgeConfigClient = createClient('');
  *  const flagsClient = createClient({
- *    dataSource: new EdgeConfigDataSource({
- *      edgeConfigItemKey: 'flags',
- *      edgeConfigClient,
- *    }),
- *    environment: 'production',
+ *    dataSource: new NetworkDataSource('vf_xxx'),
  *  });
  */
 export function createRawClient({
