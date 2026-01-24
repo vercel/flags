@@ -3,7 +3,9 @@ import {
   resetDefaultFlagsClient,
 } from '@vercel/flags-core';
 import type { Origin, ProviderData } from 'flags';
-import { flag, getProviderData } from 'flags/next';
+import { flag } from 'flags/next';
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
 import {
   afterAll,
   afterEach,
@@ -16,6 +18,7 @@ import {
 } from 'vitest';
 import {
   createVercelAdapter,
+  getProviderData,
   resetDefaultVercelAdapter,
   vercelAdapter,
 } from '.';
@@ -31,26 +34,46 @@ vi.mock('next/headers', async (importOriginal) => {
   const mod = await importOriginal<typeof import('next/headers')>();
   return {
     ...mod,
-    // replace some exports
     headers: mocks.headers,
     cookies: mocks.cookies,
   };
 });
 
-const edgeConfigMocks = vi.hoisted(() => {
-  return { createClient: vi.fn() };
-});
+// Mock @vercel/functions
+vi.mock('@vercel/functions', () => ({
+  waitUntil: vi.fn(),
+}));
+
+const server = setupServer();
+
+function createNdjsonStream(messages: object[]): ReadableStream {
+  return new ReadableStream({
+    async start(controller) {
+      for (const message of messages) {
+        controller.enqueue(
+          new TextEncoder().encode(JSON.stringify(message) + '\n'),
+        );
+      }
+      controller.close();
+    },
+  });
+}
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 describe('createVercelAdapter', () => {
   let originalFlagsSecret: string | undefined;
   let originalFlags: string | undefined;
+
   beforeAll(() => {
     originalFlagsSecret = process.env.FLAGS_SECRET;
     originalFlags = process.env.FLAGS;
     process.env.FLAGS_SECRET = 'a'.repeat(32);
-    process.env.FLAGS =
-      'flags:projectId=prj_xxx&edgeConfigId=a&edgeConfigToken=b&edgeConfigItemKey=c';
+    process.env.FLAGS = 'vf_test_sdk_key';
   });
+
   afterAll(() => {
     process.env.FLAGS_SECRET = originalFlagsSecret;
     process.env.FLAGS = originalFlags;
@@ -67,21 +90,58 @@ describe('createVercelAdapter', () => {
 
     const amended = adapter();
     expect(amended).toHaveProperty('decide');
+    expect(amended).toHaveProperty('origin', undefined);
+  });
+
+  it('returns origin when created with sdkKey string', () => {
+    const adapter = createVercelAdapter('vf_my_sdk_key');
+
+    const amended = adapter();
+    expect(amended).toHaveProperty('decide');
     expect(amended).toHaveProperty('origin', {
       provider: 'vercel',
-      projectId: 'prj_xxx',
-      env: 'development',
+      sdkKey: 'vf_my_sdk_key',
     } satisfies Origin);
   });
 });
 
 describe('when used with getProviderData', () => {
-  it('returns data', () => {
+  let originalFlags: string | undefined;
+
+  beforeAll(() => {
+    originalFlags = process.env.FLAGS;
+    process.env.FLAGS = 'vf_test_sdk_key';
+  });
+
+  afterAll(() => {
+    process.env.FLAGS = originalFlags;
+  });
+
+  beforeEach(() => {
+    resetDefaultFlagsClient();
+    resetDefaultVercelAdapter();
+
+    // Mock the datafile endpoint for getMetadata
+    server.use(
+      http.get('https://flags.vercel.com/v1/datafile', () => {
+        return HttpResponse.json({
+          projectId: 'prj_xxx',
+          definitions: {},
+          segments: {},
+        });
+      }),
+    );
+  });
+
+  it('returns data', async () => {
     const testFlag = flag({
       key: 'test-flag',
       adapter: vercelAdapter(),
     });
-    expect(getProviderData({ testFlag })).toEqual({
+
+    const providerData = await getProviderData({ testFlag });
+
+    expect(providerData).toEqual({
       definitions: {
         'test-flag': {
           declaredInCode: true,
@@ -91,7 +151,6 @@ describe('when used with getProviderData', () => {
           origin: {
             provider: 'vercel',
             projectId: 'prj_xxx',
-            env: 'development',
           },
         },
       },
@@ -99,15 +158,16 @@ describe('when used with getProviderData', () => {
     } satisfies ProviderData);
   });
 });
-describe.skip('vercelAdapter', () => {
+
+describe('vercelAdapter', () => {
   let originalFlagsSecret: string | undefined;
   let originalFlags: string | undefined;
+
   beforeEach(() => {
     originalFlagsSecret = process.env.FLAGS_SECRET;
     originalFlags = process.env.FLAGS;
     process.env.FLAGS_SECRET = 'a'.repeat(32);
-    process.env.FLAGS =
-      'flags:projectId=prj_xxx&edgeConfigId=a&edgeConfigToken=b&edgeConfigItemKey=c';
+    process.env.FLAGS = 'vf_test_sdk_key';
 
     resetDefaultFlagsClient();
     resetDefaultVercelAdapter();
@@ -118,35 +178,50 @@ describe.skip('vercelAdapter', () => {
     process.env.FLAGS = originalFlags;
   });
 
-  it('resolves when called', async () => {
+  // Skipped: Next.js 16+ has stricter request scope checking for headers()
+  // that cannot be easily mocked in unit tests. The adapter functionality
+  // is tested through integration tests instead.
+  it.skip('resolves when called', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
-    const get = vi.fn().mockReturnValueOnce({
+    const definitions = {
+      projectId: 'test-project',
       definitions: {
         'test-flag': {
           variantIds: undefined,
-          environments: [Object],
-          variants: [Array],
+          environments: { production: 0 },
+          variants: [true],
           seed: undefined,
         },
       },
-      segments: undefined,
-    });
+      segments: {},
+    };
 
-    edgeConfigMocks.createClient.mockReturnValue({ get });
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          createNdjsonStream([{ type: 'datafile', data: definitions }]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
 
     const testFlag = flag({ key: 'test-flag', adapter: vercelAdapter() });
     await expect(testFlag()).resolves.toEqual(true);
-    expect(get).toHaveBeenCalledWith('c');
   });
 
   describe('origin', () => {
-    it('sets vercel as the origin', () => {
+    it('sets undefined origin when using default adapter', () => {
       const testFlag = flag({ key: 'test-flag', adapter: vercelAdapter() });
+      expect(testFlag.origin).toBeUndefined();
+    });
+
+    it('sets vercel origin when using adapter created with sdkKey', () => {
+      const adapter = createVercelAdapter('vf_my_sdk_key');
+      const testFlag = flag({ key: 'test-flag', adapter: adapter() });
       expect(testFlag.origin).toEqual({
         provider: 'vercel',
-        projectId: 'prj_xxx',
-        env: 'development',
+        sdkKey: 'vf_my_sdk_key',
       } satisfies Origin);
     });
   });
