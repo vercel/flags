@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createClientFromConnectionString, type FlagsClient } from '.';
+import { createClient, type FlagsClient } from '.';
 import { evaluate } from './evaluate';
 import {
   Comparator,
@@ -14,15 +14,14 @@ describe('integration evaluate', () => {
 
   beforeAll(async () => {
     // It's okay that this is commited as it's public
-    const connectionString =
-      'flags:edgeConfigId=ecfg_konthhfbklvwhukdfzco4lkqdhq1&edgeConfigToken=91614cf9-7cb2-414f-aa76-40842e2a07b9&projectId=prj_VGCv1T9ruFqnQoWR3pp78lvtvsfr';
+    const connectionString = 'vf_server_aOTtiYdgpJIkd27yDW4uDbLHmpmIVmwG';
     if (!connectionString) {
       throw new Error(
         'integration-tests: Missing env var INTEGRATION_TEST_CONNECTION_STRING',
       );
     }
 
-    client = createClientFromConnectionString(connectionString);
+    client = createClient(connectionString);
   });
 
   it('should evaluate active flags', async () => {
