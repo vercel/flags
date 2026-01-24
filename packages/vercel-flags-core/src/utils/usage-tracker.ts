@@ -86,9 +86,11 @@ export class UsageTracker {
 
   /**
    * Triggers an immediate flush of any pending events.
+   * Returns a promise that resolves when the flush completes.
    */
-  flush(): void {
+  flush(): Promise<void> {
     this.batcher.resolveWait?.();
+    return this.batcher.pending ?? Promise.resolve();
   }
 
   /**

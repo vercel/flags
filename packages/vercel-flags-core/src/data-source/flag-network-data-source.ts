@@ -1,8 +1,16 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import { sleep } from '../utils/sleep';
 import { UsageTracker } from '../utils/usage-tracker';
 import type { DataSource, DataSourceMetadata } from './interface';
+
+type StreamState =
+  | 'idle' // Not started yet
+  | 'connecting' // Attempting to connect
+  | 'connected' // Stream is open and receiving data
+  | 'reconnecting' // Stream closed, attempting to reconnect
+  | 'failed'; // Permanently failed (e.g., 4xx error), won't retry
 
 const debugLog = (...args: any[]) => {
   if (process.env.DEBUG !== '1') return;
@@ -30,7 +38,7 @@ export class FlagNetworkDataSource implements DataSource {
   bundledDefinitions: BundledDefinitions | null = null;
   definitions: BundledDefinitions | null = null;
   private streamInitPromise: Promise<BundledDefinitions> | null = null;
-  _loopPromise: Promise<void> | undefined;
+  private streamLoopPromise: Promise<void> | undefined;
   private breakLoop: boolean = false;
   private resolveStreamInitPromise:
     | undefined
@@ -41,6 +49,10 @@ export class FlagNetworkDataSource implements DataSource {
   private retryCount: number = 0;
   private readonly maxRetryDelay: number = 30000; // 30 seconds max delay
   private readonly baseRetryDelay: number = 1000; // 1 second initial delay
+  private readonly streamInitTimeoutMs: number = 3000; // 3 seconds timeout for initial stream
+  private streamState: StreamState = 'idle';
+  private hasWarnedAboutStaleData: boolean = false;
+  private abortController: AbortController | null = null;
   private usageTracker: UsageTracker;
 
   readonly host = 'https://flags.vercel.com';
@@ -67,10 +79,6 @@ export class FlagNetworkDataSource implements DataSource {
     return delay;
   }
 
-  private async sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   private async subscribe() {
     // only init lazily to prevent opening streams when a page
     // has no flags anyhow and just the client is imported
@@ -91,23 +99,35 @@ export class FlagNetworkDataSource implements DataSource {
       this.rejectStreamInitPromise = reject;
     });
 
-    this._loopPromise = this.createLoop().catch((error) => {
-      console.error('Failed to create loop', error);
-      this.breakLoop = true;
-    });
+    this.streamLoopPromise = (async () => {
+      try {
+        await this.consumeStream();
+      } catch (error) {
+        console.error('Failed to consume stream', error);
+        this.breakLoop = true;
+      }
+    })();
 
-    return this.streamInitPromise;
+    // Don't return streamInitPromise here - getData() handles the racing logic
   }
 
-  private async createLoop() {
+  private async consumeStream() {
     while (!this.breakLoop) {
       try {
-        debugLog(process.pid, 'createLoop → MAKE STREAM');
+        // Update state before attempting connection
+        this.streamState = this.hasReceivedData ? 'reconnecting' : 'connecting';
+        debugLog(process.pid, `consumeStream → ${this.streamState}`);
+
+        // Create a new AbortController for this connection attempt
+        this.abortController = new AbortController();
+
         const response = await fetch(`${this.host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${this.sdkKey}`,
             'User-Agent': `VercelFlagsCore/${version}`,
+            'X-Retry-Attempt': String(this.retryCount),
           },
+          signal: this.abortController.signal,
         });
 
         if (!response.ok) {
@@ -117,6 +137,7 @@ export class FlagNetworkDataSource implements DataSource {
           // Stop retrying on 4xx client errors (won't fix itself on retry)
           if (response.status >= 400 && response.status < 500) {
             this.breakLoop = true;
+            this.streamState = 'failed';
             if (!this.hasReceivedData) {
               this.rejectStreamInitPromise!(error);
             }
@@ -140,7 +161,9 @@ export class FlagNetworkDataSource implements DataSource {
           throw error;
         }
 
-        // Reset retry count on successful connection
+        // Successfully connected
+        this.streamState = 'connected';
+        this.hasWarnedAboutStaleData = false; // Reset warning flag on connect
         this.retryCount = 0;
 
         const decoder = new TextDecoder();
@@ -163,7 +186,7 @@ export class FlagNetworkDataSource implements DataSource {
             if (message.type === 'datafile') {
               this.definitions = message.data;
               this.hasReceivedData = true;
-              debugLog(process.pid, 'loop → data', message.data);
+              debugLog(process.pid, 'consumeStream → data', message.data);
               this.resolveStreamInitPromise!(message.data);
             }
           }
@@ -171,7 +194,8 @@ export class FlagNetworkDataSource implements DataSource {
 
         // Stream ended - if not intentional, retry
         if (!this.breakLoop) {
-          debugLog(process.pid, 'loop → stream closed, will retry');
+          this.streamState = 'reconnecting';
+          debugLog(process.pid, 'consumeStream → stream closed, will retry');
         }
       } catch (error) {
         // If we haven't received data and this is the initial connection,
@@ -180,7 +204,8 @@ export class FlagNetworkDataSource implements DataSource {
           throw error;
         }
 
-        console.error(process.pid, 'loop → error, will retry', error);
+        this.streamState = 'reconnecting';
+        console.error(process.pid, 'consumeStream → error, will retry', error);
       }
 
       // Retry logic with exponential backoff
@@ -189,13 +214,13 @@ export class FlagNetworkDataSource implements DataSource {
         this.retryCount++;
         debugLog(
           process.pid,
-          `loop → retrying in ${delay}ms (attempt ${this.retryCount})`,
+          `consumeStream → retrying in ${delay}ms (attempt ${this.retryCount})`,
         );
-        await this.sleep(delay);
+        await sleep(delay);
       }
     }
 
-    debugLog(process.pid, 'loop → done');
+    debugLog(process.pid, 'consumeStream → done');
   }
 
   async fetchData(): Promise<BundledDefinitions> {
@@ -217,9 +242,11 @@ export class FlagNetworkDataSource implements DataSource {
     return { projectId: data.projectId };
   }
 
-  shutdown(): void {
+  async shutdown(): Promise<void> {
     this.breakLoop = true;
-    this.usageTracker.flush();
+    this.abortController?.abort();
+    await this.usageTracker.flush();
+    await this.streamLoopPromise;
   }
 
   // called once per flag rather than once per request,
@@ -229,11 +256,45 @@ export class FlagNetworkDataSource implements DataSource {
       debugLog(process.pid, 'getData → init');
       await this.subscribe();
     }
+
     if (this.streamInitPromise) {
-      debugLog(process.pid, 'getData → await');
-      await this.streamInitPromise;
+      debugLog(process.pid, 'getData → await with timeout');
+
+      // Use async wrapper functions to avoid .then()/.catch() deopts
+      const waitForStream = async (): Promise<'success' | 'error'> => {
+        try {
+          await this.streamInitPromise;
+          return 'success';
+        } catch {
+          return 'error';
+        }
+      };
+
+      const waitForTimeout = async (): Promise<'timeout'> => {
+        await sleep(this.streamInitTimeoutMs);
+        return 'timeout';
+      };
+
+      const result = await Promise.race([waitForStream(), waitForTimeout()]);
+
+      if (result === 'timeout' || result === 'error') {
+        debugLog(process.pid, `getData → ${result}, falling back`);
+        // Continue to fallback logic below
+        // Note: consumeStream() continues retrying in background
+      }
     }
+
+    // Return definitions in priority order
     if (this.definitions) {
+      // Warn once if returning in-memory data while stream is not connected
+      const isDisconnected = this.streamState !== 'connected';
+      if (isDisconnected && !this.hasWarnedAboutStaleData) {
+        this.hasWarnedAboutStaleData = true;
+        console.warn(
+          `[flags] Returning in-memory flag definitions while stream is ${this.streamState}. Data may be stale.`,
+        );
+      }
+
       debugLog(process.pid, 'getData → definitions');
       this.usageTracker.trackRead();
       return this.definitions;

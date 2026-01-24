@@ -90,7 +90,7 @@ describe('FlagNetworkDataSource', () => {
 
     expect(dataSource.definitions).toEqual(definitions);
 
-    dataSource.shutdown();
+    await dataSource.shutdown();
     await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
@@ -118,7 +118,7 @@ describe('FlagNetworkDataSource', () => {
 
     expect(dataSource.definitions).toEqual(definitions);
 
-    dataSource.shutdown();
+    await dataSource.shutdown();
     await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
@@ -144,11 +144,57 @@ describe('FlagNetworkDataSource', () => {
       expect(dataSource.definitions).toEqual(definitions);
     });
 
-    dataSource.shutdown();
-    await dataSource._loopPromise;
+    await dataSource.shutdown();
 
     expect(dataSource.breakLoop).toBe(true);
     await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+  });
+
+  it('should abort the stream connection when shutdown is called', async () => {
+    let abortSignalReceived: AbortSignal | undefined;
+
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', async ({ request }) => {
+        // Capture the abort signal from the request
+        abortSignalReceived = request.signal;
+
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send initial data so getData() can return
+            controller.enqueue(
+              new TextEncoder().encode(
+                JSON.stringify({
+                  type: 'datafile',
+                  data: { projectId: 'test', definitions: {} },
+                }) + '\n',
+              ),
+            );
+
+            // Listen for abort and close the stream
+            request.signal.addEventListener('abort', () => {
+              controller.close();
+            });
+          },
+        });
+
+        return new HttpResponse(stream, {
+          headers: { 'Content-Type': 'application/x-ndjson' },
+        });
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    await dataSource.getData();
+
+    // Verify the abort signal was passed to the request and not yet aborted
+    expect(abortSignalReceived).toBeDefined();
+    expect(abortSignalReceived!.aborted).toBe(false);
+
+    // Shutdown should abort the stream
+    await dataSource.shutdown();
+
+    // Verify the abort signal was triggered
+    expect(abortSignalReceived!.aborted).toBe(true);
   });
 
   it('should handle messages split across chunks', async () => {
@@ -182,7 +228,7 @@ describe('FlagNetworkDataSource', () => {
 
     expect(dataSource.definitions).toEqual(definitions);
 
-    dataSource.shutdown();
+    await dataSource.shutdown();
     await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
@@ -209,8 +255,165 @@ describe('FlagNetworkDataSource', () => {
       expect(dataSource.definitions).toEqual(definitions2);
     });
 
-    dataSource.shutdown();
-    await dataSource._loopPromise;
+    await dataSource.shutdown();
     await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
+
+  it('should fall back to bundledDefinitions when stream times out', async () => {
+    const bundledDefinitions = {
+      projectId: 'bundled-project',
+      definitions: { bundled: true },
+    };
+
+    // Create a stream that never sends data (simulating timeout)
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          new ReadableStream({
+            start() {
+              // Never enqueue anything, never close - simulates hanging connection
+            },
+          }),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    // Manually set bundledDefinitions for this test
+    dataSource.bundledDefinitions = bundledDefinitions;
+
+    // getData should return bundledDefinitions after timeout (3s default)
+    const startTime = Date.now();
+    const result = await dataSource.getData();
+    const elapsed = Date.now() - startTime;
+
+    // Should have returned bundled definitions
+    expect(result).toEqual(bundledDefinitions);
+
+    // Should have taken roughly 3 seconds (the timeout)
+    expect(elapsed).toBeGreaterThanOrEqual(2900);
+    expect(elapsed).toBeLessThan(4000);
+
+    // Don't await shutdown - the stream never closes in this test
+    // Just trigger shutdown to stop the loop
+    dataSource.shutdown();
+  }, 10000);
+
+  it('should fall back to bundledDefinitions when stream errors (4xx)', async () => {
+    const bundledDefinitions = {
+      projectId: 'bundled-project',
+      definitions: { bundled: true },
+    };
+
+    // Return a 401 error - this will cause the stream to fail permanently (4xx stops retrying)
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(null, { status: 401 });
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    // Manually set bundledDefinitions for this test
+    dataSource.bundledDefinitions = bundledDefinitions;
+
+    // Suppress expected error logs for this test
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // getData should return bundledDefinitions on error (after timeout races)
+    const result = await dataSource.getData();
+
+    expect(result).toEqual(bundledDefinitions);
+
+    await dataSource.shutdown();
+
+    errorSpy.mockRestore();
+  });
+
+  it('should include X-Retry-Attempt header in stream requests', async () => {
+    let capturedHeaders: Headers | null = null;
+
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+        capturedHeaders = request.headers;
+        return new HttpResponse(
+          createNdjsonStream([
+            {
+              type: 'datafile',
+              data: { projectId: 'test', definitions: {} },
+            },
+          ]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    await dataSource.getData();
+
+    expect(capturedHeaders).not.toBeNull();
+    expect(capturedHeaders!.get('X-Retry-Attempt')).toBe('0');
+
+    await dataSource.shutdown();
+  });
+
+  it('should warn when returning in-memory data while stream is disconnected', async () => {
+    const definitions = {
+      projectId: 'test-project',
+      definitions: { flag: true },
+    };
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // First, successfully connect and get data
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          createNdjsonStream([{ type: 'datafile', data: definitions }]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    await dataSource.getData();
+
+    // Verify no warning on first successful read (stream is connected)
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // Now simulate stream disconnection by changing handler to error
+    // and wait for the stream to close and enter reconnecting state
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+
+    // Wait a bit for the stream to close and try to reconnect (and fail)
+    await vi.waitFor(
+      () => {
+        // The stream should be in reconnecting state
+        expect(errorSpy).toHaveBeenCalled();
+      },
+      { timeout: 3000 },
+    );
+
+    // Next getData should warn about potentially stale data
+    await dataSource.getData();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Returning in-memory flag definitions'),
+    );
+
+    // Should only warn once
+    warnSpy.mockClear();
+    await dataSource.getData();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    await dataSource.shutdown();
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  }, 10000);
 });
