@@ -29,11 +29,13 @@ export class FlagNetworkDataSource implements DataSource {
   sdkKey?: string;
   bundledDefinitions: BundledDefinitions | null = null;
   definitions: BundledDefinitions | null = null;
-  streamInitPromise: Promise<BundledDefinitions> | null = null;
+  private streamInitPromise: Promise<BundledDefinitions> | null = null;
   _loopPromise: Promise<void> | undefined;
-  breakLoop: boolean = false;
-  resolveStreamInitPromise: undefined | ((value: BundledDefinitions) => void);
-  rejectStreamInitPromise: undefined | ((reason?: any) => void);
+  private breakLoop: boolean = false;
+  private resolveStreamInitPromise:
+    | undefined
+    | ((value: BundledDefinitions) => void);
+  private rejectStreamInitPromise: undefined | ((reason?: any) => void);
   initialized?: boolean = false;
   private hasReceivedData: boolean = false;
   private retryCount: number = 0;
@@ -69,7 +71,7 @@ export class FlagNetworkDataSource implements DataSource {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async subscribe() {
+  private async subscribe() {
     // only init lazily to prevent opening streams when a page
     // has no flags anyhow and just the client is imported
     if (this.initialized) return;
@@ -97,7 +99,7 @@ export class FlagNetworkDataSource implements DataSource {
     return this.streamInitPromise;
   }
 
-  async createLoop() {
+  private async createLoop() {
     while (!this.breakLoop) {
       try {
         debugLog(process.pid, 'createLoop → MAKE STREAM');
@@ -185,7 +187,7 @@ export class FlagNetworkDataSource implements DataSource {
       if (!this.breakLoop) {
         const delay = this.getRetryDelay();
         this.retryCount++;
-        console.log(
+        debugLog(
           process.pid,
           `loop → retrying in ${delay}ms (attempt ${this.retryCount})`,
         );

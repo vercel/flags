@@ -11,7 +11,12 @@ import {
 } from 'vitest';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
-const server = setupServer();
+const server = setupServer(
+  // Default handler for ingest endpoint to suppress MSW warnings
+  http.post('https://flags.vercel.com/v1/ingest', () => {
+    return HttpResponse.json({ ok: true });
+  }),
+);
 
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
@@ -48,7 +53,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
-    await dataSource.subscribe();
+    await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
   });
@@ -73,7 +78,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
-    await dataSource.subscribe();
+    await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
   });
@@ -94,7 +99,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
-    await dataSource.subscribe();
+    await dataSource.getData();
 
     await vi.waitFor(() => {
       expect(dataSource.definitions).toEqual(definitions);
@@ -133,7 +138,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
-    await dataSource.subscribe();
+    await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
   });
@@ -155,7 +160,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
-    await dataSource.subscribe();
+    await dataSource.getData();
 
     await vi.waitFor(() => {
       expect(dataSource.definitions).toEqual(definitions2);
