@@ -1,4 +1,5 @@
 import { waitUntil } from '@vercel/functions';
+import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { DataSource, DataSourceMetadata } from './interface';
@@ -73,9 +74,7 @@ export class FlagNetworkDataSource implements DataSource {
 
   readonly host = 'https://flags.vercel.com';
 
-  constructor(options: {
-    sdkKey: string;
-  }) {
+  constructor(options: { sdkKey: string }) {
     this.sdkKey = options.sdkKey;
 
     // preload from embedded json AND set up stream,
@@ -131,6 +130,7 @@ export class FlagNetworkDataSource implements DataSource {
         const response = await fetch(`${this.host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${this.sdkKey}`,
+            'User-Agent': `VercelFlagsCore/${version}`,
           },
         });
 
@@ -223,10 +223,12 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async fetchData(): Promise<BundledDefinitions> {
-    const headers = new Headers();
-    headers.set('authorization', `Bearer ${this.sdkKey}`);
-
-    const res = await fetch(`${this.host}/v1/datafile`, { headers });
+    const res = await fetch(`${this.host}/v1/datafile`, {
+      headers: {
+        Authorization: `Bearer ${this.sdkKey}`,
+        'User-Agent': `VercelFlagsCore/${version}`,
+      },
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch data: ${res.statusText}`);
     }
@@ -366,6 +368,7 @@ export class FlagNetworkDataSource implements DataSource {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
         },
         body: JSON.stringify(eventsToSend),
       });

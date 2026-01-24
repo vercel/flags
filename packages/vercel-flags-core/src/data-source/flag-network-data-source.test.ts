@@ -1,6 +1,14 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 const server = setupServer();
@@ -70,7 +78,7 @@ describe('FlagNetworkDataSource', () => {
     expect(dataSource.definitions).toEqual(definitions);
   });
 
-  it('should stop reconnecting on terminate message', async () => {
+  it('should stop reconnecting after shutdown is called', async () => {
     const definitions = {
       projectId: 'test-project',
       definitions: {},
@@ -79,10 +87,7 @@ describe('FlagNetworkDataSource', () => {
     server.use(
       http.get('https://flags.vercel.com/v1/stream', () => {
         return new HttpResponse(
-          createNdjsonStream([
-            { type: 'datafile', data: definitions },
-            { type: 'terminate', reason: 'sdk-key-revoked' },
-          ]),
+          createNdjsonStream([{ type: 'datafile', data: definitions }]),
           { headers: { 'Content-Type': 'application/x-ndjson' } },
         );
       }),
@@ -91,7 +96,11 @@ describe('FlagNetworkDataSource', () => {
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
     await dataSource.subscribe();
 
-    // Wait for the loop to process the terminate message
+    await vi.waitFor(() => {
+      expect(dataSource.definitions).toEqual(definitions);
+    });
+
+    dataSource.shutdown();
     await dataSource._loopPromise;
 
     expect(dataSource.breakLoop).toBe(true);
@@ -139,7 +148,6 @@ describe('FlagNetworkDataSource', () => {
           createNdjsonStream([
             { type: 'datafile', data: definitions1 },
             { type: 'datafile', data: definitions2 },
-            { type: 'terminate', reason: 'sdk-key-revoked' },
           ]),
           { headers: { 'Content-Type': 'application/x-ndjson' } },
         );
@@ -149,9 +157,11 @@ describe('FlagNetworkDataSource', () => {
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
     await dataSource.subscribe();
 
-    // Wait for stream to complete
-    await dataSource._loopPromise;
+    await vi.waitFor(() => {
+      expect(dataSource.definitions).toEqual(definitions2);
+    });
 
-    expect(dataSource.definitions).toEqual(definitions2);
+    dataSource.shutdown();
+    await dataSource._loopPromise;
   });
 });
