@@ -41,12 +41,6 @@ const edgeConfigMocks = vi.hoisted(() => {
   return { createClient: vi.fn() };
 });
 
-vi.mock('@vercel/edge-config', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@vercel/edge-config')>();
-  // replace some exports
-  return { ...mod, ...edgeConfigMocks };
-});
-
 describe('createVercelAdapter', () => {
   let originalFlagsSecret: string | undefined;
   let originalFlags: string | undefined;
