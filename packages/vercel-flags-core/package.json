@@ -15,8 +15,7 @@
     "./openfeature": {
       "import": "./dist/openfeature.js",
       "require": "./dist/openfeature.cjs"
-    },
-    "./dist/definitions.json": "./dist/definitions.json"
+    }
   },
   "main": "./dist/index.js",
   "typesVersions": {

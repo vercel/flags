@@ -10,9 +10,11 @@ export default [
     clean: true,
     skipNodeModulesBundle: true,
     dts: true,
-    external: ['node_modules'],
-    // copies over the definitions.json file to dist/
-    publicDir: 'public',
+    external: [
+      'node_modules',
+      '@vercel/flags-definitions',
+      '@vercel/flags-definitions/definitions.json',
+    ],
   }),
   // cli
   defineConfig({

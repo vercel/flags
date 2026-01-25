@@ -1,28 +1,24 @@
 #!/usr/bin/env node
 /*
- * Edge Config CLI
+ * Vercel Flags CLI
  *
  * command: prepare
- *   Reads all connected Edge Configs and emits a single definitions.json file.
- *   that can be accessed at runtime by the mockable-import function.
+ *   Reads all connected flag definitions and emits them into
+ *   node_modules/@vercel/flags-definitions/definitions.json along with a package.json
+ *   that exports the definitions.json file.
  *
- *   Attaches the updatedAt timestamp from the header to the emitted file, since
- *   the endpoint does not currently include it in the response body.
+ *   This creates a synthetic package that can be imported by the app at runtime,
+ *   providing a fallback when the flags network is unavailable.
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { Command } from 'commander';
 import { version } from '../package.json';
 import type { BundledDefinitions } from './types';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 const host = 'https://flags.vercel.com';
-
-// Get the directory where this CLI script is located
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * Obfuscates characters after clearTextLength
@@ -43,7 +39,7 @@ type PrepareOptions = {
   verbose?: boolean;
 };
 
-async function prepare(output: string, options: PrepareOptions): Promise<void> {
+async function prepare(options: PrepareOptions): Promise<void> {
   const sdkKeys = Array.from(
     Object.values(process.env).reduce<Set<string>>((acc, value) => {
       if (typeof value !== 'string') return acc;
@@ -96,12 +92,38 @@ async function prepare(output: string, options: PrepareOptions): Promise<void> {
     return acc;
   }, {});
 
-  // Ensure the dist directory exists before writing
-  await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, JSON.stringify(stores));
+  // Determine the output directory in node_modules
+  // Start from current working directory (the customer's app) and find node_modules
+  const storageDir = join(
+    process.cwd(),
+    'node_modules',
+    '@vercel',
+    'flags-definitions',
+  );
+  const dataPath = join(storageDir, 'definitions.json');
+  const pkgPath = join(storageDir, 'package.json');
+
+  // Ensure the storage directory exists
+  await mkdir(storageDir, { recursive: true });
+
+  // Write the definitions.json file
+  await writeFile(dataPath, JSON.stringify(stores));
+
+  // Create a package.json that exports definitions.json
+  const packageJson = {
+    name: '@vercel/flags-definitions',
+    version: '1.0.0',
+    type: 'module',
+    exports: {
+      './definitions.json': './definitions.json',
+    },
+  };
+  await writeFile(pkgPath, JSON.stringify(packageJson, null, 2));
+
   if (options.verbose) {
     console.log(`vercel-flags prepare`);
-    console.log(`  → created ${output}`);
+    console.log(`  → created ${dataPath}`);
+    console.log(`  → created ${pkgPath}`);
     if (Object.keys(stores).length === 0) {
       console.log(`  → no definitions included`);
     } else {
@@ -121,12 +143,13 @@ program
 program
   .command('prepare')
   .description(
-    'Prepare Edge Config definitions.json file for build time embedding',
+    'Capture point-in-time snapshots of flag definitions. ' +
+      'Ensures consistent values during build, enables instant bootstrapping, ' +
+      'and provides fallback when the service is unavailable.',
   )
   .option('--verbose', 'Enable verbose logging')
   .action(async (options: PrepareOptions) => {
-    const output = join(__dirname, '..', 'dist', 'definitions.json');
-    await prepare(output, options);
+    await prepare(options);
   });
 
 program.parse();

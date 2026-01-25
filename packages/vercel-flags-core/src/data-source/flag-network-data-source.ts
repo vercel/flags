@@ -60,14 +60,24 @@ export class FlagNetworkDataSource implements DataSource {
   constructor(options: { sdkKey: string }) {
     this.sdkKey = options.sdkKey;
 
-    // preload from embedded json AND set up stream,
-    // and only ever read from in-memory data
-    this.bundledDefinitionsPromise = readBundledDefinitions(this.sdkKey);
-
     this.usageTracker = new UsageTracker({
       sdkKey: options.sdkKey,
       host: this.host,
     });
+  }
+
+  /**
+   * Lazily loads bundled definitions. Only starts loading when first called,
+   * and caches the promise for subsequent calls.
+   */
+  private async loadBundledDefinitions(): Promise<BundledDefinitions | null> {
+    if (!this.bundledDefinitionsPromise) {
+      this.bundledDefinitionsPromise = (async () => {
+        const result = await readBundledDefinitions(this.sdkKey!);
+        return result.state === 'ok' ? result.definitions : null;
+      })();
+    }
+    return this.bundledDefinitionsPromise;
   }
 
   private getRetryDelay(): number {
@@ -299,7 +309,7 @@ export class FlagNetworkDataSource implements DataSource {
       this.usageTracker.trackRead();
       return this.definitions;
     }
-    const bundledDefinitions = await this.bundledDefinitionsPromise;
+    const bundledDefinitions = await this.loadBundledDefinitions();
     if (bundledDefinitions) {
       debugLog(process.pid, 'getData → bundledDefinitions');
       this.usageTracker.trackRead();
