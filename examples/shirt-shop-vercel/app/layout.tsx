@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 
 import './globals.css';
-import { flagsClient } from '@vercel/flags-core';
 import { ExamplesBanner } from '@/components/banners/examples-banner';
 
 export const metadata: Metadata = {
@@ -12,12 +11,11 @@ export const metadata: Metadata = {
   description: 'A Flags SDK example for Ecommerce',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await flagsClient.ensureFallback();
   return (
     <html lang="en">
       <body className="antialiased">
