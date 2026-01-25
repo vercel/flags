@@ -35,7 +35,7 @@ async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
  */
 export class FlagNetworkDataSource implements DataSource {
   sdkKey?: string;
-  bundledDefinitions: BundledDefinitions | null = null;
+  bundledDefinitionsPromise: Promise<BundledDefinitions | null> | null = null;
   definitions: BundledDefinitions | null = null;
   private streamInitPromise: Promise<BundledDefinitions> | null = null;
   private streamLoopPromise: Promise<void> | undefined;
@@ -62,7 +62,7 @@ export class FlagNetworkDataSource implements DataSource {
 
     // preload from embedded json AND set up stream,
     // and only ever read from in-memory data
-    this.bundledDefinitions = readBundledDefinitions(this.sdkKey);
+    this.bundledDefinitionsPromise = readBundledDefinitions(this.sdkKey);
 
     this.usageTracker = new UsageTracker({
       sdkKey: options.sdkKey,
@@ -299,10 +299,11 @@ export class FlagNetworkDataSource implements DataSource {
       this.usageTracker.trackRead();
       return this.definitions;
     }
-    if (this.bundledDefinitions) {
+    const bundledDefinitions = await this.bundledDefinitionsPromise;
+    if (bundledDefinitions) {
       debugLog(process.pid, 'getData → bundledDefinitions');
       this.usageTracker.trackRead();
-      return this.bundledDefinitions;
+      return bundledDefinitions;
     }
     debugLog(process.pid, 'getData → throw');
     throw new Error('No definitions found');

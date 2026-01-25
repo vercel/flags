@@ -24,7 +24,9 @@ import type { BundledDefinitions } from '../types';
 /**
  * Reads the local edge config that gets bundled at build time (definitions.json).
  */
-export function readBundledDefinitions(id: string): BundledDefinitions | null {
+export async function readBundledDefinitions(
+  id: string,
+): Promise<BundledDefinitions | null> {
   try {
     // "vercel-flags prepare" script did not run
     if (definitions === null) return null;

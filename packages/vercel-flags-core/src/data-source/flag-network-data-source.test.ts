@@ -10,6 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import { BundledDefinitions } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 let ingestRequests: { body: unknown; headers: Headers }[] = [];
@@ -260,9 +261,13 @@ describe('FlagNetworkDataSource', () => {
   });
 
   it('should fall back to bundledDefinitions when stream times out', async () => {
-    const bundledDefinitions = {
+    const bundledDefinitions: BundledDefinitions = {
       projectId: 'bundled-project',
-      definitions: { bundled: true },
+      definitions: {},
+      environment: 'production',
+      updatedAt: 1000,
+      digest: 'aa',
+      revision: 1,
     };
 
     // Create a stream that never sends data (simulating timeout)
@@ -281,7 +286,8 @@ describe('FlagNetworkDataSource', () => {
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
     // Manually set bundledDefinitions for this test
-    dataSource.bundledDefinitions = bundledDefinitions;
+    dataSource.bundledDefinitionsPromise =
+      Promise.resolve<BundledDefinitions>(bundledDefinitions);
 
     // getData should return bundledDefinitions after timeout (3s default)
     const startTime = Date.now();
@@ -301,9 +307,13 @@ describe('FlagNetworkDataSource', () => {
   }, 10000);
 
   it('should fall back to bundledDefinitions when stream errors (4xx)', async () => {
-    const bundledDefinitions = {
+    const bundledDefinitions: BundledDefinitions = {
       projectId: 'bundled-project',
-      definitions: { bundled: true },
+      definitions: {},
+      environment: 'production',
+      updatedAt: 1000,
+      digest: 'aa',
+      revision: 1,
     };
 
     // Return a 401 error - this will cause the stream to fail permanently (4xx stops retrying)
@@ -315,7 +325,7 @@ describe('FlagNetworkDataSource', () => {
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
     // Manually set bundledDefinitions for this test
-    dataSource.bundledDefinitions = bundledDefinitions;
+    dataSource.bundledDefinitionsPromise = Promise.resolve(bundledDefinitions);
 
     // Suppress expected error logs for this test
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
