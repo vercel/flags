@@ -33,6 +33,24 @@ export async function readBundledDefinitions(
       'code' in error &&
       error.code === 'MODULE_NOT_FOUND'
     ) {
+      // Warn during build so developers notice the issue
+      const isBuildStep =
+        process.env.NEXT_PHASE === 'phase-production-build' ||
+        process.env.CI === '1';
+
+      if (isBuildStep) {
+        console.warn(`
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║  @vercel/flags-core: No bundled definitions found                          ║
+║                                                                            ║
+║  The fallback definitions file was not found. This means your app will     ║
+║  not be able to resolve flags if Vercel Flags is unavailable.              ║
+║                                                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+`);
+      }
+
       return { definitions: null, state: 'missing-file' };
     }
 
