@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "vercel-flags prepare",
+    "prebuild": "vercel-flags prepare --verbose",
     "build": "next build",
     "dev": "next dev",
     "lint": "biome check",
