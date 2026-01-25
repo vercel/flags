@@ -1,6 +1,9 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
-import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import {
+  type BundledDefinitionsResult,
+  readBundledDefinitions,
+} from '../utils/read-bundled-definitions';
 import { sleep } from '../utils/sleep';
 import { UsageTracker } from '../utils/usage-tracker';
 import type { DataSource, DataSourceMetadata } from './interface';
@@ -34,8 +37,8 @@ async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
  * Implements the DataSource interface for flags.vercel.com.
  */
 export class FlagNetworkDataSource implements DataSource {
-  sdkKey?: string;
-  bundledDefinitionsPromise: Promise<BundledDefinitions | null> | null = null;
+  sdkKey: string;
+  bundledDefinitionsPromise: Promise<BundledDefinitionsResult> | null = null;
   definitions: BundledDefinitions | null = null;
   private streamInitPromise: Promise<BundledDefinitions> | null = null;
   private streamLoopPromise: Promise<void> | undefined;
@@ -58,6 +61,15 @@ export class FlagNetworkDataSource implements DataSource {
   readonly host = 'https://flags.vercel.com';
 
   constructor(options: { sdkKey: string }) {
+    if (
+      !options.sdkKey ||
+      typeof options.sdkKey !== 'string' ||
+      !options.sdkKey.startsWith('vf_')
+    ) {
+      throw new Error(
+        '@vercel/flags-core: SDK key must be a string starting with "vf_"',
+      );
+    }
     this.sdkKey = options.sdkKey;
 
     this.usageTracker = new UsageTracker({
@@ -70,12 +82,9 @@ export class FlagNetworkDataSource implements DataSource {
    * Lazily loads bundled definitions. Only starts loading when first called,
    * and caches the promise for subsequent calls.
    */
-  private async loadBundledDefinitions(): Promise<BundledDefinitions | null> {
+  private async loadBundledDefinitions(): Promise<BundledDefinitionsResult> {
     if (!this.bundledDefinitionsPromise) {
-      this.bundledDefinitionsPromise = (async () => {
-        const result = await readBundledDefinitions(this.sdkKey!);
-        return result.state === 'ok' ? result.definitions : null;
-      })();
+      this.bundledDefinitionsPromise = readBundledDefinitions(this.sdkKey);
     }
     return this.bundledDefinitionsPromise;
   }
@@ -259,6 +268,27 @@ export class FlagNetworkDataSource implements DataSource {
     await this.streamLoopPromise;
   }
 
+  async ensureFallback(): Promise<void> {
+    const result = await this.loadBundledDefinitions();
+
+    switch (result.state) {
+      case 'ok':
+        return;
+      case 'missing-file':
+        throw new Error(
+          'flags: No bundled definitions found. Run "vercel-flags prepare" during your build step.',
+        );
+      case 'missing-entry':
+        throw new Error(
+          `flags: No bundled definitions found for SDK key "${this.sdkKey}". Ensure the SDK key is correct and "vercel-flags prepare" was run.`,
+        );
+      case 'unexpected-error':
+        throw new Error(
+          `flags: Unexpected error reading bundled definitions: ${String(result.error)}`,
+        );
+    }
+  }
+
   // called once per flag rather than once per request,
   // but it's okay since we only ever read from memory here
   async getData() {
@@ -309,11 +339,11 @@ export class FlagNetworkDataSource implements DataSource {
       this.usageTracker.trackRead();
       return this.definitions;
     }
-    const bundledDefinitions = await this.loadBundledDefinitions();
-    if (bundledDefinitions) {
+    const bundledDefinitionsResult = await this.loadBundledDefinitions();
+    if (bundledDefinitionsResult.state === 'ok') {
       debugLog(process.pid, 'getData → bundledDefinitions');
       this.usageTracker.trackRead();
-      return bundledDefinitions;
+      return bundledDefinitionsResult.definitions;
     }
     debugLog(process.pid, 'getData → throw');
     throw new Error('No definitions found');

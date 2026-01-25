@@ -30,6 +30,7 @@ export type FlagsClient = {
   initialize(): void | Promise<void>;
   shutdown(): void | Promise<void>;
   getMetadata(): Promise<{ projectId: string }>;
+  ensureFallback(): Promise<void>;
 };
 
 /**
@@ -59,6 +60,12 @@ export function createRawClient({
       if (dataSource && typeof dataSource.shutdown === 'function') {
         return dataSource.shutdown();
       }
+    },
+    async ensureFallback(): Promise<void> {
+      if (dataSource.ensureFallback) {
+        return dataSource.ensureFallback();
+      }
+      throw new Error('flags: This data source does not support fallbacks');
     },
     async evaluate<T = Value, E = Record<string, unknown>>(
       flagKey: string,

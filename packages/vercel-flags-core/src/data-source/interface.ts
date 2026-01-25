@@ -27,4 +27,10 @@ export interface DataSource {
   shutdown?(): void;
 
   getMetadata(): Promise<DataSourceMetadata>;
+
+  /**
+   * Ensures bundled definitions exist as a fallback.
+   * Throws if no bundled definitions are available.
+   */
+  ensureFallback?(): Promise<void>;
 }
