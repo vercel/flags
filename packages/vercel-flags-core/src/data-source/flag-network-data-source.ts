@@ -229,7 +229,6 @@ export class FlagNetworkDataSource implements DataSource {
         const delay = this.getRetryDelay();
         this.retryCount++;
         debugLog(
-          process.pid,
           `consumeStream → retrying in ${delay}ms (attempt ${this.retryCount})`,
         );
         await sleep(delay);
