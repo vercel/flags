@@ -1,5 +1,5 @@
-import { getDefaultFlagsClient } from '@vercel/flags-core';
+import { flagsClient } from '@vercel/flags-core';
 
 export async function register() {
-  await getDefaultFlagsClient().ensureFallback();
+  await flagsClient.ensureFallback();
 }

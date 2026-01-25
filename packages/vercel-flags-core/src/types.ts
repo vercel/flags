@@ -19,6 +19,11 @@ export type BundledDefinitions = DataSourceData & {
   revision: number;
 };
 
+export type BundledDefinitionsResult =
+  | { definitions: BundledDefinitions; state: 'ok' }
+  | { definitions: null; state: 'missing-file' | 'missing-entry' }
+  | { definitions: null; state: 'unexpected-error'; error: unknown };
+
 // -----------------------------------------------------------------------------
 // Shared data
 // -----------------------------------------------------------------------------

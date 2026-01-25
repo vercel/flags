@@ -9,14 +9,9 @@
 //
 // If the "vercel-flags prepare" script did not run, the import will fail
 // and we return null.
-import type { BundledDefinitions } from '../types';
+import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 
 type DefinitionsJson = Record<string, BundledDefinitions>;
-
-export type BundledDefinitionsResult =
-  | { definitions: BundledDefinitions; state: 'ok' }
-  | { definitions: null; state: 'missing-file' | 'missing-entry' }
-  | { definitions: null; state: 'unexpected-error'; error: unknown };
 
 /**
  * Reads the local definitions that get bundled at build time (definitions.json).

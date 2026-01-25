@@ -1,7 +1,4 @@
-import {
-  getDefaultFlagsClient,
-  resetDefaultFlagsClient,
-} from '@vercel/flags-core';
+import { flagsClient, resetDefaultFlagsClient } from '@vercel/flags-core';
 import type { Origin, ProviderData } from 'flags';
 import { flag } from 'flags/next';
 import { HttpResponse, http } from 'msw';
@@ -51,7 +48,7 @@ function createNdjsonStream(messages: object[]): ReadableStream {
     async start(controller) {
       for (const message of messages) {
         controller.enqueue(
-          new TextEncoder().encode(JSON.stringify(message) + '\n'),
+          new TextEncoder().encode(`${JSON.stringify(message)}\n`),
         );
       }
       controller.close();
@@ -85,7 +82,6 @@ describe('createVercelAdapter', () => {
   });
 
   it('returns a full definition', () => {
-    const flagsClient = getDefaultFlagsClient();
     const adapter = createVercelAdapter(flagsClient);
 
     const amended = adapter();

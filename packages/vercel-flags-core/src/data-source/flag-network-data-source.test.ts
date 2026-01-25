@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { BundledDefinitions } from '../types';
+import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 let ingestRequests: { body: unknown; headers: Headers }[] = [];
@@ -86,13 +86,13 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
 
     await dataSource.shutdown();
-    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should ignore ping messages', async () => {
@@ -114,13 +114,13 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
 
     await dataSource.shutdown();
-    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should stop reconnecting after shutdown is called', async () => {
@@ -138,7 +138,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     await vi.waitFor(() => {
@@ -148,7 +148,7 @@ describe('FlagNetworkDataSource', () => {
     await dataSource.shutdown();
 
     expect(dataSource.breakLoop).toBe(true);
-    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should abort the stream connection when shutdown is called', async () => {
@@ -184,7 +184,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     // Verify the abort signal was passed to the request and not yet aborted
@@ -224,13 +224,13 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
 
     await dataSource.shutdown();
-    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should update definitions when new datafile messages arrive', async () => {
@@ -249,7 +249,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     await vi.waitFor(() => {
@@ -257,7 +257,7 @@ describe('FlagNetworkDataSource', () => {
     });
 
     await dataSource.shutdown();
-    await assertIngestRequest('test-key', [{ type: 'FLAGS_CONFIG_READ' }]);
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should fall back to bundledDefinitions when stream times out', async () => {
@@ -284,10 +284,13 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     // Manually set bundledDefinitions for this test
     dataSource.bundledDefinitionsPromise =
-      Promise.resolve<BundledDefinitions>(bundledDefinitions);
+      Promise.resolve<BundledDefinitionsResult>({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
 
     // getData should return bundledDefinitions after timeout (3s default)
     const startTime = Date.now();
@@ -323,9 +326,13 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     // Manually set bundledDefinitions for this test
-    dataSource.bundledDefinitionsPromise = Promise.resolve(bundledDefinitions);
+    dataSource.bundledDefinitionsPromise =
+      Promise.resolve<BundledDefinitionsResult>({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
 
     // Suppress expected error logs for this test
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -358,7 +365,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(capturedHeaders).not.toBeNull();
@@ -386,7 +393,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'test-key' });
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     // Verify no warning on first successful read (stream is connected)

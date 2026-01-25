@@ -1,7 +1,7 @@
 import {
   createClient,
   type FlagsClient,
-  getDefaultFlagsClient,
+  flagsClient,
   Reason,
 } from '@vercel/flags-core';
 import type {
@@ -86,7 +86,7 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   EntitiesType
 > {
   if (!defaultVercelAdapter) {
-    defaultVercelAdapter = createVercelAdapter(getDefaultFlagsClient());
+    defaultVercelAdapter = createVercelAdapter(flagsClient);
   }
 
   return defaultVercelAdapter<ValueType, EntitiesType>();
@@ -99,7 +99,6 @@ export async function getProviderData(
     KeyedFlagDefinitionType | readonly unknown[]
   >,
 ): Promise<ProviderData> {
-  const flagsClient = getDefaultFlagsClient();
   const metadata = await flagsClient.getMetadata();
 
   const definitions = Object.values(flags)

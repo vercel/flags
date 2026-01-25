@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRawClient, getDefaultFlagsClient } from '.';
+import { createRawClient, flagsClient } from '.';
 
 describe('createRawClient', () => {
   it('should allow creating a client', () => {
@@ -22,13 +22,12 @@ describe('createRawClient', () => {
   });
 });
 
-describe('getDefaultFlagsClient', () => {
+describe('flagsClient', () => {
   it('works', () => {
     process.env.FLAGS = 'vf_server_testkey';
     process.env.VERCEL_ENV = 'development';
-    const client = getDefaultFlagsClient();
-    expect(client).toBeDefined();
-    expect(client.dataSource).toBeDefined();
+    expect(flagsClient).toBeDefined();
+    expect(flagsClient.dataSource).toBeDefined();
     delete process.env.VERCEL_ENV;
   });
 });

@@ -18,13 +18,19 @@ export {
 export type { DataSource };
 export { evaluate } from './evaluate';
 
-let defaultFlagsClient: FlagsClient | null = null;
+let _defaultFlagsClient: FlagsClient | null = null;
 
 // Insights
 // - data source must specify the environment & projectId as sdkKey has that info
 // - "reuse" functionality relies on the data source having the data for all envs
-export function createClient(sdkKey: string): FlagsClient {
-  if (!sdkKey) throw new Error('flags: Missing sdkKey');
+export function createClient(sdkKeyOrConnectionString: string): FlagsClient {
+  if (!sdkKeyOrConnectionString) throw new Error('flags: Missing sdkKey');
+
+  // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
+  const sdkKey = parseSdkKeyFromFlagsConnectionString(sdkKeyOrConnectionString);
+  if (!sdkKey) {
+    throw new Error('flags: Missing sdkKey');
+  }
 
   // sdk key contains the environment
   const dataSource = new FlagNetworkDataSource({ sdkKey });
@@ -35,23 +41,12 @@ export function createClient(sdkKey: string): FlagsClient {
  * Internal function for testing purposes
  */
 export function resetDefaultFlagsClient() {
-  defaultFlagsClient = null;
+  _defaultFlagsClient = null;
 }
 
-/**
- * This function is for internal use only.
- *
- * Produces a default flags client reading from a default edge config.
- *
- * - relies on process.env.FLAGS
- * - does not use process.env.EDGE_CONFIG
- *
- * @param connectionString - usually from process.env.FLAGS
- * @returns - a flags client
- */
-export function getDefaultFlagsClient(): FlagsClient {
-  if (defaultFlagsClient) {
-    return defaultFlagsClient;
+function getOrCreateDefaultClient(): FlagsClient {
+  if (_defaultFlagsClient) {
+    return _defaultFlagsClient;
   }
 
   if (!process.env.FLAGS) {
@@ -62,6 +57,18 @@ export function getDefaultFlagsClient(): FlagsClient {
   if (!sdkKey) {
     throw new Error('flags: Missing sdkKey');
   }
-  defaultFlagsClient = createClient(sdkKey);
-  return defaultFlagsClient;
+  _defaultFlagsClient = createClient(sdkKey);
+  return _defaultFlagsClient;
 }
+
+/**
+ * A lazily-initialized default flags client.
+ *
+ * - relies on process.env.FLAGS
+ * - does not use process.env.EDGE_CONFIG
+ */
+export const flagsClient: FlagsClient = new Proxy({} as FlagsClient, {
+  get(_, prop) {
+    return getOrCreateDefaultClient()[prop as keyof FlagsClient];
+  },
+});

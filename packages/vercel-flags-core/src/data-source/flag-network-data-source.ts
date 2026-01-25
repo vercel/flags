@@ -1,9 +1,6 @@
 import { version } from '../../package.json';
-import type { BundledDefinitions } from '../types';
-import {
-  type BundledDefinitionsResult,
-  readBundledDefinitions,
-} from '../utils/read-bundled-definitions';
+import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
+import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { sleep } from '../utils/sleep';
 import { UsageTracker } from '../utils/usage-tracker';
 import type { DataSource, DataSourceMetadata } from './interface';
