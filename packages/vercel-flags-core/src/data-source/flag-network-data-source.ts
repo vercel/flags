@@ -132,7 +132,7 @@ export class FlagNetworkDataSource implements DataSource {
       try {
         // Update state before attempting connection
         this.streamState = this.hasReceivedData ? 'reconnecting' : 'connecting';
-        debugLog(process.pid, `consumeStream → ${this.streamState}`);
+        debugLog(`consumeStream → ${this.streamState}`);
 
         // Create a new AbortController for this connection attempt
         this.abortController = new AbortController();
@@ -202,7 +202,7 @@ export class FlagNetworkDataSource implements DataSource {
             if (message.type === 'datafile') {
               this.definitions = message.data;
               this.hasReceivedData = true;
-              debugLog(process.pid, 'consumeStream → data', message.data);
+              debugLog('consumeStream → data', message.data);
               this.resolveStreamInitPromise!(message.data);
             }
           }
@@ -211,7 +211,7 @@ export class FlagNetworkDataSource implements DataSource {
         // Stream ended - if not intentional, retry
         if (!this.breakLoop) {
           this.streamState = 'reconnecting';
-          debugLog(process.pid, 'consumeStream → stream closed, will retry');
+          debugLog('consumeStream → stream closed, will retry');
         }
       } catch (error) {
         // If we haven't received data and this is the initial connection,
@@ -221,7 +221,7 @@ export class FlagNetworkDataSource implements DataSource {
         }
 
         this.streamState = 'reconnecting';
-        console.error(process.pid, 'consumeStream → error, will retry', error);
+        console.error('consumeStream → error, will retry', error);
       }
 
       // Retry logic with exponential backoff
@@ -236,7 +236,7 @@ export class FlagNetworkDataSource implements DataSource {
       }
     }
 
-    debugLog(process.pid, 'consumeStream → done');
+    debugLog('consumeStream → done');
   }
 
   async fetchData(): Promise<BundledDefinitions> {
@@ -290,12 +290,12 @@ export class FlagNetworkDataSource implements DataSource {
   // but it's okay since we only ever read from memory here
   async getData() {
     if (!this.initialized) {
-      debugLog(process.pid, 'getData → init');
+      debugLog('getData → init');
       await this.subscribe();
     }
 
     if (this.streamInitPromise) {
-      debugLog(process.pid, 'getData → await with timeout');
+      debugLog('getData → await with timeout');
 
       // Use async wrapper functions to avoid .then()/.catch() deopts
       const waitForStream = async (): Promise<'success' | 'error'> => {
@@ -315,7 +315,7 @@ export class FlagNetworkDataSource implements DataSource {
       const result = await Promise.race([waitForStream(), waitForTimeout()]);
 
       if (result === 'timeout' || result === 'error') {
-        debugLog(process.pid, `getData → ${result}, falling back`);
+        debugLog(`getData → ${result}, falling back`);
         // Continue to fallback logic below
         // Note: consumeStream() continues retrying in background
       }
@@ -332,17 +332,17 @@ export class FlagNetworkDataSource implements DataSource {
         );
       }
 
-      debugLog(process.pid, 'getData → definitions');
+      debugLog('getData → definitions');
       this.usageTracker.trackRead();
       return this.definitions;
     }
     const bundledDefinitionsResult = await this.loadBundledDefinitions();
     if (bundledDefinitionsResult.state === 'ok') {
-      debugLog(process.pid, 'getData → bundledDefinitions');
+      debugLog('getData → bundledDefinitions');
       this.usageTracker.trackRead();
       return bundledDefinitionsResult.definitions;
     }
-    debugLog(process.pid, 'getData → throw');
+    debugLog('getData → throw');
     throw new Error('No definitions found');
   }
 }
