@@ -120,7 +120,7 @@ export class FlagNetworkDataSource implements DataSource {
 
     this.streamLoopPromise = (async () => {
       try {
-        await this.consumeStream();
+        await this.runStreamLoop();
       } catch (error) {
         console.error('Failed to consume stream', error);
         this.breakLoop = true;
@@ -130,12 +130,12 @@ export class FlagNetworkDataSource implements DataSource {
     // Don't return streamInitPromise here - getData() handles the racing logic
   }
 
-  private async consumeStream() {
+  private async runStreamLoop() {
     while (!this.breakLoop) {
       try {
         // Update state before attempting connection
         this.streamState = this.hasReceivedData ? 'reconnecting' : 'connecting';
-        debugLog(`consumeStream → ${this.streamState}`);
+        debugLog(`runStreamLoop → ${this.streamState}`);
 
         // Create a new AbortController for this connection attempt
         this.abortController = new AbortController();
@@ -205,7 +205,7 @@ export class FlagNetworkDataSource implements DataSource {
             if (message.type === 'datafile') {
               this.definitions = message.data;
               this.hasReceivedData = true;
-              debugLog('consumeStream → data', message.data);
+              debugLog('runStreamLoop → data', message.data);
               this.resolveStreamInitPromise!(message.data);
             }
           }
@@ -214,7 +214,7 @@ export class FlagNetworkDataSource implements DataSource {
         // Stream ended - if not intentional, retry
         if (!this.breakLoop) {
           this.streamState = 'reconnecting';
-          debugLog('consumeStream → stream closed, will retry');
+          debugLog('runStreamLoop → stream closed, will retry');
         }
       } catch (error) {
         // If we haven't received data and this is the initial connection,
@@ -224,7 +224,7 @@ export class FlagNetworkDataSource implements DataSource {
         }
 
         this.streamState = 'reconnecting';
-        console.error('consumeStream → error, will retry', error);
+        console.error('runStreamLoop → error, will retry', error);
       }
 
       // Retry logic with exponential backoff
@@ -232,13 +232,13 @@ export class FlagNetworkDataSource implements DataSource {
         const delay = this.getRetryDelay();
         this.retryCount++;
         debugLog(
-          `consumeStream → retrying in ${delay}ms (attempt ${this.retryCount})`,
+          `runStreamLoop → retrying in ${delay}ms (attempt ${this.retryCount})`,
         );
         await sleep(delay);
       }
     }
 
-    debugLog('consumeStream → done');
+    debugLog('runStreamLoop → done');
   }
 
   async fetchData(): Promise<BundledDefinitions> {
@@ -362,7 +362,7 @@ export class FlagNetworkDataSource implements DataSource {
       if (result === 'timeout' || result === 'error') {
         debugLog(`getData → ${result}, falling back`);
         // Continue to fallback logic below
-        // Note: consumeStream() continues retrying in background
+        // Note: runStreamLoop() continues retrying in background
       }
     }
 
