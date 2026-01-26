@@ -267,6 +267,44 @@ export class FlagNetworkDataSource implements DataSource {
     await this.streamLoopPromise;
   }
 
+  /**
+   * Initializes the data source by setting up the stream connection
+   * and waiting for the initial data to arrive.
+   *
+   * Call this early (e.g., in instrumentation.ts) to have flags ready
+   * immediately when evaluate() is called later.
+   *
+   * Respects streamInitTimeoutMs - if the stream doesn't connect in time,
+   * it will fall back to bundled definitions (if available).
+   */
+  async initialize(): Promise<void> {
+    await this.subscribe();
+
+    if (this.streamInitPromise) {
+      // Use async wrapper functions to avoid .then()/.catch() deopts
+      const waitForStream = async (): Promise<'success' | 'error'> => {
+        try {
+          await this.streamInitPromise;
+          return 'success';
+        } catch {
+          return 'error';
+        }
+      };
+
+      const waitForTimeout = async (): Promise<'timeout'> => {
+        await sleep(this.streamInitTimeoutMs);
+        return 'timeout';
+      };
+
+      const result = await Promise.race([waitForStream(), waitForTimeout()]);
+
+      if (result === 'timeout' || result === 'error') {
+        debugLog(`initialize → ${result}, stream will continue in background`);
+        // Stream continues retrying in background, but we don't block further
+      }
+    }
+  }
+
   async ensureFallback(): Promise<void> {
     const result = await this.loadBundledDefinitions();
 

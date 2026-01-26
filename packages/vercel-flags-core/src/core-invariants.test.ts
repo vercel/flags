@@ -286,3 +286,140 @@ describe('Core Invariants: Stream Timeout & Fallback', () => {
     await dataSource.shutdown();
   });
 });
+
+describe('Core Invariants: initialize() Behavior', () => {
+  /**
+   * initialize() must set up the stream and await initial data.
+   * This allows calling initialize() early (e.g., in instrumentation.ts)
+   * to have flags ready immediately when evaluate() is called later.
+   */
+  it('initialize() sets up stream and awaits initial data', async () => {
+    const streamDefinitions = {
+      projectId: 'stream-project',
+      definitions: { 'my-flag': { variants: [true, false] } },
+    };
+
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          createNdjsonStream([{ type: 'datafile', data: streamDefinitions }]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+
+    // Before initialize, definitions should be null
+    expect(dataSource.definitions).toBeNull();
+
+    await dataSource.initialize();
+
+    // After initialize, definitions should be populated
+    expect(dataSource.definitions).toEqual(streamDefinitions);
+
+    await dataSource.shutdown();
+  });
+
+  it('initialize() via client sets up stream and awaits initial data', async () => {
+    const streamDefinitions = {
+      projectId: 'stream-project',
+      definitions: { 'client-flag': { variants: ['a', 'b'] } },
+    };
+
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          createNdjsonStream([{ type: 'datafile', data: streamDefinitions }]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const client = createClient('vf_test_key');
+
+    await client.initialize();
+
+    // After initialize, getData should return immediately with stream data
+    const dataSource = client.dataSource as FlagNetworkDataSource;
+    expect(dataSource.definitions).toEqual(streamDefinitions);
+
+    await client.shutdown();
+  });
+
+  it('initialize() respects streamInitTimeoutMs on timeout', async () => {
+    const bundledDefinitions: BundledDefinitions = {
+      projectId: 'bundled-project',
+      definitions: {},
+      environment: 'production',
+      updatedAt: 1000,
+      digest: 'aa',
+      revision: 1,
+    };
+
+    // Stream that never sends data - simulates timeout
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          new ReadableStream({
+            start() {
+              // Never enqueue anything - simulates hanging connection
+            },
+          }),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    dataSource.bundledDefinitionsPromise =
+      Promise.resolve<BundledDefinitionsResult>({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+    const startTime = Date.now();
+    await dataSource.initialize();
+    const elapsed = Date.now() - startTime;
+
+    // Should have taken roughly 3 seconds (the default streamInitTimeoutMs)
+    expect(elapsed).toBeGreaterThanOrEqual(2900);
+    expect(elapsed).toBeLessThan(4000);
+
+    // Definitions should still be null (stream didn't connect)
+    // but getData() would fall back to bundled definitions
+    expect(dataSource.definitions).toBeNull();
+
+    dataSource.shutdown();
+  }, 10000);
+
+  it('initialize() can be called multiple times safely', async () => {
+    const streamDefinitions = {
+      projectId: 'stream-project',
+      definitions: { 'my-flag': { variants: [true] } },
+    };
+
+    let requestCount = 0;
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        requestCount++;
+        return new HttpResponse(
+          createNdjsonStream([{ type: 'datafile', data: streamDefinitions }]),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+
+    await dataSource.initialize();
+    await dataSource.initialize();
+    await dataSource.initialize();
+
+    // Should only have made one request (subscribe is idempotent)
+    expect(requestCount).toBe(1);
+    expect(dataSource.definitions).toEqual(streamDefinitions);
+
+    await dataSource.shutdown();
+  });
+});
