@@ -39,12 +39,12 @@ export class FlagNetworkDataSource implements DataSource {
   definitions: BundledDefinitions | null = null;
   private streamInitPromise: Promise<BundledDefinitions> | null = null;
   private streamLoopPromise: Promise<void> | undefined;
+  private initializePromise: Promise<void> | null = null;
   private breakLoop: boolean = false;
   private resolveStreamInitPromise:
     | undefined
     | ((value: BundledDefinitions) => void);
   private rejectStreamInitPromise: undefined | ((reason?: any) => void);
-  initialized?: boolean = false;
   private hasReceivedData: boolean = false;
   private retryCount: number = 0;
   private readonly maxRetryDelay: number = 30000; // 30 seconds max delay
@@ -96,38 +96,6 @@ export class FlagNetworkDataSource implements DataSource {
       this.maxRetryDelay,
     );
     return delay;
-  }
-
-  private async subscribe() {
-    // only init lazily to prevent opening streams when a page
-    // has no flags anyhow and just the client is imported
-    if (this.initialized) return;
-    this.initialized = true;
-
-    const isBuildStep =
-      process.env.CI === '1' ||
-      process.env.NEXT_PHASE === 'phase-production-build';
-
-    if (isBuildStep) {
-      this.initialized = true;
-      return;
-    }
-
-    this.streamInitPromise = new Promise((resolve, reject) => {
-      this.resolveStreamInitPromise = resolve;
-      this.rejectStreamInitPromise = reject;
-    });
-
-    this.streamLoopPromise = (async () => {
-      try {
-        await this.runStreamLoop();
-      } catch (error) {
-        console.error('Failed to consume stream', error);
-        this.breakLoop = true;
-      }
-    })();
-
-    // Don't return streamInitPromise here - getData() handles the racing logic
   }
 
   private async runStreamLoop() {
@@ -220,7 +188,9 @@ export class FlagNetworkDataSource implements DataSource {
         // If we haven't received data and this is the initial connection,
         // the error was already propagated via rejectStreamInitPromise
         if (!this.hasReceivedData) {
-          throw error;
+          console.error('Failed to consume stream', error);
+          this.breakLoop = true;
+          continue;
         }
 
         this.streamState = 'reconnecting';
@@ -276,32 +246,63 @@ export class FlagNetworkDataSource implements DataSource {
    *
    * Respects streamInitTimeoutMs - if the stream doesn't connect in time,
    * it will fall back to bundled definitions (if available).
+   *
+   * This method is idempotent - calling it multiple times will return
+   * the same promise.
    */
   async initialize(): Promise<void> {
-    await this.subscribe();
+    // Return cached promise if already initializing/initialized
+    if (this.initializePromise) return this.initializePromise;
 
-    if (this.streamInitPromise) {
-      // Use async wrapper functions to avoid .then()/.catch() deopts
-      const waitForStream = async (): Promise<'success' | 'error'> => {
-        try {
-          await this.streamInitPromise;
-          return 'success';
-        } catch {
-          return 'error';
-        }
-      };
+    this.initializePromise = this.doInitialize();
+    return this.initializePromise;
+  }
 
-      const waitForTimeout = async (): Promise<'timeout'> => {
-        await sleep(this.streamInitTimeoutMs);
-        return 'timeout';
-      };
+  private async doInitialize(): Promise<void> {
+    const isBuildStep =
+      process.env.CI === '1' ||
+      process.env.NEXT_PHASE === 'phase-production-build';
 
-      const result = await Promise.race([waitForStream(), waitForTimeout()]);
-
-      if (result === 'timeout' || result === 'error') {
-        debugLog(`initialize → ${result}, stream will continue in background`);
-        // Stream continues retrying in background, but we don't block further
+    if (isBuildStep) {
+      // During build, we can't use streaming. Check for bundled definitions first,
+      // otherwise fetch from /datafile endpoint.
+      const bundledResult = await this.loadBundledDefinitions();
+      if (bundledResult.state === 'ok') {
+        this.definitions = bundledResult.definitions;
+        return;
       }
+      // No bundled definitions, fetch from datafile endpoint
+      this.definitions = await this.fetchData();
+      return;
+    }
+
+    this.streamInitPromise = new Promise((resolve, reject) => {
+      this.resolveStreamInitPromise = resolve;
+      this.rejectStreamInitPromise = reject;
+    });
+
+    this.streamLoopPromise = this.runStreamLoop();
+
+    // Use async wrapper functions to avoid .then()/.catch() deopts
+    const waitForStream = async (): Promise<'success' | 'error'> => {
+      try {
+        await this.streamInitPromise;
+        return 'success';
+      } catch {
+        return 'error';
+      }
+    };
+
+    const waitForTimeout = async (): Promise<'timeout'> => {
+      await sleep(this.streamInitTimeoutMs);
+      return 'timeout';
+    };
+
+    const result = await Promise.race([waitForStream(), waitForTimeout()]);
+
+    if (result === 'timeout' || result === 'error') {
+      debugLog(`initialize → ${result}, stream will continue in background`);
+      // Stream continues retrying in background, but we don't block further
     }
   }
 
