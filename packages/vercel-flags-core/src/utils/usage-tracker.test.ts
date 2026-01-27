@@ -378,7 +378,6 @@ describe('UsageTracker', () => {
         headers: {
           'x-vercel-id': 'test-request-id',
           host: 'example.com',
-          'x-invoke-path': '/api/test',
         },
       };
 
@@ -426,7 +425,6 @@ describe('UsageTracker', () => {
         headers: {
           'x-vercel-id': 'req_123',
           host: 'myapp.vercel.app',
-          'x-invoke-path': '/api/flags',
         },
       };
 
@@ -450,7 +448,6 @@ describe('UsageTracker', () => {
       const event = events[0] as FlagsConfigReadEvent;
       expect(event.payload.vercelRequestId).toBe('req_123');
       expect(event.payload.invocationHost).toBe('myapp.vercel.app');
-      expect(event.payload.invocationPath).toBe('/api/flags');
 
       // Clean up
       delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
@@ -509,6 +506,255 @@ describe('UsageTracker', () => {
 
       // Clean up
       delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+    });
+  });
+
+  describe('trackRead options', () => {
+    it('should include configOrigin in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead({ configOrigin: 'in-memory' });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.configOrigin).toBe('in-memory');
+    });
+
+    it('should include cacheStatus in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.cacheStatus).toBe('HIT');
+    });
+
+    it('should include cacheIsFirstRead in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.cacheIsFirstRead).toBe(true);
+    });
+
+    it('should include cacheIsBlocking in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.cacheIsBlocking).toBe(true);
+    });
+
+    it('should include duration in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.duration).toBe(150);
+    });
+
+    it('should include configUpdatedAt in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      const timestamp = Date.now();
+      tracker.trackRead({
+        configOrigin: 'in-memory',
+        configUpdatedAt: timestamp,
+      });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.configUpdatedAt).toBe(timestamp);
+    });
+
+    it('should include all options in the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      const timestamp = Date.now();
+      tracker.trackRead({
+        configOrigin: 'in-memory',
+        cacheStatus: 'MISS',
+        cacheIsFirstRead: true,
+        cacheIsBlocking: true,
+        duration: 200,
+        configUpdatedAt: timestamp,
+      });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.configOrigin).toBe('in-memory');
+      expect(event.payload.cacheStatus).toBe('MISS');
+      expect(event.payload.cacheIsFirstRead).toBe(true);
+      expect(event.payload.cacheIsBlocking).toBe(true);
+      expect(event.payload.duration).toBe(200);
+      expect(event.payload.configUpdatedAt).toBe(timestamp);
+    });
+
+    it('should omit undefined options from the event payload', async () => {
+      const receivedEvents: FlagsConfigReadEvent[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      // Only pass configOrigin, omit others
+      tracker.trackRead({ configOrigin: 'embedded' });
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      const events = receivedEvents[0] as FlagsConfigReadEvent[];
+      const event = events[0] as FlagsConfigReadEvent;
+      expect(event.payload.configOrigin).toBe('embedded');
+      expect(event.payload.cacheStatus).toBeUndefined();
+      expect(event.payload.cacheIsFirstRead).toBeUndefined();
+      expect(event.payload.cacheIsBlocking).toBeUndefined();
+      expect(event.payload.duration).toBeUndefined();
+      expect(event.payload.configUpdatedAt).toBeUndefined();
     });
   });
 });

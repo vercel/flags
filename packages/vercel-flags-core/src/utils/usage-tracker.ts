@@ -13,8 +13,13 @@ export interface FlagsConfigReadEvent {
     deploymentId?: string;
     region?: string;
     invocationHost?: string;
-    invocationPath?: string;
     vercelRequestId?: string;
+    cacheStatus?: 'HIT' | 'MISS';
+    cacheIsBlocking?: boolean;
+    cacheIsFirstRead?: boolean;
+    duration?: number;
+    configUpdatedAt?: number;
+    configOrigin?: 'in-memory' | 'embedded';
   };
 }
 
@@ -67,6 +72,21 @@ export interface UsageTrackerOptions {
   host: string;
 }
 
+export interface TrackReadOptions {
+  /** Whether the config was read from in-memory cache or embedded bundle */
+  configOrigin: 'in-memory' | 'embedded';
+  /** HIT when definitions exist in memory, MISS when not. Omitted for embedded reads. */
+  cacheStatus?: 'HIT' | 'MISS';
+  /** True for the very first getData call */
+  cacheIsFirstRead?: boolean;
+  /** Whether the cache read was blocking */
+  cacheIsBlocking?: boolean;
+  /** Duration in milliseconds from start of getData until trackRead */
+  duration?: number;
+  /** Timestamp when the config was last updated */
+  configUpdatedAt?: number;
+}
+
 /**
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
@@ -96,7 +116,7 @@ export class UsageTracker {
   /**
    * Tracks a config read event. Deduplicates by request context.
    */
-  trackRead(): void {
+  trackRead(options?: TrackReadOptions): void {
     try {
       const { ctx, headers } = getRequestContext();
 
@@ -118,7 +138,25 @@ export class UsageTracker {
       if (headers) {
         event.payload.vercelRequestId = headers['x-vercel-id'] ?? undefined;
         event.payload.invocationHost = headers.host ?? undefined;
-        event.payload.invocationPath = headers['x-invoke-path'] ?? undefined;
+      }
+
+      if (options) {
+        event.payload.configOrigin = options.configOrigin;
+        if (options.cacheStatus !== undefined) {
+          event.payload.cacheStatus = options.cacheStatus;
+        }
+        if (options.cacheIsFirstRead !== undefined) {
+          event.payload.cacheIsFirstRead = options.cacheIsFirstRead;
+        }
+        if (options.cacheIsBlocking !== undefined) {
+          event.payload.cacheIsBlocking = options.cacheIsBlocking;
+        }
+        if (options.duration !== undefined) {
+          event.payload.duration = options.duration;
+        }
+        if (options.configUpdatedAt !== undefined) {
+          event.payload.configUpdatedAt = options.configUpdatedAt;
+        }
       }
 
       this.batcher.events.push(event);

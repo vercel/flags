@@ -2,7 +2,7 @@ import { version } from '../../package.json';
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { sleep } from '../utils/sleep';
-import { UsageTracker } from '../utils/usage-tracker';
+import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 import type { DataSource, DataSourceMetadata } from './interface';
 
 type StreamState =
@@ -54,6 +54,9 @@ export class FlagNetworkDataSource implements DataSource {
   private hasWarnedAboutStaleData: boolean = false;
   private abortController: AbortController | null = null;
   private usageTracker: UsageTracker;
+  private isFirstGetData: boolean = true;
+  /** Placeholder for when the config was last updated (to be populated from stream data) */
+  configUpdatedAt: number | undefined = undefined;
 
   readonly host = 'https://flags.vercel.com';
 
@@ -288,6 +291,11 @@ export class FlagNetworkDataSource implements DataSource {
   // called once per flag rather than once per request,
   // but it's okay since we only ever read from memory here
   async getData() {
+    const startTime = Date.now();
+    const cacheHadDefinitions = this.definitions !== null;
+    const isFirstRead = this.isFirstGetData;
+    this.isFirstGetData = false;
+
     if (!this.initialized) {
       debugLog('getData → init');
       await this.subscribe();
@@ -332,13 +340,33 @@ export class FlagNetworkDataSource implements DataSource {
       }
 
       debugLog('getData → definitions');
-      this.usageTracker.trackRead();
+      const trackOptions: TrackReadOptions = {
+        configOrigin: 'in-memory',
+        cacheStatus: cacheHadDefinitions ? 'HIT' : 'MISS',
+        cacheIsBlocking: !cacheHadDefinitions,
+        duration: Date.now() - startTime,
+        configUpdatedAt: this.configUpdatedAt,
+      };
+      if (isFirstRead) {
+        trackOptions.cacheIsFirstRead = true;
+      }
+      this.usageTracker.trackRead(trackOptions);
       return this.definitions;
     }
     const bundledDefinitionsResult = await this.loadBundledDefinitions();
     if (bundledDefinitionsResult.state === 'ok') {
       debugLog('getData → bundledDefinitions');
-      this.usageTracker.trackRead();
+      // For embedded reads, we omit cacheStatus as per requirements
+      const trackOptions: TrackReadOptions = {
+        configOrigin: 'embedded',
+        cacheIsBlocking: true,
+        duration: Date.now() - startTime,
+        configUpdatedAt: this.configUpdatedAt,
+      };
+      if (isFirstRead) {
+        trackOptions.cacheIsFirstRead = true;
+      }
+      this.usageTracker.trackRead(trackOptions);
       return bundledDefinitionsResult.definitions;
     }
     debugLog('getData → throw');
