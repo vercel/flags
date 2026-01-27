@@ -1,7 +1,4 @@
-// TODO should we store the context schema (entities schema) in Edge Config and validate context?
-// TODO should we make evaluate return the variant ids as well?
-
-import type { DataSource, DataSourceMetadata } from './data-source/interface';
+import type { DataSource } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
@@ -20,16 +17,40 @@ export type Source = {
 };
 
 export type FlagsClient = {
-  // environment: string;
+  /**
+   * The transport layer for the datafile.
+   */
   dataSource: DataSource;
+  /**
+   * Evaluate a feature flag
+   *
+   * Requires initialize() to have been called and awaited first.
+   *
+   * @param flagKey
+   * @param defaultValue
+   * @param entities
+   * @returns
+   */
   evaluate: <T = Value, E = Record<string, unknown>>(
     flagKey: string,
     defaultValue?: T,
     entities?: E,
   ) => Promise<EvaluationResult<T>>;
+  /**
+   * Retrieve the latest datafile during startup, and set up subscriptions if needed.
+   */
   initialize(): void | Promise<void>;
+  /**
+   * Facilitates a clean shutdown process which may include flushing telemetry information, or closing remote connections.
+   */
   shutdown(): void | Promise<void>;
+  /**
+   * Returns metadata about the data source
+   */
   getMetadata(): Promise<{ projectId: string }>;
+  /**
+   * A check which will throw in case the fallback data is missing
+   */
   ensureFallback(): Promise<void>;
 };
 
@@ -48,23 +69,11 @@ export function createRawClient({
 }): FlagsClient {
   return {
     dataSource,
-    async getMetadata(): Promise<DataSourceMetadata> {
-      return dataSource.getMetadata();
-    },
-    initialize: () => {
-      if (dataSource && typeof dataSource.initialize === 'function') {
-        return dataSource.initialize();
-      }
-    },
-    shutdown: () => {
-      if (dataSource && typeof dataSource.shutdown === 'function') {
-        return dataSource.shutdown();
-      }
-    },
+    initialize: () => dataSource.initialize(),
+    shutdown: () => dataSource.shutdown(),
+    getMetadata: () => dataSource.getMetadata(),
     async ensureFallback(): Promise<void> {
-      if (dataSource.ensureFallback) {
-        return dataSource.ensureFallback();
-      }
+      if (dataSource.ensureFallback) return dataSource.ensureFallback();
       throw new Error('flags: This data source does not support fallbacks');
     },
     async evaluate<T = Value, E = Record<string, unknown>>(
@@ -72,11 +81,6 @@ export function createRawClient({
       defaultValue?: T,
       entities?: E,
     ): Promise<EvaluationResult<T>> {
-      // TODO dataSource.getData should move into "initialize" and set up the subscription.
-      //
-      // From OpenFeature: "It's recommended to provide non-blocking mechanisms for flag
-      // evaluation, particularly in languages or environments wherein there's a
-      // single thread of execution.
       const data = await dataSource.getData();
       const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
