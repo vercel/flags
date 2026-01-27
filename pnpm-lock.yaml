@@ -717,9 +717,6 @@ importers:
 
   packages/adapter-vercel:
     dependencies:
-      '@vercel/flags-core':
-        specifier: workspace:*
-        version: link:../vercel-flags-core
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -730,6 +727,9 @@ importers:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../vercel-flags-core
       flags:
         specifier: workspace:*
         version: link:../flags

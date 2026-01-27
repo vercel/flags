@@ -36,10 +36,10 @@
   },
   "dependencies": {
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "@vercel/flags-core": "workspace:*"
+    "js-xxhash": "4.0.0"
   },
   "devDependencies": {
+    "@vercel/flags-core": "workspace:*",
     "@types/node": "20.11.17",
     "flags": "workspace:*",
     "msw": "2.6.4",
@@ -50,6 +50,7 @@
     "vitest": "2.1.8"
   },
   "peerDependencies": {
+    "@vercel/flags-core": "workspace:*",
     "flags": "*"
   },
   "publishConfig": {
