@@ -22,6 +22,7 @@ export async function readBundledDefinitions(
   let stores: DefinitionsJson;
   try {
     stores = await import(
+      /* webpackIgnore: true */
       // @ts-expect-error this only exists at build time
       '@vercel/flags-definitions/definitions.json'
     );
