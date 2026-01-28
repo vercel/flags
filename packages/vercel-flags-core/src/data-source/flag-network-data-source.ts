@@ -56,8 +56,6 @@ function createLoop(
       // Create a new AbortController for this connection attempt
       // this.abortController = new AbortController();
       try {
-        console.log('start stream');
-
         const response = await fetch(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
@@ -66,7 +64,6 @@ function createLoop(
           },
           // signal: this.abortController.signal,
         });
-        console.log('got stream', response.ok);
 
         if (!response.ok) {
           throw new Error('stream was not ok');
@@ -95,7 +92,6 @@ function createLoop(
           }
         }
       } catch (error) {
-        console.log('got error', error);
         onError(error);
       }
     }
@@ -140,17 +136,10 @@ export class FlagNetworkDataSource implements DataSource {
         '@vercel/flags-core: SDK key must be a string starting with "vf_"',
       );
     }
-    console.log('CREATED CLIENT', options.sdkKey);
     this.sdkKey = options.sdkKey;
   }
 
   async initialize(): Promise<void> {
-    console.log(
-      'client#initialize()',
-      this.state,
-      process.env.NEXT_PHASE,
-      process.env.CI,
-    );
     if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
       await this.initResolvers.promise;
       return;
@@ -161,7 +150,6 @@ export class FlagNetworkDataSource implements DataSource {
 
     // don't stream during build step as the stream never closes,
     // so the build would hang indefinitely
-    console.log('isBuildStep', this.isBuildStep);
     if (this.isBuildStep) {
       try {
         this.dataSourceData = await fetchData(this.host, this.sdkKey);
@@ -173,34 +161,31 @@ export class FlagNetworkDataSource implements DataSource {
       }
 
       await this.initResolvers.promise;
-
       return;
     }
 
-    try {
-      this.loop = createLoop(
-        this.host,
-        this.sdkKey,
-        this.onStreamMessage,
-        this.onStreamError,
-      );
-      void this.loop.start().catch(this.onStreamError.bind(this));
-      await this.initResolvers.promise;
-      this.state = 'initialized';
-    } catch (error) {
-      console.log('catch', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        this.state = 'initialize-aborted';
-        this.initResolvers.reject(error);
-      } else {
-        this.initResolvers.reject(error);
-        throw error;
-      }
-    }
+    // try {
+    this.loop = createLoop(
+      this.host,
+      this.sdkKey,
+      this.onStreamMessage,
+      this.onStreamError,
+    );
+    void this.loop.start().catch(this.onStreamError.bind(this));
+    await this.initResolvers.promise;
+    this.state = 'initialized';
+    // } catch (error) {
+    //   if (error instanceof Error && error.name === 'AbortError') {
+    //     this.state = 'initialize-aborted';
+    //     this.initResolvers.reject(error);
+    //   } else {
+    //     this.initResolvers.reject(error);
+    //     throw error;
+    //   }
+    // }
   }
 
   private onStreamMessage = (message: Message) => {
-    console.log('onStreamMessage', message);
     if (message.type === 'datafile') {
       this.dataSourceData = message.data;
       this.initResolvers?.resolve();
@@ -208,12 +193,9 @@ export class FlagNetworkDataSource implements DataSource {
   };
 
   private onStreamError = (error: unknown) => {
-    console.log('onStreamError', error);
     if (error instanceof Error && error?.name === 'AbortError') {
-      console.log('Stream aborted, ignoring');
       this.loop?.stop();
     } else {
-      console.error('Error processing stream:', error);
       this.initResolvers?.reject(error);
     }
   };
@@ -251,12 +233,6 @@ export class FlagNetworkDataSource implements DataSource {
    * Runs a check to ensure the fallback definitions are available.
    */
   async ensureFallback(): Promise<void> {
-    if (process.env.FLAGS_DEFINITIONS_STRATEGY === 'skip') return;
-
-    try {
-      await import('@vercel/flags-definitions/definitions.json');
-    } catch {
-      // ignore
-    }
+    throw new Error('not implemented');
   }
 }

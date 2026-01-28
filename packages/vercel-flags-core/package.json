@@ -9,18 +9,10 @@
   "type": "module",
   "exports": {
     ".": {
-      "next-js": {
-        "import": "./dist/index.next-js.js",
-        "require": "./dist/index.next-js.cjs"
-      },
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./openfeature": {
-      "next-js": {
-        "import": "./dist/openfeature.next-js.js",
-        "require": "./dist/openfeature.next-js.cjs"
-      },
       "import": "./dist/openfeature.js",
       "require": "./dist/openfeature.cjs"
     }
