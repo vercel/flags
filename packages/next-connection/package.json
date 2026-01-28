@@ -1,0 +1,49 @@
+{
+  "name": "next-connection",
+  "version": "0.0.1",
+  "description": "Conditional export of Next.js connection() or noop",
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "next-js": {
+        "import": "./dist/next.js",
+        "require": "./dist/next.cjs"
+      },
+      "default": {
+        "import": "./dist/noop.js",
+        "require": "./dist/noop.cjs"
+      }
+    }
+  },
+  "main": "./dist/noop.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/noop.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "next": "^15.0.0",
+    "tsup": "8.5.1",
+    "typescript": "5.6.3"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  }
+}

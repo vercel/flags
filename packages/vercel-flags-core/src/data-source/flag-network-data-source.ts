@@ -1,3 +1,4 @@
+import { connection } from 'next-connection';
 import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
@@ -141,7 +142,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async initialize(): Promise<void> {
-    // await connection()
+    await connection(); // mark as non-cacheable for Next.js
     console.log('initialize', this.state);
     if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
       await this.initResolvers.promise;
@@ -192,7 +193,7 @@ export class FlagNetworkDataSource implements DataSource {
   };
 
   async getData(): Promise<DataSourceData> {
-    // await connection()
+    await connection(); // mark as non-cacheable for Next.js
     if (this.state === 'uninitialized') {
       throw new Error('client not yet initialized');
     }

@@ -804,6 +804,18 @@ importers:
         specifier: 1.4.0
         version: 1.4.0(@types/node@20.11.17)(lightningcss@1.30.2)
 
+  packages/next-connection:
+    devDependencies:
+      next:
+        specifier: ^15.0.0
+        version: 15.5.9(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211)
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.6.3)(yaml@2.8.1)
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+
   packages/vercel-flags-core:
     dependencies:
       '@openfeature/server-sdk':
@@ -821,6 +833,9 @@ importers:
       js-xxhash:
         specifier: 4.0.0
         version: 4.0.0
+      next-connection:
+        specifier: workspace:*
+        version: link:../next-connection
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -11214,6 +11229,31 @@ snapshots:
       react: 19.0.0-rc-02c0e824-20241028
       react-dom: 19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028)
       styled-jsx: 5.1.6(react@19.0.0-rc-02c0e824-20241028)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 15.5.7
+      '@next/swc-darwin-x64': 15.5.7
+      '@next/swc-linux-arm64-gnu': 15.5.7
+      '@next/swc-linux-arm64-musl': 15.5.7
+      '@next/swc-linux-x64-gnu': 15.5.7
+      '@next/swc-linux-x64-musl': 15.5.7
+      '@next/swc-win32-arm64-msvc': 15.5.7
+      '@next/swc-win32-x64-msvc': 15.5.7
+      '@opentelemetry/api': 1.9.0
+      '@playwright/test': 1.51.1
+      sharp: 0.34.4
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
+
+  next@15.5.9(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211):
+    dependencies:
+      '@next/env': 15.5.9
+      '@swc/helpers': 0.5.15
+      caniuse-lite: 1.0.30001751
+      postcss: 8.4.31
+      react: 19.3.0-canary-b45bb335-20251211
+      react-dom: 19.2.0(react@19.3.0-canary-b45bb335-20251211)
+      styled-jsx: 5.1.6(react@19.3.0-canary-b45bb335-20251211)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.5.7
       '@next/swc-darwin-x64': 15.5.7

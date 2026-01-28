@@ -9,10 +9,18 @@
   "type": "module",
   "exports": {
     ".": {
+      "next-js": {
+        "import": "./dist/index.next-js.js",
+        "require": "./dist/index.next-js.cjs"
+      },
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./openfeature": {
+      "next-js": {
+        "import": "./dist/openfeature.next-js.js",
+        "require": "./dist/openfeature.next-js.cjs"
+      },
       "import": "./dist/openfeature.js",
       "require": "./dist/openfeature.cjs"
     }
@@ -49,7 +57,8 @@
     "@vercel/functions": "^3.3.6",
     "commander": "14.0.2",
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0"
+    "js-xxhash": "4.0.0",
+    "next-connection": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
