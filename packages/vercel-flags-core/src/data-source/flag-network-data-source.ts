@@ -2,19 +2,6 @@ import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
 
-async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
-  const reader = stream.getReader();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) return;
-      yield value;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 type Resolvers<T> = {
   resolve: (value: T | PromiseLike<T>) => void;
   reject: (reason?: any) => void;
@@ -92,7 +79,7 @@ function createLoop(
         const decoder = new TextDecoder();
         let buffer = '';
 
-        for await (const chunk of streamAsyncIterable(response.body)) {
+        for await (const chunk of response.body) {
           if (breakStreamMessageProcessing) break;
           buffer += decoder.decode(chunk, { stream: true });
 
@@ -154,6 +141,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async initialize(): Promise<void> {
+    // await connection()
     console.log('initialize', this.state);
     if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
       await this.initResolvers.promise;
@@ -204,6 +192,7 @@ export class FlagNetworkDataSource implements DataSource {
   };
 
   async getData(): Promise<DataSourceData> {
+    // await connection()
     if (this.state === 'uninitialized') {
       throw new Error('client not yet initialized');
     }
