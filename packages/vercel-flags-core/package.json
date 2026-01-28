@@ -71,10 +71,14 @@
   },
   "peerDependencies": {
     "@openfeature/server-sdk": "1.18.0",
-    "flags": "*"
+    "flags": "*",
+    "@vercel/flags-definitions": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {
+      "optional": true
+    },
+    "@vercel/flags-definitions": {
       "optional": true
     }
   },

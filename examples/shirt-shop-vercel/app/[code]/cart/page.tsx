@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { OrderSummary } from '@/app/[code]/cart/order-summary';
 import { Main } from '@/components/main';
 import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
@@ -22,11 +23,13 @@ export default async function CartPage({
   return (
     <Main>
       <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
-        <ShoppingCart />
-        <OrderSummary
-          showSummerBanner={showSummerBanner}
-          freeDelivery={freeDeliveryBanner}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <ShoppingCart />
+          <OrderSummary
+            showSummerBanner={showSummerBanner}
+            freeDelivery={freeDeliveryBanner}
+          />
+        </Suspense>
       </div>
     </Main>
   );

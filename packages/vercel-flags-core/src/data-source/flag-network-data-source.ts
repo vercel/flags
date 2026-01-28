@@ -1,4 +1,3 @@
-import { connection } from 'next-connection';
 import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
@@ -114,6 +113,7 @@ type State =
   | 'uninitialized'
   | 'initializing'
   | 'initialize-aborted'
+  | 'shutdown'
   | 'initialized';
 
 /**
@@ -126,6 +126,9 @@ export class FlagNetworkDataSource implements DataSource {
   private initResolvers: Resolvers<void> | undefined = undefined;
   private state: State = 'uninitialized';
   private loop: Loop | undefined = undefined;
+  private isBuildStep =
+    process.env.CI === '1' ||
+    process.env.NEXT_PHASE === 'phase-production-build';
 
   constructor(options: { sdkKey: string }) {
     if (
@@ -142,8 +145,12 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async initialize(): Promise<void> {
-    await connection(); // mark as non-cacheable for Next.js
-    console.log('initialize', this.state);
+    console.log(
+      'client#initialize()',
+      this.state,
+      process.env.NEXT_PHASE,
+      process.env.CI,
+    );
     if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
       await this.initResolvers.promise;
       return;
@@ -151,6 +158,25 @@ export class FlagNetworkDataSource implements DataSource {
 
     this.state = 'initializing';
     this.initResolvers = createResolvers<void>();
+
+    // don't stream during build step as the stream never closes,
+    // so the build would hang indefinitely
+    console.log('isBuildStep', this.isBuildStep);
+    if (this.isBuildStep) {
+      try {
+        this.dataSourceData = await fetchData(this.host, this.sdkKey);
+        this.initResolvers.resolve();
+        this.state = 'initialized';
+      } catch (error) {
+        this.initResolvers.reject(error);
+        this.state = 'initialize-aborted';
+      }
+
+      await this.initResolvers.promise;
+
+      return;
+    }
+
     try {
       this.loop = createLoop(
         this.host,
@@ -193,7 +219,9 @@ export class FlagNetworkDataSource implements DataSource {
   };
 
   async getData(): Promise<DataSourceData> {
-    await connection(); // mark as non-cacheable for Next.js
+    // await connection(); // mark as non-cacheable for Next.js
+    await this.initialize();
+
     if (this.state === 'uninitialized') {
       throw new Error('client not yet initialized');
     }
@@ -210,6 +238,7 @@ export class FlagNetworkDataSource implements DataSource {
     // free up memory
     this.dataSourceData = undefined;
     this.loop?.stop();
+    this.state = 'shutdown';
   }
 
   async getMetadata(): Promise<DataSourceMetadata> {
@@ -218,7 +247,16 @@ export class FlagNetworkDataSource implements DataSource {
     return { projectId: data.projectId };
   }
 
+  /**
+   * Runs a check to ensure the fallback definitions are available.
+   */
   async ensureFallback(): Promise<void> {
-    throw new Error('not implemented');
+    if (process.env.FLAGS_DEFINITIONS_STRATEGY === 'skip') return;
+
+    try {
+      await import('@vercel/flags-definitions/definitions.json');
+    } catch {
+      // ignore
+    }
   }
 }

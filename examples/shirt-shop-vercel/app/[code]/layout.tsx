@@ -1,6 +1,7 @@
 import { encryptFlagValues } from 'flags';
 import { deserialize, generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { FreeDelivery } from '@/app/free-delivery';
 import { DevTools } from '@/components/dev-tools';
@@ -25,6 +26,7 @@ async function EncryptedFlagValues({
 }: {
   values: Record<string, unknown>;
 }) {
+  await connection();
   const encryptedFlagValues = await encryptFlagValues(values);
   return <FlagValues values={encryptedFlagValues} />;
 }

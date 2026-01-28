@@ -3,6 +3,12 @@ import { Suspense } from 'react';
 
 const client = createClient(process.env.FLAGS as string);
 
+export const generateStaticParams = async () => {
+  await client.initialize();
+  const result = await client.evaluate('summer-sale');
+  return [{ rnd: result.value ? 'yes' : 'no' }];
+};
+
 async function Content() {
   await client.initialize();
   console.log('client.initialize()');
