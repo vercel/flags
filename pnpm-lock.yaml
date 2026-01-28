@@ -768,7 +768,7 @@ importers:
         version: 5.2.1
       react-dom:
         specifier: '*'
-        version: 19.2.0(react@19.3.0-canary-b45bb335-20251211)
+        version: 19.2.0(react@19.3.0-canary-8c34556c-20260126)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 0.17.3
@@ -787,10 +787,10 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 16.0.10
-        version: 16.0.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211)
+        version: 16.0.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-8c34556c-20260126))(react@19.3.0-canary-8c34556c-20260126)
       react:
         specifier: canary
-        version: 19.3.0-canary-b45bb335-20251211
+        version: 19.3.0-canary-8c34556c-20260126
       tsup:
         specifier: 8.0.1
         version: 8.0.1(postcss@8.5.6)(typescript@5.6.3)
@@ -5731,6 +5731,10 @@ packages:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
     engines: {node: '>=0.10.0'}
 
+  react@19.3.0-canary-8c34556c-20260126:
+    resolution: {integrity: sha512-ykqDyWGWbmlRo8nD4qcU4Yzpaw+HN99JZ0PGfBR9y6qC9w6wLjp1qG5YvAA4ATcO2o/QAE5nDCU99IdwzscpMw==}
+    engines: {node: '>=0.10.0'}
+
   react@19.3.0-canary-b45bb335-20251211:
     resolution: {integrity: sha512-HsgAObjMFHwqjIbUTp+CqkULLCt4CzO6mkxItTdXIt5PwgtDbwxJIci3Fe+86VBWTtwy0dbrSy40sNGCFIq8bg==}
     engines: {node: '>=0.10.0'}
@@ -6190,6 +6194,7 @@ packages:
   tar@7.5.1:
     resolution: {integrity: sha512-nlGpxf+hv0v7GkWBK2V9spgactGOp0qvfWRxUMjqHyzrt3SgwE48DIv/FhqPHJYLHpgW1opq3nERbz5Anq7n1g==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
@@ -11225,15 +11230,15 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.0.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211))(react@19.3.0-canary-b45bb335-20251211):
+  next@16.0.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-8c34556c-20260126))(react@19.3.0-canary-8c34556c-20260126):
     dependencies:
       '@next/env': 16.0.10
       '@swc/helpers': 0.5.15
       caniuse-lite: 1.0.30001751
       postcss: 8.4.31
-      react: 19.3.0-canary-b45bb335-20251211
-      react-dom: 19.2.0(react@19.3.0-canary-b45bb335-20251211)
-      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-b45bb335-20251211)
+      react: 19.3.0-canary-8c34556c-20260126
+      react-dom: 19.2.0(react@19.3.0-canary-8c34556c-20260126)
+      styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-8c34556c-20260126)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.0.10
       '@next/swc-darwin-x64': 16.0.10
@@ -11676,6 +11681,11 @@ snapshots:
       react: 19.2.0
       scheduler: 0.27.0
 
+  react-dom@19.2.0(react@19.3.0-canary-8c34556c-20260126):
+    dependencies:
+      react: 19.3.0-canary-8c34556c-20260126
+      scheduler: 0.27.0
+
   react-dom@19.2.0(react@19.3.0-canary-b45bb335-20251211):
     dependencies:
       react: 19.3.0-canary-b45bb335-20251211
@@ -11717,6 +11727,8 @@ snapshots:
   react@19.0.0-rc.1: {}
 
   react@19.2.0: {}
+
+  react@19.3.0-canary-8c34556c-20260126: {}
 
   react@19.3.0-canary-b45bb335-20251211: {}
 
@@ -12191,10 +12203,10 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  styled-jsx@5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-b45bb335-20251211):
+  styled-jsx@5.1.6(@babel/core@7.28.5)(react@19.3.0-canary-8c34556c-20260126):
     dependencies:
       client-only: 0.0.1
-      react: 19.3.0-canary-b45bb335-20251211
+      react: 19.3.0-canary-8c34556c-20260126
     optionalDependencies:
       '@babel/core': 7.28.5
 

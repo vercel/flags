@@ -2,6 +2,39 @@ import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
 
+async function* streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+type Resolvers<T> = {
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: any) => void;
+  promise: Promise<T>;
+};
+
+type Message =
+  | { type: 'datafile'; data: BundledDefinitions }
+  | { type: 'ping' };
+
+function createResolvers<T>(): Resolvers<T> {
+  let resolve: (value: T | PromiseLike<T>) => void;
+  let reject: (reason?: any) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { resolve: resolve!, reject: reject!, promise };
+}
+
 async function fetchData(
   host: string,
   sdkKey: string,
@@ -19,6 +52,82 @@ async function fetchData(
   return res.json() as Promise<BundledDefinitions>;
 }
 
+type Loop = { start: () => Promise<void>; stop: () => void };
+
+function createLoop(
+  host: string,
+  sdkKey: string,
+  onMessage: (message: Message) => void,
+  onError: (error: unknown) => void,
+): Loop {
+  let breakStreamMessageProcessing = false;
+  let started = false;
+  const start = async () => {
+    if (started) throw new Error('can not start loop twice');
+    started = true;
+    while (!breakStreamMessageProcessing) {
+      // Create a new AbortController for this connection attempt
+      // this.abortController = new AbortController();
+      try {
+        console.log('start stream');
+
+        const response = await fetch(`${host}/v1/stream`, {
+          headers: {
+            Authorization: `Bearer ${sdkKey}`,
+            'User-Agent': `VercelFlagsCore/${version}`,
+            // 'X-Retry-Attempt': String(this.retryCount),
+          },
+          // signal: this.abortController.signal,
+        });
+        console.log('got stream', response.ok);
+
+        if (!response.ok) {
+          throw new Error('stream was not ok');
+        }
+
+        if (!response.body) {
+          throw new Error('stream body was not present');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        for await (const chunk of streamAsyncIterable(response.body)) {
+          if (breakStreamMessageProcessing) break;
+          buffer += decoder.decode(chunk, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop()!; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line === '') continue;
+
+            const message = JSON.parse(line) as Message;
+
+            onMessage(message);
+          }
+        }
+      } catch (error) {
+        console.log('got error', error);
+        onError(error);
+      }
+    }
+  };
+
+  return {
+    start,
+    stop: () => {
+      breakStreamMessageProcessing = true;
+    },
+  };
+}
+
+type State =
+  | 'uninitialized'
+  | 'initializing'
+  | 'initialize-aborted'
+  | 'initialized';
+
 /**
  * Implements the DataSource interface for flags.vercel.com.
  */
@@ -26,6 +135,9 @@ export class FlagNetworkDataSource implements DataSource {
   public sdkKey: string;
   readonly host = 'https://flags.vercel.com';
   private dataSourceData: DataSourceData | undefined = undefined;
+  private initResolvers: Resolvers<void> | undefined = undefined;
+  private state: State = 'uninitialized';
+  private loop: Loop | undefined = undefined;
 
   constructor(options: { sdkKey: string }) {
     if (
@@ -42,18 +154,72 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async initialize(): Promise<void> {
-    console.log('DURING INIT2222');
-    this.dataSourceData = await fetchData(this.host, this.sdkKey);
+    console.log('initialize', this.state);
+    if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
+      await this.initResolvers.promise;
+      return;
+    }
+
+    this.state = 'initializing';
+    this.initResolvers = createResolvers<void>();
+    try {
+      this.loop = createLoop(
+        this.host,
+        this.sdkKey,
+        this.onStreamMessage,
+        this.onStreamError,
+      );
+      void this.loop.start().catch(this.onStreamError.bind(this));
+      await this.initResolvers.promise;
+      this.state = 'initialized';
+    } catch (error) {
+      console.log('catch', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.state = 'initialize-aborted';
+        this.initResolvers.reject(error);
+      } else {
+        this.initResolvers.reject(error);
+        throw error;
+      }
+    }
   }
 
+  private onStreamMessage = (message: Message) => {
+    console.log('onStreamMessage', message);
+    if (message.type === 'datafile') {
+      this.dataSourceData = message.data;
+      this.initResolvers?.resolve();
+    }
+  };
+
+  private onStreamError = (error: unknown) => {
+    console.log('onStreamError', error);
+    if (error instanceof Error && error?.name === 'AbortError') {
+      console.log('Stream aborted, ignoring');
+      this.loop?.stop();
+    } else {
+      console.error('Error processing stream:', error);
+      this.initResolvers?.reject(error);
+    }
+  };
+
   async getData(): Promise<DataSourceData> {
-    if (!this.dataSourceData) throw new Error('Data not initialized');
+    if (this.state === 'uninitialized') {
+      throw new Error('client not yet initialized');
+    }
+    if (this.state === 'initialize-aborted') {
+      throw new Error('client uninitialized');
+    }
+    if (!this.dataSourceData) {
+      throw new Error('dataSourceData empty');
+    }
     return this.dataSourceData;
   }
 
   async shutdown(): Promise<void> {
     // free up memory
     this.dataSourceData = undefined;
+    this.loop?.stop();
   }
 
   async getMetadata(): Promise<DataSourceMetadata> {
