@@ -833,9 +833,6 @@ importers:
       js-xxhash:
         specifier: 4.0.0
         version: 4.0.0
-      next-connection:
-        specifier: workspace:*
-        version: link:../next-connection
     devDependencies:
       '@types/node':
         specifier: 20.11.17

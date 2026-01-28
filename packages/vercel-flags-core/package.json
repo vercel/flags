@@ -49,8 +49,7 @@
     "@vercel/functions": "^3.3.6",
     "commander": "14.0.2",
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "next-connection": "workspace:*"
+    "js-xxhash": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
@@ -63,14 +62,10 @@
   },
   "peerDependencies": {
     "@openfeature/server-sdk": "1.18.0",
-    "flags": "*",
-    "@vercel/flags-definitions": "*"
+    "flags": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {
-      "optional": true
-    },
-    "@vercel/flags-definitions": {
       "optional": true
     }
   },

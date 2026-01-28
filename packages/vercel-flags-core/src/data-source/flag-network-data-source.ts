@@ -109,7 +109,6 @@ type State =
   | 'uninitialized'
   | 'initializing'
   | 'initialize-aborted'
-  | 'shutdown'
   | 'initialized';
 
 /**
@@ -146,7 +145,7 @@ export class FlagNetworkDataSource implements DataSource {
     }
 
     this.state = 'initializing';
-    this.initResolvers = createResolvers<void>();
+    this.initResolvers ??= createResolvers<void>();
 
     // don't stream during build step as the stream never closes,
     // so the build would hang indefinitely
@@ -164,25 +163,29 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
-    // try {
-    this.loop = createLoop(
-      this.host,
-      this.sdkKey,
-      this.onStreamMessage,
-      this.onStreamError,
-    );
-    void this.loop.start().catch(this.onStreamError.bind(this));
-    await this.initResolvers.promise;
-    this.state = 'initialized';
-    // } catch (error) {
-    //   if (error instanceof Error && error.name === 'AbortError') {
-    //     this.state = 'initialize-aborted';
-    //     this.initResolvers.reject(error);
-    //   } else {
-    //     this.initResolvers.reject(error);
-    //     throw error;
-    //   }
-    // }
+    try {
+      this.loop = createLoop(
+        this.host,
+        this.sdkKey,
+        this.onStreamMessage,
+        this.onStreamError,
+      );
+      void this.loop.start().catch(this.onStreamError.bind(this));
+      await this.initResolvers.promise;
+      this.state = 'initialized';
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.state = 'initialize-aborted';
+        this.loop?.stop();
+        this.loop = undefined;
+        this.initResolvers?.reject(error);
+        this.initResolvers = undefined;
+        this.state = 'uninitialized';
+      } else {
+        this.initResolvers.reject(error);
+        throw error;
+      }
+    }
   }
 
   private onStreamMessage = (message: Message) => {
@@ -193,11 +196,7 @@ export class FlagNetworkDataSource implements DataSource {
   };
 
   private onStreamError = (error: unknown) => {
-    if (error instanceof Error && error?.name === 'AbortError') {
-      this.loop?.stop();
-    } else {
-      this.initResolvers?.reject(error);
-    }
+    this.initResolvers?.reject(error);
   };
 
   async getData(): Promise<DataSourceData> {
@@ -220,7 +219,10 @@ export class FlagNetworkDataSource implements DataSource {
     // free up memory
     this.dataSourceData = undefined;
     this.loop?.stop();
-    this.state = 'shutdown';
+    this.loop = undefined;
+    this.initResolvers?.reject(new Error('shutdown'));
+    this.initResolvers = undefined;
+    this.state = 'uninitialized';
   }
 
   async getMetadata(): Promise<DataSourceMetadata> {
@@ -233,6 +235,10 @@ export class FlagNetworkDataSource implements DataSource {
    * Runs a check to ensure the fallback definitions are available.
    */
   async ensureFallback(): Promise<void> {
+    // let data = null;
+    // try {
+    //   data = await import(`@vercel/flags-definitions/${this.sdkKey}.json`);
+    // } catch {}
     throw new Error('not implemented');
   }
 }
