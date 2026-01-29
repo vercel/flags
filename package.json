@@ -17,7 +17,6 @@
     "dev": "turbo dev",
     "check": "turbo check",
     "format": "biome check --write .",
-    "next-14": "pnpm dev -F next-14",
     "next-15": "pnpm dev -F next-15",
     "next-16": "pnpm dev -F next-16",
     "prepare": "husky",
