@@ -1,5 +1,6 @@
 import type { JsonValue } from '..';
 import * as s from '../lib/serialization';
+import { cartesianIterator, combineFlags } from '../shared';
 import type { Flag } from './types';
 
 type FlagsArray = readonly Flag<any, any>[];
@@ -40,7 +41,7 @@ export async function precompute<T extends FlagsArray>(
  * @returns - A record where the keys are flag keys and the values are flag values.
  */
 export function combine(flags: FlagsArray, values: ValuesArray) {
-  return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
+  return combineFlags(flags, values);
 }
 
 /**
@@ -148,12 +149,6 @@ export async function getPrecomputed<T extends JsonValue>(
     // Handle case when a single flag is passed
     return flagSet[(flagOrFlags as Flag<T, any>).key];
   }
-}
-
-// see https://stackoverflow.com/a/44344803
-function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
-  const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**
