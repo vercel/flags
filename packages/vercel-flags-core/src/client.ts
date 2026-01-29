@@ -1,11 +1,7 @@
-import { EventEmitter } from 'node:stream';
-import { cacheLife } from 'next/cache';
-import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import type { DataSource } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
-  DataSourceData,
   ErrorCode,
   type EvaluationResult,
   type Packed,
@@ -125,67 +121,3 @@ export function createRawClient({
     },
   };
 }
-
-// const eventEmitter = new EventEmitter();
-
-// async function initImpl(id: number) {
-//   'use cache';
-//   cacheLife({ revalidate: 0, expire: 0 });
-//   cacheLife({ stale: 60 });
-// }
-
-// async function evaluateImpl<V>(id: number): Promise<EvaluationResult<V>> {
-//   'use cache';
-//   cacheLife({ revalidate: 0, expire: 0 });
-//   cacheLife({ stale: 60 });
-//   return {
-//     value: Math.random() as V,
-//     reason: ResolutionReason.PAUSED,
-//   };
-// }
-
-// type FakeDataSourceData = { test: number };
-// let idCounter = 0;
-// export function createRawClient({
-//   dataSource,
-// }: {
-//   dataSource: DataSource;
-// }): FlagsClient {
-//   const id = idCounter++;
-
-//   let data: FakeDataSourceData;
-
-//   eventEmitter.on('datafile', (d: FakeDataSourceData) => {
-//     data = d;
-//   });
-
-//   let sequence = 0;
-//   setInterval(() => {
-//     eventEmitter.emit('datafile', { test: sequence++ });
-//   }, 250);
-
-//   return {
-//     dataSource: new InMemoryDataSource({
-//       data: { definitions: {}, segments: {} },
-//       environment: 'production',
-//       projectId: 'aa',
-//     }),
-//     async initialize() {
-//       return initImpl(id);
-//     },
-//     async evaluate<V>() {
-//       console.log(data);
-//       return await evaluateImpl<V>(id);
-//     },
-//     async shutdown() {},
-//     async getMetadata() {
-//       return {
-//         projectId: 'aa',
-//         environment: 'production',
-//       };
-//     },
-//     async ensureFallback() {
-//       throw new Error('not implemented');
-//     },
-//   };
-// }
