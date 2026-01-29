@@ -1,3 +1,4 @@
+import { cacheLife } from 'next/cache';
 import type { DataSource } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
@@ -54,6 +55,9 @@ export type FlagsClient = {
   ensureFallback(): Promise<void>;
 };
 
+let idCount = 0;
+const map = new Map<number, DataSource>();
+
 /**
  * Creates a Vercel Flags client
  *
@@ -67,14 +71,24 @@ export function createRawClient({
 }: {
   dataSource: DataSource;
 }): FlagsClient {
+  const id = idCount++;
+  map.set(id, dataSource);
   return {
     dataSource,
     initialize: async () => {
-      return dataSource.initialize();
+      'use cache';
+      cacheLife({ revalidate: 0, expire: 0 });
+      cacheLife({ stale: 60 });
+      const ds = map.get(id)!;
+      return ds.initialize();
     },
     shutdown: async () => dataSource.shutdown(),
     getMetadata: async () => {
-      return dataSource.getMetadata();
+      'use cache';
+      cacheLife({ revalidate: 0, expire: 0 });
+      cacheLife({ stale: 60 });
+      const ds = map.get(id)!;
+      return ds.getMetadata();
     },
     async ensureFallback(): Promise<void> {
       if (dataSource.ensureFallback) return dataSource.ensureFallback();
@@ -85,7 +99,12 @@ export function createRawClient({
       defaultValue?: T,
       entities?: E,
     ): Promise<EvaluationResult<T>> {
-      const data = await dataSource.getData();
+      'use cache';
+      cacheLife({ revalidate: 0, expire: 0 });
+      cacheLife({ stale: 60 });
+
+      const ds = map.get(id)!;
+      const data = await ds.getData();
       const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
       if (flagDefinition === undefined) {
