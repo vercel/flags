@@ -6,11 +6,11 @@ const client = createClient(process.env.FLAGS as string);
 async function Content() {
   await client.initialize();
   console.log('client.initialize()');
-  console.log('client.evaluate()');
   const result = await client.evaluate('summer-sale');
-  const result2 = await client.evaluate('summer-sale2');
+  console.log('client.evaluate()');
+  // const result2 = await client.evaluate('summer-sale2');
   // await client.ensureFallback();
-  return <p>summer-sale {JSON.stringify([result, result2], null, 2)}</p>;
+  return <p>summer-sale {JSON.stringify([result], null, 2)}</p>;
 }
 
 export default async function Page() {

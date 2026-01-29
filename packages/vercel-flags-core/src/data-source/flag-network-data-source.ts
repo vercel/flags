@@ -1,6 +1,9 @@
+import { cacheLife } from 'next/cache';
 import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
+
+const store = new Map<string, StoreEntry>();
 
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }
@@ -14,8 +17,6 @@ type StoreEntry = {
   initPromise: Promise<void> | undefined;
   retryCount: number;
 };
-
-const store = new Map<string, StoreEntry>();
 
 function getOrCreateEntry(sdkKey: string): StoreEntry {
   if (!store.has(sdkKey)) {
@@ -187,6 +188,9 @@ export function createFlagNetworkDataSource(options: {
 
   return {
     async initialize() {
+      'use cache';
+      cacheLife({ revalidate: 0, expire: 0 });
+      cacheLife({ stale: 60 });
       // Don't stream during build step as the stream never closes
       if (isBuildStep) {
         const entry = getOrCreateEntry(sdkKey);
@@ -200,6 +204,10 @@ export function createFlagNetworkDataSource(options: {
     },
 
     async getData() {
+      'use cache';
+      cacheLife({ revalidate: 0, expire: 0 });
+      cacheLife({ stale: 60 });
+      console.log('testing');
       // Ensure stream is started and has initial data
       if (!isBuildStep) {
         await ensureStream(host, sdkKey);
