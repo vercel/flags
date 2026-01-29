@@ -1,3 +1,4 @@
+import { createClient } from '@vercel/flags-core';
 import { precompute } from 'flags/next';
 import { type NextRequest, NextResponse } from 'next/server';
 import { productFlags } from '@/flags';
@@ -6,9 +7,19 @@ import { getStableId } from './lib/get-stable-id';
 
 export const config = {
   matcher: ['/', '/cart'],
+  // matcher: ['/', '/cart', '/debug'],
 };
 
+// const client = createClient(process.env.FLAGS as string);
 export async function proxy(request: NextRequest) {
+  // const url = new URL(request.url);
+  // if (url.pathname === '/debug') {
+  //   await client.initialize();
+  //   const result = await client.evaluate('summer-sale');
+  //   console.log('middleware evaluated', result);
+  //   return;
+  // }
+
   const stableId = await getStableId();
   const cartId = await getCartId();
   const code = await precompute(productFlags);

@@ -1,5 +1,5 @@
 import { createRawClient, type FlagsClient } from './client';
-import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
+import { createFlagNetworkDataSource } from './data-source/flag-network-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import type { DataSource } from './data-source/interface';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
@@ -8,7 +8,7 @@ export {
   createRawClient,
   type FlagsClient,
 } from './client';
-export { InMemoryDataSource, FlagNetworkDataSource };
+export { InMemoryDataSource, createFlagNetworkDataSource };
 export {
   type EvaluationParams,
   type EvaluationResult,
@@ -33,7 +33,7 @@ export function createClient(sdkKeyOrConnectionString: string): FlagsClient {
   }
 
   // sdk key contains the environment
-  const dataSource = new FlagNetworkDataSource({ sdkKey });
+  const dataSource = createFlagNetworkDataSource({ sdkKey });
   return createRawClient({ dataSource });
 }
 

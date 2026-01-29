@@ -2,24 +2,32 @@ import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource, DataSourceMetadata } from './interface';
 
-type Resolvers<T> = {
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: any) => void;
-  promise: Promise<T>;
-};
-
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }
   | { type: 'ping' };
 
-function createResolvers<T>(): Resolvers<T> {
-  let resolve: (value: T | PromiseLike<T>) => void;
-  let reject: (reason?: any) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { resolve: resolve!, reject: reject!, promise };
+// Module-level store for shared stream connections
+type StoreEntry = {
+  data: DataSourceData | undefined;
+  abortController: AbortController | undefined;
+  streamStarted: boolean;
+  initPromise: Promise<void> | undefined;
+  retryCount: number;
+};
+
+const store = new Map<string, StoreEntry>();
+
+function getOrCreateEntry(sdkKey: string): StoreEntry {
+  if (!store.has(sdkKey)) {
+    store.set(sdkKey, {
+      data: undefined,
+      abortController: undefined,
+      streamStarted: false,
+      initPromise: undefined,
+      retryCount: 0,
+    });
+  }
+  return store.get(sdkKey)!;
 }
 
 async function fetchData(
@@ -39,34 +47,41 @@ async function fetchData(
   return res.json() as Promise<BundledDefinitions>;
 }
 
-type Loop = { start: () => Promise<void>; stop: () => void };
+function ensureStream(host: string, sdkKey: string): Promise<void> {
+  const entry = getOrCreateEntry(sdkKey);
 
-function createLoop(
-  host: string,
-  sdkKey: string,
-  onMessage: (message: Message) => void,
-  onError: (error: unknown) => void,
-): Loop {
-  let breakStreamMessageProcessing = false;
-  let started = false;
-  const start = async () => {
-    if (started) throw new Error('can not start loop twice');
-    started = true;
-    while (!breakStreamMessageProcessing) {
-      // Create a new AbortController for this connection attempt
-      // this.abortController = new AbortController();
+  if (entry.initPromise) {
+    return entry.initPromise;
+  }
+
+  let resolveInit: () => void;
+  let rejectInit: (error: unknown) => void;
+  entry.initPromise = new Promise<void>((resolve, reject) => {
+    resolveInit = resolve;
+    rejectInit = reject;
+  });
+
+  entry.streamStarted = true;
+
+  (async () => {
+    let initialDataReceived = false;
+
+    while (entry.streamStarted) {
       try {
+        // Create a new AbortController for each connection attempt
+        entry.abortController = new AbortController();
+
         const response = await fetch(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
             'User-Agent': `VercelFlagsCore/${version}`,
-            // 'X-Retry-Attempt': String(this.retryCount),
+            'X-Retry-Attempt': String(entry.retryCount),
           },
-          // signal: this.abortController.signal,
+          signal: entry.abortController.signal,
         });
 
         if (!response.ok) {
-          throw new Error('stream was not ok');
+          throw new Error(`stream was not ok: ${response.status}`);
         }
 
         if (!response.body) {
@@ -77,168 +92,141 @@ function createLoop(
         let buffer = '';
 
         for await (const chunk of response.body) {
-          if (breakStreamMessageProcessing) break;
-          buffer += decoder.decode(chunk, { stream: true });
+          if (!entry.streamStarted) break;
 
+          buffer += decoder.decode(chunk, { stream: true });
           const lines = buffer.split('\n');
-          buffer = lines.pop()!; // Keep incomplete line in buffer
+          buffer = lines.pop()!;
 
           for (const line of lines) {
             if (line === '') continue;
 
             const message = JSON.parse(line) as Message;
 
-            onMessage(message);
+            if (message.type === 'datafile') {
+              entry.data = message.data;
+              if (!initialDataReceived) {
+                initialDataReceived = true;
+                resolveInit!();
+              }
+            }
           }
         }
+
+        // Stream ended normally (server closed connection) - reconnect
+        if (entry.streamStarted) {
+          entry.retryCount++;
+          continue;
+        }
       } catch (error) {
-        onError(error);
+        if (entry.abortController?.signal.aborted) {
+          break;
+        }
+        console.error('@vercel/flags-core: Stream error', error);
+        if (!initialDataReceived) {
+          rejectInit!(error);
+          break;
+        }
+        entry.retryCount++;
       }
     }
-  };
+  })();
 
-  return {
-    start,
-    stop: () => {
-      breakStreamMessageProcessing = true;
-    },
-  };
+  return entry.initPromise;
 }
 
-type State =
-  | 'uninitialized'
-  | 'initializing'
-  | 'initialize-aborted'
-  | 'initialized';
+// Reads from shared store, falls back to fetch
+async function getDataImpl(
+  host: string,
+  sdkKey: string,
+): Promise<DataSourceData> {
+  const entry = store.get(sdkKey);
+  if (entry?.data) {
+    return entry.data;
+  }
+
+  // Fallback if stream hasn't delivered yet
+  return fetchData(host, sdkKey);
+}
+
+// Gets metadata from store or fetches
+async function getMetadataImpl(
+  host: string,
+  sdkKey: string,
+): Promise<DataSourceMetadata> {
+  const entry = store.get(sdkKey);
+  if (entry?.data) {
+    return { projectId: entry.data.projectId };
+  }
+
+  const data = await fetchData(host, sdkKey);
+  return { projectId: data.projectId };
+}
 
 /**
- * Implements the DataSource interface for flags.vercel.com.
+ * Creates a DataSource for flags.vercel.com.
  */
-export class FlagNetworkDataSource implements DataSource {
-  public sdkKey: string;
-  readonly host = 'https://flags.vercel.com';
-  private dataSourceData: DataSourceData | undefined = undefined;
-  private initResolvers: Resolvers<void> | undefined = undefined;
-  private state: State = 'uninitialized';
-  private loop: Loop | undefined = undefined;
-  private isBuildStep =
+export function createFlagNetworkDataSource(options: {
+  sdkKey: string;
+}): DataSource {
+  if (
+    !options.sdkKey ||
+    typeof options.sdkKey !== 'string' ||
+    !options.sdkKey.startsWith('vf_')
+  ) {
+    throw new Error(
+      '@vercel/flags-core: SDK key must be a string starting with "vf_"',
+    );
+  }
+
+  const sdkKey = options.sdkKey;
+  const host = 'https://flags.vercel.com';
+  const isBuildStep =
     process.env.CI === '1' ||
     process.env.NEXT_PHASE === 'phase-production-build';
 
-  constructor(options: { sdkKey: string }) {
-    if (
-      !options.sdkKey ||
-      typeof options.sdkKey !== 'string' ||
-      !options.sdkKey.startsWith('vf_')
-    ) {
-      throw new Error(
-        '@vercel/flags-core: SDK key must be a string starting with "vf_"',
-      );
-    }
-    this.sdkKey = options.sdkKey;
-  }
-
-  async initialize(): Promise<void> {
-    if (this.initResolvers?.promise && this.state !== 'initialize-aborted') {
-      await this.initResolvers.promise;
-      return;
-    }
-
-    this.state = 'initializing';
-    this.initResolvers ??= createResolvers<void>();
-
-    // don't stream during build step as the stream never closes,
-    // so the build would hang indefinitely
-    if (this.isBuildStep) {
-      try {
-        this.dataSourceData = await fetchData(this.host, this.sdkKey);
-        this.initResolvers.resolve();
-        this.state = 'initialized';
-      } catch (error) {
-        this.initResolvers.reject(error);
-        this.state = 'initialize-aborted';
+  return {
+    async initialize() {
+      // Don't stream during build step as the stream never closes
+      if (isBuildStep) {
+        const entry = getOrCreateEntry(sdkKey);
+        if (!entry.data) {
+          entry.data = await fetchData(host, sdkKey);
+        }
+        return;
       }
 
-      await this.initResolvers.promise;
-      return;
-    }
+      await ensureStream(host, sdkKey);
+    },
 
-    try {
-      this.loop = createLoop(
-        this.host,
-        this.sdkKey,
-        this.onStreamMessage,
-        this.onStreamError,
-      );
-      void this.loop.start().catch(this.onStreamError.bind(this));
-      await this.initResolvers.promise;
-      this.state = 'initialized';
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        this.state = 'initialize-aborted';
-        this.loop?.stop();
-        this.loop = undefined;
-        this.initResolvers?.reject(error);
-        this.initResolvers = undefined;
-        this.state = 'uninitialized';
+    async getData() {
+      // Ensure stream is started and has initial data
+      if (!isBuildStep) {
+        await ensureStream(host, sdkKey);
       } else {
-        this.initResolvers.reject(error);
-        throw error;
+        const entry = getOrCreateEntry(sdkKey);
+        if (!entry.data) {
+          entry.data = await fetchData(host, sdkKey);
+        }
       }
-    }
-  }
+      return getDataImpl(host, sdkKey);
+    },
 
-  private onStreamMessage = (message: Message) => {
-    if (message.type === 'datafile') {
-      this.dataSourceData = message.data;
-      this.initResolvers?.resolve();
-    }
+    shutdown() {
+      const entry = store.get(sdkKey);
+      if (entry) {
+        entry.streamStarted = false;
+        entry.abortController?.abort();
+        store.delete(sdkKey);
+      }
+    },
+
+    async getMetadata() {
+      return getMetadataImpl(host, sdkKey);
+    },
+
+    async ensureFallback() {
+      throw new Error('not implemented');
+    },
   };
-
-  private onStreamError = (error: unknown) => {
-    this.initResolvers?.reject(error);
-  };
-
-  async getData(): Promise<DataSourceData> {
-    // await connection(); // mark as non-cacheable for Next.js
-    await this.initialize();
-
-    if (this.state === 'uninitialized') {
-      throw new Error('client not yet initialized');
-    }
-    if (this.state === 'initialize-aborted') {
-      throw new Error('client uninitialized');
-    }
-    if (!this.dataSourceData) {
-      throw new Error('dataSourceData empty');
-    }
-    return this.dataSourceData;
-  }
-
-  async shutdown(): Promise<void> {
-    // free up memory
-    this.dataSourceData = undefined;
-    this.loop?.stop();
-    this.loop = undefined;
-    this.initResolvers?.reject(new Error('shutdown'));
-    this.initResolvers = undefined;
-    this.state = 'uninitialized';
-  }
-
-  async getMetadata(): Promise<DataSourceMetadata> {
-    const data =
-      this.dataSourceData ?? (await fetchData(this.host, this.sdkKey));
-    return { projectId: data.projectId };
-  }
-
-  /**
-   * Runs a check to ensure the fallback definitions are available.
-   */
-  async ensureFallback(): Promise<void> {
-    // let data = null;
-    // try {
-    //   data = await import(`@vercel/flags-definitions/${this.sdkKey}.json`);
-    // } catch {}
-    throw new Error('not implemented');
-  }
 }

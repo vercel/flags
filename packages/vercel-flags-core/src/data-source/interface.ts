@@ -7,7 +7,7 @@ export type DataSourceMetadata = {
 /**
  * DataSource interface for the Vercel Flags client
  */
-export interface DataSource {
+export type DataSource = {
   /**
    * Initialize the data source by fetching the initial file or setting up polling or
    * subscriptions.
@@ -36,4 +36,4 @@ export interface DataSource {
    * Throws if no bundled definitions are available.
    */
   ensureFallback?(): Promise<void>;
-}
+};

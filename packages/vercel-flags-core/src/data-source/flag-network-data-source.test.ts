@@ -11,7 +11,7 @@ import {
   vi,
 } from 'vitest';
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
-import { FlagNetworkDataSource } from './flag-network-data-source';
+import { createFlagNetworkDataSource } from './flag-network-data-source';
 
 let ingestRequests: { body: unknown; headers: Headers }[] = [];
 
@@ -70,7 +70,7 @@ async function assertIngestRequest(
   );
 }
 
-describe('FlagNetworkDataSource', () => {
+describe('createFlagNetworkDataSource', () => {
   it('should parse datafile messages from NDJSON stream', async () => {
     const definitions = {
       projectId: 'test-project',
@@ -86,7 +86,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
@@ -114,7 +114,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
@@ -138,7 +138,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     await vi.waitFor(() => {
@@ -184,7 +184,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     // Verify the abort signal was passed to the request and not yet aborted
@@ -224,7 +224,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(dataSource.definitions).toEqual(definitions);
@@ -249,7 +249,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     await vi.waitFor(() => {
@@ -284,7 +284,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     // Manually set bundledDefinitions for this test
     dataSource.bundledDefinitionsPromise =
       Promise.resolve<BundledDefinitionsResult>({
@@ -326,7 +326,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     // Manually set bundledDefinitions for this test
     dataSource.bundledDefinitionsPromise =
       Promise.resolve<BundledDefinitionsResult>({
@@ -365,7 +365,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     expect(capturedHeaders).not.toBeNull();
@@ -393,7 +393,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = createFlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
     // Verify no warning on first successful read (stream is connected)
