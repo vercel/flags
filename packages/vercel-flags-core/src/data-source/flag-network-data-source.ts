@@ -10,6 +10,8 @@ type Message =
   | { type: 'datafile'; data: BundledDefinitions }
   | { type: 'ping' };
 
+const MAX_RETRY_COUNT = 10;
+
 async function fetchData(
   host: string,
   sdkKey: string,
@@ -49,6 +51,12 @@ async function connectStream(options: StreamOptions): Promise<void> {
     let initialDataReceived = false;
 
     while (!abortController.signal.aborted) {
+      if (retryCount > MAX_RETRY_COUNT) {
+        console.error('@vercel/flags-core: Max retry count exceeded');
+        abortController.abort();
+        break;
+      }
+
       try {
         const response = await fetch(`${host}/v1/stream`, {
           headers: {
@@ -104,6 +112,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
         }
       } catch (error) {
         if (abortController.signal.aborted) {
+          console.error('@vercel/flags-core: Stream aborted', error);
           break;
         }
         console.error('@vercel/flags-core: Stream error', error);
