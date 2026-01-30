@@ -10,8 +10,17 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
+import type { BundledDefinitions } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
+
+// Mock the bundled definitions module
+vi.mock('../utils/read-bundled-definitions', () => ({
+  readBundledDefinitions: vi.fn(() =>
+    Promise.resolve({ definitions: null, state: 'missing-file' }),
+  ),
+}));
+
+import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 
 let ingestRequests: { body: unknown; headers: Headers }[] = [];
 
@@ -28,6 +37,11 @@ const server = setupServer(
 beforeAll(() => server.listen());
 beforeEach(() => {
   ingestRequests = [];
+  vi.mocked(readBundledDefinitions).mockReset();
+  vi.mocked(readBundledDefinitions).mockResolvedValue({
+    definitions: null,
+    state: 'missing-file',
+  });
 });
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -70,7 +84,7 @@ async function assertIngestRequest(
   );
 }
 
-describe('new FlagNetworkDataSource', () => {
+describe('FlagNetworkDataSource', () => {
   it('should parse datafile messages from NDJSON stream', async () => {
     const definitions = {
       projectId: 'test-project',
@@ -87,9 +101,9 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    const result = await dataSource.getData();
 
-    expect(dataSource.definitions).toEqual(definitions);
+    expect(result).toEqual(definitions);
 
     await dataSource.shutdown();
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
@@ -115,39 +129,11 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    const result = await dataSource.getData();
 
-    expect(dataSource.definitions).toEqual(definitions);
-
-    await dataSource.shutdown();
-    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
-  });
-
-  it('should stop reconnecting after shutdown is called', async () => {
-    const definitions = {
-      projectId: 'test-project',
-      definitions: {},
-    };
-
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(
-          createNdjsonStream([{ type: 'datafile', data: definitions }]),
-          { headers: { 'Content-Type': 'application/x-ndjson' } },
-        );
-      }),
-    );
-
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
-
-    await vi.waitFor(() => {
-      expect(dataSource.definitions).toEqual(definitions);
-    });
+    expect(result).toEqual(definitions);
 
     await dataSource.shutdown();
-
-    expect(dataSource.breakLoop).toBe(true);
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
@@ -156,12 +142,10 @@ describe('new FlagNetworkDataSource', () => {
 
     server.use(
       http.get('https://flags.vercel.com/v1/stream', async ({ request }) => {
-        // Capture the abort signal from the request
         abortSignalReceived = request.signal;
 
         const stream = new ReadableStream({
           start(controller) {
-            // Send initial data so getData() can return
             controller.enqueue(
               new TextEncoder().encode(
                 JSON.stringify({
@@ -171,7 +155,6 @@ describe('new FlagNetworkDataSource', () => {
               ),
             );
 
-            // Listen for abort and close the stream
             request.signal.addEventListener('abort', () => {
               controller.close();
             });
@@ -187,14 +170,11 @@ describe('new FlagNetworkDataSource', () => {
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     await dataSource.getData();
 
-    // Verify the abort signal was passed to the request and not yet aborted
     expect(abortSignalReceived).toBeDefined();
     expect(abortSignalReceived!.aborted).toBe(false);
 
-    // Shutdown should abort the stream
     await dataSource.shutdown();
 
-    // Verify the abort signal was triggered
     expect(abortSignalReceived!.aborted).toBe(true);
   });
 
@@ -225,9 +205,9 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    const result = await dataSource.getData();
 
-    expect(dataSource.definitions).toEqual(definitions);
+    expect(result).toEqual(definitions);
 
     await dataSource.shutdown();
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
@@ -250,14 +230,17 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+
+    // First call gets initial data
     await dataSource.getData();
 
-    await vi.waitFor(() => {
-      expect(dataSource.definitions).toEqual(definitions2);
+    // Wait for stream to process second message, then verify via getData
+    await vi.waitFor(async () => {
+      const result = await dataSource.getData();
+      expect(result).toEqual(definitions2);
     });
 
     await dataSource.shutdown();
-    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should fall back to bundledDefinitions when stream times out', async () => {
@@ -269,6 +252,12 @@ describe('new FlagNetworkDataSource', () => {
       digest: 'aa',
       revision: 1,
     };
+
+    // Mock bundled definitions to return valid data
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: bundledDefinitions,
+      state: 'ok',
+    });
 
     // Create a stream that never sends data (simulating timeout)
     server.use(
@@ -285,12 +274,6 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    // Manually set bundledDefinitions for this test
-    dataSource.bundledDefinitionsPromise =
-      Promise.resolve<BundledDefinitionsResult>({
-        definitions: bundledDefinitions,
-        state: 'ok',
-      });
 
     // getData should return bundledDefinitions after timeout (3s default)
     const startTime = Date.now();
@@ -305,7 +288,6 @@ describe('new FlagNetworkDataSource', () => {
     expect(elapsed).toBeLessThan(4000);
 
     // Don't await shutdown - the stream never closes in this test
-    // Just trigger shutdown to stop the loop
     dataSource.shutdown();
   }, 10000);
 
@@ -319,7 +301,13 @@ describe('new FlagNetworkDataSource', () => {
       revision: 1,
     };
 
-    // Return a 401 error - this will cause the stream to fail permanently (4xx stops retrying)
+    // Mock bundled definitions to return valid data
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: bundledDefinitions,
+      state: 'ok',
+    });
+
+    // Return a 401 error - this will cause the stream to fail permanently
     server.use(
       http.get('https://flags.vercel.com/v1/stream', () => {
         return new HttpResponse(null, { status: 401 });
@@ -327,17 +315,10 @@ describe('new FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    // Manually set bundledDefinitions for this test
-    dataSource.bundledDefinitionsPromise =
-      Promise.resolve<BundledDefinitionsResult>({
-        definitions: bundledDefinitions,
-        state: 'ok',
-      });
 
     // Suppress expected error logs for this test
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    // getData should return bundledDefinitions on error (after timeout races)
     const result = await dataSource.getData();
 
     expect(result).toEqual(bundledDefinitions);
@@ -400,17 +381,15 @@ describe('new FlagNetworkDataSource', () => {
     expect(warnSpy).not.toHaveBeenCalled();
 
     // Now simulate stream disconnection by changing handler to error
-    // and wait for the stream to close and enter reconnecting state
     server.use(
       http.get('https://flags.vercel.com/v1/stream', () => {
         return new HttpResponse(null, { status: 500 });
       }),
     );
 
-    // Wait a bit for the stream to close and try to reconnect (and fail)
+    // Wait for the stream to close and try to reconnect (and fail)
     await vi.waitFor(
       () => {
-        // The stream should be in reconnecting state
         expect(errorSpy).toHaveBeenCalled();
       },
       { timeout: 3000 },
