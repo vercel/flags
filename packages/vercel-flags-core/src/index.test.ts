@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRawClient, flagsClient } from '.';
+import { createRawClient, flagsClient } from './index.default';
 
 describe('createRawClient', () => {
   it('should allow creating a client', () => {

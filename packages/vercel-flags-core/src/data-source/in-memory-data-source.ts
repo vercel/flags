@@ -1,5 +1,9 @@
-import type { DataSourceData, Packed } from '../types';
-import type { DataSource, DataSourceMetadata } from './interface';
+import type {
+  DataSource,
+  DataSourceData,
+  DataSourceMetadata,
+  Packed,
+} from '../types';
 
 export class InMemoryDataSource implements DataSource {
   dataSourceData: DataSourceData;

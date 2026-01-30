@@ -1,59 +1,15 @@
 import { cacheLife } from 'next/cache';
-import type { DataSource } from './data-source/interface';
 import { evaluate } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import {
+  type DataSource,
   ErrorCode,
   type EvaluationResult,
+  type FlagsClient,
   type Packed,
   ResolutionReason,
   type Value,
 } from './types';
-
-export type Source = {
-  orgId: string;
-  orgSlug: string;
-  projectId: string;
-  projectSlug: string;
-};
-
-export type FlagsClient = {
-  /**
-   * The transport layer for the datafile.
-   */
-  dataSource: DataSource;
-  /**
-   * Evaluate a feature flag
-   *
-   * Requires initialize() to have been called and awaited first.
-   *
-   * @param flagKey
-   * @param defaultValue
-   * @param entities
-   * @returns
-   */
-  evaluate: <T = Value, E = Record<string, unknown>>(
-    flagKey: string,
-    defaultValue?: T,
-    entities?: E,
-  ) => Promise<EvaluationResult<T>>;
-  /**
-   * Retrieve the latest datafile during startup, and set up subscriptions if needed.
-   */
-  initialize(): void | Promise<void>;
-  /**
-   * Facilitates a clean shutdown process which may include flushing telemetry information, or closing remote connections.
-   */
-  shutdown(): void | Promise<void>;
-  /**
-   * Returns metadata about the data source
-   */
-  getMetadata(): Promise<{ projectId: string }>;
-  /**
-   * A check which will throw in case the fallback data is missing
-   */
-  ensureFallback(): Promise<void>;
-};
 
 let idCount = 0;
 const map = new Map<number, DataSource>();

@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default [
   defineConfig({
     entry: {
-      index: 'src/index.ts',
+      index: 'src/index.default.ts',
       openfeature: 'src/openfeature.ts',
     },
     format: 'esm',

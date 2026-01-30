@@ -24,9 +24,88 @@ export type BundledDefinitionsResult =
   | { definitions: null; state: 'missing-file' | 'missing-entry' }
   | { definitions: null; state: 'unexpected-error'; error: unknown };
 
-// -----------------------------------------------------------------------------
-// Shared data
-// -----------------------------------------------------------------------------
+export type DataSourceMetadata = {
+  projectId: string;
+};
+
+/**
+ * DataSource interface for the Vercel Flags client
+ */
+export type DataSource = {
+  /**
+   * Initialize the data source by fetching the initial file or setting up polling or
+   * subscriptions.
+   *
+   * @see https://openfeature.dev/specification/sections/providers#requirement-241
+   */
+  initialize: () => Promise<void>;
+
+  /**
+   * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.
+   */
+  getData(): Promise<DataSourceData>;
+
+  /**
+   * End polling or subscriptions. Flush any remaining data.
+   */
+  shutdown(): void;
+
+  /**
+   * Return metadata about the data source.
+   */
+  getMetadata(): Promise<DataSourceMetadata>;
+
+  /**
+   * Ensures bundled definitions exist as a fallback.
+   * Throws if no bundled definitions are available.
+   */
+  ensureFallback?(): Promise<void>;
+};
+
+export type Source = {
+  orgId: string;
+  orgSlug: string;
+  projectId: string;
+  projectSlug: string;
+};
+
+export type FlagsClient = {
+  /**
+   * The transport layer for the datafile.
+   */
+  dataSource: DataSource;
+  /**
+   * Evaluate a feature flag
+   *
+   * Requires initialize() to have been called and awaited first.
+   *
+   * @param flagKey
+   * @param defaultValue
+   * @param entities
+   * @returns
+   */
+  evaluate: <T = Value, E = Record<string, unknown>>(
+    flagKey: string,
+    defaultValue?: T,
+    entities?: E,
+  ) => Promise<EvaluationResult<T>>;
+  /**
+   * Retrieve the latest datafile during startup, and set up subscriptions if needed.
+   */
+  initialize(): void | Promise<void>;
+  /**
+   * Facilitates a clean shutdown process which may include flushing telemetry information, or closing remote connections.
+   */
+  shutdown(): void | Promise<void>;
+  /**
+   * Returns metadata about the data source
+   */
+  getMetadata(): Promise<{ projectId: string }>;
+  /**
+   * A check which will throw in case the fallback data is missing
+   */
+  ensureFallback(): Promise<void>;
+};
 
 export type EvaluationParams<T> = {
   entities?: Record<string, unknown>;

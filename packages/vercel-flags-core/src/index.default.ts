@@ -1,17 +1,15 @@
-import { createRawClient, type FlagsClient } from './client';
+import { createRawClient } from './client';
 import { createFlagNetworkDataSource } from './data-source/flag-network-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
-import type { DataSource } from './data-source/interface';
+import type { DataSource, FlagsClient } from './types';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
-export {
-  createRawClient,
-  type FlagsClient,
-} from './client';
+export { createRawClient } from './client';
 export { InMemoryDataSource, createFlagNetworkDataSource };
 export {
   type EvaluationParams,
   type EvaluationResult,
+  type FlagsClient,
   type Packed,
   ResolutionReason as Reason,
 } from './types';

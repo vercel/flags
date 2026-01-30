@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createClient, type FlagsClient } from '.';
 import { evaluate } from './evaluate';
+import { createClient, type FlagsClient } from './index.default';
 import {
   Comparator,
   type EvaluationResult,

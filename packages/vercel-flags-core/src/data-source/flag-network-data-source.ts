@@ -1,6 +1,5 @@
 import { version } from '../../package.json';
-import type { BundledDefinitions, DataSourceData } from '../types';
-import type { DataSource } from './interface';
+import type { BundledDefinitions, DataSource, DataSourceData } from '../types';
 
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }

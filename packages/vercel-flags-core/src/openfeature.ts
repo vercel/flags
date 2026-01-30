@@ -8,8 +8,8 @@ import {
   type ResolutionReason,
   StandardResolutionReasons,
 } from '@openfeature/server-sdk';
-import { createClient, Reason } from '.';
-import type { FlagsClient } from './client';
+import { createClient, Reason } from './index.default';
+import type { FlagsClient } from './types';
 
 function mapReason(reason: Reason): ResolutionReason {
   switch (reason) {
