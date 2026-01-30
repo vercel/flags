@@ -145,8 +145,17 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   /**
-   * One-time TrackReadOptions of the datafile, should not open stream
-   * as it is used in generateStaticParams potentially
+   * Returns the datafile with metrics.
+   *
+   * This method never opens a streaming connection, but will read from
+   * the stream if it is already open. This is important because getDatafile
+   * may be called during static generation (e.g., generateStaticParams)
+   * where opening a persistent connection would be inappropriate.
+   *
+   * Data retrieval priority:
+   * 1. During build steps: uses bundled definitions, falls back to HTTP fetch
+   * 2. At runtime with cached data: returns cached data (from stream if connected)
+   * 3. At runtime without cached data: uses bundled definitions, falls back to HTTP fetch
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
