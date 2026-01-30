@@ -1,10 +1,13 @@
 import { version } from '../../package.json';
 import type {
   BundledDefinitions,
+  BundledDefinitionsResult,
   DataSource,
   DataSourceData,
   DataSourceMetadata,
 } from '../types';
+import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }
@@ -46,10 +49,11 @@ type StreamOptions = {
   sdkKey: string;
   abortController: AbortController;
   onMessage: (data: BundledDefinitions) => void;
+  onDisconnect?: () => void;
 };
 
 async function connectStream(options: StreamOptions): Promise<void> {
-  const { host, sdkKey, abortController, onMessage } = options;
+  const { host, sdkKey, abortController, onMessage, onDisconnect } = options;
   let retryCount = 0;
 
   let resolveInit: () => void;
@@ -119,6 +123,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
 
         // Stream ended normally (server closed connection) - reconnect
         if (!abortController.signal.aborted) {
+          onDisconnect?.();
           retryCount++;
           await sleep(backoff(retryCount));
           continue;
@@ -129,6 +134,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
           break;
         }
         console.error('@vercel/flags-core: Stream error', error);
+        onDisconnect?.();
         if (!initialDataReceived) {
           rejectInit!(error);
           break;
@@ -152,8 +158,28 @@ export class FlagNetworkDataSource implements DataSource {
   private data: DataSourceData | undefined;
   private abortController: AbortController | undefined;
   private streamPromise: Promise<void> | undefined;
+  private streamTimeoutMs: number;
+  private usageTracker: UsageTracker;
+  private isFirstGetData: boolean = true;
+  private isStreamConnected: boolean = false;
+  private hasWarnedAboutStaleData: boolean = false;
+  private _breakLoop: boolean = false;
 
-  constructor(options: { sdkKey: string }) {
+  // Public for testing - allows tests to mock bundled definitions
+  public bundledDefinitionsPromise:
+    | Promise<BundledDefinitionsResult>
+    | undefined;
+
+  // For testing purposes
+  get definitions(): DataSourceData | undefined {
+    return this.data;
+  }
+
+  get breakLoop(): boolean {
+    return this._breakLoop;
+  }
+
+  constructor(options: { sdkKey: string; streamTimeoutMs?: number }) {
     if (
       !options.sdkKey ||
       typeof options.sdkKey !== 'string' ||
@@ -165,21 +191,38 @@ export class FlagNetworkDataSource implements DataSource {
     }
 
     this.sdkKey = options.sdkKey;
+    this.streamTimeoutMs = options.streamTimeoutMs ?? 3000;
     this.isBuildStep =
       process.env.CI === '1' ||
       process.env.NEXT_PHASE === 'phase-production-build';
+
+    // Start loading bundled definitions immediately (non-blocking)
+    this.bundledDefinitionsPromise = readBundledDefinitions(this.sdkKey);
+
+    this.usageTracker = new UsageTracker({
+      sdkKey: this.sdkKey,
+      host: this.host,
+    });
   }
 
   private ensureStream(): Promise<void> {
     if (this.streamPromise) return this.streamPromise;
 
     this.abortController = new AbortController();
+    this.isStreamConnected = false;
+    this.hasWarnedAboutStaleData = false;
+
     this.streamPromise = connectStream({
       host: this.host,
       sdkKey: this.sdkKey,
       abortController: this.abortController,
       onMessage: (newData) => {
         this.data = newData;
+        this.isStreamConnected = true;
+        this.hasWarnedAboutStaleData = false;
+      },
+      onDisconnect: () => {
+        this.isStreamConnected = false;
       },
     });
 
@@ -190,6 +233,13 @@ export class FlagNetworkDataSource implements DataSource {
     // Don't stream during build step as the stream never closes
     if (this.isBuildStep) {
       if (!this.data) {
+        // Try bundled definitions first during build
+        const bundledResult = await this.bundledDefinitionsPromise;
+        if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+          this.data = bundledResult.definitions;
+          return;
+        }
+        // Fallback to fetchData if bundled definitions unavailable
         this.data = await fetchData(this.host, this.sdkKey);
       }
       return;
@@ -199,23 +249,123 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async getData(): Promise<DataSourceData> {
-    if (!this.isBuildStep) {
-      await this.ensureStream();
-    } else if (!this.data) {
-      this.data = await fetchData(this.host, this.sdkKey);
+    const startTime = Date.now();
+    const cacheHadDefinitions = this.data !== undefined;
+    const isFirstRead = this.isFirstGetData;
+    this.isFirstGetData = false;
+
+    // Build step path: use bundled definitions first, then fetchData
+    if (this.isBuildStep) {
+      if (!this.data) {
+        const bundledResult = await this.bundledDefinitionsPromise;
+        if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+          this.data = bundledResult.definitions;
+          this.trackRead(
+            startTime,
+            cacheHadDefinitions,
+            isFirstRead,
+            'embedded',
+          );
+          return this.data;
+        }
+        this.data = await fetchData(this.host, this.sdkKey);
+      }
+      this.trackRead(startTime, cacheHadDefinitions, isFirstRead, 'in-memory');
+      return this.data;
     }
 
-    if (this.data) return this.data;
+    // Runtime path: if we already have data, return it
+    if (this.data) {
+      // Warn once if returning in-memory data while stream is not connected
+      if (!this.isStreamConnected && !this.hasWarnedAboutStaleData) {
+        this.hasWarnedAboutStaleData = true;
+        console.warn(
+          '@vercel/flags-core: Returning in-memory flag definitions while stream is disconnected. Data may be stale.',
+        );
+      }
+      this.trackRead(startTime, cacheHadDefinitions, isFirstRead, 'in-memory');
+      return this.data;
+    }
 
-    // Fallback if stream hasn't delivered yet
-    return fetchData(this.host, this.sdkKey);
+    // No data yet - race stream against timeout
+    const result = await this.getDataWithTimeout();
+    // Determine origin based on whether result came from bundled or stream
+    const origin = this.data === result ? 'in-memory' : 'embedded';
+    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, origin);
+    return result;
   }
 
-  shutdown(): void {
+  private trackRead(
+    startTime: number,
+    cacheHadDefinitions: boolean,
+    isFirstRead: boolean,
+    configOrigin: 'in-memory' | 'embedded',
+  ): void {
+    const trackOptions: TrackReadOptions = {
+      configOrigin,
+      cacheStatus: cacheHadDefinitions ? 'HIT' : 'MISS',
+      cacheIsBlocking: !cacheHadDefinitions,
+      duration: Date.now() - startTime,
+    };
+    if (isFirstRead) {
+      trackOptions.cacheIsFirstRead = true;
+    }
+    this.usageTracker.trackRead(trackOptions);
+  }
+
+  private async getDataWithTimeout(): Promise<DataSourceData> {
+    const streamPromise = this.ensureStream().then(() => {
+      if (this.data) return this.data;
+      throw new Error('Stream connected but no data received');
+    });
+
+    // If timeout is 0 or Infinity, don't use timeout
+    if (this.streamTimeoutMs <= 0 || !Number.isFinite(this.streamTimeoutMs)) {
+      return streamPromise;
+    }
+
+    const timeoutPromise = new Promise<'timeout'>((resolve) => {
+      setTimeout(() => resolve('timeout'), this.streamTimeoutMs);
+    });
+
+    const result = await Promise.race([streamPromise, timeoutPromise]);
+
+    if (result === 'timeout') {
+      // Stream timed out, try bundled definitions
+      const bundledResult = await this.bundledDefinitionsPromise;
+
+      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+        console.warn(
+          '@vercel/flags-core: Stream timeout, using bundled definitions',
+        );
+        return bundledResult.definitions;
+      }
+
+      console.warn(
+        '@vercel/flags-core: Stream timeout and bundled definitions not available, waiting for stream',
+      );
+
+      // Bundled definitions not available, wait for stream or use fetchData
+      try {
+        return await streamPromise;
+      } catch {
+        // Stream failed completely, try fetchData as last resort
+        return fetchData(this.host, this.sdkKey);
+      }
+    }
+
+    return result;
+  }
+
+  async shutdown(): Promise<void> {
+    this._breakLoop = true;
     this.abortController?.abort();
     this.abortController = undefined;
     this.streamPromise = undefined;
     this.data = undefined;
+    this.isStreamConnected = false;
+    this.hasWarnedAboutStaleData = false;
+    await this.usageTracker.flush();
   }
 
   async getMetadata(): Promise<DataSourceMetadata> {
@@ -228,6 +378,35 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async ensureFallback(): Promise<void> {
-    throw new Error('not implemented');
+    const bundledResult = await this.bundledDefinitionsPromise;
+
+    if (!bundledResult) {
+      throw new Error(
+        '@vercel/flags-core: Unable to verify fallback - bundled definitions check failed',
+      );
+    }
+
+    switch (bundledResult.state) {
+      case 'ok':
+        return; // Fallback is available
+
+      case 'missing-file':
+        throw new Error(
+          '@vercel/flags-core: Bundled definitions file not found. ' +
+            'Run "vercel-flags prepare" before building to enable fallback.',
+        );
+
+      case 'missing-entry':
+        throw new Error(
+          '@vercel/flags-core: No bundled definitions found for SDK key. ' +
+            'Ensure the SDK key is included when running "vercel-flags prepare".',
+        );
+
+      case 'unexpected-error':
+        throw new Error(
+          '@vercel/flags-core: Failed to read bundled definitions: ' +
+            String(bundledResult.error),
+        );
+    }
   }
 }
