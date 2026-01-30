@@ -25,6 +25,10 @@ export class InMemoryDataSource implements DataSource {
     return { projectId: this.dataSourceData.projectId };
   }
 
+  async getDatafile(): Promise<DataSourceData> {
+    return this.dataSourceData;
+  }
+
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
   async read(): Promise<ReadResult> {

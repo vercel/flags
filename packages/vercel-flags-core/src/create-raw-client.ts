@@ -1,6 +1,7 @@
 import type {
   ensureFallback,
   evaluate,
+  getDatafile,
   getInfo,
   initialize,
   shutdown,
@@ -16,6 +17,7 @@ export function createCreateRawClient(fns: {
   ensureFallback: typeof ensureFallback;
   evaluate: typeof evaluate;
   getInfo: typeof getInfo;
+  getDatafile: typeof getDatafile;
 }) {
   return function createRawClient({
     dataSource,
@@ -35,6 +37,9 @@ export function createCreateRawClient(fns: {
       },
       getInfo: async () => {
         return fns.getInfo(id);
+      },
+      getDatafile: async () => {
+        return fns.getDatafile(id);
       },
       async ensureFallback(): Promise<void> {
         return fns.ensureFallback(id);

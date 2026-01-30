@@ -84,6 +84,11 @@ export interface DataSource {
   getInfo(): Promise<DataSourceMetadata>;
 
   /**
+   * Return the actual datafile containing flag definitions.
+   */
+  getDatafile(): Promise<DataSourceData>;
+
+  /**
    * Ensures bundled definitions exist as a fallback.
    * Throws if no bundled definitions are available.
    */
@@ -128,6 +133,10 @@ export type FlagsClient = {
    * Returns metadata about the data source
    */
   getInfo(): Promise<{ projectId: string }>;
+  /**
+   * Returns the actual datafile containing flag definitions
+   */
+  getDatafile(): Promise<DataSourceData>;
   /**
    * A check which will throw in case the fallback data is missing
    */

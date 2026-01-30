@@ -33,6 +33,12 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       },
     }),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
+    getDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test-project',
+      definitions: {},
+      segments: {},
+      environment: 'production',
+    }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     ...overrides,

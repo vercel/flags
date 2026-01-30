@@ -19,6 +19,11 @@ export async function getInfo(id: number) {
   return ds.getInfo();
 }
 
+export async function getDatafile(id: number) {
+  const ds = clientMap.get(id)!;
+  return ds.getDatafile();
+}
+
 export async function ensureFallback(id: number) {
   const ds = clientMap.get(id)!;
   if (ds.ensureFallback) return ds.ensureFallback();

@@ -34,6 +34,12 @@ export const cachedFns: typeof fns = {
     cacheLife({ stale: 60 });
     return fns.getInfo(...args);
   },
+  getDatafile: async (...args) => {
+    'use cache';
+    cacheLife({ revalidate: 0, expire: 0 });
+    cacheLife({ stale: 60 });
+    return fns.getDatafile(...args);
+  },
   ensureFallback: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });

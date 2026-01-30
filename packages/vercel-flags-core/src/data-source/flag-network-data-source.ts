@@ -145,6 +145,13 @@ export class FlagNetworkDataSource implements DataSource {
     return { projectId: fetched.projectId };
   }
 
+  async getDatafile(): Promise<DataSourceData> {
+    if (this.data) {
+      return this.data;
+    }
+    return fetchDatafile(this.host, this.sdkKey);
+  }
+
   async ensureFallback(): Promise<void> {
     const bundledResult = await this.bundledDefinitionsPromise;
 

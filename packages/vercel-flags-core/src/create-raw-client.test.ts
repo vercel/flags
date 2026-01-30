@@ -12,6 +12,12 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       environment: 'production',
     }),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
+    getDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test-project',
+      definitions: {},
+      segments: {},
+      environment: 'production',
+    }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -25,6 +31,12 @@ function createMockFns() {
     ensureFallback: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
+    getDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test',
+      definitions: {},
+      segments: {},
+      environment: 'production',
+    }),
   };
 }
 
