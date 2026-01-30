@@ -2,33 +2,9 @@ import { version } from '../../package.json';
 import type { BundledDefinitions, DataSourceData } from '../types';
 import type { DataSource } from './interface';
 
-const store = new Map<string, StoreEntry>();
-
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }
   | { type: 'ping' };
-
-// Module-level store for shared stream connections
-type StoreEntry = {
-  data: DataSourceData | undefined;
-  abortController: AbortController | undefined;
-  streamStarted: boolean;
-  initPromise: Promise<void> | undefined;
-  retryCount: number;
-};
-
-function getOrCreateEntry(sdkKey: string): StoreEntry {
-  if (!store.has(sdkKey)) {
-    store.set(sdkKey, {
-      data: undefined,
-      abortController: undefined,
-      streamStarted: false,
-      initPromise: undefined,
-      retryCount: 0,
-    });
-  }
-  return store.get(sdkKey)!;
-}
 
 async function fetchData(
   host: string,
@@ -47,37 +23,36 @@ async function fetchData(
   return res.json() as Promise<BundledDefinitions>;
 }
 
-function ensureStream(host: string, sdkKey: string): Promise<void> {
-  const entry = getOrCreateEntry(sdkKey);
+type StreamOptions = {
+  host: string;
+  sdkKey: string;
+  signal: AbortSignal;
+  onMessage: (data: BundledDefinitions) => void;
+};
 
-  if (entry.initPromise) {
-    return entry.initPromise;
-  }
+async function connectStream(options: StreamOptions): Promise<void> {
+  const { host, sdkKey, signal, onMessage } = options;
+  let retryCount = 0;
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
-  entry.initPromise = new Promise<void>((resolve, reject) => {
+  const initPromise = new Promise<void>((resolve, reject) => {
     resolveInit = resolve;
     rejectInit = reject;
   });
 
-  entry.streamStarted = true;
-
   (async () => {
     let initialDataReceived = false;
 
-    while (entry.streamStarted) {
+    while (!signal.aborted) {
       try {
-        // Create a new AbortController for each connection attempt
-        entry.abortController = new AbortController();
-
         const response = await fetch(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
             'User-Agent': `VercelFlagsCore/${version}`,
-            'X-Retry-Attempt': String(entry.retryCount),
+            'X-Retry-Attempt': String(retryCount),
           },
-          signal: entry.abortController.signal,
+          signal,
         });
 
         if (!response.ok) {
@@ -92,7 +67,7 @@ function ensureStream(host: string, sdkKey: string): Promise<void> {
         let buffer = '';
 
         for await (const chunk of response.body) {
-          if (!entry.streamStarted) break;
+          if (signal.aborted) break;
 
           buffer += decoder.decode(chunk, { stream: true });
           const lines = buffer.split('\n');
@@ -104,7 +79,7 @@ function ensureStream(host: string, sdkKey: string): Promise<void> {
             const message = JSON.parse(line) as Message;
 
             if (message.type === 'datafile') {
-              entry.data = message.data;
+              onMessage(message.data);
               if (!initialDataReceived) {
                 initialDataReceived = true;
                 resolveInit!();
@@ -114,12 +89,12 @@ function ensureStream(host: string, sdkKey: string): Promise<void> {
         }
 
         // Stream ended normally (server closed connection) - reconnect
-        if (entry.streamStarted) {
-          entry.retryCount++;
+        if (!signal.aborted) {
+          retryCount++;
           continue;
         }
       } catch (error) {
-        if (entry.abortController?.signal.aborted) {
+        if (signal.aborted) {
           break;
         }
         console.error('@vercel/flags-core: Stream error', error);
@@ -127,26 +102,12 @@ function ensureStream(host: string, sdkKey: string): Promise<void> {
           rejectInit!(error);
           break;
         }
-        entry.retryCount++;
+        retryCount++;
       }
     }
   })();
 
-  return entry.initPromise;
-}
-
-// Reads from shared store, falls back to fetch
-async function getDataImpl(
-  host: string,
-  sdkKey: string,
-): Promise<DataSourceData> {
-  const entry = store.get(sdkKey);
-  if (entry?.data) {
-    return entry.data;
-  }
-
-  // Fallback if stream hasn't delivered yet
-  return fetchData(host, sdkKey);
+  return initPromise;
 }
 
 /**
@@ -171,50 +132,67 @@ export function createFlagNetworkDataSource(options: {
     process.env.CI === '1' ||
     process.env.NEXT_PHASE === 'phase-production-build';
 
+  // Instance state
+  let data: DataSourceData | undefined;
+  let abortController: AbortController | undefined;
+  let streamPromise: Promise<void> | undefined;
+
+  function ensureStream(): Promise<void> {
+    if (streamPromise) return streamPromise;
+
+    abortController = new AbortController();
+    streamPromise = connectStream({
+      host,
+      sdkKey,
+      signal: abortController.signal,
+      onMessage: (newData) => {
+        data = newData;
+      },
+    });
+
+    return streamPromise;
+  }
+
   return {
     async initialize() {
       // Don't stream during build step as the stream never closes
       if (isBuildStep) {
-        const entry = getOrCreateEntry(sdkKey);
-        if (!entry.data) {
-          entry.data = await fetchData(host, sdkKey);
+        if (!data) {
+          data = await fetchData(host, sdkKey);
         }
         return;
       }
 
-      await ensureStream(host, sdkKey);
+      await ensureStream();
     },
 
     async getData() {
-      // Ensure stream is started and has initial data
       if (!isBuildStep) {
-        await ensureStream(host, sdkKey);
-      } else {
-        const entry = getOrCreateEntry(sdkKey);
-        if (!entry.data) {
-          entry.data = await fetchData(host, sdkKey);
-        }
+        await ensureStream();
+      } else if (!data) {
+        data = await fetchData(host, sdkKey);
       }
-      return getDataImpl(host, sdkKey);
+
+      if (data) return data;
+
+      // Fallback if stream hasn't delivered yet
+      return fetchData(host, sdkKey);
     },
 
     shutdown() {
-      const entry = store.get(sdkKey);
-      if (entry) {
-        entry.streamStarted = false;
-        entry.abortController?.abort();
-        store.delete(sdkKey);
-      }
+      abortController?.abort();
+      abortController = undefined;
+      streamPromise = undefined;
+      data = undefined;
     },
 
     async getMetadata() {
-      const entry = store.get(sdkKey);
-      if (entry?.data) {
-        return { projectId: entry.data.projectId };
+      if (data) {
+        return { projectId: data.projectId };
       }
 
-      const data = await fetchData(host, sdkKey);
-      return { projectId: data.projectId };
+      const fetched = await fetchData(host, sdkKey);
+      return { projectId: fetched.projectId };
     },
 
     async ensureFallback() {
