@@ -20,3 +20,4 @@ npm-debug.log
 **/playwright/.cache/
 
 examples/shirt-shop-vercel
+packages/next-connection
