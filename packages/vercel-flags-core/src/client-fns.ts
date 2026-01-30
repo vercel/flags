@@ -46,9 +46,9 @@ export async function evaluate<T, E = Record<string, unknown>>(
       reason: ResolutionReason.ERROR,
       errorCode: ErrorCode.FLAG_NOT_FOUND,
       errorMessage: `Definition not found for flag "${flagKey}"`,
-      metadata: {
+      metrics: {
         evaluationMs: 0,
-        readMs: datafile.metrics.durationMs,
+        readMs: datafile.metrics.readMs,
         source: datafile.metrics.source,
         cacheStatus: datafile.metrics.cacheStatus,
       },
@@ -79,9 +79,9 @@ export async function evaluate<T, E = Record<string, unknown>>(
 
   return {
     ...result,
-    metadata: {
+    metrics: {
       evaluationMs: evaluationDurationMs,
-      readMs: datafile.metrics.durationMs,
+      readMs: datafile.metrics.readMs,
       source: datafile.metrics.source,
       cacheStatus: datafile.metrics.cacheStatus,
     },

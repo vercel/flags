@@ -25,7 +25,7 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       segments: {},
       environment: 'production',
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
@@ -37,7 +37,7 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       segments: {},
       environment: 'production',
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
@@ -57,7 +57,7 @@ function mockDatafile(data: {
   return {
     ...data,
     metrics: {
-      durationMs: 0,
+      readMs: 0,
       source: 'in-memory' as const,
       cacheStatus: 'HIT' as const,
     },
@@ -216,8 +216,8 @@ describe('client-fns', () => {
       expect(result.errorMessage).toBe(
         'Definition not found for flag "nonexistent-flag"',
       );
-      expect(result.metadata).toBeDefined();
-      expect(result.metadata.source).toBe('in-memory');
+      expect(result.metrics).toBeDefined();
+      expect(result.metrics!.source).toBe('in-memory');
     });
 
     it('should use defaultValue when flag is not found', async () => {
@@ -260,7 +260,7 @@ describe('client-fns', () => {
 
       expect(result.value).toBe(true);
       expect(result.reason).toBe(ResolutionReason.PAUSED);
-      expect(result.metadata).toBeDefined();
+      expect(result.metrics).toBeDefined();
     });
 
     it('should call internalReportValue when projectId exists', async () => {

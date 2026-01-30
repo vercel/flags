@@ -23,7 +23,7 @@ export class InMemoryDataSource implements DataSource {
     return {
       ...this.data,
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
@@ -36,7 +36,7 @@ export class InMemoryDataSource implements DataSource {
     return {
       ...this.data,
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },

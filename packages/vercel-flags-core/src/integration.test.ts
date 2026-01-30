@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { evaluate } from './evaluate';
 import { createClient, type FlagsClient } from './index.default';
 import {
-  type BaseEvaluationResult,
   Comparator,
+  type EvaluationResult,
   OutcomeType,
   type Packed,
   ResolutionReason,
@@ -29,8 +29,8 @@ describe('integration evaluate', () => {
     expect(result.value).toBe(true);
     expect(result.reason).toBe(ResolutionReason.FALLTHROUGH);
     expect(result.outcomeType).toBe(OutcomeType.VALUE);
-    expect(result.metadata).toBeDefined();
-    expect(result.metadata.source).toBeDefined();
+    expect(result.metrics).toBeDefined();
+    expect(result.metrics.source).toBeDefined();
   });
 
   it('should evaluate paused flags', async () => {
@@ -38,7 +38,7 @@ describe('integration evaluate', () => {
     expect(result.value).toBe(true);
     expect(result.reason).toBe(ResolutionReason.PAUSED);
     expect(result.outcomeType).toBe(OutcomeType.VALUE);
-    expect(result.metadata).toBeDefined();
+    expect(result.metrics).toBeDefined();
   });
 
   describe('when there is an error', () => {
@@ -50,7 +50,7 @@ describe('integration evaluate', () => {
       expect(result.errorMessage).toBe(
         'Definition not found for flag "does-not-exist"',
       );
-      expect(result.metadata).toBeDefined();
+      expect(result.metrics).toBeDefined();
     });
   });
 
@@ -253,7 +253,7 @@ describe('integration evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: BaseEvaluationResult<boolean>[] = [];
+      const results: EvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(
@@ -288,7 +288,7 @@ describe('integration evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: BaseEvaluationResult<boolean>[] = [];
+      const results: EvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(
@@ -323,7 +323,7 @@ describe('integration evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: BaseEvaluationResult<boolean>[] = [];
+      const results: EvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(

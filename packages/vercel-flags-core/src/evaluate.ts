@@ -1,8 +1,8 @@
 import { xxHash32 as hashInput } from 'js-xxhash';
 import {
-  type BaseEvaluationResult,
   Comparator,
   type EvaluationParams,
+  type EvaluationResult,
   OutcomeType,
   Packed,
   ResolutionReason,
@@ -354,7 +354,7 @@ export function evaluate<T>(
    * The params used for the evaluation
    */
   params: EvaluationParams<T>,
-): BaseEvaluationResult<T> {
+): EvaluationResult<T> {
   const envConfig = params.definition.environments[params.environment];
 
   // handle shortcut where a value is a number directly

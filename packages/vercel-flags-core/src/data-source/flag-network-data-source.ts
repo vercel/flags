@@ -113,13 +113,13 @@ export class FlagNetworkDataSource implements DataSource {
       [result, source, cacheStatus] = await this.getDataWithStreamTimeout();
     }
 
-    const durationMs = Date.now() - startTime;
+    const readMs = Date.now() - startTime;
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     return {
       ...result,
       metrics: {
-        durationMs,
+        readMs,
         source,
         cacheStatus,
       },

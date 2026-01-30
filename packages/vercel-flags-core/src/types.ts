@@ -39,15 +39,17 @@ export type DataSourceInfo = {
 export type DataSourceMetadata = DataSourceInfo;
 
 /**
- * Metrics about how data was retrieved from the data source
+ * Metrics about how data was retrieved and evaluated
  */
 export type Metrics = {
-  /** Time in ms to retrieve data */
-  durationMs: number;
+  /** Time in ms to read the datafile */
+  readMs: number;
   /** Where the data came from */
   source: 'in-memory' | 'embedded' | 'remote';
   /** Whether data was already cached, or stale (fallback used) */
   cacheStatus: 'HIT' | 'MISS' | 'STALE';
+  /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
+  evaluationMs?: number;
 };
 
 /**
@@ -185,39 +187,9 @@ export enum ErrorCode {
 }
 
 /**
- * Metadata about the evaluation process
+ * The detailed result of a flag evaluation as returned by the client's `evaluate` function.
  */
-export type EvaluationMetadata = {
-  /**
-   * Time in milliseconds for the pure flag evaluation logic.
-   * This excludes data fetching time and measures only the rule/targeting evaluation.
-   */
-  evaluationMs: number;
-  /**
-   * Time in milliseconds to read data from the data source.
-   * This is 0 when data is already cached in memory.
-   */
-  readMs: number;
-  /**
-   * Where the flag definitions came from.
-   * - `'in-memory'`: Data was already cached in memory (fastest)
-   * - `'embedded'`: Data was read from bundled definitions at build time
-   * - `'remote'`: Data was fetched from the network
-   */
-  source: 'in-memory' | 'embedded' | 'remote';
-  /**
-   * Cache status of the data source read.
-   * - `'HIT'`: Data was already in memory and stream is connected
-   * - `'MISS'`: Data had to be fetched/loaded (first read)
-   * - `'STALE'`: Using cached/fallback data because stream is disconnected or timed out
-   */
-  cacheStatus: 'HIT' | 'MISS' | 'STALE';
-};
-
-/**
- * Base evaluation result without metadata (used internally by evaluate function)
- */
-export type BaseEvaluationResult<T> =
+export type EvaluationResult<T> =
   | {
       /**
        * In case of successful evaluations this holds the evaluated value
@@ -233,25 +205,20 @@ export type BaseEvaluationResult<T> =
       reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
       errorMessage?: never;
       errorCode?: never;
+      /** Metrics about the evaluation (optional) */
+      metrics?: Metrics;
     }
   | {
       reason: ResolutionReason.ERROR;
       errorMessage: string;
       errorCode?: ErrorCode;
       /**
-       * In cases of errors this is the he defaultValue if one was provided
+       * In cases of errors this is the defaultValue if one was provided
        */
       value?: T;
+      /** Metrics about the evaluation (optional) */
+      metrics?: Metrics;
     };
-
-/**
- * The detailed result of a flag evaluation as returned by the client's `evaluate` function.
- * Includes metadata about the evaluation process.
- */
-export type EvaluationResult<T> = BaseEvaluationResult<T> & {
-  /** Metadata about the evaluation */
-  metadata: EvaluationMetadata;
-};
 
 export type FlagKey = string;
 export type VariantId = string;

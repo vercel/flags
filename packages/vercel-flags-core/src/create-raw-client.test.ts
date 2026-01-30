@@ -11,7 +11,7 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       segments: {},
       environment: 'production',
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
@@ -23,7 +23,7 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       segments: {},
       environment: 'production',
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
@@ -47,7 +47,7 @@ function createMockFns() {
       segments: {},
       environment: 'production',
       metrics: {
-        durationMs: 0,
+        readMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
       },
