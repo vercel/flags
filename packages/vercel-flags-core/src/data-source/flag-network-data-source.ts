@@ -11,6 +11,18 @@ type Message =
   | { type: 'ping' };
 
 const MAX_RETRY_COUNT = 10;
+const BASE_DELAY_MS = 1000;
+const MAX_DELAY_MS = 30_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoff(retryCount: number): number {
+  if (retryCount === 1) return 0;
+  const delay = Math.min(BASE_DELAY_MS * 2 ** (retryCount - 2), MAX_DELAY_MS);
+  return delay + Math.random() * 1000;
+}
 
 async function fetchData(
   host: string,
@@ -108,6 +120,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
         // Stream ended normally (server closed connection) - reconnect
         if (!abortController.signal.aborted) {
           retryCount++;
+          await sleep(backoff(retryCount));
           continue;
         }
       } catch (error) {
@@ -121,6 +134,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
           break;
         }
         retryCount++;
+        await sleep(backoff(retryCount));
       }
     }
   })();
