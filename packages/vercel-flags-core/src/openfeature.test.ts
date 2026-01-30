@@ -2,7 +2,7 @@ import { StandardResolutionReasons } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import { createRawClient } from './index.default';
-import { VercelProvider } from './openfeature';
+import { VercelProvider } from './openfeature.default';
 import type { Packed } from './types';
 
 describe('VercelProvider', () => {

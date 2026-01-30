@@ -10,9 +10,12 @@
   "exports": {
     ".": {
       "next-js": "./dist/index.next-js.js",
-      "default": "./dist/index.js"
+      "default": "./dist/index.default.js"
     },
-    "./openfeature": "./dist/openfeature.js"
+    "./openfeature": {
+      "next-js": "./dist/openfeature.next-js.js",
+      "default": "./dist/openfeature.default.js"
+    }
   },
   "main": "./dist/index.js",
   "typesVersions": {
