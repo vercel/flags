@@ -128,7 +128,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    await dataSource.read();
 
     expect(abortSignalReceived).toBeDefined();
     expect(abortSignalReceived!.aborted).toBe(false);
@@ -165,7 +165,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    const result = await dataSource.getData();
+    const result = await dataSource.read();
 
     expect(result.data).toEqual(definitions);
     expect(result.metadata.source).toBe('in-memory');
@@ -194,11 +194,11 @@ describe('FlagNetworkDataSource', () => {
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
     // First call gets initial data
-    await dataSource.getData();
+    await dataSource.read();
 
-    // Wait for stream to process second message, then verify via getData
+    // Wait for stream to process second message, then verify via read
     await vi.waitFor(async () => {
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
       expect(result.data).toEqual(definitions2);
     });
 
@@ -237,9 +237,9 @@ describe('FlagNetworkDataSource', () => {
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-    // getData should return bundledDefinitions after timeout (3s default)
+    // read should return bundledDefinitions after timeout (3s default)
     const startTime = Date.now();
-    const result = await dataSource.getData();
+    const result = await dataSource.read();
     const elapsed = Date.now() - startTime;
 
     // Should have returned bundled definitions with STALE status
@@ -283,7 +283,7 @@ describe('FlagNetworkDataSource', () => {
     // Suppress expected error logs for this test
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const result = await dataSource.getData();
+    const result = await dataSource.read();
 
     expect(result.data).toEqual(bundledDefinitions);
     expect(result.metadata.source).toBe('embedded');
@@ -313,7 +313,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    await dataSource.read();
 
     expect(capturedHeaders).not.toBeNull();
     expect(capturedHeaders!.get('X-Retry-Attempt')).toBe('0');
@@ -341,7 +341,7 @@ describe('FlagNetworkDataSource', () => {
     );
 
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    await dataSource.getData();
+    await dataSource.read();
 
     // Verify no warning on first successful read (stream is connected)
     expect(warnSpy).not.toHaveBeenCalled();
@@ -361,8 +361,8 @@ describe('FlagNetworkDataSource', () => {
       { timeout: 3000 },
     );
 
-    // Next getData should warn about potentially stale data
-    await dataSource.getData();
+    // Next read should warn about potentially stale data
+    await dataSource.read();
 
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('Returning in-memory flag definitions'),
@@ -370,7 +370,7 @@ describe('FlagNetworkDataSource', () => {
 
     // Should only warn once
     warnSpy.mockClear();
-    await dataSource.getData();
+    await dataSource.read();
     expect(warnSpy).not.toHaveBeenCalled();
 
     await dataSource.shutdown();
@@ -428,7 +428,7 @@ describe('FlagNetworkDataSource', () => {
       });
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
 
       // Should use bundled definitions without making stream request
       expect(result.data).toEqual(bundledDefinitions);
@@ -456,7 +456,7 @@ describe('FlagNetworkDataSource', () => {
       });
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
 
       expect(result.data).toEqual(bundledDefinitions);
       expect(result.metadata.source).toBe('embedded');
@@ -484,7 +484,7 @@ describe('FlagNetworkDataSource', () => {
       );
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      await dataSource.getData();
+      await dataSource.read();
 
       expect(streamRequested).toBe(true);
 
@@ -515,7 +515,7 @@ describe('FlagNetworkDataSource', () => {
       );
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
 
       expect(result.data).toEqual(fetchedDefinitions);
       expect(result.metadata.source).toBe('remote');
@@ -544,11 +544,11 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
       // First read
-      const firstResult = await dataSource.getData();
+      const firstResult = await dataSource.read();
       expect(firstResult.metadata.cacheStatus).toBe('MISS');
 
       // Second read should use cached data
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
       expect(result.data).toEqual(bundledDefinitions);
       expect(result.metadata.cacheStatus).toBe('HIT');
 
@@ -646,7 +646,7 @@ describe('FlagNetworkDataSource', () => {
       );
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      await dataSource.getData(); // Cache data
+      await dataSource.read(); // Cache data
 
       const metadata = await dataSource.getMetadata();
       expect(metadata).toEqual({ projectId: 'cached-project' });
@@ -704,7 +704,7 @@ describe('FlagNetworkDataSource', () => {
       });
 
       const startTime = Date.now();
-      const result = await dataSource.getData();
+      const result = await dataSource.read();
       const elapsed = Date.now() - startTime;
 
       expect(result.data).toEqual(bundledDefinitions);

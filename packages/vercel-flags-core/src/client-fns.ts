@@ -32,7 +32,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   entities?: E,
 ): Promise<EvaluationResult<T>> {
   const ds = clientMap.get(id)!;
-  const { data, metadata: dataSourceMetadata } = await ds.getData();
+  const { data, metadata: dataSourceMetadata } = await ds.read();
   const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {
@@ -42,10 +42,10 @@ export async function evaluate<T, E = Record<string, unknown>>(
       errorCode: ErrorCode.FLAG_NOT_FOUND,
       errorMessage: `Definition not found for flag "${flagKey}"`,
       metadata: {
-        evaluationDurationMs: 0,
-        dataSourceDurationMs: dataSourceMetadata.durationMs,
-        dataSourceSource: dataSourceMetadata.source,
-        dataSourceCacheStatus: dataSourceMetadata.cacheStatus,
+        evaluationMs: 0,
+        readMs: dataSourceMetadata.durationMs,
+        source: dataSourceMetadata.source,
+        cacheStatus: dataSourceMetadata.cacheStatus,
       },
     };
   }
@@ -75,10 +75,10 @@ export async function evaluate<T, E = Record<string, unknown>>(
   return {
     ...result,
     metadata: {
-      evaluationDurationMs,
-      dataSourceDurationMs: dataSourceMetadata.durationMs,
-      dataSourceSource: dataSourceMetadata.source,
-      dataSourceCacheStatus: dataSourceMetadata.cacheStatus,
+      evaluationMs: evaluationDurationMs,
+      readMs: dataSourceMetadata.durationMs,
+      source: dataSourceMetadata.source,
+      cacheStatus: dataSourceMetadata.cacheStatus,
     },
   };
 }

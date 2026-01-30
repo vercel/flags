@@ -39,7 +39,7 @@ export type DataSourceMetadata = DataSourceInfo;
 /**
  * Metadata about how data was retrieved from the data source
  */
-export type GetDataMetadata = {
+export type ReadMetadata = {
   /** Time in ms to retrieve data */
   durationMs: number;
   /** Where the data came from */
@@ -49,11 +49,11 @@ export type GetDataMetadata = {
 };
 
 /**
- * Result of getData() including both data and metadata
+ * Result of read() including both data and metadata
  */
-export type GetDataResult = {
+export type ReadResult = {
   data: DataSourceData;
-  metadata: GetDataMetadata;
+  metadata: ReadMetadata;
 };
 
 /**
@@ -71,7 +71,7 @@ export interface DataSource {
   /**
    * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.
    */
-  getData(): Promise<GetDataResult>;
+  read(): Promise<ReadResult>;
 
   /**
    * End polling or subscriptions. Flush any remaining data.
@@ -185,14 +185,30 @@ export enum ErrorCode {
  * Metadata about the evaluation process
  */
 export type EvaluationMetadata = {
-  /** Time in ms for pure flag evaluation logic (excludes data fetch) */
-  evaluationDurationMs: number;
-  /** Time in ms to retrieve data from the data source */
-  dataSourceDurationMs: number;
-  /** Where the data came from */
-  dataSourceSource: 'in-memory' | 'embedded' | 'remote';
-  /** Cache status of the data source read */
-  dataSourceCacheStatus: 'HIT' | 'MISS' | 'STALE';
+  /**
+   * Time in milliseconds for the pure flag evaluation logic.
+   * This excludes data fetching time and measures only the rule/targeting evaluation.
+   */
+  evaluationMs: number;
+  /**
+   * Time in milliseconds to read data from the data source.
+   * This is 0 when data is already cached in memory.
+   */
+  readMs: number;
+  /**
+   * Where the flag definitions came from.
+   * - `'in-memory'`: Data was already cached in memory (fastest)
+   * - `'embedded'`: Data was read from bundled definitions at build time
+   * - `'remote'`: Data was fetched from the network
+   */
+  source: 'in-memory' | 'embedded' | 'remote';
+  /**
+   * Cache status of the data source read.
+   * - `'HIT'`: Data was already in memory and stream is connected
+   * - `'MISS'`: Data had to be fetched/loaded (first read)
+   * - `'STALE'`: Using cached/fallback data because stream is disconnected or timed out
+   */
+  cacheStatus: 'HIT' | 'MISS' | 'STALE';
 };
 
 /**

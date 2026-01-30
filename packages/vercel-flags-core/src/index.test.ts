@@ -22,7 +22,7 @@ describe('createRawClient', () => {
   it('should allow creating a client', () => {
     const client = createRawClient({
       dataSource: {
-        async getData() {
+        async read() {
           return {
             definitions: {},
             segments: {},

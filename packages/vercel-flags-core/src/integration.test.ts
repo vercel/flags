@@ -30,7 +30,7 @@ describe('integration evaluate', () => {
     expect(result.reason).toBe(ResolutionReason.FALLTHROUGH);
     expect(result.outcomeType).toBe(OutcomeType.VALUE);
     expect(result.metadata).toBeDefined();
-    expect(result.metadata.dataSourceSource).toBeDefined();
+    expect(result.metadata.source).toBeDefined();
   });
 
   it('should evaluate paused flags', async () => {

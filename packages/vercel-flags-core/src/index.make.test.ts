@@ -18,7 +18,7 @@ import type { FlagsClient } from './types';
 vi.mock('./data-source/flag-network-data-source', () => ({
   FlagNetworkDataSource: vi.fn().mockImplementation(({ sdkKey }) => ({
     sdkKey,
-    getData: vi.fn().mockResolvedValue({
+    read: vi.fn().mockResolvedValue({
       projectId: 'test',
       definitions: {},
       segments: {},

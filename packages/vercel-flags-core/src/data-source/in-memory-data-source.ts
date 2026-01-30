@@ -2,8 +2,8 @@ import type {
   DataSource,
   DataSourceData,
   DataSourceInfo,
-  GetDataResult,
   Packed,
+  ReadResult,
 } from '../types';
 
 export class InMemoryDataSource implements DataSource {
@@ -27,7 +27,7 @@ export class InMemoryDataSource implements DataSource {
 
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
-  async getData(): Promise<GetDataResult> {
+  async read(): Promise<ReadResult> {
     return {
       data: this.dataSourceData,
       metadata: {

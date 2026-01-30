@@ -5,7 +5,7 @@ import type { DataSource } from './types';
 
 function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   return {
-    getData: vi.fn().mockResolvedValue({
+    read: vi.fn().mockResolvedValue({
       projectId: 'test-project',
       definitions: {},
       segments: {},
