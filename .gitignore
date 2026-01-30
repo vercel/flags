@@ -19,5 +19,4 @@ npm-debug.log
 **/blob-report/
 **/playwright/.cache/
 
-examples/shirt-shop-vercel
 packages/next-connection
