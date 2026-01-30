@@ -27,7 +27,6 @@ describe('flagsClient', () => {
     process.env.FLAGS = 'vf_server_testkey';
     process.env.VERCEL_ENV = 'development';
     expect(flagsClient).toBeDefined();
-    expect(flagsClient.dataSource).toBeDefined();
     delete process.env.VERCEL_ENV;
   });
 });

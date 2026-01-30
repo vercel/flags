@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { createRawClient } from './client';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
+import { createRawClient } from './index.default';
 
 describe('createRawClient', () => {
   it('should be a function', () => {
     expect(typeof createRawClient).toBe('function');
   });
 
-  it('should allow a custom data source', () => {
+  it('should allow a custom data source', async () => {
     const inlineDataSource = new InMemoryDataSource({
       data: { definitions: {}, segments: {} },
       projectId: 'test',
@@ -17,7 +17,10 @@ describe('createRawClient', () => {
       dataSource: inlineDataSource,
     });
 
-    expect(flagsClient.dataSource).toEqual(inlineDataSource);
+    // Verify the custom data source is used by checking metadata
+    await expect(flagsClient.getMetadata()).resolves.toEqual({
+      projectId: 'test',
+    });
   });
 
   it('should evaluate', async () => {
