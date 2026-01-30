@@ -145,10 +145,28 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   async getDatafile(): Promise<Datafile> {
-    if (this.data) {
-      return this.data;
+    const startTime = Date.now();
+
+    let result: Omit<Datafile, 'metrics'>;
+    let source: Metrics['source'];
+    let cacheStatus: Metrics['cacheStatus'];
+
+    if (this.isBuildStep) {
+      [result, source, cacheStatus] = await this.getDataForBuildStep();
+    } else if (this.data) {
+      [result, source, cacheStatus] = this.getDataFromCache();
+    } else {
+      [result, source, cacheStatus] = await this.getDataForBuildStep();
     }
-    return fetchDatafile(this.host, this.sdkKey);
+
+    return {
+      ...result,
+      metrics: {
+        readMs: Date.now() - startTime,
+        source,
+        cacheStatus,
+      },
+    };
   }
 
   async ensureFallback(): Promise<void> {
