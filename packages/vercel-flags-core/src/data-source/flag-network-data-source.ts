@@ -1,5 +1,10 @@
 import { version } from '../../package.json';
-import type { BundledDefinitions, DataSource, DataSourceData } from '../types';
+import type {
+  BundledDefinitions,
+  DataSource,
+  DataSourceData,
+  DataSourceMetadata,
+} from '../types';
 
 type Message =
   | { type: 'datafile'; data: BundledDefinitions }
@@ -110,92 +115,91 @@ async function connectStream(options: StreamOptions): Promise<void> {
 }
 
 /**
- * Creates a DataSource for flags.vercel.com.
+ * A DataSource for flags.vercel.com.
  */
-export function createFlagNetworkDataSource(options: {
-  sdkKey: string;
-}): DataSource {
-  if (
-    !options.sdkKey ||
-    typeof options.sdkKey !== 'string' ||
-    !options.sdkKey.startsWith('vf_')
-  ) {
-    throw new Error(
-      '@vercel/flags-core: SDK key must be a string starting with "vf_"',
-    );
+export class FlagNetworkDataSource implements DataSource {
+  private sdkKey: string;
+  private host = 'https://flags.vercel.com';
+  private isBuildStep: boolean;
+  private data: DataSourceData | undefined;
+  private abortController: AbortController | undefined;
+  private streamPromise: Promise<void> | undefined;
+
+  constructor(options: { sdkKey: string }) {
+    if (
+      !options.sdkKey ||
+      typeof options.sdkKey !== 'string' ||
+      !options.sdkKey.startsWith('vf_')
+    ) {
+      throw new Error(
+        '@vercel/flags-core: SDK key must be a string starting with "vf_"',
+      );
+    }
+
+    this.sdkKey = options.sdkKey;
+    this.isBuildStep =
+      process.env.CI === '1' ||
+      process.env.NEXT_PHASE === 'phase-production-build';
   }
 
-  const sdkKey = options.sdkKey;
-  const host = 'https://flags.vercel.com';
-  const isBuildStep =
-    process.env.CI === '1' ||
-    process.env.NEXT_PHASE === 'phase-production-build';
+  private ensureStream(): Promise<void> {
+    if (this.streamPromise) return this.streamPromise;
 
-  // Instance state
-  let data: DataSourceData | undefined;
-  let abortController: AbortController | undefined;
-  let streamPromise: Promise<void> | undefined;
-
-  function ensureStream(): Promise<void> {
-    if (streamPromise) return streamPromise;
-
-    abortController = new AbortController();
-    streamPromise = connectStream({
-      host,
-      sdkKey,
-      signal: abortController.signal,
+    this.abortController = new AbortController();
+    this.streamPromise = connectStream({
+      host: this.host,
+      sdkKey: this.sdkKey,
+      signal: this.abortController.signal,
       onMessage: (newData) => {
-        data = newData;
+        this.data = newData;
       },
     });
 
-    return streamPromise;
+    return this.streamPromise;
   }
 
-  return {
-    async initialize() {
-      // Don't stream during build step as the stream never closes
-      if (isBuildStep) {
-        if (!data) {
-          data = await fetchData(host, sdkKey);
-        }
-        return;
+  async initialize(): Promise<void> {
+    // Don't stream during build step as the stream never closes
+    if (this.isBuildStep) {
+      if (!this.data) {
+        this.data = await fetchData(this.host, this.sdkKey);
       }
+      return;
+    }
 
-      await ensureStream();
-    },
+    await this.ensureStream();
+  }
 
-    async getData() {
-      if (!isBuildStep) {
-        await ensureStream();
-      } else if (!data) {
-        data = await fetchData(host, sdkKey);
-      }
+  async getData(): Promise<DataSourceData> {
+    if (!this.isBuildStep) {
+      await this.ensureStream();
+    } else if (!this.data) {
+      this.data = await fetchData(this.host, this.sdkKey);
+    }
 
-      if (data) return data;
+    if (this.data) return this.data;
 
-      // Fallback if stream hasn't delivered yet
-      return fetchData(host, sdkKey);
-    },
+    // Fallback if stream hasn't delivered yet
+    return fetchData(this.host, this.sdkKey);
+  }
 
-    shutdown() {
-      abortController?.abort();
-      abortController = undefined;
-      streamPromise = undefined;
-      data = undefined;
-    },
+  shutdown(): void {
+    this.abortController?.abort();
+    this.abortController = undefined;
+    this.streamPromise = undefined;
+    this.data = undefined;
+  }
 
-    async getMetadata() {
-      if (data) {
-        return { projectId: data.projectId };
-      }
+  async getMetadata(): Promise<DataSourceMetadata> {
+    if (this.data) {
+      return { projectId: this.data.projectId };
+    }
 
-      const fetched = await fetchData(host, sdkKey);
-      return { projectId: fetched.projectId };
-    },
+    const fetched = await fetchData(this.host, this.sdkKey);
+    return { projectId: fetched.projectId };
+  }
 
-    async ensureFallback() {
-      throw new Error('not implemented');
-    },
-  };
+  async ensureFallback(): Promise<void> {
+    throw new Error('not implemented');
+  }
 }
