@@ -32,7 +32,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   entities?: E,
 ): Promise<EvaluationResult<T>> {
   const ds = clientMap.get(id)!;
-  const data = await ds.getData();
+  const { data, metadata: dataSourceMetadata } = await ds.getData();
   const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {
@@ -41,9 +41,16 @@ export async function evaluate<T, E = Record<string, unknown>>(
       reason: ResolutionReason.ERROR,
       errorCode: ErrorCode.FLAG_NOT_FOUND,
       errorMessage: `Definition not found for flag "${flagKey}"`,
+      metadata: {
+        evaluationDurationMs: 0,
+        dataSourceDurationMs: dataSourceMetadata.durationMs,
+        dataSourceSource: dataSourceMetadata.source,
+        dataSourceCacheStatus: dataSourceMetadata.cacheStatus,
+      },
     };
   }
 
+  const evalStartTime = Date.now();
   const result = evalFlag<T>({
     defaultValue,
     definition: flagDefinition,
@@ -51,6 +58,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     entities: entities ?? {},
     segments: data.segments,
   });
+  const evaluationDurationMs = Date.now() - evalStartTime;
 
   if (data.projectId) {
     internalReportValue(flagKey, result.value, {
@@ -64,5 +72,13 @@ export async function evaluate<T, E = Record<string, unknown>>(
     });
   }
 
-  return result;
+  return {
+    ...result,
+    metadata: {
+      evaluationDurationMs,
+      dataSourceDurationMs: dataSourceMetadata.durationMs,
+      dataSourceSource: dataSourceMetadata.source,
+      dataSourceCacheStatus: dataSourceMetadata.cacheStatus,
+    },
+  };
 }

@@ -1,7 +1,8 @@
 import type {
   DataSource,
   DataSourceData,
-  DataSourceMetadata,
+  DataSourceInfo,
+  GetDataResult,
   Packed,
 } from '../types';
 
@@ -20,13 +21,20 @@ export class InMemoryDataSource implements DataSource {
     };
   }
 
-  async getMetadata(): Promise<DataSourceMetadata> {
+  async getMetadata(): Promise<DataSourceInfo> {
     return { projectId: this.dataSourceData.projectId };
   }
 
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
-  async getData() {
-    return this.dataSourceData;
+  async getData(): Promise<GetDataResult> {
+    return {
+      data: this.dataSourceData,
+      metadata: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
+    };
   }
 }

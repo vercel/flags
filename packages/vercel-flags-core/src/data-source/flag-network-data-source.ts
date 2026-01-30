@@ -4,7 +4,9 @@ import type {
   BundledDefinitionsResult,
   DataSource,
   DataSourceData,
-  DataSourceMetadata,
+  DataSourceInfo,
+  GetDataMetadata,
+  GetDataResult,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
@@ -94,25 +96,35 @@ export class FlagNetworkDataSource implements DataSource {
     }
   }
 
-  async getData(): Promise<DataSourceData> {
+  async getData(): Promise<GetDataResult> {
     const startTime = Date.now();
     const cacheHadDefinitions = this.data !== undefined;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
     let result: DataSourceData;
-    let origin: 'in-memory' | 'embedded';
+    let source: GetDataMetadata['source'];
+    let cacheStatus: GetDataMetadata['cacheStatus'];
 
     if (this.isBuildStep) {
-      [result, origin] = await this.getDataForBuildStep();
+      [result, source, cacheStatus] = await this.getDataForBuildStep();
     } else if (this.data) {
-      [result, origin] = this.getDataFromCache();
+      [result, source, cacheStatus] = this.getDataFromCache();
     } else {
-      [result, origin] = await this.getDataWithStreamTimeout();
+      [result, source, cacheStatus] = await this.getDataWithStreamTimeout();
     }
 
-    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, origin);
-    return result;
+    const durationMs = Date.now() - startTime;
+    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
+
+    return {
+      data: result,
+      metadata: {
+        durationMs,
+        source,
+        cacheStatus,
+      },
+    };
   }
 
   async shutdown(): Promise<void> {
@@ -125,7 +137,7 @@ export class FlagNetworkDataSource implements DataSource {
     await this.usageTracker.flush();
   }
 
-  async getMetadata(): Promise<DataSourceMetadata> {
+  async getMetadata(): Promise<DataSourceInfo> {
     if (this.data) {
       return { projectId: this.data.projectId };
     }
@@ -179,20 +191,20 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async getDataForBuildStep(): Promise<
-    [DataSourceData, 'in-memory' | 'embedded']
+    [DataSourceData, GetDataMetadata['source'], GetDataMetadata['cacheStatus']]
   > {
     if (this.data) {
-      return [this.data, 'in-memory'];
+      return [this.data, 'in-memory', 'HIT'];
     }
 
     const bundledResult = await this.bundledDefinitionsPromise;
     if (bundledResult?.state === 'ok' && bundledResult.definitions) {
       this.data = bundledResult.definitions;
-      return [this.data, 'embedded'];
+      return [this.data, 'embedded', 'MISS'];
     }
 
     this.data = await fetchDatafile(this.host, this.sdkKey);
-    return [this.data, 'in-memory'];
+    return [this.data, 'remote', 'MISS'];
   }
 
   // ---------------------------------------------------------------------------
@@ -227,13 +239,19 @@ export class FlagNetworkDataSource implements DataSource {
     return this.streamPromise;
   }
 
-  private getDataFromCache(): [DataSourceData, 'in-memory'] {
+  private getDataFromCache(): [
+    DataSourceData,
+    GetDataMetadata['source'],
+    GetDataMetadata['cacheStatus'],
+  ] {
     this.warnIfDisconnected();
-    return [this.data!, 'in-memory'];
+    // STALE when stream is disconnected (data may be outdated)
+    const cacheStatus = this.isStreamConnected ? 'HIT' : 'STALE';
+    return [this.data!, 'in-memory', cacheStatus];
   }
 
   private async getDataWithStreamTimeout(): Promise<
-    [DataSourceData, 'in-memory' | 'embedded']
+    [DataSourceData, GetDataMetadata['source'], GetDataMetadata['cacheStatus']]
   > {
     const streamPromise = this.ensureStream().then(() => {
       if (this.data) return this.data;
@@ -243,7 +261,7 @@ export class FlagNetworkDataSource implements DataSource {
     // If timeout disabled, just wait for stream
     if (this.streamTimeoutMs <= 0 || !Number.isFinite(this.streamTimeoutMs)) {
       const data = await streamPromise;
-      return [data, 'in-memory'];
+      return [data, 'in-memory', 'MISS'];
     }
 
     // Race stream against timeout
@@ -257,19 +275,22 @@ export class FlagNetworkDataSource implements DataSource {
       return this.handleStreamTimeout(streamPromise);
     }
 
-    return [result, 'in-memory'];
+    return [result, 'in-memory', 'MISS'];
   }
 
   private async handleStreamTimeout(
     streamPromise: Promise<DataSourceData>,
-  ): Promise<[DataSourceData, 'in-memory' | 'embedded']> {
+  ): Promise<
+    [DataSourceData, GetDataMetadata['source'], GetDataMetadata['cacheStatus']]
+  > {
     const bundledResult = await this.bundledDefinitionsPromise;
 
     if (bundledResult?.state === 'ok' && bundledResult.definitions) {
       console.warn(
         '@vercel/flags-core: Stream timeout, using bundled definitions',
       );
-      return [bundledResult.definitions, 'embedded'];
+      // STALE because we're falling back to bundled definitions due to stream timeout
+      return [bundledResult.definitions, 'embedded', 'STALE'];
     }
 
     console.warn(
@@ -279,10 +300,11 @@ export class FlagNetworkDataSource implements DataSource {
     // Bundled definitions not available, wait for stream or fetch as last resort
     try {
       const data = await streamPromise;
-      return [data, 'in-memory'];
+      return [data, 'in-memory', 'MISS'];
     } catch {
       const data = await fetchDatafile(this.host, this.sdkKey);
-      return [data, 'in-memory'];
+      // STALE because we're falling back to remote fetch due to stream failure
+      return [data, 'remote', 'STALE'];
     }
   }
 
@@ -303,8 +325,11 @@ export class FlagNetworkDataSource implements DataSource {
     startTime: number,
     cacheHadDefinitions: boolean,
     isFirstRead: boolean,
-    configOrigin: 'in-memory' | 'embedded',
+    source: GetDataMetadata['source'],
   ): void {
+    // Map source to configOrigin for usage tracker (it expects 'in-memory' | 'embedded')
+    const configOrigin: 'in-memory' | 'embedded' =
+      source === 'embedded' ? 'embedded' : 'in-memory';
     const trackOptions: TrackReadOptions = {
       configOrigin,
       cacheStatus: cacheHadDefinitions ? 'HIT' : 'MISS',

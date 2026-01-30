@@ -34,7 +34,7 @@ const server = setupServer(
   }),
 );
 
-const originalEnv = process.env;
+const originalEnv = { ...process.env };
 
 beforeAll(() => server.listen());
 beforeEach(() => {
@@ -44,13 +44,14 @@ beforeEach(() => {
     definitions: null,
     state: 'missing-file',
   });
-  process.env = { ...originalEnv };
+  // Reset env vars that affect build step detection
   delete process.env.CI;
   delete process.env.NEXT_PHASE;
 });
 afterEach(() => {
   server.resetHandlers();
-  process.env = originalEnv;
+  // Restore original env
+  process.env = { ...originalEnv };
 });
 afterAll(() => server.close());
 
@@ -137,6 +138,43 @@ describe('FlagNetworkDataSource', () => {
     expect(abortSignalReceived!.aborted).toBe(true);
   });
 
+  it('should handle messages split across chunks', async () => {
+    const definitions = {
+      projectId: 'test-project',
+      definitions: { flag: { variants: [1, 2, 3] } },
+    };
+
+    const fullMessage = JSON.stringify({ type: 'datafile', data: definitions });
+    const part1 = fullMessage.slice(0, 20);
+    const part2 = fullMessage.slice(20) + '\n';
+
+    server.use(
+      http.get('https://flags.vercel.com/v1/stream', () => {
+        return new HttpResponse(
+          new ReadableStream({
+            async start(controller) {
+              controller.enqueue(new TextEncoder().encode(part1));
+              await new Promise((r) => setTimeout(r, 10));
+              controller.enqueue(new TextEncoder().encode(part2));
+              controller.close();
+            },
+          }),
+          { headers: { 'Content-Type': 'application/x-ndjson' } },
+        );
+      }),
+    );
+
+    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const result = await dataSource.getData();
+
+    expect(result.data).toEqual(definitions);
+    expect(result.metadata.source).toBe('in-memory');
+    expect(result.metadata.cacheStatus).toBe('MISS');
+
+    await dataSource.shutdown();
+    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
+  });
+
   it('should update definitions when new datafile messages arrive', async () => {
     const definitions1 = { projectId: 'test', definitions: { v: 1 } };
     const definitions2 = { projectId: 'test', definitions: { v: 2 } };
@@ -161,7 +199,7 @@ describe('FlagNetworkDataSource', () => {
     // Wait for stream to process second message, then verify via getData
     await vi.waitFor(async () => {
       const result = await dataSource.getData();
-      expect(result).toEqual(definitions2);
+      expect(result.data).toEqual(definitions2);
     });
 
     await dataSource.shutdown();
@@ -204,8 +242,10 @@ describe('FlagNetworkDataSource', () => {
     const result = await dataSource.getData();
     const elapsed = Date.now() - startTime;
 
-    // Should have returned bundled definitions
-    expect(result).toEqual(bundledDefinitions);
+    // Should have returned bundled definitions with STALE status
+    expect(result.data).toEqual(bundledDefinitions);
+    expect(result.metadata.source).toBe('embedded');
+    expect(result.metadata.cacheStatus).toBe('STALE');
 
     // Should have taken roughly 3 seconds (the timeout)
     expect(elapsed).toBeGreaterThanOrEqual(2900);
@@ -245,7 +285,9 @@ describe('FlagNetworkDataSource', () => {
 
     const result = await dataSource.getData();
 
-    expect(result).toEqual(bundledDefinitions);
+    expect(result.data).toEqual(bundledDefinitions);
+    expect(result.metadata.source).toBe('embedded');
+    expect(result.metadata.cacheStatus).toBe('STALE');
 
     await dataSource.shutdown();
 
@@ -389,7 +431,9 @@ describe('FlagNetworkDataSource', () => {
       const result = await dataSource.getData();
 
       // Should use bundled definitions without making stream request
-      expect(result).toEqual(bundledDefinitions);
+      expect(result.data).toEqual(bundledDefinitions);
+      expect(result.metadata.source).toBe('embedded');
+      expect(result.metadata.cacheStatus).toBe('MISS');
 
       await dataSource.shutdown();
     });
@@ -414,7 +458,8 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getData();
 
-      expect(result).toEqual(bundledDefinitions);
+      expect(result.data).toEqual(bundledDefinitions);
+      expect(result.metadata.source).toBe('embedded');
 
       await dataSource.shutdown();
     });
@@ -472,7 +517,9 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getData();
 
-      expect(result).toEqual(fetchedDefinitions);
+      expect(result.data).toEqual(fetchedDefinitions);
+      expect(result.metadata.source).toBe('remote');
+      expect(result.metadata.cacheStatus).toBe('MISS');
 
       await dataSource.shutdown();
     });
@@ -497,11 +544,13 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
       // First read
-      await dataSource.getData();
+      const firstResult = await dataSource.getData();
+      expect(firstResult.metadata.cacheStatus).toBe('MISS');
 
       // Second read should use cached data
       const result = await dataSource.getData();
-      expect(result).toEqual(bundledDefinitions);
+      expect(result.data).toEqual(bundledDefinitions);
+      expect(result.metadata.cacheStatus).toBe('HIT');
 
       // readBundledDefinitions should have been called only during construction
       expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
@@ -658,7 +707,9 @@ describe('FlagNetworkDataSource', () => {
       const result = await dataSource.getData();
       const elapsed = Date.now() - startTime;
 
-      expect(result).toEqual(bundledDefinitions);
+      expect(result.data).toEqual(bundledDefinitions);
+      expect(result.metadata.source).toBe('embedded');
+      expect(result.metadata.cacheStatus).toBe('STALE');
       expect(elapsed).toBeGreaterThanOrEqual(450);
       expect(elapsed).toBeLessThan(1500);
 

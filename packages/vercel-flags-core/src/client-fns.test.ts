@@ -20,15 +20,38 @@ import { internalReportValue } from './lib/report-value';
 function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   return {
     getData: vi.fn().mockResolvedValue({
-      projectId: 'test-project',
-      definitions: {},
-      segments: {},
-      environment: 'production',
+      data: {
+        projectId: 'test-project',
+        definitions: {},
+        segments: {},
+        environment: 'production',
+      },
+      metadata: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
     }),
     getMetadata: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     ...overrides,
+  };
+}
+
+function mockGetDataResult(data: {
+  projectId?: string;
+  definitions: Record<string, unknown>;
+  segments: Record<string, unknown>;
+  environment: string;
+}) {
+  return {
+    data,
+    metadata: {
+      durationMs: 0,
+      source: 'in-memory' as const,
+      cacheStatus: 'HIT' as const,
+    },
   };
 }
 
@@ -165,33 +188,39 @@ describe('client-fns', () => {
   describe('evaluate', () => {
     it('should return FLAG_NOT_FOUND error when flag does not exist', async () => {
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: {},
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: {},
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
       const result = await evaluate(CLIENT_ID, 'nonexistent-flag', 'default');
 
-      expect(result).toEqual({
-        value: 'default',
-        reason: ResolutionReason.ERROR,
-        errorCode: ErrorCode.FLAG_NOT_FOUND,
-        errorMessage: 'Definition not found for flag "nonexistent-flag"',
-      });
+      expect(result.value).toBe('default');
+      expect(result.reason).toBe(ResolutionReason.ERROR);
+      expect(result.errorCode).toBe(ErrorCode.FLAG_NOT_FOUND);
+      expect(result.errorMessage).toBe(
+        'Definition not found for flag "nonexistent-flag"',
+      );
+      expect(result.metadata).toBeDefined();
+      expect(result.metadata.dataSourceSource).toBe('in-memory');
     });
 
     it('should use defaultValue when flag is not found', async () => {
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: {},
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: {},
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -207,12 +236,14 @@ describe('client-fns', () => {
         variants: [true],
       };
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: { 'my-flag': flagDefinition },
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: { 'my-flag': flagDefinition },
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -220,6 +251,7 @@ describe('client-fns', () => {
 
       expect(result.value).toBe(true);
       expect(result.reason).toBe(ResolutionReason.PAUSED);
+      expect(result.metadata).toBeDefined();
     });
 
     it('should call internalReportValue when projectId exists', async () => {
@@ -229,12 +261,14 @@ describe('client-fns', () => {
         variants: ['variant-a'],
       };
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'my-project-id',
-          definitions: { 'my-flag': flagDefinition },
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'my-project-id',
+            definitions: { 'my-flag': flagDefinition },
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -257,12 +291,14 @@ describe('client-fns', () => {
         variants: [true],
       };
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: undefined,
-          definitions: { 'my-flag': flagDefinition },
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: undefined,
+            definitions: { 'my-flag': flagDefinition },
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -273,12 +309,14 @@ describe('client-fns', () => {
 
     it('should not include outcomeType in report when result is error', async () => {
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: {},
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: {},
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -301,12 +339,14 @@ describe('client-fns', () => {
         variants: ['default', 'targeted'],
       };
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: { 'targeted-flag': flagDefinition },
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: { 'targeted-flag': flagDefinition },
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -328,12 +368,14 @@ describe('client-fns', () => {
         variants: ['value'],
       };
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: { 'my-flag': flagDefinition },
-          segments: {},
-          environment: 'production',
-        }),
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: { 'my-flag': flagDefinition },
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
@@ -349,23 +391,31 @@ describe('client-fns', () => {
 
     it('should work with different value types', async () => {
       const dataSource = createMockDataSource({
-        getData: vi.fn().mockResolvedValue({
-          projectId: 'test',
-          definitions: {
-            'bool-flag': { environments: { production: 0 }, variants: [true] },
-            'string-flag': {
-              environments: { production: 0 },
-              variants: ['hello'],
+        getData: vi.fn().mockResolvedValue(
+          mockGetDataResult({
+            projectId: 'test',
+            definitions: {
+              'bool-flag': {
+                environments: { production: 0 },
+                variants: [true],
+              },
+              'string-flag': {
+                environments: { production: 0 },
+                variants: ['hello'],
+              },
+              'number-flag': {
+                environments: { production: 0 },
+                variants: [42],
+              },
+              'object-flag': {
+                environments: { production: 0 },
+                variants: [{ key: 'value' }],
+              },
             },
-            'number-flag': { environments: { production: 0 }, variants: [42] },
-            'object-flag': {
-              environments: { production: 0 },
-              variants: [{ key: 'value' }],
-            },
-          },
-          segments: {},
-          environment: 'production',
-        }),
+            segments: {},
+            environment: 'production',
+          }),
+        ),
       });
       clientMap.set(CLIENT_ID, dataSource);
 

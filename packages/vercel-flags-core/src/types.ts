@@ -24,8 +24,36 @@ export type BundledDefinitionsResult =
   | { definitions: null; state: 'missing-file' | 'missing-entry' }
   | { definitions: null; state: 'unexpected-error'; error: unknown };
 
-export type DataSourceMetadata = {
+/**
+ * Basic info about the data source (returned by getMetadata)
+ */
+export type DataSourceInfo = {
   projectId: string;
+};
+
+/**
+ * @deprecated Use DataSourceInfo instead
+ */
+export type DataSourceMetadata = DataSourceInfo;
+
+/**
+ * Metadata about how data was retrieved from the data source
+ */
+export type GetDataMetadata = {
+  /** Time in ms to retrieve data */
+  durationMs: number;
+  /** Where the data came from */
+  source: 'in-memory' | 'embedded' | 'remote';
+  /** Whether data was already cached, or stale (fallback used) */
+  cacheStatus: 'HIT' | 'MISS' | 'STALE';
+};
+
+/**
+ * Result of getData() including both data and metadata
+ */
+export type GetDataResult = {
+  data: DataSourceData;
+  metadata: GetDataMetadata;
 };
 
 /**
@@ -43,7 +71,7 @@ export interface DataSource {
   /**
    * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.
    */
-  getData(): Promise<DataSourceData>;
+  getData(): Promise<GetDataResult>;
 
   /**
    * End polling or subscriptions. Flush any remaining data.
@@ -154,9 +182,23 @@ export enum ErrorCode {
 }
 
 /**
+ * Metadata about the evaluation process
+ */
+export type EvaluationMetadata = {
+  /** Time in ms for pure flag evaluation logic (excludes data fetch) */
+  evaluationDurationMs: number;
+  /** Time in ms to retrieve data from the data source */
+  dataSourceDurationMs: number;
+  /** Where the data came from */
+  dataSourceSource: 'in-memory' | 'embedded' | 'remote';
+  /** Cache status of the data source read */
+  dataSourceCacheStatus: 'HIT' | 'MISS' | 'STALE';
+};
+
+/**
  * The detailed result of a flag evaluation as returned by the `evaluate` function.
  */
-export type EvaluationResult<T> =
+export type EvaluationResult<T> = (
   | {
       /**
        * In case of successful evaluations this holds the evaluated value
@@ -181,7 +223,11 @@ export type EvaluationResult<T> =
        * In cases of errors this is the he defaultValue if one was provided
        */
       value?: T;
-    };
+    }
+) & {
+  /** Metadata about the evaluation */
+  metadata: EvaluationMetadata;
+};
 
 export type FlagKey = string;
 export type VariantId = string;
