@@ -196,9 +196,9 @@ export type EvaluationMetadata = {
 };
 
 /**
- * The detailed result of a flag evaluation as returned by the `evaluate` function.
+ * Base evaluation result without metadata (used internally by evaluate function)
  */
-export type EvaluationResult<T> = (
+export type BaseEvaluationResult<T> =
   | {
       /**
        * In case of successful evaluations this holds the evaluated value
@@ -223,8 +223,13 @@ export type EvaluationResult<T> = (
        * In cases of errors this is the he defaultValue if one was provided
        */
       value?: T;
-    }
-) & {
+    };
+
+/**
+ * The detailed result of a flag evaluation as returned by the client's `evaluate` function.
+ * Includes metadata about the evaluation process.
+ */
+export type EvaluationResult<T> = BaseEvaluationResult<T> & {
   /** Metadata about the evaluation */
   metadata: EvaluationMetadata;
 };

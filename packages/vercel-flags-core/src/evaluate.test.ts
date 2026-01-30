@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from './evaluate';
 import {
+  type BaseEvaluationResult,
   Comparator,
-  type EvaluationResult,
   OutcomeType,
   type Packed,
   ResolutionReason,
@@ -544,7 +544,7 @@ describe('evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: EvaluationResult<boolean>[] = [];
+      const results: BaseEvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(
@@ -579,7 +579,7 @@ describe('evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: EvaluationResult<boolean>[] = [];
+      const results: BaseEvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(
@@ -614,7 +614,7 @@ describe('evaluate', () => {
     });
 
     it('should split roughly equally on a 50/50 split', () => {
-      const results: EvaluationResult<boolean>[] = [];
+      const results: BaseEvaluationResult<boolean>[] = [];
 
       for (let i = 0; i < 10_000; i++) {
         results.push(
