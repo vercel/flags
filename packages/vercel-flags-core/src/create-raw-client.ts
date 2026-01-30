@@ -17,14 +17,6 @@ export function createCreateRawClient(fns: {
   evaluate: typeof evaluate;
   getMetadata: typeof getMetadata;
 }) {
-  /**
-   * Creates a Vercel Flags client
-   *
-   * @example
-   *  const flagsClient = createClient({
-   *    dataSource: new NetworkDataSource('vf_xxx'),
-   *  });
-   */
   return function createRawClient({
     dataSource,
   }: {
