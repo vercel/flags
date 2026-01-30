@@ -1,13 +1,13 @@
 import type {
+  Datafile,
   DataSource,
-  DataSourceData,
   DataSourceInfo,
   Packed,
   ReadResult,
 } from '../types';
 
 export class InMemoryDataSource implements DataSource {
-  dataSourceData: DataSourceData;
+  dataSourceData: Datafile;
 
   constructor({
     data,
@@ -25,7 +25,7 @@ export class InMemoryDataSource implements DataSource {
     return { projectId: this.dataSourceData.projectId };
   }
 
-  async getDatafile(): Promise<DataSourceData> {
+  async getDatafile(): Promise<Datafile> {
     return this.dataSourceData;
   }
 

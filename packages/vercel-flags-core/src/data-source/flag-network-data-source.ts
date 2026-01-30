@@ -2,8 +2,8 @@ import { version } from '../../package.json';
 import type {
   BundledDefinitions,
   BundledDefinitionsResult,
+  Datafile,
   DataSource,
-  DataSourceData,
   DataSourceInfo,
   ReadMetadata,
   ReadResult,
@@ -47,7 +47,7 @@ export class FlagNetworkDataSource implements DataSource {
   private streamTimeoutMs: number;
 
   // Data state
-  private data: DataSourceData | undefined;
+  private data: Datafile | undefined;
   private bundledDefinitionsPromise: Promise<BundledDefinitionsResult>;
 
   // Stream state
@@ -102,7 +102,7 @@ export class FlagNetworkDataSource implements DataSource {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let result: DataSourceData;
+    let result: Datafile;
     let source: ReadMetadata['source'];
     let cacheStatus: ReadMetadata['cacheStatus'];
 
@@ -145,7 +145,7 @@ export class FlagNetworkDataSource implements DataSource {
     return { projectId: fetched.projectId };
   }
 
-  async getDatafile(): Promise<DataSourceData> {
+  async getDatafile(): Promise<Datafile> {
     if (this.data) {
       return this.data;
     }
@@ -198,7 +198,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async getDataForBuildStep(): Promise<
-    [DataSourceData, ReadMetadata['source'], ReadMetadata['cacheStatus']]
+    [Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]
   > {
     if (this.data) {
       return [this.data, 'in-memory', 'HIT'];
@@ -247,7 +247,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private getDataFromCache(): [
-    DataSourceData,
+    Datafile,
     ReadMetadata['source'],
     ReadMetadata['cacheStatus'],
   ] {
@@ -258,7 +258,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async getDataWithStreamTimeout(): Promise<
-    [DataSourceData, ReadMetadata['source'], ReadMetadata['cacheStatus']]
+    [Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]
   > {
     const streamPromise = this.ensureStream().then(() => {
       if (this.data) return this.data;
@@ -286,10 +286,8 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async handleStreamTimeout(
-    streamPromise: Promise<DataSourceData>,
-  ): Promise<
-    [DataSourceData, ReadMetadata['source'], ReadMetadata['cacheStatus']]
-  > {
+    streamPromise: Promise<Datafile>,
+  ): Promise<[Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]> {
     const bundledResult = await this.bundledDefinitionsPromise;
 
     if (bundledResult?.state === 'ok' && bundledResult.definitions) {

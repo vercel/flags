@@ -1,4 +1,4 @@
-export type DataSourceData = Packed.Data & {
+export type Datafile = Packed.Data & {
   /**
    * If a data source is used with a specific sdk key then
    * the sdk key or data source might contain information
@@ -10,7 +10,7 @@ export type DataSourceData = Packed.Data & {
 };
 
 /** Flag Definitions of a Vercel project */
-export type BundledDefinitions = DataSourceData & {
+export type BundledDefinitions = Datafile & {
   /** when the data was last updated */
   updatedAt: number;
   /** hash of the data */
@@ -52,7 +52,7 @@ export type ReadMetadata = {
  * Result of read() including both data and metadata
  */
 export type ReadResult = {
-  data: DataSourceData;
+  data: Datafile;
   metadata: ReadMetadata;
 };
 
@@ -86,7 +86,7 @@ export interface DataSource {
   /**
    * Return the actual datafile containing flag definitions.
    */
-  getDatafile(): Promise<DataSourceData>;
+  getDatafile(): Promise<Datafile>;
 
   /**
    * Ensures bundled definitions exist as a fallback.
@@ -136,7 +136,7 @@ export type FlagsClient = {
   /**
    * Returns the actual datafile containing flag definitions
    */
-  getDatafile(): Promise<DataSourceData>;
+  getDatafile(): Promise<Datafile>;
   /**
    * A check which will throw in case the fallback data is missing
    */
