@@ -10,9 +10,9 @@
  * We do not need to repeat the JSDoc on the next-js export.
  */
 
+import * as fns from './client-fns';
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
-import * as fns from './raw-client';
 
 export * from './index.common';
 

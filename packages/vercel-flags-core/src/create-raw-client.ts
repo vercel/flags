@@ -1,11 +1,11 @@
-import { clientMap } from './client-map';
 import type {
   ensureFallback,
   evaluate,
   getMetadata,
   initialize,
   shutdown,
-} from './raw-client';
+} from './client-fns';
+import { clientMap } from './client-map';
 import type { DataSource, EvaluationResult, FlagsClient, Value } from './types';
 
 let idCount = 0;
