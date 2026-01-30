@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { createRawClient, flagsClient } from './index.default';
+import * as defaultExports from './index.default';
+import * as nextJsExports from './index.next-js';
+
+const { createRawClient, flagsClient } = defaultExports;
+
+describe('index exports equivalence', () => {
+  it('should have equivalent exports between index.default.ts and index.next-js.ts', () => {
+    const defaultKeys = Object.keys(defaultExports).sort();
+    const nextJsKeys = Object.keys(nextJsExports).sort();
+
+    // next-js exports cachedFns which default doesn't have
+    const nextJsKeysWithoutCachedFns = nextJsKeys.filter(
+      (key) => key !== 'cachedFns',
+    );
+
+    expect(nextJsKeysWithoutCachedFns).toEqual(defaultKeys);
+  });
+});
 
 describe('createRawClient', () => {
   it('should allow creating a client', () => {

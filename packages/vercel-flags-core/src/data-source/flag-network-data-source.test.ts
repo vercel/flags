@@ -93,57 +93,8 @@ async function assertIngestRequest(
 }
 
 describe('FlagNetworkDataSource', () => {
-  it('should parse datafile messages from NDJSON stream', async () => {
-    const definitions = {
-      projectId: 'test-project',
-      definitions: { 'my-flag': { variants: [true, false] } },
-    };
-
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(
-          createNdjsonStream([{ type: 'datafile', data: definitions }]),
-          { headers: { 'Content-Type': 'application/x-ndjson' } },
-        );
-      }),
-    );
-
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    const result = await dataSource.getData();
-
-    expect(result).toEqual(definitions);
-
-    await dataSource.shutdown();
-    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
-  });
-
-  it('should ignore ping messages', async () => {
-    const definitions = {
-      projectId: 'test-project',
-      definitions: {},
-    };
-
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(
-          createNdjsonStream([
-            { type: 'ping' },
-            { type: 'datafile', data: definitions },
-            { type: 'ping' },
-          ]),
-          { headers: { 'Content-Type': 'application/x-ndjson' } },
-        );
-      }),
-    );
-
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    const result = await dataSource.getData();
-
-    expect(result).toEqual(definitions);
-
-    await dataSource.shutdown();
-    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
-  });
+  // Note: Low-level NDJSON parsing tests (parse datafile, ignore ping, handle split chunks)
+  // are in stream-connection.test.ts. These tests focus on FlagNetworkDataSource-specific behavior.
 
   it('should abort the stream connection when shutdown is called', async () => {
     let abortSignalReceived: AbortSignal | undefined;
@@ -184,41 +135,6 @@ describe('FlagNetworkDataSource', () => {
     await dataSource.shutdown();
 
     expect(abortSignalReceived!.aborted).toBe(true);
-  });
-
-  it('should handle messages split across chunks', async () => {
-    const definitions = {
-      projectId: 'test-project',
-      definitions: { flag: { variants: [1, 2, 3] } },
-    };
-
-    const fullMessage = JSON.stringify({ type: 'datafile', data: definitions });
-    const part1 = fullMessage.slice(0, 20);
-    const part2 = fullMessage.slice(20) + '\n';
-
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(
-          new ReadableStream({
-            async start(controller) {
-              controller.enqueue(new TextEncoder().encode(part1));
-              await new Promise((r) => setTimeout(r, 10));
-              controller.enqueue(new TextEncoder().encode(part2));
-              controller.close();
-            },
-          }),
-          { headers: { 'Content-Type': 'application/x-ndjson' } },
-        );
-      }),
-    );
-
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-    const result = await dataSource.getData();
-
-    expect(result).toEqual(definitions);
-
-    await dataSource.shutdown();
-    await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
   it('should update definitions when new datafile messages arrive', async () => {
