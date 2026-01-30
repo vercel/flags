@@ -144,6 +144,10 @@ export class FlagNetworkDataSource implements DataSource {
     return { projectId: fetched.projectId };
   }
 
+  /**
+   * One-time TrackReadOptions of the datafile, should not open stream
+   * as it is used in generateStaticParams potentially
+   */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
 
