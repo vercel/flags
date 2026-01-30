@@ -117,7 +117,7 @@ describe('when used with getProviderData', () => {
     resetDefaultFlagsClient();
     resetDefaultVercelAdapter();
 
-    // Mock the datafile endpoint for getMetadata
+    // Mock the datafile endpoint for getInfo
     server.use(
       http.get('https://flags.vercel.com/v1/datafile', () => {
         return HttpResponse.json({

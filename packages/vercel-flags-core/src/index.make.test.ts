@@ -24,7 +24,7 @@ vi.mock('./data-source/flag-network-data-source', () => ({
       segments: {},
       environment: 'production',
     }),
-    getMetadata: vi.fn().mockResolvedValue({ projectId: 'test' }),
+    getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
   })),
@@ -36,7 +36,7 @@ function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
   return vi.fn().mockImplementation(({ dataSource }) => ({
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
-    getMetadata: vi.fn().mockResolvedValue({ projectId: 'test' }),
+    getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
     ensureFallback: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
     _dataSource: dataSource, // For testing inspection
@@ -239,7 +239,7 @@ describe('make', () => {
 
       // All methods should be callable
       await expect(client.initialize()).resolves.toBeUndefined();
-      await expect(client.getMetadata()).resolves.toEqual({
+      await expect(client.getInfo()).resolves.toEqual({
         projectId: 'test',
       });
       await expect(client.evaluate('flag')).resolves.toEqual({

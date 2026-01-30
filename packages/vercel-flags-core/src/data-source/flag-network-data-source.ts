@@ -137,7 +137,7 @@ export class FlagNetworkDataSource implements DataSource {
     await this.usageTracker.flush();
   }
 
-  async getMetadata(): Promise<DataSourceInfo> {
+  async getInfo(): Promise<DataSourceInfo> {
     if (this.data) {
       return { projectId: this.data.projectId };
     }

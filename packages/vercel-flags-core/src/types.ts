@@ -25,7 +25,7 @@ export type BundledDefinitionsResult =
   | { definitions: null; state: 'unexpected-error'; error: unknown };
 
 /**
- * Basic info about the data source (returned by getMetadata)
+ * Basic info about the data source (returned by getInfo)
  */
 export type DataSourceInfo = {
   projectId: string;
@@ -81,7 +81,7 @@ export interface DataSource {
   /**
    * Return metadata about the data source.
    */
-  getMetadata(): Promise<DataSourceMetadata>;
+  getInfo(): Promise<DataSourceMetadata>;
 
   /**
    * Ensures bundled definitions exist as a fallback.
@@ -127,7 +127,7 @@ export type FlagsClient = {
   /**
    * Returns metadata about the data source
    */
-  getMetadata(): Promise<{ projectId: string }>;
+  getInfo(): Promise<{ projectId: string }>;
   /**
    * A check which will throw in case the fallback data is missing
    */

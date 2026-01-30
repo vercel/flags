@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ensureFallback,
   evaluate,
-  getMetadata,
+  getInfo,
   initialize,
   shutdown,
 } from './client-fns';
@@ -32,7 +32,7 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
         cacheStatus: 'HIT',
       },
     }),
-    getMetadata: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
+    getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -119,29 +119,29 @@ describe('client-fns', () => {
     });
   });
 
-  describe('getMetadata', () => {
-    it('should call dataSource.getMetadata()', async () => {
+  describe('getInfo', () => {
+    it('should call dataSource.getInfo()', async () => {
       const dataSource = createMockDataSource();
       clientMap.set(CLIENT_ID, dataSource);
 
-      await getMetadata(CLIENT_ID);
+      await getInfo(CLIENT_ID);
 
-      expect(dataSource.getMetadata).toHaveBeenCalledTimes(1);
+      expect(dataSource.getInfo).toHaveBeenCalledTimes(1);
     });
 
     it('should return metadata from dataSource', async () => {
       const dataSource = createMockDataSource({
-        getMetadata: vi.fn().mockResolvedValue({ projectId: 'my-project' }),
+        getInfo: vi.fn().mockResolvedValue({ projectId: 'my-project' }),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
-      const result = await getMetadata(CLIENT_ID);
+      const result = await getInfo(CLIENT_ID);
 
       expect(result).toEqual({ projectId: 'my-project' });
     });
 
     it('should throw if client ID is not in map', async () => {
-      await expect(getMetadata(999)).rejects.toThrow();
+      await expect(getInfo(999)).rejects.toThrow();
     });
   });
 

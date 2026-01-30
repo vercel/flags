@@ -14,9 +14,9 @@ export async function shutdown(id: number) {
   return ds.shutdown();
 }
 
-export async function getMetadata(id: number) {
+export async function getInfo(id: number) {
   const ds = clientMap.get(id)!;
-  return ds.getMetadata();
+  return ds.getInfo();
 }
 
 export async function ensureFallback(id: number) {

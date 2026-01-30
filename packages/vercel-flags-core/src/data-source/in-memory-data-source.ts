@@ -21,7 +21,7 @@ export class InMemoryDataSource implements DataSource {
     };
   }
 
-  async getMetadata(): Promise<DataSourceInfo> {
+  async getInfo(): Promise<DataSourceInfo> {
     return { projectId: this.dataSourceData.projectId };
   }
 

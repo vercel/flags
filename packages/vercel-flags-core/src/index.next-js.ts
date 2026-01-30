@@ -28,11 +28,11 @@ export const cachedFns: typeof fns = {
     cacheLife({ stale: 60 });
     return fns.shutdown(...args);
   },
-  getMetadata: async (...args) => {
+  getInfo: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });
-    return fns.getMetadata(...args);
+    return fns.getInfo(...args);
   },
   ensureFallback: async (...args) => {
     'use cache';

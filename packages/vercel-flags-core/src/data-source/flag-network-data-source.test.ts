@@ -629,7 +629,7 @@ describe('FlagNetworkDataSource', () => {
     });
   });
 
-  describe('getMetadata', () => {
+  describe('getInfo', () => {
     it('should return metadata from cached data', async () => {
       server.use(
         http.get('https://flags.vercel.com/v1/stream', () => {
@@ -648,7 +648,7 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
       await dataSource.read(); // Cache data
 
-      const metadata = await dataSource.getMetadata();
+      const metadata = await dataSource.getInfo();
       expect(metadata).toEqual({ projectId: 'cached-project' });
 
       await dataSource.shutdown();
@@ -666,7 +666,7 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-      const metadata = await dataSource.getMetadata();
+      const metadata = await dataSource.getInfo();
       expect(metadata).toEqual({ projectId: 'fetched-project' });
 
       await dataSource.shutdown();

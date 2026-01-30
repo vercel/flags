@@ -30,7 +30,7 @@ describe('createRawClient', () => {
             environment: 'production',
           };
         },
-        async getMetadata() {
+        async getInfo() {
           return { projectId: 'test' };
         },
       },

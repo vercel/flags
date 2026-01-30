@@ -1,7 +1,7 @@
 import type {
   ensureFallback,
   evaluate,
-  getMetadata,
+  getInfo,
   initialize,
   shutdown,
 } from './client-fns';
@@ -15,7 +15,7 @@ export function createCreateRawClient(fns: {
   shutdown: typeof shutdown;
   ensureFallback: typeof ensureFallback;
   evaluate: typeof evaluate;
-  getMetadata: typeof getMetadata;
+  getInfo: typeof getInfo;
 }) {
   return function createRawClient({
     dataSource,
@@ -33,8 +33,8 @@ export function createCreateRawClient(fns: {
         await fns.shutdown(id);
         clientMap.delete(id);
       },
-      getMetadata: async () => {
-        return fns.getMetadata(id);
+      getInfo: async () => {
+        return fns.getInfo(id);
       },
       async ensureFallback(): Promise<void> {
         return fns.ensureFallback(id);
