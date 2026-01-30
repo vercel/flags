@@ -1,3 +1,15 @@
+/**
+ * Exports for default runtimes
+ *
+ * There is also index.next-js.ts which targets Next.js specifically.
+ * If you update this file, please update index.next-js.ts as well.
+ *
+ * Try keeping this file small. Export through index.common and index.make.
+ *
+ * This file has JSDoc on its exports which will be used by the editor.
+ * We do not need to repeat the JSDoc on the next-js export.
+ */
+
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
 import * as fns from './raw-client';
@@ -5,5 +17,20 @@ import * as fns from './raw-client';
 export * from './index.common';
 export const createRawClient = createCreateRawClient(fns);
 
-export const { flagsClient, resetDefaultFlagsClient, createClient } =
-  make(createRawClient);
+export const {
+  /**
+   * A lazily-initialized default flags client.
+   *
+   * - relies on process.env.FLAGS
+   * - does not use process.env.EDGE_CONFIG
+   */
+  flagsClient,
+  /**
+   * For testing purposes
+   */
+  resetDefaultFlagsClient,
+  /**
+   * Create a flags client based on an SDK Key
+   */
+  createClient,
+} = make(createRawClient);

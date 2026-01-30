@@ -26,7 +26,7 @@ export default [
     splitting: true,
     sourcemap: true,
     minify: false,
-    clean: true,
+    clean: false,
     skipNodeModulesBundle: true,
     dts: true,
     external: [
@@ -42,7 +42,7 @@ export default [
     splitting: true,
     sourcemap: true,
     minify: false,
-    clean: true,
+    clean: false,
     skipNodeModulesBundle: true,
     dts: true,
     external: ['node_modules'],

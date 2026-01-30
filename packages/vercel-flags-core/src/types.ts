@@ -69,6 +69,9 @@ export type Source = {
   projectSlug: string;
 };
 
+/**
+ * A client for Vercel Flags
+ */
 export type FlagsClient = {
   /**
    * The transport layer for the datafile.

@@ -1,3 +1,15 @@
+/**
+ * Exports for Next.js App Router
+ *
+ * There is also index.default.ts which targets Next.js specifically.
+ * If you update this file, please update index.default.ts as well.
+ *
+ * Try keeping this file small. Export through index.common and index.make.
+ *
+ * This file should stay equivalent to index.default.ts, except that it
+ * declares "use cache".
+ */
+
 import { cacheLife } from 'next/cache';
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
@@ -39,5 +51,6 @@ export const cachedFns: typeof fns = {
 export * from './index.common';
 export const createRawClient = createCreateRawClient(cachedFns);
 
+// no JSDoc needed here since editors will use the one if index.default.ts
 export const { flagsClient, resetDefaultFlagsClient, createClient } =
   make(createRawClient);

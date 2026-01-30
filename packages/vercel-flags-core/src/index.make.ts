@@ -1,3 +1,7 @@
+/**
+ * Factory functions for exports of index.default.ts and index.next-js.ts
+ */
+
 import type { createCreateRawClient } from './create-raw-client';
 import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
 import type { FlagsClient } from './types';
@@ -6,22 +10,8 @@ import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
 ): {
-  /**
-   * A lazily-initialized default flags client.
-   *
-   * - relies on process.env.FLAGS
-   * - does not use process.env.EDGE_CONFIG
-   */
   flagsClient: FlagsClient;
-  /**
-   * Internal function for testing purposes
-   */
   resetDefaultFlagsClient: () => void;
-  /**
-   * Create a flags client based on an SDK Key
-   * @param sdkKeyOrConnectionString
-   * @returns
-   */
   createClient: (sdkKeyOrConnectionString: string) => FlagsClient;
 } {
   let _defaultFlagsClient: FlagsClient | null = null;
