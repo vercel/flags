@@ -74,10 +74,6 @@ export type Source = {
  */
 export type FlagsClient = {
   /**
-   * The transport layer for the datafile.
-   */
-  dataSource: DataSource;
-  /**
    * Evaluate a feature flag
    *
    * Requires initialize() to have been called and awaited first.

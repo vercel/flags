@@ -25,12 +25,13 @@ export function createCreateRawClient(fns: {
     const id = idCount++;
     clientMap.set(id, dataSource);
     return {
-      dataSource,
       initialize: async () => {
+        if (!clientMap.has(id)) clientMap.set(id, dataSource);
         return fns.initialize(id);
       },
       shutdown: async () => {
         await fns.shutdown(id);
+        clientMap.delete(id);
       },
       getMetadata: async () => {
         return fns.getMetadata(id);
