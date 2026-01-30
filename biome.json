@@ -19,6 +19,9 @@
       "correctness": {
         "noUnusedFunctionParameters": "off"
       },
+      "complexity": {
+        "noUselessContinue": "off"
+      },
       "suspicious": {
         "noExplicitAny": "off",
         "noDocumentCookie": "off",

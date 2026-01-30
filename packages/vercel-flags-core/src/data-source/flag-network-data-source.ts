@@ -30,12 +30,12 @@ async function fetchData(
 type StreamOptions = {
   host: string;
   sdkKey: string;
-  signal: AbortSignal;
+  abortController: AbortController;
   onMessage: (data: BundledDefinitions) => void;
 };
 
 async function connectStream(options: StreamOptions): Promise<void> {
-  const { host, sdkKey, signal, onMessage } = options;
+  const { host, sdkKey, abortController, onMessage } = options;
   let retryCount = 0;
 
   let resolveInit: () => void;
@@ -48,7 +48,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
   (async () => {
     let initialDataReceived = false;
 
-    while (!signal.aborted) {
+    while (!abortController.signal.aborted) {
       try {
         const response = await fetch(`${host}/v1/stream`, {
           headers: {
@@ -56,10 +56,14 @@ async function connectStream(options: StreamOptions): Promise<void> {
             'User-Agent': `VercelFlagsCore/${version}`,
             'X-Retry-Attempt': String(retryCount),
           },
-          signal,
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            abortController.abort();
+          }
+
           throw new Error(`stream was not ok: ${response.status}`);
         }
 
@@ -71,7 +75,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
         let buffer = '';
 
         for await (const chunk of response.body) {
-          if (signal.aborted) break;
+          if (abortController.signal.aborted) break;
 
           buffer += decoder.decode(chunk, { stream: true });
           const lines = buffer.split('\n');
@@ -84,6 +88,7 @@ async function connectStream(options: StreamOptions): Promise<void> {
 
             if (message.type === 'datafile') {
               onMessage(message.data);
+              retryCount = 0;
               if (!initialDataReceived) {
                 initialDataReceived = true;
                 resolveInit!();
@@ -93,12 +98,12 @@ async function connectStream(options: StreamOptions): Promise<void> {
         }
 
         // Stream ended normally (server closed connection) - reconnect
-        if (!signal.aborted) {
+        if (!abortController.signal.aborted) {
           retryCount++;
           continue;
         }
       } catch (error) {
-        if (signal.aborted) {
+        if (abortController.signal.aborted) {
           break;
         }
         console.error('@vercel/flags-core: Stream error', error);
@@ -149,7 +154,7 @@ export class FlagNetworkDataSource implements DataSource {
     this.streamPromise = connectStream({
       host: this.host,
       sdkKey: this.sdkKey,
-      signal: this.abortController.signal,
+      abortController: this.abortController,
       onMessage: (newData) => {
         this.data = newData;
       },
