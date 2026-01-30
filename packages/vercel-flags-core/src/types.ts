@@ -7,6 +7,8 @@ export type Datafile = Packed.Data & {
   environment: string;
   /** Vercel project id of the source of these flags  */
   projectId: string;
+  /** Metrics about how the data was retrieved */
+  metrics: Metrics;
 };
 
 /** Flag Definitions of a Vercel project */
@@ -37,23 +39,15 @@ export type DataSourceInfo = {
 export type DataSourceMetadata = DataSourceInfo;
 
 /**
- * Metadata about how data was retrieved from the data source
+ * Metrics about how data was retrieved from the data source
  */
-export type ReadMetadata = {
+export type Metrics = {
   /** Time in ms to retrieve data */
   durationMs: number;
   /** Where the data came from */
   source: 'in-memory' | 'embedded' | 'remote';
   /** Whether data was already cached, or stale (fallback used) */
   cacheStatus: 'HIT' | 'MISS' | 'STALE';
-};
-
-/**
- * Result of read() including both data and metadata
- */
-export type ReadResult = {
-  data: Datafile;
-  metadata: ReadMetadata;
 };
 
 /**
@@ -71,7 +65,7 @@ export interface DataSource {
   /**
    * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.
    */
-  read(): Promise<ReadResult>;
+  read(): Promise<Datafile>;
 
   /**
    * End polling or subscriptions. Flush any remaining data.

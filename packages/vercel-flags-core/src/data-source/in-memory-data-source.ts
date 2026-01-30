@@ -1,20 +1,14 @@
-import type {
-  Datafile,
-  DataSource,
-  DataSourceInfo,
-  Packed,
-  ReadResult,
-} from '../types';
+import type { Datafile, DataSource, DataSourceInfo, Packed } from '../types';
 
 export class InMemoryDataSource implements DataSource {
-  dataSourceData: Datafile;
+  private data: Omit<Datafile, 'metrics'>;
 
   constructor({
     data,
     projectId,
     environment,
   }: { data: Packed.Data; projectId: string; environment: string }) {
-    this.dataSourceData = {
+    this.data = {
       ...data,
       projectId,
       environment,
@@ -22,19 +16,26 @@ export class InMemoryDataSource implements DataSource {
   }
 
   async getInfo(): Promise<DataSourceInfo> {
-    return { projectId: this.dataSourceData.projectId };
+    return { projectId: this.data.projectId };
   }
 
   async getDatafile(): Promise<Datafile> {
-    return this.dataSourceData;
+    return {
+      ...this.data,
+      metrics: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
+    };
   }
 
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
-  async read(): Promise<ReadResult> {
+  async read(): Promise<Datafile> {
     return {
-      data: this.dataSourceData,
-      metadata: {
+      ...this.data,
+      metrics: {
         durationMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',

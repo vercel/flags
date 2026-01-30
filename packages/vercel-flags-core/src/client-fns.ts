@@ -37,8 +37,8 @@ export async function evaluate<T, E = Record<string, unknown>>(
   entities?: E,
 ): Promise<EvaluationResult<T>> {
   const ds = clientMap.get(id)!;
-  const { data, metadata: dataSourceMetadata } = await ds.read();
-  const flagDefinition = data.definitions[flagKey] as Packed.FlagDefinition;
+  const datafile = await ds.read();
+  const flagDefinition = datafile.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {
     return {
@@ -48,9 +48,9 @@ export async function evaluate<T, E = Record<string, unknown>>(
       errorMessage: `Definition not found for flag "${flagKey}"`,
       metadata: {
         evaluationMs: 0,
-        readMs: dataSourceMetadata.durationMs,
-        source: dataSourceMetadata.source,
-        cacheStatus: dataSourceMetadata.cacheStatus,
+        readMs: datafile.metrics.durationMs,
+        source: datafile.metrics.source,
+        cacheStatus: datafile.metrics.cacheStatus,
       },
     };
   }
@@ -59,15 +59,15 @@ export async function evaluate<T, E = Record<string, unknown>>(
   const result = evalFlag<T>({
     defaultValue,
     definition: flagDefinition,
-    environment: data.environment,
+    environment: datafile.environment,
     entities: entities ?? {},
-    segments: data.segments,
+    segments: datafile.segments,
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 
-  if (data.projectId) {
+  if (datafile.projectId) {
     internalReportValue(flagKey, result.value, {
-      originProjectId: data.projectId,
+      originProjectId: datafile.projectId,
       originProvider: 'vercel',
       reason: result.reason,
       outcomeType:
@@ -81,9 +81,9 @@ export async function evaluate<T, E = Record<string, unknown>>(
     ...result,
     metadata: {
       evaluationMs: evaluationDurationMs,
-      readMs: dataSourceMetadata.durationMs,
-      source: dataSourceMetadata.source,
-      cacheStatus: dataSourceMetadata.cacheStatus,
+      readMs: datafile.metrics.durationMs,
+      source: datafile.metrics.source,
+      cacheStatus: datafile.metrics.cacheStatus,
     },
   };
 }

@@ -20,13 +20,11 @@ import { internalReportValue } from './lib/report-value';
 function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   return {
     read: vi.fn().mockResolvedValue({
-      data: {
-        projectId: 'test-project',
-        definitions: {},
-        segments: {},
-        environment: 'production',
-      },
-      metadata: {
+      projectId: 'test-project',
+      definitions: {},
+      segments: {},
+      environment: 'production',
+      metrics: {
         durationMs: 0,
         source: 'in-memory',
         cacheStatus: 'HIT',
@@ -38,6 +36,11 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       definitions: {},
       segments: {},
       environment: 'production',
+      metrics: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
     }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
@@ -45,15 +48,15 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   };
 }
 
-function mockReadResult(data: {
+function mockDatafile(data: {
   projectId?: string;
   definitions: Record<string, unknown>;
   segments: Record<string, unknown>;
   environment: string;
 }) {
   return {
-    data,
-    metadata: {
+    ...data,
+    metrics: {
       durationMs: 0,
       source: 'in-memory' as const,
       cacheStatus: 'HIT' as const,
@@ -195,7 +198,7 @@ describe('client-fns', () => {
     it('should return FLAG_NOT_FOUND error when flag does not exist', async () => {
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: {},
             segments: {},
@@ -220,7 +223,7 @@ describe('client-fns', () => {
     it('should use defaultValue when flag is not found', async () => {
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: {},
             segments: {},
@@ -243,7 +246,7 @@ describe('client-fns', () => {
       };
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: { 'my-flag': flagDefinition },
             segments: {},
@@ -268,7 +271,7 @@ describe('client-fns', () => {
       };
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'my-project-id',
             definitions: { 'my-flag': flagDefinition },
             segments: {},
@@ -298,7 +301,7 @@ describe('client-fns', () => {
       };
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: undefined,
             definitions: { 'my-flag': flagDefinition },
             segments: {},
@@ -316,7 +319,7 @@ describe('client-fns', () => {
     it('should not include outcomeType in report when result is error', async () => {
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: {},
             segments: {},
@@ -346,7 +349,7 @@ describe('client-fns', () => {
       };
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: { 'targeted-flag': flagDefinition },
             segments: {},
@@ -375,7 +378,7 @@ describe('client-fns', () => {
       };
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: { 'my-flag': flagDefinition },
             segments: {},
@@ -398,7 +401,7 @@ describe('client-fns', () => {
     it('should work with different value types', async () => {
       const dataSource = createMockDataSource({
         read: vi.fn().mockResolvedValue(
-          mockReadResult({
+          mockDatafile({
             projectId: 'test',
             definitions: {
               'bool-flag': {

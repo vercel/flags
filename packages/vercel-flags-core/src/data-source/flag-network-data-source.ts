@@ -5,8 +5,7 @@ import type {
   Datafile,
   DataSource,
   DataSourceInfo,
-  ReadMetadata,
-  ReadResult,
+  Metrics,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
@@ -96,15 +95,15 @@ export class FlagNetworkDataSource implements DataSource {
     }
   }
 
-  async read(): Promise<ReadResult> {
+  async read(): Promise<Datafile> {
     const startTime = Date.now();
     const cacheHadDefinitions = this.data !== undefined;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let result: Datafile;
-    let source: ReadMetadata['source'];
-    let cacheStatus: ReadMetadata['cacheStatus'];
+    let result: Omit<Datafile, 'metrics'>;
+    let source: Metrics['source'];
+    let cacheStatus: Metrics['cacheStatus'];
 
     if (this.isBuildStep) {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
@@ -118,8 +117,8 @@ export class FlagNetworkDataSource implements DataSource {
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     return {
-      data: result,
-      metadata: {
+      ...result,
+      metrics: {
         durationMs,
         source,
         cacheStatus,
@@ -198,7 +197,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async getDataForBuildStep(): Promise<
-    [Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]
+    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
   > {
     if (this.data) {
       return [this.data, 'in-memory', 'HIT'];
@@ -247,9 +246,9 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private getDataFromCache(): [
-    Datafile,
-    ReadMetadata['source'],
-    ReadMetadata['cacheStatus'],
+    Omit<Datafile, 'metrics'>,
+    Metrics['source'],
+    Metrics['cacheStatus'],
   ] {
     this.warnIfDisconnected();
     // STALE when stream is disconnected (data may be outdated)
@@ -258,7 +257,7 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async getDataWithStreamTimeout(): Promise<
-    [Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]
+    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
   > {
     const streamPromise = this.ensureStream().then(() => {
       if (this.data) return this.data;
@@ -286,8 +285,10 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   private async handleStreamTimeout(
-    streamPromise: Promise<Datafile>,
-  ): Promise<[Datafile, ReadMetadata['source'], ReadMetadata['cacheStatus']]> {
+    streamPromise: Promise<Omit<Datafile, 'metrics'>>,
+  ): Promise<
+    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
+  > {
     const bundledResult = await this.bundledDefinitionsPromise;
 
     if (bundledResult?.state === 'ok' && bundledResult.definitions) {
@@ -330,7 +331,7 @@ export class FlagNetworkDataSource implements DataSource {
     startTime: number,
     cacheHadDefinitions: boolean,
     isFirstRead: boolean,
-    source: ReadMetadata['source'],
+    source: Metrics['source'],
   ): void {
     // Map source to configOrigin for usage tracker (it expects 'in-memory' | 'embedded')
     const configOrigin: 'in-memory' | 'embedded' =

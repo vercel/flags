@@ -167,9 +167,9 @@ describe('FlagNetworkDataSource', () => {
     const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
     const result = await dataSource.read();
 
-    expect(result.data).toEqual(definitions);
-    expect(result.metadata.source).toBe('in-memory');
-    expect(result.metadata.cacheStatus).toBe('MISS');
+    expect(result).toMatchObject(definitions);
+    expect(result.metrics.source).toBe('in-memory');
+    expect(result.metrics.cacheStatus).toBe('MISS');
 
     await dataSource.shutdown();
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
@@ -199,7 +199,7 @@ describe('FlagNetworkDataSource', () => {
     // Wait for stream to process second message, then verify via read
     await vi.waitFor(async () => {
       const result = await dataSource.read();
-      expect(result.data).toEqual(definitions2);
+      expect(result).toMatchObject(definitions2);
     });
 
     await dataSource.shutdown();
@@ -243,9 +243,9 @@ describe('FlagNetworkDataSource', () => {
     const elapsed = Date.now() - startTime;
 
     // Should have returned bundled definitions with STALE status
-    expect(result.data).toEqual(bundledDefinitions);
-    expect(result.metadata.source).toBe('embedded');
-    expect(result.metadata.cacheStatus).toBe('STALE');
+    expect(result).toMatchObject(bundledDefinitions);
+    expect(result.metrics.source).toBe('embedded');
+    expect(result.metrics.cacheStatus).toBe('STALE');
 
     // Should have taken roughly 3 seconds (the timeout)
     expect(elapsed).toBeGreaterThanOrEqual(2900);
@@ -285,9 +285,9 @@ describe('FlagNetworkDataSource', () => {
 
     const result = await dataSource.read();
 
-    expect(result.data).toEqual(bundledDefinitions);
-    expect(result.metadata.source).toBe('embedded');
-    expect(result.metadata.cacheStatus).toBe('STALE');
+    expect(result).toMatchObject(bundledDefinitions);
+    expect(result.metrics.source).toBe('embedded');
+    expect(result.metrics.cacheStatus).toBe('STALE');
 
     await dataSource.shutdown();
 
@@ -431,9 +431,9 @@ describe('FlagNetworkDataSource', () => {
       const result = await dataSource.read();
 
       // Should use bundled definitions without making stream request
-      expect(result.data).toEqual(bundledDefinitions);
-      expect(result.metadata.source).toBe('embedded');
-      expect(result.metadata.cacheStatus).toBe('MISS');
+      expect(result).toMatchObject(bundledDefinitions);
+      expect(result.metrics.source).toBe('embedded');
+      expect(result.metrics.cacheStatus).toBe('MISS');
 
       await dataSource.shutdown();
     });
@@ -458,8 +458,8 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
       const result = await dataSource.read();
 
-      expect(result.data).toEqual(bundledDefinitions);
-      expect(result.metadata.source).toBe('embedded');
+      expect(result).toMatchObject(bundledDefinitions);
+      expect(result.metrics.source).toBe('embedded');
 
       await dataSource.shutdown();
     });
@@ -517,9 +517,9 @@ describe('FlagNetworkDataSource', () => {
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
       const result = await dataSource.read();
 
-      expect(result.data).toEqual(fetchedDefinitions);
-      expect(result.metadata.source).toBe('remote');
-      expect(result.metadata.cacheStatus).toBe('MISS');
+      expect(result).toMatchObject(fetchedDefinitions);
+      expect(result.metrics.source).toBe('remote');
+      expect(result.metrics.cacheStatus).toBe('MISS');
 
       await dataSource.shutdown();
     });
@@ -545,12 +545,12 @@ describe('FlagNetworkDataSource', () => {
 
       // First read
       const firstResult = await dataSource.read();
-      expect(firstResult.metadata.cacheStatus).toBe('MISS');
+      expect(firstResult.metrics.cacheStatus).toBe('MISS');
 
       // Second read should use cached data
       const result = await dataSource.read();
-      expect(result.data).toEqual(bundledDefinitions);
-      expect(result.metadata.cacheStatus).toBe('HIT');
+      expect(result).toMatchObject(bundledDefinitions);
+      expect(result.metrics.cacheStatus).toBe('HIT');
 
       // readBundledDefinitions should have been called only during construction
       expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
@@ -707,9 +707,9 @@ describe('FlagNetworkDataSource', () => {
       const result = await dataSource.read();
       const elapsed = Date.now() - startTime;
 
-      expect(result.data).toEqual(bundledDefinitions);
-      expect(result.metadata.source).toBe('embedded');
-      expect(result.metadata.cacheStatus).toBe('STALE');
+      expect(result).toMatchObject(bundledDefinitions);
+      expect(result.metrics.source).toBe('embedded');
+      expect(result.metrics.cacheStatus).toBe('STALE');
       expect(elapsed).toBeGreaterThanOrEqual(450);
       expect(elapsed).toBeLessThan(1500);
 

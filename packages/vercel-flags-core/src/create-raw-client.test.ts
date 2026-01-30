@@ -10,6 +10,11 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       definitions: {},
       segments: {},
       environment: 'production',
+      metrics: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
     }),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
     getDatafile: vi.fn().mockResolvedValue({
@@ -17,6 +22,11 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
       definitions: {},
       segments: {},
       environment: 'production',
+      metrics: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
     }),
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
@@ -36,6 +46,11 @@ function createMockFns() {
       definitions: {},
       segments: {},
       environment: 'production',
+      metrics: {
+        durationMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'HIT',
+      },
     }),
   };
 }
