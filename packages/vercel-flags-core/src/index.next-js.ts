@@ -16,31 +16,31 @@ import { make } from './index.make';
 import * as fns from './raw-client';
 
 export const cachedFns: typeof fns = {
-  initialize: (...args) => {
+  initialize: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });
     return fns.initialize(...args);
   },
-  shutdown: (...args) => {
+  shutdown: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });
     return fns.shutdown(...args);
   },
-  getMetadata: (...args) => {
+  getMetadata: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });
     return fns.getMetadata(...args);
   },
-  ensureFallback: (...args) => {
+  ensureFallback: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });
     return fns.ensureFallback(...args);
   },
-  evaluate: (...args) => {
+  evaluate: async (...args) => {
     'use cache';
     cacheLife({ revalidate: 0, expire: 0 });
     cacheLife({ stale: 60 });

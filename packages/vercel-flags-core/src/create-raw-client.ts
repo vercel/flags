@@ -1,3 +1,4 @@
+import { clientMap } from './client-map';
 import type {
   ensureFallback,
   evaluate,
@@ -8,7 +9,6 @@ import type {
 import type { DataSource, EvaluationResult, FlagsClient, Value } from './types';
 
 let idCount = 0;
-const clientMap = new Map<number, DataSource>();
 
 export function createCreateRawClient(fns: {
   initialize: typeof initialize;
@@ -35,29 +35,23 @@ export function createCreateRawClient(fns: {
     return {
       dataSource,
       initialize: async () => {
-        return fns.initialize(clientMap, id);
+        return fns.initialize(id);
       },
       shutdown: async () => {
-        await fns.shutdown(clientMap, id);
+        await fns.shutdown(id);
       },
       getMetadata: async () => {
-        return fns.getMetadata(clientMap, id);
+        return fns.getMetadata(id);
       },
       async ensureFallback(): Promise<void> {
-        return fns.ensureFallback(clientMap, id);
+        return fns.ensureFallback(id);
       },
       async evaluate<T = Value, E = Record<string, unknown>>(
         flagKey: string,
         defaultValue?: T,
         entities?: E,
       ): Promise<EvaluationResult<T>> {
-        return fns.evaluate<T, E>(
-          clientMap,
-          id,
-          flagKey,
-          defaultValue,
-          entities,
-        );
+        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
     };
   };
