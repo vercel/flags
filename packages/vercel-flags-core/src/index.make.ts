@@ -42,26 +42,20 @@ export function make(
     _defaultFlagsClient = null;
   }
 
-  function getOrCreateDefaultClient(): FlagsClient {
-    if (_defaultFlagsClient) {
-      return _defaultFlagsClient;
-    }
-
-    if (!process.env.FLAGS) {
-      throw new Error('flags: Missing environment variable FLAGS');
-    }
-
-    const sdkKey = parseSdkKeyFromFlagsConnectionString(process.env.FLAGS);
-    if (!sdkKey) {
-      throw new Error('flags: Missing sdkKey');
-    }
-    _defaultFlagsClient = createClient(sdkKey);
-    return _defaultFlagsClient;
-  }
-
   const flagsClient: FlagsClient = new Proxy({} as FlagsClient, {
     get(_, prop) {
-      return getOrCreateDefaultClient()[prop as keyof FlagsClient];
+      if (!_defaultFlagsClient) {
+        if (!process.env.FLAGS) {
+          throw new Error('flags: Missing environment variable FLAGS');
+        }
+
+        const sdkKey = parseSdkKeyFromFlagsConnectionString(process.env.FLAGS);
+        if (!sdkKey) {
+          throw new Error('flags: Missing sdkKey');
+        }
+        _defaultFlagsClient = createClient(sdkKey);
+      }
+      return _defaultFlagsClient[prop as keyof FlagsClient];
     },
   });
 
