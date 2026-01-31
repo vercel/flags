@@ -35,13 +35,7 @@ export function createVercelAdapter(
     EntitiesType
   > {
     return {
-      origin:
-        typeof sdkKeyOrFlagsClient === 'string'
-          ? {
-              provider: 'vercel',
-              sdkKey: sdkKeyOrFlagsClient,
-            }
-          : undefined,
+      origin: flagsClient.origin,
       config: { reportValue: false },
       async decide({ key, entities, headers }): Promise<ValueType> {
         const evaluationResult = await flagsClient.evaluate<

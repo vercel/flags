@@ -103,6 +103,13 @@ export type Source = {
  */
 export type FlagsClient = {
   /**
+   * Origin information for this client (provider and sdkKey)
+   */
+  origin?: {
+    provider: string;
+    sdkKey: string;
+  };
+  /**
    * Evaluate a feature flag
    *
    * Requires initialize() to have been called and awaited first.

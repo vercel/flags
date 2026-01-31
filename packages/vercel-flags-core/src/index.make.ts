@@ -32,7 +32,10 @@ export function make(
 
     // sdk key contains the environment
     const dataSource = new FlagNetworkDataSource({ sdkKey });
-    return createRawClient({ dataSource });
+    return createRawClient({
+      dataSource,
+      origin: { provider: 'vercel', sdkKey },
+    });
   }
 
   function resetDefaultFlagsClient() {

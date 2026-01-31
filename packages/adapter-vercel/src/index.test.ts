@@ -86,7 +86,10 @@ describe('createVercelAdapter', () => {
 
     const amended = adapter();
     expect(amended).toHaveProperty('decide');
-    expect(amended).toHaveProperty('origin', undefined);
+    expect(amended).toHaveProperty('origin', {
+      provider: 'vercel',
+      sdkKey: 'vf_test_sdk_key',
+    } satisfies Origin);
   });
 
   it('returns origin when created with sdkKey string', () => {
@@ -207,9 +210,12 @@ describe('vercelAdapter', () => {
   });
 
   describe('origin', () => {
-    it('sets undefined origin when using default adapter', () => {
+    it('sets vercel origin when using default adapter', () => {
       const testFlag = flag({ key: 'test-flag', adapter: vercelAdapter() });
-      expect(testFlag.origin).toBeUndefined();
+      expect(testFlag.origin).toEqual({
+        provider: 'vercel',
+        sdkKey: 'vf_test_sdk_key',
+      } satisfies Origin);
     });
 
     it('sets vercel origin when using adapter created with sdkKey', () => {

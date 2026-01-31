@@ -21,12 +21,15 @@ export function createCreateRawClient(fns: {
 }) {
   return function createRawClient({
     dataSource,
+    origin,
   }: {
     dataSource: DataSource;
+    origin?: { provider: string; sdkKey: string };
   }): FlagsClient {
     const id = idCount++;
     clientMap.set(id, dataSource);
     return {
+      origin,
       initialize: async () => {
         if (!clientMap.has(id)) clientMap.set(id, dataSource);
         return fns.initialize(id);
