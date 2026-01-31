@@ -32,16 +32,4 @@ export default [
       '@vercel/flags-definitions/definitions.json',
     ],
   }),
-  // cli
-  defineConfig({
-    entry: ['src/cli.ts'],
-    format: 'esm',
-    splitting: true,
-    sourcemap: true,
-    minify: false,
-    clean: false,
-    skipNodeModulesBundle: true,
-    dts: true,
-    external: ['node_modules'],
-  }),
 ];

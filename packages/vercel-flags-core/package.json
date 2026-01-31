@@ -34,9 +34,6 @@
     "dist",
     "CHANGELOG.md"
   ],
-  "bin": {
-    "vercel-flags": "./dist/cli.js"
-  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -47,7 +44,6 @@
   },
   "dependencies": {
     "@vercel/functions": "^3.3.6",
-    "commander": "14.0.2",
     "jose": "5.2.1",
     "js-xxhash": "4.0.0"
   },
