@@ -6,6 +6,8 @@
 
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 
+let warned = false;
+
 /**
  * Reads the local definitions that get bundled at build time.
  */
@@ -33,7 +35,7 @@ export async function readBundledDefinitions(
         process.env.NEXT_PHASE === 'phase-production-build' ||
         process.env.CI === '1';
 
-      if (isBuildStep) {
+      if (isBuildStep && !warned) {
         console.warn(
           [
             'Warning: @vercel/flags-core: No bundled definitions found',
@@ -41,6 +43,7 @@ export async function readBundledDefinitions(
             '  not be able to resolve flags if Vercel Flags is unavailable.',
           ].join('\n'),
         );
+        warned = true;
       }
 
       return { definitions: null, state: 'missing-file' };
