@@ -34,16 +34,13 @@ export async function readBundledDefinitions(
         process.env.CI === '1';
 
       if (isBuildStep) {
-        console.warn(`
-╔════════════════════════════════════════════════════════════════════════════╗
-║                                                                            ║
-║  @vercel/flags-core: No bundled definitions found                          ║
-║                                                                            ║
-║  The fallback definitions file was not found. This means your app will     ║
-║  not be able to resolve flags if Vercel Flags is unavailable.              ║
-║                                                                            ║
-╚════════════════════════════════════════════════════════════════════════════╝
-`);
+        console.warn(
+          [
+            'Warning: @vercel/flags-core: No bundled definitions found',
+            '  The fallback definitions file was not found. This means your app will',
+            '  not be able to resolve flags if Vercel Flags is unavailable.',
+          ].join('\n'),
+        );
       }
 
       return { definitions: null, state: 'missing-file' };
