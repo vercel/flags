@@ -38,7 +38,14 @@ function createMockFns() {
   return {
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
-    ensureFallback: vi.fn().mockResolvedValue(undefined),
+    getFallbackDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test',
+      definitions: {},
+      environment: 'production',
+      updatedAt: 1,
+      digest: 'a',
+      revision: 1,
+    }),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
     getDatafile: vi.fn().mockResolvedValue({
@@ -219,28 +226,50 @@ describe('createCreateRawClient', () => {
     });
   });
 
-  describe('ensureFallback', () => {
-    it('should call fns.ensureFallback with the client ID', async () => {
+  describe('getFallbackDatafile', () => {
+    it('should call fns.getFallbackDatafile with the client ID', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
       const dataSource = createMockDataSource();
 
       const client = createRawClient({ dataSource });
-      await client.ensureFallback();
+      await client.getFallbackDatafile();
 
-      expect(fns.ensureFallback).toHaveBeenCalledTimes(1);
-      expect(fns.ensureFallback).toHaveBeenCalledWith(expect.any(Number));
+      expect(fns.getFallbackDatafile).toHaveBeenCalledTimes(1);
+      expect(fns.getFallbackDatafile).toHaveBeenCalledWith(expect.any(Number));
     });
 
-    it('should propagate errors from fns.ensureFallback', async () => {
+    it('should return the fallback definitions', async () => {
       const fns = createMockFns();
-      fns.ensureFallback.mockRejectedValue(new Error('Fallback not supported'));
+      const mockFallback = {
+        projectId: 'test-project',
+        definitions: { flag: true },
+        environment: 'production',
+        updatedAt: 123,
+        digest: 'abc',
+        revision: 2,
+      };
+      fns.getFallbackDatafile.mockResolvedValue(mockFallback);
+      const createRawClient = createCreateRawClient(fns);
+      const dataSource = createMockDataSource();
+
+      const client = createRawClient({ dataSource });
+      const result = await client.getFallbackDatafile();
+
+      expect(result).toEqual(mockFallback);
+    });
+
+    it('should propagate errors from fns.getFallbackDatafile', async () => {
+      const fns = createMockFns();
+      fns.getFallbackDatafile.mockRejectedValue(
+        new Error('Fallback not supported'),
+      );
       const createRawClient = createCreateRawClient(fns);
       const dataSource = createMockDataSource();
 
       const client = createRawClient({ dataSource });
 
-      await expect(client.ensureFallback()).rejects.toThrow(
+      await expect(client.getFallbackDatafile()).rejects.toThrow(
         'Fallback not supported',
       );
     });

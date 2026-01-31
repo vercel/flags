@@ -1,7 +1,7 @@
 import { clientMap } from './client-map';
 import { evaluate as evalFlag } from './evaluate';
 import { internalReportValue } from './lib/report-value';
-import type { EvaluationResult, Packed } from './types';
+import type { BundledDefinitions, EvaluationResult, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 export async function initialize(id: number) {
@@ -24,9 +24,11 @@ export async function getDatafile(id: number) {
   return ds.getDatafile();
 }
 
-export async function ensureFallback(id: number) {
+export async function getFallbackDatafile(
+  id: number,
+): Promise<BundledDefinitions> {
   const ds = clientMap.get(id)!;
-  if (ds.ensureFallback) return ds.ensureFallback();
+  if (ds.getFallbackDatafile) return ds.getFallbackDatafile();
   throw new Error('flags: This data source does not support fallbacks');
 }
 

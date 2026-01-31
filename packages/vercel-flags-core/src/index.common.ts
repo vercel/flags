@@ -1,8 +1,14 @@
 import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
+import { FallbackEntryNotFoundError, FallbackNotFoundError } from './errors';
 import type { DataSource } from './types';
 
-export { FlagNetworkDataSource, InMemoryDataSource };
+export {
+  FallbackEntryNotFoundError,
+  FallbackNotFoundError,
+  FlagNetworkDataSource,
+  InMemoryDataSource,
+};
 export {
   type EvaluationParams,
   type EvaluationResult,

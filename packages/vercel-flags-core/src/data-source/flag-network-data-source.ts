@@ -1,4 +1,5 @@
 import { version } from '../../package.json';
+import { FallbackEntryNotFoundError, FallbackNotFoundError } from '../errors';
 import type {
   BundledDefinitions,
   BundledDefinitionsResult,
@@ -182,28 +183,20 @@ export class FlagNetworkDataSource implements DataSource {
     };
   }
 
-  async ensureFallback(): Promise<void> {
+  async getFallbackDatafile(): Promise<BundledDefinitions> {
     const bundledResult = await this.bundledDefinitionsPromise;
 
     if (!bundledResult) {
-      throw new Error(
-        '@vercel/flags-core: Unable to verify fallback - bundled definitions check failed',
-      );
+      throw new FallbackNotFoundError();
     }
 
     switch (bundledResult.state) {
       case 'ok':
-        return;
+        return bundledResult.definitions;
       case 'missing-file':
-        throw new Error(
-          '@vercel/flags-core: Bundled definitions file not found. ' +
-            'Run "vercel-flags prepare" before building to enable fallback.',
-        );
+        throw new FallbackNotFoundError();
       case 'missing-entry':
-        throw new Error(
-          '@vercel/flags-core: No bundled definitions found for SDK key. ' +
-            'Ensure the SDK key is included when running "vercel-flags prepare".',
-        );
+        throw new FallbackEntryNotFoundError();
       case 'unexpected-error':
         throw new Error(
           '@vercel/flags-core: Failed to read bundled definitions: ' +

@@ -1,18 +1,6 @@
-import { HttpResponse, http } from 'msw';
-import { setupServer } from 'msw/node';
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
-import type { FlagsClient } from './types';
 
 // Mock the FlagNetworkDataSource to avoid real network calls
 vi.mock('./data-source/flag-network-data-source', () => ({
@@ -37,7 +25,20 @@ function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
-    ensureFallback: vi.fn().mockResolvedValue(undefined),
+    getDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test',
+      definitions: {},
+      environment: 'production',
+      metrics: { readMs: 0, source: 'in-memory', cacheStatus: 'HIT' },
+    }),
+    getFallbackDatafile: vi.fn().mockResolvedValue({
+      projectId: 'test',
+      definitions: {},
+      environment: 'production',
+      updatedAt: 1,
+      digest: 'a',
+      revision: 1,
+    }),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
     _dataSource: dataSource, // For testing inspection
   }));
@@ -246,7 +247,14 @@ describe('make', () => {
         value: true,
         reason: 'static',
       });
-      await expect(client.ensureFallback()).resolves.toBeUndefined();
+      await expect(client.getFallbackDatafile()).resolves.toEqual({
+        projectId: 'test',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      });
       await expect(client.shutdown()).resolves.toBeUndefined();
     });
   });

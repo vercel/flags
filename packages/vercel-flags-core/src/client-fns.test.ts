@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  ensureFallback,
   evaluate,
+  getFallbackDatafile,
   getInfo,
   initialize,
   shutdown,
@@ -154,43 +154,59 @@ describe('client-fns', () => {
     });
   });
 
-  describe('ensureFallback', () => {
-    it('should call dataSource.ensureFallback() if it exists', async () => {
-      const ensureFallbackFn = vi.fn().mockResolvedValue(undefined);
+  describe('getFallbackDatafile', () => {
+    it('should call dataSource.getFallbackDatafile() if it exists', async () => {
+      const mockFallback = {
+        projectId: 'test',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      };
+      const getFallbackDatafileFn = vi.fn().mockResolvedValue(mockFallback);
       const dataSource = createMockDataSource({
-        ensureFallback: ensureFallbackFn,
+        getFallbackDatafile: getFallbackDatafileFn,
       });
       clientMap.set(CLIENT_ID, dataSource);
 
-      await ensureFallback(CLIENT_ID);
+      await getFallbackDatafile(CLIENT_ID);
 
-      expect(ensureFallbackFn).toHaveBeenCalledTimes(1);
+      expect(getFallbackDatafileFn).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the result from dataSource.ensureFallback()', async () => {
+    it('should return the result from dataSource.getFallbackDatafile()', async () => {
+      const mockFallback = {
+        projectId: 'test',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      };
       const dataSource = createMockDataSource({
-        ensureFallback: vi.fn().mockResolvedValue('fallback-result'),
+        getFallbackDatafile: vi.fn().mockResolvedValue(mockFallback),
       });
       clientMap.set(CLIENT_ID, dataSource);
 
-      const result = await ensureFallback(CLIENT_ID);
+      const result = await getFallbackDatafile(CLIENT_ID);
 
-      expect(result).toBe('fallback-result');
+      expect(result).toEqual(mockFallback);
     });
 
-    it('should throw if dataSource does not have ensureFallback', async () => {
+    it('should throw if dataSource does not have getFallbackDatafile', async () => {
       const dataSource = createMockDataSource();
-      // Remove ensureFallback
-      delete (dataSource as Partial<DataSource>).ensureFallback;
+      // Remove getFallbackDatafile
+      delete (dataSource as Partial<DataSource>).getFallbackDatafile;
       clientMap.set(CLIENT_ID, dataSource);
 
-      await expect(ensureFallback(CLIENT_ID)).rejects.toThrow(
+      await expect(getFallbackDatafile(CLIENT_ID)).rejects.toThrow(
         'flags: This data source does not support fallbacks',
       );
     });
 
     it('should throw if client ID is not in map', async () => {
-      await expect(ensureFallback(999)).rejects.toThrow();
+      await expect(getFallbackDatafile(999)).rejects.toThrow();
     });
   });
 

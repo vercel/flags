@@ -85,10 +85,11 @@ export interface DataSource {
   getDatafile(): Promise<Datafile>;
 
   /**
-   * Ensures bundled definitions exist as a fallback.
-   * Throws if no bundled definitions are available.
+   * Returns the bundled fallback definitions.
+   * Throws FallbackNotFoundError if the fallback file doesn't exist.
+   * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
    */
-  ensureFallback?(): Promise<void>;
+  getFallbackDatafile?(): Promise<BundledDefinitions>;
 }
 
 export type Source = {
@@ -141,9 +142,11 @@ export type FlagsClient = {
    */
   getDatafile(): Promise<Datafile>;
   /**
-   * A check which will throw in case the fallback data is missing
+   * Returns the bundled fallback definitions.
+   * Throws FallbackNotFoundError if the fallback file doesn't exist.
+   * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
    */
-  ensureFallback(): Promise<void>;
+  getFallbackDatafile(): Promise<BundledDefinitions>;
 };
 
 export type EvaluationParams<T> = {

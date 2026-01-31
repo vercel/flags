@@ -1,20 +1,26 @@
 import type {
-  ensureFallback,
   evaluate,
   getDatafile,
+  getFallbackDatafile,
   getInfo,
   initialize,
   shutdown,
 } from './client-fns';
 import { clientMap } from './client-map';
-import type { DataSource, EvaluationResult, FlagsClient, Value } from './types';
+import type {
+  BundledDefinitions,
+  DataSource,
+  EvaluationResult,
+  FlagsClient,
+  Value,
+} from './types';
 
 let idCount = 0;
 
 export function createCreateRawClient(fns: {
   initialize: typeof initialize;
   shutdown: typeof shutdown;
-  ensureFallback: typeof ensureFallback;
+  getFallbackDatafile: typeof getFallbackDatafile;
   evaluate: typeof evaluate;
   getInfo: typeof getInfo;
   getDatafile: typeof getDatafile;
@@ -44,8 +50,8 @@ export function createCreateRawClient(fns: {
       getDatafile: async () => {
         return fns.getDatafile(id);
       },
-      async ensureFallback(): Promise<void> {
-        return fns.ensureFallback(id);
+      async getFallbackDatafile(): Promise<BundledDefinitions> {
+        return fns.getFallbackDatafile(id);
       },
       async evaluate<T = Value, E = Record<string, unknown>>(
         flagKey: string,

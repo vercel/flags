@@ -559,8 +559,8 @@ describe('FlagNetworkDataSource', () => {
     });
   });
 
-  describe('ensureFallback', () => {
-    it('should succeed when bundled definitions are available', async () => {
+  describe('getFallbackDatafile', () => {
+    it('should return bundled definitions when available', async () => {
       const bundledDefinitions: BundledDefinitions = {
         projectId: 'bundled',
         definitions: {},
@@ -577,12 +577,13 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-      await expect(dataSource.ensureFallback()).resolves.toBeUndefined();
+      const result = await dataSource.getFallbackDatafile();
+      expect(result).toEqual(bundledDefinitions);
 
       await dataSource.shutdown();
     });
 
-    it('should throw for missing-file state', async () => {
+    it('should throw FallbackNotFoundError for missing-file state', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         definitions: null,
         state: 'missing-file',
@@ -590,14 +591,20 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-      await expect(dataSource.ensureFallback()).rejects.toThrow(
+      await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'Bundled definitions file not found',
       );
+
+      try {
+        await dataSource.getFallbackDatafile();
+      } catch (error) {
+        expect((error as Error).name).toBe('FallbackNotFoundError');
+      }
 
       await dataSource.shutdown();
     });
 
-    it('should throw for missing-entry state', async () => {
+    it('should throw FallbackEntryNotFoundError for missing-entry state', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         definitions: null,
         state: 'missing-entry',
@@ -605,9 +612,15 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-      await expect(dataSource.ensureFallback()).rejects.toThrow(
+      await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'No bundled definitions found for SDK key',
       );
+
+      try {
+        await dataSource.getFallbackDatafile();
+      } catch (error) {
+        expect((error as Error).name).toBe('FallbackEntryNotFoundError');
+      }
 
       await dataSource.shutdown();
     });
@@ -621,7 +634,7 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
 
-      await expect(dataSource.ensureFallback()).rejects.toThrow(
+      await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'Failed to read bundled definitions',
       );
 
