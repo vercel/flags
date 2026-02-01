@@ -92,7 +92,15 @@ export async function connectStream(
           for (const line of lines) {
             if (line === '') continue;
 
-            const message = JSON.parse(line) as StreamMessage;
+            let message: StreamMessage;
+            try {
+              message = JSON.parse(line) as StreamMessage;
+            } catch {
+              console.warn(
+                '@vercel/flags-core: Failed to parse stream message, skipping',
+              );
+              continue;
+            }
 
             if (message.type === 'datafile') {
               onMessage(message.data);
