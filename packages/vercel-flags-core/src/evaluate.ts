@@ -359,10 +359,9 @@ export function evaluate<T>(
 
   // handle shortcut where a value is a number directly
   if (typeof envConfig === 'number') {
-    return {
-      ...handleOutcome<T>(params, envConfig),
+    return Object.assign(handleOutcome<T>(params, envConfig), {
       reason: ResolutionReason.PAUSED,
-    };
+    });
   }
 
   if (!envConfig) {
@@ -393,10 +392,9 @@ export function evaluate<T>(
     );
 
     if (matchedIndex > -1) {
-      return {
-        ...handleOutcome<T>(params, matchedIndex),
+      return Object.assign(handleOutcome<T>(params, matchedIndex), {
         reason: ResolutionReason.TARGET_MATCH,
-      };
+      });
     }
   }
 
@@ -405,16 +403,14 @@ export function evaluate<T>(
     : undefined;
 
   if (firstMatchingRule) {
-    return {
-      ...handleOutcome<T>(params, firstMatchingRule.outcome),
+    return Object.assign(handleOutcome<T>(params, firstMatchingRule.outcome), {
       reason: ResolutionReason.RULE_MATCH,
-    };
+    });
   }
 
-  return {
-    ...handleOutcome<T>(params, envConfig.fallthrough),
+  return Object.assign(handleOutcome<T>(params, envConfig.fallthrough), {
     reason: ResolutionReason.FALLTHROUGH,
-  };
+  });
 }
 
 /**
