@@ -20,26 +20,24 @@ export class InMemoryDataSource implements DataSource {
   }
 
   async getDatafile(): Promise<Datafile> {
-    return {
-      ...this.data,
+    return Object.assign(this.data, {
       metrics: {
         readMs: 0,
-        source: 'in-memory',
-        cacheStatus: 'HIT',
+        source: 'in-memory' as const,
+        cacheStatus: 'HIT' as const,
       },
-    };
+    }) satisfies Datafile;
   }
 
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
   async read(): Promise<Datafile> {
-    return {
-      ...this.data,
+    return Object.assign(this.data, {
       metrics: {
         readMs: 0,
-        source: 'in-memory',
-        cacheStatus: 'HIT',
+        source: 'in-memory' as const,
+        cacheStatus: 'HIT' as const,
       },
-    };
+    }) satisfies Datafile;
   }
 }

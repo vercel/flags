@@ -359,10 +359,9 @@ export function evaluate<T>(
 
   // handle shortcut where a value is a number directly
   if (typeof envConfig === 'number') {
-    return {
-      ...handleOutcome<T>(params, envConfig),
-      reason: ResolutionReason.PAUSED,
-    };
+    return Object.assign(handleOutcome<T>(params, envConfig), {
+      reason: ResolutionReason.PAUSED as const,
+    }) satisfies EvaluationResult<T>;
   }
 
   if (!envConfig) {
@@ -393,10 +392,9 @@ export function evaluate<T>(
     );
 
     if (matchedIndex > -1) {
-      return {
-        ...handleOutcome<T>(params, matchedIndex),
-        reason: ResolutionReason.TARGET_MATCH,
-      };
+      return Object.assign(handleOutcome<T>(params, matchedIndex), {
+        reason: ResolutionReason.TARGET_MATCH as const,
+      }) satisfies EvaluationResult<T>;
     }
   }
 
@@ -405,16 +403,16 @@ export function evaluate<T>(
     : undefined;
 
   if (firstMatchingRule) {
-    return {
-      ...handleOutcome<T>(params, firstMatchingRule.outcome),
-      reason: ResolutionReason.RULE_MATCH,
-    };
+    return Object.assign(handleOutcome<T>(params, firstMatchingRule.outcome), {
+      reason: ResolutionReason.RULE_MATCH as const,
+    }) satisfies EvaluationResult<T>;
   }
 
-  return {
-    ...handleOutcome<T>(params, envConfig.fallthrough),
-    reason: ResolutionReason.FALLTHROUGH,
-  };
+  const x = Object.assign(handleOutcome<T>(params, envConfig.fallthrough), {
+    reason: ResolutionReason.FALLTHROUGH as const,
+  }) satisfies EvaluationResult<T>;
+
+  return x;
 }
 
 /**
