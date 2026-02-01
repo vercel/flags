@@ -33,39 +33,26 @@ export function createCreateRawClient(fns: {
     origin?: { provider: string; sdkKey: string };
   }): FlagsClient {
     const id = idCount++;
-    clientMap.set(id, dataSource);
-
-    // try to squeeze out some perf if we're already initialized
-    let initialized = false;
-    // dedupe parallel init calls
-    let initializingPromise: Promise<void> | null = null;
+    clientMap.set(id, { dataSource, initialized: false });
 
     const api = {
       origin,
       initialize: async () => {
-        // Fast path for already-initialized, much faster than returning the promise
-        if (initialized) return;
+        let instance = clientMap.get(id);
+        if (!instance) {
+          instance = { dataSource, initialized: false };
+          clientMap.set(id, instance);
+        }
 
-        // Slower path if there is an in-progress initialization
-        if (initializingPromise) return initializingPromise;
-
-        // We only need add the data source to the map once, but
-        // not for subsequent calls
-        clientMap.set(id, dataSource);
-
-        initializingPromise ??= fns.initialize(id);
-        await initializingPromise;
-
-        // only set after initialization is complete,
-        // as otherwise it's not safe to short-circuit
-        initialized = true;
-
-        return initializingPromise;
+        // skip promise if already initialized
+        if (instance.initialized) return;
+        const promise = fns.initialize(id);
+        await promise;
+        instance.initialized = true;
+        return promise;
       },
       shutdown: async () => {
         await fns.shutdown(id);
-        initialized = false;
-        initializingPromise = null;
         clientMap.delete(id);
       },
       getInfo: async () => {
@@ -82,7 +69,8 @@ export function createCreateRawClient(fns: {
         defaultValue?: T,
         entities?: E,
       ): Promise<EvaluationResult<T>> => {
-        if (!initialized) await api.initialize();
+        const instance = clientMap.get(id);
+        if (!instance?.initialized) await api.initialize();
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
     };

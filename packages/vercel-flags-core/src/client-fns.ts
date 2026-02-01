@@ -5,29 +5,29 @@ import type { BundledDefinitions, EvaluationResult, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 export async function initialize(id: number) {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   return ds.initialize();
 }
 
 export async function shutdown(id: number) {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   return ds.shutdown();
 }
 
 export async function getInfo(id: number) {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   return ds.getInfo();
 }
 
 export async function getDatafile(id: number) {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   return ds.getDatafile();
 }
 
 export async function getFallbackDatafile(
   id: number,
 ): Promise<BundledDefinitions> {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   if (ds.getFallbackDatafile) return ds.getFallbackDatafile();
   throw new Error('flags: This data source does not support fallbacks');
 }
@@ -38,7 +38,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   defaultValue?: T,
   entities?: E,
 ): Promise<EvaluationResult<T>> {
-  const ds = clientMap.get(id)!;
+  const ds = clientMap.get(id)!.dataSource;
   const datafile = await ds.read();
   const flagDefinition = datafile.definitions[flagKey] as Packed.FlagDefinition;
 

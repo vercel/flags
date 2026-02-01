@@ -79,7 +79,7 @@ describe('client-fns', () => {
   describe('initialize', () => {
     it('should call dataSource.initialize()', async () => {
       const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await initialize(CLIENT_ID);
 
@@ -90,7 +90,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         initialize: vi.fn().mockResolvedValue('init-result'),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await initialize(CLIENT_ID);
 
@@ -105,7 +105,7 @@ describe('client-fns', () => {
   describe('shutdown', () => {
     it('should call dataSource.shutdown()', async () => {
       const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await shutdown(CLIENT_ID);
 
@@ -116,7 +116,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         shutdown: vi.fn().mockResolvedValue('shutdown-result'),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await shutdown(CLIENT_ID);
 
@@ -131,7 +131,7 @@ describe('client-fns', () => {
   describe('getInfo', () => {
     it('should call dataSource.getInfo()', async () => {
       const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await getInfo(CLIENT_ID);
 
@@ -142,7 +142,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         getInfo: vi.fn().mockResolvedValue({ projectId: 'my-project' }),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await getInfo(CLIENT_ID);
 
@@ -168,7 +168,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         getFallbackDatafile: getFallbackDatafileFn,
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await getFallbackDatafile(CLIENT_ID);
 
@@ -187,7 +187,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         getFallbackDatafile: vi.fn().mockResolvedValue(mockFallback),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await getFallbackDatafile(CLIENT_ID);
 
@@ -198,7 +198,7 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource();
       // Remove getFallbackDatafile
       delete (dataSource as Partial<DataSource>).getFallbackDatafile;
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await expect(getFallbackDatafile(CLIENT_ID)).rejects.toThrow(
         'flags: This data source does not support fallbacks',
@@ -222,7 +222,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await evaluate(CLIENT_ID, 'nonexistent-flag', 'default');
 
@@ -247,7 +247,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await evaluate(CLIENT_ID, 'missing', { fallback: true });
 
@@ -270,7 +270,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await evaluate(CLIENT_ID, 'my-flag', false);
 
@@ -295,7 +295,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await evaluate(CLIENT_ID, 'my-flag', 'default');
 
@@ -325,7 +325,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await evaluate(CLIENT_ID, 'my-flag');
 
@@ -343,7 +343,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       await evaluate(CLIENT_ID, 'nonexistent');
 
@@ -373,7 +373,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const result = await evaluate(CLIENT_ID, 'targeted-flag', 'default', {
         user: { id: 'user-123' },
@@ -402,7 +402,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       // Call without entities
       const result = await evaluate(CLIENT_ID, 'my-flag');
@@ -442,7 +442,7 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, dataSource);
+      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
       const boolResult = await evaluate<boolean>(CLIENT_ID, 'bool-flag');
       expect(boolResult.value).toBe(true);

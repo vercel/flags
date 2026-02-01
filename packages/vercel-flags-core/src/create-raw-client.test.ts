@@ -97,7 +97,7 @@ describe('createCreateRawClient', () => {
       // Find the entry that was just added
       const entries = Array.from(clientMap.entries());
       const lastEntry = entries[entries.length - 1];
-      expect(lastEntry[1]).toBe(dataSource);
+      expect(lastEntry[1].dataSource).toBe(dataSource);
     });
 
     it('should assign incrementing IDs to each client', () => {
@@ -117,9 +117,9 @@ describe('createCreateRawClient', () => {
       expect(clientMap.size).toBe(initialSize + 3);
       // Each dataSource should be stored under a different key
       const entries = Array.from(clientMap.entries()).slice(-3);
-      expect(entries[0][1]).toBe(ds1);
-      expect(entries[1][1]).toBe(ds2);
-      expect(entries[2][1]).toBe(ds3);
+      expect(entries[0][1].dataSource).toBe(ds1);
+      expect(entries[1][1].dataSource).toBe(ds2);
+      expect(entries[2][1].dataSource).toBe(ds3);
       // IDs should be incrementing
       expect(entries[1][0]).toBe(entries[0][0] + 1);
       expect(entries[2][0]).toBe(entries[1][0] + 1);
@@ -344,8 +344,10 @@ describe('createCreateRawClient', () => {
       // client2 should still be in the map
       expect(clientMap.size).toBe(initialSize + 1);
       // ds2 should still be in the map
-      const values = Array.from(clientMap.values());
-      expect(values).toContain(ds2);
+      const dataSources = Array.from(clientMap.values()).map(
+        (v) => v.dataSource,
+      );
+      expect(dataSources).toContain(ds2);
     });
 
     it('should use correct ID for each client method call', async () => {
