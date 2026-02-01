@@ -79,13 +79,12 @@ export async function evaluate<T, E = Record<string, unknown>>(
     });
   }
 
-  return {
-    ...result,
+  return Object.assign(result, {
     metrics: {
       evaluationMs: evaluationDurationMs,
       readMs: datafile.metrics.readMs,
       source: datafile.metrics.source,
       cacheStatus: datafile.metrics.cacheStatus,
     },
-  };
+  });
 }

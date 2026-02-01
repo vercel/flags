@@ -117,14 +117,13 @@ export class FlagNetworkDataSource implements DataSource {
     const readMs = Date.now() - startTime;
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
-    return {
-      ...result,
+    return Object.assign(result, {
       metrics: {
         readMs,
         source,
         cacheStatus,
       },
-    };
+    }) satisfies Datafile;
   }
 
   async shutdown(): Promise<void> {
@@ -173,14 +172,13 @@ export class FlagNetworkDataSource implements DataSource {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
     }
 
-    return {
-      ...result,
+    return Object.assign(result, {
       metrics: {
         readMs: Date.now() - startTime,
         source,
         cacheStatus,
       },
-    };
+    }) satisfies Datafile;
   }
 
   async getFallbackDatafile(): Promise<BundledDefinitions> {
