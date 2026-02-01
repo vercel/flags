@@ -37,12 +37,16 @@ export function createCreateRawClient(fns: {
 
     // try to squeeze out some perf if we're already initialized
     let initialized = false;
+    // dedupe parallel init calls
     let initializingPromise: Promise<void> | null = null;
 
     const api = {
       origin,
       initialize: async () => {
+        // Fast path for already-initialized, much faster than returning the promise
         if (initialized) return;
+
+        // Slower path if there is an in-progress initialization
         if (initializingPromise) return initializingPromise;
 
         initializingPromise = (async () => {
