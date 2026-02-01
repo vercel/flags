@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as defaultExports from './index.default';
 import * as nextJsExports from './index.next-js';
 
-const { createRawClient, flagsClient } = defaultExports;
+const { flagsClient } = defaultExports;
 
 describe('index exports equivalence', () => {
   it('should have equivalent exports between index.default.ts and index.next-js.ts', () => {
@@ -15,27 +15,6 @@ describe('index exports equivalence', () => {
     );
 
     expect(nextJsKeysWithoutCachedFns).toEqual(defaultKeys);
-  });
-});
-
-describe('createRawClient', () => {
-  it('should allow creating a client', () => {
-    const client = createRawClient({
-      dataSource: {
-        async read() {
-          return {
-            definitions: {},
-            segments: {},
-            projectId: 'test',
-            environment: 'production',
-          };
-        },
-        async getInfo() {
-          return { projectId: 'test' };
-        },
-      },
-    });
-    expect(client).toBeDefined();
   });
 });
 

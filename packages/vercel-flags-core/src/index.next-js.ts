@@ -66,8 +66,8 @@ export const cachedFns: typeof fns = {
 };
 
 export * from './index.common';
-export const createRawClient = createCreateRawClient(cachedFns);
 
 // no JSDoc needed here since editors will use the one if index.default.ts
-export const { flagsClient, resetDefaultFlagsClient, createClient } =
-  make(createRawClient);
+export const { flagsClient, resetDefaultFlagsClient, createClient } = make(
+  createCreateRawClient(cachedFns),
+);

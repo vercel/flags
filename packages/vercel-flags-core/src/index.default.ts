@@ -16,16 +16,6 @@ import { make } from './index.make';
 
 export * from './index.common';
 
-/**
- * Creates a Vercel Flags client
- *
- * @example
- *  const flagsClient = createClient({
- *    dataSource: new NetworkDataSource('vf_xxx'),
- *  });
- */
-export const createRawClient = createCreateRawClient(fns);
-
 export const {
   /**
    * A lazily-initialized default flags client.
@@ -42,4 +32,4 @@ export const {
    * Create a flags client based on an SDK Key
    */
   createClient,
-} = make(createRawClient);
+} = make(createCreateRawClient(fns));

@@ -1,9 +1,12 @@
 import { StandardResolutionReasons } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
+import * as fns from './client-fns';
+import { createCreateRawClient } from './create-raw-client';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
-import { createRawClient } from './index.default';
 import { VercelProvider } from './openfeature.default';
 import type { Packed } from './types';
+
+const createRawClient = createCreateRawClient(fns);
 
 describe('VercelProvider', () => {
   describe('constructor', () => {
