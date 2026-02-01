@@ -49,12 +49,16 @@ export function createCreateRawClient(fns: {
         // Slower path if there is an in-progress initialization
         if (initializingPromise) return initializingPromise;
 
-        initializingPromise = (async () => {
-          if (!clientMap.has(id)) clientMap.set(id, dataSource);
-          await fns.initialize(id);
-          initialized = true;
-          initializingPromise = null;
-        })();
+        // We only need add the data source to the map once, but
+        // not for subsequent calls
+        clientMap.set(id, dataSource);
+
+        initializingPromise ??= fns.initialize(id);
+        await initializingPromise;
+
+        // only set after initialization is complete,
+        // as otherwise it's not safe to short-circuit
+        initialized = true;
 
         return initializingPromise;
       },
