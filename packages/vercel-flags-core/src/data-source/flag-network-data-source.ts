@@ -140,7 +140,8 @@ export class FlagNetworkDataSource implements DataSource {
 
   async read(): Promise<Datafile> {
     const startTime = Date.now();
-    const cacheHadDefinitions = this.data !== undefined;
+    const cachedData = this.data; // Capture reference to avoid race conditions
+    const cacheHadDefinitions = cachedData !== undefined;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
@@ -150,8 +151,8 @@ export class FlagNetworkDataSource implements DataSource {
 
     if (this.isBuildStep) {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
-    } else if (this.data) {
-      [result, source, cacheStatus] = this.getDataFromCache();
+    } else if (cachedData) {
+      [result, source, cacheStatus] = this.getDataFromCache(cachedData);
     } else {
       [result, source, cacheStatus] = await this.getDataWithStreamTimeout();
     }
@@ -314,15 +315,14 @@ export class FlagNetworkDataSource implements DataSource {
     return streamPromise;
   }
 
-  private getDataFromCache(): [
-    Omit<Datafile, 'metrics'>,
-    Metrics['source'],
-    Metrics['cacheStatus'],
-  ] {
+  private getDataFromCache(
+    cachedData?: Datafile,
+  ): [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']] {
+    const data = cachedData ?? this.data!;
     this.warnIfDisconnected();
     // STALE when stream is disconnected (data may be outdated)
     const cacheStatus = this.isStreamConnected ? 'HIT' : 'STALE';
-    return [this.data!, 'in-memory', cacheStatus];
+    return [data, 'in-memory', cacheStatus];
   }
 
   private async getDataWithStreamTimeout(): Promise<
