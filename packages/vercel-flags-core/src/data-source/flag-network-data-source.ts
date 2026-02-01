@@ -9,26 +9,68 @@ import type {
   Metrics,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import { sleep } from '../utils/sleep';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 import { connectStream } from './stream-connection';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
 const DEFAULT_STREAM_TIMEOUT_MS = 3000;
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+const MAX_FETCH_RETRIES = 3;
+const FETCH_RETRY_BASE_DELAY_MS = 500;
 
 async function fetchDatafile(
   host: string,
   sdkKey: string,
 ): Promise<BundledDefinitions> {
-  const res = await fetch(`${host}/v1/datafile`, {
-    headers: {
-      Authorization: `Bearer ${sdkKey}`,
-      'User-Agent': `VercelFlagsCore/${version}`,
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch data: ${res.statusText}`);
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < MAX_FETCH_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      DEFAULT_FETCH_TIMEOUT_MS,
+    );
+
+    try {
+      const res = await fetch(`${host}/v1/datafile`, {
+        headers: {
+          Authorization: `Bearer ${sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        // Don't retry 4xx errors (except 429)
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          throw new Error(`Failed to fetch data: ${res.statusText}`);
+        }
+        throw new Error(`Failed to fetch data: ${res.statusText}`);
+      }
+
+      return res.json() as Promise<BundledDefinitions>;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError =
+        error instanceof Error ? error : new Error('Unknown fetch error');
+
+      // Don't retry 4xx errors (they were thrown above and will propagate)
+      if (lastError.message.startsWith('Failed to fetch data:')) {
+        throw lastError;
+      }
+
+      if (attempt < MAX_FETCH_RETRIES - 1) {
+        const delay =
+          FETCH_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
+        await sleep(delay);
+      }
+    }
   }
-  return res.json() as Promise<BundledDefinitions>;
+
+  throw lastError ?? new Error('Failed to fetch data after retries');
 }
 
 /**
