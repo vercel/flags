@@ -37,17 +37,27 @@ export function createCreateRawClient(fns: {
 
     // try to squeeze out some perf if we're already initialized
     let initialized = false;
+    let initializingPromise: Promise<void> | null = null;
+
     const api = {
       origin,
       initialize: async () => {
         if (initialized) return;
-        if (!clientMap.has(id)) clientMap.set(id, dataSource);
-        await fns.initialize(id);
-        initialized = true;
+        if (initializingPromise) return initializingPromise;
+
+        initializingPromise = (async () => {
+          if (!clientMap.has(id)) clientMap.set(id, dataSource);
+          await fns.initialize(id);
+          initialized = true;
+          initializingPromise = null;
+        })();
+
+        return initializingPromise;
       },
       shutdown: async () => {
         await fns.shutdown(id);
         initialized = false;
+        initializingPromise = null;
         clientMap.delete(id);
       },
       getInfo: async () => {
