@@ -170,6 +170,7 @@ describe('FlagNetworkDataSource', () => {
     expect(result).toMatchObject(definitions);
     expect(result.metrics.source).toBe('in-memory');
     expect(result.metrics.cacheStatus).toBe('MISS');
+    expect(result.metrics.connectionState).toBe('connected');
 
     await dataSource.shutdown();
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
@@ -246,6 +247,7 @@ describe('FlagNetworkDataSource', () => {
     expect(result).toMatchObject(bundledDefinitions);
     expect(result.metrics.source).toBe('embedded');
     expect(result.metrics.cacheStatus).toBe('STALE');
+    expect(result.metrics.connectionState).toBe('disconnected');
 
     // Should have taken roughly 3 seconds (the timeout)
     expect(elapsed).toBeGreaterThanOrEqual(2900);
@@ -288,6 +290,7 @@ describe('FlagNetworkDataSource', () => {
     expect(result).toMatchObject(bundledDefinitions);
     expect(result.metrics.source).toBe('embedded');
     expect(result.metrics.cacheStatus).toBe('STALE');
+    expect(result.metrics.connectionState).toBe('disconnected');
 
     await dataSource.shutdown();
 
@@ -434,6 +437,7 @@ describe('FlagNetworkDataSource', () => {
       expect(result).toMatchObject(bundledDefinitions);
       expect(result.metrics.source).toBe('embedded');
       expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
 
       await dataSource.shutdown();
     });
@@ -520,6 +524,7 @@ describe('FlagNetworkDataSource', () => {
       expect(result).toMatchObject(fetchedDefinitions);
       expect(result.metrics.source).toBe('remote');
       expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
 
       await dataSource.shutdown();
     });
@@ -723,6 +728,7 @@ describe('FlagNetworkDataSource', () => {
       expect(result).toMatchObject(bundledDefinitions);
       expect(result.metrics.source).toBe('embedded');
       expect(result.metrics.cacheStatus).toBe('STALE');
+      expect(result.metrics.connectionState).toBe('disconnected');
       expect(elapsed).toBeGreaterThanOrEqual(450);
       expect(elapsed).toBeLessThan(1500);
 

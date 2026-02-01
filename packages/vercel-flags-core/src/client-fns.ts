@@ -53,6 +53,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
         readMs: datafile.metrics.readMs,
         source: datafile.metrics.source,
         cacheStatus: datafile.metrics.cacheStatus,
+        connectionState: datafile.metrics.connectionState,
       },
     };
   }
@@ -85,6 +86,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       readMs: datafile.metrics.readMs,
       source: datafile.metrics.source,
       cacheStatus: datafile.metrics.cacheStatus,
+      connectionState: datafile.metrics.connectionState,
     },
   });
 }

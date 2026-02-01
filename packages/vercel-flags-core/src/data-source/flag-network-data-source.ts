@@ -165,6 +165,9 @@ export class FlagNetworkDataSource implements DataSource {
         readMs,
         source,
         cacheStatus,
+        connectionState: this.isStreamConnected
+          ? ('connected' as const)
+          : ('disconnected' as const),
       },
     }) satisfies Datafile;
   }
@@ -220,6 +223,9 @@ export class FlagNetworkDataSource implements DataSource {
         readMs: Date.now() - startTime,
         source,
         cacheStatus,
+        connectionState: this.isStreamConnected
+          ? ('connected' as const)
+          : ('disconnected' as const),
       },
     }) satisfies Datafile;
   }

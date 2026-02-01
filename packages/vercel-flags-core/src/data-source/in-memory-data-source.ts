@@ -25,6 +25,7 @@ export class InMemoryDataSource implements DataSource {
         readMs: 0,
         source: 'in-memory' as const,
         cacheStatus: 'HIT' as const,
+        connectionState: 'connected' as const,
       },
     }) satisfies Datafile;
   }
@@ -37,6 +38,7 @@ export class InMemoryDataSource implements DataSource {
         readMs: 0,
         source: 'in-memory' as const,
         cacheStatus: 'HIT' as const,
+        connectionState: 'connected' as const,
       },
     }) satisfies Datafile;
   }
