@@ -289,6 +289,15 @@ function handleSegmentOutcome<T>(
   }
 }
 
+function getVariant<T>(variants: unknown[], index: number): T {
+  if (index < 0 || index >= variants.length) {
+    throw new Error(
+      `@vercel/flags-core: Invalid variant index ${index}, variants length is ${variants.length}`,
+    );
+  }
+  return variants[index] as T;
+}
+
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
@@ -298,18 +307,21 @@ function handleOutcome<T>(
 } {
   if (typeof outcome === 'number') {
     return {
-      value: params.definition.variants[outcome] as T,
+      value: getVariant<T>(params.definition.variants, outcome),
       outcomeType: OutcomeType.VALUE,
     };
   }
   switch (outcome.type) {
     case 'split': {
       const lhs = access(outcome.base, params);
-      const defaultOutcome = params.definition.variants[outcome.defaultVariant];
+      const defaultOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.defaultVariant,
+      );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return { value: defaultOutcome as T, outcomeType: OutcomeType.SPLIT };
+        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
       }
 
       /** 2^32-1 */
@@ -328,8 +340,8 @@ function handleOutcome<T>(
       return {
         value:
           variantIndex === -1
-            ? (defaultOutcome as T)
-            : (params.definition.variants[variantIndex] as T),
+            ? defaultOutcome
+            : getVariant<T>(params.definition.variants, variantIndex),
         outcomeType: OutcomeType.SPLIT,
       };
     }
