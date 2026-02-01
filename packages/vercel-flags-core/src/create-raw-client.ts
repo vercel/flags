@@ -34,14 +34,20 @@ export function createCreateRawClient(fns: {
   }): FlagsClient {
     const id = idCount++;
     clientMap.set(id, dataSource);
-    return {
+
+    // try to squeeze out some perf if we're already initialized
+    let initialized = false;
+    const api = {
       origin,
       initialize: async () => {
+        if (initialized) return;
         if (!clientMap.has(id)) clientMap.set(id, dataSource);
-        return fns.initialize(id);
+        await fns.initialize(id);
+        initialized = true;
       },
       shutdown: async () => {
         await fns.shutdown(id);
+        initialized = false;
         clientMap.delete(id);
       },
       getInfo: async () => {
@@ -50,16 +56,18 @@ export function createCreateRawClient(fns: {
       getDatafile: async () => {
         return fns.getDatafile(id);
       },
-      async getFallbackDatafile(): Promise<BundledDefinitions> {
+      getFallbackDatafile: (): Promise<BundledDefinitions> => {
         return fns.getFallbackDatafile(id);
       },
-      async evaluate<T = Value, E = Record<string, unknown>>(
+      evaluate: async <T = Value, E = Record<string, unknown>>(
         flagKey: string,
         defaultValue?: T,
         entities?: E,
-      ): Promise<EvaluationResult<T>> {
+      ): Promise<EvaluationResult<T>> => {
+        if (!initialized) await api.initialize();
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
     };
+    return api;
   };
 }

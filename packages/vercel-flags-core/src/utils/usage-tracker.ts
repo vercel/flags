@@ -43,19 +43,20 @@ interface RequestContext {
   headers: Record<string, string> | undefined;
 }
 
+const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
+const fromSymbol = globalThis as typeof globalThis & {
+  [key: symbol]:
+    | { get?: () => { headers?: Record<string, string> } }
+    | undefined;
+};
+
 /**
  * Gets the Vercel request context and headers from the global symbol.
  */
 function getRequestContext(): RequestContext {
   try {
-    const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
-    const fromSymbol = globalThis as typeof globalThis & {
-      [key: symbol]:
-        | { get?: () => { headers?: Record<string, string> } }
-        | undefined;
-    };
     const ctx = fromSymbol[SYMBOL_FOR_REQ_CONTEXT]?.get?.();
-    if (ctx && 'headers' in ctx) {
+    if (ctx && Object.hasOwn(ctx, 'headers')) {
       return {
         ctx,
         headers: ctx.headers as Record<string, string>,
