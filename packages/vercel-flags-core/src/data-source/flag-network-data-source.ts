@@ -284,18 +284,20 @@ export class FlagNetworkDataSource implements DataSource {
   private ensureStream(): Promise<void> {
     if (this.streamPromise) return this.streamPromise;
 
-    this.abortController = new AbortController();
+    const abortController = new AbortController();
+    this.abortController = abortController;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
 
-    this.streamPromise = connectStream(
+    const streamPromise = connectStream(
       {
         host: this.host,
         sdkKey: this.sdkKey,
-        abortController: this.abortController,
+        abortController,
       },
       {
         onMessage: (newData) => {
+          // Update data first, then flags (order matters for consistency)
           this.data = newData;
           this.isStreamConnected = true;
           this.hasWarnedAboutStaleData = false;
@@ -306,7 +308,10 @@ export class FlagNetworkDataSource implements DataSource {
       },
     );
 
-    return this.streamPromise;
+    // Store promise immediately to prevent race conditions
+    this.streamPromise = streamPromise;
+
+    return streamPromise;
   }
 
   private getDataFromCache(): [
