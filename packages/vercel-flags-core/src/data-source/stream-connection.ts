@@ -47,7 +47,7 @@ export async function connectStream(
     rejectInit = reject;
   });
 
-  (async () => {
+  void (async () => {
     let initialDataReceived = false;
 
     while (!abortController.signal.aborted) {
