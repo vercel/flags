@@ -1,6 +1,8 @@
 import { waitUntil } from '@vercel/functions';
 import { version } from '../../package.json';
 
+const RESOLVED_VOID: Promise<void> = Promise.resolve();
+
 const debugLog = (...args: any[]) => {
   if (process.env.DEBUG !== '1') return;
   console.log(...args);
@@ -111,7 +113,7 @@ export class UsageTracker {
    */
   flush(): Promise<void> {
     this.batcher.resolveWait?.();
-    return this.batcher.pending ?? Promise.resolve();
+    return this.batcher.pending ?? RESOLVED_VOID;
   }
 
   /**

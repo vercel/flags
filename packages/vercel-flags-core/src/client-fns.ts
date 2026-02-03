@@ -4,29 +4,23 @@ import { internalReportValue } from './lib/report-value';
 import type { BundledDefinitions, EvaluationResult, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
-export async function initialize(id: number) {
-  const ds = clientMap.get(id)!.dataSource;
-  return ds.initialize();
+export function initialize(id: number): Promise<void> {
+  return clientMap.get(id)!.dataSource.initialize();
 }
 
-export async function shutdown(id: number) {
-  const ds = clientMap.get(id)!.dataSource;
-  return ds.shutdown();
+export function shutdown(id: number): void | Promise<void> {
+  return clientMap.get(id)!.dataSource.shutdown();
 }
 
-export async function getInfo(id: number) {
-  const ds = clientMap.get(id)!.dataSource;
-  return ds.getInfo();
+export function getInfo(id: number) {
+  return clientMap.get(id)!.dataSource.getInfo();
 }
 
-export async function getDatafile(id: number) {
-  const ds = clientMap.get(id)!.dataSource;
-  return ds.getDatafile();
+export function getDatafile(id: number) {
+  return clientMap.get(id)!.dataSource.getDatafile();
 }
 
-export async function getFallbackDatafile(
-  id: number,
-): Promise<BundledDefinitions> {
+export function getFallbackDatafile(id: number): Promise<BundledDefinitions> {
   const ds = clientMap.get(id)!.dataSource;
   if (ds.getFallbackDatafile) return ds.getFallbackDatafile();
   throw new Error('flags: This data source does not support fallbacks');

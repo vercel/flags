@@ -1,7 +1,10 @@
 import type { Datafile, DataSource, DataSourceInfo, Packed } from '../types';
 
+const RESOLVED_VOID = Promise.resolve();
+
 export class InMemoryDataSource implements DataSource {
   private data: Omit<Datafile, 'metrics'>;
+  private cachedDatafile: Datafile | undefined;
 
   constructor({
     data,
@@ -15,31 +18,35 @@ export class InMemoryDataSource implements DataSource {
     };
   }
 
-  async getInfo(): Promise<DataSourceInfo> {
-    return { projectId: this.data.projectId };
+  getInfo(): Promise<DataSourceInfo> {
+    return Promise.resolve({ projectId: this.data.projectId });
   }
 
-  async getDatafile(): Promise<Datafile> {
-    return Object.assign(this.data, {
-      metrics: {
-        readMs: 0,
-        source: 'in-memory' as const,
-        cacheStatus: 'HIT' as const,
-        connectionState: 'connected' as const,
-      },
-    }) satisfies Datafile;
+  getDatafile(): Promise<Datafile> {
+    return Promise.resolve(this.getDatafileSync());
   }
 
-  async initialize(): Promise<void> {}
-  async shutdown(): Promise<void> {}
-  async read(): Promise<Datafile> {
-    return Object.assign(this.data, {
-      metrics: {
-        readMs: 0,
-        source: 'in-memory' as const,
-        cacheStatus: 'HIT' as const,
-        connectionState: 'connected' as const,
-      },
-    }) satisfies Datafile;
+  initialize(): Promise<void> {
+    return RESOLVED_VOID;
+  }
+
+  shutdown(): void {}
+
+  read(): Promise<Datafile> {
+    return Promise.resolve(this.getDatafileSync());
+  }
+
+  private getDatafileSync(): Datafile {
+    if (!this.cachedDatafile) {
+      this.cachedDatafile = Object.assign(this.data, {
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      }) satisfies Datafile;
+    }
+    return this.cachedDatafile;
   }
 }

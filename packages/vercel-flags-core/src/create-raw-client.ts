@@ -55,12 +55,8 @@ export function createCreateRawClient(fns: {
         await fns.shutdown(id);
         clientMap.delete(id);
       },
-      getInfo: async () => {
-        return fns.getInfo(id);
-      },
-      getDatafile: async () => {
-        return fns.getDatafile(id);
-      },
+      getInfo: () => fns.getInfo(id),
+      getDatafile: () => fns.getDatafile(id),
       getFallbackDatafile: (): Promise<BundledDefinitions> => {
         return fns.getFallbackDatafile(id);
       },

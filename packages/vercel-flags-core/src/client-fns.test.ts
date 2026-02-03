@@ -97,8 +97,8 @@ describe('client-fns', () => {
       expect(result).toBe('init-result');
     });
 
-    it('should throw if client ID is not in map', async () => {
-      await expect(initialize(999)).rejects.toThrow();
+    it('should throw if client ID is not in map', () => {
+      expect(() => initialize(999)).toThrow();
     });
   });
 
@@ -123,8 +123,8 @@ describe('client-fns', () => {
       expect(result).toBe('shutdown-result');
     });
 
-    it('should throw if client ID is not in map', async () => {
-      await expect(shutdown(999)).rejects.toThrow();
+    it('should throw if client ID is not in map', () => {
+      expect(() => shutdown(999)).toThrow();
     });
   });
 
@@ -149,8 +149,8 @@ describe('client-fns', () => {
       expect(result).toEqual({ projectId: 'my-project' });
     });
 
-    it('should throw if client ID is not in map', async () => {
-      await expect(getInfo(999)).rejects.toThrow();
+    it('should throw if client ID is not in map', () => {
+      expect(() => getInfo(999)).toThrow();
     });
   });
 
@@ -194,19 +194,19 @@ describe('client-fns', () => {
       expect(result).toEqual(mockFallback);
     });
 
-    it('should throw if dataSource does not have getFallbackDatafile', async () => {
+    it('should throw if dataSource does not have getFallbackDatafile', () => {
       const dataSource = createMockDataSource();
       // Remove getFallbackDatafile
       delete (dataSource as Partial<DataSource>).getFallbackDatafile;
       clientMap.set(CLIENT_ID, { dataSource, initialized: false });
 
-      await expect(getFallbackDatafile(CLIENT_ID)).rejects.toThrow(
+      expect(() => getFallbackDatafile(CLIENT_ID)).toThrow(
         'flags: This data source does not support fallbacks',
       );
     });
 
-    it('should throw if client ID is not in map', async () => {
-      await expect(getFallbackDatafile(999)).rejects.toThrow();
+    it('should throw if client ID is not in map', () => {
+      expect(() => getFallbackDatafile(999)).toThrow();
     });
   });
 
