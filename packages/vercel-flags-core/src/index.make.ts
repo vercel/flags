@@ -27,7 +27,7 @@ export function make(
       sdkKeyOrConnectionString,
     );
     if (!sdkKey) {
-      throw new Error('flags: Missing sdkKey');
+      throw new Error('flags: Missing sdkKey in connection string');
     }
 
     // sdk key contains the environment
