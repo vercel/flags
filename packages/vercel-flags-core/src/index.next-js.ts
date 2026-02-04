@@ -31,7 +31,7 @@ function setCacheLife(): void {
   }
 }
 
-export const cachedFns: typeof fns = {
+const cachedFns: typeof fns = {
   initialize: async (...args) => {
     'use cache';
     setCacheLife();

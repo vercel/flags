@@ -9,12 +9,7 @@ describe('index exports equivalence', () => {
     const defaultKeys = Object.keys(defaultExports).sort();
     const nextJsKeys = Object.keys(nextJsExports).sort();
 
-    // next-js exports cachedFns which default doesn't have
-    const nextJsKeysWithoutCachedFns = nextJsKeys.filter(
-      (key) => key !== 'cachedFns',
-    );
-
-    expect(nextJsKeysWithoutCachedFns).toEqual(defaultKeys);
+    expect(nextJsKeys).toEqual(defaultKeys);
   });
 });
 
