@@ -214,6 +214,12 @@ describe('FlagNetworkDataSource', () => {
       updatedAt: 1000,
       digest: 'aa',
       revision: 1,
+      metrics: {
+        readMs: 0,
+        source: 'embedded',
+        cacheStatus: 'HIT',
+        connectionState: 'disconnected',
+      },
     };
 
     // Mock bundled definitions to return valid data
@@ -236,7 +242,10 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new FlagNetworkDataSource({
+      sdkKey: 'vf_test_key',
+      polling: false, // Disable polling to test stream timeout in isolation
+    });
 
     // read should return bundledDefinitions after timeout (3s default)
     const startTime = Date.now();
@@ -244,7 +253,11 @@ describe('FlagNetworkDataSource', () => {
     const elapsed = Date.now() - startTime;
 
     // Should have returned bundled definitions with STALE status
-    expect(result).toMatchObject(bundledDefinitions);
+    expect(result).toMatchObject({
+      projectId: 'bundled-project',
+      definitions: {},
+      environment: 'production',
+    });
     expect(result.metrics.source).toBe('embedded');
     expect(result.metrics.cacheStatus).toBe('STALE');
     expect(result.metrics.connectionState).toBe('disconnected');
@@ -265,6 +278,12 @@ describe('FlagNetworkDataSource', () => {
       updatedAt: 1000,
       digest: 'aa',
       revision: 1,
+      metrics: {
+        readMs: 0,
+        source: 'embedded',
+        cacheStatus: 'HIT',
+        connectionState: 'disconnected',
+      },
     };
 
     // Mock bundled definitions to return valid data
@@ -280,14 +299,21 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new FlagNetworkDataSource({
+      sdkKey: 'vf_test_key',
+      polling: false, // Disable polling to test stream error fallback in isolation
+    });
 
     // Suppress expected error logs for this test
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const result = await dataSource.read();
 
-    expect(result).toMatchObject(bundledDefinitions);
+    expect(result).toMatchObject({
+      projectId: 'bundled-project',
+      definitions: {},
+      environment: 'production',
+    });
     expect(result.metrics.source).toBe('embedded');
     expect(result.metrics.cacheStatus).toBe('STALE');
     expect(result.metrics.connectionState).toBe('disconnected');
@@ -418,11 +444,19 @@ describe('FlagNetworkDataSource', () => {
 
       const bundledDefinitions: BundledDefinitions = {
         projectId: 'bundled',
-        definitions: { flag: { variants: [true] } },
+        definitions: {
+          flag: { variants: [true], environments: {} },
+        },
         environment: 'production',
         updatedAt: 1,
         digest: 'a',
         revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -452,6 +486,12 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -539,6 +579,12 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -573,6 +619,12 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -691,8 +743,8 @@ describe('FlagNetworkDataSource', () => {
     });
   });
 
-  describe('custom streamTimeoutMs', () => {
-    it('should use custom timeout value', async () => {
+  describe('custom stream options', () => {
+    it('should use custom initTimeoutMs value', async () => {
       const bundledDefinitions: BundledDefinitions = {
         projectId: 'bundled',
         definitions: {},
@@ -700,6 +752,12 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -718,14 +776,19 @@ describe('FlagNetworkDataSource', () => {
 
       const dataSource = new FlagNetworkDataSource({
         sdkKey: 'vf_test_key',
-        streamTimeoutMs: 500, // Much shorter timeout
+        stream: { initTimeoutMs: 500 }, // Much shorter timeout
+        polling: false, // Disable polling to test stream timeout directly
       });
 
       const startTime = Date.now();
       const result = await dataSource.read();
       const elapsed = Date.now() - startTime;
 
-      expect(result).toMatchObject(bundledDefinitions);
+      expect(result).toMatchObject({
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+      });
       expect(result.metrics.source).toBe('embedded');
       expect(result.metrics.cacheStatus).toBe('STALE');
       expect(result.metrics.connectionState).toBe('disconnected');
@@ -734,5 +797,440 @@ describe('FlagNetworkDataSource', () => {
 
       dataSource.shutdown();
     }, 5000);
+
+    it('should disable stream when stream: false', async () => {
+      let streamRequested = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: true,
+      });
+
+      await dataSource.read();
+
+      expect(streamRequested).toBe(false);
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('polling options', () => {
+    it('should use polling when enabled', async () => {
+      let pollCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: { count: pollCount },
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+      });
+
+      const result = await dataSource.read();
+
+      expect(result.projectId).toBe('polled');
+      expect(pollCount).toBeGreaterThanOrEqual(1);
+
+      // Wait for a few poll intervals
+      await new Promise((r) => setTimeout(r, 350));
+
+      expect(pollCount).toBeGreaterThanOrEqual(3);
+
+      await dataSource.shutdown();
+    });
+
+    it('should disable polling when polling: false', async () => {
+      let pollCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: true,
+        polling: false,
+      });
+
+      await dataSource.read();
+
+      expect(pollCount).toBe(0);
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('datafile option', () => {
+    it('should use provided datafile immediately', async () => {
+      let streamRequested = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const providedDatafile = {
+        projectId: 'provided',
+        definitions: {},
+        environment: 'production',
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      };
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        datafile: providedDatafile,
+      });
+
+      // Should immediately return provided datafile
+      const result = await dataSource.read();
+
+      expect(result.projectId).toBe('provided');
+      expect(result.metrics.source).toBe('in-memory');
+
+      await dataSource.shutdown();
+    });
+
+    it('should skip bundled definitions when datafile is provided', async () => {
+      const providedDatafile = {
+        projectId: 'provided',
+        definitions: {},
+        environment: 'production',
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      };
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        datafile: providedDatafile,
+        stream: false,
+        polling: false,
+      });
+
+      // readBundledDefinitions should not be called when datafile is provided
+      expect(readBundledDefinitions).not.toHaveBeenCalled();
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('stream/polling coordination', () => {
+    it('should stop polling when stream connects', async () => {
+      let pollCount = 0;
+      let streamDataSent = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', async ({ request }) => {
+          // Wait a bit to let polling start first
+          await new Promise((r) => setTimeout(r, 200));
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    JSON.stringify({
+                      type: 'datafile',
+                      data: { projectId: 'stream', definitions: {} },
+                    }) + '\n',
+                  ),
+                );
+                streamDataSent = true;
+                // Keep stream open
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: { count: pollCount },
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: { initTimeoutMs: 100 }, // Short timeout to trigger polling fallback
+        polling: { intervalMs: 50, initTimeoutMs: 5000 },
+      });
+
+      // This should initially get data from polling (stream times out)
+      await dataSource.read();
+
+      // Wait for stream data to be sent
+      await vi.waitFor(
+        () => {
+          expect(streamDataSent).toBe(true);
+        },
+        { timeout: 2000 },
+      );
+
+      // Record poll count at this point
+      const pollCountAfterStreamConnect = pollCount;
+
+      // Wait for what would be several poll intervals
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Polling should have stopped - count should not have increased much
+      // (there might be 1-2 more polls in flight when stream connected)
+      expect(pollCount).toBeLessThanOrEqual(pollCountAfterStreamConnect + 2);
+
+      await dataSource.shutdown();
+    });
+
+    it('should fall back to polling when stream fails', async () => {
+      let pollCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          return new HttpResponse(null, { status: 500 });
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: { count: pollCount },
+            environment: 'production',
+          });
+        }),
+      );
+
+      // Suppress expected error logs
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: { initTimeoutMs: 100 },
+        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+      });
+
+      const result = await dataSource.read();
+
+      // Should have gotten data from polling
+      expect(result.projectId).toBe('polled');
+      expect(pollCount).toBeGreaterThanOrEqual(1);
+
+      await dataSource.shutdown();
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it('should never stream and poll simultaneously when stream is connected', async () => {
+      let streamRequestCount = 0;
+      let pollRequestCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          streamRequestCount++;
+          // Create a stream that stays open (simulating connected stream)
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    JSON.stringify({
+                      type: 'datafile',
+                      data: { projectId: 'stream', definitions: {} },
+                    }) + '\n',
+                  ),
+                );
+                // Keep stream open by not closing controller
+                // Will be closed when test calls shutdown()
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollRequestCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: true,
+        polling: false, // Disable polling to test stream-only mode
+      });
+
+      await dataSource.read();
+
+      // Stream should be used, polling should not be triggered
+      expect(streamRequestCount).toBe(1);
+      expect(pollRequestCount).toBe(0);
+
+      // Wait to see if any polls happen
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Still no polls should have happened
+      expect(pollRequestCount).toBe(0);
+
+      await dataSource.shutdown();
+    });
+
+    it('should use datafile immediately while starting background stream', async () => {
+      let streamConnected = false;
+      let dataUpdated = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', async ({ request }) => {
+          // Simulate slow stream connection
+          await new Promise((r) => setTimeout(r, 200));
+          streamConnected = true;
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    JSON.stringify({
+                      type: 'datafile',
+                      data: {
+                        projectId: 'stream',
+                        definitions: { updated: true },
+                      },
+                    }) + '\n',
+                  ),
+                );
+                dataUpdated = true;
+                // Keep stream open
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const providedDatafile = {
+        projectId: 'provided',
+        definitions: { initial: true },
+        environment: 'production',
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      };
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        datafile: providedDatafile,
+        stream: true,
+        polling: false,
+      });
+
+      // Call initialize to start background updates
+      await dataSource.initialize();
+
+      // First read should be immediate (from provided datafile)
+      const startTime = Date.now();
+      const result = await dataSource.read();
+      const elapsed = Date.now() - startTime;
+
+      expect(result.projectId).toBe('provided');
+      expect(elapsed).toBeLessThan(100); // Should be very fast
+      expect(streamConnected).toBe(false); // Stream hasn't connected yet
+
+      // Wait for stream to connect and update data
+      await vi.waitFor(
+        () => {
+          expect(dataUpdated).toBe(true);
+        },
+        { timeout: 2000 },
+      );
+
+      // Now read should return stream data
+      const updatedResult = await dataSource.read();
+      expect(updatedResult.definitions).toEqual({ updated: true });
+      expect(updatedResult.projectId).toBe('stream');
+
+      await dataSource.shutdown();
+    });
   });
 });

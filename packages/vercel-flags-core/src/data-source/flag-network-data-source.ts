@@ -7,6 +7,8 @@ import type {
   DataSource,
   DataSourceInfo,
   Metrics,
+  PollingOptions,
+  StreamOptions,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { sleep } from '../utils/sleep';
@@ -14,21 +16,98 @@ import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 import { connectStream } from './stream-connection';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
-const DEFAULT_STREAM_TIMEOUT_MS = 3000;
+const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
+const DEFAULT_POLLING_INTERVAL_MS = 30_000;
+const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const MAX_FETCH_RETRIES = 3;
 const FETCH_RETRY_BASE_DELAY_MS = 500;
+
+/**
+ * Configuration options for FlagNetworkDataSource
+ */
+export type FlagNetworkDataSourceOptions = {
+  /** SDK key for authentication (must start with "vf_") */
+  sdkKey: string;
+
+  /**
+   * Enable/configure streaming connection
+   * - `true`: Enable with default options (initTimeoutMs: 3000)
+   * - `false`: Disable streaming
+   * - `{ initTimeoutMs: number }`: Enable with custom timeout
+   */
+  stream?: boolean | StreamOptions;
+
+  /**
+   * Enable/configure polling
+   * - `true`: Enable with default options (intervalMs: 30000, initTimeoutMs: 10000)
+   * - `false`: Disable polling
+   * - `{ intervalMs: number, initTimeoutMs: number }`: Enable with custom options
+   */
+  polling?: boolean | PollingOptions;
+
+  /**
+   * Initial datafile to use immediately (e.g., from SSR props)
+   * When provided, this data is used immediately while background updates happen
+   */
+  datafile?: Datafile;
+};
+
+/**
+ * Normalized internal options
+ */
+type NormalizedOptions = {
+  sdkKey: string;
+  stream: { enabled: boolean; initTimeoutMs: number };
+  polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  datafile: Datafile | undefined;
+};
+
+/**
+ * Normalizes user-provided options to internal format with defaults
+ */
+function normalizeOptions(
+  options: FlagNetworkDataSourceOptions,
+): NormalizedOptions {
+  let stream: NormalizedOptions['stream'];
+  if (options.stream === undefined || options.stream === true) {
+    stream = { enabled: true, initTimeoutMs: DEFAULT_STREAM_INIT_TIMEOUT_MS };
+  } else if (options.stream === false) {
+    stream = { enabled: false, initTimeoutMs: 0 };
+  } else {
+    stream = { enabled: true, initTimeoutMs: options.stream.initTimeoutMs };
+  }
+
+  let polling: NormalizedOptions['polling'];
+  if (options.polling === undefined || options.polling === true) {
+    polling = {
+      enabled: true,
+      intervalMs: DEFAULT_POLLING_INTERVAL_MS,
+      initTimeoutMs: DEFAULT_POLLING_INIT_TIMEOUT_MS,
+    };
+  } else if (options.polling === false) {
+    polling = { enabled: false, intervalMs: 0, initTimeoutMs: 0 };
+  } else {
+    polling = {
+      enabled: true,
+      intervalMs: options.polling.intervalMs,
+      initTimeoutMs: options.polling.initTimeoutMs,
+    };
+  }
+
+  return {
+    sdkKey: options.sdkKey,
+    stream,
+    polling,
+    datafile: options.datafile,
+  };
+}
 
 /**
  * Fetches the datafile from the flags service with retry logic.
  *
  * Implements exponential backoff with jitter for transient failures.
  * Does not retry 4xx errors (except 429) as they indicate client errors.
- *
- * @param host - The base URL of the flags service
- * @param sdkKey - The SDK key for authentication
- * @returns The bundled definitions from the remote service
- * @throws Error if all retry attempts fail or a non-retryable error occurs
  */
 async function fetchDatafile(
   host: string,
@@ -87,27 +166,35 @@ async function fetchDatafile(
 /**
  * A DataSource implementation that connects to flags.vercel.com.
  *
- * During build steps (CI or Next.js production build), it uses bundled
- * definitions with a fallback to HTTP fetch.
+ * Supports multiple data fetching mechanisms with fallback:
+ * 1. Streaming - real-time updates via SSE
+ * 2. Polling - interval-based HTTP requests
+ * 3. Provided datafile - initial data passed in options
+ * 4. Bundled definitions - build-time packaged definitions
  *
- * During runtime, it maintains a streaming connection for real-time updates,
- * with bundled definitions as a timeout fallback.
+ * Stream and polling never run simultaneously. If stream is available,
+ * polling is stopped. If stream disconnects, polling is started as fallback.
  */
 export class FlagNetworkDataSource implements DataSource {
-  private sdkKey: string;
+  private options: NormalizedOptions;
   private host = FLAGS_HOST;
   private isBuildStep: boolean;
-  private streamTimeoutMs: number;
 
   // Data state
   private data: Datafile | undefined;
-  private bundledDefinitionsPromise: Promise<BundledDefinitionsResult>;
+  private bundledDefinitionsPromise:
+    | Promise<BundledDefinitionsResult>
+    | undefined;
 
   // Stream state
-  private abortController: AbortController | undefined;
+  private streamAbortController: AbortController | undefined;
   private streamPromise: Promise<void> | undefined;
   private isStreamConnected: boolean = false;
   private hasWarnedAboutStaleData: boolean = false;
+
+  // Polling state
+  private pollingIntervalId: ReturnType<typeof setInterval> | undefined;
+  private pollingAbortController: AbortController | undefined;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -115,13 +202,8 @@ export class FlagNetworkDataSource implements DataSource {
 
   /**
    * Creates a new FlagNetworkDataSource instance.
-   *
-   * @param options - Configuration options
-   * @param options.sdkKey - The SDK key for authentication (must start with "vf_")
-   * @param options.streamTimeoutMs - Optional timeout in milliseconds for stream connection (defaults to 3000ms)
-   * @throws Error if the SDK key is invalid or missing
    */
-  constructor(options: { sdkKey: string; streamTimeoutMs?: number }) {
+  constructor(options: FlagNetworkDataSourceOptions) {
     if (
       !options.sdkKey ||
       typeof options.sdkKey !== 'string' ||
@@ -132,15 +214,25 @@ export class FlagNetworkDataSource implements DataSource {
       );
     }
 
-    this.sdkKey = options.sdkKey;
-    this.streamTimeoutMs = options.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS;
+    this.options = normalizeOptions(options);
     this.isBuildStep =
       process.env.CI === '1' ||
       process.env.NEXT_PHASE === 'phase-production-build';
 
-    this.bundledDefinitionsPromise = readBundledDefinitions(this.sdkKey);
+    // Only load bundled definitions if no datafile was provided
+    if (!this.options.datafile) {
+      this.bundledDefinitionsPromise = readBundledDefinitions(
+        this.options.sdkKey,
+      );
+    }
+
+    // If datafile provided, use it immediately
+    if (this.options.datafile) {
+      this.data = this.options.datafile;
+    }
+
     this.usageTracker = new UsageTracker({
-      sdkKey: this.sdkKey,
+      sdkKey: this.options.sdkKey,
       host: this.host,
     });
   }
@@ -152,28 +244,49 @@ export class FlagNetworkDataSource implements DataSource {
   /**
    * Initializes the data source.
    *
-   * During build steps, loads bundled definitions or fetches from remote.
-   * During runtime, establishes a streaming connection for real-time updates.
+   * Fallback chain:
+   * 1. Try stream (if enabled) with initTimeoutMs
+   * 2. Try polling (if enabled) with initTimeoutMs
+   * 3. Use provided datafile or bundled definitions
    */
   async initialize(): Promise<void> {
     if (this.isBuildStep) {
       await this.initializeForBuildStep();
-    } else {
-      await this.ensureStream();
+      return;
     }
+
+    // If we already have data (from provided datafile), start background updates
+    // but don't block on them
+    if (this.data) {
+      this.startBackgroundUpdates();
+      return;
+    }
+
+    // Try stream first
+    if (this.options.stream.enabled) {
+      const streamSuccess = await this.tryInitializeStream();
+      if (streamSuccess) return;
+    }
+
+    // Fall back to polling
+    if (this.options.polling.enabled) {
+      const pollingSuccess = await this.tryInitializePolling();
+      if (pollingSuccess) return;
+    }
+
+    // Fall back to provided datafile (already set in constructor if provided)
+    if (this.data) return;
+
+    // Fall back to bundled definitions
+    await this.initializeFromBundled();
   }
 
   /**
    * Reads the current datafile with metrics.
-   *
-   * This is the primary method for accessing flag definitions at runtime.
-   * It manages stream connections and tracks usage statistics.
-   *
-   * @returns The datafile including flag definitions and read metrics
    */
   async read(): Promise<Datafile> {
     const startTime = Date.now();
-    const cachedData = this.data; // Capture reference to avoid race conditions
+    const cachedData = this.data;
     const cacheHadDefinitions = cachedData !== undefined;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
@@ -187,7 +300,7 @@ export class FlagNetworkDataSource implements DataSource {
     } else if (cachedData) {
       [result, source, cacheStatus] = this.getDataFromCache(cachedData);
     } else {
-      [result, source, cacheStatus] = await this.getDataWithStreamTimeout();
+      [result, source, cacheStatus] = await this.getDataWithFallbacks();
     }
 
     const readMs = Date.now() - startTime;
@@ -207,14 +320,10 @@ export class FlagNetworkDataSource implements DataSource {
 
   /**
    * Shuts down the data source and releases resources.
-   *
-   * Aborts any active stream connection, clears cached data,
-   * and flushes pending usage tracking data.
    */
   async shutdown(): Promise<void> {
-    this.abortController?.abort();
-    this.abortController = undefined;
-    this.streamPromise = undefined;
+    this.stopStream();
+    this.stopPolling();
     this.data = undefined;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
@@ -223,16 +332,12 @@ export class FlagNetworkDataSource implements DataSource {
 
   /**
    * Returns information about the data source.
-   *
-   * Uses cached data if available, otherwise fetches from remote.
-   *
-   * @returns Data source info including the project ID
    */
   async getInfo(): Promise<DataSourceInfo> {
     if (this.data) {
       return { projectId: this.data.projectId };
     }
-    const fetched = await fetchDatafile(this.host, this.sdkKey);
+    const fetched = await fetchDatafile(this.host, this.options.sdkKey);
     return { projectId: fetched.projectId };
   }
 
@@ -240,14 +345,7 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns the datafile with metrics.
    *
    * This method never opens a streaming connection, but will read from
-   * the stream if it is already open. This is important because getDatafile
-   * may be called during static generation (e.g., generateStaticParams)
-   * where opening a persistent connection would be inappropriate.
-   *
-   * Data retrieval priority:
-   * 1. During build steps: uses bundled definitions, falls back to HTTP fetch
-   * 2. At runtime with cached data: returns cached data (from stream if connected)
-   * 3. At runtime without cached data: uses bundled definitions, falls back to HTTP fetch
+   * the stream if it is already open.
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
@@ -278,15 +376,12 @@ export class FlagNetworkDataSource implements DataSource {
 
   /**
    * Returns the bundled fallback datafile.
-   *
-   * Used when the primary data source is unavailable and a fallback is needed.
-   *
-   * @returns The bundled definitions
-   * @throws FallbackNotFoundError if no bundled definitions file exists
-   * @throws FallbackEntryNotFoundError if the SDK key entry is missing from bundled definitions
-   * @throws Error if reading bundled definitions fails unexpectedly
    */
   async getFallbackDatafile(): Promise<BundledDefinitions> {
+    if (!this.bundledDefinitionsPromise) {
+      throw new FallbackNotFoundError();
+    }
+
     const bundledResult = await this.bundledDefinitionsPromise;
 
     if (!bundledResult) {
@@ -309,35 +404,262 @@ export class FlagNetworkDataSource implements DataSource {
   }
 
   // ---------------------------------------------------------------------------
+  // Stream management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Attempts to initialize via stream with timeout.
+   * Returns true if stream connected successfully within timeout.
+   */
+  private async tryInitializeStream(): Promise<boolean> {
+    const streamPromise = this.startStream();
+
+    if (this.options.stream.initTimeoutMs <= 0) {
+      // No timeout - wait indefinitely
+      try {
+        await streamPromise;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Race against timeout
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<'timeout'>((resolve) => {
+      timeoutId = setTimeout(
+        () => resolve('timeout'),
+        this.options.stream.initTimeoutMs,
+      );
+    });
+
+    try {
+      const result = await Promise.race([streamPromise, timeoutPromise]);
+      clearTimeout(timeoutId!);
+
+      if (result === 'timeout') {
+        console.warn(
+          '@vercel/flags-core: Stream initialization timeout, falling back',
+        );
+        // Don't abort stream - let it continue trying in background
+        return false;
+      }
+
+      return true;
+    } catch {
+      clearTimeout(timeoutId!);
+      return false;
+    }
+  }
+
+  /**
+   * Starts the stream connection with callbacks for data and disconnect.
+   */
+  private startStream(): Promise<void> {
+    if (this.streamPromise) return this.streamPromise;
+
+    this.streamAbortController = new AbortController();
+    this.isStreamConnected = false;
+    this.hasWarnedAboutStaleData = false;
+
+    try {
+      const streamPromise = connectStream(
+        {
+          host: this.host,
+          sdkKey: this.options.sdkKey,
+          abortController: this.streamAbortController,
+        },
+        {
+          onMessage: (newData) => {
+            this.data = newData;
+            this.isStreamConnected = true;
+            this.hasWarnedAboutStaleData = false;
+
+            // Stream is working - stop polling if it's running
+            if (this.pollingIntervalId) {
+              this.stopPolling();
+            }
+          },
+          onDisconnect: () => {
+            this.isStreamConnected = false;
+
+            // Fall back to polling if enabled and not already polling
+            if (this.options.polling.enabled && !this.pollingIntervalId) {
+              this.startPolling();
+            }
+          },
+        },
+      );
+
+      this.streamPromise = streamPromise;
+      return streamPromise;
+    } catch (error) {
+      this.streamPromise = undefined;
+      this.streamAbortController = undefined;
+      throw error;
+    }
+  }
+
+  /**
+   * Stops the stream connection.
+   */
+  private stopStream(): void {
+    this.streamAbortController?.abort();
+    this.streamAbortController = undefined;
+    this.streamPromise = undefined;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Polling management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Attempts to initialize via polling with timeout.
+   * Returns true if first poll succeeded within timeout.
+   */
+  private async tryInitializePolling(): Promise<boolean> {
+    this.pollingAbortController = new AbortController();
+
+    // Perform initial poll
+    const pollPromise = this.performPoll();
+
+    if (this.options.polling.initTimeoutMs <= 0) {
+      // No timeout - wait indefinitely
+      try {
+        await pollPromise;
+        if (this.data) {
+          this.startPollingInterval();
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    }
+
+    // Race against timeout
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<'timeout'>((resolve) => {
+      timeoutId = setTimeout(
+        () => resolve('timeout'),
+        this.options.polling.initTimeoutMs,
+      );
+    });
+
+    try {
+      const result = await Promise.race([pollPromise, timeoutPromise]);
+      clearTimeout(timeoutId!);
+
+      if (result === 'timeout') {
+        console.warn(
+          '@vercel/flags-core: Polling initialization timeout, falling back',
+        );
+        return false;
+      }
+
+      if (this.data) {
+        this.startPollingInterval();
+        return true;
+      }
+      return false;
+    } catch {
+      clearTimeout(timeoutId!);
+      return false;
+    }
+  }
+
+  /**
+   * Starts polling (initial poll + interval).
+   */
+  private startPolling(): void {
+    if (this.pollingIntervalId) return;
+
+    this.pollingAbortController = new AbortController();
+
+    // Perform initial poll
+    void this.performPoll();
+
+    // Start interval
+    this.startPollingInterval();
+  }
+
+  /**
+   * Starts the polling interval (without initial poll).
+   */
+  private startPollingInterval(): void {
+    if (this.pollingIntervalId) return;
+
+    this.pollingIntervalId = setInterval(
+      () => void this.performPoll(),
+      this.options.polling.intervalMs,
+    );
+  }
+
+  /**
+   * Stops polling.
+   */
+  private stopPolling(): void {
+    if (this.pollingIntervalId) {
+      clearInterval(this.pollingIntervalId);
+      this.pollingIntervalId = undefined;
+    }
+    this.pollingAbortController?.abort();
+    this.pollingAbortController = undefined;
+  }
+
+  /**
+   * Performs a single poll request.
+   */
+  private async performPoll(): Promise<void> {
+    if (this.pollingAbortController?.signal.aborted) return;
+
+    try {
+      const data = await fetchDatafile(this.host, this.options.sdkKey);
+      this.data = data;
+    } catch (error) {
+      console.error('@vercel/flags-core: Poll failed:', error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Background updates
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Starts background updates (stream or polling) without blocking.
+   * Used when we already have data from provided datafile.
+   */
+  private startBackgroundUpdates(): void {
+    if (this.options.stream.enabled) {
+      void this.startStream();
+    } else if (this.options.polling.enabled) {
+      this.startPolling();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Build step helpers
   // ---------------------------------------------------------------------------
 
   /**
-   * Initializes data for build step environments (CI or production build).
-   *
-   * Attempts to load bundled definitions first, falls back to remote fetch.
-   * Sets the cached data for subsequent reads.
+   * Initializes data for build step environments.
    */
   private async initializeForBuildStep(): Promise<void> {
     if (this.data) return;
 
-    const bundledResult = await this.bundledDefinitionsPromise;
-    if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-      this.data = bundledResult.definitions;
-      return;
+    if (this.bundledDefinitionsPromise) {
+      const bundledResult = await this.bundledDefinitionsPromise;
+      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+        this.data = bundledResult.definitions;
+        return;
+      }
     }
-    this.data = await fetchDatafile(this.host, this.sdkKey);
+
+    this.data = await fetchDatafile(this.host, this.options.sdkKey);
   }
 
   /**
    * Retrieves data during build steps.
-   *
-   * Priority order:
-   * 1. In-memory cache (if available)
-   * 2. Bundled definitions
-   * 3. Remote fetch
-   *
-   * @returns A tuple of [datafile, source, cacheStatus]
    */
   private async getDataForBuildStep(): Promise<
     [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
@@ -346,13 +668,15 @@ export class FlagNetworkDataSource implements DataSource {
       return [this.data, 'in-memory', 'HIT'];
     }
 
-    const bundledResult = await this.bundledDefinitionsPromise;
-    if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-      this.data = bundledResult.definitions;
-      return [this.data, 'embedded', 'MISS'];
+    if (this.bundledDefinitionsPromise) {
+      const bundledResult = await this.bundledDefinitionsPromise;
+      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+        this.data = bundledResult.definitions;
+        return [this.data, 'embedded', 'MISS'];
+      }
     }
 
-    this.data = await fetchDatafile(this.host, this.sdkKey);
+    this.data = await fetchDatafile(this.host, this.options.sdkKey);
     return [this.data, 'remote', 'MISS'];
   }
 
@@ -361,155 +685,88 @@ export class FlagNetworkDataSource implements DataSource {
   // ---------------------------------------------------------------------------
 
   /**
-   * Ensures a streaming connection is established.
-   *
-   * Creates a new stream connection if one doesn't exist.
-   * The stream updates cached data on message receipt and tracks connection state.
-   *
-   * @returns A promise that resolves when the stream is connected
-   */
-  private ensureStream(): Promise<void> {
-    if (this.streamPromise) return this.streamPromise;
-
-    const abortController = new AbortController();
-    this.abortController = abortController;
-    this.isStreamConnected = false;
-    this.hasWarnedAboutStaleData = false;
-
-    try {
-      const streamPromise = connectStream(
-        {
-          host: this.host,
-          sdkKey: this.sdkKey,
-          abortController,
-        },
-        {
-          onMessage: (newData) => {
-            // Update data first, then flags (order matters for consistency)
-            this.data = newData;
-            this.isStreamConnected = true;
-            this.hasWarnedAboutStaleData = false;
-          },
-          onDisconnect: () => {
-            this.isStreamConnected = false;
-          },
-        },
-      );
-
-      // Store promise immediately to prevent race conditions
-      this.streamPromise = streamPromise;
-      return streamPromise;
-    } catch (error) {
-      this.streamPromise = undefined;
-      this.abortController = undefined;
-      throw error;
-    }
-  }
-
-  /**
    * Returns data from the in-memory cache.
-   *
-   * Warns if the stream is disconnected (data may be stale).
-   * Cache status is 'HIT' when connected, 'STALE' when disconnected.
-   *
-   * @param cachedData - Optional pre-captured cached data reference
-   * @returns A tuple of [datafile, source, cacheStatus]
    */
   private getDataFromCache(
     cachedData?: Datafile,
   ): [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']] {
     const data = cachedData ?? this.data!;
     this.warnIfDisconnected();
-    // STALE when stream is disconnected (data may be outdated)
     const cacheStatus = this.isStreamConnected ? 'HIT' : 'STALE';
     return [data, 'in-memory', cacheStatus];
   }
 
   /**
-   * Retrieves data with a timeout on stream connection.
-   *
-   * Races the stream connection against a configurable timeout.
-   * If stream times out, falls back to bundled definitions or remote fetch.
-   *
-   * @returns A tuple of [datafile, source, cacheStatus]
+   * Retrieves data using the fallback chain.
    */
-  private async getDataWithStreamTimeout(): Promise<
+  private async getDataWithFallbacks(): Promise<
     [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
   > {
-    const streamPromise = this.ensureStream().then(() => {
-      if (this.data) return this.data;
-      throw new Error('Stream connected but no data received');
-    });
-
-    // If timeout disabled, just wait for stream
-    if (this.streamTimeoutMs <= 0 || !Number.isFinite(this.streamTimeoutMs)) {
-      const data = await streamPromise;
-      return [data, 'in-memory', 'MISS'];
-    }
-
-    // Race stream against timeout with cleanup
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const timeoutPromise = new Promise<'timeout'>((resolve) => {
-      timeoutId = setTimeout(() => resolve('timeout'), this.streamTimeoutMs);
-    });
-
-    try {
-      const result = await Promise.race([streamPromise, timeoutPromise]);
-
-      if (result === 'timeout') {
-        return this.handleStreamTimeout(streamPromise);
+    // Try stream with timeout
+    if (this.options.stream.enabled) {
+      const streamSuccess = await this.tryInitializeStream();
+      if (streamSuccess && this.data) {
+        return [this.data, 'in-memory', 'MISS'];
       }
-
-      return [result, 'in-memory', 'MISS'];
-    } finally {
-      // clear timeout if stream wins race or throws
-      clearTimeout(timeoutId!);
     }
+
+    // Try polling with timeout
+    if (this.options.polling.enabled) {
+      const pollingSuccess = await this.tryInitializePolling();
+      if (pollingSuccess && this.data) {
+        return [this.data, 'remote', 'MISS'];
+      }
+    }
+
+    // Use provided datafile
+    if (this.options.datafile) {
+      this.data = this.options.datafile;
+      return [this.data, 'in-memory', 'STALE'];
+    }
+
+    // Use bundled definitions
+    if (this.bundledDefinitionsPromise) {
+      const bundledResult = await this.bundledDefinitionsPromise;
+      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+        console.warn(
+          '@vercel/flags-core: Using bundled definitions as fallback',
+        );
+        this.data = bundledResult.definitions;
+        return [this.data, 'embedded', 'STALE'];
+      }
+    }
+
+    throw new Error(
+      '@vercel/flags-core: No flag definitions available. ' +
+        'Ensure streaming/polling is enabled or provide a datafile.',
+    );
   }
 
   /**
-   * Handles stream connection timeout by falling back to alternative sources.
-   *
-   * Attempts bundled definitions first, then waits for stream, and finally
-   * falls back to remote fetch if all else fails.
-   *
-   * @param streamPromise - The pending stream connection promise
-   * @returns A tuple of [datafile, source, cacheStatus]
+   * Initializes from bundled definitions.
    */
-  private async handleStreamTimeout(
-    streamPromise: Promise<Omit<Datafile, 'metrics'>>,
-  ): Promise<
-    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
-  > {
-    const bundledResult = await this.bundledDefinitionsPromise;
-
-    if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-      console.warn(
-        '@vercel/flags-core: Stream timeout, using bundled definitions',
+  private async initializeFromBundled(): Promise<void> {
+    if (!this.bundledDefinitionsPromise) {
+      throw new Error(
+        '@vercel/flags-core: No flag definitions available. ' +
+          'Ensure streaming/polling is enabled or provide a datafile.',
       );
-      // STALE because we're falling back to bundled definitions due to stream timeout
-      return [bundledResult.definitions, 'embedded', 'STALE'];
     }
 
-    console.warn(
-      '@vercel/flags-core: Stream timeout and bundled definitions not available, waiting for stream',
+    const bundledResult = await this.bundledDefinitionsPromise;
+    if (bundledResult?.state === 'ok' && bundledResult.definitions) {
+      this.data = bundledResult.definitions;
+      return;
+    }
+
+    throw new Error(
+      '@vercel/flags-core: No flag definitions available. ' +
+        'Bundled definitions not found.',
     );
-
-    // Bundled definitions not available, wait for stream or fetch as last resort
-    try {
-      const data = await streamPromise;
-      return [data, 'in-memory', 'MISS'];
-    } catch {
-      const data = await fetchDatafile(this.host, this.sdkKey);
-      // STALE because we're falling back to remote fetch due to stream failure
-      return [data, 'remote', 'STALE'];
-    }
   }
 
   /**
    * Logs a warning if returning cached data while stream is disconnected.
-   *
-   * Only warns once per disconnection to avoid log spam.
    */
   private warnIfDisconnected(): void {
     if (!this.isStreamConnected && !this.hasWarnedAboutStaleData) {
@@ -526,13 +783,6 @@ export class FlagNetworkDataSource implements DataSource {
 
   /**
    * Tracks a read operation for usage analytics.
-   *
-   * Records metrics about cache behavior, timing, and data source origin.
-   *
-   * @param startTime - The timestamp when the read operation started
-   * @param cacheHadDefinitions - Whether the cache had data at read start
-   * @param isFirstRead - Whether this is the first read operation
-   * @param source - The source from which data was retrieved
    */
   private trackRead(
     startTime: number,
@@ -540,7 +790,6 @@ export class FlagNetworkDataSource implements DataSource {
     isFirstRead: boolean,
     source: Metrics['source'],
   ): void {
-    // Map source to configOrigin for usage tracker (it expects 'in-memory' | 'embedded')
     const configOrigin: 'in-memory' | 'embedded' =
       source === 'embedded' ? 'embedded' : 'in-memory';
     const trackOptions: TrackReadOptions = {

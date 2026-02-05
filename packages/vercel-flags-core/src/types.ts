@@ -1,3 +1,21 @@
+/**
+ * Options for stream connection behavior
+ */
+export type StreamOptions = {
+  /** Timeout in ms to wait for initial stream connection before falling back */
+  initTimeoutMs: number;
+};
+
+/**
+ * Options for polling behavior
+ */
+export type PollingOptions = {
+  /** Interval in ms between polling requests */
+  intervalMs: number;
+  /** Timeout in ms to wait for initial poll before falling back */
+  initTimeoutMs: number;
+};
+
 export type Datafile = Packed.Data & {
   /**
    * If a data source is used with a specific sdk key then

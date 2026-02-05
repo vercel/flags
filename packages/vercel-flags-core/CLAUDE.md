@@ -49,14 +49,33 @@ type FlagsClient = {
 4. Evaluate segment-based rules against entity context
 5. Return fallthrough default if no match
 
-### Data Source Priority
+### FlagNetworkDataSource Options
 
-At runtime:
-1. Stream connection (if connected)
-2. Bundled/embedded definitions (on timeout/disconnection)
-3. HTTP fetch as last resort
+```typescript
+type FlagNetworkDataSourceOptions = {
+  sdkKey: string;
+  stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
+  polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 10s timeout)
+  datafile?: Datafile;  // Initial datafile for immediate reads
+};
+```
 
-Build steps (detected via `CI=1` or Next.js build phase) use a different retrieval strategy.
+### Data Source Priority (Fallback Chain)
+
+At runtime, mechanisms are tried in order:
+1. **Stream** - Real-time updates via SSE, wait up to `initTimeoutMs`
+2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
+3. **Provided datafile** - Use `options.datafile` if provided
+4. **Bundled definitions** - Use `@vercel/flags-definitions` (skipped if datafile provided)
+
+Key behaviors:
+- All mechanisms write to in-memory state
+- If in-memory state exists, serve immediately while background updates happen
+- **Never stream AND poll simultaneously**
+- If stream reconnects while polling → stop polling
+- If stream disconnects → start polling (if enabled)
+
+Build steps (detected via `CI=1` or Next.js build phase) skip streaming/polling and use bundled/fetch only.
 
 ### Resolution Reasons
 
@@ -101,10 +120,19 @@ pnpm test:integration
 
 ### Stream Connection
 
-- Uses fetch with streaming body (NDJSON/server-sent events)
+- Uses fetch with streaming body (NDJSON format)
 - Reconnects with exponential backoff (base: 1s, max: 30s, max retries: 10)
-- Stream timeout default: 3s
+- Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key)
+- On disconnect: falls back to polling if enabled
+
+### Polling
+
+- Interval-based HTTP requests to `/v1/datafile`
+- Default `intervalMs`: 30000ms (30s)
+- Default `initTimeoutMs`: 10000ms (10s)
+- Retries with exponential backoff (base: 500ms, max 3 retries)
+- Stops automatically when stream reconnects
 
 ### Usage Tracking
 

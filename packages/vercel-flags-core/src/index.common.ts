@@ -1,3 +1,7 @@
+export {
+  FlagNetworkDataSource,
+  type FlagNetworkDataSourceOptions,
+} from './data-source/flag-network-data-source';
 export type {
   FallbackEntryNotFoundError,
   FallbackNotFoundError,
@@ -10,5 +14,7 @@ export {
   type EvaluationResult,
   type FlagsClient,
   type Packed,
+  type PollingOptions,
   ResolutionReason as Reason,
+  type StreamOptions,
 } from './types';
