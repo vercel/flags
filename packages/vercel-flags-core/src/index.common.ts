@@ -1,6 +1,4 @@
-import { FallbackEntryNotFoundError, FallbackNotFoundError } from './errors';
-
-export { FallbackEntryNotFoundError, FallbackNotFoundError };
+export { FallbackEntryNotFoundError, FallbackNotFoundError } from './errors';
 export { evaluate } from './evaluate';
 export {
   type Datafile,
