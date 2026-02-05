@@ -442,18 +442,24 @@ export class FlagNetworkDataSource implements DataSource {
       return [data, 'in-memory', 'MISS'];
     }
 
-    // Race stream against timeout
+    // Race stream against timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<'timeout'>((resolve) => {
-      setTimeout(() => resolve('timeout'), this.streamTimeoutMs);
+      timeoutId = setTimeout(() => resolve('timeout'), this.streamTimeoutMs);
     });
 
-    const result = await Promise.race([streamPromise, timeoutPromise]);
+    try {
+      const result = await Promise.race([streamPromise, timeoutPromise]);
 
-    if (result === 'timeout') {
-      return this.handleStreamTimeout(streamPromise);
+      if (result === 'timeout') {
+        return this.handleStreamTimeout(streamPromise);
+      }
+
+      return [result, 'in-memory', 'MISS'];
+    } finally {
+      // clear timeout if stream wins race or throws
+      clearTimeout(timeoutId!);
     }
-
-    return [result, 'in-memory', 'MISS'];
   }
 
   /**
