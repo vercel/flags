@@ -1,0 +1,135 @@
+# @vercel/flags-core
+
+Core feature flag evaluation engine for Vercel. Handles flag evaluation, real-time updates via streaming, and usage tracking.
+
+## Package Structure
+
+```
+src/
+├── index.default.ts      # Default exports
+├── index.next-js.ts      # Next.js exports (with 'use cache')
+├── index.common.ts       # Shared exports
+├── index.make.ts         # Client factory
+├── types.ts              # Type definitions
+├── errors.ts             # Error classes
+├── evaluate.ts           # Core evaluation logic
+├── data-source/          # Data source implementations
+│   ├── flag-network-data-source.ts
+│   ├── in-memory-data-source.ts
+│   └── stream-connection.ts
+├── openfeature.*.ts      # OpenFeature provider
+├── utils/                # Utilities
+│   ├── usage-tracker.ts
+│   ├── sdk-keys.ts
+│   └── read-bundled-definitions.ts
+└── lib/                  # Internal libraries
+```
+
+## Key Concepts
+
+### FlagsClient
+
+Main interface for interacting with flags:
+
+```typescript
+type FlagsClient = {
+  initialize(): Promise<void>;
+  shutdown(): Promise<void>;
+  getInfo(): DataSourceInfo;
+  getDatafile(): Promise<Datafile>;
+  evaluate<T, E>(flagKey, defaultValue?, entities?): Promise<EvaluationResult<T>>;
+}
+```
+
+### Evaluation Flow
+
+1. Retrieve flag definition from datafile
+2. Look up environment config
+3. Check targeting rules (shortcut for immediate match)
+4. Evaluate segment-based rules against entity context
+5. Return fallthrough default if no match
+
+### Data Source Priority
+
+At runtime:
+1. Stream connection (if connected)
+2. Bundled/embedded definitions (on timeout/disconnection)
+3. HTTP fetch as last resort
+
+Build steps (detected via `CI=1` or Next.js build phase) use a different retrieval strategy.
+
+### Resolution Reasons
+
+- `TARGET_MATCH` - Matched targeting rules
+- `RULE_MATCH` - Matched conditional rules
+- `FALLTHROUGH` - No match, returned fallback
+- `PAUSED` - Flag is paused
+- `ERROR` - Evaluation error
+
+### Packed Format
+
+Internal compact format for flag definitions:
+- Variants stored as indices
+- Conditions use enum values
+- Entities accessed via arrays (e.g., `['user', 'id']`)
+
+## Entry Points
+
+The package has conditional exports based on environment:
+
+- **Default**: `./dist/index.default.js` - Standard usage
+- **Next.js**: `./dist/index.next-js.js` - Wraps functions with `'use cache'`
+- **OpenFeature**: `./openfeature` - OpenFeature server SDK provider
+
+## Commands
+
+```bash
+# Build
+pnpm build
+
+# Test
+pnpm test
+
+# Type check
+pnpm check
+
+# Integration tests (requires INTEGRATION_TEST_CONNECTION_STRING)
+pnpm test:integration
+```
+
+## Important Implementation Details
+
+### Stream Connection
+
+- Uses fetch with streaming body (NDJSON/server-sent events)
+- Reconnects with exponential backoff (base: 1s, max: 30s, max retries: 10)
+- Stream timeout default: 3s
+- 401 errors abort immediately (invalid SDK key)
+
+### Usage Tracking
+
+- Batches flag read events (max 50 events, max 5s wait)
+- Sends to `flags.vercel.com/v1/ingest`
+- Deduplicates by request context
+- Uses `waitUntil()` from `@vercel/functions`
+
+### Client Management
+
+- Each client gets unique incrementing ID
+- Stored in `clientMap` for function lookups
+- Supports multiple simultaneous clients
+- Necessary as we can't pass function to `'use cache'` client-fns
+
+### Debug Mode
+
+Enable debug logging with `DEBUG=1` environment variable.
+
+## Dependencies
+
+- `@vercel/functions` - For `waitUntil()`
+- `jose` - JWT handling
+- `js-xxhash` - Hash function for consistent splits
+
+Peer dependencies:
+- `@openfeature/server-sdk` (optional) - For OpenFeature provider
+- `flags` (workspace) - Type definitions
