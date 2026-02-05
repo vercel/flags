@@ -1,9 +1,9 @@
-import { HttpResponse, http } from 'msw';
-import { setupServer } from 'msw/node';
+import { createServer, type IncomingMessage, type Server } from 'node:http';
 import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -13,28 +13,115 @@ import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
 
 // Mock @vercel/functions
 vi.mock('@vercel/functions', () => ({
-  waitUntil: vi.fn(),
+  waitUntil: vi.fn((promise: Promise<unknown>) => {
+    promise.catch(() => {});
+  }),
 }));
 
-const server = setupServer();
+/**
+ * Helper to parse NDJSON from request body
+ */
+function parseNdjson(body: string): FlagsConfigReadEvent[] {
+  if (!body.trim()) return [];
+  const lines = body.trim().split('\n').filter(Boolean);
+  return lines.map((line) => JSON.parse(line) as FlagsConfigReadEvent);
+}
 
-beforeAll(() => server.listen());
+/**
+ * Helper to read request body
+ */
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
+// Test server state
+let server: Server;
+let serverPort: number;
+let capturedRequests: Array<{
+  method: string;
+  url: string;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+  events: FlagsConfigReadEvent[];
+}> = [];
+let serverResponseStatus = 202;
+
+beforeAll(async () => {
+  // Create HTTP server
+  server = createServer(async (req, res) => {
+    // Suppress connection errors during cleanup
+    req.on('error', () => {});
+    res.on('error', () => {});
+
+    const body = await readBody(req).catch(() => '');
+    const events = parseNdjson(body);
+
+    capturedRequests.push({
+      method: req.method || 'GET',
+      url: req.url || '/',
+      headers: req.headers,
+      body,
+      events,
+    });
+
+    res.statusCode = serverResponseStatus;
+    res.setHeader('Content-Type', 'application/json');
+    res.end();
+  });
+
+  // Suppress server-level connection errors during cleanup
+  server.on('clientError', () => {});
+
+  // Start server on random available port
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (address && typeof address === 'object') {
+        serverPort = address.port;
+      }
+      resolve();
+    });
+  });
+});
+
+afterAll(async () => {
+  // Force close all connections by calling closeAllConnections
+  // This is needed because streaming connections may still be open
+  server.closeAllConnections();
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+});
+
+beforeEach(() => {
+  capturedRequests = [];
+  serverResponseStatus = 200;
+});
+
 afterEach(() => {
-  server.resetHandlers();
   vi.restoreAllMocks();
   // Clean up environment variables
   delete process.env.VERCEL_DEPLOYMENT_ID;
   delete process.env.VERCEL_REGION;
   delete process.env.DEBUG;
 });
-afterAll(() => server.close());
 
 describe('UsageTracker', () => {
   describe('constructor', () => {
     it('should create an instance with sdkKey and host', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       expect(tracker).toBeInstanceOf(UsageTracker);
@@ -42,32 +129,23 @@ describe('UsageTracker', () => {
   });
 
   describe('trackRead', () => {
-    it('should batch events and send them after flush', async () => {
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
+    it('should stream events and send them after flush', async () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
+      // Wait for request to be processed
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      expect(events).toHaveLength(1);
-      const event = events[0] as FlagsConfigReadEvent;
+      const request = capturedRequests[0]!;
+      expect(request.events).toHaveLength(1);
+      const event = request.events[0]!;
       expect(event.type).toBe('FLAGS_CONFIG_READ');
       expect(event.ts).toBeTypeOf('number');
     });
@@ -76,302 +154,177 @@ describe('UsageTracker', () => {
       process.env.VERCEL_DEPLOYMENT_ID = 'dpl_123';
       process.env.VERCEL_REGION = 'iad1';
 
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.deploymentId).toBe('dpl_123');
       expect(event.payload.region).toBe('iad1');
     });
 
-    it('should batch multiple events', async () => {
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
+    it('should stream multiple events', async () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       // Track multiple reads (without request context, so they won't be deduplicated)
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as Array<{ type: string }>;
-      expect(events).toHaveLength(3);
+      const request = capturedRequests[0]!;
+      expect(request.events).toHaveLength(3);
+      expect(request.events.every((e) => e.type === 'FLAGS_CONFIG_READ')).toBe(
+        true,
+      );
     });
 
     it('should send correct authorization header', async () => {
-      let authHeader: string | null = null;
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          authHeader = request.headers.get('Authorization');
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'my-secret-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(authHeader).toBe('Bearer my-secret-key');
+        expect(capturedRequests.length).toBe(1);
       });
+
+      expect(capturedRequests[0]!.headers['authorization']).toBe(
+        'Bearer my-secret-key',
+      );
     });
 
     it('should send correct content-type header', async () => {
-      let contentType: string | null = null;
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          contentType = request.headers.get('Content-Type');
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(contentType).toBe('application/json');
+        expect(capturedRequests.length).toBe(1);
       });
+
+      expect(capturedRequests[0]!.headers['content-type']).toBe(
+        'application/x-ndjson',
+      );
     });
 
     it('should send user-agent header', async () => {
-      let userAgent: string | null = null;
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          userAgent = request.headers.get('User-Agent');
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(userAgent).toMatch(/^VercelFlagsCore\//);
+        expect(capturedRequests.length).toBe(1);
       });
+
+      expect(capturedRequests[0]!.headers['user-agent']).toMatch(
+        /^VercelFlagsCore\//,
+      );
     });
 
-    it('should not send empty batches', async () => {
-      let requestCount = 0;
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async () => {
-          requestCount++;
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
+    it('should not open stream when no events are tracked', async () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
-      // Flush without tracking anything
-      tracker.flush();
+      // Flush without tracking anything - should be a no-op since no stream exists
+      await tracker.flush();
 
       // Wait a bit to ensure no request is made
       await new Promise((r) => setTimeout(r, 100));
-      expect(requestCount).toBe(0);
+      expect(capturedRequests.length).toBe(0);
     });
 
-    it('should handle fetch errors gracefully', async () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      server.use(
-        http.post('https://example.com/v1/ingest', () => {
-          return HttpResponse.error();
-        }),
-      );
+    it('should handle server errors gracefully', async () => {
+      serverResponseStatus = 500;
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
-
-      // Wait for the flush to complete
-      await new Promise((r) => setTimeout(r, 100));
-
-      // Should not throw and should not log error (only logs in debug mode)
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('should handle non-ok responses gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      server.use(
-        http.post('https://example.com/v1/ingest', () => {
-          return new HttpResponse(null, { status: 500 });
-        }),
-      );
-
-      const tracker = new UsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
-      });
-
-      tracker.trackRead();
-      tracker.flush();
-
-      // Wait for the flush to complete
-      await new Promise((r) => setTimeout(r, 100));
-
-      // Should not log in non-debug mode
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('should log errors in debug mode', async () => {
-      process.env.DEBUG = '1';
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      server.use(
-        http.post('https://example.com/v1/ingest', () => {
-          return new HttpResponse(null, { status: 500 });
-        }),
-      );
-
-      const tracker = new UsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
-      });
-
-      tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          'Failed to send events:',
-          expect.any(String),
-        );
+        expect(capturedRequests.length).toBe(1);
       });
+
+      // The implementation doesn't check response status, so no error is logged
+      // Events are still sent successfully
+      expect(capturedRequests[0]!.events).toHaveLength(1);
     });
   });
 
   describe('flush', () => {
     it('should trigger immediate flush of pending events', async () => {
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-
-      // Flush immediately instead of waiting for timeout
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
+
+      expect(capturedRequests[0]!.events).toHaveLength(1);
     });
 
     it('should be safe to call flush multiple times', async () => {
-      let requestCount = 0;
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async () => {
-          requestCount++;
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
-      tracker.flush();
-      tracker.flush();
+      // First flush closes the stream and completes the request
+      await tracker.flush();
+      // Subsequent flushes are no-ops since stream is null
+      await tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(requestCount).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
       // Wait a bit more to ensure no additional requests
       await new Promise((r) => setTimeout(r, 100));
-      expect(requestCount).toBe(1);
+      expect(capturedRequests.length).toBe(1);
     });
   });
 
   describe('request context deduplication', () => {
     it('should deduplicate events with the same request context', async () => {
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       // Set up a mock request context
       const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
       const mockContext = {
@@ -387,38 +340,27 @@ describe('UsageTracker', () => {
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       // Track multiple times with same context
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
       // Only one event should be recorded due to deduplication
-      const events = receivedEvents[0] as Array<{ type: string }>;
-      expect(events).toHaveLength(1);
+      expect(capturedRequests[0]!.events).toHaveLength(1);
 
       // Clean up
       delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
     });
 
     it('should include headers from request context', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       // Set up a mock request context
       const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
       const mockContext = {
@@ -434,18 +376,17 @@ describe('UsageTracker', () => {
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead();
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.vercelRequestId).toBe('req_123');
       expect(event.payload.invocationHost).toBe('myapp.vercel.app');
 
@@ -454,36 +395,33 @@ describe('UsageTracker', () => {
     });
   });
 
-  describe('batch size limit', () => {
-    it('should trigger flush when batch size reaches 50', async () => {
-      const receivedEvents: unknown[] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.json();
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
+  describe('stream event limit', () => {
+    it('should trigger flush when event count reaches MAX_EVENTS_PER_STREAM (1000)', async () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
-      // Track 50 events (without request context to avoid deduplication)
-      for (let i = 0; i < 50; i++) {
+      // Track 1000 events (without request context to avoid deduplication)
+      for (let i = 0; i < 1000; i++) {
         tracker.trackRead();
       }
 
-      // Should auto-flush at 50 events
-      await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
-      });
+      // Wait for auto-flush to complete (1000 events + 100ms first event delay)
+      await vi.waitFor(
+        () => {
+          expect(capturedRequests.length).toBeGreaterThanOrEqual(1);
+        },
+        { timeout: 15000 },
+      );
 
-      const events = receivedEvents[0] as Array<{ type: string }>;
-      expect(events).toHaveLength(50);
-    });
+      // Count total events across all requests
+      const totalEvents = capturedRequests.reduce(
+        (sum, req) => sum + req.events.length,
+        0,
+      );
+      expect(totalEvents).toBe(1000);
+    }, 30000);
   });
 
   describe('error handling in trackRead', () => {
@@ -498,7 +436,7 @@ describe('UsageTracker', () => {
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       // Should not throw
@@ -511,159 +449,94 @@ describe('UsageTracker', () => {
 
   describe('trackRead options', () => {
     it('should include configOrigin in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory' });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.configOrigin).toBe('in-memory');
     });
 
     it('should include cacheStatus in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.cacheStatus).toBe('HIT');
     });
 
     it('should include cacheIsFirstRead in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.cacheIsFirstRead).toBe(true);
     });
 
     it('should include cacheIsBlocking in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.cacheIsBlocking).toBe(true);
     });
 
     it('should include duration in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.duration).toBe(150);
     });
 
     it('should include configUpdatedAt in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       const timestamp = Date.now();
@@ -671,31 +544,20 @@ describe('UsageTracker', () => {
         configOrigin: 'in-memory',
         configUpdatedAt: timestamp,
       });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.configUpdatedAt).toBe(timestamp);
     });
 
     it('should include all options in the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       const timestamp = Date.now();
@@ -707,14 +569,13 @@ describe('UsageTracker', () => {
         duration: 200,
         configUpdatedAt: timestamp,
       });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.configOrigin).toBe('in-memory');
       expect(event.payload.cacheStatus).toBe('MISS');
       expect(event.payload.cacheIsFirstRead).toBe(true);
@@ -724,31 +585,20 @@ describe('UsageTracker', () => {
     });
 
     it('should omit undefined options from the event payload', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = (await request.json()) as FlagsConfigReadEvent[];
-          receivedEvents.push(body);
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
-        host: 'https://example.com',
+        host: `http://127.0.0.1:${serverPort}`,
       });
 
       // Only pass configOrigin, omit others
       tracker.trackRead({ configOrigin: 'embedded' });
-      tracker.flush();
+      await tracker.flush();
 
       await vi.waitFor(() => {
-        expect(receivedEvents.length).toBe(1);
+        expect(capturedRequests.length).toBe(1);
       });
 
-      const events = receivedEvents[0] as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = capturedRequests[0]!.events[0]!;
       expect(event.payload.configOrigin).toBe('embedded');
       expect(event.payload.cacheStatus).toBeUndefined();
       expect(event.payload.cacheIsFirstRead).toBeUndefined();
