@@ -10,6 +10,7 @@ export {
   InMemoryDataSource,
 };
 export {
+  type Datafile,
   type EvaluationParams,
   type EvaluationResult,
   type FlagsClient,
