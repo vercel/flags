@@ -376,29 +376,34 @@ export class FlagNetworkDataSource implements DataSource {
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
 
-    const streamPromise = connectStream(
-      {
-        host: this.host,
-        sdkKey: this.sdkKey,
-        abortController,
-      },
-      {
-        onMessage: (newData) => {
-          // Update data first, then flags (order matters for consistency)
-          this.data = newData;
-          this.isStreamConnected = true;
-          this.hasWarnedAboutStaleData = false;
+    try {
+      const streamPromise = connectStream(
+        {
+          host: this.host,
+          sdkKey: this.sdkKey,
+          abortController,
         },
-        onDisconnect: () => {
-          this.isStreamConnected = false;
+        {
+          onMessage: (newData) => {
+            // Update data first, then flags (order matters for consistency)
+            this.data = newData;
+            this.isStreamConnected = true;
+            this.hasWarnedAboutStaleData = false;
+          },
+          onDisconnect: () => {
+            this.isStreamConnected = false;
+          },
         },
-      },
-    );
+      );
 
-    // Store promise immediately to prevent race conditions
-    this.streamPromise = streamPromise;
-
-    return streamPromise;
+      // Store promise immediately to prevent race conditions
+      this.streamPromise = streamPromise;
+      return streamPromise;
+    } catch (error) {
+      this.streamPromise = undefined;
+      this.abortController = undefined;
+      throw error;
+    }
   }
 
   /**
