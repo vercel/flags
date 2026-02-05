@@ -1,6 +1,10 @@
-export { FallbackEntryNotFoundError, FallbackNotFoundError } from './errors';
+export type {
+  FallbackEntryNotFoundError,
+  FallbackNotFoundError,
+} from './errors';
 export { evaluate } from './evaluate';
 export {
+  type BundledDefinitions,
   type Datafile,
   type EvaluationParams,
   type EvaluationResult,
