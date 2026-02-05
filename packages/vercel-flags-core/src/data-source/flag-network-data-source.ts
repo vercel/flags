@@ -19,6 +19,17 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const MAX_FETCH_RETRIES = 3;
 const FETCH_RETRY_BASE_DELAY_MS = 500;
 
+/**
+ * Fetches the datafile from the flags service with retry logic.
+ *
+ * Implements exponential backoff with jitter for transient failures.
+ * Does not retry 4xx errors (except 429) as they indicate client errors.
+ *
+ * @param host - The base URL of the flags service
+ * @param sdkKey - The SDK key for authentication
+ * @returns The bundled definitions from the remote service
+ * @throws Error if all retry attempts fail or a non-retryable error occurs
+ */
 async function fetchDatafile(
   host: string,
   sdkKey: string,
@@ -102,6 +113,14 @@ export class FlagNetworkDataSource implements DataSource {
   private usageTracker: UsageTracker;
   private isFirstGetData: boolean = true;
 
+  /**
+   * Creates a new FlagNetworkDataSource instance.
+   *
+   * @param options - Configuration options
+   * @param options.sdkKey - The SDK key for authentication (must start with "vf_")
+   * @param options.streamTimeoutMs - Optional timeout in milliseconds for stream connection (defaults to 3000ms)
+   * @throws Error if the SDK key is invalid or missing
+   */
   constructor(options: { sdkKey: string; streamTimeoutMs?: number }) {
     if (
       !options.sdkKey ||
@@ -130,6 +149,12 @@ export class FlagNetworkDataSource implements DataSource {
   // Public API (DataSource interface)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Initializes the data source.
+   *
+   * During build steps, loads bundled definitions or fetches from remote.
+   * During runtime, establishes a streaming connection for real-time updates.
+   */
   async initialize(): Promise<void> {
     if (this.isBuildStep) {
       await this.initializeForBuildStep();
@@ -138,6 +163,14 @@ export class FlagNetworkDataSource implements DataSource {
     }
   }
 
+  /**
+   * Reads the current datafile with metrics.
+   *
+   * This is the primary method for accessing flag definitions at runtime.
+   * It manages stream connections and tracks usage statistics.
+   *
+   * @returns The datafile including flag definitions and read metrics
+   */
   async read(): Promise<Datafile> {
     const startTime = Date.now();
     const cachedData = this.data; // Capture reference to avoid race conditions
@@ -172,6 +205,12 @@ export class FlagNetworkDataSource implements DataSource {
     }) satisfies Datafile;
   }
 
+  /**
+   * Shuts down the data source and releases resources.
+   *
+   * Aborts any active stream connection, clears cached data,
+   * and flushes pending usage tracking data.
+   */
   async shutdown(): Promise<void> {
     this.abortController?.abort();
     this.abortController = undefined;
@@ -182,6 +221,13 @@ export class FlagNetworkDataSource implements DataSource {
     await this.usageTracker.flush();
   }
 
+  /**
+   * Returns information about the data source.
+   *
+   * Uses cached data if available, otherwise fetches from remote.
+   *
+   * @returns Data source info including the project ID
+   */
   async getInfo(): Promise<DataSourceInfo> {
     if (this.data) {
       return { projectId: this.data.projectId };
@@ -230,6 +276,16 @@ export class FlagNetworkDataSource implements DataSource {
     }) satisfies Datafile;
   }
 
+  /**
+   * Returns the bundled fallback datafile.
+   *
+   * Used when the primary data source is unavailable and a fallback is needed.
+   *
+   * @returns The bundled definitions
+   * @throws FallbackNotFoundError if no bundled definitions file exists
+   * @throws FallbackEntryNotFoundError if the SDK key entry is missing from bundled definitions
+   * @throws Error if reading bundled definitions fails unexpectedly
+   */
   async getFallbackDatafile(): Promise<BundledDefinitions> {
     const bundledResult = await this.bundledDefinitionsPromise;
 
@@ -256,6 +312,12 @@ export class FlagNetworkDataSource implements DataSource {
   // Build step helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Initializes data for build step environments (CI or production build).
+   *
+   * Attempts to load bundled definitions first, falls back to remote fetch.
+   * Sets the cached data for subsequent reads.
+   */
   private async initializeForBuildStep(): Promise<void> {
     if (this.data) return;
 
@@ -267,6 +329,16 @@ export class FlagNetworkDataSource implements DataSource {
     this.data = await fetchDatafile(this.host, this.sdkKey);
   }
 
+  /**
+   * Retrieves data during build steps.
+   *
+   * Priority order:
+   * 1. In-memory cache (if available)
+   * 2. Bundled definitions
+   * 3. Remote fetch
+   *
+   * @returns A tuple of [datafile, source, cacheStatus]
+   */
   private async getDataForBuildStep(): Promise<
     [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
   > {
@@ -288,6 +360,14 @@ export class FlagNetworkDataSource implements DataSource {
   // Runtime helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Ensures a streaming connection is established.
+   *
+   * Creates a new stream connection if one doesn't exist.
+   * The stream updates cached data on message receipt and tracks connection state.
+   *
+   * @returns A promise that resolves when the stream is connected
+   */
   private ensureStream(): Promise<void> {
     if (this.streamPromise) return this.streamPromise;
 
@@ -321,6 +401,15 @@ export class FlagNetworkDataSource implements DataSource {
     return streamPromise;
   }
 
+  /**
+   * Returns data from the in-memory cache.
+   *
+   * Warns if the stream is disconnected (data may be stale).
+   * Cache status is 'HIT' when connected, 'STALE' when disconnected.
+   *
+   * @param cachedData - Optional pre-captured cached data reference
+   * @returns A tuple of [datafile, source, cacheStatus]
+   */
   private getDataFromCache(
     cachedData?: Datafile,
   ): [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']] {
@@ -331,6 +420,14 @@ export class FlagNetworkDataSource implements DataSource {
     return [data, 'in-memory', cacheStatus];
   }
 
+  /**
+   * Retrieves data with a timeout on stream connection.
+   *
+   * Races the stream connection against a configurable timeout.
+   * If stream times out, falls back to bundled definitions or remote fetch.
+   *
+   * @returns A tuple of [datafile, source, cacheStatus]
+   */
   private async getDataWithStreamTimeout(): Promise<
     [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
   > {
@@ -359,6 +456,15 @@ export class FlagNetworkDataSource implements DataSource {
     return [result, 'in-memory', 'MISS'];
   }
 
+  /**
+   * Handles stream connection timeout by falling back to alternative sources.
+   *
+   * Attempts bundled definitions first, then waits for stream, and finally
+   * falls back to remote fetch if all else fails.
+   *
+   * @param streamPromise - The pending stream connection promise
+   * @returns A tuple of [datafile, source, cacheStatus]
+   */
   private async handleStreamTimeout(
     streamPromise: Promise<Omit<Datafile, 'metrics'>>,
   ): Promise<
@@ -389,6 +495,11 @@ export class FlagNetworkDataSource implements DataSource {
     }
   }
 
+  /**
+   * Logs a warning if returning cached data while stream is disconnected.
+   *
+   * Only warns once per disconnection to avoid log spam.
+   */
   private warnIfDisconnected(): void {
     if (!this.isStreamConnected && !this.hasWarnedAboutStaleData) {
       this.hasWarnedAboutStaleData = true;
@@ -402,6 +513,16 @@ export class FlagNetworkDataSource implements DataSource {
   // Usage tracking
   // ---------------------------------------------------------------------------
 
+  /**
+   * Tracks a read operation for usage analytics.
+   *
+   * Records metrics about cache behavior, timing, and data source origin.
+   *
+   * @param startTime - The timestamp when the read operation started
+   * @param cacheHadDefinitions - Whether the cache had data at read start
+   * @param isFirstRead - Whether this is the first read operation
+   * @param source - The source from which data was retrieved
+   */
   private trackRead(
     startTime: number,
     cacheHadDefinitions: boolean,
