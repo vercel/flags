@@ -36,7 +36,7 @@ export type FlagNetworkDataSourceOptions = {
    * - At runtime: used while waiting for stream/poll, then updated in background
    * - At build step: used as primary source (skips network)
    */
-  datafile?: Datafile;
+  datafile?: DatafileInput;
 
   /**
    * Configure streaming connection (runtime only, ignored during build step)
@@ -70,7 +70,7 @@ export type FlagNetworkDataSourceOptions = {
  */
 type NormalizedOptions = {
   sdkKey: string;
-  datafile: Datafile | undefined;
+  datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
   buildStep: boolean;
