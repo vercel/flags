@@ -4,6 +4,7 @@ import type {
   BundledDefinitions,
   BundledDefinitionsResult,
   Datafile,
+  DatafileInput,
   DataSource,
   DataSourceInfo,
   Metrics,
@@ -182,7 +183,7 @@ export class FlagNetworkDataSource implements DataSource {
   private isBuildStep: boolean;
 
   // Data state
-  private data: Datafile | undefined;
+  private data: DatafileInput | undefined;
   private bundledDefinitionsPromise:
     | Promise<BundledDefinitionsResult>
     | undefined;
@@ -292,7 +293,7 @@ export class FlagNetworkDataSource implements DataSource {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let result: Omit<Datafile, 'metrics'>;
+    let result: DatafileInput;
     let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
@@ -351,7 +352,7 @@ export class FlagNetworkDataSource implements DataSource {
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
 
-    let result: Omit<Datafile, 'metrics'>;
+    let result: DatafileInput;
     let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
@@ -663,7 +664,7 @@ export class FlagNetworkDataSource implements DataSource {
    * Retrieves data during build steps.
    */
   private async getDataForBuildStep(): Promise<
-    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
+    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
   > {
     if (this.data) {
       return [this.data, 'in-memory', 'HIT'];
@@ -689,8 +690,8 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns data from the in-memory cache.
    */
   private getDataFromCache(
-    cachedData?: Datafile,
-  ): [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']] {
+    cachedData?: DatafileInput,
+  ): [DatafileInput, Metrics['source'], Metrics['cacheStatus']] {
     const data = cachedData ?? this.data!;
     this.warnIfDisconnected();
     const cacheStatus = this.isStreamConnected ? 'HIT' : 'STALE';
@@ -701,7 +702,7 @@ export class FlagNetworkDataSource implements DataSource {
    * Retrieves data using the fallback chain.
    */
   private async getDataWithFallbacks(): Promise<
-    [Omit<Datafile, 'metrics'>, Metrics['source'], Metrics['cacheStatus']]
+    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
   > {
     // Try stream with timeout
     if (this.options.stream.enabled) {

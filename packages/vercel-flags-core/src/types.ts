@@ -16,7 +16,8 @@ export type PollingOptions = {
   initTimeoutMs: number;
 };
 
-export type Datafile = Packed.Data & {
+/** Input type for creating a datafile (without metrics) */
+export type DatafileInput = Packed.Data & {
   /**
    * If a data source is used with a specific sdk key then
    * the sdk key or data source might contain information
@@ -25,12 +26,16 @@ export type Datafile = Packed.Data & {
   environment: string;
   /** Vercel project id of the source of these flags  */
   projectId: string;
+};
+
+/** Datafile with metrics attached (returned by the client) */
+export type Datafile = DatafileInput & {
   /** Metrics about how the data was retrieved */
   metrics: Metrics;
 };
 
 /** Flag Definitions of a Vercel project */
-export type BundledDefinitions = Datafile & {
+export type BundledDefinitions = DatafileInput & {
   /** when the data was last updated */
   updatedAt: number;
   /** hash of the data */

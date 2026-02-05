@@ -1,9 +1,15 @@
-import type { Datafile, DataSource, DataSourceInfo, Packed } from '../types';
+import type {
+  Datafile,
+  DatafileInput,
+  DataSource,
+  DataSourceInfo,
+  Packed,
+} from '../types';
 
 const RESOLVED_VOID = Promise.resolve();
 
 export class InMemoryDataSource implements DataSource {
-  private data: Omit<Datafile, 'metrics'>;
+  private data: DatafileInput;
   private cachedDatafile: Datafile | undefined;
 
   constructor({

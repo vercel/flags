@@ -11,6 +11,7 @@ export { type CreateClientOptions } from './index.make';
 export {
   type BundledDefinitions,
   type Datafile,
+  type DatafileInput,
   type EvaluationParams,
   type EvaluationResult,
   type FlagsClient,
