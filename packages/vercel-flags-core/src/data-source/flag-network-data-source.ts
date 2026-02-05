@@ -269,6 +269,14 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
+    // Hydrate from provided datafile if not already set (e.g., after shutdown)
+    // Usually the constructor sets this, but if the client was shutdown and
+    // then init'd again we need to set it again. This also means that any
+    // previous data we've seen before shutdown is lost. We'll "start fresh".
+    if (!this.data && this.options.datafile) {
+      this.data = this.options.datafile;
+    }
+
     // If we already have data (from provided datafile), start background updates
     // but don't block on them
     if (this.data) {
@@ -338,7 +346,7 @@ export class FlagNetworkDataSource implements DataSource {
   async shutdown(): Promise<void> {
     this.stopStream();
     this.stopPolling();
-    this.data = undefined;
+    this.data = this.options.datafile;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
