@@ -7,6 +7,7 @@ export type {
   FallbackNotFoundError,
 } from './errors';
 export { evaluate } from './evaluate';
+export { type CreateClientOptions } from './index.make';
 export {
   type BundledDefinitions,
   type Datafile,
