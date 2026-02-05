@@ -980,6 +980,74 @@ describe('FlagNetworkDataSource', () => {
 
       await dataSource.shutdown();
     });
+
+    it('should work with datafile only (stream and polling disabled)', async () => {
+      let streamRequested = false;
+      let pollRequested = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollRequested = true;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const providedDatafile = {
+        projectId: 'static-data',
+        definitions: { myFlag: { variants: [true, false], environments: {} } },
+        environment: 'production',
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      };
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        datafile: providedDatafile,
+        stream: false,
+        polling: false,
+      });
+
+      // Initialize and read
+      await dataSource.initialize();
+      const result = await dataSource.read();
+
+      // Should use provided datafile
+      expect(result.projectId).toBe('static-data');
+      expect(result.definitions).toEqual({
+        myFlag: { variants: [true, false], environments: {} },
+      });
+
+      // No network requests should have been made
+      expect(streamRequested).toBe(false);
+      expect(pollRequested).toBe(false);
+
+      // Wait to ensure no delayed requests happen
+      await new Promise((r) => setTimeout(r, 100));
+      expect(streamRequested).toBe(false);
+      expect(pollRequested).toBe(false);
+
+      await dataSource.shutdown();
+    });
   });
 
   describe('stream/polling coordination', () => {

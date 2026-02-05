@@ -47,7 +47,8 @@ export type FlagNetworkDataSourceOptions = {
   polling?: boolean | PollingOptions;
 
   /**
-   * Initial datafile to use immediately (e.g., from SSR props)
+   * Initial datafile to use immediately
+   *
    * When provided, this data is used immediately while background updates happen
    */
   datafile?: Datafile;
