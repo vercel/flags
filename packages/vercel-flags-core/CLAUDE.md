@@ -54,28 +54,37 @@ type FlagsClient = {
 ```typescript
 type FlagNetworkDataSourceOptions = {
   sdkKey: string;
-  stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
-  polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 10s timeout)
   datafile?: Datafile;  // Initial datafile for immediate reads
+  stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
+  polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
+  buildStep?: boolean;  // Override build step auto-detection
 };
 ```
 
 ### Data Source Priority (Fallback Chain)
 
-At runtime, mechanisms are tried in order:
+Behavior differs based on environment:
+
+**Build step** (CI=1, NEXT_PHASE=phase-production-build, or `buildStep: true`):
+1. **Provided datafile** - Use `options.datafile` if provided
+2. **Bundled definitions** - Use `@vercel/flags-definitions`
+3. **Fetch** - Last resort network fetch
+
+**Runtime** (default, or `buildStep: false`):
 1. **Stream** - Real-time updates via SSE, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
-4. **Bundled definitions** - Use `@vercel/flags-definitions` (skipped if datafile provided)
+4. **Bundled definitions** - Use `@vercel/flags-definitions`
 
 Key behaviors:
+- Bundled definitions are always loaded as ultimate fallback
 - All mechanisms write to in-memory state
 - If in-memory state exists, serve immediately while background updates happen
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
 - If stream disconnects → start polling (if enabled)
-
-Build steps (detected via `CI=1` or Next.js build phase) skip streaming/polling and use bundled/fetch only.
+- Use `buildStep: true` to force static-only mode (e.g., serverless cold starts)
+- Use `buildStep: false` to force runtime mode (e.g., custom build environments)
 
 ### Resolution Reasons
 

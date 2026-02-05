@@ -32,27 +32,37 @@ export type FlagNetworkDataSourceOptions = {
   sdkKey: string;
 
   /**
-   * Enable/configure streaming connection
+   * Initial datafile to use immediately
+   * - At runtime: used while waiting for stream/poll, then updated in background
+   * - At build step: used as primary source (skips network)
+   */
+  datafile?: Datafile;
+
+  /**
+   * Configure streaming connection (runtime only, ignored during build step)
    * - `true`: Enable with default options (initTimeoutMs: 3000)
    * - `false`: Disable streaming
    * - `{ initTimeoutMs: number }`: Enable with custom timeout
+   * @default true
    */
   stream?: boolean | StreamOptions;
 
   /**
-   * Enable/configure polling
-   * - `true`: Enable with default options (intervalMs: 30000, initTimeoutMs: 10000)
+   * Configure polling fallback (runtime only, ignored during build step)
+   * - `true`: Enable with default options (intervalMs: 30000, initTimeoutMs: 3000)
    * - `false`: Disable polling
    * - `{ intervalMs: number, initTimeoutMs: number }`: Enable with custom options
+   * @default true
    */
   polling?: boolean | PollingOptions;
 
   /**
-   * Initial datafile to use immediately
-   *
-   * When provided, this data is used immediately while background updates happen
+   * Override build step detection
+   * - `true`: Treat as build step (use datafile/bundled only, no network)
+   * - `false`: Treat as runtime (try stream/poll first)
+   * @default auto-detected via CI=1 or NEXT_PHASE=phase-production-build
    */
-  datafile?: Datafile;
+  buildStep?: boolean;
 };
 
 /**
@@ -60,9 +70,10 @@ export type FlagNetworkDataSourceOptions = {
  */
 type NormalizedOptions = {
   sdkKey: string;
+  datafile: Datafile | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
-  datafile: Datafile | undefined;
+  buildStep: boolean;
 };
 
 /**
@@ -71,6 +82,11 @@ type NormalizedOptions = {
 function normalizeOptions(
   options: FlagNetworkDataSourceOptions,
 ): NormalizedOptions {
+  const autoDetectedBuildStep =
+    process.env.CI === '1' ||
+    process.env.NEXT_PHASE === 'phase-production-build';
+  const buildStep = options.buildStep ?? autoDetectedBuildStep;
+
   let stream: NormalizedOptions['stream'];
   if (options.stream === undefined || options.stream === true) {
     stream = { enabled: true, initTimeoutMs: DEFAULT_STREAM_INIT_TIMEOUT_MS };
@@ -99,9 +115,10 @@ function normalizeOptions(
 
   return {
     sdkKey: options.sdkKey,
+    datafile: options.datafile,
     stream,
     polling,
-    datafile: options.datafile,
+    buildStep,
   };
 }
 
@@ -168,19 +185,21 @@ async function fetchDatafile(
 /**
  * A DataSource implementation that connects to flags.vercel.com.
  *
- * Supports multiple data fetching mechanisms with fallback:
- * 1. Streaming - real-time updates via SSE
- * 2. Polling - interval-based HTTP requests
- * 3. Provided datafile - initial data passed in options
- * 4. Bundled definitions - build-time packaged definitions
+ * Behavior differs based on environment:
  *
- * Stream and polling never run simultaneously. If stream is available,
- * polling is stopped. If stream disconnects, polling is started as fallback.
+ * **Build step** (CI=1 or Next.js build, or buildStep: true):
+ * - Uses datafile (if provided) or bundled definitions
+ * - No streaming or polling (avoids network during build)
+ *
+ * **Runtime** (default):
+ * - Tries stream first, then poll, then datafile, then bundled
+ * - Stream and polling never run simultaneously
+ * - If stream reconnects while polling → stop polling
+ * - If stream disconnects → start polling (if enabled)
  */
 export class FlagNetworkDataSource implements DataSource {
   private options: NormalizedOptions;
   private host = FLAGS_HOST;
-  private isBuildStep: boolean;
 
   // Data state
   private data: DatafileInput | undefined;
@@ -217,16 +236,11 @@ export class FlagNetworkDataSource implements DataSource {
     }
 
     this.options = normalizeOptions(options);
-    this.isBuildStep =
-      process.env.CI === '1' ||
-      process.env.NEXT_PHASE === 'phase-production-build';
 
-    // Only load bundled definitions if no datafile was provided
-    if (!this.options.datafile) {
-      this.bundledDefinitionsPromise = readBundledDefinitions(
-        this.options.sdkKey,
-      );
-    }
+    // Always load bundled definitions as ultimate fallback
+    this.bundledDefinitionsPromise = readBundledDefinitions(
+      this.options.sdkKey,
+    );
 
     // If datafile provided, use it immediately
     if (this.options.datafile) {
@@ -246,13 +260,11 @@ export class FlagNetworkDataSource implements DataSource {
   /**
    * Initializes the data source.
    *
-   * Fallback chain:
-   * 1. Try stream (if enabled) with initTimeoutMs
-   * 2. Try polling (if enabled) with initTimeoutMs
-   * 3. Use provided datafile or bundled definitions
+   * Build step: datafile → bundled → fetch
+   * Runtime: stream → poll → datafile → bundled
    */
   async initialize(): Promise<void> {
-    if (this.isBuildStep) {
+    if (this.options.buildStep) {
       await this.initializeForBuildStep();
       return;
     }
@@ -297,7 +309,7 @@ export class FlagNetworkDataSource implements DataSource {
     let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
-    if (this.isBuildStep) {
+    if (this.options.buildStep) {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
     } else if (cachedData) {
       [result, source, cacheStatus] = this.getDataFromCache(cachedData);
@@ -356,7 +368,7 @@ export class FlagNetworkDataSource implements DataSource {
     let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
-    if (this.isBuildStep) {
+    if (this.options.buildStep) {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
     } else if (this.data) {
       [result, source, cacheStatus] = this.getDataFromCache();

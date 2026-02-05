@@ -632,7 +632,9 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+      });
 
       const result = await dataSource.getFallbackDatafile();
       expect(result).toEqual(bundledDefinitions);
@@ -646,7 +648,9 @@ describe('FlagNetworkDataSource', () => {
         state: 'missing-file',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+      });
 
       await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'Bundled definitions file not found',
@@ -667,7 +671,9 @@ describe('FlagNetworkDataSource', () => {
         state: 'missing-entry',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+      });
 
       await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'No bundled definitions found for SDK key',
@@ -689,7 +695,9 @@ describe('FlagNetworkDataSource', () => {
         error: new Error('Some error'),
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+      });
 
       await expect(dataSource.getFallbackDatafile()).rejects.toThrow(
         'Failed to read bundled definitions',
@@ -951,32 +959,6 @@ describe('FlagNetworkDataSource', () => {
 
       expect(result.projectId).toBe('provided');
       expect(result.metrics.source).toBe('in-memory');
-
-      await dataSource.shutdown();
-    });
-
-    it('should skip bundled definitions when datafile is provided', async () => {
-      const providedDatafile = {
-        projectId: 'provided',
-        definitions: {},
-        environment: 'production',
-        metrics: {
-          readMs: 0,
-          source: 'in-memory' as const,
-          cacheStatus: 'HIT' as const,
-          connectionState: 'connected' as const,
-        },
-      };
-
-      const dataSource = new FlagNetworkDataSource({
-        sdkKey: 'vf_test_key',
-        datafile: providedDatafile,
-        stream: false,
-        polling: false,
-      });
-
-      // readBundledDefinitions should not be called when datafile is provided
-      expect(readBundledDefinitions).not.toHaveBeenCalled();
 
       await dataSource.shutdown();
     });
@@ -1297,6 +1279,269 @@ describe('FlagNetworkDataSource', () => {
       const updatedResult = await dataSource.read();
       expect(updatedResult.definitions).toEqual({ updated: true });
       expect(updatedResult.projectId).toBe('stream');
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('buildStep option', () => {
+    it('should always load bundled definitions regardless of buildStep', async () => {
+      // bundled definitions are always loaded as ultimate fallback
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        buildStep: false,
+        stream: false,
+        polling: false,
+      });
+
+      expect(readBundledDefinitions).toHaveBeenCalledWith('vf_test_key');
+
+      await dataSource.shutdown();
+    });
+
+    it('should skip network when buildStep: true', async () => {
+      let streamRequested = false;
+      let pollRequested = false;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollRequested = true;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        buildStep: true, // Force build step behavior
+        stream: true, // Would normally enable streaming
+        polling: true, // Would normally enable polling
+      });
+
+      const result = await dataSource.read();
+
+      // Should use bundled definitions, not network
+      expect(result.projectId).toBe('bundled');
+      expect(streamRequested).toBe(false);
+      expect(pollRequested).toBe(false);
+
+      await dataSource.shutdown();
+    });
+
+    it('should use datafile over bundled in build step', async () => {
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const providedDatafile = {
+        projectId: 'provided',
+        definitions: { custom: true },
+        environment: 'production',
+        metrics: {
+          readMs: 0,
+          source: 'in-memory' as const,
+          cacheStatus: 'HIT' as const,
+          connectionState: 'connected' as const,
+        },
+      };
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        buildStep: true,
+        datafile: providedDatafile,
+      });
+
+      const result = await dataSource.read();
+
+      // Should prefer provided datafile over bundled
+      expect(result.projectId).toBe('provided');
+
+      await dataSource.shutdown();
+    });
+
+    it('should auto-detect build step when CI=1', async () => {
+      process.env.CI = '1';
+
+      let streamRequested = false;
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        // buildStep not specified - should auto-detect from CI=1
+      });
+
+      const result = await dataSource.read();
+
+      // Should use bundled (build step detected), not stream
+      expect(result.projectId).toBe('bundled');
+      expect(streamRequested).toBe(false);
+
+      await dataSource.shutdown();
+    });
+
+    it('should auto-detect build step when NEXT_PHASE=phase-production-build', async () => {
+      process.env.NEXT_PHASE = 'phase-production-build';
+
+      let streamRequested = false;
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          streamRequested = true;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+        metrics: {
+          readMs: 0,
+          source: 'embedded',
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+        },
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        // buildStep not specified - should auto-detect from NEXT_PHASE
+      });
+
+      const result = await dataSource.read();
+
+      // Should use bundled (build step detected), not stream
+      expect(result.projectId).toBe('bundled');
+      expect(streamRequested).toBe(false);
+
+      await dataSource.shutdown();
+    });
+
+    it('should override auto-detection with buildStep: false', async () => {
+      process.env.CI = '1'; // Would normally trigger build step
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'stream', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        buildStep: false, // Explicitly override CI detection
+      });
+
+      const result = await dataSource.read();
+
+      // Should use stream (buildStep: false overrides CI detection)
+      expect(result.projectId).toBe('stream');
 
       await dataSource.shutdown();
     });
