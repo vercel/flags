@@ -46,7 +46,7 @@ importers:
         version: 1.34.4
       next:
         specifier: 16.1.5
-        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: ^19.0.0
         version: 19.2.0
@@ -95,16 +95,16 @@ importers:
         version: 0.5.16(tailwindcss@4.0.15)
       '@vercel/analytics':
         specifier: 1.5.0
-        version: 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
+        version: 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
       '@vercel/edge':
         specifier: 1.2.1
         version: 1.2.1
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
+        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -122,7 +122,7 @@ importers:
         version: 5.1.2
       next:
         specifier: 16.1.5
-        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: ^19.0.0
         version: 19.2.0
@@ -168,10 +168,10 @@ importers:
         version: 1.1.4(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(c17b3e341391abf52a9d5333b17860c4)
+        version: 0.1.36(2163925f3c5f055297930786a98de6f7)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -186,7 +186,7 @@ importers:
         version: 5.0.7
       next:
         specifier: 16.1.5
-        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       next-themes:
         specifier: 0.4.4
         version: 0.4.4(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
@@ -241,7 +241,7 @@ importers:
         version: 1.2.1
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
+        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
       cookie:
         specifier: ^0.6.0
         version: 0.6.0
@@ -278,7 +278,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -340,7 +340,7 @@ importers:
         version: 1.6.1
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -374,7 +374,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       hypertune:
         specifier: 2.8.3
         version: 2.8.3
@@ -408,10 +408,10 @@ importers:
     dependencies:
       '@launchdarkly/vercel-server-sdk':
         specifier: ^1.3.34
-        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -499,7 +499,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       posthog-node:
         specifier: 4.11.1
         version: 4.11.1
@@ -591,7 +591,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       '@vercel/functions':
         specifier: ^1.5.2
         version: 1.6.0
@@ -600,7 +600,7 @@ importers:
         version: 0.5.2
       statsig-node-vercel:
         specifier: ^0.7.0
-        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)))
+        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)))
     devDependencies:
       '@types/node':
         specifier: 20.11.17
@@ -631,7 +631,7 @@ importers:
     dependencies:
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../vercel-flags-core
@@ -653,7 +653,7 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 16.1.5
-        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)
+        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.6.3)(yaml@2.8.1)
@@ -702,7 +702,7 @@ importers:
         version: 2.6.4(@types/node@20.11.17)(typescript@5.6.3)
       next:
         specifier: 16.1.5
-        version: 16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-95ffd6cd-20260205))(react@19.3.0-canary-95ffd6cd-20260205)
+        version: 16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-95ffd6cd-20260205))(react@19.3.0-canary-95ffd6cd-20260205)
       react:
         specifier: canary
         version: 19.3.0-canary-95ffd6cd-20260205
@@ -726,7 +726,7 @@ importers:
         version: 1.18.0(@openfeature/core@1.9.1)
       '@vercel/edge-config':
         specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       jose:
         specifier: 5.2.1
         version: 5.2.1
@@ -763,7 +763,7 @@ importers:
         version: link:../../packages/flags
       next:
         specifier: 15.5.10
-        version: 15.5.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028))(react@19.0.0-rc-02c0e824-20241028)
+        version: 15.5.10(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028))(react@19.0.0-rc-02c0e824-20241028)
       react:
         specifier: 19.0.0-rc-02c0e824-20241028
         version: 19.0.0-rc-02c0e824-20241028
@@ -772,8 +772,8 @@ importers:
         version: 19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028)
     devDependencies:
       '@playwright/test':
-        specifier: 1.51.1
-        version: 1.51.1
+        specifier: 1.58.1
+        version: 1.58.1
       '@types/node':
         specifier: ^20
         version: 20.11.17
@@ -800,7 +800,7 @@ importers:
         version: link:../../packages/flags
       next:
         specifier: 16.1.5
-        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -809,8 +809,8 @@ importers:
         version: 19.2.0(react@19.2.0)
     devDependencies:
       '@playwright/test':
-        specifier: 1.51.1
-        version: 1.51.1
+        specifier: 1.58.1
+        version: 1.58.1
       '@types/node':
         specifier: ^20
         version: 20.11.17
@@ -834,14 +834,14 @@ importers:
     dependencies:
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
+        version: 0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
     devDependencies:
       '@playwright/test':
-        specifier: 1.51.1
-        version: 1.51.1
+        specifier: 1.58.1
+        version: 1.58.1
       '@sveltejs/adapter-vercel':
         specifier: ^5.6.0
         version: 5.10.3(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(rollup@4.57.1)
@@ -2174,8 +2174,8 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@playwright/test@1.51.1':
-    resolution: {integrity: sha512-nM+kEaTSAoVlXmMPH10017vn3FSiFqr/bh4fKg9vmAdMfd9SDqRZNvPSiAHADc/itWak+qPvMPZQOPwCBW7k7Q==}
+  '@playwright/test@1.58.1':
+    resolution: {integrity: sha512-6LdVIUERWxQMmUSSQi0I53GgCBYgM2RpGngCPY7hSeju+VrKjq3lvs7HpJoPbDiY5QM5EYRtRX5fvrinnMAz3w==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5298,23 +5298,23 @@ packages:
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
-  playwright-core@1.51.1:
-    resolution: {integrity: sha512-/crRMj8+j/Nq5s8QcvegseuyeZPxpQCZb6HNk3Sos3BlZyAknRjoyJPFWkpNn8v0+P3WiwqFF8P+zQo4eqiNuw==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   playwright-core@1.56.1:
     resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.51.1:
-    resolution: {integrity: sha512-kkx+MB2KQRkyxjYPc3a0wLZZoDczmppyGJIvQ43l+aZihkaVvmu/21kiyaHeHjiFxjxNNFnUncKmcGIyOojsaw==}
+  playwright-core@1.58.1:
+    resolution: {integrity: sha512-bcWzOaTxcW+VOOGBCQgnaKToLJ65d6AqfLVKEWvexyS3AS6rbXl+xdpYRMGSRBClPvyj44njOWoxjNdL/H9UNg==}
     engines: {node: '>=18'}
     hasBin: true
 
   playwright@1.56.1:
     resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.58.1:
+    resolution: {integrity: sha512-+2uTZHxSCcxjvGc5C891LrS1/NlxglGxzrC4seZiVjcYVQfUa87wBL6rTDqzGjuoWNjnBzRqKmF6zRYGMvQUaQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7500,10 +7500,10 @@ snapshots:
       '@launchdarkly/js-sdk-common': 2.19.0
       semver: 7.5.4
 
-  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))':
+  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))':
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge': 2.6.9
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       crypto-js: 4.2.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -7635,9 +7635,9 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@playwright/test@1.51.1':
+  '@playwright/test@1.58.1':
     dependencies:
-      playwright: 1.51.1
+      playwright: 1.58.1
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -8660,57 +8660,77 @@ snapshots:
     dependencies:
       crypto-js: 4.2.0
 
-  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)':
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)':
     optionalDependencies:
       '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       svelte: 5.41.3
     optional: true
 
-  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)':
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)':
     optionalDependencies:
       '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1))
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       react: 19.0.0-rc.1
       svelte: 5.41.3
     optional: true
 
-  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)':
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)':
     optionalDependencies:
       '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       svelte: 5.41.3
 
   '@vercel/edge-config-fs@0.1.0': {}
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204)
 
   '@vercel/edge@1.2.1': {}
 
   '@vercel/functions@1.6.0': {}
 
-  '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
+  '@vercel/microfrontends@1.1.0(2163925f3c5f055297930786a98de6f7)':
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.11
+      path-to-regexp: 6.2.1
+    optionalDependencies:
+      '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1))
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
+      vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - debug
+
+  '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
     dependencies:
       ajv: 8.17.1
       commander: 12.1.0
@@ -8722,15 +8742,15 @@ snapshots:
       path-to-regexp: 6.2.1
     optionalDependencies:
       '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
       vite: 5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)
     transitivePeerDependencies:
       - debug
 
-  '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))':
+  '@vercel/microfrontends@1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))':
     dependencies:
       ajv: 8.17.1
       commander: 12.1.0
@@ -8742,31 +8762,11 @@ snapshots:
       path-to-regexp: 6.2.1
     optionalDependencies:
       '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
       vite: 6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - debug
-
-  '@vercel/microfrontends@1.1.0(c17b3e341391abf52a9d5333b17860c4)':
-    dependencies:
-      ajv: 8.17.1
-      commander: 12.1.0
-      cookie: 0.4.0
-      fast-glob: 3.3.3
-      http-proxy: 1.18.1
-      jsonc-parser: 3.3.1
-      nanoid: 3.3.11
-      path-to-regexp: 6.2.1
-    optionalDependencies:
-      '@sveltejs/kit': 2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1))
-      '@vercel/analytics': 1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))(react@19.0.0-rc.1)(svelte@5.41.3)
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
-      vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
     transitivePeerDependencies:
       - debug
 
@@ -8789,10 +8789,10 @@ snapshots:
       - rollup
       - supports-color
 
-  '@vercel/toolbar@0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
+  '@vercel/toolbar@0.1.36(2163925f3c5f055297930786a98de6f7)':
     dependencies:
       '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
+      '@vercel/microfrontends': 1.1.0(2163925f3c5f055297930786a98de6f7)
       chokidar: 3.6.0
       execa: 5.1.1
       fast-glob: 3.3.3
@@ -8801,7 +8801,29 @@ snapshots:
       jsonc-parser: 3.3.1
       strip-ansi: 6.0.1
     optionalDependencies:
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
+      react: 19.0.0-rc.1
+      vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
+
+  '@vercel/toolbar@0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))':
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      strip-ansi: 6.0.1
+    optionalDependencies:
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       vite: 5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)
     transitivePeerDependencies:
@@ -8811,10 +8833,10 @@ snapshots:
       - debug
       - react-dom
 
-  '@vercel/toolbar@0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))':
+  '@vercel/toolbar@0.1.36(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))':
     dependencies:
       '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
+      '@vercel/microfrontends': 1.1.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(@vercel/analytics@1.5.0(@sveltejs/kit@2.49.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.8.2)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(svelte@5.41.3))(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(vite@6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1))
       chokidar: 3.6.0
       execa: 5.1.1
       fast-glob: 3.3.3
@@ -8823,31 +8845,9 @@ snapshots:
       jsonc-parser: 3.3.1
       strip-ansi: 6.0.1
     optionalDependencies:
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       vite: 6.4.1(@types/node@22.14.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - '@sveltejs/kit'
-      - '@vercel/analytics'
-      - '@vercel/speed-insights'
-      - debug
-      - react-dom
-
-  '@vercel/toolbar@0.1.36(c17b3e341391abf52a9d5333b17860c4)':
-    dependencies:
-      '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(c17b3e341391abf52a9d5333b17860c4)
-      chokidar: 3.6.0
-      execa: 5.1.1
-      fast-glob: 3.3.3
-      find-up: 5.0.0
-      get-port: 5.1.1
-      jsonc-parser: 3.3.1
-      strip-ansi: 6.0.1
-    optionalDependencies:
-      next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
-      react: 19.0.0-rc.1
-      vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@sveltejs/kit'
       - '@vercel/analytics'
@@ -10779,7 +10779,7 @@ snapshots:
       react: 19.0.0-rc.1
       react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
 
-  next@15.5.10(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028))(react@19.0.0-rc-02c0e824-20241028):
+  next@15.5.10(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc-02c0e824-20241028(react@19.0.0-rc-02c0e824-20241028))(react@19.0.0-rc-02c0e824-20241028):
     dependencies:
       '@next/env': 15.5.10
       '@swc/helpers': 0.5.15
@@ -10798,13 +10798,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 15.5.7
       '@next/swc-win32-x64-msvc': 15.5.7
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.58.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-95ffd6cd-20260205))(react@19.3.0-canary-95ffd6cd-20260205):
+  next@16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-95ffd6cd-20260205))(react@19.3.0-canary-95ffd6cd-20260205):
     dependencies:
       '@next/env': 16.1.5
       '@swc/helpers': 0.5.15
@@ -10824,13 +10824,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.1.5
       '@next/swc-win32-x64-msvc': 16.1.5
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.58.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1):
+  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1):
     dependencies:
       '@next/env': 16.1.5
       '@swc/helpers': 0.5.15
@@ -10850,13 +10850,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.1.5
       '@next/swc-win32-x64-msvc': 16.1.5
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.58.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@next/env': 16.1.5
       '@swc/helpers': 0.5.15
@@ -10876,13 +10876,13 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.1.5
       '@next/swc-win32-x64-msvc': 16.1.5
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.58.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204):
+  next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204):
     dependencies:
       '@next/env': 16.1.5
       '@swc/helpers': 0.5.15
@@ -10902,7 +10902,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.1.5
       '@next/swc-win32-x64-msvc': 16.1.5
       '@opentelemetry/api': 1.9.0
-      '@playwright/test': 1.51.1
+      '@playwright/test': 1.58.1
       sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
@@ -11112,19 +11112,19 @@ snapshots:
       mlly: 1.8.0
       pathe: 2.0.3
 
-  playwright-core@1.51.1: {}
-
   playwright-core@1.56.1: {}
 
-  playwright@1.51.1:
-    dependencies:
-      playwright-core: 1.51.1
-    optionalDependencies:
-      fsevents: 2.3.2
+  playwright-core@1.58.1: {}
 
   playwright@1.56.1:
     dependencies:
       playwright-core: 1.56.1
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.58.1:
+    dependencies:
+      playwright-core: 1.58.1
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -11681,9 +11681,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))):
+  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))):
     dependencies:
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.51.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.3.0-canary-c137dd6f-20260204))(react@19.3.0-canary-c137dd6f-20260204))
       statsig-node-lite: 0.4.4
     transitivePeerDependencies:
       - encoding
