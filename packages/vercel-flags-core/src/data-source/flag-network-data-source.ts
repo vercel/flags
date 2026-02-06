@@ -434,11 +434,12 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
-    const streamPromise = this.startStream();
+    let streamPromise: Promise<void>;
 
     if (this.options.stream.initTimeoutMs <= 0) {
       // No timeout - wait indefinitely
       try {
+        streamPromise = this.startStream();
         await streamPromise;
         return true;
       } catch {
@@ -456,6 +457,7 @@ export class FlagNetworkDataSource implements DataSource {
     });
 
     try {
+      streamPromise = this.startStream();
       const result = await Promise.race([streamPromise, timeoutPromise]);
       clearTimeout(timeoutId!);
 
