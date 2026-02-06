@@ -139,21 +139,20 @@ export async function getProviderData(
   );
 
   const definitions = flagDefs.reduce<FlagDefinitionsType>((acc, d) => {
-    if (isVercelOrigin(d.origin)) {
-      const projectId = projectIdBySdkKey.get(d.origin.sdkKey)!;
-      acc[d.key] = {
-        options: d.options,
-        origin: {
-          provider: 'vercel',
-          projectId,
-        },
-        description: d.description,
-        defaultValue: d.defaultValue,
-        declaredInCode: true,
-      } satisfies FlagDefinitionType;
-    } else {
-      acc[d.key] = d;
-    }
+    if (!isVercelOrigin(d.origin)) return acc;
+
+    const projectId = projectIdBySdkKey.get(d.origin.sdkKey)!;
+    acc[d.key] = {
+      options: d.options,
+      origin: {
+        provider: 'vercel',
+        projectId,
+      },
+      description: d.description,
+      defaultValue: d.defaultValue,
+      declaredInCode: true,
+    } satisfies FlagDefinitionType;
+
     return acc;
   }, {});
 
