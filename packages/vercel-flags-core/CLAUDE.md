@@ -130,7 +130,7 @@ pnpm test:integration
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Reconnects with exponential backoff (base: 1s, max: 30s, max retries: 10)
+- Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key)
 - On disconnect: falls back to polling if enabled

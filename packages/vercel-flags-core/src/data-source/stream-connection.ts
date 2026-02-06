@@ -6,9 +6,9 @@ export type StreamMessage =
   | { type: 'datafile'; data: BundledDefinitions }
   | { type: 'ping' };
 
-const MAX_RETRY_COUNT = 10;
+const MAX_RETRY_COUNT = 15;
 const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 30_000;
+const MAX_DELAY_MS = 60_000;
 
 function backoff(retryCount: number): number {
   if (retryCount === 1) return 0;
