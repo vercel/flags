@@ -86,6 +86,30 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   return defaultVercelAdapter<ValueType, EntitiesType>();
 }
 
+const flagsClients = new Map<string, FlagsClient>();
+
+function getOrCreateClient(sdkKey: string): FlagsClient {
+  let client = flagsClients.get(sdkKey);
+  if (!client) {
+    client = createClient(sdkKey);
+    flagsClients.set(sdkKey, client);
+  }
+  return client;
+}
+
+function isVercelOrigin(
+  origin: unknown,
+): origin is { provider: 'vercel'; sdkKey: string } {
+  return (
+    typeof origin === 'object' &&
+    origin !== null &&
+    'provider' in origin &&
+    (origin as Record<string, unknown>).provider === 'vercel' &&
+    'sdkKey' in origin &&
+    typeof (origin as Record<string, unknown>).sdkKey === 'string'
+  );
+}
+
 export async function getProviderData(
   flags: Record<
     string,
@@ -93,24 +117,45 @@ export async function getProviderData(
     KeyedFlagDefinitionType | readonly unknown[]
   >,
 ): Promise<ProviderData> {
-  const info = await flagsClient.getInfo();
-
-  const definitions = Object.values(flags)
+  const flagDefs = Object.values(flags)
     // filter out precomputed arrays
-    .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i))
-    .reduce<FlagDefinitionsType>((acc, d) => {
+    .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i));
+
+  // Collect unique sdkKeys and resolve their projectIds
+  const sdkKeys = new Set<string>();
+  for (const d of flagDefs) {
+    if (isVercelOrigin(d.origin)) {
+      sdkKeys.add(d.origin.sdkKey);
+    }
+  }
+
+  const projectIdBySdkKey = new Map<string, string>();
+  await Promise.all(
+    Array.from(sdkKeys).map(async (sdkKey) => {
+      const client = getOrCreateClient(sdkKey);
+      const info = await client.getInfo();
+      projectIdBySdkKey.set(sdkKey, info.projectId);
+    }),
+  );
+
+  const definitions = flagDefs.reduce<FlagDefinitionsType>((acc, d) => {
+    if (isVercelOrigin(d.origin)) {
+      const projectId = projectIdBySdkKey.get(d.origin.sdkKey)!;
       acc[d.key] = {
         options: d.options,
         origin: {
           provider: 'vercel',
-          projectId: info.projectId,
+          projectId,
         },
         description: d.description,
         defaultValue: d.defaultValue,
         declaredInCode: true,
       } satisfies FlagDefinitionType;
-      return acc;
-    }, {});
+    } else {
+      acc[d.key] = d;
+    }
+    return acc;
+  }, {});
 
   return { definitions, hints: [] };
 }
