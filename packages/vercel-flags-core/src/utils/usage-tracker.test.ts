@@ -277,12 +277,70 @@ describe('UsageTracker', () => {
     });
 
     it('should log errors in debug mode', async () => {
-      process.env.DEBUG = '1';
+      process.env.DEBUG = '@vercel/flags-core';
+      vi.resetModules();
+      const { UsageTracker: FreshUsageTracker } = await import(
+        './usage-tracker'
+      );
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       server.use(
         http.post('https://example.com/v1/ingest', () => {
           return new HttpResponse(null, { status: 500 });
+        }),
+      );
+
+      const tracker = new FreshUsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead();
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '@vercel/flags-core: Failed to send events:',
+          expect.any(String),
+        );
+      });
+    });
+
+    it('should send x-vercel-debug-ingest header in debug mode', async () => {
+      process.env.DEBUG = '@vercel/flags-core';
+      vi.resetModules();
+      const { UsageTracker: FreshUsageTracker } = await import(
+        './usage-tracker'
+      );
+      let debugHeader: string | null = null;
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          debugHeader = request.headers.get('x-vercel-debug-ingest');
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new FreshUsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead();
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(debugHeader).toBe('1');
+      });
+    });
+
+    it('should not send x-vercel-debug-ingest header when not in debug mode', async () => {
+      let debugHeader: string | null = 'initial';
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          debugHeader = request.headers.get('x-vercel-debug-ingest');
+          return HttpResponse.json({ ok: true });
         }),
       );
 
@@ -295,9 +353,37 @@ describe('UsageTracker', () => {
       tracker.flush();
 
       await vi.waitFor(() => {
+        expect(debugHeader).toBeNull();
+      });
+    });
+
+    it('should log ingest response in debug mode', async () => {
+      process.env.DEBUG = '@vercel/flags-core';
+      vi.resetModules();
+      const { UsageTracker: FreshUsageTracker } = await import(
+        './usage-tracker'
+      );
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      server.use(
+        http.post('https://example.com/v1/ingest', () => {
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new FreshUsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+      });
+
+      tracker.trackRead();
+      tracker.flush();
+
+      await vi.waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith(
-          'Failed to send events:',
-          expect.any(String),
+          expect.stringContaining(
+            '@vercel/flags-core: Ingest response 200 for 1 events',
+          ),
         );
       });
     });

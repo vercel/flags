@@ -3,8 +3,10 @@ import { version } from '../../package.json';
 
 const RESOLVED_VOID: Promise<void> = Promise.resolve();
 
+const isDebugMode = process.env.DEBUG?.includes('@vercel/flags-core');
+
 const debugLog = (...args: any[]) => {
-  if (process.env.DEBUG !== '1') return;
+  if (!isDebugMode) return;
   console.log(...args);
 };
 
@@ -215,15 +217,23 @@ export class UsageTracker {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.sdkKey}`,
           'User-Agent': `VercelFlagsCore/${version}`,
+          ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
         },
         body: JSON.stringify(eventsToSend),
       });
 
+      debugLog(
+        `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
+      );
+
       if (!response.ok) {
-        debugLog('Failed to send events:', response.statusText);
+        debugLog(
+          '@vercel/flags-core: Failed to send events:',
+          response.statusText,
+        );
       }
     } catch (error) {
-      debugLog('Error sending events:', error);
+      debugLog('@vercel/flags-core: Error sending events:', error);
     }
   }
 }
