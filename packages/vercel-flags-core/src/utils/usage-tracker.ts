@@ -1,17 +1,11 @@
 import { waitUntil } from '@vercel/functions';
 import { version } from '../../package.json';
 
-const MAX_EVENTS_PER_BATCH = 2000; // 2000 events is <1MB
-const MAX_BATCH_WAIT_MS = 5_000; // 5 seconds
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 100;
-
-const isDebugMode = process.env.DEBUG?.includes('@vercel/flags-core');
+const RESOLVED_VOID: Promise<void> = Promise.resolve();
 
 const debugLog = (...args: any[]) => {
-  if (isDebugMode) {
-    console.log(...args);
-  }
+  if (process.env.DEBUG !== '1') return;
+  console.log(...args);
 };
 
 export interface FlagsConfigReadEvent {
@@ -30,6 +24,17 @@ export interface FlagsConfigReadEvent {
     configOrigin?: 'in-memory' | 'embedded';
   };
 }
+
+interface EventBatcher {
+  events: FlagsConfigReadEvent[];
+  /** Resolves the current wait period early (e.g., when batch size is reached) */
+  resolveWait: (() => void) | null;
+  /** Promise for flush operation */
+  pending: null | Promise<void>;
+}
+
+const MAX_BATCH_SIZE = 50;
+const MAX_BATCH_WAIT_MS = 5000;
 
 // WeakSet to track request contexts that have already been recorded
 // Using WeakSet allows the context objects to be garbage collected
@@ -65,38 +70,6 @@ function getRequestContext(): RequestContext {
   }
 }
 
-/**
- * Returns a promise that resolves after the specified delay.
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Function to create a timeout that can await its callback
- * or be cleared by also cleaning up the dangling promise.
- */
-function createAsyncTimeout(cb: () => Promise<void>, delay: number) {
-  let resolve: () => void = () => void 0;
-
-  const timer = setTimeout(() => {
-    cb().finally(() => resolve());
-  }, delay);
-
-  const promise = new Promise<void>((res) => {
-    resolve = () => res();
-  }).finally(() => {
-    clearTimeout(timer);
-  });
-
-  const clear = () => {
-    clearTimeout(timer);
-    resolve();
-  };
-
-  return { promise, clear };
-}
-
 export interface UsageTrackerOptions {
   sdkKey: string;
   host: string;
@@ -121,173 +94,26 @@ export interface TrackReadOptions {
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
 export class UsageTracker {
-  private isFlushing: boolean = false;
   private sdkKey: string;
   private host: string;
-  private config: {
-    batchSize: number;
-    batchDelayMs: number;
+  private batcher: EventBatcher = {
+    events: [],
+    resolveWait: null,
+    pending: null,
   };
-  private batcher: {
-    flushEvents: () => Promise<void>;
-    scheduleEvent: (event: string) => void;
-  } | null = null;
 
   constructor(options: UsageTrackerOptions) {
     this.sdkKey = options.sdkKey;
     this.host = options.host;
-
-    this.config = {
-      batchSize: MAX_EVENTS_PER_BATCH,
-      batchDelayMs: MAX_BATCH_WAIT_MS,
-    };
   }
 
   /**
    * Triggers an immediate flush of any pending events.
    * Returns a promise that resolves when the flush completes.
    */
-  async flush(): Promise<void> {
-    if (this.isFlushing) {
-      return;
-    }
-
-    this.isFlushing = true;
-
-    try {
-      await this.batcher?.flushEvents();
-    } finally {
-      this.isFlushing = false;
-    }
-  }
-
-  /**
-   * Returns an existing batcher if one exists,
-   * creates a new one otherwise.
-   */
-  getBatcher() {
-    if (this.isFlushing) {
-      throw new Error(
-        '@vercel/flags-core: Cannot write new events after flushing',
-      );
-    }
-
-    if (this.batcher) return this.batcher;
-
-    let events: string[] = [];
-    let timer: null | ReturnType<typeof createAsyncTimeout> = null;
-    const inFlight = new Set();
-
-    const internalFlush = async (reason: 'timer' | 'length' | 'force') => {
-      const list = events;
-      events = [];
-
-      if (list.length === 0) {
-        return;
-      }
-
-      if (timer) {
-        timer.clear();
-        timer = null;
-      }
-
-      debugLog(
-        `@vercel/flags-core: Flushing ${list.length} events due to ${reason}`,
-      );
-
-      const promise = (async () => {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/x-ndjson',
-          Authorization: `Bearer ${this.sdkKey}`,
-          'User-Agent': `VercelFlagsCore/${version}`,
-        };
-
-        if (isDebugMode) {
-          headers['x-vercel-debug-ingest'] = '1';
-        }
-
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            const response = await fetch(`${this.host}/v1/ingest`, {
-              method: 'POST',
-              headers,
-              body: list.join('\n'),
-            });
-
-            debugLog(
-              '@vercel/flags-core: Event ingest response status:',
-              response.status,
-              response.headers.get('x-vercel-id'),
-            );
-
-            if (response.ok) {
-              return; // Success, exit early
-            }
-
-            // Only retry on 5xx errors
-            if (response.status < 500 || attempt === MAX_RETRIES) {
-              console.error(
-                '@vercel/flags-core: Failed to flush events with status:',
-                response.status,
-              );
-              return;
-            }
-
-            // Wait before retrying
-            await sleep(RETRY_DELAY_MS);
-          } catch (error) {
-            if (attempt === MAX_RETRIES) {
-              console.error(
-                '@vercel/flags-core: Failed to flush events:',
-                error,
-              );
-              return;
-            }
-
-            // Wait before retrying
-            await sleep(RETRY_DELAY_MS);
-          }
-        }
-      })();
-
-      inFlight.add(promise);
-      promise.finally(() => inFlight.delete(promise));
-
-      await promise;
-    };
-
-    const scheduleEvent = (event: string) => {
-      events.push(event);
-
-      if (!timer) {
-        timer = createAsyncTimeout(
-          () => internalFlush('timer'),
-          this.config.batchDelayMs,
-        );
-        waitUntil(timer.promise);
-      }
-
-      if (events.length >= this.config.batchSize) {
-        waitUntil(internalFlush('length'));
-      }
-    };
-
-    const flushEvents = async () => {
-      try {
-        await internalFlush('force'); // Flush the latest events
-        await Promise.all(Array.from(inFlight)); // Wait for all in-flight flushes to complete
-      } catch (error) {
-        console.error('@vercel/flags-core: Failed to flush events:', error);
-      }
-    };
-
-    this.batcher = {
-      flushEvents,
-      scheduleEvent,
-    };
-
-    if (!this.batcher) throw new Error('Unexpected');
-    return this.batcher;
+  flush(): Promise<void> {
+    this.batcher.resolveWait?.();
+    return this.batcher.pending ?? RESOLVED_VOID;
   }
 
   /**
@@ -336,10 +162,68 @@ export class UsageTracker {
         }
       }
 
-      this.getBatcher().scheduleEvent(JSON.stringify(event));
+      this.batcher.events.push(event);
+      this.scheduleFlush();
     } catch (error) {
       // trackRead should never throw, but log the error
       console.error('@vercel/flags-core: Failed to record event:', error);
+    }
+  }
+
+  private scheduleFlush(): void {
+    if (!this.batcher.pending) {
+      let timeout: null | ReturnType<typeof setTimeout> = null;
+
+      const pending = (async () => {
+        await new Promise<void>((res) => {
+          this.batcher.resolveWait = res;
+          timeout = setTimeout(res, MAX_BATCH_WAIT_MS);
+        });
+
+        this.batcher.pending = null;
+        this.batcher.resolveWait = null;
+        if (timeout) clearTimeout(timeout);
+
+        await this.flushEvents();
+      })();
+
+      // Use waitUntil to keep the function alive until flush completes
+      // If `waitUntil` is not available this will be a no-op and leave
+      // a floating promise that will be completed in the background
+      waitUntil(pending);
+
+      this.batcher.pending = pending;
+    }
+
+    // Trigger early flush if threshold was reached
+    if (this.batcher.events.length >= MAX_BATCH_SIZE) {
+      this.batcher.resolveWait?.();
+    }
+  }
+
+  private async flushEvents(): Promise<void> {
+    if (this.batcher.events.length === 0) return;
+
+    // Take all events and clear the queue
+    const eventsToSend = this.batcher.events;
+    this.batcher.events = [];
+
+    try {
+      const response = await fetch(`${this.host}/v1/ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
+        },
+        body: JSON.stringify(eventsToSend),
+      });
+
+      if (!response.ok) {
+        debugLog('Failed to send events:', response.statusText);
+      }
+    } catch (error) {
+      debugLog('Error sending events:', error);
     }
   }
 }

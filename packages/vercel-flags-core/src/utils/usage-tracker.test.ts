@@ -16,16 +16,6 @@ vi.mock('@vercel/functions', () => ({
   waitUntil: vi.fn(),
 }));
 
-/**
- * Parse NDJSON (newline-delimited JSON) into an array of objects
- */
-function parseNdjson<T>(text: string): T[] {
-  return text
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as T);
-}
-
 const server = setupServer();
 
 beforeAll(() => server.listen());
@@ -53,12 +43,12 @@ describe('UsageTracker', () => {
 
   describe('trackRead', () => {
     it('should batch events and send them after flush', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -69,9 +59,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       expect(events).toHaveLength(1);
@@ -84,12 +76,12 @@ describe('UsageTracker', () => {
       process.env.VERCEL_DEPLOYMENT_ID = 'dpl_123';
       process.env.VERCEL_REGION = 'iad1';
 
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -100,9 +92,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -111,12 +105,12 @@ describe('UsageTracker', () => {
     });
 
     it('should batch multiple events', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -130,9 +124,11 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as Array<{ type: string }>;
       expect(events).toHaveLength(3);
@@ -154,9 +150,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(authHeader).toBe('Bearer my-secret-key');
+      await vi.waitFor(() => {
+        expect(authHeader).toBe('Bearer my-secret-key');
+      });
     });
 
     it('should send correct content-type header', async () => {
@@ -175,9 +173,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(contentType).toBe('application/x-ndjson');
+      await vi.waitFor(() => {
+        expect(contentType).toBe('application/json');
+      });
     });
 
     it('should send user-agent header', async () => {
@@ -196,9 +196,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(userAgent).toMatch(/^VercelFlagsCore\//);
+      await vi.waitFor(() => {
+        expect(userAgent).toMatch(/^VercelFlagsCore\//);
+      });
     });
 
     it('should not send empty batches', async () => {
@@ -217,8 +219,10 @@ describe('UsageTracker', () => {
       });
 
       // Flush without tracking anything
-      await tracker.flush();
+      tracker.flush();
 
+      // Wait a bit to ensure no request is made
+      await new Promise((r) => setTimeout(r, 100));
       expect(requestCount).toBe(0);
     });
 
@@ -239,19 +243,17 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      // Should not throw, but logs error to console.error
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Failed to flush events:',
-        expect.any(Error),
-      );
+      // Wait for the flush to complete
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should not throw and should not log error (only logs in debug mode)
+      expect(consoleSpy).not.toHaveBeenCalled();
     });
 
     it('should handle non-ok responses gracefully', async () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       server.use(
         http.post('https://example.com/v1/ingest', () => {
@@ -265,54 +267,22 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      // Should log error to console.error after retries exhausted
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Failed to flush events with status:',
-        500,
-      );
+      // Wait for the flush to complete
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should not log in non-debug mode
+      expect(consoleSpy).not.toHaveBeenCalled();
     });
 
-    it('should retry on 5xx errors and succeed on retry', async () => {
-      let requestCount = 0;
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          requestCount++;
-          if (requestCount < 3) {
-            return new HttpResponse(null, { status: 500 });
-          }
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
-      const tracker = new UsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
-      });
-
-      tracker.trackRead();
-      await tracker.flush();
-
-      // Should have retried and succeeded on 3rd attempt
-      expect(requestCount).toBe(3);
-      expect(receivedEvents.length).toBe(1);
-    });
-
-    it('should retry on 5xx errors up to 2 times then fail', async () => {
-      let requestCount = 0;
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+    it('should log errors in debug mode', async () => {
+      process.env.DEBUG = '1';
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       server.use(
         http.post('https://example.com/v1/ingest', () => {
-          requestCount++;
-          return new HttpResponse(null, { status: 503 });
+          return new HttpResponse(null, { status: 500 });
         }),
       );
 
@@ -322,83 +292,25 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      // Should have made 3 attempts (1 initial + 2 retries)
-      expect(requestCount).toBe(3);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Failed to flush events with status:',
-        503,
-      );
-    });
-
-    it('should not retry on 4xx errors', async () => {
-      let requestCount = 0;
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      server.use(
-        http.post('https://example.com/v1/ingest', () => {
-          requestCount++;
-          return new HttpResponse(null, { status: 400 });
-        }),
-      );
-
-      const tracker = new UsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
+      await vi.waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Failed to send events:',
+          expect.any(String),
+        );
       });
-
-      tracker.trackRead();
-      await tracker.flush();
-
-      // Should not retry on 4xx
-      expect(requestCount).toBe(1);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Failed to flush events with status:',
-        400,
-      );
-    });
-
-    it('should retry on network errors and succeed on retry', async () => {
-      let requestCount = 0;
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
-
-      server.use(
-        http.post('https://example.com/v1/ingest', async ({ request }) => {
-          requestCount++;
-          if (requestCount < 2) {
-            return HttpResponse.error();
-          }
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
-          return HttpResponse.json({ ok: true });
-        }),
-      );
-
-      const tracker = new UsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
-      });
-
-      tracker.trackRead();
-      await tracker.flush();
-
-      // Should have retried and succeeded on 2nd attempt
-      expect(requestCount).toBe(2);
-      expect(receivedEvents.length).toBe(1);
     });
   });
 
   describe('flush', () => {
     it('should trigger immediate flush of pending events', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -411,9 +323,11 @@ describe('UsageTracker', () => {
       tracker.trackRead();
 
       // Flush immediately instead of waiting for timeout
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
     });
 
     it('should be safe to call flush multiple times', async () => {
@@ -432,22 +346,28 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
-      await tracker.flush();
-      await tracker.flush();
+      tracker.flush();
+      tracker.flush();
+      tracker.flush();
 
+      await vi.waitFor(() => {
+        expect(requestCount).toBe(1);
+      });
+
+      // Wait a bit more to ensure no additional requests
+      await new Promise((r) => setTimeout(r, 100));
       expect(requestCount).toBe(1);
     });
   });
 
   describe('request context deduplication', () => {
     it('should deduplicate events with the same request context', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -474,9 +394,11 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       // Only one event should be recorded due to deduplication
       const events = receivedEvents[0] as Array<{ type: string }>;
@@ -491,8 +413,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -516,9 +438,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -531,13 +455,13 @@ describe('UsageTracker', () => {
   });
 
   describe('batch size limit', () => {
-    it('should trigger flush when batch size reaches 2000', async () => {
-      const receivedEvents: FlagsConfigReadEvent[][] = [];
+    it('should trigger flush when batch size reaches 50', async () => {
+      const receivedEvents: unknown[] = [];
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = await request.json();
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -547,18 +471,18 @@ describe('UsageTracker', () => {
         host: 'https://example.com',
       });
 
-      // Track 2000 events (without request context to avoid deduplication)
-      for (let i = 0; i < 2000; i++) {
+      // Track 50 events (without request context to avoid deduplication)
+      for (let i = 0; i < 50; i++) {
         tracker.trackRead();
       }
 
-      // Ensure the auto-flush completes
-      await tracker.flush();
-
-      expect(receivedEvents.length).toBe(1);
+      // Should auto-flush at 50 events
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as Array<{ type: string }>;
-      expect(events).toHaveLength(2000);
+      expect(events).toHaveLength(50);
     });
   });
 
@@ -591,8 +515,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -603,9 +527,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead({ configOrigin: 'in-memory' });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -617,8 +543,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -629,9 +555,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -643,8 +571,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -655,9 +583,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -669,8 +599,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -681,9 +611,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -695,8 +627,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -707,9 +639,11 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -721,8 +655,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -737,9 +671,11 @@ describe('UsageTracker', () => {
         configOrigin: 'in-memory',
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -751,8 +687,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -771,9 +707,11 @@ describe('UsageTracker', () => {
         duration: 200,
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
@@ -790,8 +728,8 @@ describe('UsageTracker', () => {
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
-          const body = await request.text();
-          receivedEvents.push(parseNdjson<FlagsConfigReadEvent>(body));
+          const body = (await request.json()) as FlagsConfigReadEvent[];
+          receivedEvents.push(body);
           return HttpResponse.json({ ok: true });
         }),
       );
@@ -803,9 +741,11 @@ describe('UsageTracker', () => {
 
       // Only pass configOrigin, omit others
       tracker.trackRead({ configOrigin: 'embedded' });
-      await tracker.flush();
+      tracker.flush();
 
-      expect(receivedEvents.length).toBe(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
 
       const events = receivedEvents[0] as FlagsConfigReadEvent[];
       const event = events[0] as FlagsConfigReadEvent;
