@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { BundledDefinitions } from '../types';
+import type { BundledDefinitions, DatafileInput } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 // Mock the bundled definitions module
@@ -61,7 +61,7 @@ function createNdjsonStream(messages: object[], delayMs = 0): ReadableStream {
       for (const message of messages) {
         if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
         controller.enqueue(
-          new TextEncoder().encode(JSON.stringify(message) + '\n'),
+          new TextEncoder().encode(`${JSON.stringify(message)}\n`),
         );
       }
       controller.close();
@@ -108,10 +108,10 @@ describe('FlagNetworkDataSource', () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                JSON.stringify({
+                `${JSON.stringify({
                   type: 'datafile',
                   data: { projectId: 'test', definitions: {} },
-                }) + '\n',
+                })}\n`,
               ),
             );
 
@@ -146,7 +146,7 @@ describe('FlagNetworkDataSource', () => {
 
     const fullMessage = JSON.stringify({ type: 'datafile', data: definitions });
     const part1 = fullMessage.slice(0, 20);
-    const part2 = fullMessage.slice(20) + '\n';
+    const part2 = `${fullMessage.slice(20)}\n`;
 
     server.use(
       http.get('https://flags.vercel.com/v1/stream', () => {
@@ -214,12 +214,6 @@ describe('FlagNetworkDataSource', () => {
       updatedAt: 1000,
       digest: 'aa',
       revision: 1,
-      metrics: {
-        readMs: 0,
-        source: 'embedded',
-        cacheStatus: 'HIT',
-        connectionState: 'disconnected',
-      },
     };
 
     // Mock bundled definitions to return valid data
@@ -278,12 +272,6 @@ describe('FlagNetworkDataSource', () => {
       updatedAt: 1000,
       digest: 'aa',
       revision: 1,
-      metrics: {
-        readMs: 0,
-        source: 'embedded',
-        cacheStatus: 'HIT',
-        connectionState: 'disconnected',
-      },
     };
 
     // Mock bundled definitions to return valid data
@@ -451,12 +439,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -486,12 +468,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -579,12 +555,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -619,12 +589,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -760,12 +724,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -920,11 +878,8 @@ describe('FlagNetworkDataSource', () => {
 
   describe('datafile option', () => {
     it('should use provided datafile immediately', async () => {
-      let streamRequested = false;
-
       server.use(
         http.get('https://flags.vercel.com/v1/stream', () => {
-          streamRequested = true;
           return new HttpResponse(
             createNdjsonStream([
               {
@@ -1046,10 +1001,10 @@ describe('FlagNetworkDataSource', () => {
               start(controller) {
                 controller.enqueue(
                   new TextEncoder().encode(
-                    JSON.stringify({
+                    `${JSON.stringify({
                       type: 'datafile',
                       data: { projectId: 'stream', definitions: {} },
-                    }) + '\n',
+                    })}\n`,
                   ),
                 );
                 streamDataSent = true;
@@ -1154,10 +1109,10 @@ describe('FlagNetworkDataSource', () => {
               start(controller) {
                 controller.enqueue(
                   new TextEncoder().encode(
-                    JSON.stringify({
+                    `${JSON.stringify({
                       type: 'datafile',
                       data: { projectId: 'stream', definitions: {} },
-                    }) + '\n',
+                    })}\n`,
                   ),
                 );
                 // Keep stream open by not closing controller
@@ -1215,13 +1170,13 @@ describe('FlagNetworkDataSource', () => {
               start(controller) {
                 controller.enqueue(
                   new TextEncoder().encode(
-                    JSON.stringify({
+                    `${JSON.stringify({
                       type: 'datafile',
                       data: {
                         projectId: 'stream',
                         definitions: { updated: true },
                       },
-                    }) + '\n',
+                    })}\n`,
                   ),
                 );
                 dataUpdated = true;
@@ -1236,16 +1191,10 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const providedDatafile = {
+      const providedDatafile: DatafileInput = {
         projectId: 'provided',
-        definitions: { initial: true },
+        definitions: {},
         environment: 'production',
-        metrics: {
-          readMs: 0,
-          source: 'in-memory' as const,
-          cacheStatus: 'HIT' as const,
-          connectionState: 'connected' as const,
-        },
       };
 
       const dataSource = new FlagNetworkDataSource({
@@ -1279,6 +1228,176 @@ describe('FlagNetworkDataSource', () => {
       const updatedResult = await dataSource.read();
       expect(updatedResult.definitions).toEqual({ updated: true });
       expect(updatedResult.projectId).toBe('stream');
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('getDatafile', () => {
+    it('should fetch from network when called without initialize', async () => {
+      const remoteDefinitions = {
+        projectId: 'remote',
+        definitions: { flag: true },
+        environment: 'production',
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          return HttpResponse.json(remoteDefinitions);
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const result = await dataSource.getDatafile();
+
+      expect(result).toMatchObject(remoteDefinitions);
+      expect(result.metrics.source).toBe('remote');
+      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
+
+      await dataSource.shutdown();
+    });
+
+    it('should fetch from network even when bundled definitions exist (not in build step)', async () => {
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const remoteDefinitions = {
+        projectId: 'remote',
+        definitions: { flag: true },
+        environment: 'production',
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          return HttpResponse.json(remoteDefinitions);
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const result = await dataSource.getDatafile();
+
+      // Should fetch from network, NOT use bundled definitions
+      expect(result.projectId).toBe('remote');
+      expect(result.metrics.source).toBe('remote');
+      expect(result.metrics.cacheStatus).toBe('MISS');
+
+      await dataSource.shutdown();
+    });
+
+    it('should return cached data when stream is connected', async () => {
+      const streamDefinitions = {
+        projectId: 'stream',
+        definitions: { flag: true },
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({
+                      type: 'datafile',
+                      data: streamDefinitions,
+                    })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+
+      // First read via initialize/read to establish stream connection
+      await dataSource.read();
+
+      // getDatafile should return cached stream data
+      const result = await dataSource.getDatafile();
+
+      expect(result.projectId).toBe('stream');
+      expect(result.metrics.source).toBe('in-memory');
+      expect(result.metrics.cacheStatus).toBe('HIT');
+      expect(result.metrics.connectionState).toBe('connected');
+
+      await dataSource.shutdown();
+    });
+
+    it('should use getDataForBuildStep when in build step', async () => {
+      process.env.CI = '1';
+
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: {},
+        environment: 'production',
+        updatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
+
+      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const result = await dataSource.getDatafile();
+
+      expect(result.projectId).toBe('bundled');
+      expect(result.metrics.source).toBe('embedded');
+      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
+
+      await dataSource.shutdown();
+    });
+
+    it('should fetch fresh data on each call when stream is not connected', async () => {
+      let fetchCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          fetchCount++;
+          return HttpResponse.json({
+            projectId: 'remote',
+            definitions: { version: fetchCount },
+            environment: 'production',
+          });
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: false,
+      });
+
+      const result1 = await dataSource.getDatafile();
+      expect(result1.definitions).toEqual({ version: 1 });
+
+      // The second call hits the cache since this.data was set by the first call
+      // and the stream is not connected, so isStreamConnected is false
+      // which means the else branch fires again, fetching fresh data
+      const result2 = await dataSource.getDatafile();
+      expect(result2.definitions).toEqual({ version: 2 });
+      expect(fetchCount).toBe(2);
 
       await dataSource.shutdown();
     });
@@ -1333,12 +1452,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -1371,12 +1484,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -1384,16 +1491,10 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const providedDatafile = {
+      const providedDatafile: DatafileInput = {
         projectId: 'provided',
-        definitions: { custom: true },
+        definitions: {},
         environment: 'production',
-        metrics: {
-          readMs: 0,
-          source: 'in-memory' as const,
-          cacheStatus: 'HIT' as const,
-          connectionState: 'connected' as const,
-        },
       };
 
       const dataSource = new FlagNetworkDataSource({
@@ -1436,12 +1537,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -1489,12 +1584,6 @@ describe('FlagNetworkDataSource', () => {
         updatedAt: 1,
         digest: 'a',
         revision: 1,
-        metrics: {
-          readMs: 0,
-          source: 'embedded',
-          cacheStatus: 'HIT',
-          connectionState: 'disconnected',
-        },
       };
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({

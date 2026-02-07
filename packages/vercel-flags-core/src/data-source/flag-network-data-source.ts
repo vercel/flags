@@ -366,8 +366,10 @@ export class FlagNetworkDataSource implements DataSource {
   /**
    * Returns the datafile with metrics.
    *
+   * During builds this will read from the bundled file if available.
+   *
    * This method never opens a streaming connection, but will read from
-   * the stream if it is already open.
+   * the stream if it is already open. Otherwise it fetches over the network.
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
@@ -378,10 +380,11 @@ export class FlagNetworkDataSource implements DataSource {
 
     if (this.options.buildStep) {
       [result, source, cacheStatus] = await this.getDataForBuildStep();
-    } else if (this.data) {
+    } else if (this.isStreamConnected && this.data) {
       [result, source, cacheStatus] = this.getDataFromCache();
     } else {
-      [result, source, cacheStatus] = await this.getDataForBuildStep();
+      this.data = await fetchDatafile(this.host, this.options.sdkKey);
+      [result, source, cacheStatus] = [this.data, 'remote', 'MISS'];
     }
 
     return Object.assign(result, {
