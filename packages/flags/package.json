@@ -96,7 +96,7 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
-    "@sveltejs/kit": "*",
+    "@sveltejs/kit": "^2.49.5",
     "next": "*",
     "react": "*",
     "react-dom": "*"
