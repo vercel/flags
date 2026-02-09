@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clientMap } from './client-map';
 import { createCreateRawClient } from './create-raw-client';
-import type { DataSource } from './types';
+import type { BundledDefinitions, Datafile, DataSource } from './types';
 
 function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   return {
@@ -41,10 +41,10 @@ function createMockFns() {
       projectId: 'test',
       definitions: {},
       environment: 'production',
-      updatedAt: 1,
+      configUpdatedAt: 1,
       digest: 'a',
       revision: 1,
-    }),
+    } satisfies BundledDefinitions),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
     getDatafile: vi.fn().mockResolvedValue({
       projectId: 'test',
@@ -215,12 +215,12 @@ describe('createCreateRawClient', () => {
       const fns = createMockFns();
       const mockFallback = {
         projectId: 'test-project',
-        definitions: { flag: true },
+        definitions: {},
         environment: 'production',
-        updatedAt: 123,
+        configUpdatedAt: 123,
         digest: 'abc',
         revision: 2,
-      };
+      } satisfies BundledDefinitions;
       fns.getFallbackDatafile.mockResolvedValue(mockFallback);
       const createRawClient = createCreateRawClient(fns);
       const dataSource = createMockDataSource();
