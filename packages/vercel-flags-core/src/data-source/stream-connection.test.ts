@@ -33,7 +33,7 @@ function createNdjsonStream(
       for (const message of messages) {
         if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
         controller.enqueue(
-          new TextEncoder().encode(JSON.stringify(message) + '\n'),
+          new TextEncoder().encode(`${JSON.stringify(message)}\n`),
         );
       }
       if (!keepOpen) {
@@ -133,7 +133,7 @@ describe('connectStream', () => {
         data: definitions,
       });
       const part1 = fullMessage.slice(0, 20);
-      const part2 = fullMessage.slice(20) + '\n';
+      const part2 = `${fullMessage.slice(20)}\n`;
 
       server.use(
         http.get(`${HOST}/v1/stream`, () => {
@@ -534,10 +534,10 @@ describe('connectStream', () => {
               start(controller) {
                 controller.enqueue(
                   new TextEncoder().encode(
-                    JSON.stringify({
+                    `${JSON.stringify({
                       type: 'datafile',
                       data: { projectId: 'test', definitions: {} },
-                    }) + '\n',
+                    })}\n`,
                   ),
                 );
                 // Keep stream open

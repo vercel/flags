@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { BundledDefinitions, Datafile, DatafileInput } from '../types';
+import type { BundledDefinitions, DatafileInput } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 // Mock the bundled definitions module

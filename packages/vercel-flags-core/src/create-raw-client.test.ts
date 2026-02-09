@@ -320,6 +320,7 @@ describe('createCreateRawClient', () => {
         (v) => v.dataSource,
       );
       expect(dataSources).toContain(ds2);
+      await client2.shutdown();
     });
 
     it('should use correct ID for each client method call', async () => {
