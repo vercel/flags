@@ -1003,6 +1003,7 @@ describe('FlagNetworkDataSource', () => {
 
       // Polling should have stopped - count should not have increased much
       // (there might be 1-2 more polls in flight when stream connected)
+      expect(pollCount).toBeGreaterThan(0);
       expect(pollCount).toBeLessThanOrEqual(pollCountAfterStreamConnect + 2);
 
       await dataSource.shutdown();
