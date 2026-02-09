@@ -169,6 +169,21 @@ async function getEntities<ValueType, EntitiesType>(
 function getDecide<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
+  if (definition.adapter && typeof definition.adapter.decide !== 'function') {
+    throw new Error(
+      `flags: You passed an adapter that does not have a "decide" method for flag "${definition.key}". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?`,
+    );
+  }
+
+  if (
+    typeof definition.decide !== 'function' &&
+    typeof definition.adapter?.decide !== 'function'
+  ) {
+    throw new Error(
+      `flags: You passed a flag declaration that does not have a "decide" method for flag "${definition.key}"`,
+    );
+  }
+
   return function decide(params) {
     if (typeof definition.decide === 'function') {
       return definition.decide(params);
