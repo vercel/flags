@@ -1784,14 +1784,24 @@ describe('FlagNetworkDataSource', () => {
     it('should accept updates when current data has no configUpdatedAt', async () => {
       const providedDatafile: DatafileInput = {
         projectId: 'provided',
-        definitions: {},
+        definitions: {
+          testFlag: {
+            environments: { production: 0 },
+            variants: [false, true],
+          },
+        },
         environment: 'production',
         // No configUpdatedAt - this is a plain DatafileInput
       };
 
-      const streamData = {
+      const streamData: DatafileInput = {
         projectId: 'test',
-        definitions: { version: 'from-stream' },
+        definitions: {
+          testFlag: {
+            environments: { production: 1 },
+            variants: [false, true],
+          },
+        },
         environment: 'production',
         configUpdatedAt: 1000,
       };
@@ -1828,13 +1838,13 @@ describe('FlagNetworkDataSource', () => {
 
       // Initial read returns provided datafile
       const result1 = await dataSource.read();
-      expect(result1.definitions).toEqual({ version: 'initial' });
+      expect(result1.definitions).toEqual(providedDatafile.definitions);
 
       // Wait for stream to deliver data
       await vi.waitFor(
         async () => {
           const result = await dataSource.read();
-          expect(result.definitions).toEqual({ version: 'from-stream' });
+          expect(result.definitions).toEqual(streamData.definitions);
         },
         { timeout: 2000 },
       );
