@@ -420,11 +420,9 @@ export function evaluate<T>(
     }) satisfies EvaluationResult<T>;
   }
 
-  const x = Object.assign(handleOutcome<T>(params, envConfig.fallthrough), {
+  return Object.assign(handleOutcome<T>(params, envConfig.fallthrough), {
     reason: ResolutionReason.FALLTHROUGH as const,
   }) satisfies EvaluationResult<T>;
-
-  return x;
 }
 
 /**

@@ -95,7 +95,7 @@ describe('createCreateRawClient', () => {
       // Find the entry that was just added
       const entries = Array.from(clientMap.entries());
       const lastEntry = entries[entries.length - 1];
-      expect(lastEntry[1].dataSource).toBe(dataSource);
+      expect(lastEntry?.[1].dataSource).toBe(dataSource);
     });
 
     it('should assign incrementing IDs to each client', () => {
@@ -115,12 +115,12 @@ describe('createCreateRawClient', () => {
       expect(clientMap.size).toBe(initialSize + 3);
       // Each dataSource should be stored under a different key
       const entries = Array.from(clientMap.entries()).slice(-3);
-      expect(entries[0][1].dataSource).toBe(ds1);
-      expect(entries[1][1].dataSource).toBe(ds2);
-      expect(entries[2][1].dataSource).toBe(ds3);
+      expect(entries?.[0]?.[1].dataSource).toBe(ds1);
+      expect(entries?.[1]?.[1].dataSource).toBe(ds2);
+      expect(entries?.[2]?.[1].dataSource).toBe(ds3);
       // IDs should be incrementing
-      expect(entries[1][0]).toBe(entries[0][0] + 1);
-      expect(entries[2][0]).toBe(entries[1][0] + 1);
+      expect(entries?.[1]?.[0]).toBe(entries![0]![0] + 1);
+      expect(entries?.[2]?.[0]).toBe(entries![1]![0] + 1);
     });
   });
 
@@ -337,8 +337,8 @@ describe('createCreateRawClient', () => {
 
       expect(fns.evaluate).toHaveBeenCalledTimes(2);
       // First call should use client1's ID (lower)
-      const call1Id = fns.evaluate.mock.calls[0][0];
-      const call2Id = fns.evaluate.mock.calls[1][0];
+      const call1Id = fns.evaluate.mock.calls?.[0]?.[0];
+      const call2Id = fns.evaluate.mock.calls?.[1]?.[0];
       expect(call1Id).toBeLessThan(call2Id);
     });
   });

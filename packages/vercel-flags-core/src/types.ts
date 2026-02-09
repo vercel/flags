@@ -226,6 +226,7 @@ export type EvaluationResult<T> =
       reason: ResolutionReason.ERROR;
       errorMessage: string;
       errorCode?: ErrorCode;
+      outcomeType?: never;
       /**
        * In cases of errors this is the defaultValue if one was provided
        */
