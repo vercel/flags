@@ -818,9 +818,16 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
+      const providedDatafile: DatafileInput = {
+        projectId: 'static-data',
+        definitions: {},
+        environment: 'production',
+      };
+
       const dataSource = new FlagNetworkDataSource({
         sdkKey: 'vf_test_key',
-        stream: true,
+        datafile: providedDatafile,
+        stream: false,
         polling: false,
       });
 
