@@ -14,7 +14,6 @@ The test applications are not deployed anywhere to keep the action fast.
 
 The port of each application indicates the Next.js version
 
-- next-14 runs on 4014
 - next-15 runs on 4015
 - next-16 runs on 4016
 - sveltekit runs on 5173
@@ -25,9 +24,9 @@ If you want to write or debug e2e tests for a specific Next.js version you can
 
 Terminal 1
 
-- `pnpm next-14`
+- `pnpm next-16`
 
 Terminal 2
 
-- `cd tests/next-14`
+- `cd tests/next-16`
 - `pnpm playwright test` or `pnpm playwright test --ui`
