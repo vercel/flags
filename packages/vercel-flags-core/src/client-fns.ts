@@ -12,10 +12,6 @@ export function shutdown(id: number): void | Promise<void> {
   return clientMap.get(id)!.dataSource.shutdown();
 }
 
-export function getInfo(id: number) {
-  return clientMap.get(id)!.dataSource.getInfo();
-}
-
 export function getDatafile(id: number) {
   return clientMap.get(id)!.dataSource.getDatafile();
 }

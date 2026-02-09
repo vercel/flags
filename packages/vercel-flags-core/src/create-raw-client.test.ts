@@ -16,7 +16,6 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
         cacheStatus: 'HIT',
       },
     }),
-    getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
     getDatafile: vi.fn().mockResolvedValue({
       projectId: 'test-project',
       definitions: {},
@@ -47,7 +46,6 @@ function createMockFns() {
       revision: 1,
     }),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
-    getInfo: vi.fn().mockResolvedValue({ projectId: 'test' }),
     getDatafile: vi.fn().mockResolvedValue({
       projectId: 'test',
       definitions: {},
@@ -197,32 +195,6 @@ describe('createCreateRawClient', () => {
       await client.shutdown();
 
       expect(clientMap.size).toBe(0);
-    });
-  });
-
-  describe('getInfo', () => {
-    it('should call fns.getInfo with the client ID', async () => {
-      const fns = createMockFns();
-      const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
-
-      const client = createRawClient({ dataSource });
-      await client.getInfo();
-
-      expect(fns.getInfo).toHaveBeenCalledTimes(1);
-      expect(fns.getInfo).toHaveBeenCalledWith(expect.any(Number));
-    });
-
-    it('should return the result from fns.getInfo', async () => {
-      const fns = createMockFns();
-      fns.getInfo.mockResolvedValue({ projectId: 'my-project' });
-      const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
-
-      const client = createRawClient({ dataSource });
-      const result = await client.getInfo();
-
-      expect(result).toEqual({ projectId: 'my-project' });
     });
   });
 

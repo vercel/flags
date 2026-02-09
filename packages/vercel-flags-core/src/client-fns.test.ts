@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   evaluate,
   getFallbackDatafile,
-  getInfo,
   initialize,
   shutdown,
 } from './client-fns';
@@ -30,7 +29,6 @@ function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
         cacheStatus: 'HIT',
       },
     }),
-    getInfo: vi.fn().mockResolvedValue({ projectId: 'test-project' }),
     getDatafile: vi.fn().mockResolvedValue({
       projectId: 'test-project',
       definitions: {},
@@ -125,32 +123,6 @@ describe('client-fns', () => {
 
     it('should throw if client ID is not in map', () => {
       expect(() => shutdown(999)).toThrow();
-    });
-  });
-
-  describe('getInfo', () => {
-    it('should call dataSource.getInfo()', async () => {
-      const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
-
-      await getInfo(CLIENT_ID);
-
-      expect(dataSource.getInfo).toHaveBeenCalledTimes(1);
-    });
-
-    it('should return metadata from dataSource', async () => {
-      const dataSource = createMockDataSource({
-        getInfo: vi.fn().mockResolvedValue({ projectId: 'my-project' }),
-      });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
-
-      const result = await getInfo(CLIENT_ID);
-
-      expect(result).toEqual({ projectId: 'my-project' });
-    });
-
-    it('should throw if client ID is not in map', () => {
-      expect(() => getInfo(999)).toThrow();
     });
   });
 

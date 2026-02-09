@@ -43,11 +43,6 @@ const cachedFns: typeof fns = {
     setCacheLife();
     return fns.shutdown(...args);
   },
-  getInfo: async (...args) => {
-    'use cache';
-    setCacheLife();
-    return fns.getInfo(...args);
-  },
   getDatafile: async (...args) => {
     'use cache';
     setCacheLife();

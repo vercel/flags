@@ -671,50 +671,6 @@ describe('FlagNetworkDataSource', () => {
     });
   });
 
-  describe('getInfo', () => {
-    it('should return metadata from cached data', async () => {
-      server.use(
-        http.get('https://flags.vercel.com/v1/stream', () => {
-          return new HttpResponse(
-            createNdjsonStream([
-              {
-                type: 'datafile',
-                data: { projectId: 'cached-project', definitions: {} },
-              },
-            ]),
-            { headers: { 'Content-Type': 'application/x-ndjson' } },
-          );
-        }),
-      );
-
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-      await dataSource.read(); // Cache data
-
-      const metadata = await dataSource.getInfo();
-      expect(metadata).toEqual({ projectId: 'cached-project' });
-
-      await dataSource.shutdown();
-    });
-
-    it('should fetch metadata when no cached data', async () => {
-      server.use(
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          return HttpResponse.json({
-            projectId: 'fetched-project',
-            definitions: {},
-          });
-        }),
-      );
-
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
-
-      const metadata = await dataSource.getInfo();
-      expect(metadata).toEqual({ projectId: 'fetched-project' });
-
-      await dataSource.shutdown();
-    });
-  });
-
   describe('custom stream options', () => {
     it('should use custom initTimeoutMs value', async () => {
       const bundledDefinitions: BundledDefinitions = {

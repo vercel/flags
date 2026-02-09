@@ -35,7 +35,6 @@ Main interface for interacting with flags:
 type FlagsClient = {
   initialize(): Promise<void>;
   shutdown(): Promise<void>;
-  getInfo(): DataSourceInfo;
   getDatafile(): Promise<Datafile>;
   evaluate<T, E>(flagKey, defaultValue?, entities?): Promise<EvaluationResult<T>>;
 }

@@ -6,7 +6,6 @@ import type {
   Datafile,
   DatafileInput,
   DataSource,
-  DataSourceInfo,
   Metrics,
   PollingOptions,
   StreamOptions,
@@ -350,17 +349,6 @@ export class FlagNetworkDataSource implements DataSource {
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
-  }
-
-  /**
-   * Returns information about the data source.
-   */
-  async getInfo(): Promise<DataSourceInfo> {
-    if (this.data) {
-      return { projectId: this.data.projectId };
-    }
-    const fetched = await fetchDatafile(this.host, this.options.sdkKey);
-    return { projectId: fetched.projectId };
   }
 
   /**

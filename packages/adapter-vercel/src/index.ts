@@ -133,8 +133,13 @@ export async function getProviderData(
   await Promise.all(
     Array.from(sdkKeys).map(async (sdkKey) => {
       const client = getOrCreateClient(sdkKey);
-      const info = await client.getInfo();
-      projectIdBySdkKey.set(sdkKey, info.projectId);
+      try {
+        const fallback = await client.getFallbackDatafile();
+        projectIdBySdkKey.set(sdkKey, fallback.projectId);
+      } catch {
+        const datafile = await client.getDatafile();
+        projectIdBySdkKey.set(sdkKey, datafile.projectId);
+      }
     }),
   );
 

@@ -50,18 +50,6 @@ export type BundledDefinitionsResult =
   | { definitions: null; state: 'unexpected-error'; error: unknown };
 
 /**
- * Basic info about the data source (returned by getInfo)
- */
-export type DataSourceInfo = {
-  projectId: string;
-};
-
-/**
- * @deprecated Use DataSourceInfo instead
- */
-export type DataSourceMetadata = DataSourceInfo;
-
-/**
  * Metrics about how data was retrieved and evaluated
  */
 export type Metrics = {
@@ -98,11 +86,6 @@ export interface DataSource {
    * End polling or subscriptions. Flush any remaining data.
    */
   shutdown(): void;
-
-  /**
-   * Return metadata about the data source.
-   */
-  getInfo(): Promise<DataSourceMetadata>;
 
   /**
    * Return the actual datafile containing flag definitions.
@@ -158,10 +141,6 @@ export type FlagsClient = {
    * Facilitates a clean shutdown process which may include flushing telemetry information, or closing remote connections.
    */
   shutdown(): void | Promise<void>;
-  /**
-   * Returns metadata about the data source
-   */
-  getInfo(): Promise<{ projectId: string }>;
   /**
    * Returns the actual datafile containing flag definitions
    */

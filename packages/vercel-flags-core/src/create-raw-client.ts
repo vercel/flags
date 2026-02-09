@@ -2,7 +2,6 @@ import type {
   evaluate,
   getDatafile,
   getFallbackDatafile,
-  getInfo,
   initialize,
   shutdown,
 } from './client-fns';
@@ -22,7 +21,6 @@ export function createCreateRawClient(fns: {
   shutdown: typeof shutdown;
   getFallbackDatafile: typeof getFallbackDatafile;
   evaluate: typeof evaluate;
-  getInfo: typeof getInfo;
   getDatafile: typeof getDatafile;
 }) {
   return function createRawClient({
@@ -55,7 +53,6 @@ export function createCreateRawClient(fns: {
         await fns.shutdown(id);
         clientMap.delete(id);
       },
-      getInfo: () => fns.getInfo(id),
       getDatafile: () => fns.getDatafile(id),
       getFallbackDatafile: (): Promise<BundledDefinitions> => {
         return fns.getFallbackDatafile(id);

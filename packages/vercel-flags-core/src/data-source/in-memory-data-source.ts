@@ -1,10 +1,4 @@
-import type {
-  Datafile,
-  DatafileInput,
-  DataSource,
-  DataSourceInfo,
-  Packed,
-} from '../types';
+import type { Datafile, DatafileInput, DataSource, Packed } from '../types';
 
 const RESOLVED_VOID = Promise.resolve();
 
@@ -22,10 +16,6 @@ export class InMemoryDataSource implements DataSource {
       projectId,
       environment,
     };
-  }
-
-  getInfo(): Promise<DataSourceInfo> {
-    return Promise.resolve({ projectId: this.data.projectId });
   }
 
   getDatafile(): Promise<Datafile> {
