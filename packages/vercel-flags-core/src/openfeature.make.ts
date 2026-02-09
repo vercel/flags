@@ -38,6 +38,7 @@ function mapReason(reason: Reason): ResolutionReason {
 
 export function make(
   createClient: (sdkKeyOrConnectionString: string) => FlagsClient,
+  defaultFlagsClient: FlagsClient,
 ) {
   return class VercelProvider implements Provider {
     readonly metadata: ProviderMetadata = {
@@ -47,9 +48,12 @@ export function make(
     readonly runsOn = 'server';
     readonly client: FlagsClient;
 
+    constructor();
     constructor(client: FlagsClient);
     constructor(connectionString: string);
-    constructor(clientOrConnectionString: FlagsClient | string) {
+    constructor(
+      clientOrConnectionString: FlagsClient | string = defaultFlagsClient,
+    ) {
       if (typeof clientOrConnectionString === 'string') {
         this.client = createClient(clientOrConnectionString);
       } else {
