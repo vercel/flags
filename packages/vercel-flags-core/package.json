@@ -9,24 +9,30 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "next-js": {
+        "types": "./dist/index.next-js.d.ts",
+        "default": "./dist/index.next-js.js"
+      },
+      "types": "./dist/index.default.d.ts",
+      "default": "./dist/index.default.js"
     },
     "./openfeature": {
-      "import": "./dist/openfeature.js",
-      "require": "./dist/openfeature.cjs"
+      "next-js": {
+        "types": "./dist/openfeature.next-js.d.ts",
+        "default": "./dist/openfeature.next-js.js"
+      },
+      "types": "./dist/openfeature.default.d.ts",
+      "default": "./dist/openfeature.default.js"
     }
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.default.js",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/*.d.ts",
-        "dist/*.d.cts"
+        "dist/index.default.d.ts"
       ],
-      "./openfeature": [
-        "dist/openfeature.d.ts",
-        "dist/openfeature.d.cts"
+      "openfeature": [
+        "dist/openfeature.default.d.ts"
       ]
     }
   },
@@ -43,25 +49,31 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@vercel/functions": "^3.3.6",
     "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "@vercel/edge-config": "^1.4.3"
+    "js-xxhash": "4.0.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.2",
     "@types/node": "20.11.17",
     "flags": "workspace:*",
     "msw": "2.6.4",
+    "next": "16.1.6",
     "tsup": "8.5.1",
     "typescript": "5.6.3",
     "vite": "6.4.1",
     "vitest": "2.1.9"
   },
   "peerDependencies": {
-    "flags": "*",
-    "@openfeature/server-sdk": "1.18.0"
+    "next": "*",
+    "@openfeature/server-sdk": "1.18.0",
+    "flags": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {
+      "optional": true
+    },
+    "next": {
       "optional": true
     }
   },

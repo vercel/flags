@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -19,6 +19,9 @@
       "correctness": {
         "noUnusedFunctionParameters": "off"
       },
+      "complexity": {
+        "noUselessContinue": "off"
+      },
       "suspicious": {
         "noExplicitAny": "off",
         "noDocumentCookie": "off",
@@ -36,6 +39,11 @@
   "javascript": {
     "formatter": {
       "quoteStyle": "single"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   },
   "assist": {

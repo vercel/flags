@@ -34,13 +34,9 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "jose": "5.2.1",
-    "js-xxhash": "4.0.0",
-    "@vercel/flags-core": "workspace:*",
-    "@vercel/edge-config": "^1.4.3"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@vercel/flags-core": "workspace:*",
     "@types/node": "20.11.17",
     "flags": "workspace:*",
     "msw": "2.6.4",
@@ -51,6 +47,7 @@
     "vitest": "2.1.9"
   },
   "peerDependencies": {
+    "@vercel/flags-core": "workspace:*",
     "flags": "*"
   },
   "publishConfig": {

@@ -1,21 +1,22 @@
 import { StandardResolutionReasons } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
-import { createClient } from './client';
+import * as fns from './client-fns';
+import { createCreateRawClient } from './create-raw-client';
 import { InMemoryDataSource } from './data-source/in-memory-data-source';
-import { VercelProvider } from './openfeature';
+import { VercelProvider } from './openfeature.default';
 import type { Packed } from './types';
+
+const createRawClient = createCreateRawClient(fns);
 
 describe('VercelProvider', () => {
   describe('constructor', () => {
     it('should accept a FlagsClient', () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');
@@ -24,7 +25,7 @@ describe('VercelProvider', () => {
 
     it('should accept a connection string', () => {
       const connectionString =
-        'flags:edgeConfigId=test&edgeConfigToken=test&projectId=test';
+        'flags:edgeConfigId=test&edgeConfigToken=test&sdkKey=vf_test_key';
       const provider = new VercelProvider(connectionString);
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');
@@ -35,18 +36,19 @@ describe('VercelProvider', () => {
   describe('resolveBooleanEvaluation', () => {
     it('should resolve a boolean flag', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'boolean-flag': {
-            environments: { production: 0 },
-            variants: [true],
-          } as Packed.FlagDefinition,
+        data: {
+          definitions: {
+            'boolean-flag': {
+              environments: { production: 0 },
+              variants: [true],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
@@ -61,13 +63,11 @@ describe('VercelProvider', () => {
 
     it('should return default value when flag is not found', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
@@ -83,22 +83,23 @@ describe('VercelProvider', () => {
 
     it('should use fallthrough outcome for active flags', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'active-flag': {
-            environments: {
-              production: {
-                fallthrough: 1,
+        data: {
+          definitions: {
+            'active-flag': {
+              environments: {
+                production: {
+                  fallthrough: 1,
+                },
               },
-            },
-            variants: [false, true],
-          } as Packed.FlagDefinition,
+              variants: [false, true],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveBooleanEvaluation(
@@ -115,18 +116,19 @@ describe('VercelProvider', () => {
   describe('resolveStringEvaluation', () => {
     it('should resolve a string flag', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'string-flag': {
-            environments: { production: 0 },
-            variants: ['variant-a'],
-          } as Packed.FlagDefinition,
+        data: {
+          definitions: {
+            'string-flag': {
+              environments: { production: 0 },
+              variants: ['variant-a'],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveStringEvaluation(
@@ -141,13 +143,11 @@ describe('VercelProvider', () => {
 
     it('should return default value when flag is not found', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveStringEvaluation(
@@ -165,18 +165,19 @@ describe('VercelProvider', () => {
   describe('resolveNumberEvaluation', () => {
     it('should resolve a number flag', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'number-flag': {
-            environments: { production: 0 },
-            variants: [42],
-          } as Packed.FlagDefinition,
+        data: {
+          definitions: {
+            'number-flag': {
+              environments: { production: 0 },
+              variants: [42],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveNumberEvaluation(
@@ -191,13 +192,11 @@ describe('VercelProvider', () => {
 
     it('should return default value when flag is not found', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveNumberEvaluation(
@@ -215,18 +214,19 @@ describe('VercelProvider', () => {
   describe('resolveObjectEvaluation', () => {
     it('should resolve an object flag', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'object-flag': {
-            environments: { production: 0 },
-            variants: ['value'],
-          } as Packed.FlagDefinition,
+        data: {
+          definitions: {
+            'object-flag': {
+              environments: { production: 0 },
+              variants: ['value'],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveObjectEvaluation(
@@ -241,13 +241,11 @@ describe('VercelProvider', () => {
 
     it('should return default value when flag is not found', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveObjectEvaluation(
@@ -265,13 +263,11 @@ describe('VercelProvider', () => {
   describe('initialize', () => {
     it('should initialize without errors', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       await expect(provider.initialize()).resolves.toBeUndefined();
@@ -281,13 +277,11 @@ describe('VercelProvider', () => {
   describe('onClose', () => {
     it('should close without errors', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {},
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        data: { definitions: {}, segments: {} },
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       await expect(provider.onClose()).resolves.toBeUndefined();
@@ -297,23 +291,24 @@ describe('VercelProvider', () => {
   describe('context passing', () => {
     it('should pass evaluation context to the client', async () => {
       const dataSource = new InMemoryDataSource({
-        definitions: {
-          'context-flag': {
-            environments: {
-              production: {
-                targets: [{}, { user: { id: ['user-123'] } }],
-                fallthrough: 0,
+        data: {
+          definitions: {
+            'context-flag': {
+              environments: {
+                production: {
+                  targets: [{}, { user: { id: ['user-123'] } }],
+                  fallthrough: 0,
+                },
               },
-            },
-            variants: ['variant-a', 'variant-b'],
-          } as Packed.FlagDefinition,
+              variants: ['variant-a', 'variant-b'],
+            } as Packed.FlagDefinition,
+          },
+          segments: {},
         },
-        segments: {},
-      });
-      const client = createClient({
-        dataSource,
+        projectId: 'test',
         environment: 'production',
       });
+      const client = createRawClient({ dataSource });
       const provider = new VercelProvider(client);
 
       const result = await provider.resolveStringEvaluation(

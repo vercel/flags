@@ -1,6 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createClientFromConnectionString, type FlagsClient } from '.';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { evaluate } from './evaluate';
+import { createClient, type FlagsClient } from './index.default';
 import {
   Comparator,
   type EvaluationResult,
@@ -11,141 +11,109 @@ import {
 
 describe('integration evaluate', () => {
   let client: FlagsClient;
-  let defaultEnvironment: string;
 
   beforeAll(async () => {
     // It's okay that this is commited as it's public
-    const connectionString =
-      'flags:edgeConfigId=ecfg_konthhfbklvwhukdfzco4lkqdhq1&edgeConfigToken=91614cf9-7cb2-414f-aa76-40842e2a07b9&projectId=prj_VGCv1T9ruFqnQoWR3pp78lvtvsfr';
+    const connectionString = 'vf_server_aOTtiYdgpJIkd27yDW4uDbLHmpmIVmwG';
     if (!connectionString) {
       throw new Error(
         'integration-tests: Missing env var INTEGRATION_TEST_CONNECTION_STRING',
       );
     }
 
-    client = createClientFromConnectionString(connectionString);
-    defaultEnvironment = client.environment;
-  });
-
-  beforeEach(() => {
-    client.environment = defaultEnvironment;
+    client = createClient(connectionString);
   });
 
   it('should evaluate active flags', async () => {
-    expect(await client.evaluate('active')).toEqual({
-      value: true,
-      reason: ResolutionReason.FALLTHROUGH,
-      outcomeType: OutcomeType.VALUE,
-    });
+    const result = await client.evaluate('active');
+    expect(result.value).toBe(true);
+    expect(result.reason).toBe(ResolutionReason.FALLTHROUGH);
+    expect(result.outcomeType).toBe(OutcomeType.VALUE);
+    expect(result.metrics).toBeDefined();
+    expect(result.metrics?.source).toBeDefined();
   });
 
   it('should evaluate paused flags', async () => {
-    expect(await client.evaluate('paused')).toEqual({
-      value: true,
-      reason: ResolutionReason.PAUSED,
-      outcomeType: OutcomeType.VALUE,
-    });
+    const result = await client.evaluate('paused');
+    expect(result.value).toBe(true);
+    expect(result.reason).toBe(ResolutionReason.PAUSED);
+    expect(result.outcomeType).toBe(OutcomeType.VALUE);
+    expect(result.metrics).toBeDefined();
   });
 
   describe('when there is an error', () => {
     it('should fall back to the defaultValue', async () => {
-      expect(await client.evaluate('does-not-exist', true)).toEqual({
-        value: true,
-        reason: ResolutionReason.ERROR,
-        errorCode: 'FLAG_NOT_FOUND',
-        errorMessage: 'Definition not found for flag "does-not-exist"',
-      });
-    });
-
-    it('should error for missing environment config', async () => {
-      client.environment = 'this-env-does-not-exist-and-will-cause-an-error';
-      expect(await client.evaluate('active')).toEqual({
-        reason: ResolutionReason.ERROR,
-        errorMessage:
-          'Could not find envConfig for "this-env-does-not-exist-and-will-cause-an-error"',
-      });
+      const result = await client.evaluate('does-not-exist', true);
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe(ResolutionReason.ERROR);
+      expect(result.errorCode).toBe('FLAG_NOT_FOUND');
+      expect(result.errorMessage).toBe(
+        'Definition not found for flag "does-not-exist"',
+      );
+      expect(result.metrics).toBeDefined();
     });
   });
 
   it('should evaluate with an entity', async () => {
-    expect(
-      await client.evaluate('username', false, { user: { name: 'Joe' } }),
-    ).toEqual({
-      value: true,
-      reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.VALUE,
+    const result = await client.evaluate('username', false, {
+      user: { name: 'Joe' },
     });
+    expect(result.value).toBe(true);
+    expect(result.reason).toBe(ResolutionReason.RULE_MATCH);
+    expect(result.outcomeType).toBe(OutcomeType.VALUE);
   });
 
   it('should not fail on partial entities', async () => {
-    expect(await client.evaluate('username', false, { user: {} })).toEqual({
-      value: false,
-      reason: ResolutionReason.FALLTHROUGH,
-      outcomeType: OutcomeType.VALUE,
-    });
+    const result1 = await client.evaluate('username', false, { user: {} });
+    expect(result1.value).toBe(false);
+    expect(result1.reason).toBe(ResolutionReason.FALLTHROUGH);
+    expect(result1.outcomeType).toBe(OutcomeType.VALUE);
 
-    expect(await client.evaluate('username', false, {})).toEqual({
-      value: false,
-      reason: ResolutionReason.FALLTHROUGH,
-      outcomeType: OutcomeType.VALUE,
-    });
+    const result2 = await client.evaluate('username', false, {});
+    expect(result2.value).toBe(false);
+    expect(result2.reason).toBe(ResolutionReason.FALLTHROUGH);
+    expect(result2.outcomeType).toBe(OutcomeType.VALUE);
   });
 
   it('should respect a collapsed envConfig', async () => {
-    expect(await client.evaluate('collapsed')).toEqual({
-      value: false,
-      reason: ResolutionReason.PAUSED,
-      outcomeType: OutcomeType.VALUE,
-    });
+    const result = await client.evaluate('collapsed');
+    expect(result.value).toBe(false);
+    expect(result.reason).toBe(ResolutionReason.PAUSED);
+    expect(result.outcomeType).toBe(OutcomeType.VALUE);
   });
 
-  it('should reuse an active environment', async () => {
-    client.environment = 'preview';
-
-    expect(
-      await client.evaluate('reuse', undefined, { user: { name: 'Joe' } }),
-    ).toEqual({
-      value: true,
-      reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.VALUE,
-    });
-  });
+  // Note: The 'reuse' test requires setting environment to 'preview' which
+  // is no longer possible on the client directly. This behavior is tested
+  // in evaluate.test.ts instead.
 
   describe('targets', () => {
     it('should respect targeting', async () => {
-      expect(
-        await client.evaluate('targeting', undefined, {
-          user: { name: 'Joe', id: 'joesId' },
-        }),
-      ).toEqual({
-        value: true,
-        reason: ResolutionReason.TARGET_MATCH,
-        outcomeType: OutcomeType.VALUE,
+      const result = await client.evaluate('targeting', undefined, {
+        user: { name: 'Joe', id: 'joesId' },
       });
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe(ResolutionReason.TARGET_MATCH);
+      expect(result.outcomeType).toBe(OutcomeType.VALUE);
     });
   });
 
   describe('segments', () => {
     it('should respect segment conditions', async () => {
-      expect(
-        await client.evaluate('reuse', undefined, { user: { name: 'Joe' } }),
-      ).toEqual({
-        value: true,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
+      const result = await client.evaluate('reuse', undefined, {
+        user: { name: 'Joe' },
       });
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe(ResolutionReason.RULE_MATCH);
+      expect(result.outcomeType).toBe(OutcomeType.VALUE);
     });
 
     it('should respect segment inclusion', async () => {
-      expect(
-        await client.evaluate('segment-targets', undefined, {
-          user: { id: 'uid1' },
-        }),
-      ).toEqual({
-        value: true,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
+      const result = await client.evaluate('segment-targets', undefined, {
+        user: { id: 'uid1' },
       });
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe(ResolutionReason.RULE_MATCH);
+      expect(result.outcomeType).toBe(OutcomeType.VALUE);
     });
 
     const definition: Packed.FlagDefinition = {

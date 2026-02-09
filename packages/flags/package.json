@@ -82,7 +82,7 @@
     "jose": "^5.2.1"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "0.17.3",
+    "@arethetypeswrong/cli": "0.18.2",
     "@types/node": "20.11.17",
     "@types/react": "18.2.55",
     "@vitejs/plugin-react": "4.2.1",
