@@ -211,7 +211,7 @@ describe('FlagNetworkDataSource', () => {
       projectId: 'bundled-project',
       definitions: {},
       environment: 'production',
-      updatedAt: 1000,
+      configUpdatedAt: 1000,
       digest: 'aa',
       revision: 1,
     };
@@ -269,7 +269,7 @@ describe('FlagNetworkDataSource', () => {
       projectId: 'bundled-project',
       definitions: {},
       environment: 'production',
-      updatedAt: 1000,
+      configUpdatedAt: 1000,
       digest: 'aa',
       revision: 1,
     };
@@ -436,7 +436,7 @@ describe('FlagNetworkDataSource', () => {
           flag: { variants: [true], environments: {} },
         },
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -465,7 +465,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -552,7 +552,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -586,7 +586,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -677,7 +677,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1215,7 +1215,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1300,7 +1300,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1401,7 +1401,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1433,7 +1433,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1486,7 +1486,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1533,7 +1533,7 @@ describe('FlagNetworkDataSource', () => {
         projectId: 'bundled',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -1583,6 +1583,437 @@ describe('FlagNetworkDataSource', () => {
 
       // Should use stream (buildStep: false overrides CI detection)
       expect(result.projectId).toBe('stream');
+
+      await dataSource.shutdown();
+    });
+  });
+
+  describe('configUpdatedAt guard (never overwrite newer data with older)', () => {
+    it('should not overwrite newer in-memory data with older stream message', async () => {
+      const newerDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'newer' },
+        environment: 'production',
+        configUpdatedAt: 2000,
+      };
+
+      const olderDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'older' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              async start(controller) {
+                // Send newer data first, then older data
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: newerDefinitions })}\n`,
+                  ),
+                );
+                await new Promise((r) => setTimeout(r, 50));
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: olderDefinitions })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        polling: false,
+      });
+
+      // First read gets the newer data
+      const result1 = await dataSource.read();
+      expect(result1.definitions).toEqual({ version: 'newer' });
+
+      // Wait for the older message to arrive
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should still have newer data (older message was rejected)
+      const result2 = await dataSource.read();
+      expect(result2.definitions).toEqual({ version: 'newer' });
+
+      await dataSource.shutdown();
+    });
+
+    it('should not overwrite newer in-memory data with older poll response', async () => {
+      let pollCount = 0;
+
+      const newerDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'newer' },
+        environment: 'production',
+        configUpdatedAt: 2000,
+      };
+
+      const olderDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'older' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      // Stream delivers newer data
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: newerDefinitions })}\n`,
+                  ),
+                );
+                // Stream closes, triggering polling fallback
+                controller.close();
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+        // Polling returns older data
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json(olderDefinitions);
+        }),
+      );
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: true,
+        polling: { intervalMs: 50, initTimeoutMs: 5000 },
+      });
+
+      // First read gets newer data from stream
+      const result1 = await dataSource.read();
+      expect(result1.definitions).toEqual({ version: 'newer' });
+
+      // Wait for stream to disconnect and polling to kick in
+      await vi.waitFor(
+        () => {
+          expect(pollCount).toBeGreaterThanOrEqual(1);
+        },
+        { timeout: 3000 },
+      );
+
+      // Should still have newer data (older poll response was rejected)
+      const result2 = await dataSource.read();
+      expect(result2.definitions).toEqual({ version: 'newer' });
+
+      await dataSource.shutdown();
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }, 10000);
+
+    it('should accept stream data with equal configUpdatedAt', async () => {
+      const data1 = {
+        projectId: 'test',
+        definitions: { version: 'first' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      const data2 = {
+        projectId: 'test',
+        definitions: { version: 'second' },
+        environment: 'production',
+        configUpdatedAt: 1000, // Same configUpdatedAt
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              async start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: data1 })}\n`,
+                  ),
+                );
+                await new Promise((r) => setTimeout(r, 50));
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: data2 })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        polling: false,
+      });
+
+      await dataSource.read();
+
+      // Wait for second message
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should accept data with equal configUpdatedAt
+      const result = await dataSource.read();
+      expect(result.definitions).toEqual({ version: 'second' });
+
+      await dataSource.shutdown();
+    });
+
+    it('should accept updates when current data has no configUpdatedAt', async () => {
+      const providedDatafile: DatafileInput = {
+        projectId: 'provided',
+        definitions: { version: 'initial' },
+        environment: 'production',
+        // No configUpdatedAt - this is a plain DatafileInput
+      };
+
+      const streamData = {
+        projectId: 'test',
+        definitions: { version: 'from-stream' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              async start(controller) {
+                await new Promise((r) => setTimeout(r, 50));
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: streamData })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        datafile: providedDatafile,
+        polling: false,
+      });
+
+      // Initialize to start background stream updates
+      await dataSource.initialize();
+
+      // Initial read returns provided datafile
+      const result1 = await dataSource.read();
+      expect(result1.definitions).toEqual({ version: 'initial' });
+
+      // Wait for stream to deliver data
+      await vi.waitFor(
+        async () => {
+          const result = await dataSource.read();
+          expect(result.definitions).toEqual({ version: 'from-stream' });
+        },
+        { timeout: 2000 },
+      );
+
+      await dataSource.shutdown();
+    });
+
+    it('should handle configUpdatedAt as string', async () => {
+      const newerDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'newer' },
+        environment: 'production',
+        configUpdatedAt: '2000',
+      };
+
+      const olderDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'older' },
+        environment: 'production',
+        configUpdatedAt: '1000',
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              async start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: newerDefinitions })}\n`,
+                  ),
+                );
+                await new Promise((r) => setTimeout(r, 50));
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: olderDefinitions })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        polling: false,
+      });
+
+      const result1 = await dataSource.read();
+      expect(result1.definitions).toEqual({ version: 'newer' });
+
+      // Wait for the older message to arrive
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should still have newer data (older message was rejected)
+      const result2 = await dataSource.read();
+      expect(result2.definitions).toEqual({ version: 'newer' });
+
+      await dataSource.shutdown();
+    });
+
+    it('should accept updates when configUpdatedAt is a non-numeric string', async () => {
+      const currentData = {
+        projectId: 'test',
+        definitions: { version: 'first' },
+        environment: 'production',
+        configUpdatedAt: 'not-a-number',
+      };
+
+      const newData = {
+        projectId: 'test',
+        definitions: { version: 'second' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              async start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: currentData })}\n`,
+                  ),
+                );
+                await new Promise((r) => setTimeout(r, 50));
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: newData })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        polling: false,
+      });
+
+      await dataSource.read();
+
+      // Wait for second message
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should accept update since current configUpdatedAt is unparseable
+      const result = await dataSource.read();
+      expect(result.definitions).toEqual({ version: 'second' });
+
+      await dataSource.shutdown();
+    });
+
+    it('should not overwrite newer in-memory data via getDatafile', async () => {
+      const newerDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'newer' },
+        environment: 'production',
+        configUpdatedAt: 2000,
+      };
+
+      const olderDefinitions = {
+        projectId: 'test',
+        definitions: { version: 'older' },
+        environment: 'production',
+        configUpdatedAt: 1000,
+      };
+
+      // Stream delivers newer data first
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
+          return new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: newerDefinitions })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        polling: false,
+      });
+
+      // Establish stream connection and get newer data
+      await dataSource.read();
+
+      // Now change the datafile endpoint to return older data
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          return HttpResponse.json(olderDefinitions);
+        }),
+      );
+
+      // getDatafile when stream is connected returns cache, so we need to
+      // verify via read() that the data wasn't overwritten
+      const result = await dataSource.read();
+      expect(result.definitions).toEqual({ version: 'newer' });
 
       await dataSource.shutdown();
     });

@@ -37,7 +37,7 @@ export type Datafile = DatafileInput & {
 /** Flag Definitions of a Vercel project */
 export type BundledDefinitions = DatafileInput & {
   /** when the data was last updated */
-  updatedAt: number;
+  configUpdatedAt: number;
   /** hash of the data */
   digest: string;
   /** version number of the dat */
