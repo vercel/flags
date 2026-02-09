@@ -813,10 +813,10 @@ export class FlagNetworkDataSource implements DataSource {
     if (!this.data) return true;
 
     const currentTs = FlagNetworkDataSource.parseConfigUpdatedAt(
-      (this.data as BundledDefinitions).configUpdatedAt,
+      this.data.configUpdatedAt,
     );
     const incomingTs = FlagNetworkDataSource.parseConfigUpdatedAt(
-      (incoming as Record<string, unknown>).configUpdatedAt,
+      incoming.configUpdatedAt,
     );
 
     if (currentTs === undefined || incomingTs === undefined) {
