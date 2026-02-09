@@ -256,7 +256,7 @@ importers:
         specifier: ^5.6.0
         version: 5.10.3(@sveltejs/kit@2.50.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(rollup@4.52.5)
       '@sveltejs/kit':
-        specifier: ^2.49.5
+        specifier: ^2.50.2
         version: 2.50.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
       '@sveltejs/vite-plugin-svelte':
         specifier: ^4.0.0
@@ -842,7 +842,7 @@ importers:
         specifier: ^5.6.0
         version: 5.10.3(@sveltejs/kit@2.50.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(rollup@4.52.5)
       '@sveltejs/kit':
-        specifier: ^2.49.5
+        specifier: ^2.50.2
         version: 2.50.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2)))(svelte@5.41.3)(typescript@5.8.2)(vite@5.4.21(@types/node@22.14.0)(lightningcss@1.30.2))
       '@sveltejs/vite-plugin-svelte':
         specifier: ^4.0.0
