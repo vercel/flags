@@ -140,6 +140,7 @@ async function fetchDatafile(
       DEFAULT_FETCH_TIMEOUT_MS,
     );
 
+    let shouldRetry = true;
     try {
       const res = await fetch(`${host}/v1/datafile`, {
         headers: {
@@ -154,7 +155,7 @@ async function fetchDatafile(
       if (!res.ok) {
         // Don't retry 4xx errors (except 429)
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          throw new Error(`Failed to fetch data: ${res.statusText}`);
+          shouldRetry = false;
         }
         throw new Error(`Failed to fetch data: ${res.statusText}`);
       }
@@ -165,10 +166,7 @@ async function fetchDatafile(
       lastError =
         error instanceof Error ? error : new Error('Unknown fetch error');
 
-      // Don't retry 4xx errors (they were thrown above and will propagate)
-      if (lastError.message.startsWith('Failed to fetch data:')) {
-        throw lastError;
-      }
+      if (!shouldRetry) throw lastError;
 
       if (attempt < MAX_FETCH_RETRIES - 1) {
         const delay =
