@@ -215,7 +215,7 @@ describe('createCreateRawClient', () => {
       const fns = createMockFns();
       const mockFallback = {
         projectId: 'test-project',
-        definitions: { flag: true },
+        definitions: {},
         environment: 'production',
         configUpdatedAt: 123,
         digest: 'abc',

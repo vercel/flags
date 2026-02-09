@@ -1784,7 +1784,7 @@ describe('FlagNetworkDataSource', () => {
     it('should accept updates when current data has no configUpdatedAt', async () => {
       const providedDatafile: DatafileInput = {
         projectId: 'provided',
-        definitions: { version: 'initial' },
+        definitions: {},
         environment: 'production',
         // No configUpdatedAt - this is a plain DatafileInput
       };
