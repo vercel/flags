@@ -34,10 +34,7 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "jose": "5.2.1",
-    "js-xxhash": "4.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@vercel/flags-core": "workspace:*",
     "@types/node": "20.11.17",
