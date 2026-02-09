@@ -2,7 +2,7 @@ export {
   FlagNetworkDataSource,
   type FlagNetworkDataSourceOptions,
 } from './data-source/flag-network-data-source';
-export type {
+export {
   FallbackEntryNotFoundError,
   FallbackNotFoundError,
 } from './errors';
