@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { BundledDefinitions, DatafileInput } from '../types';
+import type { BundledDefinitions, Datafile, DatafileInput } from '../types';
 import { FlagNetworkDataSource } from './flag-network-data-source';
 
 // Mock the bundled definitions module
@@ -848,16 +848,10 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const providedDatafile = {
+      const providedDatafile: DatafileInput = {
         projectId: 'provided',
         definitions: {},
         environment: 'production',
-        metrics: {
-          readMs: 0,
-          source: 'in-memory' as const,
-          cacheStatus: 'HIT' as const,
-          connectionState: 'connected' as const,
-        },
       };
 
       const dataSource = new FlagNetworkDataSource({
@@ -901,16 +895,10 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const providedDatafile = {
+      const providedDatafile: DatafileInput = {
         projectId: 'static-data',
         definitions: { myFlag: { variants: [true, false], environments: {} } },
         environment: 'production',
-        metrics: {
-          readMs: 0,
-          source: 'in-memory' as const,
-          cacheStatus: 'HIT' as const,
-          connectionState: 'connected' as const,
-        },
       };
 
       const dataSource = new FlagNetworkDataSource({
