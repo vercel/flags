@@ -62,6 +62,13 @@ export type FlagNetworkDataSourceOptions = {
    * @default auto-detected via CI=1 or NEXT_PHASE=phase-production-build
    */
   buildStep?: boolean;
+
+  /**
+   * Custom fetch function for making HTTP requests.
+   * Useful for testing (e.g. resolving to a different IP).
+   * @default globalThis.fetch
+   */
+  fetch?: typeof globalThis.fetch;
 };
 
 /**
@@ -73,6 +80,7 @@ type NormalizedOptions = {
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
   buildStep: boolean;
+  fetch: typeof globalThis.fetch;
 };
 
 /**
@@ -118,6 +126,7 @@ function normalizeOptions(
     stream,
     polling,
     buildStep,
+    fetch: options.fetch ?? globalThis.fetch,
   };
 }
 
@@ -130,6 +139,7 @@ function normalizeOptions(
 async function fetchDatafile(
   host: string,
   sdkKey: string,
+  fetchFn: typeof globalThis.fetch,
 ): Promise<BundledDefinitions> {
   let lastError: Error | undefined;
 
@@ -142,7 +152,7 @@ async function fetchDatafile(
 
     let shouldRetry = true;
     try {
-      const res = await fetch(`${host}/v1/datafile`, {
+      const res = await fetchFn(`${host}/v1/datafile`, {
         headers: {
           Authorization: `Bearer ${sdkKey}`,
           'User-Agent': `VercelFlagsCore/${version}`,
@@ -369,7 +379,11 @@ export class FlagNetworkDataSource implements DataSource {
     } else if (this.isStreamConnected && this.data) {
       [result, source, cacheStatus] = this.getDataFromCache();
     } else {
-      const fetched = await fetchDatafile(this.host, this.options.sdkKey);
+      const fetched = await fetchDatafile(
+        this.host,
+        this.options.sdkKey,
+        this.options.fetch,
+      );
       if (this.isNewerData(fetched)) {
         this.data = fetched;
       }
@@ -484,6 +498,7 @@ export class FlagNetworkDataSource implements DataSource {
           host: this.host,
           sdkKey: this.options.sdkKey,
           abortController: this.streamAbortController,
+          fetch: this.options.fetch,
         },
         {
           onMessage: (newData) => {
@@ -632,7 +647,11 @@ export class FlagNetworkDataSource implements DataSource {
     if (this.pollingAbortController?.signal.aborted) return;
 
     try {
-      const data = await fetchDatafile(this.host, this.options.sdkKey);
+      const data = await fetchDatafile(
+        this.host,
+        this.options.sdkKey,
+        this.options.fetch,
+      );
       if (this.isNewerData(data)) {
         this.data = data;
       }
@@ -675,7 +694,11 @@ export class FlagNetworkDataSource implements DataSource {
       }
     }
 
-    this.data = await fetchDatafile(this.host, this.options.sdkKey);
+    this.data = await fetchDatafile(
+      this.host,
+      this.options.sdkKey,
+      this.options.fetch,
+    );
   }
 
   /**
@@ -696,7 +719,11 @@ export class FlagNetworkDataSource implements DataSource {
       }
     }
 
-    this.data = await fetchDatafile(this.host, this.options.sdkKey);
+    this.data = await fetchDatafile(
+      this.host,
+      this.options.sdkKey,
+      this.options.fetch,
+    );
     return [this.data, 'remote', 'MISS'];
   }
 
