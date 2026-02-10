@@ -25,6 +25,7 @@ export type StreamConfig = {
   host: string;
   sdkKey: string;
   abortController: AbortController;
+  fetch?: typeof globalThis.fetch;
 };
 
 /**
@@ -36,7 +37,12 @@ export async function connectStream(
   config: StreamConfig,
   callbacks: StreamCallbacks,
 ): Promise<void> {
-  const { host, sdkKey, abortController } = config;
+  const {
+    host,
+    sdkKey,
+    abortController,
+    fetch: fetchFn = globalThis.fetch,
+  } = config;
   const { onMessage, onDisconnect } = callbacks;
   let retryCount = 0;
 
@@ -58,7 +64,7 @@ export async function connectStream(
       }
 
       try {
-        const response = await fetch(`${host}/v1/stream`, {
+        const response = await fetchFn(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
             'User-Agent': `VercelFlagsCore/${version}`,
