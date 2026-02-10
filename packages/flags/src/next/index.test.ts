@@ -77,6 +77,18 @@ describe('flag on app router', () => {
     await expect(f()).resolves.toEqual(false);
   });
 
+  it('throws when passing invalid adapter', () => {
+    expect(() => flag({ key: 'my-key', adapter: {} as any })).toThrowError(
+      'flags: You passed an adapter that does not have a "decide" method for flag "my-key". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?',
+    );
+  });
+
+  it('throws when passing no decide function', () => {
+    expect(() => flag({ key: 'my-key' } as any)).toThrowError(
+      'flags: You passed a flag declaration that does not have a "decide" method for flag "my-key"',
+    );
+  });
+
   it('caches for the duration of a request', async () => {
     let i = 0;
     const decide = vi.fn(() => i++);

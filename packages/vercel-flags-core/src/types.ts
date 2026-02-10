@@ -26,6 +26,10 @@ export type DatafileInput = Packed.Data & {
   environment: string;
   /** Vercel project id of the source of these flags  */
   projectId: string;
+  /**
+   * Some older responses might return a string instead of a number. Both will be timestamps.
+   */
+  configUpdatedAt?: number | string;
 };
 
 /** Datafile with metrics attached (returned by the client) */
@@ -37,7 +41,7 @@ export type Datafile = DatafileInput & {
 /** Flag Definitions of a Vercel project */
 export type BundledDefinitions = DatafileInput & {
   /** when the data was last updated */
-  updatedAt: number;
+  configUpdatedAt: number;
   /** hash of the data */
   digest: string;
   /** version number of the dat */

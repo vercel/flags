@@ -33,7 +33,7 @@ function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
       projectId: 'test',
       definitions: {},
       environment: 'production',
-      updatedAt: 1,
+      configUpdatedAt: 1,
       digest: 'a',
       revision: 1,
     }),
@@ -246,7 +246,7 @@ describe('make', () => {
         projectId: 'test',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       });

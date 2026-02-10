@@ -379,12 +379,15 @@ export class FlagNetworkDataSource implements DataSource {
     } else if (this.isStreamConnected && this.data) {
       [result, source, cacheStatus] = this.getDataFromCache();
     } else {
-      this.data = await fetchDatafile(
+      const fetched = await fetchDatafile(
         this.host,
         this.options.sdkKey,
         this.options.fetch,
       );
-      [result, source, cacheStatus] = [this.data, 'remote', 'MISS'];
+      if (this.isNewerData(fetched)) {
+        this.data = fetched;
+      }
+      [result, source, cacheStatus] = [this.data ?? fetched, 'remote', 'MISS'];
     }
 
     return Object.assign(result, {
@@ -499,7 +502,9 @@ export class FlagNetworkDataSource implements DataSource {
         },
         {
           onMessage: (newData) => {
-            this.data = newData;
+            if (this.isNewerData(newData)) {
+              this.data = newData;
+            }
             this.isStreamConnected = true;
             this.hasWarnedAboutStaleData = false;
 
@@ -647,7 +652,9 @@ export class FlagNetworkDataSource implements DataSource {
         this.options.sdkKey,
         this.options.fetch,
       );
-      this.data = data;
+      if (this.isNewerData(data)) {
+        this.data = data;
+      }
     } catch (error) {
       console.error('@vercel/flags-core: Poll failed:', error);
     }
@@ -803,6 +810,47 @@ export class FlagNetworkDataSource implements DataSource {
       '@vercel/flags-core: No flag definitions available. ' +
         'Bundled definitions not found.',
     );
+  }
+
+  /**
+   * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
+   * Returns undefined if the value is missing or cannot be parsed.
+   */
+  private static parseConfigUpdatedAt(value: unknown): number | undefined {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    }
+    return undefined;
+  }
+
+  /**
+   * Checks if the incoming data is newer than the current in-memory data.
+   * Returns true if the update should proceed, false if it should be skipped.
+   *
+   * Always accepts the update if:
+   * - There is no current data
+   * - The current data has no configUpdatedAt
+   * - The incoming data has no configUpdatedAt
+   *
+   * Skips the update only when both have configUpdatedAt and incoming is older.
+   */
+  private isNewerData(incoming: DatafileInput): boolean {
+    if (!this.data) return true;
+
+    const currentTs = FlagNetworkDataSource.parseConfigUpdatedAt(
+      this.data.configUpdatedAt,
+    );
+    const incomingTs = FlagNetworkDataSource.parseConfigUpdatedAt(
+      incoming.configUpdatedAt,
+    );
+
+    if (currentTs === undefined || incomingTs === undefined) {
+      return true;
+    }
+
+    return incomingTs >= currentTs;
   }
 
   /**

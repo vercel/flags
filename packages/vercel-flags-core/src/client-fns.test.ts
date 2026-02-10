@@ -6,7 +6,7 @@ import {
   shutdown,
 } from './client-fns';
 import { clientMap } from './client-map';
-import type { DataSource, Packed } from './types';
+import type { BundledDefinitions, DataSource, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 // Mock the internalReportValue function
@@ -128,11 +128,11 @@ describe('client-fns', () => {
 
   describe('getFallbackDatafile', () => {
     it('should call dataSource.getFallbackDatafile() if it exists', async () => {
-      const mockFallback = {
+      const mockFallback: BundledDefinitions = {
         projectId: 'test',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
@@ -148,11 +148,11 @@ describe('client-fns', () => {
     });
 
     it('should return the result from dataSource.getFallbackDatafile()', async () => {
-      const mockFallback = {
+      const mockFallback: BundledDefinitions = {
         projectId: 'test',
         definitions: {},
         environment: 'production',
-        updatedAt: 1,
+        configUpdatedAt: 1,
         digest: 'a',
         revision: 1,
       };
