@@ -886,6 +886,10 @@ export class FlagNetworkDataSource implements DataSource {
       cacheIsBlocking: !cacheHadDefinitions,
       duration: Date.now() - startTime,
     };
+    const configUpdatedAt = this.data?.configUpdatedAt;
+    if (typeof configUpdatedAt === 'number') {
+      trackOptions.configUpdatedAt = configUpdatedAt;
+    }
     if (isFirstRead) {
       trackOptions.cacheIsFirstRead = true;
     }
