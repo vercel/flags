@@ -291,6 +291,9 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
+    // read bundled definitions
+    await this.initializeFromBundled();
+
     // Try stream first
     if (this.options.stream.enabled) {
       const streamSuccess = await this.tryInitializeStream();
@@ -306,8 +309,7 @@ export class FlagNetworkDataSource implements DataSource {
     // Fall back to provided datafile (already set in constructor if provided)
     if (this.data) return;
 
-    // Fall back to bundled definitions
-    await this.initializeFromBundled();
+    throw new Error('@vercel/flags-core: No flag definitions available.');
   }
 
   /**
@@ -814,11 +816,6 @@ export class FlagNetworkDataSource implements DataSource {
       this.data = bundledResult.definitions;
       return;
     }
-
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
-    );
   }
 
   /**
