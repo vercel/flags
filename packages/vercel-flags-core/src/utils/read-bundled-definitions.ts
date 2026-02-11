@@ -6,6 +6,23 @@
 
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 
+const sdkKeyHashCache = new Map<string, string>();
+
+async function hashSdkKey(sdkKey: string): Promise<string> {
+  const cached = sdkKeyHashCache.get(sdkKey);
+  if (cached) return cached;
+
+  const encoded = new TextEncoder().encode(sdkKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
+  const hashArray = new Uint8Array(hashBuffer);
+  const hashHex = Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  sdkKeyHashCache.set(sdkKey, hashHex);
+  return hashHex;
+}
+
 /**
  * Reads the local definitions that get bundled at build time.
  */
@@ -34,7 +51,9 @@ export async function readBundledDefinitions(
     return { definitions: null, state: 'unexpected-error', error };
   }
 
-  const entry = get(sdkKey);
+  const hashedKey = await hashSdkKey(sdkKey);
+  // try original key (older cli versions) and hashed key (newer cli versions)
+  const entry = get(sdkKey) || get(hashedKey);
   if (!entry) return { definitions: null, state: 'missing-entry' };
   return { definitions: entry, state: 'ok' };
 }
