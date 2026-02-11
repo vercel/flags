@@ -569,6 +569,208 @@ describe('connectStream', () => {
     });
   });
 
+  describe('revision header', () => {
+    it('should send X-Revision header when revision is provided in config', async () => {
+      let capturedHeaders: Headers | null = null;
+
+      server.use(
+        http.get(`${HOST}/v1/stream`, ({ request }) => {
+          capturedHeaders = request.headers;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'test', definitions: {}, revision: 5 },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          getRevision: () => 42,
+        },
+        { onMessage: vi.fn() },
+      );
+
+      expect(capturedHeaders!.get('X-Revision')).toBe('42');
+      abortController.abort();
+    });
+
+    it('should not send X-Revision header when revision is undefined', async () => {
+      let capturedHeaders: Headers | null = null;
+
+      server.use(
+        http.get(`${HOST}/v1/stream`, ({ request }) => {
+          capturedHeaders = request.headers;
+          return new HttpResponse(
+            createNdjsonStream([
+              {
+                type: 'datafile',
+                data: { projectId: 'test', definitions: {} },
+              },
+            ]),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const abortController = new AbortController();
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn() },
+      );
+
+      expect(capturedHeaders!.get('X-Revision')).toBeNull();
+      abortController.abort();
+    });
+
+    it('should use updated revision from getter on reconnect', async () => {
+      const capturedRevisions: (string | null)[] = [];
+      let requestCount = 0;
+      let currentRevision: number | undefined = 5;
+
+      server.use(
+        http.get(`${HOST}/v1/stream`, ({ request }) => {
+          capturedRevisions.push(request.headers.get('X-Revision'));
+          requestCount++;
+
+          return new HttpResponse(
+            createNdjsonStream(
+              [
+                {
+                  type: 'datafile',
+                  data: {
+                    projectId: 'test',
+                    definitions: {},
+                    revision: 10 + requestCount,
+                  },
+                },
+              ],
+              { keepOpen: requestCount >= 2 },
+            ),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          getRevision: () => currentRevision,
+        },
+        {
+          onMessage: (data) => {
+            currentRevision = data.revision;
+          },
+        },
+      );
+
+      await vi.waitFor(
+        () => {
+          expect(requestCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 3000 },
+      );
+
+      expect(capturedRevisions[0]).toBe('5');
+      expect(capturedRevisions[1]).toBe('11');
+
+      abortController.abort();
+    });
+  });
+
+  describe('primed messages', () => {
+    it('should resolve init promise on primed message', async () => {
+      server.use(
+        http.get(`${HOST}/v1/stream`, () => {
+          return new HttpResponse(createNdjsonStream([{ type: 'primed' }]), {
+            headers: { 'Content-Type': 'application/x-ndjson' },
+          });
+        }),
+      );
+
+      const abortController = new AbortController();
+      const onMessage = vi.fn();
+
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage },
+      );
+
+      expect(onMessage).not.toHaveBeenCalled();
+      abortController.abort();
+    });
+
+    it('should call onPrimed callback', async () => {
+      server.use(
+        http.get(`${HOST}/v1/stream`, () => {
+          return new HttpResponse(createNdjsonStream([{ type: 'primed' }]), {
+            headers: { 'Content-Type': 'application/x-ndjson' },
+          });
+        }),
+      );
+
+      const abortController = new AbortController();
+      const onPrimed = vi.fn();
+
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn(), onPrimed },
+      );
+
+      expect(onPrimed).toHaveBeenCalledTimes(1);
+      abortController.abort();
+    });
+
+    it('should reset retry count on primed message', async () => {
+      const retryAttempts: string[] = [];
+      let requestCount = 0;
+
+      server.use(
+        http.get(`${HOST}/v1/stream`, ({ request }) => {
+          retryAttempts.push(request.headers.get('X-Retry-Attempt') ?? '');
+          requestCount++;
+
+          return new HttpResponse(
+            createNdjsonStream([{ type: 'primed' }], {
+              keepOpen: requestCount >= 2,
+            }),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn() },
+      );
+
+      await vi.waitFor(
+        () => {
+          expect(requestCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 3000 },
+      );
+
+      expect(retryAttempts[0]).toBe('0');
+      expect(retryAttempts[1]).toBe('1');
+
+      abortController.abort();
+    });
+  });
+
   describe('multiple datafile messages', () => {
     it('should call onMessage for each datafile but only resolve once', async () => {
       const data1 = { projectId: 'test', definitions: { v: 1 } };
