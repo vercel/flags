@@ -59,9 +59,19 @@ export async function readBundledDefinitions(
     return { definitions: null, state: 'unexpected-error', error };
   }
 
-  const hashedKey = await hashSdkKey(sdkKey);
-  // try original key (older cli versions) and hashed key (newer cli versions)
-  const entry = get(sdkKey) || get(hashedKey);
-  if (!entry) return { definitions: null, state: 'missing-entry' };
-  return { definitions: entry, state: 'ok' };
+  // try plain sdk key first
+  const entry = get(sdkKey);
+  if (entry) return { definitions: entry, state: 'ok' };
+
+  // try hashed key but cach any errors
+  try {
+    const hashedKey = await hashSdkKey(sdkKey);
+    // try original key (older cli versions) and hashed key (newer cli versions)
+    const hashedEntry = get(hashedKey);
+    if (hashedEntry) return { definitions: hashedEntry, state: 'ok' };
+  } catch (error) {
+    return { definitions: null, state: 'unexpected-error', error };
+  }
+
+  return { definitions: null, state: 'missing-entry' };
 }
