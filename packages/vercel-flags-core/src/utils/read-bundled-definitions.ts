@@ -63,7 +63,7 @@ export async function readBundledDefinitions(
   const entry = get(sdkKey);
   if (entry) return { definitions: entry, state: 'ok' };
 
-  // try hashed key but cach any errors
+  // try hashed key but catch any errors
   try {
     const hashedKey = await hashSdkKey(sdkKey);
     // try original key (older cli versions) and hashed key (newer cli versions)
