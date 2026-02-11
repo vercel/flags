@@ -4,8 +4,7 @@ import { sleep } from '../utils/sleep';
 
 export type StreamMessage =
   | { type: 'datafile'; data: BundledDefinitions }
-  | { type: 'ping' }
-  | { type: 'primed' };
+  | { type: 'ping' };
 
 const MAX_RETRY_COUNT = 15;
 const BASE_DELAY_MS = 1000;
@@ -20,7 +19,6 @@ function backoff(retryCount: number): number {
 export type StreamCallbacks = {
   onMessage: (data: BundledDefinitions) => void;
   onDisconnect?: () => void;
-  onPrimed?: () => void;
 };
 
 export type StreamConfig = {
@@ -28,7 +26,6 @@ export type StreamConfig = {
   sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
-  getRevision?: () => number | undefined;
 };
 
 /**
@@ -46,8 +43,7 @@ export async function connectStream(
     abortController,
     fetch: fetchFn = globalThis.fetch,
   } = config;
-  const { onMessage, onDisconnect, onPrimed } = callbacks;
-  const { getRevision } = config;
+  const { onMessage, onDisconnect } = callbacks;
   let retryCount = 0;
 
   let resolveInit: () => void;
@@ -68,18 +64,12 @@ export async function connectStream(
       }
 
       try {
-        const headers: Record<string, string> = {
-          Authorization: `Bearer ${sdkKey}`,
-          'User-Agent': `VercelFlagsCore/${version}`,
-          'X-Retry-Attempt': String(retryCount),
-        };
-        const revision = getRevision?.();
-        if (revision !== undefined) {
-          headers['X-Revision'] = String(revision);
-        }
-
         const response = await fetchFn(`${host}/v1/stream`, {
-          headers,
+          headers: {
+            Authorization: `Bearer ${sdkKey}`,
+            'User-Agent': `VercelFlagsCore/${version}`,
+            'X-Retry-Attempt': String(retryCount),
+          },
           signal: abortController.signal,
         });
 
@@ -120,13 +110,6 @@ export async function connectStream(
 
             if (message.type === 'datafile') {
               onMessage(message.data);
-              retryCount = 0;
-              if (!initialDataReceived) {
-                initialDataReceived = true;
-                resolveInit!();
-              }
-            } else if (message.type === 'primed') {
-              onPrimed?.();
               retryCount = 0;
               if (!initialDataReceived) {
                 initialDataReceived = true;
