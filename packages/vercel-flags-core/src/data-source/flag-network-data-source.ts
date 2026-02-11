@@ -291,6 +291,9 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
+    // read bundled definitions
+    await this.initializeFromBundled();
+
     // Try stream first
     if (this.options.stream.enabled) {
       const streamSuccess = await this.tryInitializeStream();
@@ -306,8 +309,7 @@ export class FlagNetworkDataSource implements DataSource {
     // Fall back to provided datafile (already set in constructor if provided)
     if (this.data) return;
 
-    // Fall back to bundled definitions
-    await this.initializeFromBundled();
+    throw new Error('@vercel/flags-core: No flag definitions available.');
   }
 
   /**
@@ -499,6 +501,7 @@ export class FlagNetworkDataSource implements DataSource {
           sdkKey: this.options.sdkKey,
           abortController: this.streamAbortController,
           fetch: this.options.fetch,
+          getRevision: () => this.data?.revision,
         },
         {
           onMessage: (newData) => {
@@ -519,6 +522,14 @@ export class FlagNetworkDataSource implements DataSource {
             // Fall back to polling if enabled and not already polling
             if (this.options.polling.enabled && !this.pollingIntervalId) {
               this.startPolling();
+            }
+          },
+          onPrimed: () => {
+            this.isStreamConnected = true;
+            this.hasWarnedAboutStaleData = false;
+
+            if (this.pollingIntervalId) {
+              this.stopPolling();
             }
           },
         },
@@ -805,11 +816,6 @@ export class FlagNetworkDataSource implements DataSource {
       this.data = bundledResult.definitions;
       return;
     }
-
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
-    );
   }
 
   /**
