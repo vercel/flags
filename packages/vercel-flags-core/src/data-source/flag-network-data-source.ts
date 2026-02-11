@@ -499,7 +499,7 @@ export class FlagNetworkDataSource implements DataSource {
           sdkKey: this.options.sdkKey,
           abortController: this.streamAbortController,
           fetch: this.options.fetch,
-          revision: this.data?.revision,
+          getRevision: () => this.data?.revision,
         },
         {
           onMessage: (newData) => {

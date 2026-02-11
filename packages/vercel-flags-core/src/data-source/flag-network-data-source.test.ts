@@ -1623,7 +1623,6 @@ describe('FlagNetworkDataSource', () => {
           definitions: {},
           environment: 'production',
           configUpdatedAt: 1,
-          digest: 'a',
           revision: 5,
         },
         polling: false,
@@ -1643,10 +1642,11 @@ describe('FlagNetworkDataSource', () => {
     it('should mark stream as connected on primed message without updating data', async () => {
       const providedDatafile: DatafileInput = {
         projectId: 'provided',
-        definitions: { flag: true },
+        definitions: {
+          flag: { variants: [true, false], environments: {} },
+        },
         environment: 'production',
         configUpdatedAt: 1,
-        digest: 'a',
         revision: 3,
       };
 
@@ -1685,7 +1685,9 @@ describe('FlagNetworkDataSource', () => {
 
       const result = await dataSource.read();
       expect(result.projectId).toBe('provided');
-      expect(result.definitions).toEqual({ flag: true });
+      expect(result.definitions).toEqual({
+        flag: { variants: [true, false], environments: {} },
+      });
       expect(result.metrics.cacheStatus).toBe('HIT');
 
       await dataSource.shutdown();

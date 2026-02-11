@@ -590,7 +590,12 @@ describe('connectStream', () => {
 
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, revision: 42 },
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          getRevision: () => 42,
+        },
         { onMessage: vi.fn() },
       );
 
@@ -626,9 +631,10 @@ describe('connectStream', () => {
       abortController.abort();
     });
 
-    it('should use updated revision from datafile on reconnect', async () => {
+    it('should use updated revision from getter on reconnect', async () => {
       const capturedRevisions: (string | null)[] = [];
       let requestCount = 0;
+      let currentRevision: number | undefined = 5;
 
       server.use(
         http.get(`${HOST}/v1/stream`, ({ request }) => {
@@ -656,8 +662,17 @@ describe('connectStream', () => {
 
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, revision: 5 },
-        { onMessage: vi.fn() },
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          getRevision: () => currentRevision,
+        },
+        {
+          onMessage: (data) => {
+            currentRevision = data.revision;
+          },
+        },
       );
 
       await vi.waitFor(

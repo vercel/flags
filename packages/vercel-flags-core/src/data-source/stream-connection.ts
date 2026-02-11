@@ -28,7 +28,7 @@ export type StreamConfig = {
   sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
-  revision?: number;
+  getRevision?: () => number | undefined;
 };
 
 /**
@@ -47,8 +47,8 @@ export async function connectStream(
     fetch: fetchFn = globalThis.fetch,
   } = config;
   const { onMessage, onDisconnect, onPrimed } = callbacks;
+  const { getRevision } = config;
   let retryCount = 0;
-  let currentRevision = config.revision;
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
@@ -73,8 +73,9 @@ export async function connectStream(
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
-        if (currentRevision !== undefined) {
-          headers['X-Revision'] = String(currentRevision);
+        const revision = getRevision?.();
+        if (revision !== undefined) {
+          headers['X-Revision'] = String(revision);
         }
 
         const response = await fetchFn(`${host}/v1/stream`, {
@@ -119,7 +120,6 @@ export async function connectStream(
 
             if (message.type === 'datafile') {
               onMessage(message.data);
-              currentRevision = message.data.revision;
               retryCount = 0;
               if (!initialDataReceived) {
                 initialDataReceived = true;
