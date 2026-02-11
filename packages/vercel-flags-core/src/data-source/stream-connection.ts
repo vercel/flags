@@ -128,7 +128,6 @@ export async function connectStream(
         }
       } catch (error) {
         if (abortController.signal.aborted) {
-          console.error('@vercel/flags-core: Stream aborted', error);
           break;
         }
         console.error('@vercel/flags-core: Stream error', error);
