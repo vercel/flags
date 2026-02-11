@@ -1,6 +1,6 @@
 ---
-"@vercel/flags-core": minor
-"@flags-sdk/vercel": minor
+"@vercel/flags-core": major
+"@flags-sdk/vercel": major
 ---
 
-test release
+See http://vercel.com/docs/flags/vercel-flags for more information.
