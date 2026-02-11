@@ -1,6 +1,6 @@
 {
   "name": "flags",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [
     "feature flags",

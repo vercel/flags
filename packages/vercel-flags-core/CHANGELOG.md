@@ -1,5 +1,16 @@
 # @vercel/flags-core
 
+## 1.0.0
+
+### Major Changes
+
+- c71729b: See http://vercel.com/docs/flags/vercel-flags for more information.
+
+### Patch Changes
+
+- Updated dependencies [795dfd4]
+  - flags@4.0.3
+
 ## 0.1.8
 
 ### Patch Changes

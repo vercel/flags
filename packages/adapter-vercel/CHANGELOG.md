@@ -1,5 +1,18 @@
 # @flags-sdk/vercel
 
+## 1.0.0
+
+### Major Changes
+
+- c71729b: See http://vercel.com/docs/flags/vercel-flags for more information.
+
+### Patch Changes
+
+- Updated dependencies [795dfd4]
+- Updated dependencies [c71729b]
+  - flags@4.0.3
+  - @vercel/flags-core@1.0.0
+
 ## 0.1.8
 
 ### Patch Changes

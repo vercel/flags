@@ -1,5 +1,13 @@
 # @vercel/flags
 
+## 4.0.3
+
+### Patch Changes
+
+- 795dfd4: Throw on declaration if flag is missing decide function.
+
+  When a feature flag is declared without a decide function, or with an adapter that is missing a decide function we will now throw an error at declaration time.
+
 ## 4.0.2
 
 ### Patch Changes
