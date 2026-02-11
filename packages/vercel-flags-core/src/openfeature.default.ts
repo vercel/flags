@@ -7,7 +7,7 @@
  * Try keeping this file small. Export through openfeature.make.
  */
 
-import { createClient } from './index.default';
+import { createClient, flagsClient } from './index.default';
 import { make } from './openfeature.make';
 
-export const VercelProvider = make(createClient);
+export const VercelProvider = make(createClient, flagsClient);

@@ -8,7 +8,7 @@
  * imports from index.next-js to get cached functions.
  */
 
-import { createClient } from './index.next-js';
+import { createClient, flagsClient } from './index.next-js';
 import { make } from './openfeature.make';
 
-export const VercelProvider = make(createClient);
+export const VercelProvider = make(createClient, flagsClient);
