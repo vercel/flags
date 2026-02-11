@@ -499,7 +499,6 @@ export class FlagNetworkDataSource implements DataSource {
           sdkKey: this.options.sdkKey,
           abortController: this.streamAbortController,
           fetch: this.options.fetch,
-          getRevision: () => this.data?.revision,
         },
         {
           onMessage: (newData) => {
@@ -520,14 +519,6 @@ export class FlagNetworkDataSource implements DataSource {
             // Fall back to polling if enabled and not already polling
             if (this.options.polling.enabled && !this.pollingIntervalId) {
               this.startPolling();
-            }
-          },
-          onPrimed: () => {
-            this.isStreamConnected = true;
-            this.hasWarnedAboutStaleData = false;
-
-            if (this.pollingIntervalId) {
-              this.stopPolling();
             }
           },
         },
