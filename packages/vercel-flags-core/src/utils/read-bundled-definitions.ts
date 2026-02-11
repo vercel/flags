@@ -6,23 +6,27 @@
 
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
 
+/** In-memory cache of SDK key to its hashed value, so we don't re-hash repeatedly. */
 const sdkKeyHashCache = new Map<string, Promise<string>>();
 
-async function hashSdkKey(sdkKey: string): Promise<string> {
+/** Computes a SHA-256 hex digest of the given SDK key. */
+async function computeHash(sdkKey: string): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(sdkKey),
+  );
+  const hashArray = new Uint8Array(hashBuffer);
+  return Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Returns a cached promise for the SHA-256 hash of the given SDK key. */
+function hashSdkKey(sdkKey: string): Promise<string> {
   const cached = sdkKeyHashCache.get(sdkKey);
   if (cached) return cached;
 
-  const promise = (async () => {
-    const hashBuffer = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(sdkKey),
-    );
-    const hashArray = new Uint8Array(hashBuffer);
-    return Array.from(hashArray)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  })();
-
+  const promise = computeHash(sdkKey);
   sdkKeyHashCache.set(sdkKey, promise);
   return promise;
 }
