@@ -3,13 +3,6 @@ title: Precompute
 description: Using the precompute pattern in Next.js
 ---
 
-import { IframeBrowser } from '@/components/iframe-browser';
-import Image from 'next/image';
-import Link from 'next/link';
-import { LearnMore } from '@/components/learn-more';
-
-{/* Precomputing describes a pattern where Proxy uses feature flags to decide which variant of a page to show. This allows you to keep the page itself static, which leads to incredibly low latency globally as the page can be served by a CDN or Edge Network. */}
-
 This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
 Ensure you've read about the general precompute concept to understand the pattern and benefits:
 
