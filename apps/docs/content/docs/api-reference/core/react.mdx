@@ -16,7 +16,7 @@ Pass flag data into the `FlagValues` component with the `values` prop.
 | -------- | ---------------- | ------------------------------------------------------- |
 | `values` | `FlagValuesType` | The feature flag values to expose to the Vercel Toolbar |
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 import { FlagValues } from 'flags/react';
 
 export function Page() {
@@ -31,7 +31,7 @@ export function Page() {
 
 To keep your flags confidential, encrypt the input:
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 import { encryptFlagValues, type FlagValuesType } from 'flags';
 import { FlagValues } from 'flags/react';
 
@@ -63,7 +63,7 @@ Pass flag data into the `FlagDefinitions` component with the `definitions` prop.
 | ------------- | --------------------- | ------------------------------------------------------------ |
 | `definitions` | `FlagDefinitionsType` | The feature flag definitions to expose to the Vercel Toolbar |
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 import { FlagDefinitions } from 'flags/react';
 
 export function Page() {
@@ -85,7 +85,7 @@ export function Page() {
 
 To keep your flags confidential, encrypt the input:
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 import { encryptFlagDefinitions, type FlagDefinitionsType } from 'flags';
 import { FlagDefinitions } from 'flags/react';
 

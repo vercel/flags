@@ -113,7 +113,7 @@ Encrypts flag values data with a purpose claim. Returns a `Promise`.
 | `secret` (Optional)     | `string`         | The secret being used to encrypt. Defaults to `process.env.FLAGS_SECRET` |
 | `expirationTime` (Optional) | `string \| number \| Date` | When the encrypted data should expire. Defaults to '1y' (1 year) |
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 import { encryptFlagValues, type FlagValuesType } from 'flags';
 import { FlagValues } from 'flags/react';
 

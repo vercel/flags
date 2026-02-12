@@ -60,7 +60,7 @@ dashboard you would likely read a signed JWT instead.
 
 Any server-side code can evaluate the feature flag by calling it.
 
-```tsx title="app/page.tsx#next"
+```tsx title="app/page.tsx"
 export default async function DashboardPage() {
   const dashboard = await dashboardFlag();
   // do something with the flag
