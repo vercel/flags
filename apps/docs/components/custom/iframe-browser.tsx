@@ -1,8 +1,14 @@
 'use client';
 
-import { Button, ButtonLink, Input, Tooltip } from '@vercel/geist/components';
-import { Code, External, RefreshClockwise } from '@vercel/geist/icons';
+import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function IframeBrowser({
   src,
@@ -25,7 +31,7 @@ export function IframeBrowser({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border shadow-lg">
-      <div className="flex items-center space-x-1.5 bg-gray-100 p-2">
+      <div className="flex items-center gap-1.5 bg-gray-100 p-2">
         <div className="flex-grow">
           <Input
             defaultValue={resolvedSrc}
@@ -35,40 +41,48 @@ export function IframeBrowser({
             aria-labelledby="input-label"
           />
         </div>
-        <Tooltip desktopOnly text="Refresh">
-          <Button
-            shape="square"
-            aria-label="Refresh"
-            type="secondary"
-            onClick={refresh}
-          >
-            <RefreshClockwise size={14} />
-          </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={refresh}
+            >
+              <RefreshCw className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh</TooltipContent>
         </Tooltip>
-        <Tooltip desktopOnly text="Show source code">
-          <ButtonLink
-            shape="square"
-            aria-label="Show souce code"
-            type="secondary"
-            href={codeSrc}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Code size={14} />
-          </ButtonLink>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon-sm" asChild>
+              <a
+                href={codeSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Show source code"
+              >
+                <CodeXml className="size-3.5" />
+              </a>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Show source code</TooltipContent>
         </Tooltip>
-
-        <Tooltip desktopOnly text="Open in new tab">
-          <ButtonLink
-            shape="square"
-            aria-label="Open in new tab"
-            type="secondary"
-            href={resolvedSrc}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <External size={14} />
-          </ButtonLink>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon-sm" asChild>
+              <a
+                href={resolvedSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open in new tab"
+              >
+                <ExternalLink className="size-3.5" />
+              </a>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Open in new tab</TooltipContent>
         </Tooltip>
       </div>
       <div className="relative w-full" style={{ paddingTop: '56.25%' }}>

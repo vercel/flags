@@ -20,6 +20,7 @@ import { IframeBrowser } from "@/components/custom/iframe-browser";
 import { LearnMore } from "@/components/custom/learn-more";
 import { ProviderList } from "@/components/custom/provider-list";
 import { ThemeAwareImage } from "@/components/custom/theme-aware-image";
+import { ExternalLinkIcon } from "lucide-react";
 
 const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
   const { slug, lang } = await params;
@@ -63,6 +64,7 @@ const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
             LearnMore,
             ProviderList,
             ThemeAwareImage,
+            ExternalSmall: ExternalLinkIcon,
           })}
         />
       </DocsBody>
