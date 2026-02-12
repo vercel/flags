@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "ui": "tui",
+  "extends": ["//"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
