@@ -21,7 +21,7 @@ export const nav = [
   },
   {
     label: "Frameworks",
-    href: "/docs/frameworks",
+    href: "/docs/frameworks/next",
   },
   {
     label: "Providers",
