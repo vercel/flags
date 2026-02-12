@@ -1,0 +1,223 @@
+---
+title: 'LaunchDarkly'
+---
+
+import { LearnMore } from '@/components/learn-more';
+
+The [LaunchDarkly](https://launchdarkly.com/) provider contains support for LaunchDarkly's feature flags.
+
+The `@flags-sdk/launchdarkly` package provides
+
+- An [adapter](#provider-instance) for loading flags from LaunchDarkly.
+- A `getProviderData` function for use with the Flags Explorer
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+---
+
+## Setup
+
+The LaunchDarkly provider is available in the `@flags-sdk/launchdarkly` module. Install it with
+
+```bash
+npm install @flags-sdk/launchdarkly
+```
+
+---
+
+## Provider Instance
+
+Import the default adapter instance `ldAdapter` from `@flags-sdk/launchdarkly`:
+
+```ts
+import { ldAdapter } from '@flags-sdk/launchdarkly';
+```
+
+If you need a customized setup, you can import `createLaunchDarklyAdapter` from `@flags-sdk/launchdarkly` and create an adapter instance with your settings:
+
+```ts
+import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
+
+const customLdAdapter = createLaunchDarklyAdapter({
+  projectSlug: process.env.LAUNCHDARKLY_PROJECT_SLUG,
+  clientSideId: process.env.LAUNCHDARKLY_CLIENT_SIDE_ID,
+  edgeConfigConnectionString: process.env.EDGE_CONFIG,
+});
+```
+
+| Option key                   | Type     | Description                   |
+| ---------------------------- | ---------| ----------------------------- |
+| `projectSlug`                | `string` | LaunchDarkly project slug     |
+| `clientSideId`               | `string` | LaunchDarkly client-side ID   |
+| `edgeConfigConnectionString` | `string` | Edge Config connection string |
+
+The default LaunchDarkly adapter configures itself based on the following environment variables:
+
+- `LAUNCHDARKLY_CLIENT_SIDE_ID` _(required)_ → `clientSideId`
+- `LAUNCHDARKLY_PROJECT_SLUG` _(required)_ → `projectSlug`
+- `EDGE_CONFIG` _(required)_ → `edgeConfigConnectionString`
+
+
+---
+
+## Identify Users
+
+LaunchDarkly relies on an [LaunchDarkly Evaluation Context](https://launchdarkly.com/docs/home/observability/contexts) object to evaluate the flags for a given request.
+
+Use the `identify` function to determine a LaunchDarkly Evaluation Context.
+
+```ts
+import { dedupe, flag } from "flags/next";
+import type { Identify } from "flags";
+import { ldAdapter, type LDContext } from "@flags-sdk/launchdarkly";
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  // Your own logic to identify the user
+  // Identifying the user should rely on reading cookies and headers only, and
+  // not make any network requests, as it's important to keep latency low here.
+  const user = await getUser(headers, cookies);
+
+  return {
+    key: user.userID,
+    // ... other properties
+  };
+}) satisfies Identify<LDContext>);
+
+export const exampleFlag = flag<boolean, LDContext>({
+  key: "example-flag",
+  identify,
+  adapter: ldAdapter.variation(),
+});
+```
+
+
+<LearnMore icon="arrow" href="/frameworks/next/dedupe">
+  Learn more about `dedupe`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/principles/evaluation-context">
+  Learn more about `identify`
+</LearnMore>
+
+---
+
+## Methods
+
+The LaunchDarkly adapter provides a method for evaluating flags.
+
+### `variation`
+
+```ts
+export const exampleFlag = flag<boolean, LDContext>({
+  key: 'example-flag',
+  identify,
+  adapter: ldAdapter.variation(),
+});
+```
+
+The `identify` function must return the [Evaluation Context](https://launchdarkly.com/docs/home/observability/contexts).
+
+### `ldClient`
+
+The adapter exposes the LaunchDarkly client it uses internally through the `ldClient` property.
+
+```ts
+import { ldAdapter } from '@flags-sdk/launchdarkly';
+
+ldAdapter.ldClient;
+```
+
+---
+
+## Edge Config
+
+The LaunchDarkly adapter loads the configuration from [Edge Config](https://vercel.com/storage/edge-config).
+
+Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
+
+The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config required environment variabless are set.
+
+---
+
+## Caveats
+
+
+### Initializing
+
+The Flags SDK automatically initializes the LaunchDarkly client when a flag is evaluated.
+
+If you want to initialize the LaunchDarkly client before the first flag is used, you can call `ldAdapter.ldClient.waitForInitialization()` manually.
+
+```ts
+import { ldAdapter } from '@flags-sdk/launchdarkly';
+
+// Somewhere in your server-side code
+await ldAdapter.ldClient.waitForInitialization();
+```
+
+### LaunchDarkly Vercel SDK
+
+The adapter uses the [LaunchDarkly Vercel SDK](https://launchdarkly.com/docs/sdk/edge/vercel) (`@launchdarkly/vercel-server-sdk`) internally, which is designed for usage with Edge Config.
+
+
+---
+
+## Flags Explorer
+
+View and override your LaunchDarkly flags using the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer).
+
+To make Flags Explorer aware of your LaunchDarkly flags, you need to provide a route which Flags Explorer will load your flags metadata from.
+
+Use the `getProviderData` function  in your [Flags API endpoint](https://vercel.com/docs/workflow-collaboration/feature-flags/implement-flags-in-toolbar#creating-the-flags-api-endpoint) to load and emit your LaunchDarkly data. Accepts an `options` object with the following keys.
+
+| Options key   | Type     | Description              |
+| ------------- | -------- | ------------------------ |
+| `apiKey`      | `string` | LaunchDarkly API Key     |
+| `environment` | `string` | LaunchDarkly environment |
+| `projectKey`  | `string` | LaunchDarkly project key |
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData as getLaunchDarklyProviderData } from '@flags-sdk/launchdarkly';
+import { mergeProviderData } from 'flags';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return mergeProviderData([
+    getProviderData(flags),
+    getLaunchDarklyProviderData({
+      apiKey: process.env.LAUNCHDARKLY_API_KEY,
+      projectKey: process.env.LAUNCHDARKLY_PROJECT_KEY,
+      environment: process.env.LAUNCHDARKLY_ENVIRONMENT,
+    }),
+  ]);
+});
+```
+
+## Read More
+
+Read more about LaunchDarkly, Flags SDK, and the LaunchDarkly adapter.
+
+- [Adapter Source Code](https://github.com/vercel/flags/tree/main/packages/adapter-launchdarkly)
+- [Adapter Concept](/docs/adapters/supported-providers)
+- [Precompute Concept](/principles/precompute)
+- [LaunchDarkly Vercel SDK reference](https://launchdarkly.com/docs/sdk/edge/vercel)
+
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>

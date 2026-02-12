@@ -1,0 +1,256 @@
+---
+title: 'flags/next'
+description: APIs for working with feature flags in Next.js.
+---
+
+### `flag`
+
+**Description**: Declares a feature flag.
+
+A feature flag declared this way will automatically respect overrides set by the Flags Explorer and integrate with Runtime Logs, Web Analytics, and more.
+
+| Parameter                 | Type                               | Description                                                                               |
+| ------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `key`                     | `string`                           | Key of the feature flag.                                                                  |
+| `decide`                  | `function`                         | Resolves the value of the feature flag.                                                   |
+| `defaultValue` (Optional) | `any`                              | Fallback value in case the `decide` function returns `undefined` or throws an error.      |
+| `description` (Optional)  | `string`                           | Description of the feature flag.                                                          |
+| `origin` (Optional)       | `string`                           | The URL where this feature flag can be managed.                                           |
+| `options` (Optional)      | `{ label?: string, value: any }[]` | Possible values a feature flag can resolve to, which are displayed in the Flags Explorer. |
+| `adapter` (Optional)      | `Adapter`                          | Supply an adapter which will implement the `decide` and `origin` functions.               |
+| `identify` (Optional)     | `Adapter`                          | Provide an evaluation context which will be passed to `decide`.                           |
+
+The `key`, `description`, `origin`, and `options` appear in the Flags Explorer.
+
+```ts title="flags.ts#next"
+import { flag } from 'flags/next';
+
+export const showSummerSale = flag<boolean>({
+  key: 'summer-sale',
+  async decide() {
+    return false;
+  },
+  origin: 'https://example.com/flags/summer-sale/',
+  description: 'Show Summer Holiday Sale Banner, 20% off',
+  defaultValue: false,
+  options: [
+    // options are not necessary for boolean flags, but we customize their labels here
+    { value: false, label: 'Hide' },
+    { value: true, label: 'Show' },
+  ],
+});
+```
+
+
+### `createFlagsDiscoveryEndpoint`
+
+Creates the flags discovery endpoint, a Next.js API route handler that returns flag metadata about your app's feature flags for the Flags Explorer.
+
+This function automatically calls `verifyAccess` to ensure the request has a valid `Authorization` header and rejects unauthorized requests with a 401 status code. It also automatically adds the `x-flags-sdk-version` response header.
+
+
+| Parameter           | Type       | Description                                                                            |
+| ------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| `getApiData`        | `Function` | An async function that returns the flag metadata.                                      |
+| `options`           | `Object`   | An optional options object.                                                            |
+| `options.secret`    | `secret`   | The secret used to ensure valid authorization. Defaults to `process.env.FLAGS_SECRET`. |
+
+```tsx title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import * as flags from '../../../../flags'; // your app's flags
+
+export const GET = createFlagsDiscoveryEndpoint(async () => {
+  return getProviderData(flags);
+});
+```
+
+This function is for App Router only and can not be used in Pages Router. If you are using Pages Router, see [`verifyAccess`](/api-reference/core/core#verifyaccess) to implement a custom endpoint.
+
+
+### `getProviderData`
+
+**Description**: Turns flags declared using `flag` into Vercel Toolbar compatible definitions.
+
+| Parameter | Type                   | Description                                                         |
+| --------- | ---------------------- | ------------------------------------------------------------------- |
+| `flags`   | `Record<string, Flag>` | A record where the values are feature flags. The keys are not used. |
+
+Use `getProviderData` to surface the feature flags defined in code to the Flags Explorer using the Flags Explorer API endpoint.
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return getProviderData(flags);
+});
+```
+
+
+## Precomputation
+
+These APIs are relevant for [precomputing feature flags](/principles/precompute).
+
+### `precompute`
+
+**Description**: Evaluates multiple feature flags. Returns their values encoded to a single signed string.
+
+This call is a shorthand for calling `evaluate` and `serialize` manually.
+
+| Parameter | Type         | Description                                                      |
+| --------- | ------------ | ---------------------------------------------------------------- |
+| `flags`   | `function[]` | Flags                                                            |
+| `code`    | `string`     | Precomputation code generated by the original `precompute` call. |
+
+### `evaluate`
+
+**Description**: Evaluates multiple feature flags and returns their values.
+
+| Parameter | Type         | Description                              |
+| --------- | ------------ | ---------------------------------------- |
+| `flags`   | `function[]` | An array of flags declared using `flag`. |
+
+```ts
+import { evaluate } from 'flags/next';
+const values = await evaluate(precomputeFlags);
+```
+
+### `serialize`
+
+**Description**: Turns evaluated feature flags into their serialized representation.
+
+| Parameter           | Type         | Description                                          |
+| ------------------- | ------------ | ---------------------------------------------------- |
+| `flags`             | `function[]` | Feature Flags to be serialized.                      |
+| `values`            | `unknown[]`  | The value each flag declared in `flags` resolved to. |
+| `secret` (Optional) | `string`     | The secret used to sign the returned representation. |
+
+```js
+import { evaluate, serialize } from 'flags/next';
+
+const values = await evaluate(precomputeFlags);
+const code = await serialize(precomputeFlags, values);
+```
+
+Note that `serialize` compresses to a tiny format, with only two bytes per feature flag and a few bytes overhead for JWS signature.
+
+The underlying algorithm basically has special values for boolean values and `null`. If your feature flag can return non-boolean values, it's advised to declare them in `options` when declaring the flag using `flag`. That way this serialization can store the index of the matched option instead of its values, which further shortens the emitted.
+
+### `getPrecomputed`
+
+**Description**: Retrieves the value of one or multiple feature flags from the precomputation and returns them as an array.
+
+| Parameter         | Type                     | Description                                                                                                  |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `flag`            | `function \| function[]` | A flag or an array of flags declared using `flag` whose values should be extracted from the precomputation . |
+| `precomputeFlags` | `function[]`             | Flags used when `precompute` was called and created the precomputation code.                                 |
+| `code`            | `string`                 | Precomputation code generated by the original `precompute` call.                                             |
+
+```ts
+
+// in your flags.ts file
+import {
+  getPrecomputed as getPrecomputed,
+  precompute as precompute,
+} from 'flags/next';
+
+const precomputeFlags = [
+  showSummerBannerFlag,
+  showFreeDeliveryBannerFlag,
+  countryFlag,
+];
+
+// in your proxy.ts file
+const code = await precompute(precomputeFlags);
+
+// in your page.tsx file
+const [showSummerBanner, showFreeDeliveryBanner] = await getPrecomputed(
+  [showSummerBannerFlag, showFreeDeliveryBannerFlag],
+  precomputeFlags,
+  code,
+);
+```
+
+It is recommended to call the feature flag directly, for example:
+
+```ts title="flags.ts#next"
+import { flag, precompute } from 'flags/next';
+
+const showSummerSale = flag<boolean>({
+  key: 'summer-sale',
+  decide: () => false,
+});
+
+const precomputeFlags = [
+  showSummerSale,
+  /*...*/
+];
+
+const code = await precompute(precomputeFlags);
+
+// This will not actually invoke `showSummerSale`'s `decide` function, it will just read the result.
+const sale = await showSummerSale(code, precomputeFlags);
+```
+
+### `deserialize`
+
+**Description**: Retrieves the value of all feature flags and returns them as a record. Keys will be the `key` passed to when declaring flags using `flag`. Returns `Record<string, unknown>`.
+
+| Parameter | Type         | Description                                                      |
+| --------- | ------------ | ---------------------------------------------------------------- |
+| `flags`   | `function[]` | Flags                                                            |
+| `code`    | `string`     | Precomputation code generated by the original `precompute` call. |
+
+### `generatePermutations`
+
+**Description**: Calculates all precomputations of the options of the provided flags.
+
+| Parameter           | Type         | Description                                                                                                         |
+| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `flags`             | `function[]` | Flags                                                                                                               |
+| `filter` (Optional) | `function`   | This function is called with every possible precomputation of the flag's options. Return `true` to keep the option. |
+| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `process.env.FLAGS_SECRET`                                  |
+
+Example usage in `generateStaticParams`:
+
+```ts title="app/[code]/page.tsx#next"
+import { generatePermutations as generatePermutations } from 'flags/next';
+
+export async function generateStaticParams() {
+  const codes = await generatePermutations(precomputeFlags);
+  return codes.map((code) => ({ code }));
+}
+```
+
+### `dedupe`
+
+**Description**: Prevents duplicate work by deduplicating function calls.
+
+Any function wrapped in `dedupe` will only ever run once for the same request within the same runtime and given the same arguments.
+
+| Parameter | Type       | Description                       |
+| --------- | ---------- | --------------------------------- |
+| `fn`      | `function` | The function to be deduplicated.  |
+
+This is particularly useful with the [`identify`](/frameworks/next/evaluation-context#deduplication) function to ensure user identification only happens once per request, even when the same `identify` function is passed to multiple feature flags.
+
+```tsx title="flags.ts#next"
+import { dedupe, flag } from 'flags/next';
+
+const identify = dedupe(({ cookies }) => {
+  const userId = cookies.get('user-id')?.value;
+  return { user: userId ? { id: userId } : undefined };
+});
+
+export const exampleFlag = flag({
+  key: 'example',
+  identify,
+  decide({ entities }) {
+    return entities?.user?.id === 'user1';
+  },
+});
+```
+
+Note that `dedupe` is not available in Pages Router.
+
+See [Dedupe](/frameworks/next/dedupe) for the dedicated docs and [Evaluation Context](/frameworks/next/evaluation-context) and [Marketing Pages](/frameworks/next/guides/marketing-pages) for examples.

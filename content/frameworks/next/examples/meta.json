@@ -1,0 +1,5 @@
+{
+  "title": "Examples",
+  "pages": ["proxy", "suspense-fallbacks"],
+  "defaultOpen": false
+}

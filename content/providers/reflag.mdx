@@ -1,0 +1,174 @@
+---
+title: "Reflag"
+---
+
+import { LearnMore } from "@/components/learn-more";
+
+The [Reflag](https://reflag.com/) provider contains support for Reflag's feature management tools.
+
+Reflag is agent-ready feature flags for TypeScript
+
+The `@flags-sdk/reflag` provider package exports
+
+- An [adapter](#provider-instance) for flags from Reflag.
+- A [getProviderData](#flags-explorer) function for use with the Flags Explorer.
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fexamples%2Ftree%2Fmain%2Fflags-sdk/reflag&env=FLAGS_SECRET,REFLAG_SECRET_KEY&envDescription=The+FLAGS_SECRET+will+be+used+by+the+Flags+Explorer+to+securely+overwrite+feature+flags.+Must+be+32+random+bytes%2C+base64-encoded.+Use+the+generated+value+or+set+your+own.&envLink=https%3A%2F%2Fvercel.com%2Fdocs%2Fworkflow-collaboration%2Ffeature-flags%2Fsupporting-feature-flags%23flags_secret-environment-variable&project-name=reflag-flags-sdk-example&repository-name=reflag-flags-sdk-example"
+  target="_blank"
+>
+  Deploy the Reflag template
+</LearnMore>
+
+---
+
+## Setup
+
+The Reflag provider is available in the `@flags-sdk/reflag` module. Install it with
+
+```bash
+npm install @flags-sdk/reflag
+```
+
+---
+
+## Provider Instance
+
+Import the default adapter instance `reflagAdapter` from `@flags-sdk/reflag`:
+
+```ts
+import { reflagAdapter } from "@flags-sdk/reflag";
+```
+
+If you need a customized setup, you can import `createReflagAdapter` from `@flags-sdk/reflag` and create an adapter instance with your settings:
+
+```ts
+import { createReflagAdapter } from "@flags-sdk/reflag";
+
+const reflagAdapter = createReflagAdapter({
+  secretKey: process.env.REFLAG_SECRET_KEY,
+});
+```
+
+See the [Reflag NodeSDK documentation](https://docs.reflag.com/supported-languages/node-sdk/globals#clientoptions) for the full list of options.
+
+---
+
+## Identify Users and Companies
+
+The Reflag provider uses the `identify` property to identify users and companies. The `identify` function is called for every request to determine the user and company context.
+
+Reflag relies on a setting a user/company to evaluate flags for a given request.
+
+Set the `identify` property to a function which returns a Reflag `Context` containing user/company properties:
+
+```ts
+import { dedupe, flag } from "flags/next";
+import type { Identify } from "flags";
+import { reflagAdapter, type Context } from "@flags-sdk/reflag";
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  // Your own logic to identify the user
+  // Identifying the user should rely on reading cookies and headers only, and
+  // not make any network requests, as it's important to keep latency low here.
+  const user = await getUser(headers, cookies);
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    },
+    company: {
+      id: user.companyId,
+    },
+  } satisfies Context;
+}) satisfies Identify<Context>);
+
+export const myFeature = flag<boolean, Context>({
+  key: "my_feature",
+  identify,
+  adapter: reflagAdapter.isEnabled(),
+});
+```
+
+<LearnMore icon="arrow" href="/frameworks/next/dedupe">
+  Learn more about `dedupe`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/principles/evaluation-context">
+  Learn more about `identify`
+</LearnMore>
+
+---
+
+## Methods
+
+### Feature toggling
+
+Through the `featureIsEnabled` method, the Reflag provider supports determining if features are enabled/disabled.
+
+```ts
+export const myFeature = flag<boolean, Context>({
+  key: "my_feature",
+  adapter: reflagAdapter.isEnabled(),
+  identify,
+});
+```
+
+Remote Config, Adoption tracking and automatic feedback surveys are currently not supported in the Reflag Flags SDK provider.
+
+---
+
+### "Checks" events
+
+Check events are used to log when a user is exposed to a feature.
+Because middleware and server components are evaluated when routes are prefetched, check events are not supported in the Reflag Provider.
+
+See the [Reflag React SDK](https://docs.reflag.com/supported-languages/next.js#client-side-rendering) documentation for more information on how to use check events in the client.
+
+---
+
+## Flags Explorer
+
+View and override your Reflag feature toggles using the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer).
+
+To make Flags Explorer aware of your Reflag features, you need to provide a route which Flags Explorer will load your experiment metadata from.
+
+Use the `getProviderData` function in your [Flags API endpoint](https://vercel.com/docs/workflow-collaboration/feature-flags/implement-flags-in-toolbar#creating-the-flags-api-endpoint) to load and emit your Reflag data.
+`getProviderData` takes a `ReflagClient` in the `options` object:
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { createFlagsDiscoveryEndpoint } from 'flags/next';
+import { reflagAdapter, getProviderData } from "@flags-sdk/reflag";
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async () => {
+  return getProviderData({
+    reflagClient: await reflagAdapter.reflagClient(),
+  });
+});
+```
+
+## Read More
+
+Read more about Reflag, Flags SDK, and the Reflag adapter.
+
+- [Adapter Source Code](https://github.com/vercel/flags/tree/main/packages/adapter-reflag)
+- [Adapter Concept](/docs/adapters/supported-providers)
+- [Precompute Concept](/principles/precompute)
+- [Reflag with Next.js](https://docs.reflag.com/supported-languages/next.js)
+- [Reflag Node.js SDK on NPM](https://www.npmjs.com/package/@reflag/node-sdk)

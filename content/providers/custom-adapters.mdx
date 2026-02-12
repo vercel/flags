@@ -1,0 +1,124 @@
+---
+title: Custom Adapters
+description: Integrate any feature flag provider with the Flags SDK using a custom adapter.
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import { LearnMore } from '@/components/learn-more';
+
+Integrate any feature flag provider with the Flags SDK
+using an adapter. We publish adapters for the most [common providers](/docs/adapters/supported-providers), but
+it is also possible to write a custom adapter in case we don't list
+your provider or in case you have an in-house solution for feature
+flags.
+
+Adapters conceptually replace the `decide` and `origin` parts of a flag declaration.
+
+## How to write a custom adapter
+
+Creating custom adapters is possible by creating an adapter factory:
+
+```ts title="example-adapter.ts"
+import type { Adapter } from 'flags';
+import { createClient, EdgeConfigClient } from '@vercel/edge-config';
+
+/**
+ * A factory function for your adapter
+ */
+export function createExampleAdapter(/* options */) {
+  // create the client for your provider here, or reuse the one
+  // passed in through options
+
+  return function exampleAdapter<ValueType, EntitiesType>(): Adapter<
+    ValueType,
+    EntitiesType
+  > {
+    return {
+      origin(key) {
+        // link to the flag in the provider's dashboard
+        return `https://example.com/flags/${key}`;
+      },
+      async decide({ key }): Promise<ValueType> {
+        // use the SDK instance created earlier to evaluate flags here
+        return false as ValueType;
+      },
+    };
+  };
+}
+```
+
+This allows passing the provider in the flag declaration.
+
+```tsx title="flags.tsx#next"
+import { flag } from 'flags/next';
+import { createExampleAdapter } from './example-adapter';
+
+// create an instance of the adapter
+const exampleAdapter = createExampleAdapter();
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  // use the adapter for many feature flags
+  adapter: exampleAdapter(),
+});
+```
+
+## Example
+
+Below is an example of an Flags SDK adapter reading Edge Config.
+
+<IframeBrowser
+  src="snippets:/concepts/adapters"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/adapters"
+/>
+
+## Exposing default adapters
+
+In the example above, as a user of the adapter, we first needed to
+create an instance of the adapter. It is possible to simplify usage
+further by exposing a default adapter.
+
+Usage with a default adapter, where we can import a fully configured{" "}
+`exampleAdapter`.
+
+```tsx title="flags.tsx#next"
+import { flag } from 'flags/next';
+import { exampleAdapter } from './example-adapter';
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  // use the adapter for many feature flags
+  adapter: exampleAdapter(),
+});
+```
+
+Many `@flags-sdk/*` adapters will implement this pattern. The
+default adapter will get created lazily on first usage, and can
+initialize itself based on known environment variables.
+
+```ts title="example-adapter.ts"
+// extend the adapter definition to expose a default adapter
+let defaultEdgeConfigAdapter:
+  | ReturnType<typeof createEdgeConfigAdapter>
+  | undefined;
+
+/**
+ * A default Vercel adapter for Edge Config
+ *
+ */
+export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
+  ValueType,
+  EntitiesType
+> {
+  // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
+  if (!defaultEdgeConfigAdapter) {
+    if (!process.env.EDGE_CONFIG) {
+      throw new Error('Edge Config Adapter: Missing EDGE_CONFIG env var');
+    }
+
+    defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
+  }
+
+  return defaultEdgeConfigAdapter<ValueType, EntitiesType>();
+}
+```

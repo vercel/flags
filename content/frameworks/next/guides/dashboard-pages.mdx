@@ -1,0 +1,105 @@
+---
+title: Dashboard Pages
+description: Use feature flags on dashboard pages.
+---
+
+import { IframeBrowser } from '@/components/iframe-browser';
+import { LearnMore } from '@/components/learn-more';
+
+Dashboard pages are rendered at request time, and may require authenticated
+users.
+
+The example below shows how to use feature flags to show a feature to
+specific users on a dashboard page. They are flagged in based on their
+user id. The buttons below allow you to either act as a flagged in user
+or as a regular user.
+
+<IframeBrowser
+  src="snippets:/examples/dashboard-pages"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/examples/dashboard-pages"
+/>
+
+## Definition
+
+The example above works by first defining a feature flag.
+
+```tsx title="flags.tsx#next"
+import type { ReadonlyRequestCookies } from 'flags';
+import { flag, dedupe } from 'flags/next';
+
+interface Entities {
+  user?: { id: string };
+}
+
+const identify = dedupe(
+  ({ cookies }: { cookies: ReadonlyRequestCookies }): Entities => {
+    const userId = cookies.get('dashboard-user-id')?.value;
+    return { user: userId ? { id: userId } : undefined };
+  },
+);
+
+export const dashboardFlag = flag<boolean, Entities>({
+  key: 'dashboard-flag',
+  identify,
+  decide({ entities }) {
+    if (!entities?.user) return false;
+    // Allowed users could be loaded from Edge Config or elsewhere
+    const allowedUsers = ['user1'];
+
+    return allowedUsers.includes(entities.user.id);
+  },
+});
+```
+
+The definition includes an `identify` function. The
+`identify` function is used to establish the evaluation
+context.
+
+The example reads the user id directly from the cookie. In a real
+dashboard you would likely read a signed JWT instead.
+
+## Usage
+
+Any server-side code can evaluate the feature flag by calling it.
+
+```tsx title="app/page.tsx#next"
+export default async function DashboardPage() {
+  const dashboard = await dashboardFlag();
+  // do something with the flag
+  return <div>Dashboard</div>;
+}
+```
+
+Since dashboard pages are typically dynamic anyhow the async call to
+evaluate the feature flag should fit right in.
+
+## Identifying
+
+The example flag calls `identify` to establish the evaluation
+context. This function returns the entities that are used to evaluate
+the feature flag.
+
+The `decide` function then later gets access to the{" "}
+`entities` returned from the `identify` function.
+
+<LearnMore href="/principles/evaluation-context" icon="arrow">
+  Learn more about `identify`
+</LearnMore>
+
+## Evaluation Context
+
+Feature Flags used on dashboards will usually run in the Serverless
+Function Region, close to the database. This means it is acceptable for
+a feature flag's `decide` function to read the database
+when establishing the evaluation context. However, ideally, it would
+only read from the JWT as this will lead to lower overall latency.
+
+## Deduplication
+
+The `identify` call uses `dedupe` to avoid
+duplicate work when multiple feature flags depend on the same evaluation
+context.
+
+<LearnMore href="/frameworks/next/dedupe" icon="arrow">
+  Learn more about `dedupe`
+</LearnMore>
