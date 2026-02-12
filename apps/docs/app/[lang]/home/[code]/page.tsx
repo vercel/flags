@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FlagSelect, FlagToggle } from './toggles';
 import { CopySnippet } from './copy-snippet';
+import { HighlightedCode } from './highlighted-code';
 
 const FEATURES = [
   {
@@ -212,28 +213,18 @@ export default async function HomePage({
             </Button>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <div className="overflow-hidden rounded-lg border bg-background">
-                <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
-                  flags.ts
-                </div>
-                <pre className="overflow-x-auto p-4 text-sm">
-                  <code>{flagsSetupCodeblock}</code>
-                </pre>
-              </div>
-              <span className="mt-1 block text-xs text-muted-foreground">Declaring a flag</span>
-            </div>
-            <div>
-              <div className="overflow-hidden rounded-lg border bg-background">
-                <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
-                  app/page.tsx
-                </div>
-                <pre className="overflow-x-auto p-4 text-sm">
-                  <code>{flagsImportCodeblock}</code>
-                </pre>
-              </div>
-              <span className="mt-1 block text-xs text-muted-foreground">Using a flag</span>
-            </div>
+            <HighlightedCode
+              code={flagsSetupCodeblock}
+              lang="typescript"
+              filename="flags.ts"
+              caption="Declaring a flag"
+            />
+            <HighlightedCode
+              code={flagsImportCodeblock}
+              lang="tsx"
+              filename="app/page.tsx"
+              caption="Using a flag"
+            />
           </div>
         </div>
 
