@@ -24,6 +24,7 @@
     "dexie": "^4.2.1",
     "dexie-react-hooks": "^4.2.0",
     "feed": "^5.1.0",
+    "flags": "4.0.3",
     "fumadocs-core": "16.2.2",
     "fumadocs-mdx": "14.0.4",
     "fumadocs-ui": "16.2.2",

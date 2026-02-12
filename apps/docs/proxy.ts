@@ -1,3 +1,4 @@
+import { precompute } from "flags/next";
 import { createI18nMiddleware } from "fumadocs-core/i18n/middleware";
 import { isMarkdownPreferred, rewritePath } from "fumadocs-core/negotiation";
 import {
@@ -5,6 +6,7 @@ import {
   type NextRequest,
   NextResponse,
 } from "next/server";
+import { rootFlags } from "@/flags";
 import { i18n } from "@/lib/geistdocs/i18n";
 import { trackMdRequest } from "@/lib/md-tracking";
 
@@ -15,8 +17,14 @@ const { rewrite: rewriteLLM } = rewritePath(
 
 const internationalizer = createI18nMiddleware(i18n);
 
-const proxy = (request: NextRequest, context: NextFetchEvent) => {
+const proxy = async (request: NextRequest, context: NextFetchEvent) => {
   const pathname = request.nextUrl.pathname;
+
+  // Precompute flags and rewrite homepage
+  if (pathname === "/") {
+    const code = await precompute(rootFlags);
+    return NextResponse.rewrite(new URL(`/home/${code}`, request.url));
+  }
 
   // Track llms.txt requests
   if (pathname === "/llms.txt") {
