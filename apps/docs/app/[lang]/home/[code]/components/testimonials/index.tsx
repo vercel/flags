@@ -22,7 +22,7 @@ export const Card = ({ name, alias, avatar, url, children }: CardProps) => {
           alt={name}
           width={40}
           height={40}
-          className="h-12 w-12 rounded-full bg-gray-200"
+          className="h-12 w-12 rounded-full bg-muted"
         />
         <div className="flex flex-col">
           <div className="font-medium text-foreground">{name}</div>
