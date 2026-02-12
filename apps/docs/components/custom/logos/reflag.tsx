@@ -2,8 +2,6 @@ export function ReflagLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width={705}
-      height={206}
       viewBox="0 0 705 206"
       fill="none"
       {...props}

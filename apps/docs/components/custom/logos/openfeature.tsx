@@ -1,8 +1,6 @@
 export function OpenFeatureLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width={470}
-      height={80}
       viewBox="0 0 470 80"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
