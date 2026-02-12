@@ -17,7 +17,7 @@ export const github = {
 export const nav = [
   {
     label: "Principles",
-    href: "/docs/principles",
+    href: "/docs/principles/flags-as-code",
   },
   {
     label: "Frameworks",
@@ -29,7 +29,7 @@ export const nav = [
   },
   {
     label: "API Reference",
-    href: "/docs/api-reference",
+    href: "/docs/api-reference/core/core",
   },
 ];
 
