@@ -39,11 +39,6 @@ const config: NextConfig = {
       '/docs/api-reference/adapters/split': '/providers/split',
       '/docs/api-reference/adapters/statsig': '/providers/statsig',
       '/docs/api-reference/adapters/openfeature': '/providers/openfeature',
-      '/docs/api-reference/core/core': '/api-reference/core/core',
-      '/docs/api-reference/core/react': '/api-reference/core/react',
-      '/docs/api-reference/frameworks/next': '/api-reference/frameworks/next',
-      '/docs/api-reference/frameworks/sveltekit':
-        '/api-reference/frameworks/sveltekit',
       '/docs/concepts/data-locality': '/principles/data-locality',
       '/docs/concepts/dedupe': '/frameworks/next/dedupe',
       '/docs/concepts/evaluation-context': '/principles/evaluation-context',
@@ -143,6 +138,11 @@ const config: NextConfig = {
         permanent: true,
       },
       {
+        source: "/docs/principles",
+        destination: "/docs/principles/flags-as-code",
+        permanent: true,
+      },
+      {
         source: "/frameworks",
         destination: "/docs/frameworks/next",
         permanent: true,
@@ -169,7 +169,7 @@ const config: NextConfig = {
       },
       {
         source: "/api-reference",
-        destination: "/docs/api-reference",
+        destination: "/docs/api-reference/core/core",
         permanent: true,
       },
       {
