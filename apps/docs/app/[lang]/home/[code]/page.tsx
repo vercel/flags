@@ -107,28 +107,10 @@ export default async function HomePage({
             <CopySnippet text="npm i flags" />
           </div>
         </div>
-        <div className="relative">
-          {ditheredHeroFlag ? (
-            <HeroImage />
-          ) : (
-            <div
-              className="absolute inset-0 h-full w-full lg:border-l"
-              style={{
-                zIndex: -10,
-                backgroundColor: 'var(--background)',
-                backgroundImage: `linear-gradient(to top, var(--muted) 0%, rgba(255,255,255,0) 100%),
-                linear-gradient(to right, var(--border) 0.5px, transparent 1px),
-                linear-gradient(to bottom, var(--border) 0.5px, transparent 1px)`,
-                backgroundSize:
-                  '100% 100%, 5.625rem 5.625rem, 5.625rem 5.625rem',
-                backgroundPosition:
-                  'bottom, top -1px left -1px, top -1px left -1px',
-                backgroundRepeat: 'no-repeat, repeat, repeat',
-              }}
-            />
-          )}
+        <div className="relative p-4 sm:p-6">
+          {ditheredHeroFlag ? <HeroImage /> : null}
 
-          <div className="rounded-xl border bg-background p-4 shadow-md md:p-6">
+          <div className="relative rounded-xl border bg-background p-4 shadow-md md:p-6">
             <div className="flex flex-col gap-y-1 px-2">
               <div className="mb-0.5 font-semibold text-lg tracking-tight">Try the Flags SDK</div>
               <span className="text-muted-foreground text-sm">

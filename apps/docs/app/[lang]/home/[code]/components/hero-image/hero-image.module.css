@@ -1,7 +1,6 @@
 .image {
   position: absolute;
   inset: 0;
-  z-index: -10;
 
   height: 100%;
   width: 100%;
