@@ -1,18 +1,12 @@
-import { Toasts } from '@vercel/geist/components';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import type { ReactNode } from 'react';
-import { baseOptions } from '@/app/layout.config';
+import { HomeLayout } from '@/components/geistdocs/home-layout';
 import { enableBannerFlag, rootFlags } from '@/flags';
-import { Toaster } from './toaster';
+import { source } from '@/lib/geistdocs/source';
 
 export default async function Layout({
   children,
   params,
-}: {
-  children: ReactNode;
-  params: Promise<{ code: string }>;
-}) {
-  const { code } = await params;
+}: LayoutProps<"/[lang]/home/[code]">) {
+  const { lang, code } = await params;
   const bannerFlag = await enableBannerFlag(code, rootFlags);
   return (
     <>
@@ -22,11 +16,9 @@ export default async function Layout({
           SvelteKit.
         </div>
       ) : null}
-      <HomeLayout className="p-0" {...baseOptions}>
+      <HomeLayout tree={source.pageTree[lang]}>
         {children}
       </HomeLayout>
-      <Toaster />
-      <Toasts />
     </>
   );
 }

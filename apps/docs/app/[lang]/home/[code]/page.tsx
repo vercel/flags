@@ -1,14 +1,15 @@
 import { ButtonLink, CodeBlock, Grid, Snippet } from '@vercel/geist/components';
-import { ArrowRight } from '@vercel/geist/icons';
+import { ArrowRight } from 'lucide-react';
+import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
-import HeroImage from '@/components/home/hero-image';
+import HeroImage from './components/hero-image';
 import {
   Adaptable,
   Effortless,
   Flexible,
-} from '@/components/home/illustrations';
-import Testimonials from '@/components/home/testimonials';
+} from './components/illustrations';
+import Testimonials from './components/testimonials';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
@@ -55,6 +56,11 @@ export default async function Page() {
   return <div>Flag {example ? "on" : "off"}</div>;
 }
   `;
+
+export async function generateStaticParams() {
+  const codes = await generatePermutations(rootFlags);
+  return codes.map((code) => ({ code }));
+}
 
 export const metadata: Metadata = {
   alternates: { canonical: 'https://flags-sdk.dev' },

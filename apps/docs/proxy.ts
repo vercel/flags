@@ -23,7 +23,7 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
   // Precompute flags and rewrite homepage
   if (pathname === "/") {
     const code = await precompute(rootFlags);
-    return NextResponse.rewrite(new URL(`/home/${code}`, request.url));
+    return NextResponse.rewrite(new URL(`/${i18n.defaultLanguage}/home/${code}`, request.url));
   }
 
   // Track llms.txt requests
