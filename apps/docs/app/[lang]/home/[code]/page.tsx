@@ -80,7 +80,7 @@ export default async function HomePage({
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-12">
+    <div className="container mx-auto max-w-5xl">
       <FlagValues
         values={{
           [enableBannerFlag.key]: bannerFlag,
@@ -90,16 +90,16 @@ export default async function HomePage({
       />
 
       {/* Hero */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <section className="mt-(--fd-nav-height) grid grid-cols-1 gap-12 px-4 pt-16 pb-16 sm:pt-24 lg:grid-cols-2">
         <div className="flex flex-col justify-center">
-          <h1 className="mb-2.5 text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-balance font-semibold text-[40px] leading-[1.1] tracking-tight sm:text-5xl xl:text-6xl">
             {heroTextFlag}
           </h1>
-          <p className="mb-6 text-lg font-medium text-muted-foreground md:mb-12">
+          <p className="mt-5 max-w-3xl text-balance text-muted-foreground leading-relaxed sm:text-xl">
             Flags SDK is a free, open-source library for using feature flags
             in Next.js and SvelteKit.
           </p>
-          <div className="flex h-fit gap-x-4">
+          <div className="mt-6 inline-flex w-fit items-center gap-3">
             <Button size="lg" asChild>
               <Link href="/frameworks/next">Get Started</Link>
             </Button>
@@ -114,10 +114,10 @@ export default async function HomePage({
               className="absolute inset-0 h-full w-full lg:border-l"
               style={{
                 zIndex: -10,
-                backgroundColor: 'hsl(var(--background))',
-                backgroundImage: `linear-gradient(to top, hsl(var(--muted)) 0%, rgba(255,255,255,0) 100%),
-                linear-gradient(to right, hsl(var(--border)) 0.5px, transparent 1px),
-                linear-gradient(to bottom, hsl(var(--border)) 0.5px, transparent 1px)`,
+                backgroundColor: 'var(--background)',
+                backgroundImage: `linear-gradient(to top, var(--muted) 0%, rgba(255,255,255,0) 100%),
+                linear-gradient(to right, var(--border) 0.5px, transparent 1px),
+                linear-gradient(to bottom, var(--border) 0.5px, transparent 1px)`,
                 backgroundSize:
                   '100% 100%, 5.625rem 5.625rem, 5.625rem 5.625rem',
                 backgroundPosition:
@@ -129,7 +129,7 @@ export default async function HomePage({
 
           <div className="rounded-xl border bg-background p-4 shadow-md md:p-6">
             <div className="flex flex-col gap-y-1 px-2">
-              <div className="mb-0.5 text-lg font-semibold">Try the Flags SDK</div>
+              <div className="mb-0.5 font-semibold text-lg tracking-tight">Try the Flags SDK</div>
               <span className="text-muted-foreground text-sm">
                 Set persistent flags for this page
               </span>
@@ -158,97 +158,108 @@ export default async function HomePage({
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features */}
-      <div className="mt-16">
-        <h2 className="mb-1 text-2xl font-bold tracking-tight">Using flags as code</h2>
-        <p className="max-w-prose text-balance text-muted-foreground">
-          The SDK sits between your application and the source of your
-          flags, helping you follow best practices and keep your website
-          fast.
-        </p>
-        <div className="my-8 grid h-fit gap-y-8 md:grid-cols-3 md:gap-x-8">
-          {FEATURES.map((feature) => (
-            <div key={feature.title}>
-              <div className="flex items-center justify-center">
-                {feature.illustration}
-              </div>
-              <h3 className="mt-3 text-xl font-semibold md:mt-6">
-                {feature.title}
-              </h3>
-              <p className="mt-1.5 text-muted-foreground md:mt-4">
-                {feature.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Sections with dividers */}
+      <div className="grid divide-y border-y sm:border-x">
 
-      {/* Code examples */}
-      <div className="mt-16 rounded-lg border bg-muted/50 p-6 md:p-8">
-        <div className="flex flex-col items-start justify-between gap-y-4 md:flex-row">
-          <div className="flex flex-col gap-y-1">
-            <h2 className="text-2xl font-bold tracking-tight">Effortless setup</h2>
-            <p className="text-muted-foreground">
-              With a simple declarative API to define and use your feature
-              flags.
+        {/* Features */}
+        <div className="grid gap-8 px-4 py-8 sm:px-12 sm:py-12">
+          <div className="grid max-w-3xl gap-2 text-balance">
+            <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl lg:text-[40px]">
+              Using flags as code
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              The SDK sits between your application and the source of your
+              flags, helping you follow best practices and keep your website
+              fast.
             </p>
           </div>
-          <Button variant="outline" asChild>
-            <Link href="/frameworks/next">
-              Read the Docs
-              <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-        <div className="mt-4 grid w-full grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <div className="overflow-hidden rounded-lg border bg-background">
-              <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
-                flags.ts
+          <div className="grid gap-8 md:grid-cols-3">
+            {FEATURES.map((feature) => (
+              <div key={feature.title}>
+                <div className="flex items-center justify-center">
+                  {feature.illustration}
+                </div>
+                <h3 className="mt-3 font-semibold text-lg tracking-tight md:mt-6">
+                  {feature.title}
+                </h3>
+                <p className="mt-1.5 text-muted-foreground md:mt-4">
+                  {feature.description}
+                </p>
               </div>
-              <pre className="overflow-x-auto p-4 text-sm">
-                <code>{flagsSetupCodeblock}</code>
-              </pre>
-            </div>
-            <span className="mt-1 block text-xs text-muted-foreground">Declaring a flag</span>
-          </div>
-          <div>
-            <div className="overflow-hidden rounded-lg border bg-background">
-              <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
-                app/page.tsx
-              </div>
-              <pre className="overflow-x-auto p-4 text-sm">
-                <code>{flagsImportCodeblock}</code>
-              </pre>
-            </div>
-            <span className="mt-1 block text-xs text-muted-foreground">Using a flag</span>
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Testimonials */}
-      <div className="mt-16">
-        <h2 className="mb-1 text-2xl font-bold tracking-tight">
-          What builders say about the Flags SDK
-        </h2>
-        <Testimonials />
-      </div>
+        {/* Code examples */}
+        <div className="grid gap-8 px-4 py-8 sm:px-12 sm:py-12">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="grid max-w-3xl gap-2 text-balance">
+              <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl">
+                Effortless setup
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                With a simple declarative API to define and use your feature
+                flags.
+              </p>
+            </div>
+            <Button variant="outline" className="shrink-0" asChild>
+              <Link href="/frameworks/next">
+                Read the Docs
+                <ArrowRight />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <div className="overflow-hidden rounded-lg border bg-background">
+                <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
+                  flags.ts
+                </div>
+                <pre className="overflow-x-auto p-4 text-sm">
+                  <code>{flagsSetupCodeblock}</code>
+                </pre>
+              </div>
+              <span className="mt-1 block text-xs text-muted-foreground">Declaring a flag</span>
+            </div>
+            <div>
+              <div className="overflow-hidden rounded-lg border bg-background">
+                <div className="border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">
+                  app/page.tsx
+                </div>
+                <pre className="overflow-x-auto p-4 text-sm">
+                  <code>{flagsImportCodeblock}</code>
+                </pre>
+              </div>
+              <span className="mt-1 block text-xs text-muted-foreground">Using a flag</span>
+            </div>
+          </div>
+        </div>
 
-      {/* CTA */}
-      <div className="mt-16">
-        <div className="flex flex-col items-start gap-y-6 md:flex-row md:items-center md:justify-between md:gap-x-6">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+        {/* Testimonials */}
+        <div className="grid gap-8 px-4 py-8 sm:px-12 sm:py-12">
+          <div className="grid max-w-3xl gap-2 text-balance">
+            <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl lg:text-[40px]">
+              What builders say about the Flags SDK
+            </h2>
+          </div>
+          <Testimonials />
+        </div>
+
+        {/* CTA */}
+        <section className="flex flex-col gap-4 px-8 py-10 sm:px-12 md:flex-row md:items-center md:justify-between">
+          <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl lg:text-[40px]">
             Deploy your first flag today.
           </h2>
-          <div className="flex gap-x-4">
+          <div className="inline-flex items-center gap-3">
             <Button size="lg" asChild>
               <Link href="/frameworks/next">Get Started</Link>
             </Button>
             <CopySnippet text="npm i flags" />
           </div>
-        </div>
+        </section>
+
       </div>
     </div>
   );
