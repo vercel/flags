@@ -1,9 +1,17 @@
 'use client';
 import { track } from '@vercel/analytics';
-import { Select, Toggle, useToasts } from '@vercel/geist/components';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 const oneYearInSeconds = 31_536_000;
 
@@ -20,7 +28,6 @@ function message(flagKey: string) {
  */
 function useInitSlowConnectionWarning() {
   const pair = useState(false);
-  const toasts = useToasts();
   const [shown, setShown] = pair;
 
   useEffect(() => {
@@ -28,17 +35,16 @@ function useInitSlowConnectionWarning() {
 
     const timeout = setTimeout(() => {
       if (sessionStorage.getItem('toast')) {
-        toasts.warning({
-          text: 'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
-          preserve: true,
-        });
+        toast.warning(
+          'You appear to be on a slow connection. This flag will apply after the page finishes reloading.'
+        );
       }
     }, 1150);
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [shown, toasts.warning]);
+  }, [shown]);
 
   const show = useCallback(() => {
     setShown(true);
@@ -74,28 +80,18 @@ export const FlagToggle = ({
       <div className="flex flex-col gap-y-0.5">
         <Label
           htmlFor={flagKey}
-          className="font-mono text-label-14"
-          onClick={() => {
-            // Prevent triggering when user is selecting text
-            const selection = window.getSelection();
-            if (selection?.type === 'Range') return;
-
-            // The <Toggle /> doesn't properly set the id on the label,
-            // so we manually click the label here. It's pretty hacky and I hate it.
-            document.getElementById(flagKey)?.click();
-          }}
+          className="font-mono text-sm"
         >
           {label}
         </Label>
         {description ? (
-          <span className="text-gray-800 text-copy-14">{description}</span>
+          <span className="text-muted-foreground text-sm">{description}</span>
         ) : null}
       </div>
-      <Toggle
+      <Switch
         id={flagKey}
         checked={override === null ? value : override}
-        size="medium"
-        onChange={(nextValue) => {
+        onCheckedChange={(nextValue) => {
           document.cookie = nextValue
             ? `${flagKey}=1; max-age=${oneYearInSeconds}; path=/`
             : `${flagKey}=; max-age=0; path=/`;
@@ -138,30 +134,34 @@ export const FlagSelect = ({
   return (
     <div className="flex w-full items-start px-2 py-4">
       <div className="flex w-full flex-col gap-y-0.5">
-        <Label htmlFor={flagKey} className="font-mono text-label-14">
+        <Label htmlFor={flagKey} className="font-mono text-sm">
           {label}
         </Label>
         {description ? (
-          <span className="text-gray-800 text-copy-14">{description}</span>
+          <span className="text-muted-foreground text-sm">{description}</span>
         ) : null}
 
         <Select
-          id={flagKey}
-          className="mt-1.5 w-full"
-          placeholder="Select an option"
-          onChange={(event) => {
-            document.cookie = `${flagKey}=${encodeURIComponent(event.target.value)}; max-age=${oneYearInSeconds}; path=/`;
+          value={override === null ? value : override}
+          onValueChange={(nextValue) => {
+            document.cookie = `${flagKey}=${encodeURIComponent(nextValue)}; max-age=${oneYearInSeconds}; path=/`;
             sessionStorage.setItem('toast', message(flagKey));
-            setOverride(event.target.value);
+            setOverride(nextValue);
             track('playground_toggle', { flagKey });
             initSlowConnectionWarning();
             router.refresh();
           }}
-          defaultValue={override === null ? value : override}
         >
-          {options?.map((option) => (
-            <option key={option.value}>{option.value}</option>
-          ))}
+          <SelectTrigger className="mt-1.5 w-full">
+            <SelectValue placeholder="Select an option" />
+          </SelectTrigger>
+          <SelectContent>
+            {options?.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.value}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
     </div>
