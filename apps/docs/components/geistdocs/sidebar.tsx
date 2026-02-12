@@ -13,6 +13,7 @@ import type { SidebarPageTreeComponents } from "fumadocs-ui/components/sidebar/p
 import { useTreeContext, useTreePath } from "fumadocs-ui/contexts/tree";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef } from "react";
+import { FrameworkSwitcher } from "@/components/custom/framework-switcher";
 import {
   Sheet,
   SheetContent,
@@ -60,6 +61,7 @@ export const Sidebar = () => {
       data-sidebar-placeholder
     >
       <div className="h-full overflow-y-auto px-4 pt-12 pb-4">
+        <FrameworkSwitcher />
         <Fragment key={root.$id}>{renderSidebarList(root.children)}</Fragment>
       </div>
       <Sheet onOpenChange={setIsOpen} open={isOpen}>
@@ -72,6 +74,7 @@ export const Sidebar = () => {
             <SearchButton onClick={() => setIsOpen(false)} />
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <FrameworkSwitcher />
             {renderSidebarList(root.children)}
           </div>
         </SheetContent>
