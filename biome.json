@@ -6,7 +6,11 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": false
+    "ignoreUnknown": false,
+    "includes": [
+      "**/*",
+      "!/apps/docs/"
+    ]
   },
   "formatter": {
     "enabled": true,
