@@ -2,10 +2,7 @@ export function GrowthbookLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="1749"
-      height="321"
       viewBox="0 0 1749 321"
-      transform="scale(1.25)"
       {...props}
     >
       <g data-name="logo mark">

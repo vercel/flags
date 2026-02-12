@@ -1,8 +1,6 @@
 export function StatsigLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="1162.8516px"
-      height="195.371px"
       viewBox="0 0 1162.8516 195.371"
       xmlns="http://www.w3.org/2000/svg"
       {...props}

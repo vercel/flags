@@ -35,9 +35,9 @@ export const nav = [
 
 export const suggestions = [
   "What is Flags SDK?",
-  "What can I make with Flags SDK?",
-  "What syntax does Flags SDK support?",
-  "How do I deploy my Flags SDK site?",
+  "What frameworks are supported by Flags SDK?",
+  "Which providers are supported by Flags SDK?",
+  "How do I precompute flags?",
 ];
 
 export const title = "Flags SDK Documentation";
