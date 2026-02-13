@@ -1077,8 +1077,8 @@ export const Effortless = ({ ...props }) => {
           y2="309.5"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="var(--muted)" />
-          <stop offset="1" stopColor="var(--muted)" stopOpacity="0" />
+          <stop stopColor="var(--sidebar)" />
+          <stop offset="1" stopColor="var(--sidebar)" stopOpacity="0" />
         </linearGradient>
       </defs>
     </svg>
