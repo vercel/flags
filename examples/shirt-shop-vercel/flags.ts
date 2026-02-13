@@ -1,7 +1,10 @@
-import { vercelAdapter } from '@flags-sdk/vercel';
+import { createVercelAdapter } from '@flags-sdk/vercel';
 import type { Identify } from 'flags';
 import { dedupe, flag } from 'flags/next';
+import { flagsClient } from './lib/flags-client';
 import { getStableId } from './lib/get-stable-id';
+
+const vercelAdapter = createVercelAdapter(flagsClient);
 
 ////////////////////////////////////////////////////////////////////////////////
 

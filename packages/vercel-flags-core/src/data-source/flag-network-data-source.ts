@@ -224,6 +224,11 @@ export class FlagNetworkDataSource implements DataSource {
   private pollingIntervalId: ReturnType<typeof setInterval> | undefined;
   private pollingAbortController: AbortController | undefined;
 
+  // Inflight deduplication for getDataWithFallbacks
+  private inflightFallback:
+    | Promise<[DatafileInput, Metrics['source'], Metrics['cacheStatus']]>
+    | undefined;
+
   // Usage tracking
   private usageTracker: UsageTracker;
   private isFirstGetData: boolean = true;
@@ -329,7 +334,14 @@ export class FlagNetworkDataSource implements DataSource {
     } else if (cachedData) {
       [result, source, cacheStatus] = this.getDataFromCache(cachedData);
     } else {
-      [result, source, cacheStatus] = await this.getDataWithFallbacks();
+      // Deduplicate concurrent calls: if a fallback fetch is already inflight,
+      // reuse it instead of starting another stream/poll attempt.
+      if (!this.inflightFallback) {
+        this.inflightFallback = this.getDataWithFallbacks().finally(() => {
+          this.inflightFallback = undefined;
+        });
+      }
+      [result, source, cacheStatus] = await this.inflightFallback;
     }
 
     const readMs = Date.now() - startTime;
@@ -354,6 +366,7 @@ export class FlagNetworkDataSource implements DataSource {
     this.stopStream();
     this.stopPolling();
     this.data = this.options.datafile;
+    this.inflightFallback = undefined;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
