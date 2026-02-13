@@ -1,10 +1,6 @@
 export function GrowthbookLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 1749 321"
-      {...props}
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1749 321" {...props}>
       <g data-name="logo mark">
         <path
           id="book3"

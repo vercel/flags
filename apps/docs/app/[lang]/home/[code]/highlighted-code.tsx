@@ -29,10 +29,13 @@ export const HighlightedCode = async ({
         </div>
         <div
           className="flex-1 overflow-x-auto text-sm [&>pre]:h-full [&>pre]:p-4 [&>pre]:!bg-transparent [&_code]:block [&_code_.line]:min-h-[1lh]"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is trusted
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
-      <span className="mt-1 block text-xs text-muted-foreground">{caption}</span>
+      <span className="mt-1 block text-xs text-muted-foreground">
+        {caption}
+      </span>
     </div>
   );
 };

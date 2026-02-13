@@ -5,7 +5,7 @@ import { source } from '@/lib/geistdocs/source';
 export default async function Layout({
   children,
   params,
-}: LayoutProps<"/[lang]/home/[code]">) {
+}: LayoutProps<'/[lang]/home/[code]'>) {
   const { lang, code } = await params;
   const bannerFlag = await enableBannerFlag(code, rootFlags);
   return (

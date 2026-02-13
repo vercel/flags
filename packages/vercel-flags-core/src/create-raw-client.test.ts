@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clientMap } from './client-map';
 import { createCreateRawClient } from './create-raw-client';
-import type { BundledDefinitions, Datafile, DataSource } from './types';
+import type { BundledDefinitions, DataSource } from './types';
 
 function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
   return {

@@ -392,38 +392,10 @@ export const Adaptable = ({ ...props }) => {
         rx="4"
         fill="var(--background)"
       />
-      <rect
-        x="94"
-        y="91"
-        width="120"
-        height="8"
-        rx="4"
-        fill="var(--border)"
-      />
-      <rect
-        x="119"
-        y="102"
-        width="70"
-        height="8"
-        rx="4"
-        fill="var(--border)"
-      />
-      <rect
-        x="109"
-        y="69"
-        width="90"
-        height="12"
-        rx="6"
-        fill="var(--border)"
-      />
-      <rect
-        x="121"
-        y="27"
-        width="21"
-        height="20"
-        rx="4"
-        fill="var(--muted)"
-      />
+      <rect x="94" y="91" width="120" height="8" rx="4" fill="var(--border)" />
+      <rect x="119" y="102" width="70" height="8" rx="4" fill="var(--border)" />
+      <rect x="109" y="69" width="90" height="12" rx="6" fill="var(--border)" />
+      <rect x="121" y="27" width="21" height="20" rx="4" fill="var(--muted)" />
       <rect
         x="121.5"
         y="27.5"
@@ -436,14 +408,7 @@ export const Adaptable = ({ ...props }) => {
         d="M127.732 41L130.804 32.48H132.196L135.268 41H134.14L133.288 38.576H129.712L128.86 41H127.732ZM130.06 37.568H132.94L131.5 33.38L130.06 37.568Z"
         fill="var(--muted-foreground)"
       />
-      <rect
-        x="166"
-        y="27"
-        width="21"
-        height="20"
-        rx="4"
-        fill="var(--muted)"
-      />
+      <rect x="166" y="27" width="21" height="20" rx="4" fill="var(--muted)" />
       <rect
         x="166.5"
         y="27.5"
@@ -457,11 +422,7 @@ export const Adaptable = ({ ...props }) => {
         fill="var(--muted-foreground)"
       />
       <path d="M154 190L154 10" stroke="#3b82f6" strokeWidth="2" />
-      <path
-        d="M156 190L156 10"
-        stroke="var(--background)"
-        strokeWidth="2"
-      />
+      <path d="M156 190L156 10" stroke="var(--background)" strokeWidth="2" />
       <defs>
         <filter
           id="filter0_d_235_1444"
@@ -689,16 +650,8 @@ export const Effortless = ({ ...props }) => {
           strokeDasharray="4 4"
         />
         <path d="M228 71L135 71" stroke="#3b82f6" strokeWidth="2" />
-        <path
-          d="M228 129L135 129"
-          stroke="#f59e0b"
-          strokeWidth="2"
-        />
-        <path
-          d="M228 158L135 158"
-          stroke="#14b8a6"
-          strokeWidth="2"
-        />
+        <path d="M228 129L135 129" stroke="#f59e0b" strokeWidth="2" />
+        <path d="M228 158L135 158" stroke="#14b8a6" strokeWidth="2" />
         <g filter="url(#filter2_d_235_1404)">
           <path
             d="M118 71C118 64.3726 123.373 59 130 59C136.627 59 142 64.3726 142 71C142 77.6274 136.627 83 130 83C123.373 83 118 77.6274 118 71Z"
@@ -1125,11 +1078,7 @@ export const Effortless = ({ ...props }) => {
           gradientUnits="userSpaceOnUse"
         >
           <stop stopColor="var(--muted)" />
-          <stop
-            offset="1"
-            stopColor="var(--muted)"
-            stopOpacity="0"
-          />
+          <stop offset="1" stopColor="var(--muted)" stopOpacity="0" />
         </linearGradient>
       </defs>
     </svg>

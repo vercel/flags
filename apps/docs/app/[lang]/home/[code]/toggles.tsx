@@ -36,7 +36,7 @@ function useInitSlowConnectionWarning() {
     const timeout = setTimeout(() => {
       if (sessionStorage.getItem('toast')) {
         toast.warning(
-          'You appear to be on a slow connection. This flag will apply after the page finishes reloading.'
+          'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
         );
       }
     }, 1150);
@@ -48,7 +48,7 @@ function useInitSlowConnectionWarning() {
 
   const show = useCallback(() => {
     setShown(true);
-  }, [setShown]);
+  }, []);
 
   return show;
 }
@@ -78,10 +78,7 @@ export const FlagToggle = ({
   return (
     <div className="flex items-center justify-between px-2 py-4">
       <div className="flex flex-col gap-y-0.5">
-        <Label
-          htmlFor={flagKey}
-          className="font-mono text-sm"
-        >
+        <Label htmlFor={flagKey} className="font-mono text-sm">
           {label}
         </Label>
         {description ? (

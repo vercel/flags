@@ -1,15 +1,14 @@
-"use client";
+'use client';
 
-import { useTreeContext } from "fumadocs-ui/contexts/tree";
-import { ChevronDownIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { ChevronDownIcon } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { type ReactNode, useState } from 'react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "../ui/button";
+} from '@/components/ui/popover';
+import { Button } from '../ui/button';
 
 type Tab = {
   title: string;
@@ -20,15 +19,15 @@ type Tab = {
 
 const tabs: Tab[] = [
   {
-    title: "Next.js",
-    url: "/docs/frameworks/next",
+    title: 'Next.js',
+    url: '/docs/frameworks/next',
     icon: (
       <svg
         height="16"
         strokeLinejoin="round"
         viewBox="0 0 16 16"
         width="16"
-        style={{ color: "currentcolor" }}
+        style={{ color: 'currentcolor' }}
       >
         <g clipPath="url(#clip0_53_108)">
           <circle
@@ -64,16 +63,8 @@ const tabs: Tab[] = [
             gradientUnits="userSpaceOnUse"
           >
             <stop stopColor="white" />
-            <stop
-              offset="0.609375"
-              stopColor="white"
-              stopOpacity="0.57"
-            />
-            <stop
-              offset="0.796875"
-              stopColor="white"
-              stopOpacity="0"
-            />
+            <stop offset="0.609375" stopColor="white" stopOpacity="0.57" />
+            <stop offset="0.796875" stopColor="white" stopOpacity="0" />
             <stop offset="1" stopColor="white" stopOpacity="0" />
           </linearGradient>
           <linearGradient
@@ -93,11 +84,11 @@ const tabs: Tab[] = [
         </defs>
       </svg>
     ),
-    description: "Flags SDK for Next.js",
+    description: 'Flags SDK for Next.js',
   },
   {
-    title: "SvelteKit",
-    url: "/docs/frameworks/sveltekit",
+    title: 'SvelteKit',
+    url: '/docs/frameworks/sveltekit',
     icon: (
       <svg
         className="grayscale"
@@ -105,7 +96,7 @@ const tabs: Tab[] = [
         strokeLinejoin="round"
         viewBox="0 0 16 16"
         width="16"
-        style={{ color: "currentcolor" }}
+        style={{ color: 'currentcolor' }}
       >
         <path
           d="M13.7974 2.11525C12.3195 -0.0135593 9.37709 -0.637288 7.26183 0.705085L3.53302 3.09153C2.51607 3.72881 1.81098 4.77288 1.60759 5.95254C1.43132 6.94237 1.58048 7.95932 2.05505 8.84068C1.72963 9.32881 1.51268 9.87119 1.41776 10.4407C1.20082 11.6475 1.48556 12.8949 2.19065 13.8847C3.68217 16.0136 6.61098 16.6373 8.72624 15.2949L12.4551 12.922C13.472 12.2847 14.1771 11.2407 14.3805 10.061C14.5567 9.07119 14.4076 8.05424 13.933 7.17288C14.2584 6.68475 14.4754 6.14237 14.5703 5.57288C14.8008 4.35254 14.5161 3.10508 13.7974 2.11525Z"
@@ -122,7 +113,7 @@ const tabs: Tab[] = [
         </defs>
       </svg>
     ),
-    description: "Flags SDK for SvelteKit",
+    description: 'Flags SDK for SvelteKit',
   },
 ];
 
@@ -131,7 +122,7 @@ export const FrameworkSwitcher = () => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  if (tabs.length < 2 || !pathname.startsWith("/docs/frameworks/")) {
+  if (tabs.length < 2 || !pathname.startsWith('/docs/frameworks/')) {
     return null;
   }
 
@@ -145,13 +136,12 @@ export const FrameworkSwitcher = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          type="button" variant="ghost"
+          type="button"
+          variant="ghost"
           className="h-auto text-left shadow-none mb-4 gap-4"
         >
           {activeTab.icon ? (
-            <div className="size-4">
-              {activeTab.icon}
-            </div>
+            <div className="size-4">{activeTab.icon}</div>
           ) : null}
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium text-sm">
@@ -181,11 +171,7 @@ export const FrameworkSwitcher = () => {
               setOpen(false);
             }}
           >
-            {tab.icon ? (
-              <div className="size-4">
-                {tab.icon}
-              </div>
-            ) : null}
+            {tab.icon ? <div className="size-4">{tab.icon}</div> : null}
             <div className="min-w-0">
               <div className="truncate font-medium text-sm">{tab.title}</div>
               {tab.description ? (

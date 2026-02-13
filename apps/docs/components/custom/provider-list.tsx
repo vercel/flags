@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 import { FlagsmithLogo } from './logos/flagsmith';
 import { GrowthbookLogo } from './logos/growthbook';
 import { HypertuneLogo } from './logos/hypertune';
@@ -9,7 +10,6 @@ import { OptimizelyLogo } from './logos/optimizely';
 import { PostHogLogo } from './logos/posthog';
 import { ReflagLogo } from './logos/reflag';
 import { StatsigLogo } from './logos/statsig';
-import { Badge } from '../ui/badge';
 
 type Provider = {
   key: string;

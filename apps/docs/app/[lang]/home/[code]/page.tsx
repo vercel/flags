@@ -1,25 +1,21 @@
-import { ArrowRight } from 'lucide-react';
 import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
+import { ArrowRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import HeroImage from './components/hero-image';
-import {
-  Adaptable,
-  Effortless,
-  Flexible,
-} from './components/illustrations';
-import Testimonials from './components/testimonials';
+import { Button } from '@/components/ui/button';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
   rootFlags,
 } from '@/flags';
-import { Button } from '@/components/ui/button';
-import { FlagSelect, FlagToggle } from './toggles';
+import HeroImage from './components/hero-image';
+import { Adaptable, Effortless, Flexible } from './components/illustrations';
+import Testimonials from './components/testimonials';
 import { CopySnippet } from './copy-snippet';
 import { HighlightedCode } from './highlighted-code';
+import { FlagSelect, FlagToggle } from './toggles';
 
 const FEATURES = [
   {
@@ -97,8 +93,8 @@ export default async function HomePage({
             {heroTextFlag}
           </h1>
           <p className="mt-5 max-w-3xl text-balance text-muted-foreground leading-relaxed sm:text-xl">
-            Flags SDK is a free, open-source library for using feature flags
-            in Next.js and SvelteKit.
+            Flags SDK is a free, open-source library for using feature flags in
+            Next.js and SvelteKit.
           </p>
           <div className="mt-6 inline-flex w-fit items-center gap-3">
             <Button size="lg" asChild>
@@ -112,7 +108,9 @@ export default async function HomePage({
 
           <div className="relative rounded-xl border bg-background p-4 shadow-md md:p-6">
             <div className="flex flex-col gap-y-1 px-2">
-              <div className="mb-0.5 font-semibold text-lg tracking-tight">Try the Flags SDK</div>
+              <div className="mb-0.5 font-semibold text-lg tracking-tight">
+                Try the Flags SDK
+              </div>
               <span className="text-muted-foreground text-sm">
                 Set persistent flags for this page
               </span>
@@ -145,7 +143,6 @@ export default async function HomePage({
 
       {/* Sections with dividers */}
       <div className="grid divide-y border-y sm:border-x">
-
         {/* Features */}
         <div className="grid gap-8 px-4 py-8 sm:px-12 sm:py-12">
           <div className="grid max-w-3xl gap-2 text-balance">
@@ -232,7 +229,6 @@ export default async function HomePage({
             <CopySnippet text="npm i flags" />
           </div>
         </section>
-
       </div>
     </div>
   );

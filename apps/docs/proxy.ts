@@ -8,7 +8,7 @@ import {
 } from "next/server";
 import { rootFlags } from "@/flags";
 import { i18n } from "@/lib/geistdocs/i18n";
-import { trackMdRequest } from "@/lib/md-tracking";
+import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 
 const { rewrite: rewriteLLM } = rewritePath(
   "/docs/*path",
