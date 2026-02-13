@@ -6,6 +6,11 @@ import { basePath } from "@/geistdocs";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { cn } from "@/lib/utils";
 
+export const generateStaticParams = async () => {
+  const langs = ["en"];
+  return langs.map((lang) => ({ lang }));
+};
+
 const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
   const { lang } = await params;
 
