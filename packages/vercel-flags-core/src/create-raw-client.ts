@@ -31,23 +31,27 @@ export function createCreateRawClient(fns: {
     origin?: { provider: string; sdkKey: string };
   }): FlagsClient {
     const id = idCount++;
-    clientMap.set(id, { dataSource, initialized: false });
+    clientMap.set(id, { dataSource, initialized: false, initPromise: null });
 
     const api = {
       origin,
       initialize: async () => {
         let instance = clientMap.get(id);
         if (!instance) {
-          instance = { dataSource, initialized: false };
+          instance = { dataSource, initialized: false, initPromise: null };
           clientMap.set(id, instance);
         }
 
         // skip promise if already initialized
         if (instance.initialized) return;
-        const promise = fns.initialize(id);
-        await promise;
+
+        if (!instance.initPromise) {
+          instance.initPromise = fns.initialize(id);
+        }
+
+        await instance.initPromise;
         instance.initialized = true;
-        return promise;
+        return instance.initPromise;
       },
       shutdown: async () => {
         await fns.shutdown(id);
