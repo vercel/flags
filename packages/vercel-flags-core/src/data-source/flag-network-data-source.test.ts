@@ -1183,44 +1183,6 @@ describe('FlagNetworkDataSource', () => {
 
       await dataSource.shutdown();
     });
-
-    it('should not start polling from stream disconnect during initialization', async () => {
-      let pollCount = 0;
-
-      server.use(
-        http.get('https://flags.vercel.com/v1/stream', () => {
-          // Stream fails immediately, triggering onDisconnect
-          return new HttpResponse(null, { status: 500 });
-        }),
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          pollCount++;
-          return HttpResponse.json({
-            projectId: 'polled',
-            definitions: {},
-            environment: 'production',
-          });
-        }),
-      );
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const dataSource = new FlagNetworkDataSource({
-        sdkKey: 'vf_test_key',
-        stream: { initTimeoutMs: 5000 },
-        polling: { intervalMs: 100, initTimeoutMs: 5000 },
-      });
-
-      await dataSource.read();
-
-      // Only 1 poll request should have been made (from tryInitializePolling),
-      // not 2 (onDisconnect should not have started a separate poll)
-      expect(pollCount).toBe(1);
-
-      await dataSource.shutdown();
-      errorSpy.mockRestore();
-      warnSpy.mockRestore();
-    });
   });
 
   describe('getDatafile', () => {
@@ -2062,56 +2024,6 @@ describe('FlagNetworkDataSource', () => {
       // verify via read() that the data wasn't overwritten
       const result = await dataSource.read();
       expect(result.definitions).toEqual({ version: 'newer' });
-
-      await dataSource.shutdown();
-    });
-  });
-
-  describe('concurrent read() deduplication', () => {
-    it('should deduplicate concurrent read() calls when no data is cached', async () => {
-      let datafileRequestCount = 0;
-
-      server.use(
-        http.get('https://flags.vercel.com/v1/stream', () => {
-          // Stream that never connects (hangs)
-          return new HttpResponse(new ReadableStream({ start() {} }), {
-            headers: { 'Content-Type': 'application/x-ndjson' },
-          });
-        }),
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          datafileRequestCount++;
-          return HttpResponse.json({
-            projectId: 'test',
-            definitions: { myFlag: { value: true } },
-            environment: 'production',
-          } satisfies DatafileInput);
-        }),
-      );
-
-      const dataSource = new FlagNetworkDataSource({
-        sdkKey: 'vf_test_key',
-        stream: false,
-      });
-
-      // Fire multiple concurrent reads — none should have cached data
-      const results = await Promise.all([
-        dataSource.read(),
-        dataSource.read(),
-        dataSource.read(),
-        dataSource.read(),
-        dataSource.read(),
-      ]);
-
-      // All should return the same data
-      for (const result of results) {
-        expect(result.definitions).toEqual({ myFlag: { value: true } });
-      }
-
-      // Only one polling initialization should have occurred,
-      // not one per concurrent read() call.
-      // fetchDatafile has up to 3 retries, but on success the first attempt
-      // should suffice, so we expect exactly 1 datafile request.
-      expect(datafileRequestCount).toBe(1);
 
       await dataSource.shutdown();
     });

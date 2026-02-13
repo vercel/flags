@@ -224,15 +224,6 @@ export class FlagNetworkDataSource implements DataSource {
   private pollingIntervalId: ReturnType<typeof setInterval> | undefined;
   private pollingAbortController: AbortController | undefined;
 
-  // Initialization state — suppresses onDisconnect from starting polling
-  // while initialize() is still running its own fallback chain
-  private isInitializing: boolean = false;
-
-  // Inflight deduplication for getDataWithFallbacks
-  private inflightFallback:
-    | Promise<[DatafileInput, Metrics['source'], Metrics['cacheStatus']]>
-    | undefined;
-
   // Usage tracking
   private usageTracker: UsageTracker;
   private isFirstGetData: boolean = true;
@@ -300,28 +291,23 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
-    this.isInitializing = true;
-    try {
-      // Try stream first
-      if (this.options.stream.enabled) {
-        const streamSuccess = await this.tryInitializeStream();
-        if (streamSuccess) return;
-      }
-
-      // Fall back to polling
-      if (this.options.polling.enabled) {
-        const pollingSuccess = await this.tryInitializePolling();
-        if (pollingSuccess) return;
-      }
-
-      // Fall back to provided datafile (already set in constructor if provided)
-      if (this.data) return;
-
-      // Fall back to bundled definitions
-      await this.initializeFromBundled();
-    } finally {
-      this.isInitializing = false;
+    // Try stream first
+    if (this.options.stream.enabled) {
+      const streamSuccess = await this.tryInitializeStream();
+      if (streamSuccess) return;
     }
+
+    // Fall back to polling
+    if (this.options.polling.enabled) {
+      const pollingSuccess = await this.tryInitializePolling();
+      if (pollingSuccess) return;
+    }
+
+    // Fall back to provided datafile (already set in constructor if provided)
+    if (this.data) return;
+
+    // Fall back to bundled definitions
+    await this.initializeFromBundled();
   }
 
   /**
@@ -343,14 +329,7 @@ export class FlagNetworkDataSource implements DataSource {
     } else if (cachedData) {
       [result, source, cacheStatus] = this.getDataFromCache(cachedData);
     } else {
-      // Deduplicate concurrent calls: if a fallback fetch is already inflight,
-      // reuse it instead of starting another stream/poll attempt.
-      if (!this.inflightFallback) {
-        this.inflightFallback = this.getDataWithFallbacks().finally(() => {
-          this.inflightFallback = undefined;
-        });
-      }
-      [result, source, cacheStatus] = await this.inflightFallback;
+      [result, source, cacheStatus] = await this.getDataWithFallbacks();
     }
 
     const readMs = Date.now() - startTime;
@@ -375,8 +354,6 @@ export class FlagNetworkDataSource implements DataSource {
     this.stopStream();
     this.stopPolling();
     this.data = this.options.datafile;
-    this.inflightFallback = undefined;
-    this.isInitializing = false;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
@@ -539,14 +516,8 @@ export class FlagNetworkDataSource implements DataSource {
           onDisconnect: () => {
             this.isStreamConnected = false;
 
-            // Fall back to polling if enabled and not already polling.
-            // Skip during initialization — initialize() manages its own
-            // fallback chain and will start polling itself if needed.
-            if (
-              this.options.polling.enabled &&
-              !this.pollingIntervalId &&
-              !this.isInitializing
-            ) {
+            // Fall back to polling if enabled and not already polling
+            if (this.options.polling.enabled && !this.pollingIntervalId) {
               this.startPolling();
             }
           },
@@ -776,17 +747,6 @@ export class FlagNetworkDataSource implements DataSource {
    * Retrieves data using the fallback chain.
    */
   private async getDataWithFallbacks(): Promise<
-    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
-  > {
-    this.isInitializing = true;
-    try {
-      return await this.getDataWithFallbacksInner();
-    } finally {
-      this.isInitializing = false;
-    }
-  }
-
-  private async getDataWithFallbacksInner(): Promise<
     [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
   > {
     // Try stream with timeout
