@@ -18,6 +18,7 @@ npm-debug.log
 **/playwright-report/
 **/blob-report/
 **/playwright/.cache/
+examples/shirt-shop-vercel/
 
 .source
 .next
