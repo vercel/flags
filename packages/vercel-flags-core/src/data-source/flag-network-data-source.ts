@@ -778,6 +778,17 @@ export class FlagNetworkDataSource implements DataSource {
   private async getDataWithFallbacks(): Promise<
     [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
   > {
+    this.isInitializing = true;
+    try {
+      return await this.getDataWithFallbacksInner();
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  private async getDataWithFallbacksInner(): Promise<
+    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
+  > {
     // Try stream with timeout
     if (this.options.stream.enabled) {
       const streamSuccess = await this.tryInitializeStream();

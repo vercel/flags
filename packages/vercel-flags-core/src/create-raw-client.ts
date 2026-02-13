@@ -46,11 +46,18 @@ export function createCreateRawClient(fns: {
         if (instance.initialized) return;
 
         if (!instance.initPromise) {
-          instance.initPromise = fns.initialize(id);
+          instance.initPromise = fns.initialize(id).then(
+            () => {
+              instance!.initialized = true;
+            },
+            (error) => {
+              // Clear so next call can retry
+              instance!.initPromise = null;
+              throw error;
+            },
+          );
         }
 
-        await instance.initPromise;
-        instance.initialized = true;
         return instance.initPromise;
       },
       shutdown: async () => {

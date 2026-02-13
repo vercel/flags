@@ -9,17 +9,17 @@ export function wrapFetch(realFetch: typeof fetch): typeof fetch {
 
   return (input, init) => {
     const url =
-      typeof input === "string"
+      typeof input === 'string'
         ? input
         : input instanceof URL
           ? input.toString()
           : input.url;
 
-    if (url.includes("flags.vercel.com")) {
-      console.log("fake fetch called and intercepted");
+    if (url.includes('flags.vercel.com')) {
+      console.log('fake fetch called and intercepted', new URL(url).pathname);
       const redirected = url.replace(
         /^https?:\/\/flags\.vercel\.com/,
-        "https://flags-none.vercel.com",
+        'https://flags-none.vercel.com',
         // MOCK_SERVER,
       );
       return realFetch(redirected, init);
