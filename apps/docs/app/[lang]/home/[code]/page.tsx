@@ -55,6 +55,7 @@ export default async function Page() {
   return <div>Flag {example ? "on" : "off"}</div>;
 }`;
 
+export const dynamicParams = false; // all combinations are known upfront here
 export async function generateStaticParams() {
   const codes = await generatePermutations(rootFlags);
   return codes.map((code) => ({ code }));

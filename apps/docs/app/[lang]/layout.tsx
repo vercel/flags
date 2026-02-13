@@ -5,9 +5,10 @@ import { GeistdocsProvider } from "@/components/geistdocs/provider";
 import { basePath } from "@/geistdocs";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { cn } from "@/lib/utils";
+import { translations } from "@/geistdocs";
 
 export const generateStaticParams = async () => {
-  const langs = ["en"];
+  const langs = Object.keys(translations);
   return langs.map((lang) => ({ lang }));
 };
 
