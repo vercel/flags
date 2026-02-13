@@ -1,0 +1,233 @@
+---
+title: Quickstart
+description: Using the Flags SDK in SvelteKit
+---
+
+[SvelteKit](https://svelte.dev/docs/kit/introduction) is a framework for building web applications with [Svelte](https://svelte.dev/). The Flags SDK supports SvelteKit out of the box.
+
+A minimal feature flag declaration for SvelteKit looks like this:
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+export const exampleFlag = flag<boolean>({
+  key: 'example-flag',
+  decide() {
+    return false;
+  },
+});
+```
+
+## Installation
+
+Install the Vercel CLI using the following command:
+
+```sh title="Terminal"
+npm i -g vercel@latest
+```
+
+## Set up SvelteKit application
+
+1. Set up your SvelteKit application:
+   ```sh title="Terminal"
+   npx sv create sveltekit-flags-example
+   cd sveltekit-flags-example
+   npm run dev
+   ```
+   This will prompt you with a number of questions to create your app. Choose the following options:
+   - _Choose SveleteKit minimal_
+   - _Choose TypeScript_
+   - _Choose Prettier_
+2. At this stage the project only exists locally and not on Vercel. Use the following command to link it to project on Vercel:
+   ```sh title="Terminal"
+   vc link
+   ```
+3. Add `FLAGS_SECRET` environment variable. Run this command to create a secret:
+   ```sh title="Terminal"
+   node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
+   ```
+   Then store the secret as the `FLAGS_SECRET` environment variable, and select all environments when prompted.
+   ```sh title="Terminal"
+   vc env add FLAGS_SECRET
+   ```
+4. Finally, pull any env vars from your project on Vercel locally
+   ```sh title="Terminal"
+   vc env pull
+   ```
+
+## Add the toolbar locally
+
+1. Install the `@vercel/toolbar` package:
+   ```sh
+   npm i @vercel/toolbar
+   ```
+2. In your `vite.config.ts` file add toolbar plugin for vite:
+
+   ```ts title="vite.config.ts"
+   import { sveltekit } from '@sveltejs/kit/vite';
+   import { defineConfig } from 'vite';
+   import { vercelToolbar } from '@vercel/toolbar/plugins/vite';
+
+   export default defineConfig({
+     plugins: [sveltekit(), vercelToolbar()],
+   });
+   ```
+
+3. Next render the toolbar in your layout so that it's visible for your visitors. This renders the toolbar for all visitors. In production you may want to [render it for team members only](https://vercel.com/docs/workflow-collaboration/vercel-toolbar/in-production-and-localhost/add-to-production):
+
+   ```html title="src/routes/+layout.svelte#svelte"
+   <script lang="ts">
+     import type { LayoutProps } from './$types';
+
+     import { mountVercelToolbar } from '@vercel/toolbar/vite';
+     import { onMount } from 'svelte';
+
+     onMount(() => mountVercelToolbar());
+
+     let { children }: LayoutProps = $props();
+   </script>
+
+   <main>
+     <!-- +page.svelte is rendered in here -->
+     {@render children()}
+   </main>
+   ```
+
+4. Run your application locally to check that things are working:
+
+   ```sh
+   npm run dev
+   ```
+
+   You will see an error about `SvelteKitError: Not found: /.well-known/vercel/flags`. This happens because we already created the `FLAGS_SECRET` but we did not set up the flags package yet.
+   So let’s do this next.
+
+## Set up `flags`
+
+1. Install the `flags` package:
+
+   ```sh
+   npm i flags
+   ```
+
+2. Create your first feature flag by importing the `flag` method from `flags/sveltekit`:
+
+   ```ts title="src/lib/flags.ts"
+   import { flag } from 'flags/sveltekit';
+
+   export const showDashboard = flag<boolean>({
+     key: 'showDashboard',
+     description: 'Show the dashboard', // optional
+     origin: 'https://example.com/#showdashbord', // optional
+     options: [{ value: true }, { value: false }], // optional
+     // can be async and has access to the event
+     decide(_event) {
+       return false;
+     },
+   });
+   ```
+
+3. Next set up the server hook. This is a one-time setup step which makes the toolbar aware of your application’s feature flags:
+
+   ```ts title="src/hooks.server.ts"
+   import { createHandle } from 'flags/sveltekit';
+   import { FLAGS_SECRET } from '$env/static/private';
+   import * as flags from '$lib/flags';
+
+   export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+   ```
+
+4. You can now use this flag in code. Evaluate the flag on the server, and forward the value to the client:
+
+   ```ts title="src/routes/+page.server.ts"
+   import { showDashboard } from '$lib/flags';
+
+   export const load = async () => {
+     const dashboard = await showDashboard();
+
+     return {
+       post: {
+         title: dashboard ? 'New Dashboard' : `Old Dashboard`,
+       },
+     };
+   };
+   ```
+
+   Accessing the value on the client:
+
+   ```html title="src/routes/+page.svelte#svelte"
+   <script lang="ts">
+     import type { PageProps } from './$types';
+
+     let { data }: PageProps = $props();
+   </script>
+
+   <h1>{data.post.title}</h1>
+   ```
+
+<LearnMore href="/frameworks/sveltekit/guides/dashboard-pages" icon="arrow">
+  See the Dashboard Pages guide for more info
+</LearnMore>
+
+## Flags Explorer
+
+Open the Flags Explorer locally to see the feature flag.
+
+<ThemeAwareImage
+  srcDark="https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/gbkv6rkqirktcgcc8cve.jpg"
+  srcLight="https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/pqlb2ony8jwm6iedf9ds.jpg"
+  alt="View the flag from the toolbar."
+  priority
+  className="border-300 rounded-lg border"
+  data-theme="dark"
+  width={1042 / 2}
+  height={1197 / 2}
+/>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+### Available flags
+
+Notice how the toolbar knows about the flag's name, description and the link to where the flag can be managed. All of these are communicated through the `/.well-known/vercel/flags` endpoint, which is set up automatically by the `createHandle` call we made in `hooks.server.ts`.
+
+This hook intercepts all requests and responds with the application's feature flags when it sees the authenticated request made by Vercel Toolbar to load your application's feature flags.
+
+### Overrides
+
+When you set an override using Vercel Toolbar it will automatically be respected by the feature flags defined through `flags/sveltekit`.
+
+### Resolved flag values
+
+Vercel Toolbar also shows the current value of your feature flag, in this case `false`. This value could be different for each visitor, so it can not be loaded along with the information about the feature flag itself.
+
+Instead, when a feature flag gets evaluated on the server, the hook configured in `hooks.server.ts` injects a `<script data-flag-values />` tag into the response, which contains encrypted information about the feature flag values used when generating that response. This means even if your flag would return `Math.random()` you would still be able to see the exact value used when generating the page.
+
+## Next steps
+
+### Precomputed flags
+
+Precomputing flags allow experimentation on static pages, while avoiding layout shift. The Flags SDK for SvelteKit supports precomputing flags.
+
+<LearnMore href="/frameworks/sveltekit/precompute" icon="arrow">
+  Learn how to precompute values at build time
+</LearnMore>
+
+### Evaluation Contexts
+
+Evaluation Contexts allow targeting flags to specific users. The Flags SDK for SvelteKit supports the Evaluation Context by passing an `identify` function to the flag declaration.
+
+<LearnMore href="/frameworks/sveltekit/precompute" icon="arrow">
+  Learn how to identify users with the evaluation context
+</LearnMore>
+
+### API Reference
+
+<LearnMore href="/api-reference/frameworks/sveltekit" icon="arrow">
+  APIs for working with feature flags in SvelteKit
+</LearnMore>

@@ -18,3 +18,7 @@ npm-debug.log
 **/playwright-report/
 **/blob-report/
 **/playwright/.cache/
+
+.source
+.next
+next-env.d.ts

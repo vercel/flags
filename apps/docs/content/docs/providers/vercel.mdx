@@ -1,0 +1,162 @@
+---
+title: 'Vercel'
+---
+
+The `@flags-sdk/vercel` package connects the Flags SDK to Vercel's own feature flags platform called Vercel Flags, allowing you to manage flags directly in your Vercel projects.
+
+<LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
+  Learn more about Vercel Flags
+</LearnMore>
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+## Installation
+
+Install the Vercel adapter package:
+
+```bash
+pnpm i flags @flags-sdk/vercel @vercel/flags-core
+```
+
+## Quickstart
+
+### 1. Create a feature flag in Vercel
+
+Create your first feature flag in the Vercel dashboard:
+
+<LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%3Fcreate%3D1&title=Go+to+Vercel+Flags">
+  Create Flag
+</LearnMore>
+
+You can create a simple boolean feature flag called `example-flag` for this quickstart.
+
+When you create a flag, Vercel automatically configures these environment variables:
+- `FLAGS` - SDK Key for your Vercel Flags project
+- `FLAGS_SECRET` - Secret key used by Flags Explorer for flag overrides
+
+### 2. Sync environment variables
+
+Pull the environment variables to your local project using [Vercel CLI](https://vercel.com/docs/cli):
+
+```bash
+vercel env pull
+```
+
+You might need to run `vercel link` first in case you did not link your project to Vercel yet.
+
+### 3. Declare the flag in your code
+
+Use the `vercelAdapter` to connect your flag declaration to Vercel Flags:
+
+```ts title="flags.ts"
+import { flag } from 'flags/next';
+import { vercelAdapter } from '@flags-sdk/vercel';
+
+export const exampleFlag = flag({
+  key: "example-flag",
+  adapter: vercelAdapter()
+});
+```
+
+The `vercelAdapter()` automatically uses the `FLAGS` environment variable to connect to your Vercel Flags project.
+
+### 4. Use the flag
+
+Call the flag as a function to resolve its value:
+
+```tsx title="app/hello-world/page.tsx#next"
+import { exampleFlag } from '../../flags';
+
+export default async function Page() {
+  const showExample = await exampleFlag();
+
+  return <div>{showExample ? 'Hello world' : 'Not showing'}</div>
+}
+```
+
+You can now toggle the feature flag for the development environment on the Vercel dashboard and you should see the updated flag value locally after reloading the page.
+
+## User targeting
+
+Target specific users or groups by providing an `identify` function that returns context about the current user, team, or other entities.
+
+```ts title="flags.ts"
+import { dedupe, flag } from 'flags/next';
+import { vercelAdapter } from '@flags-sdk/vercel';
+
+type Entities = {
+  team?: { id: string };
+  user?: { id: string };
+};
+
+// Use dedupe to prevent redundant evaluation context lookups
+// https://flags-sdk.dev/frameworks/next/evaluation-context#deduplication
+const identify = dedupe(async (): Promise<Entities> => {
+  return {
+    team: { id: 'team-123' },
+    user: { id: 'user-456' },
+  };
+});
+
+export const exampleFlag = flag<boolean, Entities>({
+  key: "example-flag",
+  identify,
+  adapter: vercelAdapter()
+});
+```
+
+Configure which entities are available for targeting in your Vercel Flags project:
+
+<LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%2F%5Bentities&title=Go+to+Vercel+Flags">
+  Configure Entities
+</LearnMore>
+
+This allows you to create targeting rules in Vercel Flags based on your specific entity types (users, teams, organizations, etc.).
+
+## Flags Explorer integration
+
+[Flags Explorer](https://vercel.com/docs/flags/flags-explorer) provides a UI for viewing and overriding flags during development and testing.
+
+To enable full integration, create a flags discovery endpoint:
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData } from "@flags-sdk/vercel";
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return await getProviderData(flags);
+});
+```
+
+This endpoint allows Flags Explorer to:
+- Discover all flags defined in your codebase
+- Show flag metadata and default values
+- Enable local overrides during development
+
+## Advanced configuration
+
+### Custom adapter configuration
+
+To connect to a different Vercel Flags project or use a custom SDK Key:
+
+```ts title="flags.ts"
+import { flag } from 'flags/next';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const customAdapter = createVercelAdapter(
+  process.env.CUSTOM_FLAGS_KEY!
+);
+
+export const exampleFlag = flag({
+  key: "example-flag",
+  adapter: customAdapter()
+});
+```
+
+## Additional resources
+
+- [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
+- [@flags-sdk/vercel](https://github.com/vercel/flags/tree/main/packages/adapter-vercel)

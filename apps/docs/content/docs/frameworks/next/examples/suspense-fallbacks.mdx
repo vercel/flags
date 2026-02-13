@@ -1,0 +1,88 @@
+---
+title: Suspense Fallbacks
+description: How to use feature flags with Suspense fallbacks to server variants of a Partial Prerendered shell.
+---
+
+import Link from 'next/link';
+
+This example shows how create and switch between multiple variants of a
+Partial Prerendering shell by combining Suspense fallbacks with
+precomputed feature flags.
+
+## Precompute
+
+Precomputing feature flags and partial prerendering pages can be
+combined with Suspense fallbacks to predict the appropriate fallback of
+a Suspense boundary and thus show a skeleton which will match the
+predicted state.
+
+```tsx title="app/page.tsx"
+function Example() {
+  const hasAuth = await hasAuthCookieFlag();
+
+  return (
+    <Suspense fallback={hasAuth ? <AuthedSkeleton /> : <UnauthedSkeleton />}>
+      <Dashboard />
+    </Suspense>
+  );
+}
+```
+
+<LearnMore href="/principles/precompute" icon="arrow">
+  Learn more about precomputing
+</LearnMore>
+
+In this example the `hasAuthCookieFlag` flag checks whether
+the user has an authentication cookie without actually authenticating
+the user yet. Authentiating the user and fetching their profile
+information is left to the `Dashboard` component.
+
+Checking the existance of an authentication allows the application to
+know whether the user is likely to be signed in or definitely signed
+out. It can then use this information to either show the _Sign in_{" "}
+button or render the skeleton of the authenticated state while that
+resolves.
+
+## Partial Prerendering
+
+This technique requires using [Partial Prerendering](https://nextjs.org/learn/dashboard-app/partial-prerendering) to make the fallback part of the prerendered shell, which is then served
+statically. Essentially two different shells get created for this page:
+One shell with a skeleton for the authenticated state, and another shell
+for the unauthenticated page.
+
+## Use case
+
+Marketing pages frequently need to either show a _Dashboard_ button
+or _Sign in_ and _Sign up_ buttons depending on whether the
+user is authenticated. The approach outlined here allows serving the
+marketing pages statically without blocking the response on the auth
+state. Partial Prerendering the streams the auth state once it is
+resolved as part of the same response.
+
+## Example
+
+<IframeBrowser
+  src="snippets:/examples/suspense-fallbacks"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/examples/suspense-fallbacks"
+/>
+
+Reload the frame while signed out to see the _Sign in_ button
+immediately, without any layout shift. Then click _Sign in_ and
+reload the page again to see the skeleton for the authenticated state,
+again without any layout shift.
+
+## Bypassing Proxy altogether
+
+The approach outlined above is already extremely performant. It is
+possible to further improve latency by avoiding the need to invoke Routing
+Functions.
+
+Using the `rewrites` in `next.config.js` allows
+detecting whether an authentication cookie is present and rewriting the
+request appropriately. An example of this technique is shown [in this pull request](https://github.com/RhysSullivan/galaxyscale/pull/2).
+
+This approach is only an alternative for the authentication scenario as
+it does not scale across multiple feature flags, and is limited to
+situations the Next.js rewrites configuration can express. The
+additional complexity is typically not worth the single digit
+milliseconds it saves.

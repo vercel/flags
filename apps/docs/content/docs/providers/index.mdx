@@ -1,0 +1,29 @@
+---
+title: Providers
+description: Combine your feature flag provider with the Flags SDK using an adapter.
+---
+
+Integrate any feature flag provider with the Flags SDK
+using an adapter. We publish adapters for the most common providers, but
+it is also possible to write a [custom adapter](/providers/custom-adapters) in case we don't list
+your provider or in case you have an in-house solution for feature flags.
+
+## Featured Providers
+
+Featured providers offer fast setup using [Vercel Marketplace](https://vercel.com/marketplace/category/experimentation),
+and low latency with Edge Config. They also work well outside of Vercel in Next.js and SvelteKit projects.
+
+<ProviderList featured />
+
+## Additional Providers
+
+Additional providers are published under the `@flags-sdk` npm scope in the [Flags SDK repository](https://github.com/vercel/flags) and offer different levels of
+integration with Next.js, SvelteKit, and Edge Config.
+
+<ProviderList featured={false} />
+
+## Categories
+- **Adapter** - Allows evaluating feature flags and experiments using the Flags SDK.
+- **Flags Explorer** - Displays flag metadata like descriptions in the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer).
+- **Marketplace** - Available in the Vercel Marketplace.
+- **Edge Config** - Allows reading feature flags from an Edge Config.

@@ -1,0 +1,485 @@
+---
+title: 'Statsig'
+---
+
+The [Statsig](https://statsig.com/) provider contains support for Statsig's feature management suite, including Feature Gates, Dynamic Config, Experiments, Autotune and Layers.
+
+Statsig helps you move faster with Feature Gates (Feature Flags) and Dynamic Configs. It also allows you to run A/B tests to validate your new features and understand their impact on your KPIs.
+
+The `@flags-sdk/statsig` provider package exports
+
+- An [adapter](#provider-instance) for loading experiments and flags from Statsig.
+- A `getProviderData` function for use with the [Flags Explorer](#flags-explorer).
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/templates/next.js/statsig-experimentation-with-flags-sdk"
+  target="_blank"
+>
+  Show the Statsig template
+</LearnMore>
+
+---
+
+## Setup
+
+The Statsig provider is available in the `@flags-sdk/statsig` module. Install it with
+
+```bash
+npm install @flags-sdk/statsig
+```
+
+---
+
+## Provider Instance
+
+Import the default adapter instance `statsigAdapter` from `@flags-sdk/statsig`:
+
+```ts
+import { statsigAdapter } from '@flags-sdk/statsig';
+```
+
+If you need a customized setup, you can import `createStatsigAdapter` from `@flags-sdk/statsig` and create an adapter instance with your settings:
+
+```ts
+import { createStatsigAdapter } from '@flags-sdk/statsig';
+
+const statsigAdapter = createStatsigAdapter({
+  statsigServerApiKey: process.env.STATSIG_SERVER_API_KEY,
+});
+```
+
+| Option key                    | Type             | Description                                                        |
+| ----------------------------- | ---------------- | ------------------------------------------------------------------ |
+| `statsigServerApiKey`         | `string`         | Statsig server secret key                                          |
+| `statsigOptions`              | `StatsigOptions` | Statsig initialization options                                     |
+| `statsigProjectId`            | `string`         | Statsig project ID                                                 |
+| `edgeConfig`                  | `object`         | Edge Config details for use with Statsig's Edge Config integration |
+| `edgeConfig.connectionString` | `string`         | Edge Config connection string                                      |
+| `edgeConfig.itemKey`          | `string`         | Key under which the Statsig configuration is stored in Edge Config |
+
+The default statsig adapter configures itself based on the following environment variables:
+
+- `STATSIG_SERVER_API_KEY` _(required)_ → `statsigServerApiKey`
+- `STATSIG_PROJECT_ID` _(optional)_ → `statsigProjectId`
+- `EXPERIMENTATION_CONFIG` _(optional)_ → `edgeConfig.connectionString`
+- `EXPERIMENTATION_CONFIG_ITEM_KEY` _(optional)_ → `edgeConfig.itemKey`
+
+
+---
+
+## Identify Users
+
+Statsig relies on a [Statsig User](https://docs.statsig.com/concepts/user) object to evaluate the flags and experiments for a given request.
+
+Use the `identify` function to determine a Statsig User.
+
+```ts
+import { dedupe, flag } from "flags/next";
+import type { Identify } from "flags";
+import { statsigAdapter, type StatsigUser } from "@flags-sdk/statsig";
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  // Your own logic to identify the user
+  // Identifying the user should rely on reading cookies and headers only, and
+  // not make any network requests, as it's important to keep latency low here.
+  const user = await getUser(headers, cookies);
+
+  return {
+    userID: user.userID,
+    // ... other properties
+  };
+}) satisfies Identify<StatsigUser>);
+
+export const myFeatureGate = flag<boolean, StatsigUser>({
+  key: "my_feature_gate",
+  identify,
+  adapter: statsigAdapter.featureGate((gate) => gate.value),
+});
+```
+
+
+<LearnMore icon="arrow" href="/frameworks/next/dedupe">
+  Learn more about `dedupe`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/principles/evaluation-context">
+  Learn more about `identify`
+</LearnMore>
+
+---
+
+## Methods
+
+The Statsig adapter provides a method for each type of experiment or flag in Statsig.
+
+### Feature Gates
+
+| Parameter key | Type     | Description                                          |
+| ------------- | -------- | ---------------------------------------------------- |
+| `getter`      | function | Takes a Statsig `FeatureGate` and maps it to a value |
+
+```ts
+export const myFeatureGate = flag<boolean, StatsigUser>({
+  key: 'my_feature_gate',
+  adapter: statsigAdapter.featureGate((gate) => gate.value),
+  identify,
+});
+```
+
+The `key` is used to identify the Feature Gate in the Statsig console. Here it would resolve the `my_feature_gate` Feature Gate.
+
+### Dynamic Configs
+
+| Parameter key  | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `getter`       | function | Takes a Statsig `DynamicConfig` and maps it to a value |
+
+```ts
+export const myDynamicConfig = flag<Record<string, unknown>, StatsigUser>({
+  key: 'my_dynamic_config',
+  adapter: statsigAdapter.dynamicConfig((config) => config.value),
+  identify,
+});
+```
+
+The `key` is used to identify the Dynamic Config in the Statsig console. Here it would resolve the `my_dynamic_config` Dynamic Config.
+
+### Experiments
+
+| Parameter key  | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `getter`       | function | Takes a Statsig `DynamicConfig` and maps it to a value |
+
+```ts
+export const myExperiment = flag<Record<string, unknown>, StatsigUser>({
+  key: 'my_experiment',
+  adapter: statsigAdapter.experiment((config) => config.value),
+  identify,
+});
+```
+
+The `key` is used to identify the Experiment in the Statsig console. Here it would resolve the `my_experiment` Experiment. Statsig experiments return Dynamic Configs.
+
+
+### Autotune
+
+| Parameter key  | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `getter`       | function | Takes a Statsig `DynamicConfig` and maps it to a value |
+
+```ts
+export const myAutotune = flag<Record<string, unknown>, StatsigUser>({
+  key: 'my_autotune',
+  adapter: statsigAdapter.autotune((config) => config.value),
+  identify,
+});
+```
+
+The `key` is used to identify the Autotune in the Statsig console. Here it would resolve the `my_autotune` Autotune. Statsig autotunes return Dynamic Configs.
+
+
+### Layers
+
+| Parameter key  | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `getter`       | function | Takes a Statsig `Layer` and maps it to a value |
+
+```ts
+export const myLayer = flag<Record<string, unknown>, StatsigUser>({
+  key: 'my_layer',
+  adapter: statsigAdapter.layer((layer) => layer.value),
+  identify,
+});
+```
+
+The `key` is used to identify the Autotune in the Statsig console. Here it would resolve the `my_layer` Layer.
+
+---
+
+## Bootstrapping
+
+Bootstrapping refers to making the Statsig client used by the browser aware of the configuration and user the server used when evaluating feature flags and experiments.
+
+Using experiments and flags server side allows the initial page render to respect the feature flags and experiments, which avoids layout shift. When feature flags and experiments are used server-side the client must still be made aware of them to log exposures and track events.
+
+### Dynamic pages
+
+When using server-side rendering the server can inline the information needed to bootstrap the client. This allows the client to log exposures and track events without having to make a network request to initialize itself.
+
+Your application roughly needs to follow these steps:
+
+1. Call the same `identify` function your feature flags use to get the Statsig user.
+2. Call `statsigAdapter.initialize()` to initialize the `statsig-node-lite` SDK.
+3. Prepare the bootstrap data on the server, and pass it to the client.
+4. Use the bootstrap data on the browser to initialize a client and set up the Statsig React provider.
+
+Below are the most critical pieces you need to implement this, which is meant as a starting point.
+
+**Inlining the bootstrap data on the server**
+
+```tsx title="app/(example)/layout.tsx#next"
+import { cookies, headers } from "next/headers";
+import { statsigAdapter } from "@flags-sdk/statsig";
+import { DynamicStatsigProvider } from "./dynamic-statsig-provider";
+// The same identify function you use when declaring flags
+// See https://flags-sdk.dev/docs/api-reference/adapters/statsig#identify-users
+import { identify } from "../../identify";
+
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [headersStore, cookieStore] = await Promise.all([headers(), cookies()]);
+  const user = await identify({ headers: headersStore, cookies: cookieStore });
+
+  // Get a reference to the Statsig SDK instance configured by the adapter
+  const Statsig = await statsigAdapter.initialize();
+
+  // Prepare the bootstrap data on the server, and pass it to the client
+  const datafile = await Statsig.getClientInitializeResponse(user, {
+    hash: "djb2", // must use this hash function for compatibility with the client
+  });
+
+  return (
+    <DynamicStatsigProvider datafile={datafile}>
+      {children}
+    </DynamicStatsigProvider>
+  );
+}
+```
+
+**Reading the bootstrap data on the client**
+
+```tsx title="app/(example)/dynamic-statsig-provider.tsx#next"
+"use client";
+
+import { useMemo } from "react";
+import type { Statsig } from "@flags-sdk/statsig";
+import {
+  StatsigProvider,
+  useClientBootstrapInit,
+} from "@statsig/react-bindings";
+
+export function DynamicStatsigProvider({
+  children,
+  datafile,
+}: {
+  children: React.ReactNode;
+  datafile: Awaited<ReturnType<typeof Statsig.getClientInitializeResponse>>;
+}) {
+  if (!datafile) throw new Error("Missing datafile");
+
+  // Statsig expects a stringified datafile, but ideally the Statsig SDK
+  // would accept a JSON object so we could avoid this stringification.
+  const datafileString = useMemo(() => JSON.stringify(datafile), [datafile]);
+
+  const client = useClientBootstrapInit(
+    process.env.NEXT_PUBLIC_STATSIG_CLIENT_KEY as string,
+    datafile.user,
+    datafileString
+    // NOTE you could provide the Autocapture plugin here
+  );
+
+  return (
+    <StatsigProvider user={datafile.user} client={client}>
+      {children}
+    </StatsigProvider>
+  );
+}
+```
+
+**Use the client to log exposures and events**
+
+```tsx title="app/(example)/page.tsx#next"
+"use client";
+
+import { useEffect } from "react";
+import { useStatsigClient } from "@statsig/react-bindings";
+
+export default function Page() {
+  const statsigClient = useStatsigClient();
+
+    // Manually log the exposure on mount
+  useEffect(() => {
+    statsigClient.getDynamicConfig("my_dynamic_config");
+  }, [statsigClient]);
+
+  return (
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+      type="button"
+      onClick={() => {
+        // Manually log an event
+        statsigClient.logEvent("click_button");
+      }}
+    >
+      Click me
+    </button>
+  );
+}
+```
+
+
+### Static pages
+
+When using the [precompute](/principles/precompute) pattern a static prerender will be created for each variant of the page. For example, a page using two boolean feature flags will exist in four variants.
+
+Each variant may only contain the state of feature flags, but no user specific information. Otherwise the prerender could not be shared between multiple users. This forces you to bootstrap the Statsig client differently than when using [dynamic pages](#dynamic-pages).
+
+The initial static page must depend on feature flag and experiment configuration values only, but may not contain any user specific information. This allows the page to be served statically from an Edge Network or CDN and allows the initial render to be correct.
+
+The client running in the browser must bootstrap the Statsig client over the network because of this.
+
+Steps
+1. Create an API route which returns the bootstrap data und user information needed by the Statsig client
+2. Bootstrap the Statsig client in the browser using the data returned from the API route.
+
+See [this example](https://github.com/vercel/examples/tree/main/flags-sdk/experimentation-statsig) for a reference implementation.
+
+Read more about initialization strategies in the [Statsig Docs](https://docs.statsig.com/client/javascript-sdk/init-strategies)
+
+---
+
+## Edge Config
+
+The Statsig adapter can either load the experiment configuration over the network or bootstrap from [Edge Config](https://vercel.com/storage/edge-config).
+
+Using [Edge Config](https://vercel.com/docs/storage/edge-config) is optional but recommended for the best latency. Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
+
+The default Statsig adapter, exported as `statsigAdapter`, will automatically connect to Edge Config if the `EXPERIMENTATION_CONFIG` and `EXPERIMENTATION_CONFIG_ITEM_KEY` environment variables are set. If you are using the [Statsig integration on Vercel marketplace](https://vercel.com/marketplace/statsig) these environment variables will be provided automatically, and the default Statsig adapter will read from Edge Config automatically.
+
+---
+
+## Caveats
+
+
+### Initializing
+
+The Flags SDK automatically initializes the Statsig client when a flag is evaluated.
+
+If you want to initialize the Statsig client before the first flag is used, you can call `statsigAdapter.initialize` manually. Further,
+use the manual call to initialize `statsig-node-lite` for usage with other server-side code.
+
+```ts
+import { statsigAdapter, Statsig } from '@flags-sdk/statsig';
+
+const statsigInitializationPromise = statsigAdapter.initialize();
+
+export async function getStatsigExperiment(key: string) {
+  await statsigInitializationPromise;
+  return Statsig.getExperimentSync(key);
+}
+```
+
+Use `statsigAdapter.initialize` instead of `Statsig.initialize` as it configures the Statsig client specifically for Flags SDK compatibility.
+
+
+### Same key with different mapping functions
+
+A Dynamic Config in Statsig can store arbitrary JSON objects. To create multiple flags that access different parts of the same config, use a shared key prefix followed by a unique name.
+
+In the example below, both flags reference `my_config`, each with a distinct key and mapping function.
+
+The `.` character is used to differentiate flags. The part before the dot identifies the dynamic config, while the second part distinguishes the flags.
+
+```ts
+export const myDynamicText = flag<string, StatsigUser>({
+  // Will retrieve `my_config` from Statsig
+  key: 'my_config.text',
+  adapter: statsigAdapter.dynamicConfig(
+    (config) => config.value.text as string,
+  ),
+  identify,
+});
+
+export const myDynamicPrice = flag<number, StatsigUser>({
+  // Will retrieve `my_config` from Statsig
+  key: 'my_config.price',
+  adapter: statsigAdapter.dynamicConfig(
+    (config) => config.value.price as number,
+  ),
+  identify,
+});
+```
+
+### Statsig Node Lite
+
+The adapter uses `statsig-node-lite`, which is a slimmed version of the Statsig Node.js SDK optimized for server side and Routing Middleware usage.
+
+### Exposure Logging
+
+Because middleware and server components are evaluated when routes are prefetched, exposures are not logged by default. You can enable exposure logging by providing the `exposureLogging` option to the adapter functions.
+
+```ts
+export const exampleFlag = flag<boolean, StatsigUser>({
+  key: "new_feature_gate",
+  ...
+  adapter: statsigAdapter.featureGate((gate) => gate.value, {
+    exposureLogging: true,
+  })
+});
+```
+
+When logging is on, your application should also call `Statsig.flush` appropriately to ensure exposures are recorded.
+
+The recommended approach for experimentation is to log exposures from the client when
+the user is indeed exposed to an experiment, either when seen or interacted with.
+
+[Read about Statsig's React Bindings](https://docs.statsig.com/client/javascript-sdk/react#basics-get-experiment)
+
+---
+
+## Flags Explorer
+
+View and override your Statsig experiments using [Flags Explorer](https://vercel.com/docs/flags/flags-explorer).
+
+To make Flags Explorer aware of your Statsig experiments, you need to provide a route which Flags Explorer will load your experiment metadata from.
+
+Use the `getProviderData` function  in your [Flags API endpoint](https://vercel.com/docs/workflow-collaboration/feature-flags/implement-flags-in-toolbar#creating-the-flags-api-endpoint) to load and emit your Statsig data. Accepts an `options` object with the following keys.
+
+| Options key     | Type     | Description             |
+| --------------- | -------- | ----------------------- |
+| `consoleApiKey` | `string` | Statsig console API key |
+| `projectId`     | `string` | StatSig project ID      |
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData as getStatsigProviderData } from '@flags-sdk/statsig';
+import { mergeProviderData } from 'flags';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return mergeProviderData([
+    getProviderData(flags),
+    getStatsigProviderData({
+      consoleApiKey: process.env.STATSIG_CONSOLE_API_KEY,
+      projectId: process.env.STATSIG_PROJECT_ID,
+    }),
+  ]);
+});
+```
+
+
+## Read More
+
+Read more about Statsig, Flags SDK, and the Statsig adapter.
+
+- [Adapter Source Code](https://github.com/vercel/flags/tree/main/packages/adapter-statsig)
+- [Adapter Concept](/docs/adapters/supported-providers)
+- [Precompute Concept](/principles/precompute)
+- [Statsig with Next.js](https://docs.statsig.com/client/javascript-sdk/next-js/)
+- [Statsig Node Lite on NPM](https://www.npmjs.com/package/statsig-node-lite)

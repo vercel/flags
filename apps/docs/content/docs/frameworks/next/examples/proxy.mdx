@@ -1,0 +1,48 @@
+---
+title: Proxy
+description: How to use feature flags in Proxy to serve different static variants of a page.
+---
+
+import Link from 'next/link';
+
+
+This example works by using a feature flag in Proxy to then
+rewrite the request to a different page. Rewriting the request means the
+user-facing URL shown in the browser stays the same, while different
+content is served for different visitors. As the underlying{" "}
+
+`variant-on` and `variant-off` pages are static, the CDN
+or Edge Network can serve these at the edge.
+
+```tsx title="proxy.ts#next"
+import { type NextRequest, NextResponse } from 'next/server';
+import { basicEdgeMiddlewareFlag } from './flags';
+
+export const config = {
+  matcher: ['/examples/feature-flags-in-proxy'],
+};
+
+export async function proxy(request: NextRequest) {
+  const active = await basicEdgeMiddlewareFlag();
+  const variant = active ? 'variant-on' : 'variant-off';
+
+  return NextResponse.rewrite(
+    new URL(
+      `/examples/feature-flags-in-proxy/${variant}`,
+      request.url,
+    ),
+  );
+}
+```
+
+<IframeBrowser
+  src="snippets:/examples/feature-flags-in-proxy"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/examples/feature-flags-in-proxy"
+/>
+
+## Advanced examples
+
+Using feature flags in Proxy as shown in this example is very
+basic. This approach does not scale well when you have are using
+multiple feature flags on the same page or when you are using the same
+feature flag on multiple pages. We recommend using [precompute](/principles/precompute) for more advanced use cases, which solves these challenges.

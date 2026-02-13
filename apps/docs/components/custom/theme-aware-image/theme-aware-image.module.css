@@ -1,0 +1,13 @@
+.image[data-theme="dark"] {
+  display: none;
+}
+
+:global(.dark-theme) {
+  .image[data-theme="dark"] {
+    display: block;
+  }
+
+  .image[data-theme="light"] {
+    display: none;
+  }
+}

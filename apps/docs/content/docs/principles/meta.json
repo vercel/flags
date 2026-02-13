@@ -1,0 +1,11 @@
+{
+  "root": true,
+  "pages": [
+    "flags-as-code",
+    "server-side-vs-client-side",
+    "data-locality",
+    "precompute",
+    "evaluation-context"
+  ],
+  "defaultOpen": true
+}

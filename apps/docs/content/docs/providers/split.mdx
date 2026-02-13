@@ -1,0 +1,50 @@
+---
+title: 'Split'
+---
+
+The `@flags-sdk/split` package provides
+
+- An adapter for loading feature flags from this provider (coming soon)
+- A `getProviderData` function for use with the Flags Explorer (available today)
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+### `getProviderData`
+
+A provider function to load flag metadata from Statsig for use with the Flags Explorer. Accepts an `options` object with the following keys.
+
+| Options key      | Type     | Description           |
+| ---------------- | -------- | --------------------- |
+| `adminApiKey`    | `string` | Split admin API key   |
+| `workspaceId`    | `string` | Split workspace ID    |
+| `organizationId` | `string` | Split organization ID |
+| `environmentId`  | `string` | Split environment ID  |
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData as getSplitProviderData } from '@flags-sdk/split';
+import { mergeProviderData } from 'flags';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return mergeProviderData([
+    getProviderData(flags),
+    getSplitProviderData({
+      adminApiKey: process.env.SPLIT_ADMIN_API_KEY,
+      environmentId: process.env.SPLIT_ENVIRONMENT_ID,
+      organizationId: process.env.SPLIT_ORG_ID,
+      workspaceId: process.env.SPLIT_WORKSPACE_ID,
+    }),
+  ]);
+});
+```
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>

@@ -6,7 +6,33 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": false
+    "ignoreUnknown": false,
+    "includes": [
+      "**/*",
+      "!apps/docs/app/\\[lang\\]/docs",
+      "!apps/docs/app/\\[lang\\]/llms.mdx",
+      "!apps/docs/app/\\[lang\\]/llms.txt",
+      "!apps/docs/app/\\[lang\\]/og",
+      "!apps/docs/app/\\[lang\\]/rss.xml",
+      "!apps/docs/app/\\[lang\\]/layout.tsx",
+      "!apps/docs/app/actions/feedback",
+      "!apps/docs/app/api",
+      "!apps/docs/app/styles/geistdocs.css",
+      "!apps/docs/app/robots.ts",
+      "!apps/docs/app/sitemap.ts",
+      "!apps/docs/components/ai-elements",
+      "!apps/docs/components/geistdocs",
+      "!apps/docs/components/ui",
+      "!apps/docs/hooks/geistdocs",
+      "!apps/docs/hooks/use-mobile.ts",
+      "!apps/docs/lib/geistdocs",
+      "!apps/docs/lib/utils.ts",
+      "!apps/docs/geistdocs.tsx",
+      "!apps/docs/next.config.ts",
+      "!apps/docs/postcss.config.mjs",
+      "!apps/docs/source.config.ts",
+      "!apps/docs/proxy.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -43,7 +69,8 @@
   },
   "css": {
     "parser": {
-      "tailwindDirectives": true
+      "tailwindDirectives": true,
+      "cssModules": true
     }
   },
   "assist": {

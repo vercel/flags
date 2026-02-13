@@ -1,0 +1,108 @@
+---
+title: 'Edge Config'
+---
+
+The `@flags-sdk/edge-config` package provides a basic adapter for defining feature flags powered by [Vercel Edge Config](https://vercel.com/docs/storage/edge-config)
+
+<LearnMore
+  icon="arrow"
+  href="/providers"
+>
+  Learn more about Adapters
+</LearnMore>
+
+## Installation
+
+Follow the [Quickstart](/docs/getting-started/next), then add the [Edge Config adapter](https://github.com/vercel/flags/tree/main/packages/adapter-edge-config).
+
+Install desired dependencies
+
+```sh
+pnpm i @flags-sdk/edge-config
+```
+
+Set relevant variables
+
+```sh title=".env.local"
+EDGE_CONFIG="edge-config-connection-string"
+```
+
+## Usage
+
+```ts title="flags.ts#next"
+import { flag } from 'flags/next';
+import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+
+export const exampleFlag = flag({
+  // Will load the `flags` key from Edge Config
+  adapter: edgeConfigAdapter(),
+  // Will get the `example-flag` key from the `flags` object
+  key: 'example-flag',
+});
+```
+
+Your Edge Config should be [managed on the dashboard](https://vercel.com/docs/storage/edge-config/edge-config-dashboard) as follows:
+
+```json
+{
+  // `flags` is the default used by the Edge Config adapter
+  "flags": {
+    // Flags using the adapter should have their `key` defined here
+    "example-flag": true,
+    "another-example-flag": false,
+  }
+}
+```
+
+## API Reference
+
+### edgeConfigAdapter
+
+The adapter assumes that there is an `EDGE_CONFIG` environment variable set with a connection string,
+and that it contains a `flags` object with each key corresponding to a flag you define in code.
+
+```ts title="flags.ts#next"
+import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+
+export const exampleFlag = flag({
+  adapter: edgeConfigAdapter(),
+  key: 'example-flag',
+});
+```
+
+### createEdgeConfigAdapter
+
+To customize these options you can import and call `createEdgeConfigAdapter` manually.
+
+| Option key | Type | Description |
+| ----------- | -------- | ----------------------- |
+| `connectionString` | `string | EdgeConfigClient` | A [connection string](https://vercel.com/docs/storage/edge-config/using-edge-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/edge-config/edge-config-sdk#use-connection-strings) |
+| `options.edgeConfigItemKey` | `string` | Defaults to `flags` |
+| `options.teamSlug` | `string` | The team slug used for your team in the Vercel dashboard, used to create links to your Edge Config |
+
+```ts title="flags.ts#next"
+import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
+
+const myEdgeConfigAdapter = createEdgeConfigAdapter({
+  connectionString: process.env.OTHER_EDGE_CONFIG_CONNECTION_STRING,
+  options: {
+    edgeConfigItemKey: 'other-flags-key',
+    teamSlug: 'my-vercel-team-slug',
+  },
+});
+
+export const exampleFlag = flag({
+  adapter: myEdgeConfigAdapter(),
+  key: 'example-flag',
+});
+```
+
+## Read More
+
+Read more about Edge Config, Flags SDK, and the Edge Config adapter.
+
+- [Concepts: Precompute](/principles/precompute)
+- [Edge Config Docs](https://vercel.com/docs/storage/edge-config)
+- [Edge Config SDK Reference](https://vercel.com/docs/storage/edge-config/edge-config-sdk)
+- [Edge Config Examples](https://vercel.com/templates/edge-config)
+- [Edge Config Limits and Pricing](https://vercel.com/docs/storage/edge-config/edge-config-limits)

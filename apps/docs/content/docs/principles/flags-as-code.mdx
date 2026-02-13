@@ -1,0 +1,129 @@
+---
+title: Flags as Code
+---
+
+The Flags SDK is conceptually different from the SDKs of most feature
+flag providers. This page describes the constraints we put in place to
+lead to a better experience when using flags.
+
+## Consistently simple call sides
+
+Using the SDK of a typical feature flag provider looks similar to the
+code example below, where the SDK is called with the name of the feature
+flag as a string:
+
+```tsx
+// a typical feature flag SDK, such as OpenFeature in this example
+const exampleValue = await client.getBooleanValue('exampleFlag', false);
+```
+
+Compare this to what it looks like when using a feature flag in the
+Flags SDK:
+
+```tsx
+// the Flags SDK
+const exampleValue = await exampleFlag();
+```
+
+Being able to use a feature flag of course requires first declaring it
+like so:
+
+```tsx
+import { flag } from 'flags/next';
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  defaultValue: false,
+  decide() {
+    return false;
+  },
+});
+```
+
+## Feature Flags are functions
+
+Turning each feature flag into its own function means the implementation
+can change without having to touch the call side. It also allows you to
+use your well-known editor shortcuts like “Find All References” to see
+if a flag is still in use.
+
+## Feature Flags declare their default value
+
+Each feature flag's declaration can contain the default value. This
+value is used in case the feature flag can not be evaluated. Containing
+the default value on the declaration means it will be consistent across
+all evaluations.
+
+## Feature Flags declare how their context is established
+
+Traditional feature flag SDKs require passing in the context on the call
+side, as shown below:
+
+```tsx
+// a typical feature flag SDK, such as OpenFeature in this example
+
+// add a value to the invocation context
+const context = {
+  user: { id: '123' },
+};
+
+const boolValue = await client.getBooleanValue('boolFlag', false, context);
+```
+
+The downside of this approach is that every call side needs to recreate
+the evaluation context. If the evaluation context is created differently
+or not provided, the feature flag may evaluate differently across the
+codebase.
+
+The Flags SDK does not require the context to be passed in on each
+invocation. Instead, the context is established when you declare the
+feature flag.
+
+```tsx title="flags.ts#next"
+import { flag } from 'flags/next';
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  identify() {
+    return { user: { id: '123' } };
+  },
+  decide({ entities }) {
+    return entities.user.id === '123';
+  },
+});
+```
+
+<LearnMore href="/principles/evaluation-context" icon="arrow">
+  Learn more about `identify`
+</LearnMore>
+
+## Avoid vendor lock-in
+
+A downside of using the SDK of a specific provider is that it makes it
+hard to switch to a different feature flag provider at a later point.
+Often, the provider's SDK becomes deeply integrated into the
+codebase over time.
+
+The Flags SDK does not lock you into a specific provider. You can switch
+to a different provider by changing the definition of the feature flag.
+Switching providers is possible without changing where your feature flag
+is used.
+
+The Flags SDK further specifically contains an adapter pattern for this,
+which makes it even easier to swap providers.
+
+```tsx title="flags.ts#next"
+import { flag } from 'flags/next';
+import { statsigAdapter } from '@flags-sdk/statsig';
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  // You can replace the adapter with a different one
+  // This example loads a feature gate from Statsig
+  adapter: statsigAdapter.featureGate((config) => config.value),
+});
+```
+
+<LearnMore href="/providers" icon="arrow">
+  Learn more about `adapters`
+</LearnMore>
