@@ -224,6 +224,10 @@ export class FlagNetworkDataSource implements DataSource {
   private pollingIntervalId: ReturnType<typeof setInterval> | undefined;
   private pollingAbortController: AbortController | undefined;
 
+  // Initialization state — suppresses onDisconnect from starting polling
+  // while initialize() is still running its own fallback chain
+  private isInitializing: boolean = false;
+
   // Inflight deduplication for getDataWithFallbacks
   private inflightFallback:
     | Promise<[DatafileInput, Metrics['source'], Metrics['cacheStatus']]>
@@ -296,23 +300,28 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
-    // Try stream first
-    if (this.options.stream.enabled) {
-      const streamSuccess = await this.tryInitializeStream();
-      if (streamSuccess) return;
+    this.isInitializing = true;
+    try {
+      // Try stream first
+      if (this.options.stream.enabled) {
+        const streamSuccess = await this.tryInitializeStream();
+        if (streamSuccess) return;
+      }
+
+      // Fall back to polling
+      if (this.options.polling.enabled) {
+        const pollingSuccess = await this.tryInitializePolling();
+        if (pollingSuccess) return;
+      }
+
+      // Fall back to provided datafile (already set in constructor if provided)
+      if (this.data) return;
+
+      // Fall back to bundled definitions
+      await this.initializeFromBundled();
+    } finally {
+      this.isInitializing = false;
     }
-
-    // Fall back to polling
-    if (this.options.polling.enabled) {
-      const pollingSuccess = await this.tryInitializePolling();
-      if (pollingSuccess) return;
-    }
-
-    // Fall back to provided datafile (already set in constructor if provided)
-    if (this.data) return;
-
-    // Fall back to bundled definitions
-    await this.initializeFromBundled();
   }
 
   /**
@@ -367,6 +376,7 @@ export class FlagNetworkDataSource implements DataSource {
     this.stopPolling();
     this.data = this.options.datafile;
     this.inflightFallback = undefined;
+    this.isInitializing = false;
     this.isStreamConnected = false;
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
@@ -529,8 +539,14 @@ export class FlagNetworkDataSource implements DataSource {
           onDisconnect: () => {
             this.isStreamConnected = false;
 
-            // Fall back to polling if enabled and not already polling
-            if (this.options.polling.enabled && !this.pollingIntervalId) {
+            // Fall back to polling if enabled and not already polling.
+            // Skip during initialization — initialize() manages its own
+            // fallback chain and will start polling itself if needed.
+            if (
+              this.options.polling.enabled &&
+              !this.pollingIntervalId &&
+              !this.isInitializing
+            ) {
               this.startPolling();
             }
           },
