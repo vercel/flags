@@ -5,7 +5,7 @@ import type {
   initialize,
   shutdown,
 } from './client-fns';
-import { clientMap } from './client-map';
+import { type ClientInstance, clientMap } from './client-map';
 import type {
   BundledDefinitions,
   DataSource,
@@ -15,6 +15,20 @@ import type {
 } from './types';
 
 let idCount = 0;
+
+async function performInitialize(
+  instance: ClientInstance,
+  initFn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await initFn();
+    instance.initialized = true;
+  } catch (error) {
+    // Clear so next call can retry
+    instance.initPromise = null;
+    throw error;
+  }
+}
 
 export function createCreateRawClient(fns: {
   initialize: typeof initialize;
@@ -42,19 +56,12 @@ export function createCreateRawClient(fns: {
           clientMap.set(id, instance);
         }
 
-        // skip promise if already initialized
+        // skip if already initialized
         if (instance.initialized) return;
 
         if (!instance.initPromise) {
-          instance.initPromise = fns.initialize(id).then(
-            () => {
-              instance!.initialized = true;
-            },
-            (error) => {
-              // Clear so next call can retry
-              instance!.initPromise = null;
-              throw error;
-            },
+          instance.initPromise = performInitialize(instance, () =>
+            fns.initialize(id),
           );
         }
 
