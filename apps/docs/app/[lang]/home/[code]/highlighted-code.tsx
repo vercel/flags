@@ -1,9 +1,10 @@
 import type { CSSProperties } from 'react';
+import type { BundledLanguage } from 'shiki';
 import { codeToTokens } from 'shiki';
 
 type HighlightedCodeProps = {
   code: string;
-  lang: string;
+  lang: BundledLanguage;
   filename: string;
   caption: string;
 };
