@@ -1183,6 +1183,44 @@ describe('FlagNetworkDataSource', () => {
 
       await dataSource.shutdown();
     });
+
+    it('should not start polling from stream disconnect during initialization', async () => {
+      let pollCount = 0;
+
+      server.use(
+        http.get('https://flags.vercel.com/v1/stream', () => {
+          // Stream fails immediately, triggering onDisconnect
+          return new HttpResponse(null, { status: 500 });
+        }),
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          pollCount++;
+          return HttpResponse.json({
+            projectId: 'polled',
+            definitions: {},
+            environment: 'production',
+          });
+        }),
+      );
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: { initTimeoutMs: 5000 },
+        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+      });
+
+      await dataSource.initialize();
+
+      // Only 1 poll request should have been made (from tryInitializePolling),
+      // not 2 (onDisconnect should not have started a separate poll)
+      expect(pollCount).toBe(1);
+
+      await dataSource.shutdown();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
   });
 
   describe('getDatafile', () => {

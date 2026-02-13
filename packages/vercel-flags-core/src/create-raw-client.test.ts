@@ -168,6 +168,62 @@ describe('createCreateRawClient', () => {
 
       expect(clientMap.size).toBe(1);
     });
+
+    it('should deduplicate concurrent initialize() calls', async () => {
+      const fns = createMockFns();
+      // Make initialize take some time so concurrent calls overlap
+      fns.initialize.mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 50)),
+      );
+      const createRawClient = createCreateRawClient(fns);
+      const dataSource = createMockDataSource();
+
+      const client = createRawClient({ dataSource });
+
+      await Promise.all([
+        client.initialize(),
+        client.initialize(),
+        client.initialize(),
+      ]);
+
+      expect(fns.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    it('should deduplicate concurrent evaluate() calls that trigger initialize()', async () => {
+      const fns = createMockFns();
+      fns.initialize.mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 50)),
+      );
+      const createRawClient = createCreateRawClient(fns);
+      const dataSource = createMockDataSource();
+
+      const client = createRawClient({ dataSource });
+
+      await Promise.all([
+        client.evaluate('flag-a'),
+        client.evaluate('flag-b'),
+        client.evaluate('flag-c'),
+      ]);
+
+      expect(fns.initialize).toHaveBeenCalledTimes(1);
+      expect(fns.evaluate).toHaveBeenCalledTimes(3);
+    });
+
+    it('should allow re-initialization after failure', async () => {
+      const fns = createMockFns();
+      fns.initialize
+        .mockRejectedValueOnce(new Error('init failed'))
+        .mockResolvedValueOnce(undefined);
+      const createRawClient = createCreateRawClient(fns);
+      const dataSource = createMockDataSource();
+
+      const client = createRawClient({ dataSource });
+
+      await expect(client.initialize()).rejects.toThrow('init failed');
+      await client.initialize();
+
+      expect(fns.initialize).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('shutdown', () => {

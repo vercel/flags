@@ -77,7 +77,11 @@ describe('client-fns', () => {
   describe('initialize', () => {
     it('should call dataSource.initialize()', async () => {
       const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await initialize(CLIENT_ID);
 
@@ -88,7 +92,11 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         initialize: vi.fn().mockResolvedValue('init-result'),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await initialize(CLIENT_ID);
 
@@ -103,7 +111,11 @@ describe('client-fns', () => {
   describe('shutdown', () => {
     it('should call dataSource.shutdown()', async () => {
       const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await shutdown(CLIENT_ID);
 
@@ -114,7 +126,11 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         shutdown: vi.fn().mockResolvedValue('shutdown-result'),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await shutdown(CLIENT_ID);
 
@@ -140,7 +156,11 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         getFallbackDatafile: getFallbackDatafileFn,
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await getFallbackDatafile(CLIENT_ID);
 
@@ -159,7 +179,11 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource({
         getFallbackDatafile: vi.fn().mockResolvedValue(mockFallback),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await getFallbackDatafile(CLIENT_ID);
 
@@ -170,7 +194,11 @@ describe('client-fns', () => {
       const dataSource = createMockDataSource();
       // Remove getFallbackDatafile
       delete (dataSource as Partial<DataSource>).getFallbackDatafile;
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       expect(() => getFallbackDatafile(CLIENT_ID)).toThrow(
         'flags: This data source does not support fallbacks',
@@ -194,7 +222,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await evaluate(CLIENT_ID, 'nonexistent-flag', 'default');
 
@@ -219,7 +251,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await evaluate(CLIENT_ID, 'missing', { fallback: true });
 
@@ -242,7 +278,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await evaluate(CLIENT_ID, 'my-flag', false);
 
@@ -267,7 +307,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await evaluate(CLIENT_ID, 'my-flag', 'default');
 
@@ -297,7 +341,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await evaluate(CLIENT_ID, 'my-flag');
 
@@ -315,7 +363,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       await evaluate(CLIENT_ID, 'nonexistent');
 
@@ -345,7 +397,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const result = await evaluate(CLIENT_ID, 'targeted-flag', 'default', {
         user: { id: 'user-123' },
@@ -374,7 +430,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       // Call without entities
       const result = await evaluate(CLIENT_ID, 'my-flag');
@@ -414,7 +474,11 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, { dataSource, initialized: false });
+      clientMap.set(CLIENT_ID, {
+        dataSource,
+        initialized: false,
+        initPromise: null,
+      });
 
       const boolResult = await evaluate<boolean>(CLIENT_ID, 'bool-flag');
       expect(boolResult.value).toBe(true);
