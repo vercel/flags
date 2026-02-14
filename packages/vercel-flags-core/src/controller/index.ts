@@ -5,6 +5,7 @@ import type {
   DatafileInput,
   Metrics,
 } from '../types';
+import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
@@ -101,7 +102,11 @@ export class Controller implements ControllerInterface {
       options.sources?.polling ?? new PollingSource(this.options);
 
     this.bundledSource =
-      options.sources?.bundled ?? new BundledSource(this.options.sdkKey);
+      options.sources?.bundled ??
+      new BundledSource({
+        sdkKey: this.options.sdkKey,
+        readBundledDefinitions,
+      });
 
     // Wire source events to state machine
     this.wireSourceEvents();

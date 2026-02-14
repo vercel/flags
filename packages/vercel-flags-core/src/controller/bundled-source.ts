@@ -1,6 +1,6 @@
 import { FallbackEntryNotFoundError, FallbackNotFoundError } from '../errors';
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
-import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import type { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { TaggedData } from './tagged-data';
 import { tagData } from './tagged-data';
 import { TypedEmitter } from './typed-emitter';
@@ -16,10 +16,13 @@ export type BundledSourceEvents = {
 export class BundledSource extends TypedEmitter<BundledSourceEvents> {
   private promise: Promise<BundledDefinitionsResult> | undefined;
 
-  constructor(sdkKey: string) {
+  constructor(options: {
+    sdkKey: string;
+    readBundledDefinitions: typeof readBundledDefinitions;
+  }) {
     super();
     // Eagerly start loading bundled definitions
-    this.promise = readBundledDefinitions(sdkKey);
+    this.promise = options.readBundledDefinitions(options.sdkKey);
   }
 
   /**

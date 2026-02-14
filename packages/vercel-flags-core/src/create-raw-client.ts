@@ -93,6 +93,11 @@ export function createCreateRawClient(fns: {
         if (!instance?.initialized) await api.initialize();
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
+      peek: () => {
+        const instance = controllerInstanceMap.get(id);
+        if (!instance) throw new Error(`Instance not found for id ${id}`);
+        return instance;
+      },
     };
     return api;
   };

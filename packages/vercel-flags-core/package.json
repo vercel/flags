@@ -55,7 +55,9 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.2",
+    "@fetch-mock/vitest": "0.2.18",
     "@types/node": "20.11.17",
+    "fetch-mock": "12.6.0",
     "flags": "workspace:*",
     "msw": "2.6.4",
     "next": "16.1.6",
@@ -65,9 +67,9 @@
     "vitest": "2.1.9"
   },
   "peerDependencies": {
-    "next": "*",
     "@openfeature/server-sdk": "1.18.0",
-    "flags": "*"
+    "flags": "*",
+    "next": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {
