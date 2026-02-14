@@ -1,3 +1,7 @@
+// extend client with concept of per-request data so we can set overrides?
+// extend client with concept of request transaction so a single request is guaranteed consistent flag data?
+//   could be unexpected if used in a workflow or stream or whatever
+
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { BundledSource, PollingSource, StreamSource } from './controller';
 import type { StreamMessage } from './controller/stream-connection';
@@ -43,6 +47,7 @@ function createMockStream() {
 
 const host = 'https://flags.vercel.com';
 const sdkKey = 'vf_fake';
+
 let clientFetchMock: Mock<typeof fetch>;
 let streamFetchMock: Mock<typeof fetch>;
 let stream: StreamSource;
