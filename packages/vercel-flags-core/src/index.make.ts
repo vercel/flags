@@ -42,9 +42,9 @@ export function make(
     }
 
     // sdk key contains the environment
-    const dataSource = new Controller({ sdkKey, ...options });
+    const controller = new Controller({ sdkKey, ...options });
     return createRawClient({
-      dataSource,
+      controller,
       origin: { provider: 'vercel', sdkKey },
     });
   }

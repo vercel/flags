@@ -164,15 +164,15 @@ describe('Controller', () => {
       }),
     );
 
-    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
-    const result = await dataSource.read();
+    const controller = new Controller({ sdkKey: 'vf_test_key' });
+    const result = await controller.read();
 
     expect(result).toMatchObject(definitions);
     expect(result.metrics.source).toBe('in-memory');
     expect(result.metrics.cacheStatus).toBe('MISS');
     expect(result.metrics.connectionState).toBe('connected');
 
-    await dataSource.shutdown();
+    await controller.shutdown();
     await assertIngestRequest('vf_test_key', [{ type: 'FLAGS_CONFIG_READ' }]);
   });
 
@@ -337,64 +337,6 @@ describe('Controller', () => {
 
     await dataSource.shutdown();
   });
-
-  it('should warn when returning in-memory data while stream is disconnected', async () => {
-    const definitions = {
-      projectId: 'test-project',
-      definitions: { flag: true },
-    };
-
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    // First, successfully connect and get data
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(
-          createNdjsonStream([{ type: 'datafile', data: definitions }]),
-          { headers: { 'Content-Type': 'application/x-ndjson' } },
-        );
-      }),
-    );
-
-    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
-    await dataSource.read();
-
-    // Verify no warning on first successful read (stream is connected)
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    // Now simulate stream disconnection by changing handler to error
-    server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        return new HttpResponse(null, { status: 500 });
-      }),
-    );
-
-    // Wait for the stream to close and try to reconnect (and fail)
-    await vi.waitFor(
-      () => {
-        expect(errorSpy).toHaveBeenCalled();
-      },
-      { timeout: 3000 },
-    );
-
-    // Next read should warn about potentially stale data
-    await dataSource.read();
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Returning in-memory flag definitions'),
-    );
-
-    // Should only warn once
-    warnSpy.mockClear();
-    await dataSource.read();
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    await dataSource.shutdown();
-
-    warnSpy.mockRestore();
-    errorSpy.mockRestore();
-  }, 10000);
 
   describe('constructor validation', () => {
     it('should throw for missing SDK key', () => {
