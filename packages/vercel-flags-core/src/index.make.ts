@@ -2,18 +2,15 @@
  * Factory functions for exports of index.default.ts and index.next-js.ts
  */
 
+import { Controller, type ControllerOptions } from './controller';
 import type { createCreateRawClient } from './create-raw-client';
-import {
-  FlagNetworkDataSource,
-  type FlagNetworkDataSourceOptions,
-} from './data-source/flag-network-data-source';
 import type { FlagsClient } from './types';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 /**
  * Options for createClient
  */
-export type CreateClientOptions = Omit<FlagNetworkDataSourceOptions, 'sdkKey'>;
+export type CreateClientOptions = Omit<ControllerOptions, 'sdkKey'>;
 
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
@@ -45,7 +42,7 @@ export function make(
     }
 
     // sdk key contains the environment
-    const dataSource = new FlagNetworkDataSource({ sdkKey, ...options });
+    const dataSource = new Controller({ sdkKey, ...options });
     return createRawClient({
       dataSource,
       origin: { provider: 'vercel', sdkKey },

@@ -13,10 +13,15 @@ src/
 ├── types.ts              # Type definitions
 ├── errors.ts             # Error classes
 ├── evaluate.ts           # Core evaluation logic
-├── data-source/          # Data source implementations
-│   ├── flag-network-data-source.ts
-│   ├── in-memory-data-source.ts
-│   └── stream-connection.ts
+├── controller/           # Controller (state machine) and I/O sources
+│   ├── index.ts              # Controller class
+│   ├── stream-source.ts      # StreamSource (wraps stream-connection)
+│   ├── polling-source.ts     # PollingSource (wraps fetch-datafile)
+│   ├── bundled-source.ts     # BundledSource (wraps read-bundled-definitions)
+│   ├── stream-connection.ts  # Low-level NDJSON stream connection
+│   ├── fetch-datafile.ts     # HTTP datafile fetch with retry
+│   ├── tagged-data.ts        # Data origin tagging types/helpers
+│   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
 ├── utils/                # Utilities
 │   ├── usage-tracker.ts
@@ -48,15 +53,16 @@ type FlagsClient = {
 4. Evaluate segment-based rules against entity context
 5. Return fallthrough default if no match
 
-### FlagNetworkDataSource Options
+### Controller Options
 
 ```typescript
-type FlagNetworkDataSourceOptions = {
+type ControllerOptions = {
   sdkKey: string;
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   buildStep?: boolean;  // Override build step auto-detection
+  sources?: { stream?: StreamSource; polling?: PollingSource; bundled?: BundledSource };  // DI for testing
 };
 ```
 

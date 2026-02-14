@@ -11,7 +11,7 @@ import {
   vi,
 } from 'vitest';
 import type { BundledDefinitions, DatafileInput } from '../types';
-import { FlagNetworkDataSource } from './flag-network-data-source';
+import { Controller } from '.';
 
 // Mock the bundled definitions module
 vi.mock('../utils/read-bundled-definitions', () => ({
@@ -93,9 +93,9 @@ async function assertIngestRequest(
   );
 }
 
-describe('FlagNetworkDataSource', () => {
+describe('Controller', () => {
   // Note: Low-level NDJSON parsing tests (parse datafile, ignore ping, handle split chunks)
-  // are in stream-connection.test.ts. These tests focus on FlagNetworkDataSource-specific behavior.
+  // are in stream-connection.test.ts. These tests focus on Controller-specific behavior.
 
   it('should abort the stream connection when shutdown is called', async () => {
     let abortSignalReceived: AbortSignal | undefined;
@@ -127,7 +127,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
     await dataSource.read();
 
     expect(abortSignalReceived).toBeDefined();
@@ -164,7 +164,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
     const result = await dataSource.read();
 
     expect(result).toMatchObject(definitions);
@@ -192,7 +192,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
 
     // First call gets initial data
     await dataSource.read();
@@ -236,7 +236,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({
+    const dataSource = new Controller({
       sdkKey: 'vf_test_key',
       polling: false, // Disable polling to test stream timeout in isolation
     });
@@ -287,7 +287,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({
+    const dataSource = new Controller({
       sdkKey: 'vf_test_key',
       polling: false, // Disable polling to test stream error fallback in isolation
     });
@@ -329,7 +329,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
     await dataSource.read();
 
     expect(capturedHeaders).not.toBeNull();
@@ -357,7 +357,7 @@ describe('FlagNetworkDataSource', () => {
       }),
     );
 
-    const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+    const dataSource = new Controller({ sdkKey: 'vf_test_key' });
     await dataSource.read();
 
     // Verify no warning on first successful read (stream is connected)
@@ -398,31 +398,27 @@ describe('FlagNetworkDataSource', () => {
 
   describe('constructor validation', () => {
     it('should throw for missing SDK key', () => {
-      expect(() => new FlagNetworkDataSource({ sdkKey: '' })).toThrow(
+      expect(() => new Controller({ sdkKey: '' })).toThrow(
         '@vercel/flags-core: SDK key must be a string starting with "vf_"',
       );
     });
 
     it('should throw for SDK key not starting with vf_', () => {
-      expect(
-        () => new FlagNetworkDataSource({ sdkKey: 'invalid_key' }),
-      ).toThrow(
+      expect(() => new Controller({ sdkKey: 'invalid_key' })).toThrow(
         '@vercel/flags-core: SDK key must be a string starting with "vf_"',
       );
     });
 
     it('should throw for non-string SDK key', () => {
       expect(
-        () => new FlagNetworkDataSource({ sdkKey: 123 as unknown as string }),
+        () => new Controller({ sdkKey: 123 as unknown as string }),
       ).toThrow(
         '@vercel/flags-core: SDK key must be a string starting with "vf_"',
       );
     });
 
     it('should accept valid SDK key', () => {
-      expect(
-        () => new FlagNetworkDataSource({ sdkKey: 'vf_valid_key' }),
-      ).not.toThrow();
+      expect(() => new Controller({ sdkKey: 'vf_valid_key' })).not.toThrow();
     });
   });
 
@@ -446,7 +442,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.read();
 
       // Should use bundled definitions without making stream request
@@ -475,7 +471,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.read();
 
       expect(result).toMatchObject(bundledDefinitions);
@@ -503,7 +499,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       await dataSource.read();
 
       expect(streamRequested).toBe(true);
@@ -534,7 +530,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.read();
 
       expect(result).toMatchObject(fetchedDefinitions);
@@ -562,7 +558,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
 
       // First read
       const firstResult = await dataSource.read();
@@ -596,7 +592,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
       });
 
@@ -612,7 +608,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'missing-file',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
       });
 
@@ -635,7 +631,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'missing-entry',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
       });
 
@@ -659,7 +655,7 @@ describe('FlagNetworkDataSource', () => {
         error: new Error('Some error'),
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
       });
 
@@ -696,7 +692,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: { initTimeoutMs: 500 }, // Much shorter timeout
         polling: false, // Disable polling to test stream timeout directly
@@ -745,7 +741,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: false,
         polling: true,
@@ -774,7 +770,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: false,
         polling: { intervalMs: 100, initTimeoutMs: 5000 },
@@ -824,7 +820,7 @@ describe('FlagNetworkDataSource', () => {
         environment: 'production',
       };
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         datafile: providedDatafile,
         stream: false,
@@ -861,7 +857,7 @@ describe('FlagNetworkDataSource', () => {
         environment: 'production',
       };
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         datafile: providedDatafile,
       });
@@ -908,7 +904,7 @@ describe('FlagNetworkDataSource', () => {
         environment: 'production',
       };
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         datafile: providedDatafile,
         stream: false,
@@ -978,7 +974,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: { initTimeoutMs: 100 }, // Short timeout to trigger polling fallback
         polling: { intervalMs: 50, initTimeoutMs: 5000 },
@@ -1030,7 +1026,7 @@ describe('FlagNetworkDataSource', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: { initTimeoutMs: 100 },
         polling: { intervalMs: 100, initTimeoutMs: 5000 },
@@ -1087,7 +1083,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: true,
         polling: false, // Disable polling to test stream-only mode
@@ -1149,7 +1145,7 @@ describe('FlagNetworkDataSource', () => {
         environment: 'production',
       };
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         datafile: providedDatafile,
         stream: true,
@@ -1205,7 +1201,7 @@ describe('FlagNetworkDataSource', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: { initTimeoutMs: 5000 },
         polling: { intervalMs: 100, initTimeoutMs: 5000 },
@@ -1237,7 +1233,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getDatafile();
 
       expect(result).toMatchObject(remoteDefinitions);
@@ -1275,7 +1271,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getDatafile();
 
       // Should fetch from network, NOT use bundled definitions
@@ -1315,7 +1311,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
 
       // First read via initialize/read to establish stream connection
       await dataSource.read();
@@ -1348,7 +1344,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({ sdkKey: 'vf_test_key' });
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getDatafile();
 
       expect(result.projectId).toBe('bundled');
@@ -1373,7 +1369,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: false,
         polling: false,
@@ -1396,7 +1392,7 @@ describe('FlagNetworkDataSource', () => {
   describe('buildStep option', () => {
     it('should always load bundled definitions regardless of buildStep', async () => {
       // bundled definitions are always loaded as ultimate fallback
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         buildStep: false,
         stream: false,
@@ -1449,7 +1445,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         buildStep: true, // Force build step behavior
         stream: true, // Would normally enable streaming
@@ -1487,7 +1483,7 @@ describe('FlagNetworkDataSource', () => {
         environment: 'production',
       };
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         buildStep: true,
         datafile: providedDatafile,
@@ -1534,7 +1530,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         // buildStep not specified - should auto-detect from CI=1
       });
@@ -1581,7 +1577,7 @@ describe('FlagNetworkDataSource', () => {
         state: 'ok',
       });
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         // buildStep not specified - should auto-detect from NEXT_PHASE
       });
@@ -1612,7 +1608,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         buildStep: false, // Explicitly override CI detection
       });
@@ -1669,7 +1665,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         polling: false,
       });
@@ -1733,7 +1729,7 @@ describe('FlagNetworkDataSource', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: true,
         polling: { intervalMs: 50, initTimeoutMs: 5000 },
@@ -1802,7 +1798,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         polling: false,
       });
@@ -1865,7 +1861,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         datafile: providedDatafile,
         polling: false,
@@ -1931,7 +1927,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         polling: false,
       });
@@ -1990,7 +1986,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         polling: false,
       });
@@ -2043,7 +2039,7 @@ describe('FlagNetworkDataSource', () => {
         }),
       );
 
-      const dataSource = new FlagNetworkDataSource({
+      const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         polling: false,
       });

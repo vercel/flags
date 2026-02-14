@@ -1,0 +1,84 @@
+import { fetchDatafile } from './fetch-datafile';
+import type { TaggedData } from './tagged-data';
+import { tagData } from './tagged-data';
+import { TypedEmitter } from './typed-emitter';
+
+export type PollingSourceConfig = {
+  host: string;
+  sdkKey: string;
+  intervalMs: number;
+  fetch?: typeof globalThis.fetch;
+};
+
+export type PollingSourceEvents = {
+  data: (data: TaggedData) => void;
+  error: (error: Error) => void;
+};
+
+/**
+ * Manages interval-based polling for flag data.
+ * Wraps fetchDatafile() and emits typed events.
+ */
+export class PollingSource extends TypedEmitter<PollingSourceEvents> {
+  private config: PollingSourceConfig;
+  private intervalId: ReturnType<typeof setInterval> | undefined;
+  private abortController: AbortController | undefined;
+
+  constructor(config: PollingSourceConfig) {
+    super();
+    this.config = config;
+  }
+
+  /**
+   * Perform a single poll request.
+   * Emits 'data' on success, 'error' on failure.
+   */
+  async poll(): Promise<void> {
+    if (this.abortController?.signal.aborted) return;
+
+    try {
+      const data = await fetchDatafile(
+        this.config.host,
+        this.config.sdkKey,
+        this.config.fetch ?? globalThis.fetch,
+      );
+      const tagged = tagData(data, 'poll');
+      this.emit('data', tagged);
+    } catch (error) {
+      const err =
+        error instanceof Error ? error : new Error('Unknown poll error');
+      this.emit('error', err);
+    }
+  }
+
+  /**
+   * Start interval-based polling.
+   * Performs an initial poll immediately, then polls at the configured interval.
+   */
+  startInterval(): void {
+    if (this.intervalId) return;
+
+    this.abortController = new AbortController();
+
+    // Initial poll
+    void this.poll();
+
+    // Start interval
+    this.intervalId = setInterval(
+      () => void this.poll(),
+      this.config.intervalMs,
+    );
+  }
+
+  /**
+   * Stop interval-based polling.
+   */
+  stop(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = undefined;
+    }
+    this.abortController?.abort();
+    this.abortController = undefined;
+  }
+}

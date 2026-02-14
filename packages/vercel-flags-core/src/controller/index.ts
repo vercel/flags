@@ -1,8 +1,5 @@
-import { version } from '../../package.json';
-import { FallbackEntryNotFoundError, FallbackNotFoundError } from '../errors';
 import type {
   BundledDefinitions,
-  BundledDefinitionsResult,
   Datafile,
   DatafileInput,
   DataSource,
@@ -10,23 +7,31 @@ import type {
   PollingOptions,
   StreamOptions,
 } from '../types';
-import { readBundledDefinitions } from '../utils/read-bundled-definitions';
-import { sleep } from '../utils/sleep';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
-import { connectStream } from './stream-connection';
+
+export { BundledSource } from './bundled-source';
+
+import { BundledSource } from './bundled-source';
+import { fetchDatafile } from './fetch-datafile';
+
+export { PollingSource } from './polling-source';
+
+import { PollingSource } from './polling-source';
+
+export { StreamSource } from './stream-source';
+
+import { StreamSource } from './stream-source';
+import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
-const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
-const MAX_FETCH_RETRIES = 3;
-const FETCH_RETRY_BASE_DELAY_MS = 500;
 
 /**
- * Configuration options for FlagNetworkDataSource
+ * Configuration options for Controller
  */
-export type FlagNetworkDataSourceOptions = {
+export type ControllerOptions = {
   /** SDK key for authentication (must start with "vf_") */
   sdkKey: string;
 
@@ -69,11 +74,22 @@ export type FlagNetworkDataSourceOptions = {
    * @default globalThis.fetch
    */
   fetch?: typeof globalThis.fetch;
+
+  /**
+   * Custom source modules for dependency injection (testing).
+   * When provided, these replace the default source instances.
+   */
+  sources?: {
+    stream?: StreamSource;
+    polling?: PollingSource;
+    bundled?: BundledSource;
+  };
 };
 
-/**
- * Normalized internal options
- */
+// ---------------------------------------------------------------------------
+// Internal types
+// ---------------------------------------------------------------------------
+
 type NormalizedOptions = {
   sdkKey: string;
   datafile: DatafileInput | undefined;
@@ -84,11 +100,25 @@ type NormalizedOptions = {
 };
 
 /**
- * Normalizes user-provided options to internal format with defaults
+ * Explicit states for the controller state machine.
  */
-function normalizeOptions(
-  options: FlagNetworkDataSourceOptions,
-): NormalizedOptions {
+type State =
+  | 'idle'
+  | 'initializing:stream'
+  | 'initializing:polling'
+  | 'initializing:fallback'
+  | 'streaming'
+  | 'polling'
+  | 'degraded'
+  | 'build:loading'
+  | 'build:ready'
+  | 'shutdown';
+
+// ---------------------------------------------------------------------------
+// Option normalization
+// ---------------------------------------------------------------------------
+
+function normalizeOptions(options: ControllerOptions): NormalizedOptions {
   const autoDetectedBuildStep =
     process.env.CI === '1' ||
     process.env.NEXT_PHASE === 'phase-production-build';
@@ -130,69 +160,32 @@ function normalizeOptions(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
 /**
- * Fetches the datafile from the flags service with retry logic.
- *
- * Implements exponential backoff with jitter for transient failures.
- * Does not retry 4xx errors (except 429) as they indicate client errors.
+ * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
+ * Returns undefined if the value is missing or cannot be parsed.
  */
-async function fetchDatafile(
-  host: string,
-  sdkKey: string,
-  fetchFn: typeof globalThis.fetch,
-): Promise<BundledDefinitions> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt < MAX_FETCH_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      DEFAULT_FETCH_TIMEOUT_MS,
-    );
-
-    let shouldRetry = true;
-    try {
-      const res = await fetchFn(`${host}/v1/datafile`, {
-        headers: {
-          Authorization: `Bearer ${sdkKey}`,
-          'User-Agent': `VercelFlagsCore/${version}`,
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        // Don't retry 4xx errors (except 429)
-        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          shouldRetry = false;
-        }
-        throw new Error(`Failed to fetch data: ${res.statusText}`);
-      }
-
-      return res.json() as Promise<BundledDefinitions>;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      lastError =
-        error instanceof Error ? error : new Error('Unknown fetch error');
-
-      if (!shouldRetry) throw lastError;
-
-      if (attempt < MAX_FETCH_RETRIES - 1) {
-        const delay =
-          FETCH_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
-        await sleep(delay);
-      }
-    }
+function parseConfigUpdatedAt(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
   }
-
-  throw lastError ?? new Error('Failed to fetch data after retries');
+  return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
 /**
  * A DataSource implementation that connects to flags.vercel.com.
  *
- * Behavior differs based on environment:
+ * Implemented as a state machine controller that delegates all I/O to
+ * source modules (StreamSource, PollingSource, BundledSource).
  *
  * **Build step** (CI=1 or Next.js build, or buildStep: true):
  * - Uses datafile (if provided) or bundled definitions
@@ -204,38 +197,29 @@ async function fetchDatafile(
  * - If stream reconnects while polling → stop polling
  * - If stream disconnects → start polling (if enabled)
  */
-export class FlagNetworkDataSource implements DataSource {
+export class Controller implements DataSource {
   private options: NormalizedOptions;
   private host = FLAGS_HOST;
 
-  // Data state
-  private data: DatafileInput | undefined;
-  private bundledDefinitionsPromise:
-    | Promise<BundledDefinitionsResult>
-    | undefined;
+  // State machine
+  private state: State = 'idle';
 
-  // Stream state
-  private streamAbortController: AbortController | undefined;
-  private streamPromise: Promise<void> | undefined;
-  private isStreamConnected: boolean = false;
+  // Data state — tagged with origin
+  private data: TaggedData | undefined;
+
+  // Sources (I/O delegates)
+  private streamSource: StreamSource;
+  private pollingSource: PollingSource;
+  private bundledSource: BundledSource;
+
+  // UI state
   private hasWarnedAboutStaleData: boolean = false;
-
-  // Polling state
-  private pollingIntervalId: ReturnType<typeof setInterval> | undefined;
-  private pollingAbortController: AbortController | undefined;
-
-  // Initialization state — suppresses onDisconnect from starting polling
-  // while initialize() is still running its own fallback chain
-  private isInitializing: boolean = false;
 
   // Usage tracking
   private usageTracker: UsageTracker;
   private isFirstGetData: boolean = true;
 
-  /**
-   * Creates a new FlagNetworkDataSource instance.
-   */
-  constructor(options: FlagNetworkDataSourceOptions) {
+  constructor(options: ControllerOptions) {
     if (
       !options.sdkKey ||
       typeof options.sdkKey !== 'string' ||
@@ -248,20 +232,110 @@ export class FlagNetworkDataSource implements DataSource {
 
     this.options = normalizeOptions(options);
 
-    // Always load bundled definitions as ultimate fallback
-    this.bundledDefinitionsPromise = readBundledDefinitions(
-      this.options.sdkKey,
-    );
+    // Create source modules (or use injected ones for testing)
+    this.streamSource =
+      options.sources?.stream ??
+      new StreamSource({
+        host: this.host,
+        sdkKey: this.options.sdkKey,
+        fetch: this.options.fetch,
+      });
+
+    this.pollingSource =
+      options.sources?.polling ??
+      new PollingSource({
+        host: this.host,
+        sdkKey: this.options.sdkKey,
+        intervalMs: this.options.polling.intervalMs,
+        fetch: this.options.fetch,
+      });
+
+    this.bundledSource =
+      options.sources?.bundled ?? new BundledSource(this.options.sdkKey);
+
+    // Wire source events to state machine
+    this.wireSourceEvents();
 
     // If datafile provided, use it immediately
     if (this.options.datafile) {
-      this.data = this.options.datafile;
+      this.data = tagData(this.options.datafile, 'provided');
     }
 
     this.usageTracker = new UsageTracker({
       sdkKey: this.options.sdkKey,
       host: this.host,
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Source event wiring
+  // ---------------------------------------------------------------------------
+
+  private wireSourceEvents(): void {
+    // Stream events
+    this.streamSource.on('data', (data) => {
+      if (this.isNewerData(data)) {
+        this.data = data;
+      }
+      this.hasWarnedAboutStaleData = false;
+    });
+
+    this.streamSource.on('connected', () => {
+      // Stream reconnected while polling → stop polling, transition to streaming
+      if (this.state === 'polling') {
+        this.pollingSource.stop();
+        this.transition('streaming');
+      }
+      // During normal streaming, just confirm state
+      else if (this.state === 'streaming') {
+        // Already in streaming state, no transition needed
+      }
+      // During initialization, initialize() handles the transition
+    });
+
+    this.streamSource.on('disconnected', () => {
+      // Only react to disconnects when we're in streaming state.
+      // During initialization states, initialize() manages its own fallback chain.
+      if (this.state === 'streaming') {
+        if (this.options.polling.enabled) {
+          this.pollingSource.startInterval();
+          this.transition('polling');
+        } else {
+          this.transition('degraded');
+        }
+      }
+    });
+
+    // Polling events
+    this.pollingSource.on('data', (data) => {
+      if (this.isNewerData(data)) {
+        this.data = data;
+      }
+    });
+
+    this.pollingSource.on('error', (error) => {
+      console.error('@vercel/flags-core: Poll failed:', error);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // State machine
+  // ---------------------------------------------------------------------------
+
+  private transition(to: State): void {
+    this.state = to;
+  }
+
+  private get isConnected(): boolean {
+    return this.state === 'streaming';
+  }
+
+  private get isInitializing(): boolean {
+    return (
+      this.state === 'initializing:stream' ||
+      this.state === 'initializing:polling' ||
+      this.state === 'initializing:fallback'
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -276,16 +350,15 @@ export class FlagNetworkDataSource implements DataSource {
    */
   async initialize(): Promise<void> {
     if (this.options.buildStep) {
+      this.transition('build:loading');
       await this.initializeForBuildStep();
+      this.transition('build:ready');
       return;
     }
 
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
-    // Usually the constructor sets this, but if the client was shutdown and
-    // then init'd again we need to set it again. This also means that any
-    // previous data we've seen before shutdown is lost. We'll "start fresh".
     if (!this.data && this.options.datafile) {
-      this.data = this.options.datafile;
+      this.data = tagData(this.options.datafile, 'provided');
     }
 
     // If we already have data (from provided datafile), start background updates
@@ -295,28 +368,36 @@ export class FlagNetworkDataSource implements DataSource {
       return;
     }
 
-    this.isInitializing = true;
-    try {
-      // Try stream first
-      if (this.options.stream.enabled) {
-        const streamSuccess = await this.tryInitializeStream();
-        if (streamSuccess) return;
+    // Fallback chain
+    if (this.options.stream.enabled) {
+      this.transition('initializing:stream');
+      const streamSuccess = await this.tryInitializeStream();
+      if (streamSuccess) {
+        this.transition('streaming');
+        return;
       }
-
-      // Fall back to polling
-      if (this.options.polling.enabled) {
-        const pollingSuccess = await this.tryInitializePolling();
-        if (pollingSuccess) return;
-      }
-
-      // Fall back to provided datafile (already set in constructor if provided)
-      if (this.data) return;
-
-      // Fall back to bundled definitions
-      await this.initializeFromBundled();
-    } finally {
-      this.isInitializing = false;
     }
+
+    if (this.options.polling.enabled) {
+      this.transition('initializing:polling');
+      const pollingSuccess = await this.tryInitializePolling();
+      if (pollingSuccess) {
+        this.transition('polling');
+        return;
+      }
+    }
+
+    this.transition('initializing:fallback');
+
+    // Fall back to provided datafile (already set in constructor if provided)
+    if (this.data) {
+      this.transition('degraded');
+      return;
+    }
+
+    // Fall back to bundled definitions
+    await this.initializeFromBundled();
+    this.transition('degraded');
   }
 
   /**
@@ -329,19 +410,19 @@ export class FlagNetworkDataSource implements DataSource {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let result: DatafileInput;
-    let source: Metrics['source'];
+    let result: TaggedData;
     let cacheStatus: Metrics['cacheStatus'];
 
     if (this.options.buildStep) {
-      [result, source, cacheStatus] = await this.getDataForBuildStep();
+      [result, cacheStatus] = await this.getDataForBuildStep();
     } else if (cachedData) {
-      [result, source, cacheStatus] = this.getDataFromCache(cachedData);
+      [result, cacheStatus] = this.getDataFromCache(cachedData);
     } else {
-      [result, source, cacheStatus] = await this.getDataWithFallbacks();
+      [result, cacheStatus] = await this.getDataWithFallbacks();
     }
 
     const readMs = Date.now() - startTime;
+    const source = originToMetricsSource(result._origin);
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     return Object.assign(result, {
@@ -349,7 +430,7 @@ export class FlagNetworkDataSource implements DataSource {
         readMs,
         source,
         cacheStatus,
-        connectionState: this.isStreamConnected
+        connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
       },
@@ -360,11 +441,12 @@ export class FlagNetworkDataSource implements DataSource {
    * Shuts down the data source and releases resources.
    */
   async shutdown(): Promise<void> {
-    this.stopStream();
-    this.stopPolling();
-    this.data = this.options.datafile;
-    this.isInitializing = false;
-    this.isStreamConnected = false;
+    this.streamSource.stop();
+    this.pollingSource.stop();
+    this.data = this.options.datafile
+      ? tagData(this.options.datafile, 'provided')
+      : undefined;
+    this.transition('shutdown');
     this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
   }
@@ -380,24 +462,29 @@ export class FlagNetworkDataSource implements DataSource {
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
 
-    let result: DatafileInput;
+    let result: TaggedData;
     let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
     if (this.options.buildStep) {
-      [result, source, cacheStatus] = await this.getDataForBuildStep();
-    } else if (this.isStreamConnected && this.data) {
-      [result, source, cacheStatus] = this.getDataFromCache();
+      [result, cacheStatus] = await this.getDataForBuildStep();
+      source = originToMetricsSource(result._origin);
+    } else if (this.isConnected && this.data) {
+      [result, cacheStatus] = this.getDataFromCache();
+      source = originToMetricsSource(result._origin);
     } else {
       const fetched = await fetchDatafile(
         this.host,
         this.options.sdkKey,
         this.options.fetch,
       );
-      if (this.isNewerData(fetched)) {
-        this.data = fetched;
+      const tagged = tagData(fetched, 'fetched');
+      if (this.isNewerData(tagged)) {
+        this.data = tagged;
       }
-      [result, source, cacheStatus] = [this.data ?? fetched, 'remote', 'MISS'];
+      result = this.data ?? tagged;
+      source = 'remote';
+      cacheStatus = 'MISS';
     }
 
     return Object.assign(result, {
@@ -405,7 +492,7 @@ export class FlagNetworkDataSource implements DataSource {
         readMs: Date.now() - startTime,
         source,
         cacheStatus,
-        connectionState: this.isStreamConnected
+        connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
       },
@@ -416,33 +503,11 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns the bundled fallback datafile.
    */
   async getFallbackDatafile(): Promise<BundledDefinitions> {
-    if (!this.bundledDefinitionsPromise) {
-      throw new FallbackNotFoundError();
-    }
-
-    const bundledResult = await this.bundledDefinitionsPromise;
-
-    if (!bundledResult) {
-      throw new FallbackNotFoundError();
-    }
-
-    switch (bundledResult.state) {
-      case 'ok':
-        return bundledResult.definitions;
-      case 'missing-file':
-        throw new FallbackNotFoundError();
-      case 'missing-entry':
-        throw new FallbackEntryNotFoundError();
-      case 'unexpected-error':
-        throw new Error(
-          '@vercel/flags-core: Failed to read bundled definitions: ' +
-            String(bundledResult.error),
-        );
-    }
+    return this.bundledSource.getRaw();
   }
 
   // ---------------------------------------------------------------------------
-  // Stream management
+  // Stream initialization
   // ---------------------------------------------------------------------------
 
   /**
@@ -450,13 +515,9 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
-    let streamPromise: Promise<void>;
-
     if (this.options.stream.initTimeoutMs <= 0) {
-      // No timeout - wait indefinitely
       try {
-        streamPromise = this.startStream();
-        await streamPromise;
+        await this.streamSource.start();
         return true;
       } catch {
         return false;
@@ -473,15 +534,17 @@ export class FlagNetworkDataSource implements DataSource {
     });
 
     try {
-      streamPromise = this.startStream();
-      const result = await Promise.race([streamPromise, timeoutPromise]);
+      const result = await Promise.race([
+        this.streamSource.start(),
+        timeoutPromise,
+      ]);
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back',
         );
-        // Don't abort stream - let it continue trying in background
+        // Don't stop stream - let it continue trying in background
         return false;
       }
 
@@ -492,74 +555,8 @@ export class FlagNetworkDataSource implements DataSource {
     }
   }
 
-  /**
-   * Starts the stream connection with callbacks for data and disconnect.
-   */
-  private startStream(): Promise<void> {
-    if (this.streamPromise) return this.streamPromise;
-
-    this.streamAbortController = new AbortController();
-    this.isStreamConnected = false;
-    this.hasWarnedAboutStaleData = false;
-
-    try {
-      const streamPromise = connectStream(
-        {
-          host: this.host,
-          sdkKey: this.options.sdkKey,
-          abortController: this.streamAbortController,
-          fetch: this.options.fetch,
-        },
-        {
-          onMessage: (newData) => {
-            if (this.isNewerData(newData)) {
-              this.data = newData;
-            }
-            this.isStreamConnected = true;
-            this.hasWarnedAboutStaleData = false;
-
-            // Stream is working - stop polling if it's running
-            if (this.pollingIntervalId) {
-              this.stopPolling();
-            }
-          },
-          onDisconnect: () => {
-            this.isStreamConnected = false;
-
-            // Fall back to polling if enabled and not already polling.
-            // Skip during initialization — initialize() manages its own
-            // fallback chain and will start polling itself if needed.
-            if (
-              this.options.polling.enabled &&
-              !this.pollingIntervalId &&
-              !this.isInitializing
-            ) {
-              this.startPolling();
-            }
-          },
-        },
-      );
-
-      this.streamPromise = streamPromise;
-      return streamPromise;
-    } catch (error) {
-      this.streamPromise = undefined;
-      this.streamAbortController = undefined;
-      throw error;
-    }
-  }
-
-  /**
-   * Stops the stream connection.
-   */
-  private stopStream(): void {
-    this.streamAbortController?.abort();
-    this.streamAbortController = undefined;
-    this.streamPromise = undefined;
-  }
-
   // ---------------------------------------------------------------------------
-  // Polling management
+  // Polling initialization
   // ---------------------------------------------------------------------------
 
   /**
@@ -567,17 +564,13 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns true if first poll succeeded within timeout.
    */
   private async tryInitializePolling(): Promise<boolean> {
-    this.pollingAbortController = new AbortController();
-
-    // Perform initial poll
-    const pollPromise = this.performPoll();
+    const pollPromise = this.pollingSource.poll();
 
     if (this.options.polling.initTimeoutMs <= 0) {
-      // No timeout - wait indefinitely
       try {
         await pollPromise;
         if (this.data) {
-          this.startPollingInterval();
+          this.pollingSource.startInterval();
           return true;
         }
         return false;
@@ -607,72 +600,13 @@ export class FlagNetworkDataSource implements DataSource {
       }
 
       if (this.data) {
-        this.startPollingInterval();
+        this.pollingSource.startInterval();
         return true;
       }
       return false;
     } catch {
       clearTimeout(timeoutId!);
       return false;
-    }
-  }
-
-  /**
-   * Starts polling (initial poll + interval).
-   */
-  private startPolling(): void {
-    if (this.pollingIntervalId) return;
-
-    this.pollingAbortController = new AbortController();
-
-    // Perform initial poll
-    void this.performPoll();
-
-    // Start interval
-    this.startPollingInterval();
-  }
-
-  /**
-   * Starts the polling interval (without initial poll).
-   */
-  private startPollingInterval(): void {
-    if (this.pollingIntervalId) return;
-
-    this.pollingIntervalId = setInterval(
-      () => void this.performPoll(),
-      this.options.polling.intervalMs,
-    );
-  }
-
-  /**
-   * Stops polling.
-   */
-  private stopPolling(): void {
-    if (this.pollingIntervalId) {
-      clearInterval(this.pollingIntervalId);
-      this.pollingIntervalId = undefined;
-    }
-    this.pollingAbortController?.abort();
-    this.pollingAbortController = undefined;
-  }
-
-  /**
-   * Performs a single poll request.
-   */
-  private async performPoll(): Promise<void> {
-    if (this.pollingAbortController?.signal.aborted) return;
-
-    try {
-      const data = await fetchDatafile(
-        this.host,
-        this.options.sdkKey,
-        this.options.fetch,
-      );
-      if (this.isNewerData(data)) {
-        this.data = data;
-      }
-    } catch (error) {
-      console.error('@vercel/flags-core: Poll failed:', error);
     }
   }
 
@@ -686,9 +620,13 @@ export class FlagNetworkDataSource implements DataSource {
    */
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
-      void this.startStream();
+      void this.streamSource.start();
+      this.transition('streaming');
     } else if (this.options.polling.enabled) {
-      this.startPolling();
+      this.pollingSource.startInterval();
+      this.transition('polling');
+    } else {
+      this.transition('degraded');
     }
   }
 
@@ -702,45 +640,43 @@ export class FlagNetworkDataSource implements DataSource {
   private async initializeForBuildStep(): Promise<void> {
     if (this.data) return;
 
-    if (this.bundledDefinitionsPromise) {
-      const bundledResult = await this.bundledDefinitionsPromise;
-      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-        this.data = bundledResult.definitions;
-        return;
-      }
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      this.data = bundled;
+      return;
     }
 
-    this.data = await fetchDatafile(
+    const fetched = await fetchDatafile(
       this.host,
       this.options.sdkKey,
       this.options.fetch,
     );
+    this.data = tagData(fetched, 'fetched');
   }
 
   /**
    * Retrieves data during build steps.
    */
   private async getDataForBuildStep(): Promise<
-    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
+    [TaggedData, Metrics['cacheStatus']]
   > {
     if (this.data) {
-      return [this.data, 'in-memory', 'HIT'];
+      return [this.data, 'HIT'];
     }
 
-    if (this.bundledDefinitionsPromise) {
-      const bundledResult = await this.bundledDefinitionsPromise;
-      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-        this.data = bundledResult.definitions;
-        return [this.data, 'embedded', 'MISS'];
-      }
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      this.data = bundled;
+      return [this.data, 'MISS'];
     }
 
-    this.data = await fetchDatafile(
+    const fetched = await fetchDatafile(
       this.host,
       this.options.sdkKey,
       this.options.fetch,
     );
-    return [this.data, 'remote', 'MISS'];
+    this.data = tagData(fetched, 'fetched');
+    return [this.data, 'MISS'];
   }
 
   // ---------------------------------------------------------------------------
@@ -751,52 +687,56 @@ export class FlagNetworkDataSource implements DataSource {
    * Returns data from the in-memory cache.
    */
   private getDataFromCache(
-    cachedData?: DatafileInput,
-  ): [DatafileInput, Metrics['source'], Metrics['cacheStatus']] {
+    cachedData?: TaggedData,
+  ): [TaggedData, Metrics['cacheStatus']] {
     const data = cachedData ?? this.data!;
     this.warnIfDisconnected();
-    const cacheStatus = this.isStreamConnected ? 'HIT' : 'STALE';
-    return [data, 'in-memory', cacheStatus];
+    const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+    return [data, cacheStatus];
   }
 
   /**
    * Retrieves data using the fallback chain.
    */
   private async getDataWithFallbacks(): Promise<
-    [DatafileInput, Metrics['source'], Metrics['cacheStatus']]
+    [TaggedData, Metrics['cacheStatus']]
   > {
     // Try stream with timeout
     if (this.options.stream.enabled) {
+      this.transition('initializing:stream');
       const streamSuccess = await this.tryInitializeStream();
       if (streamSuccess && this.data) {
-        return [this.data, 'in-memory', 'MISS'];
+        this.transition('streaming');
+        return [this.data, 'MISS'];
       }
     }
 
     // Try polling with timeout
     if (this.options.polling.enabled) {
+      this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
       if (pollingSuccess && this.data) {
-        return [this.data, 'remote', 'MISS'];
+        this.transition('polling');
+        return [this.data, 'MISS'];
       }
     }
+
+    this.transition('initializing:fallback');
 
     // Use provided datafile
     if (this.options.datafile) {
-      this.data = this.options.datafile;
-      return [this.data, 'in-memory', 'STALE'];
+      this.data = tagData(this.options.datafile, 'provided');
+      this.transition('degraded');
+      return [this.data, 'STALE'];
     }
 
     // Use bundled definitions
-    if (this.bundledDefinitionsPromise) {
-      const bundledResult = await this.bundledDefinitionsPromise;
-      if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-        console.warn(
-          '@vercel/flags-core: Using bundled definitions as fallback',
-        );
-        this.data = bundledResult.definitions;
-        return [this.data, 'embedded', 'STALE'];
-      }
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      console.warn('@vercel/flags-core: Using bundled definitions as fallback');
+      this.data = bundled;
+      this.transition('degraded');
+      return [this.data, 'STALE'];
     }
 
     throw new Error(
@@ -809,16 +749,9 @@ export class FlagNetworkDataSource implements DataSource {
    * Initializes from bundled definitions.
    */
   private async initializeFromBundled(): Promise<void> {
-    if (!this.bundledDefinitionsPromise) {
-      throw new Error(
-        '@vercel/flags-core: No flag definitions available. ' +
-          'Ensure streaming/polling is enabled or provide a datafile.',
-      );
-    }
-
-    const bundledResult = await this.bundledDefinitionsPromise;
-    if (bundledResult?.state === 'ok' && bundledResult.definitions) {
-      this.data = bundledResult.definitions;
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      this.data = bundled;
       return;
     }
 
@@ -828,18 +761,9 @@ export class FlagNetworkDataSource implements DataSource {
     );
   }
 
-  /**
-   * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
-   * Returns undefined if the value is missing or cannot be parsed.
-   */
-  private static parseConfigUpdatedAt(value: unknown): number | undefined {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const parsed = Number(value);
-      return Number.isNaN(parsed) ? undefined : parsed;
-    }
-    return undefined;
-  }
+  // ---------------------------------------------------------------------------
+  // Data comparison
+  // ---------------------------------------------------------------------------
 
   /**
    * Checks if the incoming data is newer than the current in-memory data.
@@ -855,12 +779,8 @@ export class FlagNetworkDataSource implements DataSource {
   private isNewerData(incoming: DatafileInput): boolean {
     if (!this.data) return true;
 
-    const currentTs = FlagNetworkDataSource.parseConfigUpdatedAt(
-      this.data.configUpdatedAt,
-    );
-    const incomingTs = FlagNetworkDataSource.parseConfigUpdatedAt(
-      incoming.configUpdatedAt,
-    );
+    const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
+    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
 
     if (currentTs === undefined || incomingTs === undefined) {
       return true;
@@ -873,7 +793,7 @@ export class FlagNetworkDataSource implements DataSource {
    * Logs a warning if returning cached data while stream is disconnected.
    */
   private warnIfDisconnected(): void {
-    if (!this.isStreamConnected && !this.hasWarnedAboutStaleData) {
+    if (!this.isConnected && !this.hasWarnedAboutStaleData) {
       this.hasWarnedAboutStaleData = true;
       console.warn(
         '@vercel/flags-core: Returning in-memory flag definitions while stream is disconnected. Data may be stale.',
