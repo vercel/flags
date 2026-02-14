@@ -4,95 +4,27 @@ import type {
   DatafileInput,
   DataSource,
   Metrics,
-  PollingOptions,
-  StreamOptions,
 } from '../types';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
+import {
+  type ControllerOptions,
+  type NormalizedOptions,
+  normalizeOptions,
+} from './normalized-options';
 import { PollingSource } from './polling-source';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
+import { parseConfigUpdatedAt } from './utils';
 
 export { BundledSource } from './bundled-source';
 export { PollingSource } from './polling-source';
 export { StreamSource } from './stream-source';
 
-const FLAGS_HOST = 'https://flags.vercel.com';
-const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
-const DEFAULT_POLLING_INTERVAL_MS = 30_000;
-const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
-
-/**
- * Configuration options for Controller
- */
-export type ControllerOptions = {
-  /** SDK key for authentication (must start with "vf_") */
-  sdkKey: string;
-
-  /**
-   * Initial datafile to use immediately
-   * - At runtime: used while waiting for stream/poll, then updated in background
-   * - At build step: used as primary source (skips network)
-   */
-  datafile?: DatafileInput;
-
-  /**
-   * Configure streaming connection (runtime only, ignored during build step)
-   * - `true`: Enable with default options (initTimeoutMs: 3000)
-   * - `false`: Disable streaming
-   * - `{ initTimeoutMs: number }`: Enable with custom timeout
-   * @default true
-   */
-  stream?: boolean | StreamOptions;
-
-  /**
-   * Configure polling fallback (runtime only, ignored during build step)
-   * - `true`: Enable with default options (intervalMs: 30000, initTimeoutMs: 3000)
-   * - `false`: Disable polling
-   * - `{ intervalMs: number, initTimeoutMs: number }`: Enable with custom options
-   * @default true
-   */
-  polling?: boolean | PollingOptions;
-
-  /**
-   * Override build step detection
-   * - `true`: Treat as build step (use datafile/bundled only, no network)
-   * - `false`: Treat as runtime (try stream/poll first)
-   * @default auto-detected via CI=1 or NEXT_PHASE=phase-production-build
-   */
-  buildStep?: boolean;
-
-  /**
-   * Custom fetch function for making HTTP requests.
-   * Useful for testing (e.g. resolving to a different IP).
-   * @default globalThis.fetch
-   */
-  fetch?: typeof globalThis.fetch;
-
-  /**
-   * Custom source modules for dependency injection (testing).
-   * When provided, these replace the default source instances.
-   */
-  sources?: {
-    stream?: StreamSource;
-    polling?: PollingSource;
-    bundled?: BundledSource;
-  };
-};
-
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
-
-type NormalizedOptions = {
-  sdkKey: string;
-  datafile: DatafileInput | undefined;
-  stream: { enabled: boolean; initTimeoutMs: number };
-  polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
-  buildStep: boolean;
-  fetch: typeof globalThis.fetch;
-};
 
 /**
  * Explicit states for the controller state machine.
@@ -108,69 +40,6 @@ type State =
   | 'build:loading'
   | 'build:ready'
   | 'shutdown';
-
-// ---------------------------------------------------------------------------
-// Option normalization
-// ---------------------------------------------------------------------------
-
-function normalizeOptions(options: ControllerOptions): NormalizedOptions {
-  const autoDetectedBuildStep =
-    process.env.CI === '1' ||
-    process.env.NEXT_PHASE === 'phase-production-build';
-  const buildStep = options.buildStep ?? autoDetectedBuildStep;
-
-  let stream: NormalizedOptions['stream'];
-  if (options.stream === undefined || options.stream === true) {
-    stream = { enabled: true, initTimeoutMs: DEFAULT_STREAM_INIT_TIMEOUT_MS };
-  } else if (options.stream === false) {
-    stream = { enabled: false, initTimeoutMs: 0 };
-  } else {
-    stream = { enabled: true, initTimeoutMs: options.stream.initTimeoutMs };
-  }
-
-  let polling: NormalizedOptions['polling'];
-  if (options.polling === undefined || options.polling === true) {
-    polling = {
-      enabled: true,
-      intervalMs: DEFAULT_POLLING_INTERVAL_MS,
-      initTimeoutMs: DEFAULT_POLLING_INIT_TIMEOUT_MS,
-    };
-  } else if (options.polling === false) {
-    polling = { enabled: false, intervalMs: 0, initTimeoutMs: 0 };
-  } else {
-    polling = {
-      enabled: true,
-      intervalMs: options.polling.intervalMs,
-      initTimeoutMs: options.polling.initTimeoutMs,
-    };
-  }
-
-  return {
-    sdkKey: options.sdkKey,
-    datafile: options.datafile,
-    stream,
-    polling,
-    buildStep,
-    fetch: options.fetch ?? globalThis.fetch,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
- * Returns undefined if the value is missing or cannot be parsed.
- */
-function parseConfigUpdatedAt(value: unknown): number | undefined {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-  return undefined;
-}
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -194,7 +63,6 @@ function parseConfigUpdatedAt(value: unknown): number | undefined {
  */
 export class Controller implements DataSource {
   private options: NormalizedOptions;
-  private host = FLAGS_HOST;
 
   // State machine
   private state: State = 'idle';
@@ -206,9 +74,6 @@ export class Controller implements DataSource {
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
-
-  // UI state
-  private hasWarnedAboutStaleData: boolean = false;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -229,21 +94,10 @@ export class Controller implements DataSource {
 
     // Create source modules (or use injected ones for testing)
     this.streamSource =
-      options.sources?.stream ??
-      new StreamSource({
-        host: this.host,
-        sdkKey: this.options.sdkKey,
-        fetch: this.options.fetch,
-      });
+      options.sources?.stream ?? new StreamSource(this.options);
 
     this.pollingSource =
-      options.sources?.polling ??
-      new PollingSource({
-        host: this.host,
-        sdkKey: this.options.sdkKey,
-        intervalMs: this.options.polling.intervalMs,
-        fetch: this.options.fetch,
-      });
+      options.sources?.polling ?? new PollingSource(this.options);
 
     this.bundledSource =
       options.sources?.bundled ?? new BundledSource(this.options.sdkKey);
@@ -256,10 +110,7 @@ export class Controller implements DataSource {
       this.data = tagData(this.options.datafile, 'provided');
     }
 
-    this.usageTracker = new UsageTracker({
-      sdkKey: this.options.sdkKey,
-      host: this.host,
-    });
+    this.usageTracker = new UsageTracker(this.options);
   }
 
   // ---------------------------------------------------------------------------
@@ -272,7 +123,6 @@ export class Controller implements DataSource {
       if (this.isNewerData(data)) {
         this.data = data;
       }
-      this.hasWarnedAboutStaleData = false;
     });
 
     this.streamSource.on('connected', () => {
@@ -434,7 +284,6 @@ export class Controller implements DataSource {
       ? tagData(this.options.datafile, 'provided')
       : undefined;
     this.transition('shutdown');
-    this.hasWarnedAboutStaleData = false;
     await this.usageTracker.flush();
   }
 
@@ -677,7 +526,6 @@ export class Controller implements DataSource {
     cachedData?: TaggedData,
   ): [TaggedData, Metrics['cacheStatus']] {
     const data = cachedData ?? this.data!;
-    this.warnIfDisconnected();
     const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
     return [data, cacheStatus];
   }
@@ -774,18 +622,6 @@ export class Controller implements DataSource {
     }
 
     return incomingTs >= currentTs;
-  }
-
-  /**
-   * Logs a warning if returning cached data while stream is disconnected.
-   */
-  private warnIfDisconnected(): void {
-    if (!this.isConnected && !this.hasWarnedAboutStaleData) {
-      this.hasWarnedAboutStaleData = true;
-      console.warn(
-        '@vercel/flags-core: Returning in-memory flag definitions while stream is disconnected. Data may be stale.',
-      );
-    }
   }
 
   // ---------------------------------------------------------------------------
