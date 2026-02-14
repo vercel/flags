@@ -1,4 +1,4 @@
-import { ControllerInstance } from './controller-instance-map';
+import type { ControllerInstance } from './controller-instance-map';
 
 /**
  * Options for stream connection behavior
