@@ -19,6 +19,7 @@ import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
 import { parseConfigUpdatedAt } from './utils';
 
 export { BundledSource } from './bundled-source';
+export type { ControllerOptions } from './normalized-options';
 export { PollingSource } from './polling-source';
 export { StreamSource } from './stream-source';
 
@@ -309,11 +310,7 @@ export class Controller implements DataSource {
       [result, cacheStatus] = this.getDataFromCache();
       source = originToMetricsSource(result._origin);
     } else {
-      const fetched = await fetchDatafile(
-        this.host,
-        this.options.sdkKey,
-        this.options.fetch,
-      );
+      const fetched = await fetchDatafile(this.options);
       const tagged = tagData(fetched, 'fetched');
       if (this.isNewerData(tagged)) {
         this.data = tagged;
@@ -482,11 +479,7 @@ export class Controller implements DataSource {
       return;
     }
 
-    const fetched = await fetchDatafile(
-      this.host,
-      this.options.sdkKey,
-      this.options.fetch,
-    );
+    const fetched = await fetchDatafile(this.options);
     this.data = tagData(fetched, 'fetched');
   }
 
@@ -507,7 +500,7 @@ export class Controller implements DataSource {
     }
 
     const fetched = await fetchDatafile(
-      this.host,
+      this.options.host,
       this.options.sdkKey,
       this.options.fetch,
     );

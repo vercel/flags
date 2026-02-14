@@ -6,11 +6,11 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 /**
  * Fetches the datafile from the flags service.
  */
-export async function fetchDatafile(
-  host: string,
-  sdkKey: string,
-  fetchFn: typeof globalThis.fetch,
-): Promise<BundledDefinitions> {
+export async function fetchDatafile(options: {
+  host: string;
+  sdkKey: string;
+  fetch: typeof globalThis.fetch;
+}): Promise<BundledDefinitions> {
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
@@ -18,9 +18,9 @@ export async function fetchDatafile(
   );
 
   try {
-    const res = await fetchFn(`${host}/v1/datafile`, {
+    const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
-        Authorization: `Bearer ${sdkKey}`,
+        Authorization: `Bearer ${options.sdkKey}`,
         'User-Agent': `VercelFlagsCore/${version}`,
       },
       signal: controller.signal,
