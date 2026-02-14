@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { BundledSource, PollingSource, StreamSource } from './controller';
 import type { StreamMessage } from './controller/stream-connection';
 import {
-  BundledDefinitions,
+  type BundledDefinitions,
   createClient,
   type FlagsClient,
 } from './index.default';
@@ -172,6 +172,39 @@ describe('Manual', () => {
       await expect(initPromise).resolves.toBeUndefined();
 
       expect(streamFetchMock).toHaveBeenCalledTimes(1);
+      expect(pollingFetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fall back to polling without double-polling when stream hangs', async () => {
+      const datafile: BundledDefinitions = {
+        definitions: {},
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 1,
+        digest: 'abc',
+        revision: 1,
+      };
+
+      // stream opens but never sends initial data
+      const messageStream = createMockStream();
+      streamFetchMock.mockReturnValueOnce(messageStream.response);
+
+      // polling returns a valid datafile
+      pollingFetchMock.mockImplementation(() =>
+        Promise.resolve(Response.json(datafile)),
+      );
+
+      const initPromise = client.initialize();
+
+      // Advance past the stream init timeout (3s)
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      await initPromise;
+
+      // poll() should only be called once by tryInitializePolling,
+      // not a second time by startInterval's immediate poll
+      expect(pollingFetchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

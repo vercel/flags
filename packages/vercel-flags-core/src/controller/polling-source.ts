@@ -51,15 +51,13 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
 
   /**
    * Start interval-based polling.
-   * Performs an initial poll immediately, then polls at the configured interval.
+   * Polls at the configured interval. Does not perform an initial poll —
+   * callers should call poll() first if an immediate poll is needed.
    */
   startInterval(): void {
     if (this.intervalId) return;
 
     this.abortController = new AbortController();
-
-    // Initial poll
-    void this.poll();
 
     // Start interval
     this.intervalId = setInterval(

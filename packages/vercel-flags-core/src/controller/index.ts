@@ -149,6 +149,7 @@ export class Controller implements ControllerInterface {
       // During initialization states, initialize() manages its own fallback chain.
       if (this.state === 'streaming') {
         if (this.options.polling.enabled) {
+          void this.pollingSource.poll();
           this.pollingSource.startInterval();
           this.transition('polling');
         } else {
@@ -461,6 +462,7 @@ export class Controller implements ControllerInterface {
       void this.streamSource.start();
       this.transition('streaming');
     } else if (this.options.polling.enabled) {
+      void this.pollingSource.poll();
       this.pollingSource.startInterval();
       this.transition('polling');
     } else {
