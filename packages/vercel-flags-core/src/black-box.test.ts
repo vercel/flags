@@ -2,14 +2,19 @@
 // extend client with concept of request transaction so a single request is guaranteed consistent flag data?
 //   could be unexpected if used in a workflow or stream or whatever
 
-import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest';
 import { BundledSource, PollingSource, StreamSource } from './controller';
 import type { StreamMessage } from './controller/stream-connection';
-import {
-  type BundledDefinitions,
-  createClient,
-  type FlagsClient,
-} from './index.default';
+import { type BundledDefinitions, createClient } from './index.default';
+import type { BundledDefinitionsResult } from './types';
 import type { readBundledDefinitions } from './utils/read-bundled-definitions';
 
 /**
@@ -48,56 +53,80 @@ function createMockStream() {
 const host = 'https://flags.vercel.com';
 const sdkKey = 'vf_fake';
 
-let clientFetchMock: Mock<typeof fetch>;
-let streamFetchMock: Mock<typeof fetch>;
-let stream: StreamSource;
-let pollingFetchMock: Mock<typeof fetch>;
-let polling: PollingSource;
-let readBundledDefinitionsMock: Mock<typeof readBundledDefinitions>;
-let bundled: BundledSource;
-let client: FlagsClient;
+/**
+ * Creates a test client with isolated mocks.
+ * Each test can configure bundled definitions via the optional parameter,
+ * avoiding side effects from eager BundledSource construction.
+ */
+function createTestClient(options?: {
+  bundledResult?: BundledDefinitionsResult;
+}) {
+  const clientFetchMock: Mock<typeof fetch> = vi.fn();
+  const streamFetchMock: Mock<typeof fetch> = vi.fn();
+  const stream = new StreamSource({
+    fetch: streamFetchMock,
+    host,
+    sdkKey,
+  });
+
+  const pollingFetchMock: Mock<typeof fetch> = vi.fn();
+  const polling = new PollingSource({
+    fetch: pollingFetchMock,
+    host,
+    sdkKey,
+    polling: { intervalMs: 1000 },
+  });
+
+  const readBundledDefinitionsMock: Mock<typeof readBundledDefinitions> =
+    vi.fn();
+  if (options?.bundledResult) {
+    readBundledDefinitionsMock.mockReturnValue(
+      Promise.resolve(options.bundledResult),
+    );
+  }
+  const bundled = new BundledSource({
+    readBundledDefinitions: readBundledDefinitionsMock,
+    sdkKey,
+  });
+
+  const client = createClient(sdkKey, {
+    buildStep: false,
+    datafile: undefined,
+    fetch: clientFetchMock,
+    sources: {
+      stream,
+      polling,
+      bundled,
+    },
+  });
+
+  return {
+    client,
+    clientFetchMock,
+    streamFetchMock,
+    pollingFetchMock,
+    readBundledDefinitionsMock,
+  };
+}
 
 describe('Manual', () => {
   beforeEach(() => {
-    vi.resetAllMocks();
     vi.useFakeTimers();
+  });
 
-    clientFetchMock = vi.fn();
-    streamFetchMock = vi.fn();
-    stream = new StreamSource({
-      fetch: streamFetchMock,
-      host,
-      sdkKey,
-    });
-
-    pollingFetchMock = vi.fn();
-    polling = new PollingSource({
-      fetch: pollingFetchMock,
-      host,
-      sdkKey,
-      polling: { intervalMs: 1000 },
-    });
-
-    readBundledDefinitionsMock = vi.fn();
-    bundled = new BundledSource({
-      readBundledDefinitions: readBundledDefinitionsMock,
-      sdkKey,
-    });
-
-    client = createClient(sdkKey, {
-      buildStep: false,
-      datafile: undefined,
-      fetch: clientFetchMock,
-      sources: {
-        stream,
-        polling,
-        bundled,
-      },
-    });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('creating a client', () => {
     it('should only load the bundled definitions but not stream or poll', () => {
+      const {
+        client,
+        streamFetchMock,
+        pollingFetchMock,
+        readBundledDefinitionsMock,
+      } = createTestClient();
+
       expect(client).toBeDefined();
       expect(streamFetchMock).not.toHaveBeenCalled();
       expect(pollingFetchMock).not.toHaveBeenCalled();
@@ -107,6 +136,8 @@ describe('Manual', () => {
 
   describe('initializing the client', () => {
     it('should init from the stream', async () => {
+      const { client, streamFetchMock } = createTestClient();
+
       const datafile = {
         definitions: {},
         segments: {},
@@ -137,23 +168,8 @@ describe('Manual', () => {
         revision: 1,
       };
 
-      // bundled definitions must be set up before creating the client,
-      // because BundledSource eagerly calls readBundledDefinitions in its constructor.
-      readBundledDefinitionsMock.mockReturnValue(
-        Promise.resolve({
-          state: 'ok' as const,
-          definitions: datafile,
-        }),
-      );
-      bundled = new BundledSource({
-        readBundledDefinitions: readBundledDefinitionsMock,
-        sdkKey,
-      });
-      client = createClient(sdkKey, {
-        buildStep: false,
-        datafile: undefined,
-        fetch: clientFetchMock,
-        sources: { stream, polling, bundled },
+      const { client, streamFetchMock, pollingFetchMock } = createTestClient({
+        bundledResult: { state: 'ok', definitions: datafile },
       });
 
       // stream opens but never sends initial data
@@ -161,8 +177,9 @@ describe('Manual', () => {
       streamFetchMock.mockReturnValueOnce(messageStream.response);
 
       // polling request starts but never resolves
-      const neverResolving = new Promise<Response>(() => {});
-      pollingFetchMock.mockReturnValue(neverResolving);
+      pollingFetchMock.mockImplementation(
+        () => new Promise<Response>(() => {}),
+      );
 
       const initPromise = client.initialize();
 
@@ -190,6 +207,8 @@ describe('Manual', () => {
         digest: 'abc',
         revision: 1,
       };
+
+      const { client, streamFetchMock, pollingFetchMock } = createTestClient();
 
       // stream opens but never sends initial data
       const messageStream = createMockStream();
