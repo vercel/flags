@@ -2,16 +2,39 @@ import { StandardResolutionReasons } from '@openfeature/server-sdk';
 import { describe, expect, it } from 'vitest';
 import * as fns from './client-fns';
 import { createCreateRawClient } from './create-raw-client';
-import { InMemoryDataSource } from './data-source/in-memory-data-source';
 import { VercelProvider } from './openfeature.default';
-import type { Packed } from './types';
+import type { Datafile, DataSource, Packed } from './types';
+
+function createStaticDataSource(opts: {
+  data: Packed.Data;
+  projectId: string;
+  environment: string;
+}): DataSource {
+  const datafile: Datafile = {
+    ...opts.data,
+    projectId: opts.projectId,
+    environment: opts.environment,
+    metrics: {
+      readMs: 0,
+      source: 'in-memory',
+      cacheStatus: 'HIT',
+      connectionState: 'connected',
+    },
+  };
+  return {
+    initialize: () => Promise.resolve(),
+    read: () => Promise.resolve(datafile),
+    getDatafile: () => Promise.resolve(datafile),
+    shutdown: () => {},
+  };
+}
 
 const createRawClient = createCreateRawClient(fns);
 
 describe('VercelProvider', () => {
   describe('constructor', () => {
     it('should accept a FlagsClient', () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -35,7 +58,7 @@ describe('VercelProvider', () => {
 
   describe('resolveBooleanEvaluation', () => {
     it('should resolve a boolean flag', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'boolean-flag': {
@@ -62,7 +85,7 @@ describe('VercelProvider', () => {
     });
 
     it('should return default value when flag is not found', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -82,7 +105,7 @@ describe('VercelProvider', () => {
     });
 
     it('should use fallthrough outcome for active flags', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'active-flag': {
@@ -115,7 +138,7 @@ describe('VercelProvider', () => {
 
   describe('resolveStringEvaluation', () => {
     it('should resolve a string flag', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'string-flag': {
@@ -142,7 +165,7 @@ describe('VercelProvider', () => {
     });
 
     it('should return default value when flag is not found', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -164,7 +187,7 @@ describe('VercelProvider', () => {
 
   describe('resolveNumberEvaluation', () => {
     it('should resolve a number flag', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'number-flag': {
@@ -191,7 +214,7 @@ describe('VercelProvider', () => {
     });
 
     it('should return default value when flag is not found', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -213,7 +236,7 @@ describe('VercelProvider', () => {
 
   describe('resolveObjectEvaluation', () => {
     it('should resolve an object flag', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'object-flag': {
@@ -240,7 +263,7 @@ describe('VercelProvider', () => {
     });
 
     it('should return default value when flag is not found', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -262,7 +285,7 @@ describe('VercelProvider', () => {
 
   describe('initialize', () => {
     it('should initialize without errors', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -276,7 +299,7 @@ describe('VercelProvider', () => {
 
   describe('onClose', () => {
     it('should close without errors', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: { definitions: {}, segments: {} },
         projectId: 'test',
         environment: 'production',
@@ -290,7 +313,7 @@ describe('VercelProvider', () => {
 
   describe('context passing', () => {
     it('should pass evaluation context to the client', async () => {
-      const dataSource = new InMemoryDataSource({
+      const dataSource = createStaticDataSource({
         data: {
           definitions: {
             'context-flag': {
