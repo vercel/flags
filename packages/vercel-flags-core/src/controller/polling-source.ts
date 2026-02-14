@@ -9,7 +9,7 @@ export type PollingSourceConfig = {
   polling: {
     intervalMs: number;
   };
-  fetch?: typeof globalThis.fetch;
+  fetch: typeof globalThis.fetch;
 };
 
 export type PollingSourceEvents = {
@@ -39,11 +39,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     if (this.abortController?.signal.aborted) return;
 
     try {
-      const data = await fetchDatafile(
-        this.config.host,
-        this.config.sdkKey,
-        this.config.fetch ?? globalThis.fetch,
-      );
+      const data = await fetchDatafile(this.config);
       const tagged = tagData(data, 'poll');
       this.emit('data', tagged);
     } catch (error) {

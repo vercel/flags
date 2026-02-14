@@ -499,11 +499,7 @@ export class Controller implements DataSource {
       return [this.data, 'MISS'];
     }
 
-    const fetched = await fetchDatafile(
-      this.options.host,
-      this.options.sdkKey,
-      this.options.fetch,
-    );
+    const fetched = await fetchDatafile(this.options);
     this.data = tagData(fetched, 'fetched');
     return [this.data, 'MISS'];
   }
