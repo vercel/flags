@@ -8,20 +8,15 @@ import type {
   StreamOptions,
 } from '../types';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
-
-export { BundledSource } from './bundled-source';
-
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
-
-export { PollingSource } from './polling-source';
-
 import { PollingSource } from './polling-source';
-
-export { StreamSource } from './stream-source';
-
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
+
+export { BundledSource } from './bundled-source';
+export { PollingSource } from './polling-source';
+export { StreamSource } from './stream-source';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
@@ -328,14 +323,6 @@ export class Controller implements DataSource {
 
   private get isConnected(): boolean {
     return this.state === 'streaming';
-  }
-
-  private get isInitializing(): boolean {
-    return (
-      this.state === 'initializing:stream' ||
-      this.state === 'initializing:polling' ||
-      this.state === 'initializing:fallback'
-    );
   }
 
   // ---------------------------------------------------------------------------
