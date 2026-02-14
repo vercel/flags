@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clientMap } from './client-map';
+import { controllerInstanceMap } from './controller-instance-map';
 import { createCreateRawClient } from './create-raw-client';
-import type { BundledDefinitions, DataSource } from './types';
+import type { BundledDefinitions, ControllerInterface } from './types';
 
-function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
+function createMockController(
+  overrides?: Partial<ControllerInterface>,
+): ControllerInterface {
   return {
     read: vi.fn().mockResolvedValue({
       projectId: 'test-project',
@@ -62,62 +64,62 @@ function createMockFns() {
 
 describe('createCreateRawClient', () => {
   beforeEach(() => {
-    clientMap.clear();
+    controllerInstanceMap.clear();
   });
 
   afterEach(() => {
-    clientMap.clear();
+    controllerInstanceMap.clear();
   });
 
   describe('client creation', () => {
-    it('should add dataSource to clientMap on creation', () => {
+    it('should add controller to controllerInstanceMap on creation', () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      expect(clientMap.size).toBe(0);
+      expect(controllerInstanceMap.size).toBe(0);
 
-      createRawClient({ dataSource });
+      createRawClient({ controller });
 
-      expect(clientMap.size).toBe(1);
+      expect(controllerInstanceMap.size).toBe(1);
     });
 
-    it('should store the correct dataSource in clientMap', () => {
+    it('should store the correct controller in controllerInstanceMap', () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const initialSize = clientMap.size;
-      createRawClient({ dataSource });
+      const initialSize = controllerInstanceMap.size;
+      createRawClient({ controller });
 
-      // The dataSource should be stored in the map
-      expect(clientMap.size).toBe(initialSize + 1);
+      // The controller should be stored in the map
+      expect(controllerInstanceMap.size).toBe(initialSize + 1);
       // Find the entry that was just added
-      const entries = Array.from(clientMap.entries());
+      const entries = Array.from(controllerInstanceMap.entries());
       const lastEntry = entries[entries.length - 1];
-      expect(lastEntry?.[1].dataSource).toBe(dataSource);
+      expect(lastEntry?.[1].controller).toBe(controller);
     });
 
     it('should assign incrementing IDs to each client', () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
 
-      const ds1 = createMockDataSource();
-      const ds2 = createMockDataSource();
-      const ds3 = createMockDataSource();
+      const ds1 = createMockController();
+      const ds2 = createMockController();
+      const ds3 = createMockController();
 
-      const initialSize = clientMap.size;
+      const initialSize = controllerInstanceMap.size;
 
-      createRawClient({ dataSource: ds1 });
-      createRawClient({ dataSource: ds2 });
-      createRawClient({ dataSource: ds3 });
+      createRawClient({ controller: ds1 });
+      createRawClient({ controller: ds2 });
+      createRawClient({ controller: ds3 });
 
-      expect(clientMap.size).toBe(initialSize + 3);
-      // Each dataSource should be stored under a different key
-      const entries = Array.from(clientMap.entries()).slice(-3);
-      expect(entries?.[0]?.[1].dataSource).toBe(ds1);
-      expect(entries?.[1]?.[1].dataSource).toBe(ds2);
-      expect(entries?.[2]?.[1].dataSource).toBe(ds3);
+      expect(controllerInstanceMap.size).toBe(initialSize + 3);
+      // Each controller should be stored under a different key
+      const entries = Array.from(controllerInstanceMap.entries()).slice(-3);
+      expect(entries?.[0]?.[1].controller).toBe(ds1);
+      expect(entries?.[1]?.[1].controller).toBe(ds2);
+      expect(entries?.[2]?.[1].controller).toBe(ds3);
       // IDs should be incrementing
       expect(entries?.[1]?.[0]).toBe(entries![0]![0] + 1);
       expect(entries?.[2]?.[0]).toBe(entries![1]![0] + 1);
@@ -128,9 +130,9 @@ describe('createCreateRawClient', () => {
     it('should call fns.initialize with the client ID', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       await client.initialize();
 
       expect(fns.initialize).toHaveBeenCalledTimes(1);
@@ -138,35 +140,35 @@ describe('createCreateRawClient', () => {
       expect(fns.initialize).toHaveBeenCalledWith(expect.any(Number));
     });
 
-    it('should re-add dataSource to clientMap if removed', async () => {
+    it('should re-add controller to controllerInstanceMap if removed', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
       // Simulate removal from map (e.g., after shutdown)
-      clientMap.clear();
-      expect(clientMap.size).toBe(0);
+      controllerInstanceMap.clear();
+      expect(controllerInstanceMap.size).toBe(0);
 
       await client.initialize();
 
       // Should be re-added
-      expect(clientMap.size).toBe(1);
+      expect(controllerInstanceMap.size).toBe(1);
     });
 
-    it('should not duplicate if already in clientMap', async () => {
+    it('should not duplicate if already in controllerInstanceMap', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
-      expect(clientMap.size).toBe(1);
+      expect(controllerInstanceMap.size).toBe(1);
 
       await client.initialize();
 
-      expect(clientMap.size).toBe(1);
+      expect(controllerInstanceMap.size).toBe(1);
     });
 
     it('should deduplicate concurrent initialize() calls', async () => {
@@ -176,9 +178,9 @@ describe('createCreateRawClient', () => {
         () => new Promise((resolve) => setTimeout(resolve, 50)),
       );
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
       await Promise.all([
         client.initialize(),
@@ -195,9 +197,9 @@ describe('createCreateRawClient', () => {
         () => new Promise((resolve) => setTimeout(resolve, 50)),
       );
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
       await Promise.all([
         client.evaluate('flag-a'),
@@ -215,9 +217,9 @@ describe('createCreateRawClient', () => {
         .mockRejectedValueOnce(new Error('init failed'))
         .mockResolvedValueOnce(undefined);
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
       await expect(client.initialize()).rejects.toThrow('init failed');
       await client.initialize();
@@ -230,27 +232,27 @@ describe('createCreateRawClient', () => {
     it('should call fns.shutdown with the client ID', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       await client.shutdown();
 
       expect(fns.shutdown).toHaveBeenCalledTimes(1);
       expect(fns.shutdown).toHaveBeenCalledWith(expect.any(Number));
     });
 
-    it('should remove dataSource from clientMap after shutdown', async () => {
+    it('should remove controller from controllerInstanceMap after shutdown', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
-      expect(clientMap.size).toBe(1);
+      expect(controllerInstanceMap.size).toBe(1);
 
       await client.shutdown();
 
-      expect(clientMap.size).toBe(0);
+      expect(controllerInstanceMap.size).toBe(0);
     });
   });
 
@@ -258,9 +260,9 @@ describe('createCreateRawClient', () => {
     it('should call fns.getFallbackDatafile with the client ID', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       await client.getFallbackDatafile();
 
       expect(fns.getFallbackDatafile).toHaveBeenCalledTimes(1);
@@ -279,9 +281,9 @@ describe('createCreateRawClient', () => {
       } satisfies BundledDefinitions;
       fns.getFallbackDatafile.mockResolvedValue(mockFallback);
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       const result = await client.getFallbackDatafile();
 
       expect(result).toEqual(mockFallback);
@@ -293,9 +295,9 @@ describe('createCreateRawClient', () => {
         new Error('Fallback not supported'),
       );
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
 
       await expect(client.getFallbackDatafile()).rejects.toThrow(
         'Fallback not supported',
@@ -307,9 +309,9 @@ describe('createCreateRawClient', () => {
     it('should call fns.evaluate with correct arguments', async () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       await client.evaluate('my-flag', false, { user: { id: '123' } });
 
       expect(fns.evaluate).toHaveBeenCalledTimes(1);
@@ -330,9 +332,9 @@ describe('createCreateRawClient', () => {
       };
       fns.evaluate.mockResolvedValue(expectedResult);
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       const result = await client.evaluate('my-flag');
 
       expect(result).toEqual(expectedResult);
@@ -342,9 +344,9 @@ describe('createCreateRawClient', () => {
       const fns = createMockFns();
       fns.evaluate.mockResolvedValue({ value: 42, reason: 'static' });
       const createRawClient = createCreateRawClient(fns);
-      const dataSource = createMockDataSource();
+      const controller = createMockController();
 
-      const client = createRawClient({ dataSource });
+      const client = createRawClient({ controller });
       const result = await client.evaluate<number>('numeric-flag', 0);
 
       expect(result.value).toBe(42);
@@ -356,26 +358,26 @@ describe('createCreateRawClient', () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
 
-      const ds1 = createMockDataSource();
-      const ds2 = createMockDataSource();
+      const ds1 = createMockController();
+      const ds2 = createMockController();
 
-      const initialSize = clientMap.size;
+      const initialSize = controllerInstanceMap.size;
 
-      const client1 = createRawClient({ dataSource: ds1 });
-      const client2 = createRawClient({ dataSource: ds2 });
+      const client1 = createRawClient({ controller: ds1 });
+      const client2 = createRawClient({ controller: ds2 });
 
-      expect(clientMap.size).toBe(initialSize + 2);
+      expect(controllerInstanceMap.size).toBe(initialSize + 2);
 
       // Shutdown client1
       await client1.shutdown();
 
       // client2 should still be in the map
-      expect(clientMap.size).toBe(initialSize + 1);
+      expect(controllerInstanceMap.size).toBe(initialSize + 1);
       // ds2 should still be in the map
-      const dataSources = Array.from(clientMap.values()).map(
-        (v) => v.dataSource,
+      const controllers = Array.from(controllerInstanceMap.values()).map(
+        (v) => v.controller,
       );
-      expect(dataSources).toContain(ds2);
+      expect(controllers).toContain(ds2);
       await client2.shutdown();
     });
 
@@ -383,11 +385,11 @@ describe('createCreateRawClient', () => {
       const fns = createMockFns();
       const createRawClient = createCreateRawClient(fns);
 
-      const ds1 = createMockDataSource();
-      const ds2 = createMockDataSource();
+      const ds1 = createMockController();
+      const ds2 = createMockController();
 
-      const client1 = createRawClient({ dataSource: ds1 });
-      const client2 = createRawClient({ dataSource: ds2 });
+      const client1 = createRawClient({ controller: ds1 });
+      const client2 = createRawClient({ controller: ds2 });
 
       await client1.evaluate('flag1');
       await client2.evaluate('flag2');

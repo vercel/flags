@@ -1,23 +1,23 @@
-import { clientMap } from './client-map';
+import { controllerInstanceMap } from './controller-instance-map';
 import { evaluate as evalFlag } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import type { BundledDefinitions, EvaluationResult, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 export function initialize(id: number): Promise<void> {
-  return clientMap.get(id)!.dataSource.initialize();
+  return controllerInstanceMap.get(id)!.controller.initialize();
 }
 
 export function shutdown(id: number): void | Promise<void> {
-  return clientMap.get(id)!.dataSource.shutdown();
+  return controllerInstanceMap.get(id)!.controller.shutdown();
 }
 
 export function getDatafile(id: number) {
-  return clientMap.get(id)!.dataSource.getDatafile();
+  return controllerInstanceMap.get(id)!.controller.getDatafile();
 }
 
 export function getFallbackDatafile(id: number): Promise<BundledDefinitions> {
-  const ds = clientMap.get(id)!.dataSource;
+  const ds = controllerInstanceMap.get(id)!.controller;
   if (ds.getFallbackDatafile) return ds.getFallbackDatafile();
   throw new Error('flags: This data source does not support fallbacks');
 }
@@ -28,8 +28,8 @@ export async function evaluate<T, E = Record<string, unknown>>(
   defaultValue?: T,
   entities?: E,
 ): Promise<EvaluationResult<T>> {
-  const ds = clientMap.get(id)!.dataSource;
-  const datafile = await ds.read();
+  const controller = controllerInstanceMap.get(id)!.controller;
+  const datafile = await controller.read();
   const flagDefinition = datafile.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {

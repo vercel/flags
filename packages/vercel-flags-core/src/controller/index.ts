@@ -1,8 +1,8 @@
 import type {
   BundledDefinitions,
+  ControllerInterface,
   Datafile,
   DatafileInput,
-  DataSource,
   Metrics,
 } from '../types';
 import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
@@ -62,7 +62,7 @@ type State =
  * - If stream reconnects while polling → stop polling
  * - If stream disconnects → start polling (if enabled)
  */
-export class Controller implements DataSource {
+export class Controller implements ControllerInterface {
   private options: NormalizedOptions;
 
   // State machine

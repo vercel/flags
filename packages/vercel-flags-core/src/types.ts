@@ -72,7 +72,7 @@ export type Metrics = {
 /**
  * DataSource interface for the Vercel Flags client
  */
-export interface DataSource {
+export interface ControllerInterface {
   /**
    * Initialize the data source by fetching the initial file or setting up polling or
    * subscriptions.

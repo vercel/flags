@@ -4,9 +4,9 @@ import {
   getFallbackDatafile,
   initialize,
   shutdown,
-} from './client-fns';
-import { clientMap } from './client-map';
-import type { BundledDefinitions, DataSource, Packed } from './types';
+} from './controller-fns';
+import { controllerInstanceMap } from './controller-instance-map';
+import type { BundledDefinitions, ControllerInterface, Packed } from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 // Mock the internalReportValue function
@@ -16,7 +16,9 @@ vi.mock('./lib/report-value', () => ({
 
 import { internalReportValue } from './lib/report-value';
 
-function createMockDataSource(overrides?: Partial<DataSource>): DataSource {
+function createMockController(
+  overrides?: Partial<ControllerInterface>,
+): ControllerInterface {
   return {
     read: vi.fn().mockResolvedValue({
       projectId: 'test-project',
@@ -66,34 +68,34 @@ describe('client-fns', () => {
   const CLIENT_ID = 99;
 
   beforeEach(() => {
-    clientMap.clear();
+    controllerInstanceMap.clear();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    clientMap.clear();
+    controllerInstanceMap.clear();
   });
 
   describe('initialize', () => {
-    it('should call dataSource.initialize()', async () => {
-      const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+    it('should call controller.initialize()', async () => {
+      const controller = createMockController();
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
 
       await initialize(CLIENT_ID);
 
-      expect(dataSource.initialize).toHaveBeenCalledTimes(1);
+      expect(controller.initialize).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the result from dataSource.initialize()', async () => {
-      const dataSource = createMockDataSource({
+    it('should return the result from controller.initialize()', async () => {
+      const controller = createMockController({
         initialize: vi.fn().mockResolvedValue('init-result'),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -109,25 +111,25 @@ describe('client-fns', () => {
   });
 
   describe('shutdown', () => {
-    it('should call dataSource.shutdown()', async () => {
-      const dataSource = createMockDataSource();
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+    it('should call controller.shutdown()', async () => {
+      const controller = createMockController();
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
 
       await shutdown(CLIENT_ID);
 
-      expect(dataSource.shutdown).toHaveBeenCalledTimes(1);
+      expect(controller.shutdown).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the result from dataSource.shutdown()', async () => {
-      const dataSource = createMockDataSource({
+    it('should return the result from controller.shutdown()', async () => {
+      const controller = createMockController({
         shutdown: vi.fn().mockResolvedValue('shutdown-result'),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -143,7 +145,7 @@ describe('client-fns', () => {
   });
 
   describe('getFallbackDatafile', () => {
-    it('should call dataSource.getFallbackDatafile() if it exists', async () => {
+    it('should call controller.getFallbackDatafile() if it exists', async () => {
       const mockFallback: BundledDefinitions = {
         projectId: 'test',
         definitions: {},
@@ -153,11 +155,11 @@ describe('client-fns', () => {
         revision: 1,
       };
       const getFallbackDatafileFn = vi.fn().mockResolvedValue(mockFallback);
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         getFallbackDatafile: getFallbackDatafileFn,
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -167,7 +169,7 @@ describe('client-fns', () => {
       expect(getFallbackDatafileFn).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the result from dataSource.getFallbackDatafile()', async () => {
+    it('should return the result from controller.getFallbackDatafile()', async () => {
       const mockFallback: BundledDefinitions = {
         projectId: 'test',
         definitions: {},
@@ -176,11 +178,11 @@ describe('client-fns', () => {
         digest: 'a',
         revision: 1,
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         getFallbackDatafile: vi.fn().mockResolvedValue(mockFallback),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -190,12 +192,12 @@ describe('client-fns', () => {
       expect(result).toEqual(mockFallback);
     });
 
-    it('should throw if dataSource does not have getFallbackDatafile', () => {
-      const dataSource = createMockDataSource();
+    it('should throw if controller does not have getFallbackDatafile', () => {
+      const controller = createMockController();
       // Remove getFallbackDatafile
-      delete (dataSource as Partial<DataSource>).getFallbackDatafile;
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      delete (controller as Partial<ControllerInterface>).getFallbackDatafile;
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -212,7 +214,7 @@ describe('client-fns', () => {
 
   describe('evaluate', () => {
     it('should return FLAG_NOT_FOUND error when flag does not exist', async () => {
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -222,8 +224,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -241,7 +243,7 @@ describe('client-fns', () => {
     });
 
     it('should use defaultValue when flag is not found', async () => {
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -251,8 +253,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -268,7 +270,7 @@ describe('client-fns', () => {
         environments: { production: 0 },
         variants: [true],
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -278,8 +280,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -297,7 +299,7 @@ describe('client-fns', () => {
         environments: { production: 0 },
         variants: ['variant-a'],
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'my-project-id',
@@ -307,8 +309,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -331,7 +333,7 @@ describe('client-fns', () => {
         environments: { production: 0 },
         variants: [true],
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: undefined,
@@ -341,8 +343,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -353,7 +355,7 @@ describe('client-fns', () => {
     });
 
     it('should not include outcomeType in report when result is error', async () => {
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -363,8 +365,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -387,7 +389,7 @@ describe('client-fns', () => {
         },
         variants: ['default', 'targeted'],
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -397,8 +399,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -420,7 +422,7 @@ describe('client-fns', () => {
         },
         variants: ['value'],
       };
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -430,8 +432,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });
@@ -447,7 +449,7 @@ describe('client-fns', () => {
     });
 
     it('should work with different value types', async () => {
-      const dataSource = createMockDataSource({
+      const controller = createMockController({
         read: vi.fn().mockResolvedValue(
           mockDatafile({
             projectId: 'test',
@@ -474,8 +476,8 @@ describe('client-fns', () => {
           }),
         ),
       });
-      clientMap.set(CLIENT_ID, {
-        dataSource,
+      controllerInstanceMap.set(CLIENT_ID, {
+        controller,
         initialized: false,
         initPromise: null,
       });

@@ -4,11 +4,14 @@ import type {
   getFallbackDatafile,
   initialize,
   shutdown,
-} from './client-fns';
-import { type ClientInstance, clientMap } from './client-map';
+} from './controller-fns';
+import {
+  type ControllerInstance,
+  controllerInstanceMap,
+} from './controller-instance-map';
 import type {
   BundledDefinitions,
-  DataSource,
+  ControllerInterface,
   EvaluationResult,
   FlagsClient,
   Value,
@@ -17,7 +20,7 @@ import type {
 let idCount = 0;
 
 async function performInitialize(
-  instance: ClientInstance,
+  instance: ControllerInstance,
   initFn: () => Promise<void>,
 ): Promise<void> {
   try {
@@ -38,22 +41,26 @@ export function createCreateRawClient(fns: {
   getDatafile: typeof getDatafile;
 }) {
   return function createRawClient({
-    dataSource,
+    controller,
     origin,
   }: {
-    dataSource: DataSource;
+    controller: ControllerInterface;
     origin?: { provider: string; sdkKey: string };
   }): FlagsClient {
     const id = idCount++;
-    clientMap.set(id, { dataSource, initialized: false, initPromise: null });
+    controllerInstanceMap.set(id, {
+      controller,
+      initialized: false,
+      initPromise: null,
+    });
 
     const api = {
       origin,
       initialize: async () => {
-        let instance = clientMap.get(id);
+        let instance = controllerInstanceMap.get(id);
         if (!instance) {
-          instance = { dataSource, initialized: false, initPromise: null };
-          clientMap.set(id, instance);
+          instance = { controller, initialized: false, initPromise: null };
+          controllerInstanceMap.set(id, instance);
         }
 
         // skip if already initialized
@@ -69,9 +76,11 @@ export function createCreateRawClient(fns: {
       },
       shutdown: async () => {
         await fns.shutdown(id);
-        clientMap.delete(id);
+        controllerInstanceMap.delete(id);
       },
-      getDatafile: () => fns.getDatafile(id),
+      getDatafile: () => {
+        return fns.getDatafile(id);
+      },
       getFallbackDatafile: (): Promise<BundledDefinitions> => {
         return fns.getFallbackDatafile(id);
       },
@@ -80,7 +89,7 @@ export function createCreateRawClient(fns: {
         defaultValue?: T,
         entities?: E,
       ): Promise<EvaluationResult<T>> => {
-        const instance = clientMap.get(id);
+        const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) await api.initialize();
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
