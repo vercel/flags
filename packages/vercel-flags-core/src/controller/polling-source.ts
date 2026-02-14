@@ -6,7 +6,9 @@ import { TypedEmitter } from './typed-emitter';
 export type PollingSourceConfig = {
   host: string;
   sdkKey: string;
-  intervalMs: number;
+  polling: {
+    intervalMs: number;
+  };
   fetch?: typeof globalThis.fetch;
 };
 
@@ -66,7 +68,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     // Start interval
     this.intervalId = setInterval(
       () => void this.poll(),
-      this.config.intervalMs,
+      this.config.polling.intervalMs,
     );
   }
 
