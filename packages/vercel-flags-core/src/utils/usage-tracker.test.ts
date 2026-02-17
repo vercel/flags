@@ -35,6 +35,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       expect(tracker).toBeInstanceOf(UsageTracker);
@@ -56,6 +57,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -89,6 +91,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -118,6 +121,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Track multiple reads (without request context, so they won't be deduplicated)
@@ -147,6 +151,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'my-secret-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -170,6 +175,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -193,6 +199,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -216,6 +223,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Flush without tracking anything
@@ -240,6 +248,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -264,6 +273,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -293,6 +303,7 @@ describe('UsageTracker', () => {
       const tracker = new FreshUsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -324,6 +335,7 @@ describe('UsageTracker', () => {
       const tracker = new FreshUsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -347,6 +359,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -374,6 +387,7 @@ describe('UsageTracker', () => {
       const tracker = new FreshUsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -404,6 +418,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -429,6 +444,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -474,6 +490,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Track multiple times with same context
@@ -521,6 +538,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead();
@@ -555,6 +573,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Track 50 events (without request context to avoid deduplication)
@@ -585,6 +604,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Should not throw
@@ -610,6 +630,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory' });
@@ -638,6 +659,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
@@ -666,6 +688,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
@@ -694,6 +717,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
@@ -722,6 +746,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
@@ -750,6 +775,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       const timestamp = Date.now();
@@ -782,6 +808,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       const timestamp = Date.now();
@@ -823,6 +850,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
         host: 'https://example.com',
+        fetch,
       });
 
       // Only pass configOrigin, omit others

@@ -75,6 +75,7 @@ function getRequestContext(): RequestContext {
 export interface UsageTrackerOptions {
   sdkKey: string;
   host: string;
+  fetch: typeof fetch;
 }
 
 export interface TrackReadOptions {
@@ -96,8 +97,7 @@ export interface TrackReadOptions {
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
 export class UsageTracker {
-  private sdkKey: string;
-  private host: string;
+  private options: UsageTrackerOptions;
   private batcher: EventBatcher = {
     events: [],
     resolveWait: null,
@@ -105,8 +105,7 @@ export class UsageTracker {
   };
 
   constructor(options: UsageTrackerOptions) {
-    this.sdkKey = options.sdkKey;
-    this.host = options.host;
+    this.options = options;
   }
 
   /**
@@ -211,16 +210,19 @@ export class UsageTracker {
     this.batcher.events = [];
 
     try {
-      const response = await fetch(`${this.host}/v1/ingest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.sdkKey}`,
-          'User-Agent': `VercelFlagsCore/${version}`,
-          ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+      const response = await this.options.fetch(
+        `${this.options.host}/v1/ingest`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.options.sdkKey}`,
+            'User-Agent': `VercelFlagsCore/${version}`,
+            ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+          },
+          body: JSON.stringify(eventsToSend),
         },
-        body: JSON.stringify(eventsToSend),
-      });
+      );
 
       debugLog(
         `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
