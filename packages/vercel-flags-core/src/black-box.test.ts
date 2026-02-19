@@ -2,20 +2,19 @@
 // extend client with concept of request transaction so a single request is guaranteed consistent flag data?
 //   could be unexpected if used in a workflow or stream or whatever
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi,
-} from 'vitest';
-import { BundledSource, PollingSource, StreamSource } from './controller';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamMessage } from './controller/stream-connection';
 import { type BundledDefinitions, createClient } from './index.default';
-import type { BundledDefinitionsResult } from './types';
-import type { readBundledDefinitions } from './utils/read-bundled-definitions';
+import { readBundledDefinitions } from './utils/read-bundled-definitions';
+
+vi.mock('./utils/read-bundled-definitions', () => ({
+  readBundledDefinitions: vi.fn(() =>
+    Promise.resolve({ definitions: null, state: 'missing-file' }),
+  ),
+}));
+
+const sdkKey = 'vf_fake';
+const fetchMock = vi.fn<typeof fetch>();
 
 /**
  * Creates a mock NDJSON stream response for testing.
@@ -50,94 +49,298 @@ function createMockStream() {
   };
 }
 
-const host = 'https://flags.vercel.com';
-const sdkKey = 'vf_fake';
-
-/**
- * Creates a test client with isolated mocks.
- * Each test can configure bundled definitions via the optional parameter,
- * avoiding side effects from eager BundledSource construction.
- */
-function createTestClient(options?: {
-  bundledResult?: BundledDefinitionsResult;
-}) {
-  const clientFetchMock: Mock<typeof fetch> = vi.fn();
-  const streamFetchMock: Mock<typeof fetch> = vi.fn();
-  const stream = new StreamSource({
-    fetch: streamFetchMock,
-    host,
-    sdkKey,
-  });
-
-  const pollingFetchMock: Mock<typeof fetch> = vi.fn();
-  const polling = new PollingSource({
-    fetch: pollingFetchMock,
-    host,
-    sdkKey,
-    polling: { intervalMs: 1000 },
-  });
-
-  const readBundledDefinitionsMock: Mock<typeof readBundledDefinitions> =
-    vi.fn();
-  if (options?.bundledResult) {
-    readBundledDefinitionsMock.mockReturnValue(
-      Promise.resolve(options.bundledResult),
-    );
-  }
-  const bundled = new BundledSource({
-    readBundledDefinitions: readBundledDefinitionsMock,
-    sdkKey,
-  });
-
-  const client = createClient(sdkKey, {
-    buildStep: false,
-    datafile: undefined,
-    fetch: clientFetchMock,
-    sources: {
-      stream,
-      polling,
-      bundled,
-    },
-  });
-
-  return {
-    client,
-    clientFetchMock,
-    streamFetchMock,
-    pollingFetchMock,
-    readBundledDefinitionsMock,
-  };
-}
-
 describe('Manual', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.mocked(readBundledDefinitions).mockReset();
+    fetchMock.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
+  describe('buildStep', () => {
+    it('uses the datafile if provided, even when bundled definitions exist', async () => {
+      const passedDatafile: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 2,
+        digest: 'abc',
+        revision: 2,
+      };
+
+      const bundledDatafile: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 0,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 1,
+        digest: 'abc',
+        revision: 1,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: bundledDatafile,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: true,
+        fetch: fetchMock,
+        datafile: passedDatafile,
+      });
+
+      await expect(client.evaluate('flagA')).resolves.toEqual({
+        metrics: {
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+          evaluationMs: 0,
+          readMs: 0,
+          source: 'in-memory',
+        },
+        outcomeType: 'value',
+        reason: 'paused',
+        // value is expected to be true instead of false, showing
+        // the passed definition is used instead of the bundled one
+        value: true,
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // flush
+      await client.shutdown();
+
+      // verify tracking
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
+          headers: {
+            Authorization: 'Bearer vf_fake',
+            'Content-Type': 'application/json',
+            'User-Agent': 'VercelFlagsCore/1.0.1',
+          },
+          method: 'POST',
+        },
+      );
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
+        {
+          payload: {
+            cacheIsBlocking: false,
+            cacheIsFirstRead: true,
+            cacheStatus: 'HIT',
+            configOrigin: 'in-memory',
+            configUpdatedAt: 2,
+            duration: 0,
+          },
+          ts: expect.any(Number),
+          type: 'FLAGS_CONFIG_READ',
+        },
+      ]);
+    });
+
+    it('uses the bundled definitions if no datafile is provided', async () => {
+      const bundledDefinitions: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 2,
+        digest: 'abc',
+        revision: 2,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: bundledDefinitions,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: true,
+        fetch: fetchMock,
+      });
+
+      await expect(client.evaluate('flagA')).resolves.toEqual({
+        metrics: {
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+          evaluationMs: 0,
+          readMs: 0,
+          source: 'embedded',
+        },
+        outcomeType: 'value',
+        reason: 'paused',
+        // value is expected to be true instead of false, showing
+        // the passed definition is used instead of the bundled one
+        value: true,
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // flush
+      await client.shutdown();
+
+      // verify tracking
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
+          headers: {
+            Authorization: 'Bearer vf_fake',
+            'Content-Type': 'application/json',
+            'User-Agent': 'VercelFlagsCore/1.0.1',
+          },
+          method: 'POST',
+        },
+      );
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
+        {
+          payload: {
+            cacheIsBlocking: false,
+            cacheIsFirstRead: true,
+            cacheStatus: 'HIT',
+            configOrigin: 'embedded',
+            configUpdatedAt: 2,
+            duration: 0,
+          },
+          ts: expect.any(Number),
+          type: 'FLAGS_CONFIG_READ',
+        },
+      ]);
+    });
+
+    it('fetches only once during the build when no datafile and no bundled definitions are provided', async () => {
+      const definitions: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 2,
+        digest: 'abc',
+        revision: 2,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: true,
+        fetch: fetchMock,
+      });
+
+      fetchMock.mockResolvedValue(Response.json(definitions));
+
+      await expect(client.evaluate('flagA')).resolves.toEqual({
+        metrics: {
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+          evaluationMs: 0,
+          readMs: 0,
+          source: 'remote',
+        },
+        outcomeType: 'value',
+        reason: 'paused',
+        // value is expected to be true instead of false, showing
+        // the passed definition is used instead of the bundled one
+        value: true,
+      });
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: {
+            Authorization: 'Bearer vf_fake',
+            'User-Agent': 'VercelFlagsCore/1.0.1',
+          },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      // flush
+      await client.shutdown();
+
+      // verify tracking
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
+          headers: {
+            Authorization: 'Bearer vf_fake',
+            'Content-Type': 'application/json',
+            'User-Agent': 'VercelFlagsCore/1.0.1',
+          },
+          method: 'POST',
+        },
+      );
+      expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual([
+        {
+          payload: {
+            cacheIsBlocking: false,
+            cacheIsFirstRead: true,
+            cacheStatus: 'HIT',
+            configOrigin: 'in-memory',
+            configUpdatedAt: 2,
+            duration: 0,
+          },
+          ts: expect.any(Number),
+          type: 'FLAGS_CONFIG_READ',
+        },
+      ]);
+    });
+  });
+
   describe('creating a client', () => {
     it('should only load the bundled definitions but not stream or poll', () => {
-      const {
-        client,
-        streamFetchMock,
-        pollingFetchMock,
-        readBundledDefinitionsMock,
-      } = createTestClient();
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+      });
 
       expect(client).toBeDefined();
-      expect(streamFetchMock).not.toHaveBeenCalled();
-      expect(pollingFetchMock).not.toHaveBeenCalled();
-      expect(readBundledDefinitionsMock).toHaveBeenCalledWith(sdkKey);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(readBundledDefinitions).toHaveBeenCalledWith(sdkKey);
     });
   });
 
   describe('initializing the client', () => {
     it('should init from the stream', async () => {
-      const { client, streamFetchMock } = createTestClient();
-
       const datafile = {
         definitions: {},
         segments: {},
@@ -149,12 +352,29 @@ describe('Manual', () => {
       };
 
       const messageStream = createMockStream();
-      streamFetchMock.mockReturnValueOnce(messageStream.response);
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return messageStream.response;
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+      });
+
+      const initPromise = client.initialize();
+
       messageStream.push({ type: 'datafile', data: datafile });
+      await vi.advanceTimersByTimeAsync(0);
 
-      await client.initialize();
+      await initPromise;
 
-      expect(streamFetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]![0].toString()).toContain('/v1/stream');
     });
 
     it('should fall back to bundled when stream and poll hangs', async () => {
@@ -168,33 +388,44 @@ describe('Manual', () => {
         revision: 1,
       };
 
-      const { client, streamFetchMock, pollingFetchMock } = createTestClient({
-        bundledResult: { state: 'ok', definitions: datafile },
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: datafile,
       });
 
-      // stream opens but never sends initial data
-      const messageStream = createMockStream();
-      streamFetchMock.mockReturnValueOnce(messageStream.response);
+      let pollCount = 0;
 
-      // polling request starts but never resolves
-      pollingFetchMock.mockImplementation(
-        () => new Promise<Response>(() => {}),
-      );
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          // stream opens but never sends initial data
+          const body = new ReadableStream<Uint8Array>({ start() {} });
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/datafile')) {
+          // polling request starts but never resolves
+          pollCount++;
+          return new Promise<Response>(() => {});
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+      });
 
       const initPromise = client.initialize();
 
       // Advance past the stream init timeout (3s) and polling init timeout (3s)
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(pollingFetchMock).toHaveBeenCalledTimes(0);
+      expect(pollCount).toBe(0);
       await vi.advanceTimersByTimeAsync(2_000);
-      expect(pollingFetchMock).toHaveBeenCalledTimes(1);
+      expect(pollCount).toBe(1);
       await vi.advanceTimersByTimeAsync(3_000);
 
       // wait for init to resolve
       await expect(initPromise).resolves.toBeUndefined();
-
-      expect(streamFetchMock).toHaveBeenCalledTimes(1);
-      expect(pollingFetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should fall back to polling without double-polling when stream hangs', async () => {
@@ -208,16 +439,27 @@ describe('Manual', () => {
         revision: 1,
       };
 
-      const { client, streamFetchMock, pollingFetchMock } = createTestClient();
+      let pollCount = 0;
 
-      // stream opens but never sends initial data
-      const messageStream = createMockStream();
-      streamFetchMock.mockReturnValueOnce(messageStream.response);
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          // stream opens but never sends initial data
+          const body = new ReadableStream<Uint8Array>({ start() {} });
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/datafile')) {
+          // polling returns a valid datafile
+          pollCount++;
+          return Promise.resolve(Response.json(datafile));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
 
-      // polling returns a valid datafile
-      pollingFetchMock.mockImplementation(() =>
-        Promise.resolve(Response.json(datafile)),
-      );
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+      });
 
       const initPromise = client.initialize();
 
@@ -228,7 +470,7 @@ describe('Manual', () => {
 
       // poll() should only be called once by tryInitializePolling,
       // not a second time by startInterval's immediate poll
-      expect(pollingFetchMock).toHaveBeenCalledTimes(1);
+      expect(pollCount).toBe(1);
     });
   });
 });
