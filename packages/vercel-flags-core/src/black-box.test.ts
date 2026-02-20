@@ -1991,7 +1991,7 @@ describe('Controller (black-box)', () => {
       expect(result.reason).toBe('error');
       expect(result.errorCode).toBe('FLAG_NOT_FOUND');
       expect(result.errorMessage).toContain(
-        'Definition not found for flag "nonexistent-flag"',
+        '@vercel/flags-core: Definition not found for flag "nonexistent-flag"',
       );
     });
 
@@ -2298,6 +2298,10 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // didn't evaluate any flags, so no config reads tracked
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should deduplicate concurrent evaluate() calls that trigger initialize', async () => {
@@ -2334,6 +2338,53 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
 
     it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {

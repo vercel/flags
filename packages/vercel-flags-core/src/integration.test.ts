@@ -48,7 +48,7 @@ describe('integration evaluate', () => {
       expect(result.reason).toBe(ResolutionReason.ERROR);
       expect(result.errorCode).toBe('FLAG_NOT_FOUND');
       expect(result.errorMessage).toBe(
-        'Definition not found for flag "does-not-exist"',
+        '@vercel/flags-core: Definition not found for flag "does-not-exist"',
       );
       expect(result.metrics).toBeDefined();
     });

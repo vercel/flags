@@ -324,11 +324,15 @@ describe('UsageTracker', () => {
         './usage-tracker'
       );
       let debugHeader: string | null = null;
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       server.use(
         http.post('https://example.com/v1/ingest', async ({ request }) => {
           debugHeader = request.headers.get('x-vercel-debug-ingest');
-          return HttpResponse.json({ ok: true });
+          return HttpResponse.json(
+            { ok: true },
+            { headers: { 'x-vercel-id': 'iad1::abcdef-1234' } },
+          );
         }),
       );
 
@@ -343,7 +347,12 @@ describe('UsageTracker', () => {
 
       await vi.waitFor(() => {
         expect(debugHeader).toBe('1');
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '@vercel/flags-core: Ingest response 200 for 1 events on iad1::abcdef-1234',
+        );
       });
+
+      consoleSpy.mockRestore();
     });
 
     it('should not send x-vercel-debug-ingest header when not in debug mode', async () => {
