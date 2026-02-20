@@ -1,6 +1,5 @@
+import type { DatafileInput } from '../types';
 import { connectStream } from './stream-connection';
-import type { TaggedData } from './tagged-data';
-import { tagData } from './tagged-data';
 import { TypedEmitter } from './typed-emitter';
 
 export type StreamSourceConfig = {
@@ -10,7 +9,7 @@ export type StreamSourceConfig = {
 };
 
 export type StreamSourceEvents = {
-  data: (data: TaggedData) => void;
+  data: (data: DatafileInput) => void;
   connected: () => void;
   disconnected: () => void;
 };
@@ -49,8 +48,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         },
         {
           onMessage: (newData) => {
-            const tagged = tagData(newData, 'stream');
-            this.emit('data', tagged);
+            this.emit('data', newData);
             this.emit('connected');
           },
           onDisconnect: () => {
