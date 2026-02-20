@@ -426,7 +426,7 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.evaluate('flagA')).rejects.toThrow(
-        'No flag definitions available during build',
+        '@vercel/flags-core: No flag definitions available during build',
       );
     });
 
@@ -1338,6 +1338,14 @@ describe('Controller (black-box)', () => {
       expect(result.metrics.cacheStatus).toBe('MISS');
 
       await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: datafileRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
     });
 
     it('should throw when called without initialize and all sources fail', async () => {
@@ -1361,7 +1369,7 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.getDatafile()).rejects.toThrow(
-        'No flag definitions available',
+        '@vercel/flags-core: No flag definitions available',
       );
 
       await client.shutdown();
@@ -2416,7 +2424,9 @@ describe('Controller (black-box)', () => {
       expect(result).toEqual({
         value: false,
         reason: 'error',
-        errorMessage: expect.stringContaining('No flag definitions available'),
+        errorMessage: expect.stringContaining(
+          '@vercel/flags-core: No flag definitions available',
+        ),
       });
     });
 
@@ -2434,7 +2444,7 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.evaluate('flagA')).rejects.toThrow(
-        'No flag definitions available',
+        '@vercel/flags-core: No flag definitions available',
       );
     });
 
