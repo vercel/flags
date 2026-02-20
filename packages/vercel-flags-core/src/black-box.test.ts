@@ -244,6 +244,12 @@ describe('Manual', () => {
             },
             variants: [false, true],
           },
+          flagB: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
         },
         segments: {},
         environment: 'production',
@@ -261,11 +267,38 @@ describe('Manual', () => {
       const client = createClient(sdkKey, {
         buildStep: true,
         fetch: fetchMock,
+        polling: {
+          initTimeoutMs: 5000,
+          intervalMs: 1000,
+        },
+        stream: {
+          initTimeoutMs: 1000,
+        },
       });
 
       fetchMock.mockResolvedValue(Response.json(definitions));
 
-      await expect(client.evaluate('flagA')).resolves.toEqual({
+      const [a, b] = await Promise.all([
+        client.evaluate('flagA'),
+        client.evaluate('flagB'),
+      ]);
+
+      expect(a).toEqual({
+        metrics: {
+          cacheStatus: 'HIT',
+          connectionState: 'disconnected',
+          evaluationMs: 0,
+          readMs: 0,
+          source: 'remote',
+        },
+        outcomeType: 'value',
+        reason: 'paused',
+        // value is expected to be true instead of false, showing
+        // the passed definition is used instead of the bundled one
+        value: true,
+      });
+
+      expect(b).toEqual({
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
