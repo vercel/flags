@@ -87,7 +87,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
 
-      expect(() => createClient('')).toThrow('flags: Missing sdkKey');
+      expect(() => createClient('')).toThrow(
+        '@vercel/flags-core: Missing sdkKey',
+      );
     });
 
     it('should throw for invalid connection string', () => {
@@ -95,7 +97,7 @@ describe('make', () => {
       const { createClient } = make(createRawClient);
 
       expect(() => createClient('invalid_string')).toThrow(
-        'flags: Missing sdkKey',
+        '@vercel/flags-core: Missing sdkKey',
       );
     });
 
@@ -105,7 +107,7 @@ describe('make', () => {
 
       expect(() =>
         createClient('flags:edgeConfigId=ecfg_123&edgeConfigToken=token'),
-      ).toThrow('flags: Missing sdkKey');
+      ).toThrow('@vercel/flags-core: Missing sdkKey');
     });
   });
 
@@ -142,7 +144,9 @@ describe('make', () => {
 
       const { flagsClient } = make(createRawClient);
 
-      expect(() => flagsClient.evaluate).toThrow('flags: Missing sdkKey');
+      expect(() => flagsClient.evaluate).toThrow(
+        '@vercel/flags-core: Missing sdkKey',
+      );
     });
 
     it('should cache the client after first access', () => {

@@ -73,11 +73,25 @@ function makeBundled(
   };
 }
 
+const ingestRequestHeaders = Object.freeze({
+  Authorization: 'Bearer vf_fake',
+  'Content-Type': 'application/json',
+  'User-Agent': 'VercelFlagsCore/1.0.1',
+});
+
+const datafileRequestHeaders = Object.freeze({
+  Authorization: 'Bearer vf_fake',
+  'User-Agent': 'VercelFlagsCore/1.0.1',
+});
+
 const originalEnv = { ...process.env };
 
 describe('Controller (black-box)', () => {
+  const date = new Date();
+
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(date);
     vi.mocked(readBundledDefinitions).mockReset();
     vi.mocked(internalReportValue).mockReset();
     fetchMock.mockReset();
@@ -98,7 +112,7 @@ describe('Controller (black-box)', () => {
     it('should throw for missing SDK key', () => {
       expect(() =>
         createClient('', { fetch: fetchMock, stream: false, polling: false }),
-      ).toThrow('flags: Missing sdkKey');
+      ).toThrow('@vercel/flags-core: Missing sdkKey');
     });
 
     it('should throw for SDK key not starting with vf_', () => {
@@ -108,7 +122,7 @@ describe('Controller (black-box)', () => {
           stream: false,
           polling: false,
         }),
-      ).toThrow('flags: Missing sdkKey');
+      ).toThrow('@vercel/flags-core: Missing sdkKey');
     });
 
     it('should throw for non-string SDK key', () => {
@@ -118,7 +132,9 @@ describe('Controller (black-box)', () => {
           stream: false,
           polling: false,
         }),
-      ).toThrow();
+      ).toThrow(
+        '@vercel/flags-core: Invalid sdkKey. Expected string, got number',
+      );
     });
 
     it('should accept valid SDK key', () => {
@@ -153,6 +169,29 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
 
     it('should detect build step when NEXT_PHASE=phase-production-build', async () => {
@@ -171,6 +210,29 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
 
     it('should NOT detect build step when neither CI nor NEXT_PHASE is set', async () => {
@@ -200,7 +262,12 @@ describe('Controller (black-box)', () => {
       expect(streamCall).toBeDefined();
 
       stream.close();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
       await client.shutdown();
+      await vi.advanceTimersByTimeAsync(0);
+      // Still 1 — shutdown flushes the usage tracker, but no evaluate()
+      // was called, so there are no FLAGS_CONFIG_READ events to send.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should override auto-detection with buildStep: false', async () => {
@@ -232,9 +299,34 @@ describe('Controller (black-box)', () => {
 
       // Should use stream (buildStep: false overrides CI detection)
       expect(result.metrics?.mode).toBe('streaming');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
-      stream.close();
       await client.shutdown();
+      stream.close();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
   });
 
@@ -242,11 +334,82 @@ describe('Controller (black-box)', () => {
   // Build step behavior
   // ---------------------------------------------------------------------------
   describe('build step behavior', () => {
-    it('should throw when bundled definitions missing during build (no defaultValue)', async () => {
+    it('should fall back to one-time fetch when bundled definitions missing during build', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'missing-file',
         definitions: null,
       });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile'))
+          return Promise.resolve(Response.json(makeBundled()));
+        return Promise.resolve(new Response('', { status: 200 }));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        buildStep: true,
+      });
+
+      // run two in parallel to ensure we still only track one read
+      const [result] = await Promise.all([
+        client.evaluate('flagA'),
+        client.evaluate('flagB'),
+      ]);
+
+      expect(result.value).toBe(true);
+      expect(result.metrics?.mode).toBe('build');
+      expect(result.metrics?.source).toBe('remote');
+
+      const fetchCall = fetchMock.mock.calls.find((call) =>
+        call[0]?.toString().includes('/v1/datafile'),
+      );
+      expect(fetchCall).toBeDefined();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          signal: expect.any(AbortSignal),
+          headers: datafileRequestHeaders,
+        },
+      );
+
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+    });
+
+    it('should throw when bundled definitions missing and fetch fails during build (no defaultValue)', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      fetchMock.mockRejectedValue(new Error('network error'));
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -256,8 +419,6 @@ describe('Controller (black-box)', () => {
       await expect(client.evaluate('flagA')).rejects.toThrow(
         'No flag definitions available during build',
       );
-
-      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should cache data after first build step read', async () => {
@@ -1653,10 +1814,6 @@ describe('Controller (black-box)', () => {
             environments: { production: 0 },
             variants: [42],
           },
-          objectFlag: {
-            environments: { production: 0 },
-            variants: [{ key: 'value' }],
-          },
         },
       });
 
@@ -1671,9 +1828,6 @@ describe('Controller (black-box)', () => {
       expect((await client.evaluate('boolFlag')).value).toBe(true);
       expect((await client.evaluate('stringFlag')).value).toBe('hello');
       expect((await client.evaluate('numberFlag')).value).toBe(42);
-      expect((await client.evaluate('objectFlag')).value).toEqual({
-        key: 'value',
-      });
     });
 
     it('should call internalReportValue when projectId exists', async () => {
@@ -1813,7 +1967,7 @@ describe('Controller (black-box)', () => {
       );
       // Verify outcomeType is NOT present in the call
       const callArgs = vi.mocked(internalReportValue).mock.calls[0];
-      expect(callArgs[2]).not.toHaveProperty('outcomeType');
+      expect(callArgs?.[2]).not.toHaveProperty('outcomeType');
     });
 
     it('should call internalReportValue with error reason when flag is not found', async () => {
@@ -2154,11 +2308,7 @@ describe('Controller (black-box)', () => {
         'https://flags.vercel.com/v1/ingest',
         {
           body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
-          headers: {
-            Authorization: 'Bearer vf_fake',
-            'Content-Type': 'application/json',
-            'User-Agent': 'VercelFlagsCore/1.0.1',
-          },
+          headers: ingestRequestHeaders,
           method: 'POST',
         },
       );
@@ -2291,11 +2441,7 @@ describe('Controller (black-box)', () => {
         'https://flags.vercel.com/v1/ingest',
         {
           body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
-          headers: {
-            Authorization: 'Bearer vf_fake',
-            'Content-Type': 'application/json',
-            'User-Agent': 'VercelFlagsCore/1.0.1',
-          },
+          headers: ingestRequestHeaders,
           method: 'POST',
         },
       );

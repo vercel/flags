@@ -575,11 +575,23 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Loads data for a build step: bundled definitions only (no network).
+   * Loads data for a build step: bundled → one-time fetch.
    */
   private async loadBuildData(): Promise<TaggedData> {
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) return tagData(bundled, 'bundled');
+
+    // Fallback: one-time fetch
+    try {
+      const fetched = await fetchDatafile({
+        host: this.options.host,
+        sdkKey: this.options.sdkKey,
+        fetch: this.options.fetch,
+      });
+      return tagData(fetched, 'fetched');
+    } catch {
+      // fetch failed — fall through to throw
+    }
 
     throw new Error(
       '@vercel/flags-core: No flag definitions available during build. ' +

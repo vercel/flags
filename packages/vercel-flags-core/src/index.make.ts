@@ -31,14 +31,22 @@ export function make(
     sdkKeyOrConnectionString: string,
     options?: CreateClientOptions,
   ): FlagsClient {
-    if (!sdkKeyOrConnectionString) throw new Error('flags: Missing sdkKey');
+    if (!sdkKeyOrConnectionString)
+      throw new Error('@vercel/flags-core: Missing sdkKey');
+
+    if (typeof sdkKeyOrConnectionString !== 'string')
+      throw new Error(
+        `@vercel/flags-core: Invalid sdkKey. Expected string, got ${typeof sdkKeyOrConnectionString}`,
+      );
 
     // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
     const sdkKey = parseSdkKeyFromFlagsConnectionString(
       sdkKeyOrConnectionString,
     );
     if (!sdkKey) {
-      throw new Error('flags: Missing sdkKey in connection string');
+      throw new Error(
+        '@vercel/flags-core: Missing sdkKey in connection string',
+      );
     }
 
     // sdk key contains the environment
@@ -62,7 +70,7 @@ export function make(
 
         const sdkKey = parseSdkKeyFromFlagsConnectionString(process.env.FLAGS);
         if (!sdkKey) {
-          throw new Error('flags: Missing sdkKey');
+          throw new Error('@vercel/flags-core: Missing sdkKey');
         }
         _defaultFlagsClient = createClient(sdkKey);
       }
