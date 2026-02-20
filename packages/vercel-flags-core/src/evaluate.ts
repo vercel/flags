@@ -10,6 +10,8 @@ import {
 
 type PathArray = (string | number)[];
 
+const MAX_REGEX_INPUT_LENGTH = 10_000;
+
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
 }
@@ -57,10 +59,12 @@ function matchTargetList<T>(
   targets: Packed.TargetList,
   params: EvaluationParams<T>,
 ): boolean {
-  for (const [kind, attributes] of Object.entries(targets)) {
-    for (const [attribute, values] of Object.entries(attributes)) {
+  for (const kind in targets) {
+    const attributes = targets[kind]!;
+    for (const attribute in attributes) {
       const entity = access([kind, attribute], params);
-      if (isString(entity) && values.includes(entity)) return true;
+      if (isString(entity) && attributes[attribute]!.includes(entity))
+        return true;
     }
   }
   return false;
@@ -214,6 +218,7 @@ function matchConditions<T>(
         case Comparator.REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
@@ -225,6 +230,7 @@ function matchConditions<T>(
         case Comparator.NOT_REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'

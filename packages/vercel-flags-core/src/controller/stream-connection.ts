@@ -75,7 +75,11 @@ export async function connectStream(
 
         if (!response.ok) {
           if (response.status === 401) {
+            if (!initialDataReceived) {
+              rejectInit!(new Error(`stream: unauthorized (401)`));
+            }
             abortController.abort();
+            break;
           }
 
           throw new Error(`stream was not ok: ${response.status}`);

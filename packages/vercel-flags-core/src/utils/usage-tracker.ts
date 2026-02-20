@@ -39,10 +39,6 @@ interface EventBatcher {
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
 
-// WeakSet to track request contexts that have already been recorded
-// Using WeakSet allows the context objects to be garbage collected
-const trackedRequests = new WeakSet<object>();
-
 interface RequestContext {
   ctx: object | undefined;
   headers: Record<string, string> | undefined;
@@ -101,6 +97,7 @@ export interface TrackReadOptions {
  */
 export class UsageTracker {
   private options: UsageTrackerOptions;
+  private trackedRequests = new WeakSet<object>();
   private batcher: EventBatcher = {
     events: [],
     resolveWait: null,
@@ -129,8 +126,8 @@ export class UsageTracker {
 
       // Skip if we've already tracked this request
       if (ctx) {
-        if (trackedRequests.has(ctx)) return;
-        trackedRequests.add(ctx);
+        if (this.trackedRequests.has(ctx)) return;
+        this.trackedRequests.add(ctx);
       }
 
       const event: FlagsConfigReadEvent = {
@@ -197,7 +194,11 @@ export class UsageTracker {
       // Use waitUntil to keep the function alive until flush completes
       // If `waitUntil` is not available this will be a no-op and leave
       // a floating promise that will be completed in the background
-      waitUntil(pending);
+      try {
+        waitUntil(pending);
+      } catch {
+        // waitUntil is best-effort; falling through leaves a floating promise
+      }
 
       this.batcher.pending = pending;
     }
@@ -239,9 +240,11 @@ export class UsageTracker {
           '@vercel/flags-core: Failed to send events:',
           response.statusText,
         );
+        this.batcher.events.unshift(...eventsToSend);
       }
     } catch (error) {
       debugLog('@vercel/flags-core: Error sending events:', error);
+      this.batcher.events.unshift(...eventsToSend);
     }
   }
 }
