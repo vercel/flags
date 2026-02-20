@@ -13,22 +13,46 @@ src/
 ├── types.ts              # Type definitions
 ├── errors.ts             # Error classes
 ├── evaluate.ts           # Core evaluation logic
+├── controller-fns.ts     # Controller function wrappers + instance map
+├── create-raw-client.ts  # Raw client factory (ID-based indirection for 'use cache')
 ├── controller/           # Controller (state machine) and I/O sources
 │   ├── index.ts              # Controller class
 │   ├── stream-source.ts      # StreamSource (wraps stream-connection)
 │   ├── polling-source.ts     # PollingSource (wraps fetch-datafile)
 │   ├── bundled-source.ts     # BundledSource (wraps read-bundled-definitions)
 │   ├── stream-connection.ts  # Low-level NDJSON stream connection
-│   ├── fetch-datafile.ts     # HTTP datafile fetch with retry
+│   ├── fetch-datafile.ts     # HTTP datafile fetch
 │   ├── tagged-data.ts        # Data origin tagging types/helpers
+│   ├── normalized-options.ts # Option normalization
 │   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
 ├── utils/                # Utilities
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
 │   └── read-bundled-definitions.ts
-└── lib/                  # Internal libraries
+└── lib/
+    └── report-value.ts   # Flag evaluation reporting to Vercel request context
 ```
+
+## Architecture
+
+### Data flow
+
+```
+createClient(sdkKey, options)
+  → Controller (state machine, owns all data tagging and source coordination)
+    → StreamSource / PollingSource / BundledSource (emit raw DatafileInput)
+  → create-raw-client (ID-based indirection for 'use cache' support)
+    → controller-fns (lookup by ID, evaluate, report)
+  → FlagsClient (public API)
+```
+
+### Design principles
+
+- **Sources emit raw data** — StreamSource, PollingSource, and BundledSource return/emit raw `DatafileInput`. The Controller is solely responsible for tagging data with its origin (`tagData(data, 'stream')` etc.).
+- **BundledSource is a plain class** — unlike StreamSource and PollingSource which extend TypedEmitter, BundledSource has no event listeners. The Controller calls its methods directly and uses return values.
+- **Tests are black-box** — all behavioral tests go through the public API (`createClient` from `./index.default`). Mock `readBundledDefinitions` and `internalReportValue` as observable I/O. Use `fetchMock` for network assertions.
+- **ID-based indirection** — `controller-fns.ts` holds a `controllerInstanceMap` (Map<number, ControllerInstance>) so that `'use cache'` wrappers in Next.js can pass serializable IDs instead of function references.
 
 ## Key Concepts
 
@@ -41,6 +65,7 @@ type FlagsClient = {
   initialize(): Promise<void>;
   shutdown(): Promise<void>;
   getDatafile(): Promise<Datafile>;
+  getFallbackDatafile(): Promise<BundledDefinitions>;
   evaluate<T, E>(flagKey, defaultValue?, entities?): Promise<EvaluationResult<T>>;
 }
 ```
@@ -73,7 +98,7 @@ Behavior differs based on environment:
 **Build step** (CI=1, NEXT_PHASE=phase-production-build, or `buildStep: true`):
 1. **Provided datafile** - Use `options.datafile` if provided
 2. **Bundled definitions** - Use `@vercel/flags-definitions`
-3. **Fetch** - Last resort network fetch
+3. **Throw** - No network during build
 
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
@@ -82,6 +107,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
 4. **Bundled definitions** - Use `@vercel/flags-definitions`
+5. **One-time fetch** - Last resort (only when stream and polling are both disabled)
 
 Key behaviors:
 - Bundled definitions are always loaded as ultimate fallback
@@ -105,8 +131,9 @@ Key behaviors:
 
 Internal compact format for flag definitions:
 - Variants stored as indices
-- Conditions use enum values
-- Entities accessed via arrays (e.g., `['user', 'id']`)
+- Conditions use tuples: `[LHS, Comparator, RHS]` (e.g., `[['user', 'id'], Comparator.EQ, 'user-123']`)
+- Targets shorthand: `{ user: { id: ['user-123'] } }`
+- Entities accessed via path arrays (e.g., `['user', 'id']`)
 
 ## Entry Points
 
@@ -139,7 +166,7 @@ pnpm test:integration
 - Uses fetch with streaming body (NDJSON format)
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Default `initTimeoutMs`: 3000ms
-- 401 errors abort immediately (invalid SDK key)
+- 401 errors abort immediately (invalid SDK key) — does NOT reject the init promise, so the stream timeout must fire for fallback to kick in
 - On disconnect: falls back to polling if enabled
 
 ### Polling
@@ -149,6 +176,15 @@ pnpm test:integration
 - Default `initTimeoutMs`: 10000ms (10s)
 - Retries with exponential backoff (base: 500ms, max 3 retries)
 - Stops automatically when stream reconnects
+
+### Data Origin Tagging
+
+The Controller tags all data with its origin using `tagData(data, origin)` from `tagged-data.ts`. Origins map to public `metrics.source` values:
+- `'stream'`, `'poll'`, `'provided'` → `'in-memory'`
+- `'fetched'` → `'remote'`
+- `'bundled'` → `'embedded'`
+
+`tagData` creates a new object (shallow spread) to avoid mutating the input.
 
 ### Usage Tracking
 
@@ -161,9 +197,13 @@ pnpm test:integration
 ### Client Management
 
 - Each client gets unique incrementing ID
-- Stored in `clientMap` for function lookups
+- Stored in `controllerInstanceMap` in `controller-fns.ts`
 - Supports multiple simultaneous clients
-- Necessary as we can't pass function to `'use cache'` client-fns
+- Necessary as we can't pass functions to `'use cache'` wrappers
+
+### configUpdatedAt Guard
+
+The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
 
 ### Debug Mode
 
