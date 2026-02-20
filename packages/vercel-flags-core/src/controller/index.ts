@@ -146,7 +146,7 @@ export class Controller implements ControllerInterface {
       this.data = tagData(this.options.datafile, 'provided');
     }
 
-    this.usageTracker = options.usageTracker ?? new UsageTracker(this.options);
+    this.usageTracker = new UsageTracker(this.options);
   }
 
   // Source event handlers (stored for cleanup)
