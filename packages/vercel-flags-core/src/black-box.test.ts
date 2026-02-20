@@ -79,6 +79,12 @@ const ingestRequestHeaders = Object.freeze({
   'User-Agent': 'VercelFlagsCore/1.0.1',
 });
 
+const streamRequestHeaders = Object.freeze({
+  Authorization: 'Bearer vf_fake',
+  'User-Agent': 'VercelFlagsCore/1.0.1',
+  'X-Retry-Attempt': '0',
+});
+
 const datafileRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
   'User-Agent': 'VercelFlagsCore/1.0.1',
@@ -1449,6 +1455,16 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
+
+      // no evaluate call so no usage tracking
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
     });
 
     it('should use build step path when CI=1', async () => {
@@ -1481,10 +1497,22 @@ describe('Controller (black-box)', () => {
       });
 
       const result1 = await client.getDatafile();
-      expect(result1.metrics.cacheStatus).toBe('MISS');
+      expect(result1.metrics).toEqual({
+        cacheStatus: 'MISS',
+        connectionState: 'disconnected',
+        mode: 'offline',
+        readMs: 0,
+        source: 'embedded',
+      });
 
       const result2 = await client.getDatafile();
-      expect(result2.metrics.cacheStatus).toBe('STALE');
+      expect(result2.metrics).toEqual({
+        cacheStatus: 'STALE',
+        connectionState: 'disconnected',
+        mode: 'offline',
+        readMs: 0,
+        source: 'embedded',
+      });
 
       await client.shutdown();
     });
@@ -1512,6 +1540,7 @@ describe('Controller (black-box)', () => {
       expect(result).toEqual(bundled);
 
       await client.shutdown();
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should throw FallbackNotFoundError for missing-file state', async () => {
@@ -1537,6 +1566,7 @@ describe('Controller (black-box)', () => {
       }
 
       await client.shutdown();
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should throw FallbackEntryNotFoundError for missing-entry state', async () => {
@@ -1552,7 +1582,7 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.getFallbackDatafile()).rejects.toThrow(
-        'No bundled definitions found for SDK key',
+        '@vercel/flags-core: No bundled definitions found for SDK key',
       );
 
       try {
@@ -1562,6 +1592,7 @@ describe('Controller (black-box)', () => {
       }
 
       await client.shutdown();
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should throw for unexpected-error state', async () => {
@@ -1578,7 +1609,7 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.getFallbackDatafile()).rejects.toThrow(
-        'Failed to read bundled definitions',
+        '@vercel/flags-core: Failed to read bundled definitions',
       );
 
       await client.shutdown();
@@ -1638,10 +1669,43 @@ describe('Controller (black-box)', () => {
 
       // Should still have newer data (older message was rejected)
       const result = await client.evaluate('flagA');
+      const after = new Date();
       expect(result.value).toBe(true); // variant 1 = newer
 
       stream.close();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
       await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          method: 'POST',
+          headers: ingestRequestHeaders,
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: after.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 2000,
+              },
+            },
+          ]),
+        },
+      );
     });
 
     it('should skip stream data with equal configUpdatedAt', async () => {
