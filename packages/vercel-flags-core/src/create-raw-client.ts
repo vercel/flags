@@ -90,7 +90,14 @@ export function createCreateRawClient(fns: {
         entities?: E,
       ): Promise<EvaluationResult<T>> => {
         const instance = controllerInstanceMap.get(id);
-        if (!instance?.initialized) await api.initialize();
+        if (!instance?.initialized) {
+          try {
+            await api.initialize();
+          } catch {
+            // Initialization failed — let evaluate() handle the fallback
+            // chain (last known value → datafile → bundled → defaultValue → throw)
+          }
+        }
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
       peek: () => {
