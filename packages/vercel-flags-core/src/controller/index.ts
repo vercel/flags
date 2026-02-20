@@ -81,6 +81,10 @@ export class Controller implements ControllerInterface {
   private usageTracker: UsageTracker;
   private isFirstGetData: boolean = true;
 
+  // Build-step deduplication
+  private buildDataPromise: Promise<TaggedData> | null = null;
+  private buildReadTracked = false;
+
   constructor(options: ControllerOptions) {
     if (
       !options.sdkKey ||
@@ -480,18 +484,16 @@ export class Controller implements ControllerInterface {
   private async initializeForBuildStep(): Promise<void> {
     if (this.data) return;
 
-    const bundled = await this.bundledSource.tryLoad();
-    if (bundled) {
-      this.data = bundled;
-      return;
+    if (!this.buildDataPromise) {
+      this.buildDataPromise = this.loadBuildData();
     }
-
-    const fetched = await fetchDatafile(this.options);
-    this.data = tagData(fetched, 'fetched');
+    this.data = await this.buildDataPromise;
   }
 
   /**
    * Retrieves data during build steps.
+   * Concurrent callers share a single load promise. The first caller to
+   * populate `this.data` gets cacheStatus MISS; subsequent callers get HIT.
    */
   private async getDataForBuildStep(): Promise<
     [TaggedData, Metrics['cacheStatus']]
@@ -500,15 +502,28 @@ export class Controller implements ControllerInterface {
       return [this.data, 'HIT'];
     }
 
-    const bundled = await this.bundledSource.tryLoad();
-    if (bundled) {
-      this.data = bundled;
-      return [this.data, 'MISS'];
+    if (!this.buildDataPromise) {
+      this.buildDataPromise = this.loadBuildData();
     }
 
+    const data = await this.buildDataPromise;
+
+    if (!this.data) {
+      this.data = data;
+      return [data, 'MISS'];
+    }
+    return [this.data, 'HIT'];
+  }
+
+  /**
+   * Loads data for a build step: provided → bundled → fetch.
+   */
+  private async loadBuildData(): Promise<TaggedData> {
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) return bundled;
+
     const fetched = await fetchDatafile(this.options);
-    this.data = tagData(fetched, 'fetched');
-    return [this.data, 'MISS'];
+    return tagData(fetched, 'fetched');
   }
 
   // ---------------------------------------------------------------------------
@@ -626,6 +641,7 @@ export class Controller implements ControllerInterface {
 
   /**
    * Tracks a read operation for usage analytics.
+   * During build steps, only the first read is tracked.
    */
   private trackRead(
     startTime: number,
@@ -633,6 +649,9 @@ export class Controller implements ControllerInterface {
     isFirstRead: boolean,
     source: Metrics['source'],
   ): void {
+    if (this.options.buildStep && this.buildReadTracked) return;
+    if (this.options.buildStep) this.buildReadTracked = true;
+
     const configOrigin: 'in-memory' | 'embedded' =
       source === 'embedded' ? 'embedded' : 'in-memory';
     const trackOptions: TrackReadOptions = {

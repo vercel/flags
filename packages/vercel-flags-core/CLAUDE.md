@@ -75,6 +75,8 @@ Behavior differs based on environment:
 2. **Bundled definitions** - Use `@vercel/flags-definitions`
 3. **Fetch** - Last resort network fetch
 
+Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
+
 **Runtime** (default, or `buildStep: false`):
 1. **Stream** - Real-time updates via SSE, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
@@ -152,7 +154,8 @@ pnpm test:integration
 
 - Batches flag read events (max 50 events, max 5s wait)
 - Sends to `flags.vercel.com/v1/ingest`
-- Deduplicates by request context
+- At runtime: deduplicates by request context (WeakSet in UsageTracker)
+- During builds: deduplicates all reads to a single event (buildReadTracked flag in Controller), since there is no request context available
 - Uses `waitUntil()` from `@vercel/functions`
 
 ### Client Management
