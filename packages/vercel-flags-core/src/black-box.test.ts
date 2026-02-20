@@ -111,6 +111,7 @@ describe('Manual', () => {
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
+          mode: 'build',
           evaluationMs: 0,
           readMs: 0,
           source: 'in-memory',
@@ -190,6 +191,7 @@ describe('Manual', () => {
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
+          mode: 'build',
           evaluationMs: 0,
           readMs: 0,
           source: 'embedded',
@@ -289,6 +291,7 @@ describe('Manual', () => {
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
+          mode: 'build',
           evaluationMs: 0,
           readMs: 0,
           source: 'remote',
@@ -304,6 +307,7 @@ describe('Manual', () => {
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
+          mode: 'build',
           evaluationMs: 0,
           readMs: 0,
           source: 'remote',

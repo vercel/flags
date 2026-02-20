@@ -67,6 +67,8 @@ export type Metrics = {
   cacheStatus: 'HIT' | 'MISS' | 'STALE';
   /** Whether the stream is currently connected */
   connectionState: 'connected' | 'disconnected';
+  /** The current operating mode of the client */
+  mode: 'streaming' | 'polling' | 'build' | 'offline';
   /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
   evaluationMs?: number;
 };
