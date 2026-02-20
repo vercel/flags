@@ -636,6 +636,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         polling: false,
@@ -651,6 +653,11 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
       expect(result.metrics?.connectionState).toBe('disconnected');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+      warnSpy.mockRestore();
     });
 
     it('should fall back to bundled when stream errors (502)', async () => {
@@ -667,8 +674,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      // Suppress expected error logs
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -677,14 +684,22 @@ describe('Controller (black-box)', () => {
 
       const evalPromise = client.evaluate('flagA');
 
-      // The 401 aborts the stream but the init promise may hang until timeout
+      // The 502 triggers stream error; init promise hangs until timeout
       await vi.advanceTimersByTimeAsync(3_000);
 
       const result = await evalPromise;
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.any(Error),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
       errorSpy.mockRestore();
+      warnSpy.mockRestore();
     });
 
     it('should fast-fail on 401 without waiting for stream timeout', async () => {
@@ -739,6 +754,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: 500 },
@@ -753,6 +770,11 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA');
       expect(result.metrics?.source).toBe('embedded');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+      warnSpy.mockRestore();
     });
 
     it('should disable stream when stream: false', async () => {
@@ -2206,6 +2228,9 @@ describe('Controller (black-box)', () => {
         return Promise.resolve(new Response('', { status: 200 }));
       });
 
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: 100 },
@@ -2242,6 +2267,16 @@ describe('Controller (black-box)', () => {
       const h1 = streamCalls[1]?.[1]?.headers as Record<string, string>;
       expect(h0['X-Retry-Attempt']).toBe('0');
       expect(h1['X-Retry-Attempt']).toBe('1');
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.any(Error),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
 
       await client.shutdown();
     });
