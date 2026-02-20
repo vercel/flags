@@ -65,6 +65,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
         source: datafile.metrics.source,
         cacheStatus: datafile.metrics.cacheStatus,
         connectionState: datafile.metrics.connectionState,
+        mode: datafile.metrics.mode,
       },
     };
   }
@@ -98,6 +99,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       source: datafile.metrics.source,
       cacheStatus: datafile.metrics.cacheStatus,
       connectionState: datafile.metrics.connectionState,
+      mode: datafile.metrics.mode,
     },
   });
 }

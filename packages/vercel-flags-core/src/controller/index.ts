@@ -186,6 +186,18 @@ export class Controller implements ControllerInterface {
     return this.state === 'streaming';
   }
 
+  private get mode(): Metrics['mode'] {
+    if (this.options.buildStep) return 'build';
+    switch (this.state) {
+      case 'streaming':
+        return 'streaming';
+      case 'polling':
+        return 'polling';
+      default:
+        return 'offline';
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Public API (DataSource interface)
   // ---------------------------------------------------------------------------
@@ -281,6 +293,7 @@ export class Controller implements ControllerInterface {
         connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
+        mode: this.mode,
       },
     }) satisfies Datafile;
   }
@@ -338,6 +351,7 @@ export class Controller implements ControllerInterface {
         connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
+        mode: this.mode,
       },
     }) satisfies Datafile;
   }
