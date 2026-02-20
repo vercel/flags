@@ -144,6 +144,7 @@ describe('Manual', () => {
       expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
         {
           payload: {
+            cacheAction: 'NONE',
             cacheIsBlocking: false,
             cacheIsFirstRead: true,
             cacheStatus: 'HIT',
@@ -222,6 +223,7 @@ describe('Manual', () => {
       expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
         {
           payload: {
+            cacheAction: 'NONE',
             cacheIsBlocking: false,
             cacheIsFirstRead: true,
             cacheStatus: 'HIT',
@@ -345,6 +347,7 @@ describe('Manual', () => {
       expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual([
         {
           payload: {
+            cacheAction: 'NONE',
             cacheIsBlocking: false,
             cacheIsFirstRead: true,
             cacheStatus: 'HIT',
@@ -360,7 +363,7 @@ describe('Manual', () => {
   });
 
   describe('creating a client', () => {
-    it('should only load the bundled definitions but not stream or poll', () => {
+    it('should not load bundled definitions or stream or poll on creation', () => {
       const client = createClient(sdkKey, {
         buildStep: false,
         fetch: fetchMock,
@@ -368,7 +371,8 @@ describe('Manual', () => {
 
       expect(client).toBeDefined();
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(readBundledDefinitions).toHaveBeenCalledWith(sdkKey);
+      // Bundled definitions are loaded lazily, not at construction time
+      expect(readBundledDefinitions).not.toHaveBeenCalled();
     });
   });
 

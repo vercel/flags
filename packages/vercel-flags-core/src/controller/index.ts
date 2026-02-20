@@ -654,9 +654,16 @@ export class Controller implements ControllerInterface {
 
     const configOrigin: 'in-memory' | 'embedded' =
       source === 'embedded' ? 'embedded' : 'in-memory';
+    const cacheAction: 'FOLLOWING' | 'REFRESHING' | 'NONE' =
+      this.state === 'streaming'
+        ? 'FOLLOWING'
+        : this.state === 'polling'
+          ? 'REFRESHING'
+          : 'NONE';
     const trackOptions: TrackReadOptions = {
       configOrigin,
       cacheStatus: cacheHadDefinitions ? 'HIT' : 'MISS',
+      cacheAction,
       cacheIsBlocking: !cacheHadDefinitions,
       duration: Date.now() - startTime,
     };
