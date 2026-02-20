@@ -145,40 +145,49 @@ export class Controller implements ControllerInterface {
     this.usageTracker = options.usageTracker ?? new UsageTracker(this.options);
   }
 
+  // Source event handlers (stored for cleanup)
+  private onStreamData = (data: DatafileInput) => {
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'stream');
+    }
+  };
+  private onStreamConnected = () => {
+    if (this.state === 'degraded' || this.state === 'initializing:stream') {
+      this.transition('streaming');
+    }
+  };
+  private onStreamDisconnected = () => {
+    if (this.state === 'streaming') {
+      this.transition('degraded');
+    }
+  };
+  private onPollData = (data: DatafileInput) => {
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'poll');
+    }
+  };
+  private onPollError = (error: Error) => {
+    console.error('@vercel/flags-core: Poll failed:', error);
+  };
+
   // ---------------------------------------------------------------------------
   // Source event wiring
   // ---------------------------------------------------------------------------
 
   private wireSourceEvents(): void {
-    // Stream events — tag on receipt
-    this.streamSource.on('data', (data) => {
-      if (this.isNewerData(data)) {
-        this.data = tagData(data, 'stream');
-      }
-    });
+    this.streamSource.on('data', this.onStreamData);
+    this.streamSource.on('connected', this.onStreamConnected);
+    this.streamSource.on('disconnected', this.onStreamDisconnected);
+    this.pollingSource.on('data', this.onPollData);
+    this.pollingSource.on('error', this.onPollError);
+  }
 
-    this.streamSource.on('connected', () => {
-      if (this.state === 'degraded' || this.state === 'initializing:stream') {
-        this.transition('streaming');
-      }
-    });
-
-    this.streamSource.on('disconnected', () => {
-      if (this.state === 'streaming') {
-        this.transition('degraded');
-      }
-    });
-
-    // Polling events — tag on receipt
-    this.pollingSource.on('data', (data) => {
-      if (this.isNewerData(data)) {
-        this.data = tagData(data, 'poll');
-      }
-    });
-
-    this.pollingSource.on('error', (error) => {
-      console.error('@vercel/flags-core: Poll failed:', error);
-    });
+  private unwireSourceEvents(): void {
+    this.streamSource.off('data', this.onStreamData);
+    this.streamSource.off('connected', this.onStreamConnected);
+    this.streamSource.off('disconnected', this.onStreamDisconnected);
+    this.pollingSource.off('data', this.onPollData);
+    this.pollingSource.off('error', this.onPollError);
   }
 
   // ---------------------------------------------------------------------------
@@ -291,6 +300,7 @@ export class Controller implements ControllerInterface {
    * Shuts down the data source and releases resources.
    */
   async shutdown(): Promise<void> {
+    this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
     this.data = this.options.datafile
@@ -514,8 +524,9 @@ export class Controller implements ControllerInterface {
       this.transition('initializing:stream');
       this.streamSource.start().catch(() => {});
     } else if (this.options.polling.enabled) {
-      void this.pollingSource.poll();
+      // Start interval first so the abort controller exists for the initial poll
       this.pollingSource.startInterval();
+      void this.pollingSource.poll();
       this.transition('polling');
     } else {
       this.transition('degraded');

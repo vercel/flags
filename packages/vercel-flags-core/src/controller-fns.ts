@@ -17,20 +17,30 @@ export type ControllerInstance = {
 
 export const controllerInstanceMap = new Map<number, ControllerInstance>();
 
+function getInstance(id: number): ControllerInstance {
+  const instance = controllerInstanceMap.get(id);
+  if (!instance) {
+    throw new Error(
+      `@vercel/flags-core: Client instance ${id} not found. It may have been shut down.`,
+    );
+  }
+  return instance;
+}
+
 export function initialize(id: number): Promise<void> {
-  return controllerInstanceMap.get(id)!.controller.initialize();
+  return getInstance(id).controller.initialize();
 }
 
 export function shutdown(id: number): void | Promise<void> {
-  return controllerInstanceMap.get(id)!.controller.shutdown();
+  return getInstance(id).controller.shutdown();
 }
 
 export function getDatafile(id: number) {
-  return controllerInstanceMap.get(id)!.controller.getDatafile();
+  return getInstance(id).controller.getDatafile();
 }
 
 export function getFallbackDatafile(id: number): Promise<BundledDefinitions> {
-  const ds = controllerInstanceMap.get(id)!.controller;
+  const ds = getInstance(id).controller;
   if (ds.getFallbackDatafile) return ds.getFallbackDatafile();
   throw new Error('flags: This data source does not support fallbacks');
 }
@@ -41,7 +51,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   defaultValue?: T,
   entities?: E,
 ): Promise<EvaluationResult<T>> {
-  const controller = controllerInstanceMap.get(id)!.controller;
+  const controller = getInstance(id).controller;
 
   let datafile: Datafile;
   try {
