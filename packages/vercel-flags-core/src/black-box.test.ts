@@ -2305,7 +2305,7 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('should deduplicate concurrent evaluate() calls that trigger initialize', async () => {
+    it('should deduplicate concurrent evaluate() calls that trigger initialize, and only track one read when request context is set', async () => {
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -2364,6 +2364,89 @@ describe('Controller (black-box)', () => {
                 cacheStatus: 'HIT',
                 cacheAction: 'FOLLOWING',
                 cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+    });
+
+    it('should deduplicate concurrent evaluate() calls that trigger initialize, and track each read individually when request context is missing', async () => {
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, { fetch: fetchMock });
+
+      // Three concurrent evaluates trigger lazy initialization
+      const p1 = client.evaluate('flagA');
+      const p2 = client.evaluate('flagA');
+      const p3 = client.evaluate('flagA');
+
+      stream.push({ type: 'datafile', data: makeBundled() });
+      await vi.advanceTimersByTimeAsync(0);
+
+      const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+
+      // All should have the same value
+      expect(r1.value).toBe(true);
+      expect(r2.value).toBe(true);
+      expect(r3.value).toBe(true);
+
+      // Stream should have been fetched only once
+      const streamCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/stream'),
+      );
+      expect(streamCalls).toHaveLength(1);
+
+      stream.close();
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
@@ -2476,14 +2559,54 @@ describe('Controller (black-box)', () => {
 
       // First initialize fails (no bundled, fetch returns 500)
       await expect(client.initialize()).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: datafileRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
 
       // Second initialize should retry — fetch now succeeds
       await client.initialize();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: datafileRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
 
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          headers: ingestRequestHeaders,
+          method: 'POST',
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+        },
+      );
     });
   });
 
