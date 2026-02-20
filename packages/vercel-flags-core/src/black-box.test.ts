@@ -560,6 +560,7 @@ describe('Controller (black-box)', () => {
 
     it('should update definitions when new datafile messages arrive', async () => {
       const datafile1 = makeBundled({
+        revision: 1,
         configUpdatedAt: 1,
         definitions: {
           flagA: {
@@ -569,6 +570,7 @@ describe('Controller (black-box)', () => {
         },
       });
       const datafile2 = makeBundled({
+        revision: 2,
         configUpdatedAt: 2,
         definitions: {
           flagA: {
@@ -642,7 +644,7 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.connectionState).toBe('disconnected');
     });
 
-    it('should fall back to bundled when stream errors (4xx)', async () => {
+    it('should fall back to bundled when stream errors (502)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -651,7 +653,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
-          return Promise.resolve(new Response(null, { status: 401 }));
+          return Promise.resolve(new Response(null, { status: 502 }));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
