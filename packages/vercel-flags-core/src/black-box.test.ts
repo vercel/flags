@@ -146,6 +146,15 @@ describe('Controller (black-box)', () => {
         }),
       ).not.toThrow();
     });
+
+    it('should throw for polling interval below 30s', () => {
+      expect(() =>
+        createClient(sdkKey, {
+          fetch: fetchMock,
+          polling: { intervalMs: 1000, initTimeoutMs: 3000 },
+        }),
+      ).toThrow('Polling interval must be at least 30000ms');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -781,8 +790,6 @@ describe('Controller (black-box)', () => {
   // ---------------------------------------------------------------------------
   describe('polling behavior', () => {
     it('should use polling when enabled', async () => {
-      vi.useRealTimers(); // Polling uses real intervals
-
       let pollCount = 0;
       const datafile = makeBundled();
 
@@ -798,7 +805,7 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: false,
-        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
       await client.initialize();
@@ -806,7 +813,7 @@ describe('Controller (black-box)', () => {
       expect(pollCount).toBeGreaterThanOrEqual(1);
 
       // Wait for a few poll intervals
-      await new Promise((r) => setTimeout(r, 350));
+      await vi.advanceTimersByTimeAsync(90_000);
 
       expect(pollCount).toBeGreaterThanOrEqual(3);
 
@@ -924,7 +931,7 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: 100 },
-        polling: { intervalMs: 50, initTimeoutMs: 5000 },
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
       const initPromise = client.initialize();
@@ -966,7 +973,7 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: 100 },
-        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
       // Stream retries with backoff; advance timers so the init timeout fires
@@ -1104,7 +1111,7 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: 5000 },
-        polling: { intervalMs: 100, initTimeoutMs: 5000 },
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
       // Stream retries with backoff; advance timers so the init timeout fires
