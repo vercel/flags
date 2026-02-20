@@ -5,6 +5,7 @@ import type { StreamSource } from './stream-source';
 
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
+const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
 
 /**
@@ -102,6 +103,11 @@ export function normalizeOptions(
   } else if (options.polling === false) {
     polling = { enabled: false, intervalMs: 0, initTimeoutMs: 0 };
   } else {
+    if (options.polling.intervalMs < MIN_POLLING_INTERVAL_MS) {
+      throw new Error(
+        `@vercel/flags-core: Polling interval must be at least ${MIN_POLLING_INTERVAL_MS}ms, got ${options.polling.intervalMs}ms.`,
+      );
+    }
     polling = {
       enabled: true,
       intervalMs: options.polling.intervalMs,
