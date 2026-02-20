@@ -558,6 +558,160 @@ describe('UsageTracker', () => {
     });
   });
 
+  describe('cross-instance deduplication', () => {
+    it('should not deduplicate across separate UsageTracker instances', async () => {
+      const receivedEvents: unknown[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          const body = (await request.json()) as unknown[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      // Set up a shared request context
+      const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
+      const mockContext = {
+        headers: {
+          'x-vercel-id': 'shared-request-id',
+          host: 'example.com',
+        },
+      };
+
+      (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT] = {
+        get: () => mockContext,
+      };
+
+      const tracker1 = new UsageTracker({
+        sdkKey: 'key-1',
+        host: 'https://example.com',
+        fetch,
+      });
+
+      const tracker2 = new UsageTracker({
+        sdkKey: 'key-2',
+        host: 'https://example.com',
+        fetch,
+      });
+
+      // Both trackers track with the same request context
+      tracker1.trackRead();
+      tracker2.trackRead();
+      tracker1.flush();
+      tracker2.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(2);
+      });
+
+      // Each tracker should have sent its own event
+      expect(receivedEvents[0]).toHaveLength(1);
+      expect(receivedEvents[1]).toHaveLength(1);
+
+      // Clean up
+      delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+    });
+  });
+
+  describe('flush failure retry', () => {
+    it('should re-queue events on failed flush and send them on next flush', async () => {
+      let requestCount = 0;
+      const receivedEvents: unknown[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          requestCount++;
+          if (requestCount === 1) {
+            // First flush fails
+            return new HttpResponse(null, { status: 500 });
+          }
+          // Second flush succeeds
+          const body = (await request.json()) as unknown[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+        fetch,
+      });
+
+      tracker.trackRead();
+      tracker.flush();
+
+      // Wait for the first (failing) flush to complete
+      await vi.waitFor(() => {
+        expect(requestCount).toBe(1);
+      });
+
+      // Events should have been re-queued — a new trackRead triggers
+      // a new schedule cycle which will include the re-queued events
+      tracker.trackRead();
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      // Should contain both the re-queued event and the new one
+      expect(receivedEvents[0]).toHaveLength(2);
+    });
+
+    it('should re-queue events on fetch error and send them on next flush', async () => {
+      let requestCount = 0;
+      const receivedEvents: unknown[][] = [];
+
+      server.use(
+        http.post('https://example.com/v1/ingest', async ({ request }) => {
+          requestCount++;
+          if (requestCount === 1) {
+            // First flush throws network error
+            return HttpResponse.error();
+          }
+          // Second flush succeeds
+          const body = (await request.json()) as unknown[];
+          receivedEvents.push(body);
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const tracker = new UsageTracker({
+        sdkKey: 'test-key',
+        host: 'https://example.com',
+        fetch,
+      });
+
+      tracker.trackRead();
+      tracker.flush();
+
+      // Wait for the first (failing) flush to complete
+      await vi.waitFor(() => {
+        expect(requestCount).toBe(1);
+      });
+
+      // Events should have been re-queued — a new trackRead triggers
+      // a new schedule cycle which will include the re-queued events
+      tracker.trackRead();
+      tracker.flush();
+
+      await vi.waitFor(() => {
+        expect(receivedEvents.length).toBe(1);
+      });
+
+      // Should contain both the re-queued event and the new one
+      expect(receivedEvents[0]).toHaveLength(2);
+
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe('batch size limit', () => {
     it('should trigger flush when batch size reaches 50', async () => {
       const receivedEvents: unknown[] = [];

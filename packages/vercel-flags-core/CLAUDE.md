@@ -166,8 +166,9 @@ pnpm test:integration
 - Uses fetch with streaming body (NDJSON format)
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Default `initTimeoutMs`: 3000ms
-- 401 errors abort immediately (invalid SDK key) — does NOT reject the init promise, so the stream timeout must fire for fallback to kick in
-- On disconnect: falls back to polling if enabled
+- 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
+- On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
+- On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 
 ### Polling
 
@@ -184,15 +185,16 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` creates a new object (shallow spread) to avoid mutating the input.
+`tagData` mutates the input object in-place via `Object.assign` (callers always pass freshly-created data).
 
 ### Usage Tracking
 
 - Batches flag read events (max 50 events, max 5s wait)
 - Sends to `flags.vercel.com/v1/ingest`
-- At runtime: deduplicates by request context (WeakSet in UsageTracker)
+- At runtime: deduplicates by request context (per-instance WeakSet in UsageTracker)
 - During builds: deduplicates all reads to a single event (buildReadTracked flag in Controller), since there is no request context available
-- Uses `waitUntil()` from `@vercel/functions`
+- Uses `waitUntil()` from `@vercel/functions` (wrapped in try/catch for resilience)
+- On flush failure, events are re-queued for retry
 
 ### Client Management
 
@@ -203,7 +205,12 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 ### configUpdatedAt Guard
 
-The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+
+### Evaluation Safety
+
+- Regex comparators (`REGEX`, `NOT_REGEX`) limit input string length to 10,000 characters to prevent ReDoS
+- `read()` and `getDatafile()` return new objects with spread (never mutate `this.data`)
 
 ### Debug Mode
 
