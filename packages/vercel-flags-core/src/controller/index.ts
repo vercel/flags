@@ -307,6 +307,7 @@ export class Controller implements ControllerInterface {
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
+    this.isFirstGetData = false;
 
     let result: TaggedData;
     let cacheStatus: Metrics['cacheStatus'];

@@ -225,10 +225,15 @@ export class UsageTracker {
   private requeue(events: FlagsConfigReadEvent[]): void {
     const combined = [...events, ...this.batcher.events];
     // Drop oldest events (from the front) when over capacity
-    this.batcher.events =
-      combined.length > MAX_QUEUE_SIZE
-        ? combined.slice(combined.length - MAX_QUEUE_SIZE)
-        : combined;
+    if (combined.length > MAX_QUEUE_SIZE) {
+      const dropped = combined.length - MAX_QUEUE_SIZE;
+      console.warn(
+        `@vercel/flags-core: Dropping ${dropped} usage event(s) (queue full)`,
+      );
+      this.batcher.events = combined.slice(dropped);
+    } else {
+      this.batcher.events = combined;
+    }
   }
 
   private async flushEvents(): Promise<void> {

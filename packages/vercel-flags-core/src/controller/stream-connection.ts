@@ -95,14 +95,16 @@ export async function connectStream(
         }
 
         const decoder = new TextDecoder();
-        let buffer = '';
+        const bufferChunks: string[] = [];
 
         for await (const chunk of response.body) {
           if (abortController.signal.aborted) break;
 
-          buffer += decoder.decode(chunk, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop()!;
+          bufferChunks.push(decoder.decode(chunk, { stream: true }));
+          const combined = bufferChunks.join('');
+          bufferChunks.length = 0;
+          const lines = combined.split('\n');
+          bufferChunks.push(lines.pop()!);
 
           for (const line of lines) {
             if (line === '') continue;
@@ -124,6 +126,12 @@ export async function connectStream(
                 initialDataReceived = true;
                 resolveInit!();
               }
+            }
+
+            // Pings prove the connection is alive — reset retry count
+            // once initial data has been received
+            if (message.type === 'ping' && initialDataReceived) {
+              retryCount = 0;
             }
           }
         }

@@ -19,14 +19,13 @@ export async function fetchDatafile(options: {
   );
 
   // Abort the internal controller when the external signal fires
+  const onExternalAbort = () => controller.abort();
   if (options.signal) {
     if (options.signal.aborted) {
       clearTimeout(timeoutId);
       throw new Error('Fetch aborted');
     }
-    options.signal.addEventListener('abort', () => controller.abort(), {
-      once: true,
-    });
+    options.signal.addEventListener('abort', onExternalAbort, { once: true });
   }
 
   try {
@@ -39,6 +38,7 @@ export async function fetchDatafile(options: {
     });
 
     clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', onExternalAbort);
 
     if (!res.ok) {
       throw new Error(`Failed to fetch data: ${res.statusText}`);
@@ -47,6 +47,7 @@ export async function fetchDatafile(options: {
     return res.json() as Promise<BundledDefinitions>;
   } catch (error) {
     clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', onExternalAbort);
     throw error instanceof Error ? error : new Error('Unknown fetch error');
   }
 }
