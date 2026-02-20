@@ -1332,8 +1332,8 @@ describe('Controller', () => {
   });
 
   describe('buildStep option', () => {
-    it('should always load bundled definitions regardless of buildStep', async () => {
-      // bundled definitions are always loaded as ultimate fallback
+    it('should not load bundled definitions eagerly at construction time', async () => {
+      // bundled definitions are loaded lazily, not at construction time
       const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         buildStep: false,
@@ -1341,7 +1341,7 @@ describe('Controller', () => {
         polling: false,
       });
 
-      expect(readBundledDefinitions).toHaveBeenCalledWith('vf_test_key');
+      expect(readBundledDefinitions).not.toHaveBeenCalled();
 
       await dataSource.shutdown();
     });

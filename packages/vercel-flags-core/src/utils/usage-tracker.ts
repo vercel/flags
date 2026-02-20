@@ -18,7 +18,8 @@ export interface FlagsConfigReadEvent {
     region?: string;
     invocationHost?: string;
     vercelRequestId?: string;
-    cacheStatus?: 'HIT' | 'MISS';
+    cacheStatus?: 'HIT' | 'MISS' | 'BYPASS';
+    cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
     cacheIsBlocking?: boolean;
     cacheIsFirstRead?: boolean;
     duration?: number;
@@ -81,8 +82,10 @@ export interface UsageTrackerOptions {
 export interface TrackReadOptions {
   /** Whether the config was read from in-memory cache or embedded bundle */
   configOrigin: 'in-memory' | 'embedded';
-  /** HIT when definitions exist in memory, MISS when not. Omitted for embedded reads. */
-  cacheStatus?: 'HIT' | 'MISS';
+  /** HIT when definitions exist in memory, MISS when not, BYPASS when using fallback as primary source */
+  cacheStatus?: 'HIT' | 'MISS' | 'BYPASS';
+  /** FOLLOWING when streaming, REFRESHING when polling, NONE otherwise */
+  cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
   /** True for the very first getData call */
   cacheIsFirstRead?: boolean;
   /** Whether the cache read was blocking */
@@ -148,6 +151,9 @@ export class UsageTracker {
         event.payload.configOrigin = options.configOrigin;
         if (options.cacheStatus !== undefined) {
           event.payload.cacheStatus = options.cacheStatus;
+        }
+        if (options.cacheAction !== undefined) {
+          event.payload.cacheAction = options.cacheAction;
         }
         if (options.cacheIsFirstRead !== undefined) {
           event.payload.cacheIsFirstRead = options.cacheIsFirstRead;

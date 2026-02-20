@@ -15,14 +15,17 @@ export type BundledSourceEvents = {
  */
 export class BundledSource extends TypedEmitter<BundledSourceEvents> {
   private promise: Promise<BundledDefinitionsResult> | undefined;
+  private options: {
+    sdkKey: string;
+    readBundledDefinitions: typeof readBundledDefinitions;
+  };
 
   constructor(options: {
     sdkKey: string;
     readBundledDefinitions: typeof readBundledDefinitions;
   }) {
     super();
-    // Eagerly start loading bundled definitions
-    this.promise = options.readBundledDefinitions(options.sdkKey);
+    this.options = options;
   }
 
   /**
@@ -33,7 +36,7 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
   async load(): Promise<TaggedData> {
     const result = await this.getResult();
 
-    if (result?.state === 'ok' && result.definitions) {
+    if (result.state === 'ok' && result.definitions) {
       const tagged = tagData(result.definitions, 'bundled');
       this.emit('data', tagged);
       return tagged;
@@ -51,10 +54,6 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
    */
   async getRaw(): Promise<BundledDefinitions> {
     const result = await this.getResult();
-
-    if (!result) {
-      throw new FallbackNotFoundError();
-    }
 
     switch (result.state) {
       case 'ok':
@@ -76,7 +75,7 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
    */
   async tryLoad(): Promise<TaggedData | undefined> {
     const result = await this.getResult();
-    if (result?.state === 'ok' && result.definitions) {
+    if (result.state === 'ok' && result.definitions) {
       const tagged = tagData(result.definitions, 'bundled');
       this.emit('data', tagged);
       return tagged;
@@ -84,8 +83,10 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
     return undefined;
   }
 
-  private async getResult(): Promise<BundledDefinitionsResult | undefined> {
-    if (!this.promise) return undefined;
+  private getResult(): Promise<BundledDefinitionsResult> {
+    if (!this.promise) {
+      this.promise = this.options.readBundledDefinitions(this.options.sdkKey);
+    }
     return this.promise;
   }
 }
