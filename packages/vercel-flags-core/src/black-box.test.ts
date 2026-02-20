@@ -2809,26 +2809,25 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
-          body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 2,
+              },
+            },
+          ]),
           headers: ingestRequestHeaders,
           method: 'POST',
         },
       );
-      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
-        {
-          payload: {
-            cacheAction: 'NONE',
-            cacheIsBlocking: false,
-            cacheIsFirstRead: true,
-            cacheStatus: 'HIT',
-            configOrigin: 'in-memory',
-            configUpdatedAt: 2,
-            duration: 0,
-          },
-          ts: expect.any(Number),
-          type: 'FLAGS_CONFIG_READ',
-        },
-      ]);
     });
 
     it('should only track one FLAGS_CONFIG_READ during build step', async () => {
@@ -2843,21 +2842,33 @@ describe('Controller (black-box)', () => {
       });
 
       // Multiple evaluates during build
-      await client.evaluate('flagA');
-      await client.evaluate('flagA');
+      await Promise.all([client.evaluate('flagA'), client.evaluate('flagA')]);
       await client.evaluate('flagA');
 
       await client.shutdown();
-
-      // Only one ingest call, despite multiple evaluate() calls
-      const ingestCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/ingest'),
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
       );
-      expect(ingestCalls).toHaveLength(1);
-
-      const events = JSON.parse(ingestCalls[0]?.[1]?.body as string);
-      expect(events).toHaveLength(1);
-      expect(events[0].type).toBe('FLAGS_CONFIG_READ');
     });
 
     it('should report FLAGS_CONFIG_READ with FOLLOWING cacheAction when streaming', async () => {
@@ -2889,22 +2900,38 @@ describe('Controller (black-box)', () => {
       // Evaluate while streaming
       await client.evaluate('flagA');
 
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
       await client.shutdown();
-
-      const ingestCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/ingest'),
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 5,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
       );
-      expect(ingestCalls.length).toBeGreaterThanOrEqual(1);
-
-      const events = JSON.parse(ingestCalls[0]?.[1]?.body as string);
-      const readEvent = events.find(
-        (e: { type: string }) => e.type === 'FLAGS_CONFIG_READ',
-      );
-      expect(readEvent).toBeDefined();
-      expect(readEvent.payload.cacheAction).toBe('FOLLOWING');
-      expect(readEvent.payload.configOrigin).toBe('in-memory');
-      expect(readEvent.payload.cacheIsFirstRead).toBe(true);
-      expect(readEvent.payload.configUpdatedAt).toBe(5);
 
       stream.close();
     });
@@ -2942,26 +2969,25 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
-          body: expect.stringContaining('"type":"FLAGS_CONFIG_READ"'),
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 2,
+              },
+            },
+          ]),
           headers: ingestRequestHeaders,
           method: 'POST',
         },
       );
-      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual([
-        {
-          payload: {
-            cacheAction: 'NONE',
-            cacheIsBlocking: false,
-            cacheIsFirstRead: true,
-            cacheStatus: 'HIT',
-            configOrigin: 'embedded',
-            configUpdatedAt: 2,
-            duration: 0,
-          },
-          ts: expect.any(Number),
-          type: 'FLAGS_CONFIG_READ',
-        },
-      ]);
     });
   });
 });
