@@ -517,6 +517,40 @@ describe('Controller (black-box)', () => {
       errorSpy.mockRestore();
     });
 
+    it('should fast-fail on 401 without waiting for stream timeout', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled(),
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return Promise.resolve(new Response(null, { status: 401 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      const evalPromise = client.evaluate('flagA');
+
+      // Only advance a tiny amount — well under the 3s stream timeout.
+      // If the 401 fast-fail works, evaluate resolves without the full timeout.
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await evalPromise;
+      expect(result.value).toBe(true);
+      expect(result.metrics?.source).toBe('embedded');
+
+      errorSpy.mockRestore();
+    });
+
     it('should use custom initTimeoutMs value', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
