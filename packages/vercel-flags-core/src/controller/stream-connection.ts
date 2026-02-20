@@ -52,6 +52,7 @@ export async function connectStream(
   } = config;
   const { onMessage, onDisconnect } = callbacks;
   let retryCount = 0;
+  let lastAttemptTime = 0;
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
@@ -76,6 +77,7 @@ export async function connectStream(
       }
 
       try {
+        lastAttemptTime = Date.now();
         const response = await fetchFn(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
@@ -147,7 +149,9 @@ export async function connectStream(
         if (!abortController.signal.aborted) {
           onDisconnect?.();
           retryCount++;
-          await sleep(backoff(retryCount));
+          const elapsed = Date.now() - lastAttemptTime;
+          const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+          await sleep(Math.max(backoff(retryCount), minGap));
           continue;
         }
       } catch (error) {
@@ -157,7 +161,9 @@ export async function connectStream(
         console.error('@vercel/flags-core: Stream error', error);
         onDisconnect?.();
         retryCount++;
-        await sleep(backoff(retryCount));
+        const elapsed = Date.now() - lastAttemptTime;
+        const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+        await sleep(Math.max(backoff(retryCount), minGap));
       }
     }
 

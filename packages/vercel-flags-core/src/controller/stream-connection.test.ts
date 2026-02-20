@@ -387,6 +387,64 @@ describe('connectStream', () => {
       abortController.abort();
     });
 
+    it('should enforce minimum delay between reconnection attempts when retryCount resets', async () => {
+      vi.useFakeTimers();
+
+      const retryAttempts: string[] = [];
+      let requestCount = 0;
+
+      server.use(
+        http.get(`${HOST}/v1/stream`, ({ request }) => {
+          retryAttempts.push(request.headers.get('X-Retry-Attempt') ?? '');
+          requestCount++;
+
+          // Each request: send datafile (resets retryCount to 0) then close
+          // On the 4th request, keep open to stop the loop
+          return new HttpResponse(
+            createNdjsonStream(
+              [
+                {
+                  type: 'datafile',
+                  data: { projectId: 'test', definitions: {} },
+                },
+              ],
+              { keepOpen: requestCount >= 4 },
+            ),
+            { headers: { 'Content-Type': 'application/x-ndjson' } },
+          );
+        }),
+      );
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn() },
+      );
+
+      // After the first stream closes, retryCount was reset to 0 then
+      // incremented to 1 — backoff(1) = 0 but minimum gap is 1s.
+      // Advance 999ms — not enough for the minimum gap
+      await vi.advanceTimersByTimeAsync(999);
+      expect(requestCount).toBe(1);
+
+      // Advance past the 1s minimum gap
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(requestCount).toBe(2);
+
+      // Same pattern for the next reconnection
+      await vi.advanceTimersByTimeAsync(999);
+      expect(requestCount).toBe(2);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(requestCount).toBe(3);
+
+      abortController.abort();
+      vi.useRealTimers();
+    });
+
     it('should call onDisconnect when stream ends normally', async () => {
       let requestCount = 0;
 
