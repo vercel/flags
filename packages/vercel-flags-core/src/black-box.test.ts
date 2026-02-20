@@ -777,6 +777,54 @@ describe('Controller (black-box)', () => {
       warnSpy.mockRestore();
     });
 
+    it('should not spam the server when stream repeatedly connects then disconnects', async () => {
+      const datafile = makeBundled();
+      let streamRequestCount = 0;
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          streamRequestCount++;
+
+          // Each stream connection sends a datafile (resetting retryCount)
+          // then immediately closes — simulating a flapping connection
+          const encoder = new TextEncoder();
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  `${JSON.stringify({ type: 'datafile', data: datafile })}\n`,
+                ),
+              );
+              controller.close();
+            },
+          });
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      await client.initialize();
+
+      // Advance 10 seconds — without the minimum gap protection this would
+      // cause an unbounded number of reconnections (retryCount resets to 0
+      // after each datafile, and backoff(1)=0 gives immediate retry).
+      // With the fix, reconnections are spaced at least 1s apart.
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      // At most ~11 attempts in 10s (initial + 10 reconnections at 1s each)
+      expect(streamRequestCount).toBeLessThanOrEqual(12);
+      // But we should still see reconnection attempts happening
+      expect(streamRequestCount).toBeGreaterThanOrEqual(2);
+
+      await client.shutdown();
+    });
+
     it('should disable stream when stream: false', async () => {
       const datafile = makeBundled();
 
@@ -1109,16 +1157,19 @@ describe('Controller (black-box)', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const streamInitTimeoutMs = 100;
+      const streamInitTimeoutMs = 1_500;
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: { initTimeoutMs: streamInitTimeoutMs },
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
-      // Stream retries with backoff; advance timers so the init timeout fires
+      // Stream retries with backoff; advance timers so the init timeout fires.
+      // The minimum reconnection gap is 1s, so the first retry happens at ~1s.
+      // With initTimeoutMs=1500 we get: attempt at t=0 (fail), retry at t=1000
+      // (fail, backoff(2) >= 1s), timeout at t=1500 → fall back to bundled.
       const resultPromise = client.evaluate('flagA');
-      await vi.advanceTimersByTimeAsync(200);
+      await vi.advanceTimersByTimeAsync(1_600);
       const result = await resultPromise;
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(0);
@@ -2241,7 +2292,7 @@ describe('Controller (black-box)', () => {
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
-        stream: { initTimeoutMs: 100 },
+        stream: { initTimeoutMs: 1_500 },
         polling: false,
       });
 
@@ -2250,8 +2301,10 @@ describe('Controller (black-box)', () => {
       const p2 = client.evaluate('flagA');
       const p3 = client.evaluate('flagA');
 
-      // Advance past the stream init timeout
-      await vi.advanceTimersByTimeAsync(100);
+      // Advance past the stream init timeout.
+      // The minimum reconnection gap is 1s, so: attempt at t=0 (fail),
+      // retry at t=1000 (fail, backoff(2) >= 1s), timeout at t=1500.
+      await vi.advanceTimersByTimeAsync(1_500);
 
       const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
 
@@ -2261,9 +2314,9 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
 
       // Concurrent callers share the same init promise, so only one retry
-      // loop is started. With 100ms timeout: attempt at retryCount=0 fails,
-      // backoff(1)=0ms → immediate retry at retryCount=1 fails,
-      // backoff(2)=~1s+ exceeds 100ms timeout → falls back to bundled.
+      // loop is started. With 1500ms timeout: attempt at retryCount=0 fails,
+      // minimum gap enforces 1s delay → retry at retryCount=1 fails at t=1000,
+      // backoff(2) >= 1s exceeds remaining timeout → falls back to bundled.
       // So exactly 2 stream attempts (one loop, two iterations).
       const streamCalls = fetchMock.mock.calls.filter((call) =>
         call[0]?.toString().includes('/v1/stream'),
