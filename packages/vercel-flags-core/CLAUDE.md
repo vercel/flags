@@ -165,10 +165,12 @@ pnpm test:integration
 
 - Uses fetch with streaming body (NDJSON format)
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
+- Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
 - On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
+- Background stream promises (from init timeout or `startBackgroundUpdates`) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
 ### Polling
 
@@ -177,6 +179,8 @@ pnpm test:integration
 - Default `initTimeoutMs`: 10000ms (10s)
 - Retries with exponential backoff (base: 500ms, max 3 retries)
 - Stops automatically when stream reconnects
+- `PollingSource` passes its abort signal to `fetchDatafile`, so calling `stop()` aborts in-flight HTTP requests
+- `fetchDatafile` accepts an optional `signal` parameter; when provided, it aborts the internal fetch controller when the external signal fires
 
 ### Data Origin Tagging
 
@@ -194,7 +198,8 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - At runtime: deduplicates by request context (per-instance WeakSet in UsageTracker)
 - During builds: deduplicates all reads to a single event (buildReadTracked flag in Controller), since there is no request context available
 - Uses `waitUntil()` from `@vercel/functions` (wrapped in try/catch for resilience)
-- On flush failure, events are re-queued for retry
+- On flush failure, events are re-queued for retry with a max queue size of 500 events (oldest events are dropped when exceeded)
+- `flush()` directly flushes queued events even when no scheduled flush is pending, ensuring events are not lost during `shutdown()`
 
 ### Client Management
 
@@ -206,6 +211,11 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 ### configUpdatedAt Guard
 
 The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+
+### Evaluation Reporting
+
+- `internalReportValue` in `controller-fns.ts` reports flag evaluations to the Vercel request context
+- Reports are sent for all evaluations where `datafile.projectId` exists, including error cases (e.g., FLAG_NOT_FOUND)
 
 ### Evaluation Safety
 
