@@ -1,7 +1,12 @@
 import { controllerInstanceMap } from './controller-instance-map';
 import { evaluate as evalFlag } from './evaluate';
 import { internalReportValue } from './lib/report-value';
-import type { BundledDefinitions, EvaluationResult, Packed } from './types';
+import type {
+  BundledDefinitions,
+  Datafile,
+  EvaluationResult,
+  Packed,
+} from './types';
 import { ErrorCode, ResolutionReason } from './types';
 
 export function initialize(id: number): Promise<void> {
@@ -29,7 +34,23 @@ export async function evaluate<T, E = Record<string, unknown>>(
   entities?: E,
 ): Promise<EvaluationResult<T>> {
   const controller = controllerInstanceMap.get(id)!.controller;
-  const datafile = await controller.read();
+
+  let datafile: Datafile;
+  try {
+    datafile = await controller.read();
+  } catch (error) {
+    // All data sources failed. Fall back to defaultValue if provided.
+    if (defaultValue !== undefined) {
+      return {
+        value: defaultValue,
+        reason: ResolutionReason.ERROR,
+        errorMessage:
+          error instanceof Error ? error.message : 'Failed to read datafile',
+      };
+    }
+    throw error;
+  }
+
   const flagDefinition = datafile.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {

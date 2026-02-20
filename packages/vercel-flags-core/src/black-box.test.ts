@@ -362,6 +362,124 @@ describe('Manual', () => {
     });
   });
 
+  describe('failure behavior', () => {
+    it('should return defaultValue when all data sources fail', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      // No stream, no polling, no datafile, no bundled
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      const result = await client.evaluate('flagA', false);
+
+      expect(result).toEqual({
+        value: false,
+        reason: 'error',
+        errorMessage: expect.stringContaining('No flag definitions available'),
+      });
+    });
+
+    it('should throw when all data sources fail and no defaultValue provided', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'No flag definitions available',
+      );
+    });
+
+    it('should use bundled definitions when stream and polling are disabled', async () => {
+      const bundledDefinitions: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 2,
+        digest: 'abc',
+        revision: 2,
+      };
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: bundledDefinitions,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      const result = await client.evaluate('flagA');
+
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe('paused');
+      expect(result.metrics?.source).toBe('embedded');
+    });
+
+    it('should use constructor datafile when stream and polling are disabled', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      const datafile: BundledDefinitions = {
+        definitions: {
+          flagA: {
+            environments: {
+              production: 1,
+            },
+            variants: [false, true],
+          },
+        },
+        segments: {},
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 2,
+        digest: 'abc',
+        revision: 2,
+      };
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile,
+      });
+
+      const result = await client.evaluate('flagA');
+
+      expect(result.value).toBe(true);
+      expect(result.reason).toBe('paused');
+      expect(result.metrics?.source).toBe('in-memory');
+    });
+  });
+
   describe('creating a client', () => {
     it('should not load bundled definitions or stream or poll on creation', () => {
       const client = createClient(sdkKey, {
