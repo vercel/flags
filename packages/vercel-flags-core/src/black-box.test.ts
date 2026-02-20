@@ -871,6 +871,92 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('should resolve initialize() immediately when datafile is provided', async () => {
+      // Stream that never sends data — if init blocks on stream, this test hangs
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          const body = new ReadableStream<Uint8Array>({ start() {} });
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        return Promise.resolve(new Response('', { status: 200 }));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        datafile: makeBundled(),
+      });
+
+      // initialize() should resolve without advancing timers or stream data
+      await client.initialize();
+
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+      expect(result.metrics?.source).toBe('in-memory');
+
+      await client.shutdown();
+    });
+
+    it('should use provided datafile then update from polling', async () => {
+      let pollCount = 0;
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          pollCount++;
+          return Promise.resolve(
+            Response.json(
+              makeBundled({
+                configUpdatedAt: 2,
+                definitions: {
+                  flagA: {
+                    environments: { production: 0 },
+                    variants: [false, true],
+                  },
+                },
+              }),
+            ),
+          );
+        }
+        return Promise.resolve(new Response('', { status: 200 }));
+      });
+
+      const providedDatafile = makeBundled({
+        configUpdatedAt: 1,
+        definitions: {
+          flagA: {
+            environments: { production: 1 },
+            variants: [false, true],
+          },
+        },
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+        datafile: providedDatafile,
+      });
+
+      await client.initialize();
+
+      // First evaluate uses provided datafile (variant 1 = true)
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(true);
+      expect(result1.metrics?.source).toBe('in-memory');
+
+      // Advance past a poll interval to trigger update
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(pollCount).toBeGreaterThanOrEqual(1);
+
+      // Second evaluate uses polled data (variant 0 = false)
+      const result2 = await client.evaluate('flagA');
+      expect(result2.value).toBe(false);
+
+      await client.shutdown();
+    });
+
     it('should work with datafile only (stream and polling disabled)', async () => {
       const datafile = makeBundled();
 
@@ -937,12 +1023,43 @@ describe('Controller (black-box)', () => {
       const initPromise = client.initialize();
       await vi.advanceTimersByTimeAsync(100);
       await initPromise;
+      const after = new Date();
 
       const result = await client.evaluate('flagA');
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(0);
 
       warnSpy.mockRestore();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: after.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: {
+            Authorization: 'Bearer vf_fake',
+            'Content-Type': 'application/json',
+            'User-Agent': 'VercelFlagsCore/1.0.1',
+          },
+          method: 'POST',
+        },
+      );
     });
 
     it('should fall back to bundled when stream fails (skip polling)', async () => {
@@ -970,9 +1087,10 @@ describe('Controller (black-box)', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+      const streamInitTimeoutMs = 100;
       const client = createClient(sdkKey, {
         fetch: fetchMock,
-        stream: { initTimeoutMs: 100 },
+        stream: { initTimeoutMs: streamInitTimeoutMs },
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
@@ -985,6 +1103,32 @@ describe('Controller (black-box)', () => {
 
       errorSpy.mockRestore();
       warnSpy.mockRestore();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime() + streamInitTimeoutMs,
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
 
     it('should never stream and poll simultaneously when stream is connected', async () => {
@@ -1001,11 +1145,7 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(sdkKey, {
-        fetch: fetchMock,
-        stream: true,
-        polling: false,
-      });
+      const client = createClient(sdkKey, { fetch: fetchMock });
 
       const initPromise = client.initialize();
 
@@ -1014,7 +1154,7 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Wait to see if any polls happen
-      await vi.advanceTimersByTimeAsync(200);
+      await vi.advanceTimersByTimeAsync(60_000);
 
       expect(pollCount).toBe(0);
 
@@ -1048,8 +1188,6 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         datafile: providedDatafile,
-        stream: true,
-        polling: false,
       });
 
       // Initialize starts background stream connection
@@ -1076,7 +1214,7 @@ describe('Controller (black-box)', () => {
       });
 
       // Wait for stream to deliver
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 0));
 
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(true); // variant 1 from stream
