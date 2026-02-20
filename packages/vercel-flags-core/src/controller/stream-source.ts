@@ -36,14 +36,29 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
-    this.abortController = new AbortController();
+    const abortController = new AbortController();
+    this.abortController = abortController;
+
+    // Clear cached state when the stream terminates so that a subsequent
+    // start() call creates a fresh connection instead of returning a stale
+    // resolved promise.
+    abortController.signal.addEventListener(
+      'abort',
+      () => {
+        if (this.abortController === abortController) {
+          this.promise = undefined;
+          this.abortController = undefined;
+        }
+      },
+      { once: true },
+    );
 
     try {
       const promise = connectStream(
         {
           host: this.config.host,
           sdkKey: this.config.sdkKey,
-          abortController: this.abortController,
+          abortController,
           fetch: this.config.fetch,
         },
         {
