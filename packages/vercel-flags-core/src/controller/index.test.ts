@@ -451,14 +451,8 @@ describe('Controller', () => {
   });
 
   describe('build step behavior', () => {
-    it('should fall back to HTTP fetch when bundled definitions missing during build', async () => {
+    it('should throw when bundled definitions missing during build', async () => {
       process.env.CI = '1';
-
-      const fetchedDefinitions = {
-        projectId: 'fetched',
-        definitions: { flag: true },
-        environment: 'production',
-      };
 
       // Bundled definitions not available
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -466,19 +460,11 @@ describe('Controller', () => {
         state: 'missing-file',
       });
 
-      server.use(
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          return HttpResponse.json(fetchedDefinitions);
-        }),
-      );
-
       const dataSource = new Controller({ sdkKey: 'vf_test_key' });
-      const result = await dataSource.read();
 
-      expect(result).toMatchObject(fetchedDefinitions);
-      expect(result.metrics.source).toBe('remote');
-      expect(result.metrics.cacheStatus).toBe('MISS');
-      expect(result.metrics.connectionState).toBe('disconnected');
+      await expect(dataSource.read()).rejects.toThrow(
+        'No flag definitions available during build',
+      );
 
       await dataSource.shutdown();
     });
@@ -877,78 +863,72 @@ describe('Controller', () => {
   });
 
   describe('stream/polling coordination', () => {
-    it('should stop polling when stream connects', async () => {
+    it('should fall back to bundled when stream times out (skip polling)', async () => {
       let pollCount = 0;
-      let streamDataSent = false;
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: {
+          projectId: 'bundled',
+          definitions: {},
+          segments: {},
+          environment: 'production',
+          configUpdatedAt: 1,
+          digest: 'abc',
+          revision: 1,
+        },
+      });
 
       server.use(
-        http.get('https://flags.vercel.com/v1/stream', async ({ request }) => {
-          // Wait a bit to let polling start first
-          await new Promise((r) => setTimeout(r, 200));
-          return new HttpResponse(
-            new ReadableStream({
-              start(controller) {
-                controller.enqueue(
-                  new TextEncoder().encode(
-                    `${JSON.stringify({
-                      type: 'datafile',
-                      data: { projectId: 'stream', definitions: {} },
-                    })}\n`,
-                  ),
-                );
-                streamDataSent = true;
-                // Keep stream open
-                request.signal.addEventListener('abort', () => {
-                  controller.close();
-                });
-              },
-            }),
-            { headers: { 'Content-Type': 'application/x-ndjson' } },
-          );
+        http.get('https://flags.vercel.com/v1/stream', async () => {
+          // Stream opens but never sends data (will timeout)
+          return new HttpResponse(new ReadableStream({ start() {} }), {
+            headers: { 'Content-Type': 'application/x-ndjson' },
+          });
         }),
         http.get('https://flags.vercel.com/v1/datafile', () => {
           pollCount++;
           return HttpResponse.json({
             projectId: 'polled',
-            definitions: { count: pollCount },
+            definitions: {},
             environment: 'production',
           });
         }),
       );
 
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const dataSource = new Controller({
         sdkKey: 'vf_test_key',
-        stream: { initTimeoutMs: 100 }, // Short timeout to trigger polling fallback
+        stream: { initTimeoutMs: 100 },
         polling: { intervalMs: 50, initTimeoutMs: 5000 },
       });
 
-      // This should initially get data from polling (stream times out)
-      await dataSource.read();
+      const result = await dataSource.read();
 
-      // Wait for stream data to be sent
-      await vi.waitFor(
-        () => {
-          expect(streamDataSent).toBe(true);
-        },
-        { timeout: 2000 },
-      );
-
-      // Record poll count at this point
-      const pollCountAfterStreamConnect = pollCount;
-
-      // Wait for what would be several poll intervals
-      await new Promise((r) => setTimeout(r, 200));
-
-      // Polling should have stopped - count should not have increased much
-      // (there might be 1-2 more polls in flight when stream connected)
-      expect(pollCount).toBeGreaterThan(0);
-      expect(pollCount).toBeLessThanOrEqual(pollCountAfterStreamConnect + 2);
+      // Should have fallen back to bundled, not polling
+      expect(result.projectId).toBe('bundled');
+      expect(pollCount).toBe(0);
 
       await dataSource.shutdown();
+      warnSpy.mockRestore();
     });
 
-    it('should fall back to polling when stream fails', async () => {
+    it('should fall back to bundled when stream fails (skip polling)', async () => {
       let pollCount = 0;
+
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: {
+          projectId: 'bundled',
+          definitions: {},
+          segments: {},
+          environment: 'production',
+          configUpdatedAt: 1,
+          digest: 'abc',
+          revision: 1,
+        },
+      });
 
       server.use(
         http.get('https://flags.vercel.com/v1/stream', () => {
@@ -958,7 +938,7 @@ describe('Controller', () => {
           pollCount++;
           return HttpResponse.json({
             projectId: 'polled',
-            definitions: { count: pollCount },
+            definitions: {},
             environment: 'production',
           });
         }),
@@ -976,9 +956,9 @@ describe('Controller', () => {
 
       const result = await dataSource.read();
 
-      // Should have gotten data from polling
-      expect(result.projectId).toBe('polled');
-      expect(pollCount).toBeGreaterThanOrEqual(1);
+      // Should have fallen back to bundled, not polling
+      expect(result.projectId).toBe('bundled');
+      expect(pollCount).toBe(0);
 
       await dataSource.shutdown();
 
@@ -1125,6 +1105,19 @@ describe('Controller', () => {
     it('should not start polling from stream disconnect during initialization', async () => {
       let pollCount = 0;
 
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: {
+          projectId: 'bundled',
+          definitions: {},
+          segments: {},
+          environment: 'production',
+          configUpdatedAt: 1,
+          digest: 'abc',
+          revision: 1,
+        },
+      });
+
       server.use(
         http.get('https://flags.vercel.com/v1/stream', () => {
           // Stream fails immediately, triggering onDisconnect
@@ -1151,9 +1144,9 @@ describe('Controller', () => {
 
       await dataSource.initialize();
 
-      // Only 1 poll request should have been made (from tryInitializePolling),
-      // not 2 (onDisconnect should not have started a separate poll)
-      expect(pollCount).toBe(1);
+      // Polling should not be tried during init when stream is enabled —
+      // stream failure falls back directly to bundled definitions
+      expect(pollCount).toBe(0);
 
       await dataSource.shutdown();
       errorSpy.mockRestore();
@@ -1162,34 +1155,10 @@ describe('Controller', () => {
   });
 
   describe('getDatafile', () => {
-    it('should fetch from network when called without initialize', async () => {
-      const remoteDefinitions = {
-        projectId: 'remote',
-        definitions: { flag: true },
-        environment: 'production',
-      };
-
-      server.use(
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          return HttpResponse.json(remoteDefinitions);
-        }),
-      );
-
-      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
-      const result = await dataSource.getDatafile();
-
-      expect(result).toMatchObject(remoteDefinitions);
-      expect(result.metrics.source).toBe('remote');
-      expect(result.metrics.cacheStatus).toBe('MISS');
-      expect(result.metrics.connectionState).toBe('disconnected');
-
-      await dataSource.shutdown();
-    });
-
-    it('should fetch from network even when bundled definitions exist (not in build step)', async () => {
+    it('should return bundled definitions when called without initialize', async () => {
       const bundledDefinitions: BundledDefinitions = {
         projectId: 'bundled',
-        definitions: {},
+        definitions: { flag: true },
         environment: 'production',
         configUpdatedAt: 1,
         digest: 'a',
@@ -1201,25 +1170,56 @@ describe('Controller', () => {
         state: 'ok',
       });
 
-      const remoteDefinitions = {
-        projectId: 'remote',
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
+      const result = await dataSource.getDatafile();
+
+      expect(result).toMatchObject(bundledDefinitions);
+      expect(result.metrics.source).toBe('embedded');
+      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
+
+      await dataSource.shutdown();
+    });
+
+    it('should fetch datafile when called without initialize and no bundled definitions', async () => {
+      const fetchedDefinitions: BundledDefinitions = {
+        projectId: 'fetched',
         definitions: { flag: true },
         environment: 'production',
+        configUpdatedAt: 1,
+        digest: 'a',
+        revision: 1,
       };
 
       server.use(
         http.get('https://flags.vercel.com/v1/datafile', () => {
-          return HttpResponse.json(remoteDefinitions);
+          return HttpResponse.json(fetchedDefinitions);
         }),
       );
 
       const dataSource = new Controller({ sdkKey: 'vf_test_key' });
       const result = await dataSource.getDatafile();
 
-      // Should fetch from network, NOT use bundled definitions
-      expect(result.projectId).toBe('remote');
+      expect(result).toMatchObject(fetchedDefinitions);
       expect(result.metrics.source).toBe('remote');
       expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.connectionState).toBe('disconnected');
+
+      await dataSource.shutdown();
+    });
+
+    it('should throw when called without initialize and all sources fail', async () => {
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () => {
+          return new HttpResponse(null, { status: 500 });
+        }),
+      );
+
+      const dataSource = new Controller({ sdkKey: 'vf_test_key' });
+
+      await expect(dataSource.getDatafile()).rejects.toThrow(
+        'No flag definitions available',
+      );
 
       await dataSource.shutdown();
     });
@@ -1297,19 +1297,20 @@ describe('Controller', () => {
       await dataSource.shutdown();
     });
 
-    it('should fetch fresh data on each call when stream is not connected', async () => {
-      let fetchCount = 0;
+    it('should return cached data on repeated calls', async () => {
+      const bundledDefinitions: BundledDefinitions = {
+        projectId: 'bundled',
+        definitions: { version: 1 },
+        environment: 'production',
+        configUpdatedAt: 1,
+        digest: 'a',
+        revision: 1,
+      };
 
-      server.use(
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          fetchCount++;
-          return HttpResponse.json({
-            projectId: 'remote',
-            definitions: { version: fetchCount },
-            environment: 'production',
-          });
-        }),
-      );
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: bundledDefinitions,
+        state: 'ok',
+      });
 
       const dataSource = new Controller({
         sdkKey: 'vf_test_key',
@@ -1319,13 +1320,12 @@ describe('Controller', () => {
 
       const result1 = await dataSource.getDatafile();
       expect(result1.definitions).toEqual({ version: 1 });
+      expect(result1.metrics.cacheStatus).toBe('MISS');
 
-      // The second call hits the cache since this.data was set by the first call
-      // and the stream is not connected, so isStreamConnected is false
-      // which means the else branch fires again, fetching fresh data
+      // Second call should return cached data
       const result2 = await dataSource.getDatafile();
-      expect(result2.definitions).toEqual({ version: 2 });
-      expect(fetchCount).toBe(2);
+      expect(result2.definitions).toEqual({ version: 1 });
+      expect(result2.metrics.cacheStatus).toBe('STALE');
 
       await dataSource.shutdown();
     });
@@ -1626,9 +1626,7 @@ describe('Controller', () => {
       await dataSource.shutdown();
     });
 
-    it('should not overwrite newer in-memory data with older poll response', async () => {
-      let pollCount = 0;
-
+    it('should not overwrite newer in-memory data with older stream message', async () => {
       const newerDefinitions = {
         projectId: 'test',
         definitions: { version: 'newer' },
@@ -1643,7 +1641,7 @@ describe('Controller', () => {
         configUpdatedAt: 1000,
       };
 
-      // Stream delivers newer data
+      // Stream delivers newer data first, then older data
       server.use(
         http.get('https://flags.vercel.com/v1/stream', ({ request }) => {
           return new HttpResponse(
@@ -1654,50 +1652,38 @@ describe('Controller', () => {
                     `${JSON.stringify({ type: 'datafile', data: newerDefinitions })}\n`,
                   ),
                 );
-                // Stream closes, triggering polling fallback
-                controller.close();
+                // Then send older data
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify({ type: 'datafile', data: olderDefinitions })}\n`,
+                  ),
+                );
+                request.signal.addEventListener('abort', () => {
+                  controller.close();
+                });
               },
             }),
             { headers: { 'Content-Type': 'application/x-ndjson' } },
           );
         }),
-        // Polling returns older data
-        http.get('https://flags.vercel.com/v1/datafile', () => {
-          pollCount++;
-          return HttpResponse.json(olderDefinitions);
-        }),
       );
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const dataSource = new Controller({
         sdkKey: 'vf_test_key',
         stream: true,
-        polling: { intervalMs: 50, initTimeoutMs: 5000 },
+        polling: false,
       });
 
-      // First read gets newer data from stream
+      // Read gets newer data from stream
       const result1 = await dataSource.read();
       expect(result1.definitions).toEqual({ version: 'newer' });
 
-      // Wait for stream to disconnect and polling to kick in
-      await vi.waitFor(
-        () => {
-          expect(pollCount).toBeGreaterThanOrEqual(1);
-        },
-        { timeout: 3000 },
-      );
-
-      // Should still have newer data (older poll response was rejected)
+      // Older stream message should have been rejected
       const result2 = await dataSource.read();
       expect(result2.definitions).toEqual({ version: 'newer' });
 
       await dataSource.shutdown();
-
-      errorSpy.mockRestore();
-      warnSpy.mockRestore();
-    }, 10000);
+    });
 
     it('should accept stream data with equal configUpdatedAt', async () => {
       const data1 = {
