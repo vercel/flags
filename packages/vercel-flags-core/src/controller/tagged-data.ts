@@ -18,7 +18,7 @@ export type TaggedData = DatafileInput & {
  * Tags a DatafileInput with its origin.
  */
 export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
-  return { ...data, _origin: origin };
+  return Object.assign(data, { _origin: origin }) as TaggedData;
 }
 
 /**

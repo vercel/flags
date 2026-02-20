@@ -401,6 +401,7 @@ describe('Controller (black-box)', () => {
 
     it('should update definitions when new datafile messages arrive', async () => {
       const datafile1 = makeBundled({
+        configUpdatedAt: 1,
         definitions: {
           flagA: {
             environments: { production: 0 },
@@ -409,6 +410,7 @@ describe('Controller (black-box)', () => {
         },
       });
       const datafile2 = makeBundled({
+        configUpdatedAt: 2,
         definitions: {
           flagA: {
             environments: { production: 1 },
@@ -866,11 +868,12 @@ describe('Controller (black-box)', () => {
       expect(result1.value).toBe(false); // variant 0 from provided
       expect(result1.metrics?.source).toBe('in-memory');
 
-      // Now push stream data
+      // Now push stream data (with newer configUpdatedAt)
       stream.push({
         type: 'datafile',
         data: makeBundled({
           projectId: 'stream',
+          configUpdatedAt: 2,
           definitions: {
             flagA: {
               environments: { production: 1 },
@@ -1234,7 +1237,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should accept stream data with equal configUpdatedAt', async () => {
+    it('should skip stream data with equal configUpdatedAt', async () => {
       vi.useRealTimers();
 
       const data1 = makeBundled({
@@ -1279,9 +1282,9 @@ describe('Controller (black-box)', () => {
       stream.push({ type: 'datafile', data: data2 });
       await new Promise((r) => setTimeout(r, 50));
 
-      // Should have accepted second data (equal configUpdatedAt)
+      // Should have kept first data (equal configUpdatedAt is not newer)
       const result = await client.evaluate('flagA');
-      expect(result.value).toBe(true); // variant 1 = data2
+      expect(result.value).toBe(false); // variant 0 = data1
 
       stream.close();
       await client.shutdown();

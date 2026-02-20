@@ -46,7 +46,7 @@ export type BundledDefinitions = DatafileInput & {
   configUpdatedAt: number;
   /** hash of the data */
   digest: string;
-  /** version number of the dat */
+  /** version number of the data */
   revision: number;
 };
 
@@ -287,7 +287,7 @@ export enum OutcomeType {
  * - ends with (endsWith)
  * - does not end with (!endsWith)
  * - exists (ex)
- * - deos not exist (!ex)
+ * - does not exist (!ex)
  * - is greater than (gt)
  * - is greater than or equal to (gte)
  * - is lower than (lt)

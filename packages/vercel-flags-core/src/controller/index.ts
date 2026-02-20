@@ -157,6 +157,12 @@ export class Controller implements ControllerInterface {
       }
     });
 
+    this.streamSource.on('connected', () => {
+      if (this.state === 'degraded' || this.state === 'initializing:stream') {
+        this.transition('streaming');
+      }
+    });
+
     this.streamSource.on('disconnected', () => {
       if (this.state === 'streaming') {
         this.transition('degraded');
@@ -267,7 +273,8 @@ export class Controller implements ControllerInterface {
     const source = originToMetricsSource(result._origin);
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
-    return Object.assign(result, {
+    return {
+      ...result,
       metrics: {
         readMs,
         source,
@@ -277,7 +284,7 @@ export class Controller implements ControllerInterface {
           : ('disconnected' as const),
         mode: this.mode,
       },
-    }) satisfies Datafile;
+    } satisfies Datafile;
   }
 
   /**
@@ -338,7 +345,8 @@ export class Controller implements ControllerInterface {
 
     const source = originToMetricsSource(result._origin);
 
-    return Object.assign(result, {
+    return {
+      ...result,
       metrics: {
         readMs: Date.now() - startTime,
         source,
@@ -348,7 +356,7 @@ export class Controller implements ControllerInterface {
           : ('disconnected' as const),
         mode: this.mode,
       },
-    }) satisfies Datafile;
+    } satisfies Datafile;
   }
 
   /**
@@ -499,8 +507,8 @@ export class Controller implements ControllerInterface {
    */
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
+      this.transition('initializing:stream');
       void this.streamSource.start();
-      this.transition('streaming');
     } else if (this.options.polling.enabled) {
       void this.pollingSource.poll();
       this.pollingSource.startInterval();
@@ -686,7 +694,7 @@ export class Controller implements ControllerInterface {
    * - The current data has no configUpdatedAt
    * - The incoming data has no configUpdatedAt
    *
-   * Skips the update only when both have configUpdatedAt and incoming is older.
+   * Skips the update only when both have configUpdatedAt and incoming is not newer.
    */
   private isNewerData(incoming: DatafileInput): boolean {
     if (!this.data) return true;
@@ -698,7 +706,7 @@ export class Controller implements ControllerInterface {
       return true;
     }
 
-    return incomingTs >= currentTs;
+    return incomingTs > currentTs;
   }
 
   // ---------------------------------------------------------------------------
