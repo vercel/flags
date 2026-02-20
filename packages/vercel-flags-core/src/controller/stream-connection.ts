@@ -59,6 +59,11 @@ export async function connectStream(
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
         console.error('@vercel/flags-core: Max retry count exceeded');
+        if (!initialDataReceived) {
+          rejectInit!(
+            new Error('stream: max retry count exceeded before receiving data'),
+          );
+        }
         abortController.abort();
         break;
       }
@@ -136,13 +141,15 @@ export async function connectStream(
         }
         console.error('@vercel/flags-core: Stream error', error);
         onDisconnect?.();
-        if (!initialDataReceived) {
-          rejectInit!(error);
-          break;
-        }
         retryCount++;
         await sleep(backoff(retryCount));
       }
+    }
+
+    // Reject the init promise if the loop exited without receiving data
+    // (e.g. aborted externally before any data arrived)
+    if (!initialDataReceived) {
+      rejectInit!(new Error('stream: aborted before receiving data'));
     }
   })();
 

@@ -38,6 +38,7 @@ interface EventBatcher {
 
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
+const MAX_QUEUE_SIZE = 500;
 
 interface RequestContext {
   ctx: object | undefined;
@@ -113,8 +114,17 @@ export class UsageTracker {
    * Returns a promise that resolves when the flush completes.
    */
   flush(): Promise<void> {
-    this.batcher.resolveWait?.();
-    return this.batcher.pending ?? RESOLVED_VOID;
+    if (this.batcher.pending) {
+      this.batcher.resolveWait?.();
+      return this.batcher.pending;
+    }
+
+    // No scheduled flush yet — flush directly if there are queued events
+    if (this.batcher.events.length > 0) {
+      return this.flushEvents();
+    }
+
+    return RESOLVED_VOID;
   }
 
   /**
@@ -209,6 +219,18 @@ export class UsageTracker {
     }
   }
 
+  /**
+   * Re-queues failed events, dropping oldest when the queue would exceed MAX_QUEUE_SIZE.
+   */
+  private requeue(events: FlagsConfigReadEvent[]): void {
+    const combined = [...events, ...this.batcher.events];
+    // Drop oldest events (from the front) when over capacity
+    this.batcher.events =
+      combined.length > MAX_QUEUE_SIZE
+        ? combined.slice(combined.length - MAX_QUEUE_SIZE)
+        : combined;
+  }
+
   private async flushEvents(): Promise<void> {
     if (this.batcher.events.length === 0) return;
 
@@ -240,11 +262,11 @@ export class UsageTracker {
           '@vercel/flags-core: Failed to send events:',
           response.statusText,
         );
-        this.batcher.events.unshift(...eventsToSend);
+        this.requeue(eventsToSend);
       }
     } catch (error) {
       debugLog('@vercel/flags-core: Error sending events:', error);
-      this.batcher.events.unshift(...eventsToSend);
+      this.requeue(eventsToSend);
     }
   }
 }

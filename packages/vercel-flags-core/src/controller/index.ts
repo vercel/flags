@@ -429,7 +429,10 @@ export class Controller implements ControllerInterface {
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back',
         );
-        // Don't stop stream - let it continue trying in background
+        // Don't stop stream - let it continue trying in background.
+        // Swallow the rejection from the background stream promise to
+        // avoid unhandled promise rejections when it is eventually aborted.
+        this.streamSource.start().catch(() => {});
         return false;
       }
 
@@ -508,7 +511,7 @@ export class Controller implements ControllerInterface {
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
-      void this.streamSource.start();
+      this.streamSource.start().catch(() => {});
     } else if (this.options.polling.enabled) {
       void this.pollingSource.poll();
       this.pollingSource.startInterval();

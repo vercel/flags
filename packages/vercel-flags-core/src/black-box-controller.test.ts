@@ -819,7 +819,10 @@ describe('Controller (black-box)', () => {
         polling: { intervalMs: 100, initTimeoutMs: 5000 },
       });
 
-      const result = await client.evaluate('flagA');
+      // Stream retries with backoff; advance timers so the init timeout fires
+      const resultPromise = client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(200);
+      const result = await resultPromise;
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(0);
 
@@ -958,7 +961,10 @@ describe('Controller (black-box)', () => {
         polling: { intervalMs: 100, initTimeoutMs: 5000 },
       });
 
-      await client.initialize();
+      // Stream retries with backoff; advance timers so the init timeout fires
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(5100);
+      await initPromise;
 
       expect(pollCount).toBe(0);
 
@@ -1708,7 +1714,7 @@ describe('Controller (black-box)', () => {
       expect(internalReportValue).not.toHaveBeenCalled();
     });
 
-    it('should not call internalReportValue when result is error', async () => {
+    it('should call internalReportValue with error reason when flag is not found', async () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         stream: false,
@@ -1719,7 +1725,15 @@ describe('Controller (black-box)', () => {
 
       await client.evaluate('nonexistent-flag', 'default');
 
-      expect(internalReportValue).not.toHaveBeenCalled();
+      expect(internalReportValue).toHaveBeenCalledWith(
+        'nonexistent-flag',
+        'default',
+        {
+          originProjectId: 'my-project-id',
+          originProvider: 'vercel',
+          reason: 'error',
+        },
+      );
     });
   });
 
