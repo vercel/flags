@@ -84,7 +84,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       value: defaultValue,
       reason: ResolutionReason.ERROR,
       errorCode: ErrorCode.FLAG_NOT_FOUND,
-      errorMessage: `Definition not found for flag "${flagKey}"`,
+      errorMessage: `@vercel/flags-core: Definition not found for flag "${flagKey}"`,
       metrics: {
         evaluationMs: 0,
         readMs: datafile.metrics.readMs,
