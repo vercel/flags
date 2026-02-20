@@ -9,6 +9,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import { setRequestContext } from '../test-utils';
 import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
 
 // Mock @vercel/functions
@@ -483,18 +484,10 @@ describe('UsageTracker', () => {
         }),
       );
 
-      // Set up a mock request context
-      const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
-      const mockContext = {
-        headers: {
-          'x-vercel-id': 'test-request-id',
-          host: 'example.com',
-        },
-      };
-
-      (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT] = {
-        get: () => mockContext,
-      };
+      const cleanupContext = setRequestContext({
+        'x-vercel-id': 'test-request-id',
+        host: 'example.com',
+      });
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
@@ -516,8 +509,7 @@ describe('UsageTracker', () => {
       const events = receivedEvents[0] as Array<{ type: string }>;
       expect(events).toHaveLength(1);
 
-      // Clean up
-      delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+      cleanupContext();
     });
 
     it('should include headers from request context', async () => {
@@ -531,18 +523,10 @@ describe('UsageTracker', () => {
         }),
       );
 
-      // Set up a mock request context
-      const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
-      const mockContext = {
-        headers: {
-          'x-vercel-id': 'req_123',
-          host: 'myapp.vercel.app',
-        },
-      };
-
-      (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT] = {
-        get: () => mockContext,
-      };
+      const cleanupContext = setRequestContext({
+        'x-vercel-id': 'req_123',
+        host: 'myapp.vercel.app',
+      });
 
       const tracker = new UsageTracker({
         sdkKey: 'test-key',
@@ -562,8 +546,7 @@ describe('UsageTracker', () => {
       expect(event.payload.vercelRequestId).toBe('req_123');
       expect(event.payload.invocationHost).toBe('myapp.vercel.app');
 
-      // Clean up
-      delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+      cleanupContext();
     });
   });
 
@@ -579,18 +562,10 @@ describe('UsageTracker', () => {
         }),
       );
 
-      // Set up a shared request context
-      const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
-      const mockContext = {
-        headers: {
-          'x-vercel-id': 'shared-request-id',
-          host: 'example.com',
-        },
-      };
-
-      (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT] = {
-        get: () => mockContext,
-      };
+      const cleanupContext = setRequestContext({
+        'x-vercel-id': 'shared-request-id',
+        host: 'example.com',
+      });
 
       const tracker1 = new UsageTracker({
         sdkKey: 'key-1',
@@ -618,8 +593,7 @@ describe('UsageTracker', () => {
       expect(receivedEvents[0]).toHaveLength(1);
       expect(receivedEvents[1]).toHaveLength(1);
 
-      // Clean up
-      delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+      cleanupContext();
     });
   });
 

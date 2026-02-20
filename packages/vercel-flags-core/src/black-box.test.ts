@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamMessage } from './controller/stream-connection';
 import { type BundledDefinitions, createClient } from './index.default';
 import { internalReportValue } from './lib/report-value';
+import { setRequestContext } from './test-utils';
 import { readBundledDefinitions } from './utils/read-bundled-definitions';
 
 vi.mock('./utils/read-bundled-definitions', () => ({
@@ -2313,6 +2314,12 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
+      // Set up a fake request context so usage tracking deduplicates
+      const cleanupContext = setRequestContext({
+        'x-vercel-id': 'iad1::req-abc123',
+        host: 'myapp.vercel.app',
+      });
+
       const client = createClient(sdkKey, { fetch: fetchMock });
 
       // Three concurrent evaluates trigger lazy initialization
@@ -2338,6 +2345,10 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
+
+      cleanupContext();
+
+      // Only a single config read should be tracked thanks to request context deduplication
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
@@ -2347,34 +2358,12 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: date.getTime(),
               payload: {
+                vercelRequestId: 'iad1::req-abc123',
+                invocationHost: 'myapp.vercel.app',
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
                 cacheAction: 'FOLLOWING',
                 cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-              },
-            },
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'FOLLOWING',
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-              },
-            },
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'FOLLOWING',
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
