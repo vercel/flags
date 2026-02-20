@@ -62,6 +62,14 @@ export async function evaluate<T, E = Record<string, unknown>>(
   const flagDefinition = datafile.definitions[flagKey] as Packed.FlagDefinition;
 
   if (flagDefinition === undefined) {
+    if (datafile.projectId) {
+      internalReportValue(flagKey, defaultValue, {
+        originProjectId: datafile.projectId,
+        originProvider: 'vercel',
+        reason: ResolutionReason.ERROR,
+      });
+    }
+
     return {
       value: defaultValue,
       reason: ResolutionReason.ERROR,

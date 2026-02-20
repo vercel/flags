@@ -430,32 +430,50 @@ describe('connectStream', () => {
     // but the promise resolution is handled by the timeout mechanism in
     // FlagNetworkDataSource.getDataWithStreamTimeout().
 
-    it('should reject initPromise if error occurs before first datafile', async () => {
+    it('should retry on error before first datafile and reject when aborted', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      let requestCount = 0;
 
       server.use(
         http.get(`${HOST}/v1/stream`, () => {
+          requestCount++;
           return new HttpResponse(null, { status: 500 });
         }),
       );
 
       const abortController = new AbortController();
 
-      await expect(
-        connectStream(
-          { host: HOST, sdkKey: 'vf_test', abortController },
-          { onMessage: vi.fn() },
-        ),
-      ).rejects.toThrow('stream was not ok: 500');
+      const promise = connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn() },
+      );
+
+      // Wait for at least one retry attempt (first retry has 0ms backoff)
+      await vi.waitFor(
+        () => {
+          expect(requestCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 3000 },
+      );
+
+      // Abort to stop retries
+      abortController.abort();
+
+      // The init promise should reject since no data was received
+      await expect(promise).rejects.toThrow(
+        'stream: aborted before receiving data',
+      );
 
       errorSpy.mockRestore();
     });
 
-    it('should reject if response has no body', async () => {
+    it('should retry if response has no body and reject when aborted', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      let requestCount = 0;
 
       server.use(
         http.get(`${HOST}/v1/stream`, () => {
+          requestCount++;
           // Return a response without a body
           return new HttpResponse(null, {
             status: 200,
@@ -466,12 +484,26 @@ describe('connectStream', () => {
 
       const abortController = new AbortController();
 
-      await expect(
-        connectStream(
-          { host: HOST, sdkKey: 'vf_test', abortController },
-          { onMessage: vi.fn() },
-        ),
-      ).rejects.toThrow('stream body was not present');
+      const promise = connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController },
+        { onMessage: vi.fn() },
+      );
+
+      // Wait for at least one retry attempt (first retry has 0ms backoff)
+      await vi.waitFor(
+        () => {
+          expect(requestCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 3000 },
+      );
+
+      // Abort to stop retries
+      abortController.abort();
+
+      // The init promise should reject since no data was received
+      await expect(promise).rejects.toThrow(
+        'stream: aborted before receiving data',
+      );
 
       errorSpy.mockRestore();
     });

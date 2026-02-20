@@ -10,12 +10,24 @@ export async function fetchDatafile(options: {
   host: string;
   sdkKey: string;
   fetch: typeof globalThis.fetch;
+  signal?: AbortSignal;
 }): Promise<BundledDefinitions> {
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
     DEFAULT_FETCH_TIMEOUT_MS,
   );
+
+  // Abort the internal controller when the external signal fires
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutId);
+      throw new Error('Fetch aborted');
+    }
+    options.signal.addEventListener('abort', () => controller.abort(), {
+      once: true,
+    });
+  }
 
   try {
     const res = await options.fetch(`${options.host}/v1/datafile`, {

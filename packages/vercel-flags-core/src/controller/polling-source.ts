@@ -38,7 +38,10 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     if (this.abortController?.signal.aborted) return;
 
     try {
-      const data = await fetchDatafile(this.config);
+      const data = await fetchDatafile({
+        ...this.config,
+        signal: this.abortController?.signal,
+      });
       this.emit('data', data);
     } catch (error) {
       const err =
