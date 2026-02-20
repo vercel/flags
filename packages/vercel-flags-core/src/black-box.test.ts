@@ -1712,6 +1712,110 @@ describe('Controller (black-box)', () => {
       expect(internalReportValue).not.toHaveBeenCalled();
     });
 
+    it('should call internalReportValue with target_match reason', async () => {
+      const datafile = makeBundled({
+        projectId: 'my-project-id',
+        definitions: {
+          'targeted-flag': {
+            environments: {
+              production: {
+                targets: [{}, { user: { id: ['user-123'] } }],
+                fallthrough: 0,
+              },
+            },
+            variants: ['default', 'targeted'],
+          },
+        },
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile,
+        buildStep: true,
+      });
+
+      await client.evaluate('targeted-flag', 'default', {
+        user: { id: 'user-123' },
+      });
+
+      expect(internalReportValue).toHaveBeenCalledWith(
+        'targeted-flag',
+        'targeted',
+        {
+          originProjectId: 'my-project-id',
+          originProvider: 'vercel',
+          reason: 'target_match',
+          outcomeType: 'value',
+        },
+      );
+    });
+
+    it('should call internalReportValue with fallthrough reason', async () => {
+      const datafile = makeBundled({
+        projectId: 'my-project-id',
+        definitions: {
+          'targeted-flag': {
+            environments: {
+              production: {
+                targets: [{}, { user: { id: ['user-123'] } }],
+                fallthrough: 0,
+              },
+            },
+            variants: ['default', 'targeted'],
+          },
+        },
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile,
+        buildStep: true,
+      });
+
+      // No entities provided, so no target matches → fallthrough
+      await client.evaluate('targeted-flag');
+
+      expect(internalReportValue).toHaveBeenCalledWith(
+        'targeted-flag',
+        'default',
+        {
+          originProjectId: 'my-project-id',
+          originProvider: 'vercel',
+          reason: 'fallthrough',
+          outcomeType: 'value',
+        },
+      );
+    });
+
+    it('should not include outcomeType for error reason in internalReportValue', async () => {
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled({ projectId: 'my-project-id' }),
+        buildStep: true,
+      });
+
+      await client.evaluate('nonexistent-flag', 'fallback');
+
+      expect(internalReportValue).toHaveBeenCalledWith(
+        'nonexistent-flag',
+        'fallback',
+        {
+          originProjectId: 'my-project-id',
+          originProvider: 'vercel',
+          reason: 'error',
+        },
+      );
+      // Verify outcomeType is NOT present in the call
+      const callArgs = vi.mocked(internalReportValue).mock.calls[0];
+      expect(callArgs[2]).not.toHaveProperty('outcomeType');
+    });
+
     it('should call internalReportValue with error reason when flag is not found', async () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -2073,6 +2177,84 @@ describe('Controller (black-box)', () => {
           type: 'FLAGS_CONFIG_READ',
         },
       ]);
+    });
+
+    it('should only track one FLAGS_CONFIG_READ during build step', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled({ configUpdatedAt: 1 }),
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: true,
+        fetch: fetchMock,
+      });
+
+      // Multiple evaluates during build
+      await client.evaluate('flagA');
+      await client.evaluate('flagA');
+      await client.evaluate('flagA');
+
+      await client.shutdown();
+
+      // Only one ingest call, despite multiple evaluate() calls
+      const ingestCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/ingest'),
+      );
+      expect(ingestCalls).toHaveLength(1);
+
+      const events = JSON.parse(ingestCalls[0]?.[1]?.body as string);
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('FLAGS_CONFIG_READ');
+    });
+
+    it('should report FLAGS_CONFIG_READ with FOLLOWING cacheAction when streaming', async () => {
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      const initPromise = client.initialize();
+
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 5 }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Evaluate while streaming
+      await client.evaluate('flagA');
+
+      await client.shutdown();
+
+      const ingestCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/ingest'),
+      );
+      expect(ingestCalls.length).toBeGreaterThanOrEqual(1);
+
+      const events = JSON.parse(ingestCalls[0]?.[1]?.body as string);
+      const readEvent = events.find(
+        (e: { type: string }) => e.type === 'FLAGS_CONFIG_READ',
+      );
+      expect(readEvent).toBeDefined();
+      expect(readEvent.payload.cacheAction).toBe('FOLLOWING');
+      expect(readEvent.payload.configOrigin).toBe('in-memory');
+      expect(readEvent.payload.cacheIsFirstRead).toBe(true);
+      expect(readEvent.payload.configUpdatedAt).toBe(5);
+
+      stream.close();
     });
 
     it('should report FLAGS_CONFIG_READ when using bundled definitions in build step', async () => {
