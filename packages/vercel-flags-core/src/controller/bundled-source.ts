@@ -1,19 +1,16 @@
 import { FallbackEntryNotFoundError, FallbackNotFoundError } from '../errors';
-import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
+import type {
+  BundledDefinitions,
+  BundledDefinitionsResult,
+  DatafileInput,
+} from '../types';
 import type { readBundledDefinitions } from '../utils/read-bundled-definitions';
-import type { TaggedData } from './tagged-data';
-import { tagData } from './tagged-data';
-import { TypedEmitter } from './typed-emitter';
-
-export type BundledSourceEvents = {
-  data: (data: TaggedData) => void;
-};
 
 /**
  * Manages loading of bundled flag definitions.
- * Wraps readBundledDefinitions() and emits typed events.
+ * Wraps readBundledDefinitions() with caching.
  */
-export class BundledSource extends TypedEmitter<BundledSourceEvents> {
+export class BundledSource {
   private promise: Promise<BundledDefinitionsResult> | undefined;
   private options: {
     sdkKey: string;
@@ -24,22 +21,18 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
     sdkKey: string;
     readBundledDefinitions: typeof readBundledDefinitions;
   }) {
-    super();
     this.options = options;
   }
 
   /**
-   * Load bundled definitions and return as TaggedData.
-   * Emits 'data' on success.
+   * Load bundled definitions.
    * Throws if bundled definitions are not available.
    */
-  async load(): Promise<TaggedData> {
+  async load(): Promise<DatafileInput> {
     const result = await this.getResult();
 
     if (result.state === 'ok' && result.definitions) {
-      const tagged = tagData(result.definitions, 'bundled');
-      this.emit('data', tagged);
-      return tagged;
+      return result.definitions;
     }
 
     throw new Error(
@@ -73,12 +66,10 @@ export class BundledSource extends TypedEmitter<BundledSourceEvents> {
   /**
    * Check if bundled definitions loaded successfully (without throwing).
    */
-  async tryLoad(): Promise<TaggedData | undefined> {
+  async tryLoad(): Promise<DatafileInput | undefined> {
     const result = await this.getResult();
     if (result.state === 'ok' && result.definitions) {
-      const tagged = tagData(result.definitions, 'bundled');
-      this.emit('data', tagged);
-      return tagged;
+      return result.definitions;
     }
     return undefined;
   }

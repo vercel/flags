@@ -7,9 +7,12 @@ import {
   Packed,
   ResolutionReason,
 } from './types';
-import { exhaustivenessCheck } from './utils';
 
 type PathArray = (string | number)[];
+
+function exhaustivenessCheck(_: never): never {
+  throw new Error('Exhaustiveness check failed');
+}
 
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {

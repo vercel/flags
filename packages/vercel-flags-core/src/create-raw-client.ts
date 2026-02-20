@@ -8,7 +8,7 @@ import type {
 import {
   type ControllerInstance,
   controllerInstanceMap,
-} from './controller-instance-map';
+} from './controller-fns';
 import type {
   BundledDefinitions,
   ControllerInterface,

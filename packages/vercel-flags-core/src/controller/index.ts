@@ -17,12 +17,28 @@ import {
 import { PollingSource } from './polling-source';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
-import { parseConfigUpdatedAt } from './utils';
 
 export { BundledSource } from './bundled-source';
 export type { ControllerOptions } from './normalized-options';
 export { PollingSource } from './polling-source';
 export { StreamSource } from './stream-source';
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
+ * Returns undefined if the value is missing or cannot be parsed.
+ */
+function parseConfigUpdatedAt(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -134,10 +150,10 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   private wireSourceEvents(): void {
-    // Stream events
+    // Stream events — tag on receipt
     this.streamSource.on('data', (data) => {
       if (this.isNewerData(data)) {
-        this.data = data;
+        this.data = tagData(data, 'stream');
       }
     });
 
@@ -147,10 +163,10 @@ export class Controller implements ControllerInterface {
       }
     });
 
-    // Polling events
+    // Polling events — tag on receipt
     this.pollingSource.on('data', (data) => {
       if (this.isNewerData(data)) {
-        this.data = data;
+        this.data = tagData(data, 'poll');
       }
     });
 
@@ -233,40 +249,7 @@ export class Controller implements ControllerInterface {
     }
 
     // Fallback chain: datafile → bundled → one-time fetch (offline only)
-    this.transition('initializing:fallback');
-
-    if (this.data) {
-      this.transition('degraded');
-      return;
-    }
-
-    const bundled = await this.bundledSource.tryLoad();
-    if (bundled) {
-      this.data = bundled;
-      this.transition('degraded');
-      return;
-    }
-
-    // Last resort: one-time fetch (only when no stream/poll configured)
-    if (!this.options.stream.enabled && !this.options.polling.enabled) {
-      try {
-        const fetched = await fetchDatafile({
-          host: this.options.host,
-          sdkKey: this.options.sdkKey,
-          fetch: this.options.fetch,
-        });
-        this.data = tagData(fetched, 'fetched');
-        this.transition('degraded');
-        return;
-      } catch {
-        // fetch failed — fall through to throw
-      }
-    }
-
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
-    );
+    await this.initializeFromFallbacks();
   }
 
   /**
@@ -274,21 +257,11 @@ export class Controller implements ControllerInterface {
    */
   async read(): Promise<Datafile> {
     const startTime = Date.now();
-    const cachedData = this.data;
-    const cacheHadDefinitions = cachedData !== undefined;
+    const cacheHadDefinitions = this.data !== undefined;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let result: TaggedData;
-    let cacheStatus: Metrics['cacheStatus'];
-
-    if (this.options.buildStep) {
-      [result, cacheStatus] = await this.getDataForBuildStep();
-    } else if (cachedData) {
-      [result, cacheStatus] = this.getDataFromCache(cachedData);
-    } else {
-      [result, cacheStatus] = await this.getDataWithFallbacks();
-    }
+    const [result, cacheStatus] = await this.resolveData();
 
     const readMs = Date.now() - startTime;
     const source = originToMetricsSource(result._origin);
@@ -329,22 +302,19 @@ export class Controller implements ControllerInterface {
     const startTime = Date.now();
 
     let result: TaggedData;
-    let source: Metrics['source'];
     let cacheStatus: Metrics['cacheStatus'];
 
     if (this.options.buildStep) {
-      [result, cacheStatus] = await this.getDataForBuildStep();
-      source = originToMetricsSource(result._origin);
+      [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (this.data) {
-      [result, cacheStatus] = this.getDataFromCache();
-      source = originToMetricsSource(result._origin);
+      cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+      result = this.data;
     } else {
       // No in-memory data — try bundled, then one-time fetch
       const bundled = await this.bundledSource.tryLoad();
       if (bundled) {
-        this.data = bundled;
-        result = bundled;
-        source = 'embedded';
+        this.data = tagData(bundled, 'bundled');
+        result = this.data;
         cacheStatus = 'MISS';
       } else {
         // One-time fetch as last resort
@@ -356,7 +326,6 @@ export class Controller implements ControllerInterface {
           });
           this.data = tagData(fetched, 'fetched');
           result = this.data;
-          source = 'remote';
           cacheStatus = 'MISS';
         } catch {
           throw new Error(
@@ -366,6 +335,8 @@ export class Controller implements ControllerInterface {
         }
       }
     }
+
+    const source = originToMetricsSource(result._origin);
 
     return Object.assign(result, {
       metrics: {
@@ -385,6 +356,31 @@ export class Controller implements ControllerInterface {
    */
   async getFallbackDatafile(): Promise<BundledDefinitions> {
     return this.bundledSource.getRaw();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data resolution (shared by read() and getDatafile())
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Resolves the current data, using the appropriate strategy for the
+   * current mode. Returns tagged data and cache status.
+   *
+   * Build step: cached → bundled (no network)
+   * Runtime with cache: return cached data
+   * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
+   */
+  private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
+    if (this.options.buildStep) {
+      return this.resolveDataForBuildStep();
+    }
+
+    if (this.data) {
+      const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+      return [this.data, cacheStatus];
+    }
+
+    return this.resolveDataWithFallbacks();
   }
 
   // ---------------------------------------------------------------------------
@@ -535,7 +531,7 @@ export class Controller implements ControllerInterface {
    * Concurrent callers share a single load promise. The first caller to
    * populate `this.data` gets cacheStatus MISS; subsequent callers get HIT.
    */
-  private async getDataForBuildStep(): Promise<
+  private async resolveDataForBuildStep(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
     if (this.data) {
@@ -560,7 +556,7 @@ export class Controller implements ControllerInterface {
    */
   private async loadBuildData(): Promise<TaggedData> {
     const bundled = await this.bundledSource.tryLoad();
-    if (bundled) return bundled;
+    if (bundled) return tagData(bundled, 'bundled');
 
     throw new Error(
       '@vercel/flags-core: No flag definitions available during build. ' +
@@ -569,18 +565,47 @@ export class Controller implements ControllerInterface {
   }
 
   // ---------------------------------------------------------------------------
-  // Runtime helpers
+  // Fallback helpers
   // ---------------------------------------------------------------------------
 
   /**
-   * Returns data from the in-memory cache.
+   * Shared fallback chain used by both initialize() and resolveData().
    */
-  private getDataFromCache(
-    cachedData?: TaggedData,
-  ): [TaggedData, Metrics['cacheStatus']] {
-    const data = cachedData ?? this.data!;
-    const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-    return [data, cacheStatus];
+  private async initializeFromFallbacks(): Promise<void> {
+    this.transition('initializing:fallback');
+
+    if (this.data) {
+      this.transition('degraded');
+      return;
+    }
+
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      this.data = tagData(bundled, 'bundled');
+      this.transition('degraded');
+      return;
+    }
+
+    // Last resort: one-time fetch (only when no stream/poll configured)
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
+      try {
+        const fetched = await fetchDatafile({
+          host: this.options.host,
+          sdkKey: this.options.sdkKey,
+          fetch: this.options.fetch,
+        });
+        this.data = tagData(fetched, 'fetched');
+        this.transition('degraded');
+        return;
+      } catch {
+        // fetch failed — fall through to throw
+      }
+    }
+
+    throw new Error(
+      '@vercel/flags-core: No flag definitions available. ' +
+        'Bundled definitions not found.',
+    );
   }
 
   /**
@@ -589,7 +614,7 @@ export class Controller implements ControllerInterface {
    * Polling mode: poll → datafile → bundled.
    * Offline mode: datafile → bundled → one-time fetch.
    */
-  private async getDataWithFallbacks(): Promise<
+  private async resolveDataWithFallbacks(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
     // Try the configured primary source
@@ -621,7 +646,7 @@ export class Controller implements ControllerInterface {
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
-      this.data = bundled;
+      this.data = tagData(bundled, 'bundled');
       this.transition('degraded');
       return [this.data, 'STALE'];
     }

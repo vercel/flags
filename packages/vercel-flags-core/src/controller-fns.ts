@@ -1,13 +1,21 @@
-import { controllerInstanceMap } from './controller-instance-map';
 import { evaluate as evalFlag } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import type {
   BundledDefinitions,
+  ControllerInterface,
   Datafile,
   EvaluationResult,
   Packed,
 } from './types';
 import { ErrorCode, ResolutionReason } from './types';
+
+export type ControllerInstance = {
+  controller: ControllerInterface;
+  initialized: boolean;
+  initPromise: Promise<void> | null;
+};
+
+export const controllerInstanceMap = new Map<number, ControllerInstance>();
 
 export function initialize(id: number): Promise<void> {
   return controllerInstanceMap.get(id)!.controller.initialize();

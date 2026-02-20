@@ -1,6 +1,5 @@
+import type { DatafileInput } from '../types';
 import { fetchDatafile } from './fetch-datafile';
-import type { TaggedData } from './tagged-data';
-import { tagData } from './tagged-data';
 import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
@@ -13,7 +12,7 @@ export type PollingSourceConfig = {
 };
 
 export type PollingSourceEvents = {
-  data: (data: TaggedData) => void;
+  data: (data: DatafileInput) => void;
   error: (error: Error) => void;
 };
 
@@ -40,8 +39,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
 
     try {
       const data = await fetchDatafile(this.config);
-      const tagged = tagData(data, 'poll');
-      this.emit('data', tagged);
+      this.emit('data', data);
     } catch (error) {
       const err =
         error instanceof Error ? error : new Error('Unknown poll error');
