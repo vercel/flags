@@ -55,13 +55,19 @@ type State =
  *
  * **Build step** (CI=1 or Next.js build, or buildStep: true):
  * - Uses datafile (if provided) or bundled definitions
- * - No streaming or polling (avoids network during build)
+ * - No streaming, polling, or fetching
  *
- * **Runtime** (default):
- * - Tries stream first, then poll, then datafile, then bundled
- * - Stream and polling never run simultaneously
- * - If stream reconnects while polling → stop polling
- * - If stream disconnects → start polling (if enabled)
+ * **Runtime — streaming mode** (stream enabled):
+ * - Uses streaming exclusively
+ * - Fallback: last known value → constructor datafile → bundled → defaultValue → throw
+ * - Polling is never started, even if configured
+ *
+ * **Runtime — polling mode** (polling enabled, stream disabled):
+ * - Uses polling exclusively
+ * - Same fallback chain
+ *
+ * **Runtime — offline mode** (neither stream nor polling):
+ * - Uses constructor datafile → bundled → one-time fetch → defaultValue → throw
  */
 export class Controller implements ControllerInterface {
   private options: NormalizedOptions;
@@ -135,30 +141,9 @@ export class Controller implements ControllerInterface {
       }
     });
 
-    this.streamSource.on('connected', () => {
-      // Stream reconnected while polling → stop polling, transition to streaming
-      if (this.state === 'polling') {
-        this.pollingSource.stop();
-        this.transition('streaming');
-      }
-      // During normal streaming, just confirm state
-      else if (this.state === 'streaming') {
-        // Already in streaming state, no transition needed
-      }
-      // During initialization, initialize() handles the transition
-    });
-
     this.streamSource.on('disconnected', () => {
-      // Only react to disconnects when we're in streaming state.
-      // During initialization states, initialize() manages its own fallback chain.
       if (this.state === 'streaming') {
-        if (this.options.polling.enabled) {
-          void this.pollingSource.poll();
-          this.pollingSource.startInterval();
-          this.transition('polling');
-        } else {
-          this.transition('degraded');
-        }
+        this.transition('degraded');
       }
     });
 
@@ -205,8 +190,10 @@ export class Controller implements ControllerInterface {
   /**
    * Initializes the data source.
    *
-   * Build step: datafile → bundled → fetch
-   * Runtime: stream → poll → datafile → bundled
+   * Build step: datafile → bundled (no network)
+   * Streaming mode: stream → datafile → bundled
+   * Polling mode (no stream): poll → datafile → bundled
+   * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
     if (this.options.buildStep) {
@@ -228,7 +215,7 @@ export class Controller implements ControllerInterface {
       return;
     }
 
-    // Fallback chain
+    // Try the configured primary source (stream or poll, never both)
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
       const streamSuccess = await this.tryInitializeStream();
@@ -236,9 +223,7 @@ export class Controller implements ControllerInterface {
         this.transition('streaming');
         return;
       }
-    }
-
-    if (this.options.polling.enabled) {
+    } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
       if (pollingSuccess) {
@@ -247,17 +232,41 @@ export class Controller implements ControllerInterface {
       }
     }
 
+    // Fallback chain: datafile → bundled → one-time fetch (offline only)
     this.transition('initializing:fallback');
 
-    // Fall back to provided datafile (already set in constructor if provided)
     if (this.data) {
       this.transition('degraded');
       return;
     }
 
-    // Fall back to bundled definitions
-    await this.initializeFromBundled();
-    this.transition('degraded');
+    const bundled = await this.bundledSource.tryLoad();
+    if (bundled) {
+      this.data = bundled;
+      this.transition('degraded');
+      return;
+    }
+
+    // Last resort: one-time fetch (only when no stream/poll configured)
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
+      try {
+        const fetched = await fetchDatafile({
+          host: this.options.host,
+          sdkKey: this.options.sdkKey,
+          fetch: this.options.fetch,
+        });
+        this.data = tagData(fetched, 'fetched');
+        this.transition('degraded');
+        return;
+      } catch {
+        // fetch failed — fall through to throw
+      }
+    }
+
+    throw new Error(
+      '@vercel/flags-core: No flag definitions available. ' +
+        'Bundled definitions not found.',
+    );
   }
 
   /**
@@ -313,11 +322,8 @@ export class Controller implements ControllerInterface {
 
   /**
    * Returns the datafile with metrics.
-   *
-   * During builds this will read from the bundled file if available.
-   *
-   * This method never opens a streaming connection, but will read from
-   * the stream if it is already open. Otherwise it fetches over the network.
+   * Uses in-memory data if available, otherwise falls back to bundled,
+   * then to a one-time fetch if called without prior initialization.
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
@@ -329,18 +335,36 @@ export class Controller implements ControllerInterface {
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.getDataForBuildStep();
       source = originToMetricsSource(result._origin);
-    } else if (this.isConnected && this.data) {
+    } else if (this.data) {
       [result, cacheStatus] = this.getDataFromCache();
       source = originToMetricsSource(result._origin);
     } else {
-      const fetched = await fetchDatafile(this.options);
-      const tagged = tagData(fetched, 'fetched');
-      if (this.isNewerData(tagged)) {
-        this.data = tagged;
+      // No in-memory data — try bundled, then one-time fetch
+      const bundled = await this.bundledSource.tryLoad();
+      if (bundled) {
+        this.data = bundled;
+        result = bundled;
+        source = 'embedded';
+        cacheStatus = 'MISS';
+      } else {
+        // One-time fetch as last resort
+        try {
+          const fetched = await fetchDatafile({
+            host: this.options.host,
+            sdkKey: this.options.sdkKey,
+            fetch: this.options.fetch,
+          });
+          this.data = tagData(fetched, 'fetched');
+          result = this.data;
+          source = 'remote';
+          cacheStatus = 'MISS';
+        } catch {
+          throw new Error(
+            '@vercel/flags-core: No flag definitions available. ' +
+              'Initialize the client or provide a datafile.',
+          );
+        }
       }
-      result = this.data ?? tagged;
-      source = 'remote';
-      cacheStatus = 'MISS';
     }
 
     return Object.assign(result, {
@@ -419,6 +443,8 @@ export class Controller implements ControllerInterface {
   /**
    * Attempts to initialize via polling with timeout.
    * Returns true if first poll succeeded within timeout.
+   *
+   * Only used when streaming is disabled and polling is the primary source.
    */
   private async tryInitializePolling(): Promise<boolean> {
     const pollPromise = this.pollingSource.poll();
@@ -530,14 +556,16 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Loads data for a build step: provided → bundled → fetch.
+   * Loads data for a build step: bundled definitions only (no network).
    */
   private async loadBuildData(): Promise<TaggedData> {
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) return bundled;
 
-    const fetched = await fetchDatafile(this.options);
-    return tagData(fetched, 'fetched');
+    throw new Error(
+      '@vercel/flags-core: No flag definitions available during build. ' +
+        'Provide a datafile or bundled definitions.',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -556,12 +584,15 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Retrieves data using the fallback chain.
+   * Retrieves data using the fallback chain (called when no cached data exists).
+   * Streaming mode: stream → datafile → bundled.
+   * Polling mode: poll → datafile → bundled.
+   * Offline mode: datafile → bundled → one-time fetch.
    */
   private async getDataWithFallbacks(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
-    // Try stream with timeout
+    // Try the configured primary source
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
       const streamSuccess = await this.tryInitializeStream();
@@ -569,10 +600,7 @@ export class Controller implements ControllerInterface {
         this.transition('streaming');
         return [this.data, 'MISS'];
       }
-    }
-
-    // Try polling with timeout
-    if (this.options.polling.enabled) {
+    } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
       if (pollingSuccess && this.data) {
@@ -581,16 +609,15 @@ export class Controller implements ControllerInterface {
       }
     }
 
+    // Fallback chain: datafile → bundled → one-time fetch
     this.transition('initializing:fallback');
 
-    // Use provided datafile
     if (this.options.datafile) {
       this.data = tagData(this.options.datafile, 'provided');
       this.transition('degraded');
       return [this.data, 'STALE'];
     }
 
-    // Use bundled definitions
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
@@ -599,25 +626,25 @@ export class Controller implements ControllerInterface {
       return [this.data, 'STALE'];
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Ensure streaming/polling is enabled or provide a datafile.',
-    );
-  }
-
-  /**
-   * Initializes from bundled definitions.
-   */
-  private async initializeFromBundled(): Promise<void> {
-    const bundled = await this.bundledSource.tryLoad();
-    if (bundled) {
-      this.data = bundled;
-      return;
+    // Last resort: one-time fetch (only when no stream/poll configured)
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
+      try {
+        const fetched = await fetchDatafile({
+          host: this.options.host,
+          sdkKey: this.options.sdkKey,
+          fetch: this.options.fetch,
+        });
+        this.data = tagData(fetched, 'fetched');
+        this.transition('degraded');
+        return [this.data, 'MISS'];
+      } catch {
+        // fetch failed — fall through to throw
+      }
     }
 
     throw new Error(
       '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
+        'Provide a datafile or bundled definitions.',
     );
   }
 

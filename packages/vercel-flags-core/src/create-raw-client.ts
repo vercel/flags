@@ -78,7 +78,15 @@ export function createCreateRawClient(fns: {
         await fns.shutdown(id);
         controllerInstanceMap.delete(id);
       },
-      getDatafile: () => {
+      getDatafile: async () => {
+        const instance = controllerInstanceMap.get(id);
+        if (instance?.initPromise) {
+          try {
+            await instance.initPromise;
+          } catch {
+            // Initialization failed — let getDatafile handle its own fallbacks
+          }
+        }
         return fns.getDatafile(id);
       },
       getFallbackDatafile: (): Promise<BundledDefinitions> => {
