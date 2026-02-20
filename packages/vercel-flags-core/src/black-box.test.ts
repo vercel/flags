@@ -694,10 +694,7 @@ describe('Controller (black-box)', () => {
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const client = createClient(sdkKey, {
-        fetch: fetchMock,
-        polling: false,
-      });
+      const client = createClient(sdkKey, { fetch: fetchMock });
 
       const evalPromise = client.evaluate('flagA');
 
@@ -710,6 +707,12 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('embedded');
 
       errorSpy.mockRestore();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await client.shutdown();
+      await vi.advanceTimersByTimeAsync(0);
+      // No ingest call — usage tracking is suppressed after a 401
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -749,12 +752,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
-          return Promise.resolve(
-            new Response(JSON.stringify(datafile), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-          );
+          return Promise.resolve(Response.json(datafile));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -792,12 +790,7 @@ describe('Controller (black-box)', () => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
           pollCount++;
-          return Promise.resolve(
-            new Response(JSON.stringify(datafile), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-          );
+          return Promise.resolve(Response.json(datafile));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -920,9 +913,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            new Response(JSON.stringify(makeBundled({ projectId: 'polled' })), {
-              status: 200,
-            }),
+            Response.json(makeBundled({ projectId: 'polled' })),
           );
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -963,9 +954,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            new Response(JSON.stringify(makeBundled({ projectId: 'polled' })), {
-              status: 200,
-            }),
+            Response.json(makeBundled({ projectId: 'polled' })),
           );
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -1000,9 +989,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) return stream.response;
         if (url.includes('/v1/datafile')) {
           pollCount++;
-          return Promise.resolve(
-            new Response(JSON.stringify(makeBundled()), { status: 200 }),
-          );
+          return Promise.resolve(Response.json(makeBundled()));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -1106,9 +1093,7 @@ describe('Controller (black-box)', () => {
         }
         if (url.includes('/v1/datafile')) {
           pollCount++;
-          return Promise.resolve(
-            new Response(JSON.stringify(makeBundled()), { status: 200 }),
-          );
+          return Promise.resolve(Response.json(makeBundled()));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -1170,12 +1155,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
-          return Promise.resolve(
-            new Response(JSON.stringify(fetchedDatafile), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-          );
+          return Promise.resolve(Response.json(fetchedDatafile));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -2066,6 +2046,59 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled(),
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          // Stream returns 502 — triggers retry loop
+          return Promise.resolve(new Response(null, { status: 502 }));
+        }
+        return Promise.resolve(new Response('', { status: 200 }));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: { initTimeoutMs: 100 },
+        polling: false,
+      });
+
+      // Three concurrent evaluates all trigger lazy initialization
+      const p1 = client.evaluate('flagA');
+      const p2 = client.evaluate('flagA');
+      const p3 = client.evaluate('flagA');
+
+      // Advance past the stream init timeout
+      await vi.advanceTimersByTimeAsync(100);
+
+      const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+
+      // All should resolve (falling back to bundled after stream timeout)
+      expect(r1.value).toBe(true);
+      expect(r2.value).toBe(true);
+      expect(r3.value).toBe(true);
+
+      // Concurrent callers share the same init promise, so only one retry
+      // loop is started. With 100ms timeout: attempt at retryCount=0 fails,
+      // backoff(1)=0ms → immediate retry at retryCount=1 fails,
+      // backoff(2)=~1s+ exceeds 100ms timeout → falls back to bundled.
+      // So exactly 2 stream attempts (one loop, two iterations).
+      const streamCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/stream'),
+      );
+      expect(streamCalls).toHaveLength(2);
+      // Verify only one retry loop: all stream calls should have sequential
+      // X-Retry-Attempt headers (0, 1) from a single loop
+      expect(streamCalls[0]?.[1]?.headers?.['X-Retry-Attempt']).toBe('0');
+      expect(streamCalls[1]?.[1]?.headers?.['X-Retry-Attempt']).toBe('1');
+
+      await client.shutdown();
+    });
+
     it('should allow re-initialization after failure', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'missing-file',
@@ -2083,12 +2116,7 @@ describe('Controller (black-box)', () => {
             return Promise.resolve(new Response(null, { status: 500 }));
           }
           // Second fetch succeeds
-          return Promise.resolve(
-            new Response(JSON.stringify(makeBundled()), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-          );
+          return Promise.resolve(Response.json(makeBundled()));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });

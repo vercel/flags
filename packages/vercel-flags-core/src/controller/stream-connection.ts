@@ -16,6 +16,13 @@ function backoff(retryCount: number): number {
   return delay + Math.random() * 1000;
 }
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('stream: unauthorized (401)');
+    this.name = 'UnauthorizedError';
+  }
+}
+
 export type StreamCallbacks = {
   onMessage: (data: BundledDefinitions) => void;
   onDisconnect?: () => void;
@@ -81,7 +88,7 @@ export async function connectStream(
         if (!response.ok) {
           if (response.status === 401) {
             if (!initialDataReceived) {
-              rejectInit!(new Error(`stream: unauthorized (401)`));
+              rejectInit!(new UnauthorizedError());
             }
             abortController.abort();
             break;

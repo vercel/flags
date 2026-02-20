@@ -15,6 +15,7 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
+import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
 
@@ -106,6 +107,9 @@ export class Controller implements ControllerInterface {
   // Build-step deduplication
   private buildDataPromise: Promise<TaggedData> | null = null;
   private buildReadTracked = false;
+
+  // Suppresses usage tracking when the SDK key is unauthorized
+  private unauthorized = false;
 
   constructor(options: ControllerOptions) {
     if (
@@ -415,7 +419,10 @@ export class Controller implements ControllerInterface {
       try {
         await this.streamSource.start();
         return true;
-      } catch {
+      } catch (error) {
+        if (error instanceof UnauthorizedError) {
+          this.unauthorized = true;
+        }
         return false;
       }
     }
@@ -448,8 +455,11 @@ export class Controller implements ControllerInterface {
       }
 
       return true;
-    } catch {
+    } catch (error) {
       clearTimeout(timeoutId!);
+      if (error instanceof Error && error.message.includes('401')) {
+        this.unauthorized = true;
+      }
       return false;
     }
   }
@@ -750,6 +760,7 @@ export class Controller implements ControllerInterface {
     isFirstRead: boolean,
     source: Metrics['source'],
   ): void {
+    if (this.unauthorized) return;
     if (this.options.buildStep && this.buildReadTracked) return;
     if (this.options.buildStep) this.buildReadTracked = true;
 
