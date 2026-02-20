@@ -2238,8 +2238,10 @@ describe('Controller (black-box)', () => {
       expect(streamCalls).toHaveLength(2);
       // Verify only one retry loop: all stream calls should have sequential
       // X-Retry-Attempt headers (0, 1) from a single loop
-      expect(streamCalls[0]?.[1]?.headers?.['X-Retry-Attempt']).toBe('0');
-      expect(streamCalls[1]?.[1]?.headers?.['X-Retry-Attempt']).toBe('1');
+      const h0 = streamCalls[0]?.[1]?.headers as Record<string, string>;
+      const h1 = streamCalls[1]?.[1]?.headers as Record<string, string>;
+      expect(h0['X-Retry-Attempt']).toBe('0');
+      expect(h1['X-Retry-Attempt']).toBe('1');
 
       await client.shutdown();
     });
