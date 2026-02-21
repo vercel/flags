@@ -114,8 +114,8 @@ type State =
  * source modules (StreamSource, PollingSource, BundledSource).
  *
  * **Build step** (CI=1 or Next.js build, or buildStep: true):
- * - Uses datafile (if provided) or bundled definitions
- * - No streaming, polling, or fetching
+ * - Uses datafile (if provided), bundled definitions, or one-time fetch as fallback
+ * - No streaming or polling
  *
  * **Runtime — streaming mode** (stream enabled):
  * - Uses streaming exclusively
