@@ -118,16 +118,17 @@ type State =
  * - No streaming or polling
  *
  * **Runtime — streaming mode** (stream enabled):
- * - Uses streaming exclusively
- * - Fallback: last known value → constructor datafile → bundled → defaultValue → throw
- * - Polling is never started, even if configured
+ * - Uses streaming exclusively; polling is never started, even if configured
+ * - Init fallback (no data yet): constructor datafile → bundled → throw
+ * - Read fallback (post-init): in-memory value → constructor datafile → bundled → throw
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
  * - Uses polling exclusively
- * - Same fallback chain
+ * - Same fallback chains as streaming mode
  *
  * **Runtime — offline mode** (neither stream nor polling):
- * - Uses constructor datafile → bundled → one-time fetch → defaultValue → throw
+ * - Init fallback: constructor datafile → bundled → one-time fetch → throw
+ * - Read fallback: in-memory value → constructor datafile → bundled → one-time fetch → throw
  */
 export class Controller implements ControllerInterface {
   private options: NormalizedOptions;
@@ -264,7 +265,7 @@ export class Controller implements ControllerInterface {
   /**
    * Initializes the data source.
    *
-   * Build step: datafile → bundled (no network)
+   * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
    * Polling mode (no stream): poll → datafile → bundled
    * Offline mode (neither): datafile → bundled → one-time fetch
@@ -428,7 +429,7 @@ export class Controller implements ControllerInterface {
    * Resolves the current data, using the appropriate strategy for the
    * current mode. Returns tagged data and cache status.
    *
-   * Build step: cached → bundled (no network)
+   * Build step: cached → bundled → one-time fetch
    * Runtime with cache: return cached data
    * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
    */
