@@ -115,11 +115,6 @@ export type Source = {
   projectSlug: string;
 };
 
-export type PeekResult = {
-  datafile: Datafile;
-  fallbackDatafile?: BundledDefinitions;
-};
-
 /**
  * A client for Vercel Flags
  */
@@ -164,11 +159,6 @@ export type FlagsClient = {
    * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
    */
   getFallbackDatafile(): Promise<BundledDefinitions>;
-
-  /**
-   * Peek offers insights into the client's current state. Used for debugging purposes. Not covered by semver.
-   */
-  peek(): ControllerInstance;
 };
 
 export type EvaluationParams<T> = {
