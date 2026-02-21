@@ -26,9 +26,11 @@ src/
 │   ├── normalized-options.ts # Option normalization
 │   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
+├── test-utils.ts         # Shared test helpers
 ├── utils/                # Utilities
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
+│   ├── sleep.ts
 │   └── read-bundled-definitions.ts
 └── lib/
     └── report-value.ts   # Flag evaluation reporting to Vercel request context
@@ -103,7 +105,7 @@ Behavior differs based on environment:
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
 **Runtime** (default, or `buildStep: false`):
-1. **Stream** - Real-time updates via SSE, wait up to `initTimeoutMs`
+1. **Stream** - Real-time updates via NDJSON streaming, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
 4. **Bundled definitions** - Use `@vercel/flags-definitions`
@@ -176,8 +178,8 @@ pnpm test:integration
 
 - Interval-based HTTP requests to `/v1/datafile`
 - Default `intervalMs`: 30000ms (30s)
-- Default `initTimeoutMs`: 10000ms (10s)
-- Retries with exponential backoff (base: 500ms, max 3 retries)
+- Default `initTimeoutMs`: 3000ms (3s)
+- No retries — on fetch failure, emits an error event and waits for the next interval
 - Stops automatically when stream reconnects
 - `PollingSource` passes its abort signal to `fetchDatafile`, so calling `stop()` aborts in-flight HTTP requests
 - `fetchDatafile` accepts an optional `signal` parameter; when provided, it aborts the internal fetch controller when the external signal fires
@@ -214,7 +216,7 @@ The Controller rejects incoming data (from stream or poll) if its `configUpdated
 
 ### Evaluation Reporting
 
-- `internalReportValue` in `controller-fns.ts` reports flag evaluations to the Vercel request context
+- `internalReportValue` (defined in `lib/report-value.ts`, called from `controller-fns.ts`) reports flag evaluations to the Vercel request context
 - Reports are sent for all evaluations where `datafile.projectId` exists, including error cases (e.g., FLAG_NOT_FOUND)
 
 ### Evaluation Safety
@@ -224,7 +226,7 @@ The Controller rejects incoming data (from stream or poll) if its `configUpdated
 
 ### Debug Mode
 
-Enable debug logging with `DEBUG=1` environment variable.
+Enable debug logging with `DEBUG=@vercel/flags-core` environment variable.
 
 ## Dependencies
 
