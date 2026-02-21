@@ -168,18 +168,14 @@ export class Controller implements ControllerInterface {
     this.options = normalizeOptions(options);
 
     // Create source modules (or use injected ones for testing)
-    this.streamSource =
-      options.sources?.stream ?? new StreamSource(this.options);
+    this.streamSource = new StreamSource(this.options);
 
-    this.pollingSource =
-      options.sources?.polling ?? new PollingSource(this.options);
+    this.pollingSource = new PollingSource(this.options);
 
-    this.bundledSource =
-      options.sources?.bundled ??
-      new BundledSource({
-        sdkKey: this.options.sdkKey,
-        readBundledDefinitions,
-      });
+    this.bundledSource = new BundledSource({
+      sdkKey: this.options.sdkKey,
+      readBundledDefinitions,
+    });
 
     // Wire source events to state machine
     this.wireSourceEvents();

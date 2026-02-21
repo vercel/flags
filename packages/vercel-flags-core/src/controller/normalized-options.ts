@@ -54,16 +54,6 @@ export type ControllerOptions = {
    * @default globalThis.fetch
    */
   fetch?: typeof globalThis.fetch;
-
-  /**
-   * Custom source modules for dependency injection (testing).
-   * When provided, these replace the default source instances.
-   */
-  sources?: {
-    stream?: StreamSource;
-    polling?: PollingSource;
-    bundled?: BundledSource;
-  };
 };
 
 export type NormalizedOptions = {
