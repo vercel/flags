@@ -31,7 +31,7 @@ function setCacheLife(): void {
   }
 }
 
-const cachedFns: typeof fns = {
+const cachedFns: Parameters<typeof createCreateRawClient>[0] = {
   initialize: async (...args) => {
     'use cache';
     setCacheLife();

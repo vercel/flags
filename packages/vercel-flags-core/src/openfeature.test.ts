@@ -19,6 +19,7 @@ function createStaticController(opts: {
       source: 'in-memory',
       cacheStatus: 'HIT',
       connectionState: 'connected',
+      mode: 'streaming',
     },
   };
   return {
