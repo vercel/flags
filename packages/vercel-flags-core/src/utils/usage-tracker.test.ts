@@ -212,6 +212,7 @@ describe('UsageTracker', () => {
     });
 
     it('should not send empty batches', async () => {
+      vi.useFakeTimers();
       let requestCount = 0;
 
       server.use(
@@ -230,12 +231,14 @@ describe('UsageTracker', () => {
       // Flush without tracking anything
       tracker.flush();
 
-      // Wait a bit to ensure no request is made
-      await new Promise((r) => setTimeout(r, 100));
+      // Advance timers to ensure no request is made
+      await vi.advanceTimersByTimeAsync(100);
       expect(requestCount).toBe(0);
+      vi.useRealTimers();
     });
 
     it('should handle fetch errors gracefully', async () => {
+      vi.useFakeTimers();
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -255,14 +258,16 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.flush();
 
-      // Wait for the flush to complete
-      await new Promise((r) => setTimeout(r, 100));
+      // Advance timers to let the flush complete
+      await vi.advanceTimersByTimeAsync(100);
 
       // Should not throw and should not log error (only logs in debug mode)
       expect(consoleSpy).not.toHaveBeenCalled();
+      vi.useRealTimers();
     });
 
     it('should handle non-ok responses gracefully', async () => {
+      vi.useFakeTimers();
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       server.use(
@@ -280,11 +285,12 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.flush();
 
-      // Wait for the flush to complete
-      await new Promise((r) => setTimeout(r, 100));
+      // Advance timers to let the flush complete
+      await vi.advanceTimersByTimeAsync(100);
 
       // Should not log in non-debug mode
       expect(consoleSpy).not.toHaveBeenCalled();
+      vi.useRealTimers();
     });
 
     it('should log errors in debug mode', async () => {
@@ -442,6 +448,7 @@ describe('UsageTracker', () => {
     });
 
     it('should be safe to call flush multiple times', async () => {
+      vi.useFakeTimers();
       let requestCount = 0;
 
       server.use(
@@ -462,13 +469,13 @@ describe('UsageTracker', () => {
       tracker.flush();
       tracker.flush();
 
-      await vi.waitFor(() => {
-        expect(requestCount).toBe(1);
-      });
-
-      // Wait a bit more to ensure no additional requests
-      await new Promise((r) => setTimeout(r, 100));
+      await vi.advanceTimersByTimeAsync(0);
       expect(requestCount).toBe(1);
+
+      // Advance timers to ensure no additional requests
+      await vi.advanceTimersByTimeAsync(100);
+      expect(requestCount).toBe(1);
+      vi.useRealTimers();
     });
   });
 
