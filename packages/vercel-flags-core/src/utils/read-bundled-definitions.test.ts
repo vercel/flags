@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The readBundledDefinitions function uses dynamic import which is hard to mock.
-// Instead, we test the behavior indirectly through the FlagNetworkDataSource
+// Instead, we test the behavior indirectly through the Controller
 // which already mocks readBundledDefinitions.
 // Here we just test the function interface and basic behavior.
 
@@ -49,7 +49,7 @@ describe('readBundledDefinitions', () => {
   });
 
   // The detailed behavior of readBundledDefinitions is tested indirectly
-  // through FlagNetworkDataSource tests which mock readBundledDefinitions.
+  // through Controller tests which mock readBundledDefinitions.
   // Those tests cover:
   // - 'ok' state with bundled definitions
   // - 'missing-file' state

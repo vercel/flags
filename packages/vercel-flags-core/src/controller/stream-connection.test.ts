@@ -371,10 +371,10 @@ describe('connectStream', () => {
   });
 
   describe('failure cases', () => {
-    // Note: 401 response behavior is tested through FlagNetworkDataSource
+    // Note: 401 response behavior is tested through Controller
     // which handles the timeout fallback. The stream-connection aborts on 401
     // but the promise resolution is handled by the timeout mechanism in
-    // FlagNetworkDataSource.getDataWithStreamTimeout().
+    // Controller.
 
     it('should retry on error before first datafile and reject when aborted', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -491,7 +491,7 @@ describe('connectStream', () => {
     // make the test too slow. The behavior is:
     // - After 10 retries without receiving data, the connection aborts
     // - console.error('@vercel/flags-core: Max retry count exceeded') is logged
-    // This is tested indirectly through FlagNetworkDataSource integration tests.
+    // This is tested indirectly through Controller integration tests.
 
     it('should stop when abortController is aborted externally', async () => {
       fetchMock.mockImplementation((_input, init) =>

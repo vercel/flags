@@ -108,7 +108,7 @@ type State =
 // ---------------------------------------------------------------------------
 
 /**
- * A DataSource implementation that connects to flags.vercel.com.
+ * Connects to flags.vercel.com and manages flag definitions.
  *
  * Implemented as a state machine controller that delegates all I/O to
  * source modules (StreamSource, PollingSource, BundledSource).
