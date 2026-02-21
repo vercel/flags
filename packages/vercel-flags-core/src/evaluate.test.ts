@@ -1340,6 +1340,113 @@ describe('evaluate', () => {
     });
   });
 
+  describe('regex input length limit', () => {
+    it('should return false for REGEX when input exceeds MAX_REGEX_INPUT_LENGTH', () => {
+      const longString = 'a'.repeat(10_001);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.REGEX,
+                        { type: 'regex', pattern: 'a+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: longString } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+
+    it('should return false for NOT_REGEX when input exceeds MAX_REGEX_INPUT_LENGTH', () => {
+      const longString = 'a'.repeat(10_001);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.NOT_REGEX,
+                        { type: 'regex', pattern: 'b+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: longString } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+
+    it('should still match REGEX when input is within limit', () => {
+      const okString = 'a'.repeat(10_000);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.REGEX,
+                        { type: 'regex', pattern: 'a+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: okString } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+  });
+
   describe('splits', () => {
     it.each<{
       name: string;

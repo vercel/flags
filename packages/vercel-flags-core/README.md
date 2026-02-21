@@ -17,6 +17,8 @@ import { createClient } from '@vercel/flags-core';
 
 const client = createClient(process.env.FLAGS!);
 
+await client.initialize();
+
 const result = await client.evaluate<boolean>('show-new-feature', false, {
   user: { id: 'user-123' },
 });

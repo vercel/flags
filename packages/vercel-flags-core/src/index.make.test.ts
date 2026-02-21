@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
 
-// Mock the FlagNetworkDataSource to avoid real network calls
-vi.mock('./data-source/flag-network-data-source', () => ({
-  FlagNetworkDataSource: vi.fn().mockImplementation(({ sdkKey }) => ({
+// Mock the Controller to avoid real network calls
+vi.mock('./controller', () => ({
+  Controller: vi.fn().mockImplementation(({ sdkKey }) => ({
     sdkKey,
     read: vi.fn().mockResolvedValue({
       projectId: 'test',
@@ -17,7 +17,7 @@ vi.mock('./data-source/flag-network-data-source', () => ({
   })),
 }));
 
-import { FlagNetworkDataSource } from './data-source/flag-network-data-source';
+import { Controller } from './controller';
 
 function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
   return vi.fn().mockImplementation(({ dataSource }) => ({
@@ -62,7 +62,7 @@ describe('make', () => {
 
       const client = createClient('vf_test_key');
 
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_test_key',
       });
       expect(createRawClient).toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe('make', () => {
         'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_conn_key';
       const client = createClient(connectionString);
 
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_conn_key',
       });
       expect(client).toBeDefined();
@@ -87,7 +87,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
 
-      expect(() => createClient('')).toThrow('flags: Missing sdkKey');
+      expect(() => createClient('')).toThrow(
+        '@vercel/flags-core: Missing sdkKey',
+      );
     });
 
     it('should throw for invalid connection string', () => {
@@ -95,7 +97,7 @@ describe('make', () => {
       const { createClient } = make(createRawClient);
 
       expect(() => createClient('invalid_string')).toThrow(
-        'flags: Missing sdkKey',
+        '@vercel/flags-core: Missing sdkKey',
       );
     });
 
@@ -105,7 +107,7 @@ describe('make', () => {
 
       expect(() =>
         createClient('flags:edgeConfigId=ecfg_123&edgeConfigToken=token'),
-      ).toThrow('flags: Missing sdkKey');
+      ).toThrow('@vercel/flags-core: Missing sdkKey');
     });
   });
 
@@ -142,7 +144,9 @@ describe('make', () => {
 
       const { flagsClient } = make(createRawClient);
 
-      expect(() => flagsClient.evaluate).toThrow('flags: Missing sdkKey');
+      expect(() => flagsClient.evaluate).toThrow(
+        '@vercel/flags-core: Missing sdkKey',
+      );
     });
 
     it('should cache the client after first access', () => {
@@ -167,7 +171,7 @@ describe('make', () => {
       const { flagsClient } = make(createRawClient);
       const _ = flagsClient.evaluate;
 
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_env_key',
       });
     });
@@ -180,7 +184,7 @@ describe('make', () => {
       const { flagsClient } = make(createRawClient);
       const _ = flagsClient.evaluate;
 
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_flags_key',
       });
     });
@@ -213,7 +217,7 @@ describe('make', () => {
 
       // Access with first key
       const _ = flagsClient.evaluate;
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_first_key',
       });
 
@@ -223,7 +227,7 @@ describe('make', () => {
 
       // Access again with new key
       const __ = flagsClient.initialize;
-      expect(FlagNetworkDataSource).toHaveBeenCalledWith({
+      expect(Controller).toHaveBeenCalledWith({
         sdkKey: 'vf_second_key',
       });
     });

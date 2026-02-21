@@ -7,9 +7,14 @@ import {
   Packed,
   ResolutionReason,
 } from './types';
-import { exhaustivenessCheck } from './utils';
 
 type PathArray = (string | number)[];
+
+const MAX_REGEX_INPUT_LENGTH = 10_000;
+
+function exhaustivenessCheck(_: never): never {
+  throw new Error('Exhaustiveness check failed');
+}
 
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {
@@ -54,10 +59,12 @@ function matchTargetList<T>(
   targets: Packed.TargetList,
   params: EvaluationParams<T>,
 ): boolean {
-  for (const [kind, attributes] of Object.entries(targets)) {
-    for (const [attribute, values] of Object.entries(attributes)) {
+  for (const kind in targets) {
+    const attributes = targets[kind]!;
+    for (const attribute in attributes) {
       const entity = access([kind, attribute], params);
-      if (isString(entity) && values.includes(entity)) return true;
+      if (isString(entity) && attributes[attribute]!.includes(entity))
+        return true;
     }
   }
   return false;
@@ -211,6 +218,7 @@ function matchConditions<T>(
         case Comparator.REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
@@ -222,6 +230,7 @@ function matchConditions<T>(
         case Comparator.NOT_REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
@@ -366,6 +375,8 @@ export function evaluate<T>(
    * The params used for the evaluation
    */
   params: EvaluationParams<T>,
+  /** Tracks visited environments to detect circular reuse. */
+  _visited?: Set<string>,
 ): EvaluationResult<T> {
   const envConfig = params.definition.environments[params.environment];
 
@@ -395,7 +406,17 @@ export function evaluate<T>(
       );
     }
 
-    return evaluate<T>({ ...params, environment: envConfig.reuse });
+    const visited = _visited ?? new Set<string>();
+    if (visited.has(envConfig.reuse)) {
+      return {
+        reason: ResolutionReason.ERROR,
+        errorMessage: `Circular environment reuse detected: "${envConfig.reuse}"`,
+        value: params.defaultValue,
+      };
+    }
+    visited.add(params.environment);
+
+    return evaluate<T>({ ...params, environment: envConfig.reuse }, visited);
   }
 
   if (envConfig.targets) {

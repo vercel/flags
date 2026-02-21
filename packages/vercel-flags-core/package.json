@@ -57,7 +57,6 @@
     "@arethetypeswrong/cli": "0.18.2",
     "@types/node": "20.11.17",
     "flags": "workspace:*",
-    "msw": "2.6.4",
     "next": "16.1.6",
     "tsup": "8.5.1",
     "typescript": "5.6.3",
@@ -65,9 +64,9 @@
     "vitest": "2.1.9"
   },
   "peerDependencies": {
-    "next": "*",
     "@openfeature/server-sdk": "1.18.0",
-    "flags": "*"
+    "flags": "*",
+    "next": "*"
   },
   "peerDependenciesMeta": {
     "@openfeature/server-sdk": {

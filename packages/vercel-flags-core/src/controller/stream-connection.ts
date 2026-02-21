@@ -16,6 +16,13 @@ function backoff(retryCount: number): number {
   return delay + Math.random() * 1000;
 }
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('stream: unauthorized (401)');
+    this.name = 'UnauthorizedError';
+  }
+}
+
 export type StreamCallbacks = {
   onMessage: (data: BundledDefinitions) => void;
   onDisconnect?: () => void;
@@ -45,6 +52,7 @@ export async function connectStream(
   } = config;
   const { onMessage, onDisconnect } = callbacks;
   let retryCount = 0;
+  let lastAttemptTime = 0;
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
@@ -59,11 +67,17 @@ export async function connectStream(
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
         console.error('@vercel/flags-core: Max retry count exceeded');
+        if (!initialDataReceived) {
+          rejectInit!(
+            new Error('stream: max retry count exceeded before receiving data'),
+          );
+        }
         abortController.abort();
         break;
       }
 
       try {
+        lastAttemptTime = Date.now();
         const response = await fetchFn(`${host}/v1/stream`, {
           headers: {
             Authorization: `Bearer ${sdkKey}`,
@@ -75,7 +89,11 @@ export async function connectStream(
 
         if (!response.ok) {
           if (response.status === 401) {
+            if (!initialDataReceived) {
+              rejectInit!(new UnauthorizedError());
+            }
             abortController.abort();
+            break;
           }
 
           throw new Error(`stream was not ok: ${response.status}`);
@@ -86,14 +104,16 @@ export async function connectStream(
         }
 
         const decoder = new TextDecoder();
-        let buffer = '';
+        const bufferChunks: string[] = [];
 
         for await (const chunk of response.body) {
           if (abortController.signal.aborted) break;
 
-          buffer += decoder.decode(chunk, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop()!;
+          bufferChunks.push(decoder.decode(chunk, { stream: true }));
+          const combined = bufferChunks.join('');
+          bufferChunks.length = 0;
+          const lines = combined.split('\n');
+          bufferChunks.push(lines.pop()!);
 
           for (const line of lines) {
             if (line === '') continue;
@@ -116,6 +136,12 @@ export async function connectStream(
                 resolveInit!();
               }
             }
+
+            // Pings prove the connection is alive — reset retry count
+            // once initial data has been received
+            if (message.type === 'ping' && initialDataReceived) {
+              retryCount = 0;
+            }
           }
         }
 
@@ -123,7 +149,9 @@ export async function connectStream(
         if (!abortController.signal.aborted) {
           onDisconnect?.();
           retryCount++;
-          await sleep(backoff(retryCount));
+          const elapsed = Date.now() - lastAttemptTime;
+          const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+          await sleep(Math.max(backoff(retryCount), minGap));
           continue;
         }
       } catch (error) {
@@ -132,13 +160,17 @@ export async function connectStream(
         }
         console.error('@vercel/flags-core: Stream error', error);
         onDisconnect?.();
-        if (!initialDataReceived) {
-          rejectInit!(error);
-          break;
-        }
         retryCount++;
-        await sleep(backoff(retryCount));
+        const elapsed = Date.now() - lastAttemptTime;
+        const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+        await sleep(Math.max(backoff(retryCount), minGap));
       }
+    }
+
+    // Reject the init promise if the loop exited without receiving data
+    // (e.g. aborted externally before any data arrived)
+    if (!initialDataReceived) {
+      rejectInit!(new Error('stream: aborted before receiving data'));
     }
   })();
 

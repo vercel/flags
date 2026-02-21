@@ -11,7 +11,7 @@
  */
 
 import { cacheLife } from 'next/cache';
-import * as fns from './client-fns';
+import * as fns from './controller-fns';
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
 
@@ -31,7 +31,7 @@ function setCacheLife(): void {
   }
 }
 
-const cachedFns: typeof fns = {
+const cachedFns: Parameters<typeof createCreateRawClient>[0] = {
   initialize: async (...args) => {
     'use cache';
     setCacheLife();

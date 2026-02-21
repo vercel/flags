@@ -2,18 +2,15 @@
  * Factory functions for exports of index.default.ts and index.next-js.ts
  */
 
+import { Controller, type ControllerOptions } from './controller';
 import type { createCreateRawClient } from './create-raw-client';
-import {
-  FlagNetworkDataSource,
-  type FlagNetworkDataSourceOptions,
-} from './data-source/flag-network-data-source';
 import type { FlagsClient } from './types';
 import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 /**
  * Options for createClient
  */
-export type CreateClientOptions = Omit<FlagNetworkDataSourceOptions, 'sdkKey'>;
+export type CreateClientOptions = Omit<ControllerOptions, 'sdkKey'>;
 
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
@@ -34,20 +31,28 @@ export function make(
     sdkKeyOrConnectionString: string,
     options?: CreateClientOptions,
   ): FlagsClient {
-    if (!sdkKeyOrConnectionString) throw new Error('flags: Missing sdkKey');
+    if (!sdkKeyOrConnectionString)
+      throw new Error('@vercel/flags-core: Missing sdkKey');
+
+    if (typeof sdkKeyOrConnectionString !== 'string')
+      throw new Error(
+        `@vercel/flags-core: Invalid sdkKey. Expected string, got ${typeof sdkKeyOrConnectionString}`,
+      );
 
     // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
     const sdkKey = parseSdkKeyFromFlagsConnectionString(
       sdkKeyOrConnectionString,
     );
     if (!sdkKey) {
-      throw new Error('flags: Missing sdkKey in connection string');
+      throw new Error(
+        '@vercel/flags-core: Missing sdkKey in connection string',
+      );
     }
 
     // sdk key contains the environment
-    const dataSource = new FlagNetworkDataSource({ sdkKey, ...options });
+    const controller = new Controller({ sdkKey, ...options });
     return createRawClient({
-      dataSource,
+      controller,
       origin: { provider: 'vercel', sdkKey },
     });
   }
@@ -65,7 +70,7 @@ export function make(
 
         const sdkKey = parseSdkKeyFromFlagsConnectionString(process.env.FLAGS);
         if (!sdkKey) {
-          throw new Error('flags: Missing sdkKey');
+          throw new Error('@vercel/flags-core: Missing sdkKey');
         }
         _defaultFlagsClient = createClient(sdkKey);
       }
