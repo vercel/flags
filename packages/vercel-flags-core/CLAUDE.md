@@ -100,7 +100,8 @@ Behavior differs based on environment:
 **Build step** (CI=1, NEXT_PHASE=phase-production-build, or `buildStep: true`):
 1. **Provided datafile** - Use `options.datafile` if provided
 2. **Bundled definitions** - Use `@vercel/flags-definitions`
-3. **Throw** - No network during build
+3. **One-time fetch** - Fallback network request
+4. **Throw** - If all above fail
 
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
