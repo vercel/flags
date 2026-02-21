@@ -287,6 +287,9 @@ describe('connectStream', () => {
   });
 
   describe('retry behavior', () => {
+    beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+    afterEach(() => vi.useRealTimers());
+
     it('should increment X-Retry-Attempt on reconnect after stream closes', async () => {
       const retryAttempts: string[] = [];
       let requestCount = 0;
@@ -321,14 +324,11 @@ describe('connectStream', () => {
         { onMessage: vi.fn(), onDisconnect },
       );
 
-      // Wait for reconnection attempt
-      await vi.waitFor(
-        () => {
-          expect(requestCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 3000 },
-      );
+      // Advance past the reconnection backoff delay
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
 
+      expect(requestCount).toBeGreaterThanOrEqual(2);
       expect(retryAttempts[0]).toBe('0');
       expect(retryAttempts[1]).toBe('1');
       expect(onDisconnect).toHaveBeenCalled();
@@ -368,13 +368,15 @@ describe('connectStream', () => {
         { onMessage: vi.fn() },
       );
 
-      // Wait for multiple reconnections
-      await vi.waitFor(
-        () => {
-          expect(requestCount).toBeGreaterThanOrEqual(3);
-        },
-        { timeout: 5000 },
-      );
+      // Advance past first reconnection backoff
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Advance past second reconnection backoff
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(requestCount).toBeGreaterThanOrEqual(3);
 
       // Each reconnect after successful datafile should reset to 0, then increment by 1
       // Request 1: retry=0, gets datafile, resets to 0, stream closes, increments to 1
@@ -388,8 +390,6 @@ describe('connectStream', () => {
     });
 
     it('should enforce minimum delay between reconnection attempts when retryCount resets', async () => {
-      vi.useFakeTimers();
-
       const retryAttempts: string[] = [];
       let requestCount = 0;
 
@@ -442,7 +442,6 @@ describe('connectStream', () => {
       expect(requestCount).toBe(3);
 
       abortController.abort();
-      vi.useRealTimers();
     });
 
     it('should call onDisconnect when stream ends normally', async () => {
@@ -474,9 +473,11 @@ describe('connectStream', () => {
         { onMessage: vi.fn(), onDisconnect },
       );
 
-      await vi.waitFor(() => {
-        expect(onDisconnect).toHaveBeenCalled();
-      });
+      // Advance past the reconnection backoff delay
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(onDisconnect).toHaveBeenCalled();
 
       abortController.abort();
     });
@@ -489,6 +490,7 @@ describe('connectStream', () => {
     // FlagNetworkDataSource.getDataWithStreamTimeout().
 
     it('should retry on error before first datafile and reject when aborted', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       let requestCount = 0;
 
@@ -506,13 +508,13 @@ describe('connectStream', () => {
         { onMessage: vi.fn() },
       );
 
-      // Wait for at least one retry attempt (first retry has 0ms backoff)
-      await vi.waitFor(
-        () => {
-          expect(requestCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 3000 },
-      );
+      // First request fires immediately, first retry has 0ms backoff
+      await vi.advanceTimersByTimeAsync(0);
+      // Advance past the second retry backoff (1s base + jitter)
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(requestCount).toBeGreaterThanOrEqual(2);
 
       // Abort to stop retries
       abortController.abort();
@@ -523,9 +525,11 @@ describe('connectStream', () => {
       );
 
       errorSpy.mockRestore();
+      vi.useRealTimers();
     });
 
     it('should retry if response has no body and reject when aborted', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       let requestCount = 0;
 
@@ -547,13 +551,13 @@ describe('connectStream', () => {
         { onMessage: vi.fn() },
       );
 
-      // Wait for at least one retry attempt (first retry has 0ms backoff)
-      await vi.waitFor(
-        () => {
-          expect(requestCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 3000 },
-      );
+      // First request fires immediately, first retry has 0ms backoff
+      await vi.advanceTimersByTimeAsync(0);
+      // Advance past the second retry backoff (1s base + jitter)
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(requestCount).toBeGreaterThanOrEqual(2);
 
       // Abort to stop retries
       abortController.abort();
@@ -564,9 +568,11 @@ describe('connectStream', () => {
       );
 
       errorSpy.mockRestore();
+      vi.useRealTimers();
     });
 
     it('should call onDisconnect on error after initial data received', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       let requestCount = 0;
 
@@ -598,16 +604,15 @@ describe('connectStream', () => {
         { onMessage: vi.fn(), onDisconnect },
       );
 
-      // Wait for disconnect to be called (from first stream close and error)
-      await vi.waitFor(
-        () => {
-          expect(onDisconnect).toHaveBeenCalled();
-        },
-        { timeout: 3000 },
-      );
+      // Advance past the reconnection backoff delay
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(onDisconnect).toHaveBeenCalled();
 
       abortController.abort();
       errorSpy.mockRestore();
+      vi.useRealTimers();
     });
 
     // Note: Testing MAX_RETRY_COUNT exceeded is skipped because the backoff delays
