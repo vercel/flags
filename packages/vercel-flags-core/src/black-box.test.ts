@@ -692,10 +692,17 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      // The 502 still triggers an error log in the background stream
+      await vi.advanceTimersByTimeAsync(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.any(Error),
+      );
+
       errorSpy.mockRestore();
     });
 
-    it('should fast-fail on 401 without waiting for stream timeout', async () => {
+    it('should suppress usage tracking and not retry on 401', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -723,28 +730,47 @@ describe('Controller (black-box)', () => {
 
       errorSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Only one stream call — 401 does not trigger retries
+      const streamCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/stream'),
+      );
+      expect(streamCalls).toHaveLength(1);
+
+      // Advance time to allow any potential retries (should not happen)
+      await vi.advanceTimersByTimeAsync(5_000);
+      const streamCallsAfter = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/stream'),
+      );
+      expect(streamCallsAfter).toHaveLength(1);
+
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
       // No ingest call — usage tracking is suppressed after a 401
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const ingestCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/ingest'),
+      );
+      expect(ingestCalls).toHaveLength(0);
     });
 
-    it('should use custom initTimeoutMs value', async () => {
+    it('should use custom initTimeoutMs value when no bundled definitions', async () => {
+      // readBundledDefinitions returns missing-file (no bundled data),
+      // so the stream init path is taken with the custom timeout.
       vi.mocked(readBundledDefinitions).mockResolvedValue({
-        state: 'ok',
-        definitions: makeBundled(),
+        state: 'missing-file',
+        definitions: null,
       });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
+          // Stream opens but never sends data
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
         }
-        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -752,14 +778,24 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      // Bundled definitions are loaded eagerly — initialize returns
-      // immediately without waiting for the stream timeout
-      await client.initialize();
+      const initPromise = client.initialize();
 
-      const result = await client.evaluate('flagA');
-      expect(result.value).toBe(true);
-      expect(result.metrics?.source).toBe('embedded');
+      // Capture the rejection early to avoid unhandled promise rejection
+      const initResult = initPromise.catch((error: Error) => error);
 
+      // Advance only 500ms (custom timeout) — not the default 3000ms
+      await vi.advanceTimersByTimeAsync(500);
+
+      const error = await initResult;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(
+        'No flag definitions available',
+      );
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+      warnSpy.mockRestore();
       await client.shutdown();
     });
 
@@ -1152,6 +1188,7 @@ describe('Controller (black-box)', () => {
       // Bundled definitions are loaded eagerly — initialize returns
       // immediately, stream runs as background update
       await client.initialize();
+      const after = new Date();
 
       const result = await client.evaluate('flagA');
       expect(result.metrics?.source).toBe('embedded');
@@ -1159,7 +1196,30 @@ describe('Controller (black-box)', () => {
       expect(pollCount).toBe(0);
 
       errorSpy.mockRestore();
+
       await client.shutdown();
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: after.getTime(),
+              payload: {
+                configOrigin: 'embedded',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
     });
 
     it('should never stream and poll simultaneously when stream is connected', async () => {
@@ -3094,7 +3154,7 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {
+    it('should share a single init promise when concurrent evaluate() calls arrive', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -3103,7 +3163,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
-          // Stream returns 502 — triggers retry loop
+          // Stream returns 502 — triggers retry loop in background
           return Promise.resolve(new Response(null, { status: 502 }));
         }
         return Promise.resolve(new Response('', { status: 200 }));
@@ -3133,6 +3193,12 @@ describe('Controller (black-box)', () => {
       expect(r2.value).toBe(true);
       expect(r3.value).toBe(true);
       expect(r1.metrics?.source).toBe('embedded');
+
+      // Despite 3 concurrent evaluates, only one background stream was started
+      const streamCalls = fetchMock.mock.calls.filter((call) =>
+        call[0]?.toString().includes('/v1/stream'),
+      );
+      expect(streamCalls).toHaveLength(1);
 
       errorSpy.mockRestore();
 
