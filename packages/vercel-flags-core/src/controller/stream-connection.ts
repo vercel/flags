@@ -2,18 +2,29 @@ import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { sleep } from '../utils/sleep';
 
+export type PrimedMessage = {
+  type: 'primed';
+  revision: number;
+  projectId: string;
+  environment: string;
+};
+
 export type StreamMessage =
   | { type: 'datafile'; data: BundledDefinitions }
+  | PrimedMessage
   | { type: 'ping' };
 
 const MAX_RETRY_COUNT = 15;
-const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 60_000;
+const BASE_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 60_000;
 const PING_TIMEOUT_MS = 90_000;
 
 function backoff(retryCount: number): number {
   if (retryCount === 1) return 0;
-  const delay = Math.min(BASE_DELAY_MS * 2 ** (retryCount - 2), MAX_DELAY_MS);
+  const delay = Math.min(
+    BASE_RETRY_DELAY_MS * 2 ** (retryCount - 2),
+    MAX_RETRY_DELAY_MS,
+  );
   return delay + Math.random() * 1000;
 }
 
@@ -26,6 +37,7 @@ export class UnauthorizedError extends Error {
 
 export type StreamCallbacks = {
   onMessage: (data: BundledDefinitions) => void;
+  onPrimed?: (message: PrimedMessage) => void;
   onDisconnect?: () => void;
 };
 
@@ -34,6 +46,8 @@ export type StreamConfig = {
   sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
+  /** Current revision number to send as X-Revision header */
+  revision?: number;
 };
 
 /**
@@ -50,8 +64,9 @@ export async function connectStream(
     sdkKey,
     abortController,
     fetch: fetchFn = globalThis.fetch,
+    revision,
   } = config;
-  const { onMessage, onDisconnect } = callbacks;
+  const { onMessage, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
@@ -101,12 +116,16 @@ export async function connectStream(
 
       try {
         lastAttemptTime = Date.now();
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
+          'X-Retry-Attempt': String(retryCount),
+        };
+        if (revision !== undefined) {
+          headers['X-Revision'] = String(revision);
+        }
         const response = await fetchFn(`${host}/v1/stream`, {
-          headers: {
-            Authorization: `Bearer ${sdkKey}`,
-            'User-Agent': `VercelFlagsCore/${version}`,
-            'X-Retry-Attempt': String(retryCount),
-          },
+          headers,
           signal: connectionAbort.signal,
         });
 
@@ -174,6 +193,19 @@ export async function connectStream(
                 resetPingTimeout();
               }
 
+              // Primed means the server confirmed our revision is current,
+              // so no full datafile is needed. Treat it like initial data
+              // for init resolution purposes.
+              if (message.type === 'primed') {
+                onPrimed?.(message);
+                retryCount = 0;
+                if (!initialDataReceived) {
+                  initialDataReceived = true;
+                  resolveInit!();
+                }
+                resetPingTimeout();
+              }
+
               // Pings prove the connection is alive — reset retry count
               // once initial data has been received
               if (message.type === 'ping' && initialDataReceived) {
@@ -196,7 +228,7 @@ export async function connectStream(
           onDisconnect?.();
           retryCount++;
           const elapsed = Date.now() - lastAttemptTime;
-          const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+          const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
           await sleep(Math.max(backoff(retryCount), minGap));
           continue;
         }
@@ -210,7 +242,7 @@ export async function connectStream(
         onDisconnect?.();
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
-        const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+        const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
         await sleep(Math.max(backoff(retryCount), minGap));
       }
     }

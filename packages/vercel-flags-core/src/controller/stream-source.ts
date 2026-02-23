@@ -1,5 +1,5 @@
 import type { DatafileInput } from '../types';
-import { connectStream } from './stream-connection';
+import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
 
 export type StreamSourceConfig = {
@@ -10,6 +10,7 @@ export type StreamSourceConfig = {
 
 export type StreamSourceEvents = {
   data: (data: DatafileInput) => void;
+  primed: (message: PrimedMessage) => void;
   connected: () => void;
   disconnected: () => void;
 };
@@ -30,10 +31,14 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
 
   /**
    * Start the stream connection.
-   * Returns a promise that resolves when the first datafile message arrives.
+   * Returns a promise that resolves when the first datafile or primed message arrives.
    * If already started, returns the existing promise.
+   *
+   * @param revision - Optional revision to send as X-Revision header.
+   *   When the server sees the client already has this revision it can
+   *   respond with a lightweight "primed" message instead of a full datafile.
    */
-  start(): Promise<void> {
+  start(revision?: number): Promise<void> {
     if (this.promise) return this.promise;
 
     const abortController = new AbortController();
@@ -60,10 +65,15 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           sdkKey: this.config.sdkKey,
           abortController,
           fetch: this.config.fetch,
+          revision,
         },
         {
           onMessage: (newData) => {
             this.emit('data', newData);
+            this.emit('connected');
+          },
+          onPrimed: (message) => {
+            this.emit('primed', message);
             this.emit('connected');
           },
           onDisconnect: () => {

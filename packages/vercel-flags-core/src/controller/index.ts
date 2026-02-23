@@ -195,6 +195,13 @@ export class Controller implements ControllerInterface {
       this.data = tagData(data, 'stream');
     }
   };
+  private onStreamPrimed = () => {
+    // The server confirmed our revision is current — no new data needed.
+    // Transition to streaming like a normal connected event.
+    if (this.state === 'degraded' || this.state === 'initializing:stream') {
+      this.transition('streaming');
+    }
+  };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
@@ -220,6 +227,7 @@ export class Controller implements ControllerInterface {
 
   private wireSourceEvents(): void {
     this.streamSource.on('data', this.onStreamData);
+    this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
     this.pollingSource.on('data', this.onPollData);
@@ -228,6 +236,7 @@ export class Controller implements ControllerInterface {
 
   private unwireSourceEvents(): void {
     this.streamSource.off('data', this.onStreamData);
+    this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
     this.pollingSource.off('data', this.onPollData);
@@ -283,8 +292,22 @@ export class Controller implements ControllerInterface {
       this.data = tagData(this.options.datafile, 'provided');
     }
 
-    // If we already have data (from provided datafile), start background updates
-    // but don't block on them
+    // If no data yet, try loading bundled definitions eagerly so we can
+    // send the revision to the stream and potentially get a lightweight
+    // "primed" response instead of a full datafile.
+    if (!this.data) {
+      try {
+        const bundled = await this.bundledSource.tryLoad();
+        if (bundled) {
+          this.data = tagData(bundled, 'bundled');
+        }
+      } catch {
+        // Bundled definitions not available — proceed without revision
+      }
+    }
+
+    // If we already have data (from provided datafile or bundled definitions),
+    // start background updates but don't block on them
     if (this.data) {
       this.startBackgroundUpdates();
       return;
@@ -455,9 +478,10 @@ export class Controller implements ControllerInterface {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
+    const revision = this.getRevision();
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
-        await this.streamSource.start();
+        await this.streamSource.start(revision);
         return true;
       } catch (error) {
         if (error instanceof UnauthorizedError) {
@@ -478,7 +502,7 @@ export class Controller implements ControllerInterface {
 
     try {
       const result = await Promise.race([
-        this.streamSource.start(),
+        this.streamSource.start(revision),
         timeoutPromise,
       ]);
       clearTimeout(timeoutId!);
@@ -490,7 +514,7 @@ export class Controller implements ControllerInterface {
         // Don't stop stream - let it continue trying in background.
         // Swallow the rejection from the background stream promise to
         // avoid unhandled promise rejections when it is eventually aborted.
-        this.streamSource.start().catch(() => {});
+        this.streamSource.start(revision).catch(() => {});
         return false;
       }
 
@@ -566,13 +590,26 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
+   * Extracts the revision number from the current in-memory data.
+   */
+  private getRevision(): number | undefined {
+    const revision = (this.data as Record<string, unknown> | undefined)
+      ?.revision;
+    return typeof revision === 'number' ? revision : undefined;
+  }
+
+  /**
    * Starts background updates (stream or polling) without blocking.
-   * Used when we already have data from provided datafile.
+   * Used when we already have data from provided datafile or bundled definitions.
    */
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
-      this.streamSource.start().catch(() => {});
+      this.streamSource.start(this.getRevision()).catch((error) => {
+        if (error instanceof UnauthorizedError) {
+          this.unauthorized = true;
+        }
+      });
     } else if (this.options.polling.enabled) {
       // Start interval first so the abort controller exists for the initial poll
       this.pollingSource.startInterval();

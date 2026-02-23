@@ -709,4 +709,178 @@ describe('connectStream', () => {
       abortController.abort();
     });
   });
+
+  describe('X-Revision header', () => {
+    beforeEach(() => {
+      fetchMock.mockImplementation(() => ndjsonResponse([datafileMsg()]));
+    });
+
+    it('should include X-Revision header when revision is provided', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          fetch: fetchMock,
+          revision: 42,
+        },
+        { onMessage: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['X-Revision']).toBe('42');
+      abortController.abort();
+    });
+
+    it('should not include X-Revision header when revision is undefined', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { onMessage: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['X-Revision']).toBeUndefined();
+      abortController.abort();
+    });
+  });
+
+  describe('primed message', () => {
+    it('should resolve init promise when primed message is received', async () => {
+      const primedMsg = {
+        type: 'primed' as const,
+        revision: 33,
+        projectId: 'prj_test',
+        environment: 'production',
+      };
+
+      fetchMock.mockImplementation(() => ndjsonResponse([primedMsg]));
+
+      const abortController = new AbortController();
+      const onMessage = vi.fn();
+      const onPrimed = vi.fn();
+
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          fetch: fetchMock,
+          revision: 33,
+        },
+        { onMessage, onPrimed },
+      );
+
+      expect(onMessage).not.toHaveBeenCalled();
+      expect(onPrimed).toHaveBeenCalledWith(primedMsg);
+      abortController.abort();
+    });
+
+    it('should call onPrimed but not onMessage for primed messages', async () => {
+      const primedMsg = {
+        type: 'primed' as const,
+        revision: 5,
+        projectId: 'prj_test',
+        environment: 'production',
+      };
+
+      fetchMock.mockImplementation(() =>
+        ndjsonResponse([
+          primedMsg,
+          { type: 'datafile', data: { projectId: 'test', definitions: {} } },
+        ]),
+      );
+
+      const abortController = new AbortController();
+      const onMessage = vi.fn();
+      const onPrimed = vi.fn();
+
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          fetch: fetchMock,
+          revision: 5,
+        },
+        { onMessage, onPrimed },
+      );
+
+      // Wait for all messages to be processed
+      await vi.waitFor(() => {
+        expect(onMessage).toHaveBeenCalledTimes(1);
+      });
+
+      expect(onPrimed).toHaveBeenCalledTimes(1);
+      expect(onPrimed).toHaveBeenCalledWith(primedMsg);
+      abortController.abort();
+    });
+
+    it('should reset ping timeout on primed message', async () => {
+      vi.useFakeTimers();
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+
+      fetchMock.mockImplementation((_input, init) =>
+        streamResponse(
+          new ReadableStream({
+            start(c) {
+              streamController = c;
+              c.enqueue(
+                new TextEncoder().encode(
+                  `${JSON.stringify({
+                    type: 'primed',
+                    revision: 1,
+                    projectId: 'prj_test',
+                    environment: 'production',
+                  })}\n`,
+                ),
+              );
+              init?.signal?.addEventListener('abort', () => {
+                c.close();
+              });
+            },
+          }),
+        ),
+      );
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          fetch: fetchMock,
+          revision: 1,
+        },
+        { onMessage: vi.fn(), onPrimed: vi.fn() },
+      );
+
+      // Send pings at 30s intervals (before the 90s timeout)
+      for (let i = 0; i < 4; i++) {
+        await vi.advanceTimersByTimeAsync(30_000);
+        streamController!.enqueue(
+          new TextEncoder().encode(`${JSON.stringify({ type: 'ping' })}\n`),
+        );
+        await vi.advanceTimersByTimeAsync(0);
+      }
+
+      // 120s elapsed but no timeout because pings kept resetting it
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        '@vercel/flags-core: Ping timeout, reconnecting',
+      );
+
+      abortController.abort();
+      warnSpy.mockRestore();
+      vi.useRealTimers();
+    });
+  });
 });
