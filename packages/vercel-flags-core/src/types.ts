@@ -32,6 +32,8 @@ export type DatafileInput = Packed.Data & {
    * Some older responses might return a string instead of a number. Both will be timestamps.
    */
   configUpdatedAt?: number | string;
+  /** Version number of the data */
+  revision?: number;
 };
 
 /** Datafile with metrics attached (returned by the client) */

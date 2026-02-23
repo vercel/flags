@@ -478,7 +478,7 @@ export class Controller implements ControllerInterface {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
-    const revision = this.getRevision();
+    const revision = this.data?.revision;
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
         await this.streamSource.start(revision);
@@ -514,7 +514,7 @@ export class Controller implements ControllerInterface {
         // Don't stop stream - let it continue trying in background.
         // Swallow the rejection from the background stream promise to
         // avoid unhandled promise rejections when it is eventually aborted.
-        this.streamSource.start(revision).catch(() => {});
+        void this.streamSource.start(revision).catch(() => {});
         return false;
       }
 
@@ -590,22 +590,13 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Extracts the revision number from the current in-memory data.
-   */
-  private getRevision(): number | undefined {
-    const revision = (this.data as Record<string, unknown> | undefined)
-      ?.revision;
-    return typeof revision === 'number' ? revision : undefined;
-  }
-
-  /**
    * Starts background updates (stream or polling) without blocking.
    * Used when we already have data from provided datafile or bundled definitions.
    */
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
-      this.streamSource.start(this.getRevision()).catch((error) => {
+      void this.streamSource.start(this.data?.revision).catch((error) => {
         if (error instanceof UnauthorizedError) {
           this.unauthorized = true;
         }
