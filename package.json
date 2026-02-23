@@ -15,6 +15,7 @@
     "attw": "turbo attw",
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:docs": "pnpm dev -F docs",
     "check": "turbo check",
     "format": "biome check --write .",
     "next-15": "pnpm dev -F next-15",
