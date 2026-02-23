@@ -6,6 +6,8 @@ export type StreamSourceConfig = {
   host: string;
   sdkKey: string;
   fetch?: typeof globalThis.fetch;
+  /** Returns the current revision number to send as X-Revision header on each connection attempt. */
+  revision?: () => number | undefined;
 };
 
 export type StreamSourceEvents = {
@@ -33,12 +35,8 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Start the stream connection.
    * Returns a promise that resolves when the first datafile or primed message arrives.
    * If already started, returns the existing promise.
-   *
-   * @param revision - Optional revision to send as X-Revision header.
-   *   When the server sees the client already has this revision it can
-   *   respond with a lightweight "primed" message instead of a full datafile.
    */
-  start(revision?: number): Promise<void> {
+  start(): Promise<void> {
     if (this.promise) return this.promise;
 
     const abortController = new AbortController();
@@ -65,7 +63,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           sdkKey: this.config.sdkKey,
           abortController,
           fetch: this.config.fetch,
-          revision,
+          revision: this.config.revision,
         },
         {
           onMessage: (newData) => {

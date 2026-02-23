@@ -169,7 +169,10 @@ export class Controller implements ControllerInterface {
     this.options = normalizeOptions(options);
 
     // Create source modules (or use injected ones for testing)
-    this.streamSource = new StreamSource(this.options);
+    this.streamSource = new StreamSource({
+      ...this.options,
+      revision: () => this.data?.revision,
+    });
 
     this.pollingSource = new PollingSource(this.options);
 
@@ -478,10 +481,9 @@ export class Controller implements ControllerInterface {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
-    const revision = this.data?.revision;
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
-        await this.streamSource.start(revision);
+        await this.streamSource.start();
         return true;
       } catch (error) {
         if (error instanceof UnauthorizedError) {
@@ -502,7 +504,7 @@ export class Controller implements ControllerInterface {
 
     try {
       const result = await Promise.race([
-        this.streamSource.start(revision),
+        this.streamSource.start(),
         timeoutPromise,
       ]);
       clearTimeout(timeoutId!);
@@ -514,7 +516,7 @@ export class Controller implements ControllerInterface {
         // Don't stop stream - let it continue trying in background.
         // Swallow the rejection from the background stream promise to
         // avoid unhandled promise rejections when it is eventually aborted.
-        void this.streamSource.start(revision).catch(() => {});
+        void this.streamSource.start().catch(() => {});
         return false;
       }
 
@@ -596,7 +598,7 @@ export class Controller implements ControllerInterface {
   private startBackgroundUpdates(): void {
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
-      void this.streamSource.start(this.data?.revision).catch((error) => {
+      void this.streamSource.start().catch((error) => {
         if (error instanceof UnauthorizedError) {
           this.unauthorized = true;
         }

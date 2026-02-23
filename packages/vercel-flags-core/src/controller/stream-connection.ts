@@ -46,8 +46,8 @@ export type StreamConfig = {
   sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
-  /** Current revision number to send as X-Revision header */
-  revision?: number;
+  /** Returns the current revision number to send as X-Revision header */
+  revision?: () => number | undefined;
 };
 
 /**
@@ -64,7 +64,6 @@ export async function connectStream(
     sdkKey,
     abortController,
     fetch: fetchFn = globalThis.fetch,
-    revision,
   } = config;
   const { onMessage, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
@@ -121,6 +120,7 @@ export async function connectStream(
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
+        const revision = config.revision?.();
         if (revision !== undefined) {
           headers['X-Revision'] = String(revision);
         }

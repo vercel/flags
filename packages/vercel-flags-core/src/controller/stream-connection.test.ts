@@ -723,7 +723,7 @@ describe('connectStream', () => {
           sdkKey: 'vf_test',
           abortController,
           fetch: fetchMock,
-          revision: 42,
+          revision: () => 42,
         },
         { onMessage: vi.fn() },
       );
@@ -750,6 +750,72 @@ describe('connectStream', () => {
       expect(headers['X-Revision']).toBeUndefined();
       abortController.abort();
     });
+
+    it('should call revision getter on each reconnect to get latest value', async () => {
+      vi.useFakeTimers();
+      let requestCount = 0;
+      let currentRevision = 5;
+
+      fetchMock.mockImplementation(() => {
+        requestCount++;
+        const nextRevision = currentRevision + 1;
+        return ndjsonResponse(
+          [
+            {
+              type: 'datafile',
+              data: {
+                projectId: 'test',
+                definitions: {},
+                revision: nextRevision,
+              },
+            },
+          ],
+          { keepOpen: requestCount >= 3 },
+        );
+      });
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        {
+          host: HOST,
+          sdkKey: 'vf_test',
+          abortController,
+          fetch: fetchMock,
+          revision: () => currentRevision,
+        },
+        {
+          onMessage: (data) => {
+            // Simulate controller updating revision from received datafile
+            currentRevision = (data as Record<string, unknown>)
+              .revision as number;
+          },
+        },
+      );
+
+      // First request should send revision 5
+      const h0 = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+      expect(h0['X-Revision']).toBe('5');
+
+      // Advance past reconnection backoff
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Second request should send the updated revision (6), not the initial (5)
+      const h1 = fetchMock.mock.calls[1]![1]!.headers as Record<string, string>;
+      expect(h1['X-Revision']).toBe('6');
+
+      // Advance past reconnection backoff again
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Third request should send the updated revision (7)
+      const h2 = fetchMock.mock.calls[2]![1]!.headers as Record<string, string>;
+      expect(h2['X-Revision']).toBe('7');
+
+      abortController.abort();
+      vi.useRealTimers();
+    });
   });
 
   describe('primed message', () => {
@@ -773,7 +839,7 @@ describe('connectStream', () => {
           sdkKey: 'vf_test',
           abortController,
           fetch: fetchMock,
-          revision: 33,
+          revision: () => 33,
         },
         { onMessage, onPrimed },
       );
@@ -808,7 +874,7 @@ describe('connectStream', () => {
           sdkKey: 'vf_test',
           abortController,
           fetch: fetchMock,
-          revision: 5,
+          revision: () => 5,
         },
         { onMessage, onPrimed },
       );
@@ -859,7 +925,7 @@ describe('connectStream', () => {
           sdkKey: 'vf_test',
           abortController,
           fetch: fetchMock,
-          revision: 1,
+          revision: () => 1,
         },
         { onMessage: vi.fn(), onPrimed: vi.fn() },
       );
