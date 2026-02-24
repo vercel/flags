@@ -1,7 +1,4 @@
 import type { DatafileInput, PollingOptions, StreamOptions } from '../types';
-import type { BundledSource } from './bundled-source';
-import type { PollingSource } from './polling-source';
-import type { StreamSource } from './stream-source';
 
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;

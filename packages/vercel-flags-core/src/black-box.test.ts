@@ -48,7 +48,11 @@ function createMockStream() {
       controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`));
     },
     close() {
-      controller.close();
+      try {
+        controller.close();
+      } catch {
+        // Stream may already be closed (e.g. after shutdown)
+      }
     },
   };
 }
@@ -271,11 +275,17 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Stream should have been attempted
-      expect(fetchMock).toHaveBeenCalled();
-      const streamCall = fetchMock.mock.calls.find((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            'X-Retry-Attempt': '0',
+          },
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCall).toBeDefined();
 
       stream.close();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -627,7 +637,9 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should fall back to bundled when stream times out', async () => {
+    it('should use bundled definitions when stream is slow after init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -643,23 +655,20 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         polling: false,
       });
 
+      // initialize() now waits for the stream to confirm (primed/datafile)
+      // but falls back to bundled data after the init timeout
       const initPromise = client.initialize();
-
-      // Advance past the stream init timeout (3s)
-      await vi.advanceTimersByTimeAsync(3_000);
+      await vi.advanceTimersByTimeAsync(3000);
       await initPromise;
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
-      expect(result.metrics?.connectionState).toBe('disconnected');
 
       expect(warnSpy).toHaveBeenCalledWith(
         '@vercel/flags-core: Stream initialization timeout, falling back',
@@ -667,7 +676,7 @@ describe('Controller (black-box)', () => {
       warnSpy.mockRestore();
     });
 
-    it('should fall back to bundled when stream errors (502)', async () => {
+    it('should use bundled definitions when stream errors (502) after init timeout', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -709,7 +718,7 @@ describe('Controller (black-box)', () => {
       warnSpy.mockRestore();
     });
 
-    it('should fast-fail on 401 without waiting for stream timeout', async () => {
+    it('should suppress usage tracking and not retry on 401', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -739,10 +748,33 @@ describe('Controller (black-box)', () => {
 
       errorSpy.mockRestore();
 
+      // Only one stream call — 401 does not trigger retries
       expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            'X-Revision': '1',
+          },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      // Advance time to allow any potential retries (should not happen)
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: { ...streamRequestHeaders, 'X-Revision': '1' },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // No ingest call — usage tracking is suppressed after a 401
+      // still only one call, no ingest calls
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -852,11 +884,16 @@ describe('Controller (black-box)', () => {
       await client.initialize();
       await vi.advanceTimersByTimeAsync(0);
 
-      // No stream requests should have been made
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      // No stream requests should have been made,
+      // the below check verifies only a dataifle call was made
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: datafileRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(0);
 
       await client.shutdown();
     });
@@ -924,7 +961,9 @@ describe('Controller (black-box)', () => {
   // Datafile option
   // ---------------------------------------------------------------------------
   describe('datafile option', () => {
-    it('should use provided datafile immediately', async () => {
+    it('should use provided datafile after stream init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -940,16 +979,27 @@ describe('Controller (black-box)', () => {
         datafile,
       });
 
-      const result = await client.evaluate('flagA');
+      // evaluate() triggers lazy initialize() which waits for stream
+      const evalPromise = client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(3000);
+      const result = await evalPromise;
+
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
 
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+
+      warnSpy.mockRestore();
       stream.close();
       await client.shutdown();
     });
 
-    it('should resolve initialize() immediately when datafile is provided', async () => {
-      // Stream that never sends data — if init blocks on stream, this test hangs
+    it('should resolve initialize() with provided datafile after stream init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Stream that never sends data
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
@@ -964,13 +1014,20 @@ describe('Controller (black-box)', () => {
         datafile: makeBundled(),
       });
 
-      // initialize() should resolve without advancing timers or stream data
-      await client.initialize();
+      // initialize() waits for stream, falls back after timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
 
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+
+      warnSpy.mockRestore();
       await client.shutdown();
     });
 
@@ -1139,7 +1196,7 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should fall back to bundled when stream fails (skip polling)', async () => {
+    it('should use bundled definitions when stream fails after init timeout (skip polling)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1158,42 +1215,41 @@ describe('Controller (black-box)', () => {
             Response.json(makeBundled({ projectId: 'polled' })),
           );
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const streamInitTimeoutMs = 1_500;
       const client = createClient(sdkKey, {
         fetch: fetchMock,
-        stream: { initTimeoutMs: streamInitTimeoutMs },
+        stream: { initTimeoutMs: 1_500 },
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
-      // Stream retries with backoff; advance timers so the init timeout fires.
-      // The minimum reconnection gap is 1s, so the first retry happens at ~1s.
-      // With initTimeoutMs=1500 we get: attempt at t=0 (fail), retry at t=1000
-      // (fail, backoff(2) >= 1s), timeout at t=1500 → fall back to bundled.
-      const resultPromise = client.evaluate('flagA');
-      await vi.advanceTimersByTimeAsync(1_600);
-      const result = await resultPromise;
+      // initialize() waits for stream, falls back after 1.5s timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(1_500);
+      await initPromise;
+      const after = new Date();
+
+      const result = await client.evaluate('flagA');
       expect(result.metrics?.source).toBe('embedded');
+      // No polling should have started
       expect(pollCount).toBe(0);
 
       errorSpy.mockRestore();
       warnSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
           body: JSON.stringify([
             {
               type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime() + streamInitTimeoutMs,
+              ts: after.getTime(),
               payload: {
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
@@ -1270,8 +1326,16 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      // Initialize starts background stream connection
-      await client.initialize();
+      // Initialize waits for stream confirmation; push primed so it resolves
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'provided',
+        environment: 'production',
+      });
+      await initPromise;
 
       // First evaluate uses provided datafile immediately
       const result1 = await client.evaluate('flagA');
@@ -1298,6 +1362,217 @@ describe('Controller (black-box)', () => {
 
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(true); // variant 1 from stream
+
+      stream.close();
+      await client.shutdown();
+    });
+
+    it('should send X-Revision header when provided datafile has revision', async () => {
+      vi.useRealTimers();
+
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const providedDatafile = makeBundled({ revision: 42 });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        datafile: providedDatafile,
+      });
+
+      // Push primed so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 42,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await initPromise;
+
+      // The stream request should include the X-Revision header
+      const streamCall = fetchMock.mock.calls.find((call) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0]!.toString();
+        return url.includes('/v1/stream');
+      });
+      expect(streamCall).toBeDefined();
+      const headers = streamCall![1]!.headers as Record<string, string>;
+      expect(headers['X-Revision']).toBe('42');
+
+      stream.close();
+      await client.shutdown();
+    });
+
+    it('should not send X-Revision header when provided datafile has no revision', async () => {
+      vi.useRealTimers();
+
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      // DatafileInput without revision field
+      const providedDatafile = {
+        definitions: {
+          flagA: {
+            environments: { production: 1 },
+            variants: [false, true],
+          },
+        },
+        environment: 'production',
+        projectId: 'prj_123',
+        configUpdatedAt: 1,
+      };
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        datafile: providedDatafile,
+      });
+
+      // Push a datafile so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 1 }),
+      });
+      await initPromise;
+
+      const streamCall = fetchMock.mock.calls.find((call) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0]!.toString();
+        return url.includes('/v1/stream');
+      });
+      expect(streamCall).toBeDefined();
+      const headers = streamCall![1]!.headers as Record<string, string>;
+      expect(headers['X-Revision']).toBeUndefined();
+
+      stream.close();
+      await client.shutdown();
+    });
+
+    it('should handle primed response and keep using provided datafile', async () => {
+      vi.useRealTimers();
+
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const providedDatafile = makeBundled({
+        revision: 33,
+        definitions: {
+          flagA: {
+            environments: { production: 0 },
+            variants: [false, true],
+          },
+        },
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        datafile: providedDatafile,
+      });
+
+      // Server responds with primed (our revision is current)
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 33,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await initPromise;
+
+      // First evaluate uses provided datafile
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(false); // variant 0 from provided
+
+      // After primed, still uses the same data
+      const result2 = await client.evaluate('flagA');
+      expect(result2.value).toBe(false); // still variant 0
+      expect(result2.metrics?.connectionState).toBe('connected');
+      expect(result2.metrics?.mode).toBe('streaming');
+
+      stream.close();
+      await client.shutdown();
+    });
+
+    it('should handle primed then subsequent datafile update', async () => {
+      vi.useRealTimers();
+
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const providedDatafile = makeBundled({
+        revision: 5,
+        definitions: {
+          flagA: {
+            environments: { production: 0 },
+            variants: [false, true],
+          },
+        },
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        datafile: providedDatafile,
+      });
+
+      // Server responds with primed first, resolving initialize()
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 5,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await initPromise;
+
+      // Then server pushes a new datafile (config changed)
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 2,
+          definitions: {
+            flagA: {
+              environments: { production: 1 },
+              variants: [false, true],
+            },
+          },
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Should use the updated data
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true); // variant 1 from stream update
 
       stream.close();
       await client.shutdown();
@@ -1342,6 +1617,521 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
       errorSpy.mockRestore();
       warnSpy.mockRestore();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Degraded connection scenarios
+  // ---------------------------------------------------------------------------
+  describe('degraded connection scenarios', () => {
+    it('should transition to degraded on disconnect and back to streaming on reconnect with newer data', async () => {
+      const datafile1 = makeBundled({
+        configUpdatedAt: 1,
+        definitions: {
+          flagA: {
+            environments: { production: 0 },
+            variants: [false, true],
+          },
+        },
+      });
+      const datafile2 = makeBundled({
+        configUpdatedAt: 2,
+        definitions: {
+          flagA: {
+            environments: { production: 1 },
+            variants: [false, true],
+          },
+        },
+      });
+
+      let streamCount = 0;
+      const streams: ReturnType<typeof createMockStream>[] = [];
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          streamCount++;
+          const s = createMockStream();
+          streams.push(s);
+          return s.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      // Allow the eager bundled load (returns undefined) to settle
+      // so the stream connection is started
+      await vi.advanceTimersByTimeAsync(0);
+
+      // First stream sends datafile
+      streams[0]!.push({ type: 'datafile', data: datafile1 });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Verify streaming state
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(false);
+      expect(result1.metrics?.connectionState).toBe('connected');
+
+      // Disconnect (server closes stream)
+      streams[0]!.close();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Verify degraded state
+      const result2 = await client.evaluate('flagA');
+      expect(result2.value).toBe(false);
+      expect(result2.metrics?.connectionState).toBe('disconnected');
+
+      // Advance past reconnection backoff (minimum 1s gap)
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Push newer data on reconnected stream
+      expect(streamCount).toBeGreaterThanOrEqual(2);
+      streams[1]!.push({ type: 'datafile', data: datafile2 });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Verify back to streaming with newer data
+      const result3 = await client.evaluate('flagA');
+      expect(result3.value).toBe(true);
+      expect(result3.metrics?.connectionState).toBe('connected');
+
+      await client.shutdown();
+    });
+
+    it('should detect zombie connection when pings stop arriving', async () => {
+      const datafile = makeBundled();
+
+      let streamCount = 0;
+      const streams: ReturnType<typeof createMockStream>[] = [];
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          streamCount++;
+          const s = createMockStream();
+          streams.push(s);
+          return s.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      // Allow the eager bundled load to settle so the stream starts
+      await vi.advanceTimersByTimeAsync(0);
+
+      streams[0]!.push({ type: 'datafile', data: datafile });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Send pings for a while (proves connection is alive)
+      streams[0]!.push({ type: 'ping' });
+      await vi.advanceTimersByTimeAsync(30_000);
+      streams[0]!.push({ type: 'ping' });
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // Verify still connected
+      const result1 = await client.evaluate('flagA');
+      expect(result1.metrics?.connectionState).toBe('connected');
+
+      // Now stop sending pings, advance past timeout (90s)
+      await vi.advanceTimersByTimeAsync(90_000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should have transitioned to degraded
+      const result2 = await client.evaluate('flagA');
+      expect(result2.metrics?.connectionState).toBe('disconnected');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Ping timeout, reconnecting',
+      );
+
+      // Should have attempted reconnection
+      expect(streamCount).toBeGreaterThanOrEqual(2);
+
+      await client.shutdown();
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('should skip malformed JSON in stream and continue processing', async () => {
+      const encoder = new TextEncoder();
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          streamController = c;
+        },
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      // Send malformed JSON first
+      streamController!.enqueue(encoder.encode('not valid json\n'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Then send valid datafile
+      const datafile = makeBundled();
+      streamController!.enqueue(
+        encoder.encode(
+          `${JSON.stringify({ type: 'datafile', data: datafile })}\n`,
+        ),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+      expect(result.metrics?.connectionState).toBe('connected');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Failed to parse stream message, skipping',
+      );
+
+      streamController!.close();
+      await client.shutdown();
+      warnSpy.mockRestore();
+    });
+
+    it('should silently ignore empty lines in stream', async () => {
+      const encoder = new TextEncoder();
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          streamController = c;
+        },
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      // Send empty lines
+      streamController!.enqueue(encoder.encode('\n\n\n'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Then valid datafile
+      const datafile = makeBundled();
+      streamController!.enqueue(
+        encoder.encode(
+          `${JSON.stringify({ type: 'datafile', data: datafile })}\n`,
+        ),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+
+      // No warnings should have been logged for empty lines
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        '@vercel/flags-core: Failed to parse stream message, skipping',
+      );
+
+      streamController!.close();
+      await client.shutdown();
+      warnSpy.mockRestore();
+    });
+
+    it('should handle 200 response with missing body', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled(),
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: { initTimeoutMs: 2000 },
+        polling: false,
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(2_000);
+      await initPromise;
+
+      const result = await client.evaluate('flagA');
+      expect(result.metrics?.source).toBe('embedded');
+      expect(result.metrics?.connectionState).toBe('disconnected');
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.objectContaining({
+          message: 'stream body was not present',
+        }),
+      );
+
+      await client.shutdown();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it('should recover from network error mid-stream', async () => {
+      const datafile = makeBundled();
+      let streamCount = 0;
+      const streams: ReturnType<typeof createMockStream>[] = [];
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          streamCount++;
+          if (streamCount === 1) {
+            // First stream: send datafile, then error
+            const encoder = new TextEncoder();
+            const body = new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode(
+                    `${JSON.stringify({ type: 'datafile', data: datafile })}\n`,
+                  ),
+                );
+                // Schedule error after a tick
+                setTimeout(
+                  () => controller.error(new TypeError('network error')),
+                  0,
+                );
+              },
+            });
+            return Promise.resolve(new Response(body, { status: 200 }));
+          }
+          // Subsequent streams: normal
+          const s = createMockStream();
+          streams.push(s);
+          return s.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Should have received initial data
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(true);
+
+      // Error fires, wait for disconnect
+      await vi.advanceTimersByTimeAsync(0);
+
+      // The error triggers reconnection. Advance past backoff.
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(streamCount).toBeGreaterThanOrEqual(2);
+
+      // Reconnect with new data
+      streams[0]!.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 2 }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      const result2 = await client.evaluate('flagA');
+      expect(result2.metrics?.connectionState).toBe('connected');
+
+      await client.shutdown();
+      errorSpy.mockRestore();
+    });
+
+    it('should reject older data on stream reconnection', async () => {
+      const newerData = makeBundled({
+        configUpdatedAt: 2000,
+        definitions: {
+          flagA: {
+            environments: { production: 1 },
+            variants: [false, true],
+          },
+        },
+      });
+      const olderData = makeBundled({
+        configUpdatedAt: 1000,
+        definitions: {
+          flagA: {
+            environments: { production: 0 },
+            variants: [false, true],
+          },
+        },
+      });
+
+      let streamCount = 0;
+      const streams: ReturnType<typeof createMockStream>[] = [];
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          streamCount++;
+          const s = createMockStream();
+          streams.push(s);
+          return s.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      // Allow the eager bundled load to settle so the stream starts
+      await vi.advanceTimersByTimeAsync(0);
+
+      // First stream sends newer data
+      streams[0]!.push({ type: 'datafile', data: newerData });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(true); // variant 1 from newer data
+
+      // Stream disconnects
+      streams[0]!.close();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Reconnected stream sends older data
+      expect(streamCount).toBeGreaterThanOrEqual(2);
+      streams[1]!.push({ type: 'datafile', data: olderData });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should still have newer data (configUpdatedAt guard rejected older)
+      const result2 = await client.evaluate('flagA');
+      expect(result2.value).toBe(true); // still variant 1
+      expect(result2.metrics?.connectionState).toBe('connected');
+
+      await client.shutdown();
+    });
+
+    it('should cleanly shut down mid-stream', async () => {
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      stream.push({ type: 'datafile', data: makeBundled() });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Verify connected
+      const result = await client.evaluate('flagA');
+      expect(result.metrics?.connectionState).toBe('connected');
+
+      // Shutdown while stream is still open — should not throw
+      await client.shutdown();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // No stream requests should happen after shutdown, which
+      // we verify by checking the calls that actually happened
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls).toEqual([
+        [
+          'https://flags.vercel.com/v1/stream',
+          {
+            headers: streamRequestHeaders,
+            signal: expect.any(AbortSignal),
+          },
+        ],
+        [
+          'https://flags.vercel.com/v1/ingest',
+          {
+            headers: ingestRequestHeaders,
+            method: 'POST',
+            body: JSON.stringify([
+              {
+                type: 'FLAGS_CONFIG_READ',
+                ts: date.getTime(),
+                payload: {
+                  configOrigin: 'in-memory',
+                  cacheStatus: 'HIT',
+                  cacheAction: 'FOLLOWING',
+                  cacheIsFirstRead: true,
+                  cacheIsBlocking: false,
+                  duration: 0,
+                  configUpdatedAt: 1,
+                },
+              },
+            ]),
+          },
+        ],
+      ]);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      // still no streaming calls, as the count has not changed from above
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -1800,19 +2590,15 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await client.initialize();
-
-      // Initial evaluate uses provided datafile (variant 0)
-      const result1 = await client.evaluate('flagA');
-      expect(result1.value).toBe(false);
-
-      // Push stream data with configUpdatedAt
+      // Push stream data so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
       stream.push({ type: 'datafile', data: streamData });
-      await new Promise((r) => setTimeout(r, 50));
+      await initPromise;
 
-      // Should accept stream data
-      const result2 = await client.evaluate('flagA');
-      expect(result2.value).toBe(true); // variant 1 = stream
+      // The stream data replaced the provided datafile (which had no configUpdatedAt)
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true); // variant 1 = stream
 
       stream.close();
       await client.shutdown();
@@ -2292,10 +3078,14 @@ describe('Controller (black-box)', () => {
       await Promise.all([p1, p2, p3]);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();
@@ -2338,10 +3128,14 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();
@@ -2403,10 +3197,14 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();

@@ -68,7 +68,7 @@ export class BundledSource {
    */
   async tryLoad(): Promise<DatafileInput | undefined> {
     const result = await this.getResult();
-    if (result.state === 'ok' && result.definitions) {
+    if (result?.state === 'ok' && result.definitions) {
       return result.definitions;
     }
     return undefined;

@@ -2,17 +2,29 @@ import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { sleep } from '../utils/sleep';
 
+export type PrimedMessage = {
+  type: 'primed';
+  revision: number;
+  projectId: string;
+  environment: string;
+};
+
 export type StreamMessage =
   | { type: 'datafile'; data: BundledDefinitions }
+  | PrimedMessage
   | { type: 'ping' };
 
 const MAX_RETRY_COUNT = 15;
-const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 60_000;
+const BASE_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 60_000;
+const PING_TIMEOUT_MS = 90_000;
 
 function backoff(retryCount: number): number {
   if (retryCount === 1) return 0;
-  const delay = Math.min(BASE_DELAY_MS * 2 ** (retryCount - 2), MAX_DELAY_MS);
+  const delay = Math.min(
+    BASE_RETRY_DELAY_MS * 2 ** (retryCount - 2),
+    MAX_RETRY_DELAY_MS,
+  );
   return delay + Math.random() * 1000;
 }
 
@@ -24,7 +36,8 @@ export class UnauthorizedError extends Error {
 }
 
 export type StreamCallbacks = {
-  onMessage: (data: BundledDefinitions) => void;
+  onDatafile: (data: BundledDefinitions) => void;
+  onPrimed?: (message: PrimedMessage) => void;
   onDisconnect?: () => void;
 };
 
@@ -33,6 +46,8 @@ export type StreamConfig = {
   sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
+  /** Returns the current revision number to send as X-Revision header */
+  revision?: () => number | undefined;
 };
 
 /**
@@ -50,7 +65,7 @@ export async function connectStream(
     abortController,
     fetch: fetchFn = globalThis.fetch,
   } = config;
-  const { onMessage, onDisconnect } = callbacks;
+  const { onDatafile, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
@@ -76,15 +91,42 @@ export async function connectStream(
         break;
       }
 
+      // Per-connection abort controller — allows ping timeout to abort a single
+      // connection without stopping the entire retry loop.
+      const connectionAbort = new AbortController();
+      const onMainAbort = (): void => connectionAbort.abort();
+      abortController.signal.addEventListener('abort', onMainAbort, {
+        once: true,
+      });
+
+      let pingTimeoutId: ReturnType<typeof setTimeout> | undefined;
+      // Reference to the response body so the ping timeout can cancel it
+      // to break out of the for-await loop.
+      let responseBody: ReadableStream<Uint8Array> | undefined;
+      const resetPingTimeout = (): void => {
+        if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
+        if (!initialDataReceived) return;
+        pingTimeoutId = setTimeout(() => {
+          console.warn('@vercel/flags-core: Ping timeout, reconnecting');
+          responseBody?.cancel().catch(() => {});
+          connectionAbort.abort();
+        }, PING_TIMEOUT_MS);
+      };
+
       try {
         lastAttemptTime = Date.now();
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
+          'X-Retry-Attempt': String(retryCount),
+        };
+        const revision = config.revision?.();
+        if (revision !== undefined) {
+          headers['X-Revision'] = String(revision);
+        }
         const response = await fetchFn(`${host}/v1/stream`, {
-          headers: {
-            Authorization: `Bearer ${sdkKey}`,
-            'User-Agent': `VercelFlagsCore/${version}`,
-            'X-Retry-Attempt': String(retryCount),
-          },
-          signal: abortController.signal,
+          headers,
+          signal: connectionAbort.signal,
         });
 
         if (!response.ok) {
@@ -103,58 +145,96 @@ export async function connectStream(
           throw new Error('stream body was not present');
         }
 
+        responseBody = response.body;
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         const bufferChunks: string[] = [];
 
-        for await (const chunk of response.body) {
-          if (abortController.signal.aborted) break;
+        // Allow the ping timeout (or main abort) to cancel the reader,
+        // which breaks the read loop immediately even on a zombie connection.
+        const onConnectionAbort = (): void => {
+          reader.cancel().catch(() => {});
+        };
+        connectionAbort.signal.addEventListener('abort', onConnectionAbort, {
+          once: true,
+        });
 
-          bufferChunks.push(decoder.decode(chunk, { stream: true }));
-          const combined = bufferChunks.join('');
-          bufferChunks.length = 0;
-          const lines = combined.split('\n');
-          bufferChunks.push(lines.pop()!);
+        try {
+          while (true) {
+            const { done, value: chunk } = await reader.read();
+            if (done || abortController.signal.aborted) break;
 
-          for (const line of lines) {
-            if (line === '') continue;
+            bufferChunks.push(decoder.decode(chunk, { stream: true }));
+            const combined = bufferChunks.join('');
+            bufferChunks.length = 0;
+            const lines = combined.split('\n');
+            bufferChunks.push(lines.pop()!);
 
-            let message: StreamMessage;
-            try {
-              message = JSON.parse(line) as StreamMessage;
-            } catch {
-              console.warn(
-                '@vercel/flags-core: Failed to parse stream message, skipping',
-              );
-              continue;
-            }
+            for (const line of lines) {
+              if (line === '') continue;
 
-            if (message.type === 'datafile') {
-              onMessage(message.data);
-              retryCount = 0;
-              if (!initialDataReceived) {
-                initialDataReceived = true;
-                resolveInit!();
+              let message: StreamMessage;
+              try {
+                message = JSON.parse(line) as StreamMessage;
+              } catch {
+                console.warn(
+                  '@vercel/flags-core: Failed to parse stream message, skipping',
+                );
+                continue;
+              }
+
+              if (message.type === 'datafile') {
+                onDatafile(message.data);
+                retryCount = 0;
+                if (!initialDataReceived) {
+                  initialDataReceived = true;
+                  resolveInit!();
+                }
+                resetPingTimeout();
+              }
+
+              // Primed means the server confirmed our revision is current,
+              // so no full datafile is needed. Treat it like initial data
+              // for init resolution purposes.
+              if (message.type === 'primed') {
+                onPrimed?.(message);
+                retryCount = 0;
+                if (!initialDataReceived) {
+                  initialDataReceived = true;
+                  resolveInit!();
+                }
+                resetPingTimeout();
+              }
+
+              // Pings prove the connection is alive — reset retry count
+              // once initial data has been received
+              if (message.type === 'ping' && initialDataReceived) {
+                retryCount = 0;
+                resetPingTimeout();
               }
             }
-
-            // Pings prove the connection is alive — reset retry count
-            // once initial data has been received
-            if (message.type === 'ping' && initialDataReceived) {
-              retryCount = 0;
-            }
           }
+        } finally {
+          connectionAbort.signal.removeEventListener(
+            'abort',
+            onConnectionAbort,
+          );
         }
 
         // Stream ended normally (server closed connection) - reconnect
+        clearTimeout(pingTimeoutId);
+        abortController.signal.removeEventListener('abort', onMainAbort);
         if (!abortController.signal.aborted) {
           onDisconnect?.();
           retryCount++;
           const elapsed = Date.now() - lastAttemptTime;
-          const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+          const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
           await sleep(Math.max(backoff(retryCount), minGap));
           continue;
         }
       } catch (error) {
+        clearTimeout(pingTimeoutId);
+        abortController.signal.removeEventListener('abort', onMainAbort);
         if (abortController.signal.aborted) {
           break;
         }
@@ -162,7 +242,7 @@ export async function connectStream(
         onDisconnect?.();
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
-        const minGap = Math.max(0, BASE_DELAY_MS - elapsed);
+        const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
         await sleep(Math.max(backoff(retryCount), minGap));
       }
     }

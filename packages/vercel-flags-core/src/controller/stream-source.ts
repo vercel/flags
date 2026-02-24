@@ -1,15 +1,11 @@
 import type { DatafileInput } from '../types';
-import { connectStream } from './stream-connection';
+import type { NormalizedOptions } from './normalized-options';
+import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
-
-export type StreamSourceConfig = {
-  host: string;
-  sdkKey: string;
-  fetch?: typeof globalThis.fetch;
-};
 
 export type StreamSourceEvents = {
   data: (data: DatafileInput) => void;
+  primed: (message: PrimedMessage) => void;
   connected: () => void;
   disconnected: () => void;
 };
@@ -19,18 +15,20 @@ export type StreamSourceEvents = {
  * Wraps connectStream() and emits typed events.
  */
 export class StreamSource extends TypedEmitter<StreamSourceEvents> {
-  private config: StreamSourceConfig;
+  private options: NormalizedOptions;
+  private revision: () => number | undefined;
   private abortController: AbortController | undefined;
   private promise: Promise<void> | undefined;
 
-  constructor(config: StreamSourceConfig) {
+  constructor(options: NormalizedOptions, revision: () => number | undefined) {
     super();
-    this.config = config;
+    this.options = options;
+    this.revision = revision;
   }
 
   /**
    * Start the stream connection.
-   * Returns a promise that resolves when the first datafile message arrives.
+   * Returns a promise that resolves when the first datafile or primed message arrives.
    * If already started, returns the existing promise.
    */
   start(): Promise<void> {
@@ -56,14 +54,19 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     try {
       const promise = connectStream(
         {
-          host: this.config.host,
-          sdkKey: this.config.sdkKey,
+          host: this.options.host,
+          sdkKey: this.options.sdkKey,
           abortController,
-          fetch: this.config.fetch,
+          fetch: this.options.fetch,
+          revision: this.revision,
         },
         {
-          onMessage: (newData) => {
+          onDatafile: (newData) => {
             this.emit('data', newData);
+            this.emit('connected');
+          },
+          onPrimed: (message) => {
+            this.emit('primed', message);
             this.emit('connected');
           },
           onDisconnect: () => {
