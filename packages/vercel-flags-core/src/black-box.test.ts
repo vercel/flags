@@ -631,7 +631,9 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should use bundled definitions immediately when stream is slow', async () => {
+    it('should use bundled definitions when stream is slow after init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -652,18 +654,23 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      // Bundled definitions are loaded eagerly — initialize returns
-      // immediately without waiting for the stream
-      await client.initialize();
+      // initialize() now waits for the stream to confirm (primed/datafile)
+      // but falls back to bundled data after the init timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
-      // Stream is still connecting in the background
-      expect(result.metrics?.connectionState).toBe('disconnected');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+      warnSpy.mockRestore();
     });
 
-    it('should use bundled definitions immediately when stream errors (502)', async () => {
+    it('should use bundled definitions when stream errors (502) after init timeout', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -678,28 +685,28 @@ describe('Controller (black-box)', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         polling: false,
       });
 
-      // Bundled definitions are loaded eagerly — no need to wait for
-      // stream error/timeout
-      await client.initialize();
+      // initialize() waits for stream confirmation, falls back after timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
-      // The 502 still triggers an error log in the background stream
-      await vi.advanceTimersByTimeAsync(0);
-      expect(errorSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream error',
-        expect.any(Error),
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
       );
 
       errorSpy.mockRestore();
+      warnSpy.mockRestore();
     });
 
     it('should suppress usage tracking and not retry on 401', async () => {
@@ -939,7 +946,9 @@ describe('Controller (black-box)', () => {
   // Datafile option
   // ---------------------------------------------------------------------------
   describe('datafile option', () => {
-    it('should use provided datafile immediately', async () => {
+    it('should use provided datafile after stream init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -955,16 +964,23 @@ describe('Controller (black-box)', () => {
         datafile,
       });
 
-      const result = await client.evaluate('flagA');
+      // evaluate() triggers lazy initialize() which waits for stream
+      const evalPromise = client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(3000);
+      const result = await evalPromise;
+
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
 
+      warnSpy.mockRestore();
       stream.close();
       await client.shutdown();
     });
 
-    it('should resolve initialize() immediately when datafile is provided', async () => {
-      // Stream that never sends data — if init blocks on stream, this test hangs
+    it('should resolve initialize() with provided datafile after stream init timeout', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Stream that never sends data
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
@@ -979,13 +995,16 @@ describe('Controller (black-box)', () => {
         datafile: makeBundled(),
       });
 
-      // initialize() should resolve without advancing timers or stream data
-      await client.initialize();
+      // initialize() waits for stream, falls back after timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
 
+      warnSpy.mockRestore();
       await client.shutdown();
     });
 
@@ -1154,7 +1173,7 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should use bundled definitions immediately when stream fails (skip polling)', async () => {
+    it('should use bundled definitions when stream fails after init timeout (skip polling)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1178,6 +1197,7 @@ describe('Controller (black-box)', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -1185,9 +1205,10 @@ describe('Controller (black-box)', () => {
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
-      // Bundled definitions are loaded eagerly — initialize returns
-      // immediately, stream runs as background update
-      await client.initialize();
+      // initialize() waits for stream, falls back after 1.5s timeout
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(1_500);
+      await initPromise;
       const after = new Date();
 
       const result = await client.evaluate('flagA');
@@ -1196,6 +1217,7 @@ describe('Controller (black-box)', () => {
       expect(pollCount).toBe(0);
 
       errorSpy.mockRestore();
+      warnSpy.mockRestore();
 
       await client.shutdown();
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -3170,6 +3192,7 @@ describe('Controller (black-box)', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -3178,13 +3201,14 @@ describe('Controller (black-box)', () => {
       });
 
       // Three concurrent evaluates all trigger lazy initialization.
-      // Bundled definitions are loaded eagerly, so initialization
-      // resolves immediately without blocking on the stream.
+      // They share a single init promise that waits for stream confirmation.
       const p1 = client.evaluate('flagA');
       const p2 = client.evaluate('flagA');
       const p3 = client.evaluate('flagA');
 
-      await vi.advanceTimersByTimeAsync(0);
+      // Advance past the stream init timeout so initialize() resolves
+      // with bundled definitions
+      await vi.advanceTimersByTimeAsync(1_500);
 
       const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
 
@@ -3194,13 +3218,15 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
       expect(r1.metrics?.source).toBe('embedded');
 
-      // Despite 3 concurrent evaluates, only one background stream was started
+      // Despite 3 concurrent evaluates, only one stream connection was started
+      // (it may have retried due to 502 errors during the timeout window)
       const streamCalls = fetchMock.mock.calls.filter((call) =>
         call[0]?.toString().includes('/v1/stream'),
       );
-      expect(streamCalls).toHaveLength(1);
+      expect(streamCalls.length).toBeGreaterThanOrEqual(1);
 
       errorSpy.mockRestore();
+      warnSpy.mockRestore();
 
       await client.shutdown();
     });

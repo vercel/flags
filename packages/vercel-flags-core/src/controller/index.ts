@@ -310,9 +310,16 @@ export class Controller implements ControllerInterface {
     }
 
     // If we already have data (from provided datafile or bundled definitions),
-    // start background updates but don't block on them
+    // start updates. For streams, wait for confirmation (primed or datafile)
+    // so we know we have fresh data. For polling or no-updates, start in the
+    // background and return immediately since we already have usable data.
     if (this.data) {
-      this.startBackgroundUpdates();
+      if (this.options.stream.enabled) {
+        this.transition('initializing:stream');
+        await this.tryInitializeStream();
+      } else {
+        this.startBackgroundUpdates();
+      }
       return;
     }
 
