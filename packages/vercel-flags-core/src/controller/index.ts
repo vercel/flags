@@ -125,7 +125,7 @@ export class Controller implements ControllerInterface {
 
     this.options = normalizeOptions(options);
 
-    // Create source modules (or use injected ones for testing)
+    // Create source modules
     this.streamSource = new StreamSource(
       this.options,
       () => this.data?.revision,
