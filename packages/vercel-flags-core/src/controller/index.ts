@@ -316,11 +316,12 @@ export class Controller implements ControllerInterface {
     const [result, cacheStatus] = await this.resolveData();
 
     const readMs = Date.now() - startTime;
-    const source = originToMetricsSource(result._origin);
+    const { _origin, ...data } = result;
+    const source = originToMetricsSource(_origin);
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     return {
-      ...result,
+      ...data,
       metrics: {
         readMs,
         source,
