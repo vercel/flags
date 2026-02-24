@@ -169,10 +169,10 @@ export class Controller implements ControllerInterface {
     this.options = normalizeOptions(options);
 
     // Create source modules (or use injected ones for testing)
-    this.streamSource = new StreamSource({
-      ...this.options,
-      revision: () => this.data?.revision,
-    });
+    this.streamSource = new StreamSource(
+      this.options,
+      () => this.data?.revision,
+    );
 
     this.pollingSource = new PollingSource(this.options);
 
