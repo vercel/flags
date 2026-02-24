@@ -890,10 +890,7 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/datafile',
         {
-          headers: {
-            ...streamRequestHeaders,
-            'X-Retry-Attempt': undefined,
-          },
+          headers: datafileRequestHeaders,
           signal: expect.any(AbortSignal),
         },
       );
