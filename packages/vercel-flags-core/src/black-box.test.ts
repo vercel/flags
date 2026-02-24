@@ -1073,19 +1073,24 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
+      // initialize() now waits for the first poll before resolving
       await client.initialize();
 
-      // First evaluate uses provided datafile (variant 1 = true)
+      // The initial poll during initialize() already fetched fresh data
+      expect(pollCount).toBe(1);
+
+      // First evaluate uses polled data (variant 0 = false), since the
+      // poll during init returned newer data (configUpdatedAt: 2 > 1)
       const result1 = await client.evaluate('flagA');
-      expect(result1.value).toBe(true);
+      expect(result1.value).toBe(false);
       expect(result1.metrics?.source).toBe('in-memory');
 
-      // Advance past a poll interval to trigger update
+      // Advance past a poll interval to trigger another update
       await vi.advanceTimersByTimeAsync(30_000);
 
-      expect(pollCount).toBeGreaterThanOrEqual(1);
+      expect(pollCount).toBe(2);
 
-      // Second evaluate uses polled data (variant 0 = false)
+      // Still uses polled data
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(false);
 

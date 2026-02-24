@@ -267,17 +267,16 @@ export class Controller implements ControllerInterface {
     }
 
     // If we already have data (from provided datafile or bundled definitions),
-    // start updates. For streams, wait for confirmation (primed or datafile)
-    // so we know we have fresh data. For polling or no-updates, start in the
-    // background and return immediately since we already have usable data.
+    // start updates. Both streaming and polling wait for initial data before
+    // being considered initialized, so we know we have fresh data.
+    // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
-        this.pollingSource.startInterval();
-        void this.pollingSource.poll();
-        this.transition('polling');
+        this.transition('initializing:polling');
+        await this.tryInitializePolling();
       } else {
         this.transition('degraded');
       }

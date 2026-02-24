@@ -114,8 +114,8 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 Key behaviors:
 - Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
-- When streaming is enabled and data already exists (bundled or provided), `initialize()` still waits for stream confirmation (`primed` or `datafile`) up to `initTimeoutMs`, then falls back to existing data on timeout
-- For polling or offline mode with existing data, `initialize()` returns immediately
+- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
+- For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
 - If stream disconnects → start polling (if enabled)
@@ -178,18 +178,23 @@ pnpm test:integration
 - **No stderr leaks**: every `console.warn` and `console.error` the implementation emits must be captured by a spy (`vi.spyOn(console, 'warn').mockImplementation(() => {})`) and asserted. A test that produces stderr output is broken.
 - **Tests should complete in milliseconds**, not seconds. If a test takes ~3s, it's hitting a real timeout instead of advancing fake timers.
 
-### initialize() blocks on stream confirmation
+### initialize() blocks on stream/poll confirmation
 
-`initialize()` waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs` before resolving, even when bundled data or a provided datafile is available. This means:
+`initialize()` waits for fresh data before resolving, even when bundled data or a provided datafile is available:
+- **Streaming**: waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs`
+- **Polling**: waits for the first poll response up to `initTimeoutMs`
+
+This means:
 
 - **With fake timers**: call `client.initialize()` (or `client.evaluate()` which triggers lazy init), then `await vi.advanceTimersByTimeAsync(initTimeoutMs)` to trigger the timeout fallback.
-- **With real timers (`vi.useRealTimers()`)**: you MUST push a stream message before awaiting `initialize()`, otherwise it blocks for the real 3s timeout:
+- **With real timers (`vi.useRealTimers()`)**: for streaming, you MUST push a stream message before awaiting `initialize()`, otherwise it blocks for the real 3s timeout:
   ```typescript
   const initPromise = client.initialize();
   await new Promise((r) => setTimeout(r, 0)); // let stream connect
   stream.push({ type: 'primed', revision: 42, projectId: 'prj_123', environment: 'production' });
   await initPromise; // resolves immediately
   ```
+  For polling, `initialize()` will await the first poll (which resolves immediately if `fetchMock` responds synchronously).
 
 ### Prefer evaluate-driven tests over explicit initialize()
 
