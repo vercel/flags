@@ -36,7 +36,7 @@ export class UnauthorizedError extends Error {
 }
 
 export type StreamCallbacks = {
-  onMessage: (data: BundledDefinitions) => void;
+  onDatafile: (data: BundledDefinitions) => void;
   onPrimed?: (message: PrimedMessage) => void;
   onDisconnect?: () => void;
 };
@@ -65,7 +65,7 @@ export async function connectStream(
     abortController,
     fetch: fetchFn = globalThis.fetch,
   } = config;
-  const { onMessage, onPrimed, onDisconnect } = callbacks;
+  const { onDatafile, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
@@ -184,7 +184,7 @@ export async function connectStream(
               }
 
               if (message.type === 'datafile') {
-                onMessage(message.data);
+                onDatafile(message.data);
                 retryCount = 0;
                 if (!initialDataReceived) {
                   initialDataReceived = true;

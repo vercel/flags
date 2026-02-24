@@ -61,7 +61,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           revision: this.revision,
         },
         {
-          onMessage: (newData) => {
+          onDatafile: (newData) => {
             this.emit('data', newData);
             this.emit('connected');
           },
