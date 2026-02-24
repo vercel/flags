@@ -637,7 +637,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should use bundled definitions when stream is slow after init timeout', async () => {
+    it('should fall back to bundled when stream times out', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -669,6 +669,7 @@ describe('Controller (black-box)', () => {
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
+      expect(result.metrics?.connectionState).toBe('disconnected');
 
       expect(warnSpy).toHaveBeenCalledWith(
         '@vercel/flags-core: Stream initialization timeout, falling back',
@@ -718,7 +719,7 @@ describe('Controller (black-box)', () => {
       warnSpy.mockRestore();
     });
 
-    it('should suppress usage tracking and not retry on 401', async () => {
+    it('should fast-fail on 401 without waiting for stream timeout', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -1222,15 +1223,16 @@ describe('Controller (black-box)', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+      const initTimeoutMs = 1_500;
       const client = createClient(sdkKey, {
         fetch: fetchMock,
-        stream: { initTimeoutMs: 1_500 },
+        stream: { initTimeoutMs },
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
       });
 
       // initialize() waits for stream, falls back after 1.5s timeout
       const initPromise = client.initialize();
-      await vi.advanceTimersByTimeAsync(1_500);
+      await vi.advanceTimersByTimeAsync(initTimeoutMs);
       await initPromise;
       const after = new Date();
 
@@ -1491,7 +1493,8 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      // Server responds with primed (our revision is current)
+      // Server responds with primed (our revision is current),
+      // which resolves initialize() without sending a full datafile
       const initPromise = client.initialize();
       await new Promise((r) => setTimeout(r, 0));
       stream.push({
@@ -1502,15 +1505,12 @@ describe('Controller (black-box)', () => {
       });
       await initPromise;
 
-      // First evaluate uses provided datafile
-      const result1 = await client.evaluate('flagA');
-      expect(result1.value).toBe(false); // variant 0 from provided
-
-      // After primed, still uses the same data
-      const result2 = await client.evaluate('flagA');
-      expect(result2.value).toBe(false); // still variant 0
-      expect(result2.metrics?.connectionState).toBe('connected');
-      expect(result2.metrics?.mode).toBe('streaming');
+      // Primed confirms the data is current — value is unchanged,
+      // state is connected and streaming
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(false); // variant 0 from provided
+      expect(result.metrics?.connectionState).toBe('connected');
+      expect(result.metrics?.mode).toBe('streaming');
 
       stream.close();
       await client.shutdown();
