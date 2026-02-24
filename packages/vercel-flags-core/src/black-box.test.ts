@@ -275,11 +275,17 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Stream should have been attempted
-      expect(fetchMock).toHaveBeenCalled();
-      const streamCall = fetchMock.mock.calls.find((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            'X-Retry-Attempt': '0',
+          },
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCall).toBeDefined();
 
       stream.close();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -743,10 +749,17 @@ describe('Controller (black-box)', () => {
       errorSpy.mockRestore();
 
       // Only one stream call — 401 does not trigger retries
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            'X-Revision': '1',
+          },
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
@@ -871,11 +884,19 @@ describe('Controller (black-box)', () => {
       await client.initialize();
       await vi.advanceTimersByTimeAsync(0);
 
-      // No stream requests should have been made
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      // No stream requests should have been made,
+      // the below check verifies only a dataifle call was made
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            'X-Retry-Attempt': undefined,
+          },
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(0);
 
       await client.shutdown();
     });
@@ -2075,18 +2096,45 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
 
-      // No stream requests should happen after shutdown
-      const streamCallsBeforeWait = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
-      ).length;
+      // No stream requests should happen after shutdown, which
+      // we verify by checking the calls that actually happened
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls).toEqual([
+        [
+          'https://flags.vercel.com/v1/stream',
+          {
+            headers: streamRequestHeaders,
+            signal: expect.any(AbortSignal),
+          },
+        ],
+        [
+          'https://flags.vercel.com/v1/ingest',
+          {
+            headers: ingestRequestHeaders,
+            method: 'POST',
+            body: JSON.stringify([
+              {
+                type: 'FLAGS_CONFIG_READ',
+                ts: date.getTime(),
+                payload: {
+                  configOrigin: 'in-memory',
+                  cacheStatus: 'HIT',
+                  cacheAction: 'FOLLOWING',
+                  cacheIsFirstRead: true,
+                  cacheIsBlocking: false,
+                  duration: 0,
+                  configUpdatedAt: 1,
+                },
+              },
+            ]),
+          },
+        ],
+      ]);
 
       await vi.advanceTimersByTimeAsync(5_000);
 
-      const streamCallsAfterWait = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
-      ).length;
-
-      expect(streamCallsAfterWait).toBe(streamCallsBeforeWait);
+      // still no streaming calls, as the count has not changed from above
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -3033,10 +3081,14 @@ describe('Controller (black-box)', () => {
       await Promise.all([p1, p2, p3]);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();
@@ -3079,10 +3131,14 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();
@@ -3144,10 +3200,14 @@ describe('Controller (black-box)', () => {
       expect(r3.value).toBe(true);
 
       // Stream should have been fetched only once
-      const streamCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCalls).toHaveLength(1);
 
       stream.close();
       await client.shutdown();
