@@ -16,7 +16,7 @@
 ## Quickstart
 
 ```sh
-npm install flags
+pnpm i flags
 ```
 
 Declare a flag in `flags.ts`:
@@ -425,7 +425,7 @@ For multiple flags on one page, use the precompute pattern instead.
 Combine precomputed flags with Partial Prerendering to serve matching skeletons:
 
 ```tsx
-function Example() {
+async function Example() {
   const hasAuth = await hasAuthCookieFlag();
 
   return (
@@ -475,8 +475,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAccess } from 'flags';
 
 export async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const access = await verifyAccess(req.headers.get('Authorization'));
-  if (!access) return res.json(null, { status: 401 });
+  const access = await verifyAccess(req.headers.authorization);
+  if (!access) return res.status(401).json(null);
 
   const providerData = { /* ... */ };
   return res.status(200).json(providerData);

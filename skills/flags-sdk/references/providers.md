@@ -146,7 +146,7 @@ const myAdapter = createEdgeConfigAdapter({
 Package: `@flags-sdk/statsig`
 
 ```bash
-npm install @flags-sdk/statsig
+pnpm i @flags-sdk/statsig
 ```
 
 Env vars:
@@ -250,7 +250,7 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 Package: `@flags-sdk/launchdarkly`
 
 ```bash
-npm install @flags-sdk/launchdarkly
+pnpm i @flags-sdk/launchdarkly
 ```
 
 Env vars:
@@ -354,7 +354,7 @@ export const GET = createFlagsDiscoveryEndpoint(() =>
 Package: `@flags-sdk/growthbook`
 
 ```bash
-npm install @flags-sdk/growthbook
+pnpm i @flags-sdk/growthbook
 ```
 
 Env: `GROWTHBOOK_CLIENT_KEY` (required)
@@ -422,7 +422,7 @@ export const exampleFlag = flag(hypertuneAdapter.declarations.exampleFlag);
 Package: `@flags-sdk/flagsmith`
 
 ```bash
-npm i @flags-sdk/flagsmith
+pnpm i @flags-sdk/flagsmith
 ```
 
 Env: `FLAGSMITH_ENVIRONMENT_ID` (required)
@@ -454,7 +454,7 @@ Coercion options: `'string'`, `'number'`, `'boolean'`, or omit for raw value.
 Package: `@flags-sdk/reflag`
 
 ```bash
-npm install @flags-sdk/reflag
+pnpm i @flags-sdk/reflag
 ```
 
 Env: `REFLAG_SECRET_KEY`
@@ -481,7 +481,7 @@ export const myFeature = flag<boolean, Context>({
 Package: `@flags-sdk/openfeature` + `@openfeature/server-sdk`
 
 ```bash
-npm i @flags-sdk/openfeature @openfeature/server-sdk
+pnpm i @flags-sdk/openfeature @openfeature/server-sdk
 ```
 
 ### Setup

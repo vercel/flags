@@ -15,7 +15,7 @@
 ### Installation
 
 ```sh
-npm i flags @vercel/toolbar
+pnpm i flags @vercel/toolbar
 ```
 
 ### Create a flag
