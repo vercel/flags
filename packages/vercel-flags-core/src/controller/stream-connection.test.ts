@@ -60,18 +60,18 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledWith(definitions);
+      expect(onDatafile).toHaveBeenCalledWith(definitions);
       abortController.abort();
     });
 
-    it('should call onMessage callback with parsed data', async () => {
+    it('should call onDatafile callback with parsed data', async () => {
       const definitions = {
         projectId: 'test',
         definitions: { flag: { variants: [true] } },
@@ -82,15 +82,15 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledTimes(1);
-      expect(onMessage).toHaveBeenCalledWith(definitions);
+      expect(onDatafile).toHaveBeenCalledTimes(1);
+      expect(onDatafile).toHaveBeenCalledWith(definitions);
       abortController.abort();
     });
 
@@ -106,15 +106,15 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledTimes(1);
-      expect(onMessage).toHaveBeenCalledWith(definitions);
+      expect(onDatafile).toHaveBeenCalledTimes(1);
+      expect(onDatafile).toHaveBeenCalledWith(definitions);
       abortController.abort();
     });
 
@@ -141,14 +141,14 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledWith(definitions);
+      expect(onDatafile).toHaveBeenCalledWith(definitions);
       abortController.abort();
     });
 
@@ -174,14 +174,14 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledTimes(1);
+      expect(onDatafile).toHaveBeenCalledTimes(1);
       abortController.abort();
     });
   });
@@ -195,7 +195,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
       await connectStream(
         { host: HOST, sdkKey: 'vf_my_key', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
@@ -210,7 +210,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
@@ -225,7 +225,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
@@ -254,7 +254,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect },
       );
 
       // Advance past the reconnection backoff delay
@@ -283,7 +283,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // Advance past first reconnection backoff
@@ -319,7 +319,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // After the first stream closes, retryCount was reset to 0 then
@@ -357,7 +357,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect },
       );
 
       // Advance past the reconnection backoff delay
@@ -390,7 +390,7 @@ describe('connectStream', () => {
 
       const promise = connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // First request fires immediately, first retry has 0ms backoff
@@ -432,7 +432,7 @@ describe('connectStream', () => {
 
       const promise = connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // First request fires immediately, first retry has 0ms backoff
@@ -473,7 +473,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect },
       );
 
       // Advance past the reconnection backoff delay
@@ -516,14 +516,14 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
-      expect(onMessage).toHaveBeenCalledTimes(1);
+      expect(onDatafile).toHaveBeenCalledTimes(1);
 
       // Abort externally
       abortController.abort();
@@ -563,7 +563,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect },
       );
 
       expect(requestCount).toBe(1);
@@ -612,7 +612,7 @@ describe('connectStream', () => {
 
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // Send pings at 30s intervals (before the 90s timeout)
@@ -654,7 +654,7 @@ describe('connectStream', () => {
 
       const promise = connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       // Advance past 90s — ping timeout should NOT fire since no initial data
@@ -676,7 +676,7 @@ describe('connectStream', () => {
   });
 
   describe('multiple datafile messages', () => {
-    it('should call onMessage for each datafile but only resolve once', async () => {
+    it('should call onDatafile for each datafile but only resolve once', async () => {
       const data1 = { projectId: 'test', definitions: { v: 1 } };
       const data2 = { projectId: 'test', definitions: { v: 2 } };
 
@@ -688,11 +688,11 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
 
       const promise = connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage },
+        { onDatafile },
       );
 
       // Should resolve (not hang waiting for more data)
@@ -700,11 +700,11 @@ describe('connectStream', () => {
 
       // Wait for all messages to be processed
       await vi.waitFor(() => {
-        expect(onMessage).toHaveBeenCalledTimes(2);
+        expect(onDatafile).toHaveBeenCalledTimes(2);
       });
 
-      expect(onMessage).toHaveBeenNthCalledWith(1, data1);
-      expect(onMessage).toHaveBeenNthCalledWith(2, data2);
+      expect(onDatafile).toHaveBeenNthCalledWith(1, data1);
+      expect(onDatafile).toHaveBeenNthCalledWith(2, data2);
 
       abortController.abort();
     });
@@ -725,7 +725,7 @@ describe('connectStream', () => {
           fetch: fetchMock,
           revision: () => 42,
         },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
@@ -740,7 +740,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
       await connectStream(
         { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
-        { onMessage: vi.fn() },
+        { onDatafile: vi.fn() },
       );
 
       const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
@@ -785,7 +785,7 @@ describe('connectStream', () => {
           revision: () => currentRevision,
         },
         {
-          onMessage: (data) => {
+          onDatafile: (data) => {
             // Simulate controller updating revision from received datafile
             currentRevision = (data as Record<string, unknown>)
               .revision as number;
@@ -830,7 +830,7 @@ describe('connectStream', () => {
       fetchMock.mockImplementation(() => ndjsonResponse([primedMsg]));
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
       const onPrimed = vi.fn();
 
       await connectStream(
@@ -841,15 +841,15 @@ describe('connectStream', () => {
           fetch: fetchMock,
           revision: () => 33,
         },
-        { onMessage, onPrimed },
+        { onDatafile, onPrimed },
       );
 
-      expect(onMessage).not.toHaveBeenCalled();
+      expect(onDatafile).not.toHaveBeenCalled();
       expect(onPrimed).toHaveBeenCalledWith(primedMsg);
       abortController.abort();
     });
 
-    it('should call onPrimed but not onMessage for primed messages', async () => {
+    it('should call onPrimed but not onDatafile for primed messages', async () => {
       const primedMsg = {
         type: 'primed' as const,
         revision: 5,
@@ -865,7 +865,7 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
-      const onMessage = vi.fn();
+      const onDatafile = vi.fn();
       const onPrimed = vi.fn();
 
       await connectStream(
@@ -876,12 +876,12 @@ describe('connectStream', () => {
           fetch: fetchMock,
           revision: () => 5,
         },
-        { onMessage, onPrimed },
+        { onDatafile, onPrimed },
       );
 
       // Wait for all messages to be processed
       await vi.waitFor(() => {
-        expect(onMessage).toHaveBeenCalledTimes(1);
+        expect(onDatafile).toHaveBeenCalledTimes(1);
       });
 
       expect(onPrimed).toHaveBeenCalledTimes(1);
@@ -927,7 +927,7 @@ describe('connectStream', () => {
           fetch: fetchMock,
           revision: () => 1,
         },
-        { onMessage: vi.fn(), onPrimed: vi.fn() },
+        { onDatafile: vi.fn(), onPrimed: vi.fn() },
       );
 
       // Send pings at 30s intervals (before the 90s timeout)
