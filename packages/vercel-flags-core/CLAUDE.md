@@ -113,9 +113,9 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 5. **One-time fetch** - Last resort (only when stream and polling are both disabled)
 
 Key behaviors:
-- Bundled definitions are always loaded as ultimate fallback
-- All mechanisms write to in-memory state
-- If in-memory state exists, serve immediately while background updates happen
+- Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
+- When streaming is enabled and data already exists (bundled or provided), `initialize()` still waits for stream confirmation (`primed` or `datafile`) up to `initTimeoutMs`, then falls back to existing data on timeout
+- For polling or offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
 - If stream disconnects → start polling (if enabled)
@@ -167,13 +167,16 @@ pnpm test:integration
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`
+- Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
+- The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
 - On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
-- Background stream promises (from init timeout or `startBackgroundUpdates`) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
+- Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
 ### Polling
 
