@@ -750,18 +750,19 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      const streamCallsAfter = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/stream'),
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: { ...streamRequestHeaders, 'X-Revision': '1' },
+          signal: expect.any(AbortSignal),
+        },
       );
-      expect(streamCallsAfter).toHaveLength(1);
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // No ingest call — usage tracking is suppressed after a 401
-      const ingestCalls = fetchMock.mock.calls.filter((call) =>
-        call[0]?.toString().includes('/v1/ingest'),
-      );
-      expect(ingestCalls).toHaveLength(0);
+      // still only one call, no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should use custom initTimeoutMs value', async () => {
