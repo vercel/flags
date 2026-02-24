@@ -692,19 +692,22 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      // initialize() waits for stream confirmation, falls back after timeout
-      const initPromise = client.initialize();
-      await vi.advanceTimersByTimeAsync(3000);
-      await initPromise;
+      const evalPromise = client.evaluate('flagA');
 
-      const result = await client.evaluate('flagA');
+      // The 502 triggers stream error; init promise hangs until timeout
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      const result = await evalPromise;
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.any(Error),
+      );
       expect(warnSpy).toHaveBeenCalledWith(
         '@vercel/flags-core: Stream initialization timeout, falling back',
       );
-
       errorSpy.mockRestore();
       warnSpy.mockRestore();
     });
@@ -727,11 +730,13 @@ describe('Controller (black-box)', () => {
 
       const client = createClient(sdkKey, { fetch: fetchMock });
 
-      // Bundled definitions are loaded eagerly, so initialize succeeds
-      // immediately; the 401 stream error happens in the background.
-      await client.initialize();
+      const evalPromise = client.evaluate('flagA');
 
-      const result = await client.evaluate('flagA');
+      // Only advance a tiny amount — well under the 3s stream timeout.
+      // If the 401 fast-fail works, evaluate resolves without the full timeout.
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await evalPromise;
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
@@ -759,18 +764,15 @@ describe('Controller (black-box)', () => {
       expect(ingestCalls).toHaveLength(0);
     });
 
-    it('should use custom initTimeoutMs value when no bundled definitions', async () => {
-      // readBundledDefinitions returns missing-file (no bundled data),
-      // so the stream init path is taken with the custom timeout.
+    it('should use custom initTimeoutMs value', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
-        state: 'missing-file',
-        definitions: null,
+        state: 'ok',
+        definitions: makeBundled(),
       });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
-          // Stream opens but never sends data
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
         }
@@ -787,23 +789,17 @@ describe('Controller (black-box)', () => {
 
       const initPromise = client.initialize();
 
-      // Capture the rejection early to avoid unhandled promise rejection
-      const initResult = initPromise.catch((error: Error) => error);
-
-      // Advance only 500ms (custom timeout) — not the default 3000ms
+      // Advance only 500ms (custom timeout)
       await vi.advanceTimersByTimeAsync(500);
+      await initPromise;
 
-      const error = await initResult;
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain(
-        'No flag definitions available',
-      );
+      const result = await client.evaluate('flagA');
+      expect(result.metrics?.source).toBe('embedded');
 
       expect(warnSpy).toHaveBeenCalledWith(
         '@vercel/flags-core: Stream initialization timeout, falling back',
       );
       warnSpy.mockRestore();
-      await client.shutdown();
     });
 
     it('should not spam the server when stream repeatedly connects then disconnects', async () => {
@@ -972,6 +968,10 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
 
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
+
       warnSpy.mockRestore();
       stream.close();
       await client.shutdown();
@@ -1003,6 +1003,10 @@ describe('Controller (black-box)', () => {
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('in-memory');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
 
       warnSpy.mockRestore();
       await client.shutdown();
@@ -1303,8 +1307,16 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      // Initialize starts background stream connection
-      await client.initialize();
+      // Initialize waits for stream confirmation; push primed so it resolves
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'provided',
+        environment: 'production',
+      });
+      await initPromise;
 
       // First evaluate uses provided datafile immediately
       const result1 = await client.evaluate('flagA');
@@ -1356,7 +1368,16 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      await client.initialize();
+      // Push primed so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 42,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await initPromise;
 
       // The stream request should include the X-Revision header
       const streamCall = fetchMock.mock.calls.find((call) => {
@@ -1402,7 +1423,14 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      await client.initialize();
+      // Push a datafile so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 1 }),
+      });
+      await initPromise;
 
       const streamCall = fetchMock.mock.calls.find((call) => {
         const url = typeof call[0] === 'string' ? call[0] : call[0]!.toString();
@@ -1444,21 +1472,20 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      await client.initialize();
-
-      // First evaluate uses provided datafile
-      const result1 = await client.evaluate('flagA');
-      expect(result1.value).toBe(false); // variant 0 from provided
-
       // Server responds with primed (our revision is current)
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
       stream.push({
         type: 'primed',
         revision: 33,
         projectId: 'prj_123',
         environment: 'production',
       });
+      await initPromise;
 
-      await new Promise((r) => setTimeout(r, 0));
+      // First evaluate uses provided datafile
+      const result1 = await client.evaluate('flagA');
+      expect(result1.value).toBe(false); // variant 0 from provided
 
       // After primed, still uses the same data
       const result2 = await client.evaluate('flagA');
@@ -1498,16 +1525,16 @@ describe('Controller (black-box)', () => {
         datafile: providedDatafile,
       });
 
-      await client.initialize();
-
-      // Server responds with primed first
+      // Server responds with primed first, resolving initialize()
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
       stream.push({
         type: 'primed',
         revision: 5,
         projectId: 'prj_123',
         environment: 'production',
       });
-      await new Promise((r) => setTimeout(r, 0));
+      await initPromise;
 
       // Then server pushes a new datafile (config changed)
       stream.push({
@@ -2517,19 +2544,15 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await client.initialize();
-
-      // Initial evaluate uses provided datafile (variant 0)
-      const result1 = await client.evaluate('flagA');
-      expect(result1.value).toBe(false);
-
-      // Push stream data with configUpdatedAt
+      // Push stream data so initialize() resolves without waiting for timeout
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
       stream.push({ type: 'datafile', data: streamData });
-      await new Promise((r) => setTimeout(r, 50));
+      await initPromise;
 
-      // Should accept stream data
-      const result2 = await client.evaluate('flagA');
-      expect(result2.value).toBe(true); // variant 1 = stream
+      // The stream data replaced the provided datafile (which had no configUpdatedAt)
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true); // variant 1 = stream
 
       stream.close();
       await client.shutdown();
@@ -3176,7 +3199,7 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should share a single init promise when concurrent evaluate() calls arrive', async () => {
+    it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled(),
@@ -3185,7 +3208,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) {
-          // Stream returns 502 — triggers retry loop in background
+          // Stream returns 502 — triggers retry loop
           return Promise.resolve(new Response(null, { status: 502 }));
         }
         return Promise.resolve(new Response('', { status: 200 }));
@@ -3200,31 +3223,46 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      // Three concurrent evaluates all trigger lazy initialization.
-      // They share a single init promise that waits for stream confirmation.
+      // Three concurrent evaluates all trigger lazy initialization
       const p1 = client.evaluate('flagA');
       const p2 = client.evaluate('flagA');
       const p3 = client.evaluate('flagA');
 
-      // Advance past the stream init timeout so initialize() resolves
-      // with bundled definitions
+      // Advance past the stream init timeout.
+      // The minimum reconnection gap is 1s, so: attempt at t=0 (fail),
+      // retry at t=1000 (fail, backoff(2) >= 1s), timeout at t=1500.
       await vi.advanceTimersByTimeAsync(1_500);
 
       const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
 
-      // All should resolve using bundled definitions
+      // All should resolve (falling back to bundled after stream timeout)
       expect(r1.value).toBe(true);
       expect(r2.value).toBe(true);
       expect(r3.value).toBe(true);
-      expect(r1.metrics?.source).toBe('embedded');
 
-      // Despite 3 concurrent evaluates, only one stream connection was started
-      // (it may have retried due to 502 errors during the timeout window)
+      // Concurrent callers share the same init promise, so only one retry
+      // loop is started. With 1500ms timeout: attempt at retryCount=0 fails,
+      // minimum gap enforces 1s delay → retry at retryCount=1 fails at t=1000,
+      // backoff(2) >= 1s exceeds remaining timeout → falls back to bundled.
+      // So exactly 2 stream attempts (one loop, two iterations).
       const streamCalls = fetchMock.mock.calls.filter((call) =>
         call[0]?.toString().includes('/v1/stream'),
       );
-      expect(streamCalls.length).toBeGreaterThanOrEqual(1);
+      expect(streamCalls).toHaveLength(2);
+      // Verify only one retry loop: all stream calls should have sequential
+      // X-Retry-Attempt headers (0, 1) from a single loop
+      const h0 = streamCalls[0]?.[1]?.headers as Record<string, string>;
+      const h1 = streamCalls[1]?.[1]?.headers as Record<string, string>;
+      expect(h0['X-Retry-Attempt']).toBe('0');
+      expect(h1['X-Retry-Attempt']).toBe('1');
 
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream error',
+        expect.any(Error),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back',
+      );
       errorSpy.mockRestore();
       warnSpy.mockRestore();
 
