@@ -47,49 +47,6 @@ function parseConfigUpdatedAt(value: unknown): number | undefined {
 
 /**
  * Explicit states for the controller state machine.
- *
- *
- *                    ┌──────┐
- *                    │ idle │
- *                    └──┬───┘
- *           ┌───────────┴──────────────────────────────┐
- *      initialize()                              initialize()
- *       (runtime)                                 (build step)
- *           │                                          │
- *           ▼                                          ▼
- *  ┌─────────────────────┐                      ┌───────────────┐
- *  │ initializing:stream │                      │ build:loading │
- *  └──┬──────────────┬───┘                      └──────┬────────┘
- *     │              │                                 │
- *  success      timeout/fail                           │
- *     │              │                                 ▼
- *     ▼              ▼                          ┌─────────────┐
- *  ┌───────────┐  ┌───────────────────────┐     │ build:ready │
- *  │ streaming │  │ initializing:polling  │     └─────────────┘
- *  └─────┬─────┘  └──┬───────────────┬────┘
- *        │        success        timeout/fail
- *   disconnect       │               │
- *        │           ▼               ▼
- *        │     ┌─────────┐   ┌────────────────────────┐
- *        │     │ polling │   │ initializing:fallback   │
- *        │     └─────────┘   └──┬──────────────────┬──┘
- *        │                   success              fail
- *        │                      │                  │
- *        ▼                      ▼                  ▼
- *  ┌───────────────────────────────────────────────┐
- *  │                   degraded                    │
- *  └───────────────────────┬───────────────────────┘
- *                          │
- *                  stream reconnects
- *                          │
- *                          ▼
- *                    ┌───────────┐
- *                    │ streaming │ (recovery)
- *                    └───────────┘
- *
- *  Any state ──shutdown()──▶ ┌──────────┐
- *                            │ shutdown │
- *                            └──────────┘
  */
 type State =
   | 'idle'
