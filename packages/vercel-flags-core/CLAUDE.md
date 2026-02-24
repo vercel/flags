@@ -148,12 +148,20 @@ The package has conditional exports based on environment:
 
 ## Commands
 
+All commands must be run from the package directory (`packages/vercel-flags-core`):
+
 ```bash
 # Build
 pnpm build
 
-# Test
+# Run all tests
 pnpm test
+
+# Run a single test file
+pnpm vitest --run src/black-box.test.ts
+
+# Run a single test file in watch mode
+pnpm vitest src/black-box.test.ts
 
 # Type check
 pnpm check
@@ -161,6 +169,51 @@ pnpm check
 # Integration tests (requires INTEGRATION_TEST_CONNECTION_STRING)
 pnpm test:integration
 ```
+
+## Test Guidelines (black-box.test.ts)
+
+### Critical rules
+
+- **All tests must use fake timers** unless there is a specific reason to use `vi.useRealTimers()`. The `beforeEach` sets up fake timers; only opt out when testing real async timing.
+- **No stderr leaks**: every `console.warn` and `console.error` the implementation emits must be captured by a spy (`vi.spyOn(console, 'warn').mockImplementation(() => {})`) and asserted. A test that produces stderr output is broken.
+- **Tests should complete in milliseconds**, not seconds. If a test takes ~3s, it's hitting a real timeout instead of advancing fake timers.
+
+### initialize() blocks on stream confirmation
+
+`initialize()` waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs` before resolving, even when bundled data or a provided datafile is available. This means:
+
+- **With fake timers**: call `client.initialize()` (or `client.evaluate()` which triggers lazy init), then `await vi.advanceTimersByTimeAsync(initTimeoutMs)` to trigger the timeout fallback.
+- **With real timers (`vi.useRealTimers()`)**: you MUST push a stream message before awaiting `initialize()`, otherwise it blocks for the real 3s timeout:
+  ```typescript
+  const initPromise = client.initialize();
+  await new Promise((r) => setTimeout(r, 0)); // let stream connect
+  stream.push({ type: 'primed', revision: 42, projectId: 'prj_123', environment: 'production' });
+  await initPromise; // resolves immediately
+  ```
+
+### Prefer evaluate-driven tests over explicit initialize()
+
+Many tests on the `control` branch test that `evaluate()` triggers lazy initialization. Prefer this pattern to test the full public API path:
+```typescript
+const evalPromise = client.evaluate('flagA');
+await vi.advanceTimersByTimeAsync(3_000);
+const result = await evalPromise;
+```
+Only call `initialize()` explicitly when the test specifically needs to verify initialization behavior (e.g., deduplication, timing, init promise resolution).
+
+### Assert console output from the implementation
+
+The implementation logs warnings/errors for specific conditions. Tests must assert these:
+- Stream timeout: `console.warn('@vercel/flags-core: Stream initialization timeout, falling back')`
+- Stream error (e.g., 502): `console.error('@vercel/flags-core: Stream error', expect.any(Error))`
+- 401 fast-fail: `console.error` with auth error (no retry, no timeout wait)
+
+### Do not weaken assertions when adapting tests
+
+When updating tests for new behavior, preserve the strength of existing assertions:
+- Keep exact call count checks (e.g., `expect(streamCalls).toHaveLength(2)`) rather than weakening to `.toBeGreaterThanOrEqual(1)`
+- Keep specific header assertions (e.g., `X-Retry-Attempt` values) rather than removing them
+- Keep `errorSpy`/`warnSpy` assertions rather than dropping them
 
 ## Important Implementation Details
 
