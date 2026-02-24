@@ -13,26 +13,40 @@
         "types": "./dist/index.next-js.d.ts",
         "default": "./dist/index.next-js.js"
       },
-      "types": "./dist/index.default.d.ts",
-      "default": "./dist/index.default.js"
+      "import": {
+        "types": "./dist/index.default.d.ts",
+        "default": "./dist/index.default.js"
+      },
+      "require": {
+        "types": "./dist/index.default.d.cts",
+        "default": "./dist/index.default.cjs"
+      }
     },
     "./openfeature": {
       "next-js": {
         "types": "./dist/openfeature.next-js.d.ts",
         "default": "./dist/openfeature.next-js.js"
       },
-      "types": "./dist/openfeature.default.d.ts",
-      "default": "./dist/openfeature.default.js"
+      "import": {
+        "types": "./dist/openfeature.default.d.ts",
+        "default": "./dist/openfeature.default.js"
+      },
+      "require": {
+        "types": "./dist/openfeature.default.d.cts",
+        "default": "./dist/openfeature.default.cjs"
+      }
     }
   },
   "main": "./dist/index.default.js",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/index.default.d.ts"
+        "dist/index.default.d.ts",
+        "dist/index.default.d.cts"
       ],
       "openfeature": [
-        "dist/openfeature.default.d.ts"
+        "dist/openfeature.default.d.ts",
+        "dist/openfeature.default.d.cts"
       ]
     }
   },
