@@ -317,8 +317,12 @@ export class Controller implements ControllerInterface {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
+      } else if (this.options.polling.enabled) {
+        this.pollingSource.startInterval();
+        void this.pollingSource.poll();
+        this.transition('polling');
       } else {
-        this.startBackgroundUpdates();
+        this.transition('degraded');
       }
       return;
     }
@@ -591,32 +595,6 @@ export class Controller implements ControllerInterface {
     } catch {
       clearTimeout(timeoutId!);
       return false;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Background updates
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Starts background updates (stream or polling) without blocking.
-   * Used when we already have data from provided datafile or bundled definitions.
-   */
-  private startBackgroundUpdates(): void {
-    if (this.options.stream.enabled) {
-      this.transition('initializing:stream');
-      void this.streamSource.start().catch((error) => {
-        if (error instanceof UnauthorizedError) {
-          this.unauthorized = true;
-        }
-      });
-    } else if (this.options.polling.enabled) {
-      // Start interval first so the abort controller exists for the initial poll
-      this.pollingSource.startInterval();
-      void this.pollingSource.poll();
-      this.transition('polling');
-    } else {
-      this.transition('degraded');
     }
   }
 
