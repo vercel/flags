@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default [
   defineConfig({
     entry: ['src/index.default.ts', 'src/openfeature.default.ts'],
-    format: 'esm',
+    format: ['esm', 'cjs'],
     splitting: true,
     sourcemap: true,
     minify: false,
@@ -19,7 +19,7 @@ export default [
   // Next.js-specific entry point (separate config to avoid split types)
   defineConfig({
     entry: ['src/index.next-js.ts', 'src/openfeature.next-js.ts'],
-    format: 'esm',
+    format: ['esm', 'cjs'],
     splitting: true,
     sourcemap: true,
     minify: false,
