@@ -149,7 +149,7 @@ export const FlagSelect = ({
             router.refresh();
           }}
         >
-          <SelectTrigger className="mt-1.5 w-full">
+          <SelectTrigger id={flagKey} className="mt-1.5 w-full">
             <SelectValue placeholder="Select an option" />
           </SelectTrigger>
           <SelectContent>
