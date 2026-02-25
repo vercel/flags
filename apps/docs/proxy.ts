@@ -20,8 +20,6 @@ const internationalizer = createI18nMiddleware(i18n);
 const proxy = async (request: NextRequest, context: NextFetchEvent) => {
   const pathname = request.nextUrl.pathname;
 
-  console.log("ppp", pathname)
-
   // Precompute flags and rewrite homepage
   if (pathname === "/") {
     const code = await precompute(rootFlags);
