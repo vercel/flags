@@ -50,6 +50,10 @@ function isArray(input: unknown): input is unknown[] {
   return Array.isArray(input);
 }
 
+function lower(input: unknown): unknown {
+  return isString(input) ? input.toLowerCase() : input;
+}
+
 function matchTargetList<T>(
   targets: Packed.TargetList,
   params: EvaluationParams<T>,
@@ -191,6 +195,10 @@ function matchConditions<T>(
           return isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
         case Comparator.NOT_ENDS_WITH:
           return isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
+        case Comparator.CONTAINS:
+          return isString(lhs) && isString(rhs) && lhs.includes(rhs);
+        case Comparator.NOT_CONTAINS:
+          return isString(lhs) && isString(rhs) && !lhs.includes(rhs);
         case Comparator.EXISTS:
           return lhs !== undefined && lhs !== null;
         case Comparator.NOT_EXISTS:
@@ -243,6 +251,85 @@ function matchConditions<T>(
           const b = new Date(rhs);
           return a.getTime() > b.getTime();
         }
+
+        // ---- Case-insensitive variants ----
+
+        case Comparator.EQ_CI:
+          return lower(lhs) === lower(rhs);
+        case Comparator.NOT_EQ_CI:
+          return lower(lhs) !== lower(rhs);
+        case Comparator.ONE_OF_CI:
+          return isArray(rhs) && rhs.map(lower).includes(lower(lhs));
+        case Comparator.NOT_ONE_OF_CI:
+          return (
+            isArray(rhs) &&
+            typeof lhs !== 'undefined' &&
+            !rhs.map(lower).includes(lower(lhs))
+          );
+        case Comparator.CONTAINS_ALL_OF_CI: {
+          if (!Array.isArray(rhs) || !Array.isArray(lhs)) return false;
+          const lhsSet = new Set(
+            lhs.filter(isString).map((s) => s.toLowerCase()),
+          );
+          return rhs
+            .filter(isString)
+            .every((item) => lhsSet.has(item.toLowerCase()));
+        }
+        case Comparator.CONTAINS_ANY_OF_CI: {
+          if (!Array.isArray(rhs) || !Array.isArray(lhs)) return false;
+          const rhsSet = new Set(
+            rhs.filter(isString).map((s) => s.toLowerCase()),
+          );
+          return lhs
+            .filter(isString)
+            .some((item) => rhsSet.has(item.toLowerCase()));
+        }
+        case Comparator.CONTAINS_NONE_OF_CI: {
+          if (!Array.isArray(rhs)) return false;
+          if (!Array.isArray(lhs)) return true;
+          const rhsSet = new Set(
+            rhs.filter(isString).map((s) => s.toLowerCase()),
+          );
+          return lhs
+            .filter(isString)
+            .every((item) => !rhsSet.has(item.toLowerCase()));
+        }
+        case Comparator.STARTS_WITH_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            lhs.toLowerCase().startsWith(rhs.toLowerCase())
+          );
+        case Comparator.NOT_STARTS_WITH_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            !lhs.toLowerCase().startsWith(rhs.toLowerCase())
+          );
+        case Comparator.ENDS_WITH_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            lhs.toLowerCase().endsWith(rhs.toLowerCase())
+          );
+        case Comparator.NOT_ENDS_WITH_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            !lhs.toLowerCase().endsWith(rhs.toLowerCase())
+          );
+        case Comparator.CONTAINS_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            lhs.toLowerCase().includes(rhs.toLowerCase())
+          );
+        case Comparator.NOT_CONTAINS_CI:
+          return (
+            isString(lhs) &&
+            isString(rhs) &&
+            !lhs.toLowerCase().includes(rhs.toLowerCase())
+          );
         default: {
           const _x: never = cmpKey; // exhaustive check
           return false;

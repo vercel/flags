@@ -352,6 +352,20 @@ export enum Comparator {
   NOT_ENDS_WITH = '!endsWith',
   /**
    * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs contains rhs as a substring
+   */
+  CONTAINS = 'contains',
+  /**
+   * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs does not contain rhs as a substring
+   */
+  NOT_CONTAINS = '!contains',
+  /**
+   * lhs must be string
    * rhs must be never
    */
   EXISTS = 'ex',
@@ -405,6 +419,87 @@ export enum Comparator {
    * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#date_time_string_format
    */
   AFTER = 'after',
+
+  // ---- Case-insensitive variants ----
+
+  /**
+   * lhs must be string | number
+   * rhs must be string | number
+   * case-insensitive equality check
+   */
+  EQ_CI = 'eq_ci',
+  /**
+   * lhs must be string | number
+   * rhs must be string | number
+   * case-insensitive inequality check
+   */
+  NOT_EQ_CI = '!eq_ci',
+  /**
+   * lhs must be string
+   * rhs must be string[]
+   * case-insensitive one of check
+   */
+  ONE_OF_CI = 'oneOf_ci',
+  /**
+   * lhs must be string
+   * rhs must be string[]
+   * case-insensitive not one of check
+   */
+  NOT_ONE_OF_CI = '!oneOf_ci',
+  /**
+   * lhs must be string[]
+   * rhs must be string[]
+   * case-insensitive contains all of check
+   */
+  CONTAINS_ALL_OF_CI = 'containsAllOf_ci',
+  /**
+   * lhs must be string[]
+   * rhs must be string[]
+   * case-insensitive contains any of check
+   */
+  CONTAINS_ANY_OF_CI = 'containsAnyOf_ci',
+  /**
+   * lhs must be string[]
+   * rhs must be string[]
+   * case-insensitive contains none of check
+   */
+  CONTAINS_NONE_OF_CI = 'containsNoneOf_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive prefix check
+   */
+  STARTS_WITH_CI = 'startsWith_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive negated prefix check
+   */
+  NOT_STARTS_WITH_CI = '!startsWith_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive suffix check
+   */
+  ENDS_WITH_CI = 'endsWith_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive negated suffix check
+   */
+  NOT_ENDS_WITH_CI = '!endsWith_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive substring check
+   */
+  CONTAINS_CI = 'contains_ci',
+  /**
+   * lhs must be string
+   * rhs must be string
+   * case-insensitive negated substring check
+   */
+  NOT_CONTAINS_CI = '!contains_ci',
 }
 
 // -----------------------------------------------------------------------------
