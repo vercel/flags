@@ -506,6 +506,8 @@ export namespace Original {
     lhs: LHS;
     cmp: Comparator;
     rhs: RHS;
+    /** When true, string comparisons are case-insensitive. */
+    ci?: boolean;
   };
 
   export type Rule = {

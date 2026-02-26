@@ -9,9 +9,9 @@ import {
 } from './types';
 import { exhaustivenessCheck } from './utils';
 
-const MAX_REGEX_INPUT_LENGTH = 10_000;
-
 type PathArray = (string | number)[];
+
+const MAX_REGEX_INPUT_LENGTH = 10_000;
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {
     if (acc && key in acc) {
@@ -148,19 +148,23 @@ function matchConditions<T>(
         case Comparator.ONE_OF:
           return isArray(rhs) && rhs.includes(lhs);
         case Comparator.NOT_ONE_OF:
-          // lhs is undefined when the entity value was not provided, in which
+          // lhs would be undefined when the value was not provided, in which
           // case we should not match the rule
-          if (!isArray(rhs) || typeof lhs === 'undefined') return false;
-          return !rhs.includes(lhs);
+          return (
+            isArray(rhs) && typeof lhs !== 'undefined' && !rhs.includes(lhs)
+          );
         case Comparator.CONTAINS_ALL_OF: {
           if (!Array.isArray(rhs) || !Array.isArray(lhs)) return false;
 
           const lhsSet = new Set(lhs.filter(isString));
 
+          // try to use a set if the lhs is a list of strings - O(1)
+          // otherwise we need to iterate over the values - O(n)
           if (lhsSet.size === lhs.length) {
             return rhs.filter(isString).every((item) => lhsSet.has(item));
           }
 
+          // this shouldn't happen since we only allow string[] on the lhs
           return rhs.every((item) => lhs.includes(item));
         }
         case Comparator.CONTAINS_ANY_OF: {
@@ -169,19 +173,26 @@ function matchConditions<T>(
           const rhsSet = new Set(rhs.filter(isString));
           return lhs.some(
             rhsSet.size === rhs.length
-              ? (item) => rhsSet.has(item)
-              : (item) => rhs.includes(item),
+              ? // try to use a set if the rhs is a list of strings - O(1)
+                (item) => rhsSet.has(item)
+              : // otherwise we need to iterate over the values - O(n)
+                (item) => rhs.includes(item),
           );
         }
         case Comparator.CONTAINS_NONE_OF: {
+          // if the rhs is not an array something went wrong and we should not match
           if (!Array.isArray(rhs)) return false;
+
+          // if it's not an array it doesn't contain any of the values
           if (!Array.isArray(lhs)) return true;
 
           const rhsSet = new Set(rhs.filter(isString));
           return lhs.every(
             rhsSet.size === rhs.length
-              ? (item) => !rhsSet.has(item)
-              : (item) => !rhs.includes(item),
+              ? // try to use a set if the rhs is a list of strings - O(1)
+                (item) => !rhsSet.has(item)
+              : // otherwise we need to iterate over the values - O(n)
+                (item) => !rhs.includes(item),
           );
         }
         case Comparator.STARTS_WITH:

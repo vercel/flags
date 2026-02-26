@@ -1905,6 +1905,94 @@ describe('evaluate', () => {
       entities: { user: { id: null } },
       result: false,
     },
+
+    // ---- ci flag is ignored for non-string comparators ----
+
+    {
+      name: `${Comparator.EXISTS} ci ignored (still matches)`,
+      condition: [['user', 'id'], Comparator.EXISTS, undefined, { ci: true }],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_EXISTS} ci ignored (still matches)`,
+      condition: [
+        ['user', 'id'],
+        Comparator.NOT_EXISTS,
+        undefined,
+        { ci: true },
+      ],
+      entities: { user: {} },
+      result: true,
+    },
+    {
+      name: `${Comparator.GT} ci ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.GT, 20, { ci: true }],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.LT} ci ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.LT, 40, { ci: true }],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.GTE} ci ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.GTE, 30, { ci: true }],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.LTE} ci ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.LTE, 30, { ci: true }],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.REGEX} ci ignored (uses raw values)`,
+      condition: [
+        ['user', 'id'],
+        Comparator.REGEX,
+        { type: 'regex', pattern: '^joe', flags: '' },
+        { ci: true },
+      ],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_REGEX} ci ignored (uses raw values)`,
+      condition: [
+        ['user', 'id'],
+        Comparator.NOT_REGEX,
+        { type: 'regex', pattern: '^joe', flags: '' },
+        { ci: true },
+      ],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.BEFORE} ci ignored (date comparison unchanged)`,
+      condition: [
+        ['user', 'createdAt'],
+        Comparator.BEFORE,
+        '2025-01-02',
+        { ci: true },
+      ],
+      entities: { user: { createdAt: '2025-01-01' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.AFTER} ci ignored (date comparison unchanged)`,
+      condition: [
+        ['user', 'createdAt'],
+        Comparator.AFTER,
+        '2024-12-31',
+        { ci: true },
+      ],
+      entities: { user: { createdAt: '2025-01-01' } },
+      result: true,
+    },
   ])('should evaluate comparator $name', ({
     condition,
     entities,
