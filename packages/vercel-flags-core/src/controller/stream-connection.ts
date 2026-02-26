@@ -238,7 +238,11 @@ export async function connectStream(
         if (abortController.signal.aborted) {
           break;
         }
-        console.error('@vercel/flags-core: Stream error', error);
+        // Ping timeout aborts only the per-connection controller; this is
+        // an expected reconnect, not a real error — skip the noisy log.
+        if (!connectionAbort.signal.aborted) {
+          console.error('@vercel/flags-core: Stream error', error);
+        }
         onDisconnect?.();
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
