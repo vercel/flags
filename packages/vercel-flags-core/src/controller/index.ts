@@ -784,16 +784,23 @@ export class Controller implements ControllerInterface {
         : this.state === 'polling'
           ? 'REFRESHING'
           : 'NONE';
+    const mode = this.mode;
     const trackOptions: TrackReadOptions = {
       configOrigin,
       cacheStatus: cacheHadDefinitions ? 'HIT' : 'MISS',
       cacheAction,
       cacheIsBlocking: !cacheHadDefinitions,
       duration: Date.now() - startTime,
+      mode:
+        mode === 'streaming' ? 'stream' : mode === 'polling' ? 'poll' : mode,
     };
     const configUpdatedAt = this.data?.configUpdatedAt;
     if (typeof configUpdatedAt === 'number') {
       trackOptions.configUpdatedAt = configUpdatedAt;
+    }
+    const revision = this.data?.revision;
+    if (typeof revision === 'number') {
+      trackOptions.revision = revision;
     }
     if (isFirstRead) {
       trackOptions.cacheIsFirstRead = true;
