@@ -26,7 +26,7 @@ export interface FlagsConfigReadEvent {
     configUpdatedAt?: number;
     configOrigin?: 'in-memory' | 'embedded' | 'poll' | 'stream' | 'constructor';
     mode?: 'poll' | 'stream' | 'build' | 'offline';
-    revision?: number;
+    revision?: string;
     environment?: string;
   };
 }
@@ -185,7 +185,7 @@ export class UsageTracker {
           event.payload.mode = options.mode;
         }
         if (options.revision !== undefined) {
-          event.payload.revision = options.revision;
+          event.payload.revision = String(options.revision);
         }
       }
 
