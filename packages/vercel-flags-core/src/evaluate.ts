@@ -9,8 +9,9 @@ import {
 } from './types';
 import { exhaustivenessCheck } from './utils';
 
-type PathArray = (string | number)[];
+const MAX_REGEX_INPUT_LENGTH = 10_000;
 
+type PathArray = (string | number)[];
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {
     if (acc && key in acc) {
@@ -51,7 +52,9 @@ function isArray(input: unknown): input is unknown[] {
 }
 
 function lower(input: unknown): unknown {
-  return typeof input === 'string' ? input.toLowerCase() : input;
+  if (typeof input === 'string') return input.toLowerCase();
+  if (Array.isArray(input)) return input.map(lower);
+  return input;
 }
 
 function matchTargetList<T>(
@@ -124,63 +127,44 @@ function matchConditions<T>(
   params: EvaluationParams<T>,
 ): boolean {
   return conditions.every((condition) => {
-    const [lhsAccessor, cmpKey, rhs, options] = condition;
-    const ci = options && 'ci' in options && options.ci === true;
+    const [lhsAccessor, cmpKey, rawRhs, options] = condition;
+    const ci = options !== undefined && options.ci === true;
 
+    // ci is not applicable to segment conditions (segments are internal IDs)
     if (lhsAccessor === Packed.AccessorType.SEGMENT) {
-      return rhs && matchSegmentCondition(cmpKey, rhs, params);
+      return rawRhs && matchSegmentCondition(cmpKey, rawRhs, params);
     }
 
-    const lhs = access(lhsAccessor, params);
+    const rawLhs = access(lhsAccessor, params);
+    const lhs = ci ? lower(rawLhs) : rawLhs;
+    const rhs = ci ? lower(rawRhs) : rawRhs;
+
     try {
       switch (cmpKey) {
         case Comparator.EQ:
-          return ci ? lower(lhs) === lower(rhs) : lhs === rhs;
+          return lhs === rhs;
         case Comparator.NOT_EQ:
-          return ci ? lower(lhs) !== lower(rhs) : lhs !== rhs;
+          return lhs !== rhs;
         case Comparator.ONE_OF:
-          if (!isArray(rhs)) return false;
-          return ci ? rhs.map(lower).includes(lower(lhs)) : rhs.includes(lhs);
+          return isArray(rhs) && rhs.includes(lhs);
         case Comparator.NOT_ONE_OF:
+          // lhs is undefined when the entity value was not provided, in which
+          // case we should not match the rule
           if (!isArray(rhs) || typeof lhs === 'undefined') return false;
-          return ci ? !rhs.map(lower).includes(lower(lhs)) : !rhs.includes(lhs);
+          return !rhs.includes(lhs);
         case Comparator.CONTAINS_ALL_OF: {
           if (!Array.isArray(rhs) || !Array.isArray(lhs)) return false;
 
-          const lhsSet = new Set(
-            ci
-              ? lhs.filter(isString).map((s) => s.toLowerCase())
-              : lhs.filter(isString),
-          );
+          const lhsSet = new Set(lhs.filter(isString));
 
           if (lhsSet.size === lhs.length) {
-            return rhs
-              .filter(isString)
-              .every((item) => lhsSet.has(ci ? item.toLowerCase() : item));
+            return rhs.filter(isString).every((item) => lhsSet.has(item));
           }
 
-          return ci
-            ? rhs.every((item) =>
-                lhs.some(
-                  (l) =>
-                    isString(l) &&
-                    isString(item) &&
-                    l.toLowerCase() === item.toLowerCase(),
-                ),
-              )
-            : rhs.every((item) => lhs.includes(item));
+          return rhs.every((item) => lhs.includes(item));
         }
         case Comparator.CONTAINS_ANY_OF: {
           if (!Array.isArray(rhs) || !Array.isArray(lhs)) return false;
-
-          if (ci) {
-            const rhsSet = new Set(
-              rhs.filter(isString).map((s) => s.toLowerCase()),
-            );
-            return lhs
-              .filter(isString)
-              .some((item) => rhsSet.has(item.toLowerCase()));
-          }
 
           const rhsSet = new Set(rhs.filter(isString));
           return lhs.some(
@@ -193,15 +177,6 @@ function matchConditions<T>(
           if (!Array.isArray(rhs)) return false;
           if (!Array.isArray(lhs)) return true;
 
-          if (ci) {
-            const rhsSet = new Set(
-              rhs.filter(isString).map((s) => s.toLowerCase()),
-            );
-            return lhs
-              .filter(isString)
-              .every((item) => !rhsSet.has(item.toLowerCase()));
-          }
-
           const rhsSet = new Set(rhs.filter(isString));
           return lhs.every(
             rhsSet.size === rhs.length
@@ -210,91 +185,69 @@ function matchConditions<T>(
           );
         }
         case Comparator.STARTS_WITH:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                lhs.toLowerCase().startsWith(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && lhs.startsWith(rhs);
+          return isString(lhs) && isString(rhs) && lhs.startsWith(rhs);
         case Comparator.NOT_STARTS_WITH:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                !lhs.toLowerCase().startsWith(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && !lhs.startsWith(rhs);
+          return isString(lhs) && isString(rhs) && !lhs.startsWith(rhs);
         case Comparator.ENDS_WITH:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                lhs.toLowerCase().endsWith(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
+          return isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
         case Comparator.NOT_ENDS_WITH:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                !lhs.toLowerCase().endsWith(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
+          return isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
         case Comparator.CONTAINS:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                lhs.toLowerCase().includes(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && lhs.includes(rhs);
+          return isString(lhs) && isString(rhs) && lhs.includes(rhs);
         case Comparator.NOT_CONTAINS:
-          return ci
-            ? isString(lhs) &&
-                isString(rhs) &&
-                !lhs.toLowerCase().includes(rhs.toLowerCase())
-            : isString(lhs) && isString(rhs) && !lhs.includes(rhs);
+          return isString(lhs) && isString(rhs) && !lhs.includes(rhs);
         case Comparator.EXISTS:
-          return lhs !== undefined && lhs !== null;
+          return rawLhs !== undefined && rawLhs !== null;
         case Comparator.NOT_EXISTS:
-          return lhs === undefined || lhs === null;
+          return rawLhs === undefined || rawLhs === null;
         case Comparator.GT:
           // NaN will return false for any comparisons
-          if (lhs === null || lhs === undefined) return false;
-          return (isNumber(rhs) || isString(rhs)) && lhs > rhs;
+          if (rawLhs === null || rawLhs === undefined) return false;
+          return (isNumber(rawRhs) || isString(rawRhs)) && rawLhs > rawRhs;
         case Comparator.GTE:
-          if (lhs === null || lhs === undefined) return false;
-          return (isNumber(rhs) || isString(rhs)) && lhs >= rhs;
+          if (rawLhs === null || rawLhs === undefined) return false;
+          return (isNumber(rawRhs) || isString(rawRhs)) && rawLhs >= rawRhs;
         case Comparator.LT:
-          if (lhs === null || lhs === undefined) return false;
-          return (isNumber(rhs) || isString(rhs)) && lhs < rhs;
+          if (rawLhs === null || rawLhs === undefined) return false;
+          return (isNumber(rawRhs) || isString(rawRhs)) && rawLhs < rawRhs;
         case Comparator.LTE:
-          if (lhs === null || lhs === undefined) return false;
-          return (isNumber(rhs) || isString(rhs)) && lhs <= rhs;
+          if (rawLhs === null || rawLhs === undefined) return false;
+          return (isNumber(rawRhs) || isString(rawRhs)) && rawLhs <= rawRhs;
         case Comparator.REGEX:
           if (
-            isString(lhs) &&
-            typeof rhs === 'object' &&
-            !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            isString(rawLhs) &&
+            rawLhs.length <= MAX_REGEX_INPUT_LENGTH &&
+            typeof rawRhs === 'object' &&
+            !Array.isArray(rawRhs) &&
+            rawRhs?.type === 'regex'
           ) {
-            return new RegExp(rhs.pattern, rhs.flags).test(lhs);
+            return new RegExp(rawRhs.pattern, rawRhs.flags).test(rawLhs);
           }
           return false;
 
         case Comparator.NOT_REGEX:
           if (
-            isString(lhs) &&
-            typeof rhs === 'object' &&
-            !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            isString(rawLhs) &&
+            rawLhs.length <= MAX_REGEX_INPUT_LENGTH &&
+            typeof rawRhs === 'object' &&
+            !Array.isArray(rawRhs) &&
+            rawRhs?.type === 'regex'
           ) {
-            return !new RegExp(rhs.pattern, rhs.flags).test(lhs);
+            return !new RegExp(rawRhs.pattern, rawRhs.flags).test(rawLhs);
           }
           return false;
         case Comparator.BEFORE: {
-          if (!isString(lhs) || !isString(rhs)) return false;
-          const a = new Date(lhs);
-          const b = new Date(rhs);
+          if (!isString(rawLhs) || !isString(rawRhs)) return false;
+          const a = new Date(rawLhs);
+          const b = new Date(rawRhs);
           // if any date fails to parse getTime will return NaN, which will cause
           // comparisons to fail.
           return a.getTime() < b.getTime();
         }
         case Comparator.AFTER: {
-          if (!isString(lhs) || !isString(rhs)) return false;
-          const a = new Date(lhs);
-          const b = new Date(rhs);
+          if (!isString(rawLhs) || !isString(rawRhs)) return false;
+          const a = new Date(rawLhs);
+          const b = new Date(rawRhs);
           return a.getTime() > b.getTime();
         }
         default: {
