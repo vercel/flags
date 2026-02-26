@@ -1728,7 +1728,6 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const client = createClient(sdkKey, {
@@ -1762,15 +1761,10 @@ describe('Controller (black-box)', () => {
       const result2 = await client.evaluate('flagA');
       expect(result2.metrics?.connectionState).toBe('disconnected');
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Ping timeout, reconnecting',
-      );
-
       // Should have attempted reconnection
       expect(streamCount).toBeGreaterThanOrEqual(2);
 
       await client.shutdown();
-      warnSpy.mockRestore();
       errorSpy.mockRestore();
     });
 

@@ -107,7 +107,6 @@ export async function connectStream(
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
-          console.warn('@vercel/flags-core: Ping timeout, reconnecting');
           responseBody?.cancel().catch(() => {});
           connectionAbort.abort();
         }, PING_TIMEOUT_MS);

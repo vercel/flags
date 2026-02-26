@@ -538,7 +538,6 @@ describe('connectStream', () => {
     afterEach(() => vi.useRealTimers());
 
     it('should abort connection when no messages received within ping timeout', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       let requestCount = 0;
 
       fetchMock.mockImplementation((_input, init) => {
@@ -576,20 +575,15 @@ describe('connectStream', () => {
       await vi.advanceTimersByTimeAsync(1_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Ping timeout, reconnecting',
-      );
       expect(onDisconnect).toHaveBeenCalled();
 
       // Should have attempted reconnection
       expect(requestCount).toBeGreaterThanOrEqual(2);
 
       abortController.abort();
-      warnSpy.mockRestore();
     });
 
     it('should reset timeout on each ping', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       let streamController: ReadableStreamDefaultController<Uint8Array>;
 
       fetchMock.mockImplementation((_input, init) =>
@@ -625,16 +619,13 @@ describe('connectStream', () => {
       }
 
       // 150s total elapsed but no timeout because pings kept resetting it
-      expect(warnSpy).not.toHaveBeenCalledWith(
-        '@vercel/flags-core: Ping timeout, reconnecting',
-      );
+      // Verify no reconnection was attempted (still on the original connection)
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       abortController.abort();
-      warnSpy.mockRestore();
     });
 
     it('should not start timeout before initial data received', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       fetchMock.mockImplementation((_input, init) =>
@@ -661,16 +652,14 @@ describe('connectStream', () => {
       await vi.advanceTimersByTimeAsync(90_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(warnSpy).not.toHaveBeenCalledWith(
-        '@vercel/flags-core: Ping timeout, reconnecting',
-      );
+      // No reconnection should have been triggered (timeout only starts after initial data)
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       abortController.abort();
       await expect(promise).rejects.toThrow(
         'stream: aborted before receiving data',
       );
 
-      warnSpy.mockRestore();
       errorSpy.mockRestore();
     });
   });
@@ -891,7 +880,6 @@ describe('connectStream', () => {
 
     it('should reset ping timeout on primed message', async () => {
       vi.useFakeTimers();
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       let streamController: ReadableStreamDefaultController<Uint8Array>;
 
       fetchMock.mockImplementation((_input, init) =>
@@ -940,12 +928,10 @@ describe('connectStream', () => {
       }
 
       // 120s elapsed but no timeout because pings kept resetting it
-      expect(warnSpy).not.toHaveBeenCalledWith(
-        '@vercel/flags-core: Ping timeout, reconnecting',
-      );
+      // Verify no reconnection was attempted (still on the original connection)
+      expect(fetchMock).toHaveBeenCalledTimes(1);
 
       abortController.abort();
-      warnSpy.mockRestore();
       vi.useRealTimers();
     });
   });
