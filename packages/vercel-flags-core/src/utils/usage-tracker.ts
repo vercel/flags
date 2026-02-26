@@ -285,6 +285,7 @@ export class UsageTracker {
         debugLog(
           '@vercel/flags-core: Failed to send events:',
           response.statusText,
+          await response.text(),
         );
         this.requeue(eventsToSend);
       }
