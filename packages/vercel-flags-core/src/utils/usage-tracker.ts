@@ -18,13 +18,16 @@ export interface FlagsConfigReadEvent {
     region?: string;
     invocationHost?: string;
     vercelRequestId?: string;
-    cacheStatus?: 'HIT' | 'MISS' | 'BYPASS';
+    cacheStatus?: 'HIT' | 'MISS' | 'BYPASS' | 'STALE';
     cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
     cacheIsBlocking?: boolean;
     cacheIsFirstRead?: boolean;
     duration?: number;
     configUpdatedAt?: number;
-    configOrigin?: 'in-memory' | 'embedded';
+    configOrigin?: 'in-memory' | 'embedded' | 'poll' | 'stream' | 'constructor';
+    mode?: 'poll' | 'stream' | 'build' | 'offline';
+    revision?: number;
+    environment?: string;
   };
 }
 
@@ -91,6 +94,10 @@ export interface TrackReadOptions {
   duration?: number;
   /** Timestamp when the config was last updated */
   configUpdatedAt?: number;
+  /** The mode the SDK is operating in */
+  mode?: 'poll' | 'stream' | 'build' | 'offline';
+  /** Revision of the config */
+  revision?: number;
 }
 
 /**
@@ -174,6 +181,18 @@ export class UsageTracker {
         if (options.configUpdatedAt !== undefined) {
           event.payload.configUpdatedAt = options.configUpdatedAt;
         }
+        if (options.mode !== undefined) {
+          event.payload.mode = options.mode;
+        }
+        if (options.revision !== undefined) {
+          event.payload.revision = options.revision;
+        }
+      }
+
+      const environment =
+        process.env.VERCEL_ENV || process.env.NODE_ENV || undefined;
+      if (environment) {
+        event.payload.environment = environment;
       }
 
       this.batcher.events.push(event);
