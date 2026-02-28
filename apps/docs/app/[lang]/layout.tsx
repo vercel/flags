@@ -7,7 +7,7 @@ import { basePath } from "@/geistdocs";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { cn } from "@/lib/utils";
 import { translations } from "@/geistdocs";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
    metadataBase: new URL("https://flags-sdk.dev"),
