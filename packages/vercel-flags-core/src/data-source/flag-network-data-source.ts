@@ -262,6 +262,22 @@ export class FlagNetworkDataSource implements DataSource {
       sdkKey: this.options.sdkKey,
       host: this.host,
     });
+
+    this.preconnect();
+  }
+
+  private preconnect(): void {
+    if (this.options.buildStep) return;
+
+    void this.options
+      .fetch(`${this.host}/v1/datafile`, {
+        method: 'HEAD',
+        headers: {
+          Authorization: `Bearer ${this.options.sdkKey}`,
+          'User-Agent': `VercelFlagsCore/${version}`,
+        },
+      })
+      .catch(() => {});
   }
 
   // ---------------------------------------------------------------------------

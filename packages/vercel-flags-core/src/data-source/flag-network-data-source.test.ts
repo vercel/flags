@@ -25,6 +25,9 @@ import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 let ingestRequests: { body: unknown; headers: Headers }[] = [];
 
 const server = setupServer(
+  http.head('https://flags.vercel.com/v1/datafile', () => {
+    return new HttpResponse(null, { status: 200 });
+  }),
   http.post('https://flags.vercel.com/v1/ingest', async ({ request }) => {
     ingestRequests.push({
       body: await request.json(),
@@ -2064,6 +2067,116 @@ describe('FlagNetworkDataSource', () => {
       expect(result.definitions).toEqual({ version: 'newer' });
 
       await dataSource.shutdown();
+    });
+  });
+
+  describe('preconnect', () => {
+    it('should fire HEAD request with correct headers during construction', async () => {
+      let headRequest: { url: string; headers: Headers } | undefined;
+
+      server.use(
+        http.head('https://flags.vercel.com/v1/datafile', ({ request }) => {
+          headRequest = { url: request.url, headers: request.headers };
+          return new HttpResponse(null, { status: 200 });
+        }),
+      );
+
+      new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: false,
+      });
+
+      await vi.waitFor(() => {
+        expect(headRequest).toBeDefined();
+      });
+
+      expect(headRequest!.url).toBe('https://flags.vercel.com/v1/datafile');
+      expect(headRequest!.headers.get('Authorization')).toBe(
+        'Bearer vf_test_key',
+      );
+      expect(headRequest!.headers.get('User-Agent')).toMatch(
+        /^VercelFlagsCore\//,
+      );
+    });
+
+    it('should not fire during build step', async () => {
+      let headRequestFired = false;
+
+      server.use(
+        http.head('https://flags.vercel.com/v1/datafile', () => {
+          headRequestFired = true;
+          return new HttpResponse(null, { status: 200 });
+        }),
+      );
+
+      process.env.CI = '1';
+
+      new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: false,
+      });
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(headRequestFired).toBe(false);
+    });
+
+    it('should use custom fetch function when provided', async () => {
+      let customFetchCalled = false;
+
+      const customFetch: typeof globalThis.fetch = async (input, init) => {
+        if (init?.method === 'HEAD') {
+          customFetchCalled = true;
+        }
+        return globalThis.fetch(input, init);
+      };
+
+      new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: false,
+        fetch: customFetch,
+      });
+
+      await vi.waitFor(() => {
+        expect(customFetchCalled).toBe(true);
+      });
+    });
+
+    it('should silently ignore failures', async () => {
+      server.use(
+        http.head('https://flags.vercel.com/v1/datafile', () => {
+          return HttpResponse.error();
+        }),
+      );
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const dataSource = new FlagNetworkDataSource({
+        sdkKey: 'vf_test_key',
+        stream: false,
+        polling: false,
+        datafile: {
+          projectId: 'test',
+          definitions: {
+            testFlag: {
+              environments: { production: 0 },
+              variants: [false, true],
+            },
+          },
+          environment: 'production',
+        },
+      });
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      await dataSource.initialize();
+      const result = await dataSource.read();
+      expect(result.definitions).toBeDefined();
+
+      errorSpy.mockRestore();
     });
   });
 });
