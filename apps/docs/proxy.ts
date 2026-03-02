@@ -1,4 +1,3 @@
-import { precompute } from "flags/next";
 import { createI18nMiddleware } from "fumadocs-core/i18n/middleware";
 import { isMarkdownPreferred, rewritePath } from "fumadocs-core/negotiation";
 import {
@@ -6,7 +5,6 @@ import {
   type NextRequest,
   NextResponse,
 } from "next/server";
-import { rootFlags } from "@/flags";
 import { i18n } from "@/lib/geistdocs/i18n";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 
@@ -15,16 +13,12 @@ const { rewrite: rewriteLLM } = rewritePath(
   `/${i18n.defaultLanguage}/llms.mdx/*path`
 );
 
+const MDX_EXTENSION_PATTERN = /\.mdx?$/;
+
 const internationalizer = createI18nMiddleware(i18n);
 
-const proxy = async (request: NextRequest, context: NextFetchEvent) => {
+const proxy = (request: NextRequest, context: NextFetchEvent) => {
   const pathname = request.nextUrl.pathname;
-
-  // Precompute flags and rewrite homepage
-  if (pathname === "/") {
-    const code = await precompute(rootFlags);
-    return NextResponse.rewrite(new URL(`/${i18n.defaultLanguage}/home/${code}`, request.url));
-  }
 
   // Track llms.txt requests
   if (pathname === "/llms.txt") {
@@ -45,7 +39,7 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
       pathname.startsWith("/docs/")) &&
     (pathname.endsWith(".md") || pathname.endsWith(".mdx"))
   ) {
-    const stripped = pathname.replace(/\.mdx?$/, "");
+    const stripped = pathname.replace(MDX_EXTENSION_PATTERN, "");
     const result =
       stripped === "/docs"
         ? `/${i18n.defaultLanguage}/llms.mdx`
@@ -87,7 +81,7 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
 export const config = {
   // Matcher ignoring `/_next/`, `/api/`, static assets, favicon, sitemap, robots, etc.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
 

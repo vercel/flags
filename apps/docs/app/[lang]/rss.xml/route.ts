@@ -2,18 +2,11 @@ import { Feed } from "feed";
 import type { NextRequest } from "next/server";
 import { title } from "@/geistdocs";
 import { source } from "@/lib/geistdocs/source";
-import { translations } from "@/geistdocs";
 
 const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
 const baseUrl = `${protocol}://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
 
 export const revalidate = false;
-
-export const dynamicParams = false;
-export const generateStaticParams = async () => {
-  const langs = Object.keys(translations);
-  return langs.map((lang) => ({ lang }));
-};
 
 export const GET = async (
   _req: NextRequest,
@@ -34,7 +27,7 @@ export const GET = async (
       title: page.data.title,
       description: page.data.description,
       link: `${baseUrl}${page.url}`,
-      date: new Date(),
+      date: new Date(page.data.lastModified ?? new Date()),
       author: [
         {
           name: "Vercel",

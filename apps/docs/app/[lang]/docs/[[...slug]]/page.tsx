@@ -16,11 +16,6 @@ import { OpenInChat } from "@/components/geistdocs/open-in-chat";
 import { ScrollTop } from "@/components/geistdocs/scroll-top";
 import { Separator } from "@/components/ui/separator";
 import { getLLMText, getPageImage, source } from "@/lib/geistdocs/source";
-import { IframeBrowser } from "@/components/custom/iframe-browser";
-import { LearnMore } from "@/components/custom/learn-more";
-import { ProviderList } from "@/components/custom/provider-list";
-import { ThemeAwareImage } from "@/components/custom/theme-aware-image";
-import { ExternalLinkIcon } from "lucide-react";
 
 const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
   const { slug, lang } = await params;
@@ -60,11 +55,6 @@ const Page = async ({ params }: PageProps<"/[lang]/docs/[[...slug]]">) => {
             a: createRelativeLink(source, page),
 
             // Add your custom components here
-            IframeBrowser,
-            LearnMore,
-            ProviderList,
-            ThemeAwareImage,
-            ExternalSmall: ExternalLinkIcon,
           })}
         />
       </DocsBody>
