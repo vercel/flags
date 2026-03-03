@@ -1,5 +1,5 @@
-import type { NextRequest } from "next/server";
-import { source } from "@/lib/geistdocs/source";
+import type { NextRequest } from 'next/server';
+import { source } from '@/lib/geistdocs/source';
 
 export const revalidate = false;
 
@@ -30,7 +30,7 @@ function buildTree(
       product?: string;
       lastModified?: Date;
     };
-  }>
+  }>,
 ): PageNode[] {
   const root: PageNode[] = [];
   const map = new Map<string, PageNode>();
@@ -40,24 +40,24 @@ function buildTree(
   for (const page of sorted) {
     const node: PageNode = {
       title: page.data.title,
-      description: page.data.description ?? "",
+      description: page.data.description ?? '',
       url: page.url,
       type: page.data.type,
       summary: page.data.summary,
       prerequisites: page.data.prerequisites,
       product: page.data.product,
       lastmod: page.data.lastModified
-        ? page.data.lastModified.toISOString().split("T")[0]
+        ? page.data.lastModified.toISOString().split('T')[0]
         : undefined,
       children: [],
     };
     map.set(page.url, node);
 
-    const segments = page.url.split("/").filter(Boolean);
+    const segments = page.url.split('/').filter(Boolean);
     if (segments.length <= 1) {
       root.push(node);
     } else {
-      const parentUrl = `/${segments.slice(0, -1).join("/")}`;
+      const parentUrl = `/${segments.slice(0, -1).join('/')}`;
       const parent = map.get(parentUrl);
       if (parent) {
         parent.children.push(node);
@@ -74,16 +74,16 @@ function inferDocType(url: string, explicitType?: string): string {
   if (explicitType) {
     return explicitType.charAt(0).toUpperCase() + explicitType.slice(1);
   }
-  if (url.includes("/getting-started")) {
-    return "Guide";
+  if (url.includes('/getting-started')) {
+    return 'Guide';
   }
-  if (url.includes("/reference")) {
-    return "Reference";
+  if (url.includes('/reference')) {
+    return 'Reference';
   }
-  if (url.includes("/guides/")) {
-    return "Guide";
+  if (url.includes('/guides/')) {
+    return 'Guide';
   }
-  return "Conceptual";
+  return 'Conceptual';
 }
 
 function extractTopics(url: string, product?: string): string[] {
@@ -93,8 +93,8 @@ function extractTopics(url: string, product?: string): string[] {
   }
 
   const segments = url
-    .replace(DOCS_PREFIX_PATTERN, "")
-    .split("/")
+    .replace(DOCS_PREFIX_PATTERN, '')
+    .split('/')
     .filter(Boolean);
 
   for (const segment of segments) {
@@ -114,15 +114,15 @@ function truncateToWords(text: string, maxWords: number): string {
   if (words.length <= maxWords) {
     return text;
   }
-  return `${words.slice(0, maxWords).join(" ")}...`;
+  return `${words.slice(0, maxWords).join(' ')}...`;
 }
 
 function renderNode(
   node: PageNode,
   indent: number,
-  parentTitle?: string
+  parentTitle?: string,
 ): string {
-  const prefix = "    ".repeat(indent);
+  const prefix = '    '.repeat(indent);
   const lines: string[] = [];
 
   const segments: string[] = [];
@@ -139,7 +139,7 @@ function renderNode(
 
   const prereqs =
     node.prerequisites && node.prerequisites.length > 0
-      ? node.prerequisites.join(", ")
+      ? node.prerequisites.join(', ')
       : parentTitle;
   if (prereqs) {
     segments.push(`Prerequisites: ${prereqs}`);
@@ -147,24 +147,24 @@ function renderNode(
 
   const topics = extractTopics(node.url, node.product);
   if (topics.length > 0) {
-    segments.push(`Topics: ${topics.join(", ")}`);
+    segments.push(`Topics: ${topics.join(', ')}`);
   }
 
   lines.push(
-    `${prefix}- [${node.title}](${node.url}) | ${segments.join(" | ")}`
+    `${prefix}- [${node.title}](${node.url}) | ${segments.join(' | ')}`,
   );
 
   for (const child of node.children) {
-    lines.push("");
+    lines.push('');
     lines.push(renderNode(child, indent + 1, node.title));
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export const GET = async (
   _req: NextRequest,
-  { params }: RouteContext<"/[lang]/sitemap.md">
+  { params }: RouteContext<'/[lang]/sitemap.md'>,
 ) => {
   const { lang } = await params;
   const pages = source.getPages(lang);
@@ -188,11 +188,11 @@ It is not intended to replace individual docs.
 
 `;
 
-  const body = tree.map((node) => renderNode(node, 0)).join("\n\n");
+  const body = tree.map((node) => renderNode(node, 0)).join('\n\n');
 
   return new Response(header + body, {
     headers: {
-      "Content-Type": "text/markdown",
+      'Content-Type': 'text/markdown',
     },
   });
 };
