@@ -844,7 +844,7 @@ describe('evaluate', () => {
       condition: ['segment', Comparator.NOT_ONE_OF, ['nonexistent_segment']],
       entities: { user: { name: 'Joe' } },
       segments: {},
-      result: true,
+      result: false,
     },
 
     // CONTAINS_ALL_OF
