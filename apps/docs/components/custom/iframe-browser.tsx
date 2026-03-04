@@ -85,7 +85,10 @@ export function IframeBrowser({
           <TooltipContent>Open in new tab</TooltipContent>
         </Tooltip>
       </div>
-      <div className="relative w-full bg-white dark:bg-black" style={{ paddingTop: '56.25%' }}>
+      <div
+        className="relative w-full bg-white dark:bg-black"
+        style={{ paddingTop: '56.25%' }}
+      >
         <iframe
           title="Embedded Content"
           key={key}
