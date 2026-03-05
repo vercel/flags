@@ -56,7 +56,7 @@ function lower<T>(input: T): T {
   return input;
 }
 
-const CI_COMPARATORS: ReadonlySet<Comparator> = new Set([
+const IGNORE_CASE_COMPARATORS: ReadonlySet<Comparator> = new Set([
   Comparator.EQ,
   Comparator.NOT_EQ,
   Comparator.ONE_OF,
@@ -143,22 +143,23 @@ function matchConditions<T>(
 ): boolean {
   return conditions.every((condition) => {
     const [lhsAccessor, cmpKey, rawRhs, options] = condition;
-    const ci =
-      ((typeof options === "string" && options.includes("i")) ||
-        (typeof options === 'object' &&
-          options !== null &&
-          options.i === true)) &&
-      CI_COMPARATORS.has(cmpKey);
+    const hasIgnoreCaseFlag =
+      typeof options === 'string' && options.includes('i');
+    const hasIgnoreCaseOption =
+      typeof options === 'object' && options !== null && options.i === true;
+    const ignoreCase =
+      IGNORE_CASE_COMPARATORS.has(cmpKey) &&
+      (hasIgnoreCaseFlag || hasIgnoreCaseOption);
 
-    // ci is not applicable to segment conditions (segments are internal IDs)
+    // ignoreCase is not applicable to segment conditions (segments are internal IDs)
     if (lhsAccessor === Packed.AccessorType.SEGMENT) {
       return rawRhs && matchSegmentCondition(cmpKey, rawRhs, params);
     }
 
-    const lhs = ci
+    const lhs = ignoreCase
       ? lower(access(lhsAccessor, params))
       : access(lhsAccessor, params);
-    const rhs = ci ? lower(rawRhs) : rawRhs;
+    const rhs = ignoreCase ? lower(rawRhs) : rawRhs;
 
     try {
       switch (cmpKey) {
