@@ -29,11 +29,11 @@ import { createClient } from '@vercel/flags-core';
 import { createVercelAdapter } from '@flags-sdk/vercel';
 
 const vercelFlagsClient = createClient(process.env.FLAGS_SDK_KEY);
-const adapter = createVercelAdapter(vercelFlagsClient);
+const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter,
+  adapter: vercelAdapter(),
 });
 ```
 
