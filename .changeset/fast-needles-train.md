@@ -2,4 +2,5 @@
 "@vercel/flags-core": minor
 ---
 
-Added new comparators: CONTAINS & NOT_CONTAINS plus introcuded case insensitive versions of all string based comparators
+- adds CONTAINS & NOT_CONTAINS comparators
+- adds case insensitive versions of all string based comparators
