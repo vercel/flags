@@ -858,13 +858,14 @@ importers:
         version: 1.6.1(@types/node@20.11.17)(lightningcss@1.30.2)
 
   packages/adapter-vercel:
+    dependencies:
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../vercel-flags-core
     devDependencies:
       '@types/node':
         specifier: 20.11.17
         version: 20.11.17
-      '@vercel/flags-core':
-        specifier: workspace:*
-        version: link:../vercel-flags-core
       flags:
         specifier: workspace:*
         version: link:../flags
