@@ -107,7 +107,7 @@ function matchSegmentCondition<T>(
       return segmentIds.every((segmentId) => {
         const segment = params.segments?.[segmentId];
         if (!segment) return false;
-        return matchSegment<T>(segment, params);
+        return !matchSegment<T>(segment, params);
       });
     }
     default:

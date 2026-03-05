@@ -653,6 +653,7 @@ describe('evaluate', () => {
     name: string;
     condition: Packed.Condition;
     entities: Record<string, unknown> | undefined;
+    segments?: Record<string, Packed.Segment>;
     result: boolean;
   }>([
     // EQ (string)
@@ -752,6 +753,97 @@ describe('evaluate', () => {
       name: `${Comparator.NOT_ONE_OF} unset`,
       condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2']],
       entities: {},
+      result: false,
+    },
+
+    // NOT_EQ (segment)
+    {
+      name: `${Comparator.NOT_EQ} segment match`,
+      condition: ['segment', Comparator.NOT_EQ, 'segment1'],
+      entities: { user: { name: 'Jim' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_EQ} segment miss`,
+      condition: ['segment', Comparator.NOT_EQ, 'segment1'],
+      entities: { user: { name: 'Joe' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: false,
+    },
+
+    // NOT_ONE_OF (segment)
+    {
+      name: `${Comparator.NOT_ONE_OF} segment match`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['segment1', 'segment2']],
+      entities: { user: { name: 'Jim' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+        segment2: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Alice']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} segment miss`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['segment1', 'segment2']],
+      entities: { user: { name: 'Joe' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+        segment2: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Alice']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} segment nonexistent`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['nonexistent_segment']],
+      entities: { user: { name: 'Joe' } },
+      segments: {},
       result: false,
     },
 
@@ -1315,7 +1407,12 @@ describe('evaluate', () => {
       entities: { user: {} },
       result: false,
     },
-  ])('should evaluate comparator $name', ({ condition, entities, result }) => {
+  ])('should evaluate comparator $name', ({
+    condition,
+    entities,
+    segments,
+    result,
+  }) => {
     expect(
       evaluate({
         definition: {
@@ -1330,6 +1427,7 @@ describe('evaluate', () => {
         } satisfies Packed.FlagDefinition,
         environment: 'production',
         entities,
+        segments,
       }),
     ).toEqual({
       value: result,
