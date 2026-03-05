@@ -106,12 +106,21 @@ describe('Controller (black-box)', () => {
     vi.mocked(readBundledDefinitions).mockReset();
     vi.mocked(internalReportValue).mockReset();
     fetchMock.mockReset();
+    // Default: handle /v1/ingest so the retry backoff setTimeout doesn't
+    // block under fake timers. Individual tests override with their own
+    // mockImplementation when needed.
+    fetchMock.mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+      return undefined as unknown as Promise<Response>;
+    });
     // Reset env vars that affect build step detection
     delete process.env.CI;
     delete process.env.NEXT_PHASE;
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     process.env = { ...originalEnv };
   });
@@ -267,6 +276,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -310,6 +320,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -573,6 +584,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return Promise.resolve(new Response(body, { status: 200 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -623,6 +635,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -664,6 +677,7 @@ describe('Controller (black-box)', () => {
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -700,6 +714,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return Promise.resolve(new Response(null, { status: 502 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -742,6 +757,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return Promise.resolve(new Response(null, { status: 401 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -803,6 +819,7 @@ describe('Controller (black-box)', () => {
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -853,6 +870,7 @@ describe('Controller (black-box)', () => {
           });
           return Promise.resolve(new Response(body, { status: 200 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -885,6 +903,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           return Promise.resolve(Response.json(datafile));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -926,6 +945,7 @@ describe('Controller (black-box)', () => {
           pollCount++;
           return Promise.resolve(Response.json(datafile));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -982,6 +1002,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1161,6 +1182,7 @@ describe('Controller (black-box)', () => {
             Response.json(makeBundled({ projectId: 'polled' })),
           );
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1303,6 +1325,7 @@ describe('Controller (black-box)', () => {
           pollCount++;
           return Promise.resolve(Response.json(makeBundled()));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1333,6 +1356,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return stream.response;
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1402,6 +1426,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return stream.response;
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1446,6 +1471,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return stream.response;
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1498,6 +1524,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return stream.response;
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1549,6 +1576,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           return stream.response;
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -1618,6 +1646,7 @@ describe('Controller (black-box)', () => {
           pollCount++;
           return Promise.resolve(Response.json(makeBundled()));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2192,6 +2221,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           return Promise.resolve(Response.json(fetchedDatafile));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2227,6 +2257,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           return Promise.resolve(new Response(null, { status: 500 }));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2249,6 +2280,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2459,6 +2491,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2550,6 +2583,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2604,6 +2638,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2659,6 +2694,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2714,6 +2750,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -2757,6 +2794,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -3085,6 +3123,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -3124,6 +3163,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -3202,6 +3242,7 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
@@ -3381,6 +3422,7 @@ describe('Controller (black-box)', () => {
           // Second fetch succeeds
           return Promise.resolve(Response.json(makeBundled()));
         }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 

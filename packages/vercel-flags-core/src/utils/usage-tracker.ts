@@ -39,9 +39,9 @@ interface EventBatcher {
   pending: null | Promise<void>;
 }
 
+const MAX_RETRIES = 3;
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
-const MAX_QUEUE_SIZE = 500;
 
 interface RequestContext {
   ctx: object | undefined;
@@ -104,6 +104,7 @@ export interface TrackReadOptions {
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
 export class UsageTracker {
+  private flushCounter: number = 0;
   private options: UsageTrackerOptions;
   private trackedRequests = new WeakSet<object>();
   private batcher: EventBatcher = {
@@ -238,23 +239,6 @@ export class UsageTracker {
     }
   }
 
-  /**
-   * Re-queues failed events, dropping oldest when the queue would exceed MAX_QUEUE_SIZE.
-   */
-  private requeue(events: FlagsConfigReadEvent[]): void {
-    const combined = [...events, ...this.batcher.events];
-    // Drop oldest events (from the front) when over capacity
-    if (combined.length > MAX_QUEUE_SIZE) {
-      const dropped = combined.length - MAX_QUEUE_SIZE;
-      console.warn(
-        `@vercel/flags-core: Dropping ${dropped} usage event(s) (queue full)`,
-      );
-      this.batcher.events = combined.slice(dropped);
-    } else {
-      this.batcher.events = combined;
-    }
-  }
-
   private async flushEvents(): Promise<void> {
     if (this.batcher.events.length === 0) return;
 
@@ -262,36 +246,45 @@ export class UsageTracker {
     const eventsToSend = this.batcher.events;
     this.batcher.events = [];
 
-    try {
-      const response = await this.options.fetch(
-        `${this.options.host}/v1/ingest`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.options.sdkKey}`,
-            'User-Agent': `VercelFlagsCore/${version}`,
-            ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+    const flushId = ++this.flushCounter;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await this.options.fetch(
+          `${this.options.host}/v1/ingest`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.options.sdkKey}`,
+              'User-Agent': `VercelFlagsCore/${version}`,
+              ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+            },
+            body: JSON.stringify(eventsToSend),
           },
-          body: JSON.stringify(eventsToSend),
-        },
-      );
-
-      debugLog(
-        `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
-      );
-
-      if (!response.ok) {
-        debugLog(
-          '@vercel/flags-core: Failed to send events:',
-          response.statusText,
-          await response.text(),
         );
-        this.requeue(eventsToSend);
+
+        debugLog(
+          `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
+        );
+
+        if (response.ok) {
+          break; // Break the loop if the request succeeded
+        }
+
+        throw new Error(
+          `Ingest endpoint responded with status ${response.status} for ${eventsToSend.length} events on request ${response.headers.get('x-vercel-id')}.\n` +
+            `Response body: ${await response.text().catch(() => null)}`,
+        );
+      } catch (error) {
+        console.error(
+          `@vercel/flags-core: Error sending events (attempt=${attempt}/${MAX_RETRIES} flushId=${flushId}):`,
+          error,
+        );
+        if (attempt < MAX_RETRIES) {
+          await new Promise((res) => setTimeout(res, attempt * 100));
+        }
       }
-    } catch (error) {
-      debugLog('@vercel/flags-core: Error sending events:', error);
-      this.requeue(eventsToSend);
     }
   }
 }

@@ -168,12 +168,14 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       await tracker.flush();
 
-      // Should not throw and should not log error (only logs in debug mode)
-      expect(consoleSpy).not.toHaveBeenCalled();
+      // Should not throw, errors are logged via console.error
+      expect(consoleSpy).toHaveBeenCalled();
     });
 
     it('should handle non-ok responses gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
 
@@ -182,33 +184,8 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       await tracker.flush();
 
-      // Should not log in non-debug mode
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('should log errors in debug mode', async () => {
-      process.env.DEBUG = '@vercel/flags-core';
-      vi.resetModules();
-      const { UsageTracker: FreshUsageTracker } = await import(
-        './usage-tracker'
-      );
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-      fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
-
-      const tracker = new FreshUsageTracker({
-        sdkKey: 'test-key',
-        host: 'https://example.com',
-        fetch: fetchMock,
-      });
-
-      tracker.trackRead();
-      await tracker.flush();
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Failed to send events:',
-        expect.any(String),
-      );
+      // Should not throw, errors are logged via console.error
+      expect(consoleSpy).toHaveBeenCalled();
     });
 
     it('should send x-vercel-debug-ingest header in debug mode', async () => {
@@ -391,14 +368,13 @@ describe('UsageTracker', () => {
     });
   });
 
-  describe('flush failure retry', () => {
-    it('should re-queue events on failed flush and send them on next flush', async () => {
+  describe('retry behavior', () => {
+    it('should retry on non-ok response and succeed', async () => {
       let requestCount = 0;
-
-      fetchMock.mockImplementation(async (_input, init) => {
+      fetchMock.mockImplementation(async () => {
         requestCount++;
-        if (requestCount === 1) {
-          return new Response(null, { status: 500 });
+        if (requestCount < 3) {
+          return new Response('Internal Server Error', { status: 500 });
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
@@ -411,24 +387,15 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       await tracker.flush();
 
-      expect(requestCount).toBe(1);
-
-      // Events should have been re-queued — a new trackRead triggers
-      // a new schedule cycle which will include the re-queued events
-      tracker.trackRead();
-      await tracker.flush();
-
-      expect(requestCount).toBe(2);
-      // Should contain both the re-queued event and the new one
-      expect(getBody(1)).toHaveLength(2);
+      // 2 failed + 1 success = 3 total
+      expect(requestCount).toBe(3);
     });
 
-    it('should re-queue events on fetch error and send them on next flush', async () => {
+    it('should retry on fetch error and succeed', async () => {
       let requestCount = 0;
-
       fetchMock.mockImplementation(async () => {
         requestCount++;
-        if (requestCount === 1) {
+        if (requestCount < 3) {
           throw new TypeError('Failed to fetch');
         }
         return new Response(JSON.stringify({ ok: true }), {
@@ -437,27 +404,13 @@ describe('UsageTracker', () => {
         });
       });
 
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
       const tracker = createTracker();
 
       tracker.trackRead();
       await tracker.flush();
 
-      expect(requestCount).toBe(1);
-
-      // Events should have been re-queued — a new trackRead triggers
-      // a new schedule cycle which will include the re-queued events
-      tracker.trackRead();
-      await tracker.flush();
-
-      expect(requestCount).toBe(2);
-      // Should contain both the re-queued event and the new one
-      expect(getBody(1)).toHaveLength(2);
-
-      consoleSpy.mockRestore();
+      // 2 failed + 1 success = 3 total
+      expect(requestCount).toBe(3);
     });
   });
 
