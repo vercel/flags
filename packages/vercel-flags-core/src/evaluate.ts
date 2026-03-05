@@ -144,7 +144,7 @@ function matchConditions<T>(
   return conditions.every((condition) => {
     const [lhsAccessor, cmpKey, rawRhs, options] = condition;
     const ci =
-      (options === 'i' ||
+      ((typeof options === "string" && options.includes("i")) ||
         (typeof options === 'object' &&
           options !== null &&
           options.i === true)) &&
