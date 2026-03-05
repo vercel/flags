@@ -90,6 +90,23 @@ export const exampleFlag = flag({
 });
 ```
 
+### Using your own client (e.g. for singleton)
+
+If the app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both share the same instance:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const vercelFlagsClient = createClient(process.env.FLAGS_SDK_KEY);
+const adapter = createVercelAdapter(vercelFlagsClient);
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  adapter,
+});
+```
+
 ### CLI
 
 Manage Vercel Flags from the terminal with `vercel flags`. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`pnpm i -g vercel`) and a linked project.
