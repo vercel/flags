@@ -20,6 +20,23 @@ export const exampleFlag = flag({
 });
 ```
 
+### Using your own client (e.g. for singleton)
+
+If your app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both use the same instance:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const vercelFlagsClient = createClient(process.env.FLAGS_SDK_KEY);
+const adapter = createVercelAdapter(vercelFlagsClient);
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  adapter,
+});
+```
+
 ## Documentation
 
 - [Getting Started with Vercel Flags](https://vercel.com/docs/flags/vercel-flags/quickstart)
