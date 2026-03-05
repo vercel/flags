@@ -20,10 +20,10 @@
 
 ## Vercel
 
-Package: `@flags-sdk/vercel` (also requires `@vercel/flags-core`)
+Package: `@flags-sdk/vercel`
 
 ```bash
-pnpm i flags @flags-sdk/vercel @vercel/flags-core
+pnpm i flags @flags-sdk/vercel
 ```
 
 ### Setup

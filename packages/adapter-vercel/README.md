@@ -5,7 +5,7 @@ The [Vercel adapter](https://flags-sdk.dev/providers/vercel) for the [Flags SDK]
 ## Installation
 
 ```bash
-npm i flags @flags-sdk/vercel @vercel/flags-core
+npm i flags @flags-sdk/vercel
 ```
 
 ## Usage
