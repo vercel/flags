@@ -98,12 +98,12 @@ If the app also uses `@vercel/flags-core` directly, create the client once and p
 import { createClient } from '@vercel/flags-core';
 import { createVercelAdapter } from '@flags-sdk/vercel';
 
-const vercelFlagsClient = createClient(process.env.FLAGS_SDK_KEY);
-const adapter = createVercelAdapter(vercelFlagsClient);
+const vercelFlagsClient = createClient(process.env.FLAGS);
+const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter,
+  adapter: vercelAdapter(),
 });
 ```
 
