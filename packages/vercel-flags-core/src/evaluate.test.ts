@@ -1460,492 +1460,439 @@ describe('evaluate', () => {
       result: false,
     },
 
-    // ---- Case-insensitive (4th element: { ci: true }) ----
+    // ---- Case-insensitive via string shorthand: 'i' ----
 
-    // EQ { ci: true }
+    // EQ 'i'
     {
-      name: `${Comparator.EQ} ci match (different case)`,
-      condition: [['user', 'id'], Comparator.EQ, 'UID1', { ci: true }],
+      name: `${Comparator.EQ} ci match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'UID1', 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
-      name: `${Comparator.EQ} ci match (same case)`,
-      condition: [['user', 'id'], Comparator.EQ, 'uid1', { ci: true }],
+      name: `${Comparator.EQ} ci match (same case, 'i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid1', 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
-      name: `${Comparator.EQ} ci miss`,
-      condition: [['user', 'id'], Comparator.EQ, 'uid2', { ci: true }],
+      name: `${Comparator.EQ} ci miss ('i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid2', 'i'],
       entities: { user: { id: 'uid1' } },
       result: false,
     },
     {
-      name: `${Comparator.EQ} ci unset`,
-      condition: [['user', 'id'], Comparator.EQ, 'uid1', { ci: true }],
+      name: `${Comparator.EQ} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid1', 'i'],
       entities: {},
       result: false,
     },
     {
-      name: `${Comparator.EQ} ci with number (no effect)`,
-      condition: [['user', 'age'], Comparator.EQ, 42, { ci: true }],
+      name: `${Comparator.EQ} ci with number (no effect, 'i')`,
+      condition: [['user', 'age'], Comparator.EQ, 42, 'i'],
       entities: { user: { age: 42 } },
       result: true,
     },
 
-    // NOT_EQ { ci: true }
+    // NOT_EQ 'i'
     {
-      name: `${Comparator.NOT_EQ} ci match`,
-      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid2', { ci: true }],
+      name: `${Comparator.NOT_EQ} ci match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid2', 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
-      name: `${Comparator.NOT_EQ} ci miss (different case)`,
-      condition: [['user', 'id'], Comparator.NOT_EQ, 'UID1', { ci: true }],
+      name: `${Comparator.NOT_EQ} ci miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'UID1', 'i'],
       entities: { user: { id: 'uid1' } },
       result: false,
     },
     {
-      name: `${Comparator.NOT_EQ} ci unset`,
-      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid1', { ci: true }],
+      name: `${Comparator.NOT_EQ} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid1', 'i'],
       entities: {},
       result: true,
     },
 
-    // ONE_OF { ci: true }
+    // ONE_OF 'i'
     {
-      name: `${Comparator.ONE_OF} ci match (different case)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.ONE_OF,
-        ['UID1', 'UID2'],
-        { ci: true },
-      ],
+      name: `${Comparator.ONE_OF} ci match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['UID1', 'UID2'], 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
-      name: `${Comparator.ONE_OF} ci miss`,
-      condition: [['user', 'id'], Comparator.ONE_OF, ['uid2'], { ci: true }],
+      name: `${Comparator.ONE_OF} ci miss ('i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['uid2'], 'i'],
       entities: { user: { id: 'uid1' } },
       result: false,
     },
     {
-      name: `${Comparator.ONE_OF} ci unset`,
-      condition: [['user', 'id'], Comparator.ONE_OF, ['uid1'], { ci: true }],
+      name: `${Comparator.ONE_OF} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['uid1'], 'i'],
       entities: {},
       result: false,
     },
 
-    // NOT_ONE_OF { ci: true }
+    // NOT_ONE_OF 'i'
     {
-      name: `${Comparator.NOT_ONE_OF} ci match`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ONE_OF,
-        ['uid2'],
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ONE_OF} ci match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2'], 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
-      name: `${Comparator.NOT_ONE_OF} ci miss (different case)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ONE_OF,
-        ['UID1'],
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ONE_OF} ci miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['UID1'], 'i'],
       entities: { user: { id: 'uid1' } },
       result: false,
     },
     {
-      name: `${Comparator.NOT_ONE_OF} ci unset`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ONE_OF,
-        ['uid2'],
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ONE_OF} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2'], 'i'],
       entities: {},
       result: false,
     },
 
-    // CONTAINS_ALL_OF { ci: true }
+    // CONTAINS_ALL_OF 'i'
     {
-      name: `${Comparator.CONTAINS_ALL_OF} ci match (different case)`,
+      name: `${Comparator.CONTAINS_ALL_OF} ci match (different case, 'i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ALL_OF,
         ['TEAM1', 'TEAM2'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team2', 'team1'] } },
       result: true,
     },
     {
-      name: `${Comparator.CONTAINS_ALL_OF} ci partial match`,
+      name: `${Comparator.CONTAINS_ALL_OF} ci partial match ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ALL_OF,
         ['TEAM1', 'TEAM2'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team2'] } },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS_ALL_OF} ci miss`,
+      name: `${Comparator.CONTAINS_ALL_OF} ci miss ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ALL_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team2'] } },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS_ALL_OF} ci unset`,
+      name: `${Comparator.CONTAINS_ALL_OF} ci unset ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ALL_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: {},
       result: false,
     },
 
-    // CONTAINS_ANY_OF { ci: true }
+    // CONTAINS_ANY_OF 'i'
     {
-      name: `${Comparator.CONTAINS_ANY_OF} ci match (different case)`,
+      name: `${Comparator.CONTAINS_ANY_OF} ci match (different case, 'i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ANY_OF,
         ['TEAM1', 'TEAM2'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team2'] } },
       result: true,
     },
     {
-      name: `${Comparator.CONTAINS_ANY_OF} ci miss`,
+      name: `${Comparator.CONTAINS_ANY_OF} ci miss ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ANY_OF,
         ['TEAM1', 'TEAM2'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team3'] } },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS_ANY_OF} ci unset`,
+      name: `${Comparator.CONTAINS_ANY_OF} ci unset ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_ANY_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: { user: {} },
       result: false,
     },
 
-    // CONTAINS_NONE_OF { ci: true }
+    // CONTAINS_NONE_OF 'i'
     {
-      name: `${Comparator.CONTAINS_NONE_OF} ci match (different case)`,
+      name: `${Comparator.CONTAINS_NONE_OF} ci match (different case, 'i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_NONE_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team2'] } },
       result: true,
     },
     {
-      name: `${Comparator.CONTAINS_NONE_OF} ci miss (different case)`,
+      name: `${Comparator.CONTAINS_NONE_OF} ci miss (different case, 'i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_NONE_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: { user: { teamIds: ['team1'] } },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS_NONE_OF} ci unset entity`,
+      name: `${Comparator.CONTAINS_NONE_OF} ci unset entity ('i')`,
       condition: [
         ['user', 'teamIds'],
         Comparator.CONTAINS_NONE_OF,
         ['TEAM1'],
-        { ci: true },
+        'i',
       ],
       entities: {},
       result: true,
     },
 
-    // STARTS_WITH { ci: true }
+    // STARTS_WITH 'i'
     {
-      name: `${Comparator.STARTS_WITH} ci match (different case)`,
-      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', { ci: true }],
+      name: `${Comparator.STARTS_WITH} ci match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.STARTS_WITH} ci miss`,
-      condition: [['user', 'id'], Comparator.STARTS_WITH, 'jim', { ci: true }],
+      name: `${Comparator.STARTS_WITH} ci miss ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'jim', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.STARTS_WITH} ci unset`,
-      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', { ci: true }],
+      name: `${Comparator.STARTS_WITH} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.STARTS_WITH} ci invalid`,
-      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', { ci: true }],
+      name: `${Comparator.STARTS_WITH} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // NOT_STARTS_WITH { ci: true }
+    // NOT_STARTS_WITH 'i'
     {
-      name: `${Comparator.NOT_STARTS_WITH} ci match`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_STARTS_WITH,
-        'jim',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_STARTS_WITH} ci match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'jim', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.NOT_STARTS_WITH} ci miss (different case)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_STARTS_WITH,
-        'JOE',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_STARTS_WITH} ci miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.NOT_STARTS_WITH} ci unset`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_STARTS_WITH,
-        'JOE',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_STARTS_WITH} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.NOT_STARTS_WITH} ci invalid`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_STARTS_WITH,
-        'JOE',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_STARTS_WITH} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // ENDS_WITH { ci: true }
+    // ENDS_WITH 'i'
     {
-      name: `${Comparator.ENDS_WITH} ci match (different case)`,
-      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', { ci: true }],
+      name: `${Comparator.ENDS_WITH} ci match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.ENDS_WITH} ci miss`,
-      condition: [['user', 'id'], Comparator.ENDS_WITH, 'jim', { ci: true }],
+      name: `${Comparator.ENDS_WITH} ci miss ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'jim', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.ENDS_WITH} ci unset`,
-      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', { ci: true }],
+      name: `${Comparator.ENDS_WITH} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.ENDS_WITH} ci invalid`,
-      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', { ci: true }],
+      name: `${Comparator.ENDS_WITH} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // NOT_ENDS_WITH { ci: true }
+    // NOT_ENDS_WITH 'i'
     {
-      name: `${Comparator.NOT_ENDS_WITH} ci match`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ENDS_WITH,
-        'jim',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ENDS_WITH} ci match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.NOT_ENDS_WITH} ci miss (different case)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ENDS_WITH,
-        'SON',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ENDS_WITH} ci miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'SON', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.NOT_ENDS_WITH} ci unset`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ENDS_WITH,
-        'jim',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ENDS_WITH} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.NOT_ENDS_WITH} ci invalid`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_ENDS_WITH,
-        'jim',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_ENDS_WITH} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // CONTAINS { ci: true }
+    // CONTAINS 'i'
     {
-      name: `${Comparator.CONTAINS} ci match (different case)`,
-      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', { ci: true }],
+      name: `${Comparator.CONTAINS} ci match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.CONTAINS} ci miss`,
-      condition: [['user', 'id'], Comparator.CONTAINS, 'smith', { ci: true }],
+      name: `${Comparator.CONTAINS} ci miss ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'smith', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS} ci unset`,
-      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', { ci: true }],
+      name: `${Comparator.CONTAINS} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.CONTAINS} ci invalid`,
-      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', { ci: true }],
+      name: `${Comparator.CONTAINS} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // NOT_CONTAINS { ci: true }
+    // NOT_CONTAINS 'i'
     {
-      name: `${Comparator.NOT_CONTAINS} ci match`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_CONTAINS,
-        'smith',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_CONTAINS} ci match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
     },
     {
-      name: `${Comparator.NOT_CONTAINS} ci miss (different case)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_CONTAINS,
-        'WILK',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_CONTAINS} ci miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'WILK', 'i'],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
-      name: `${Comparator.NOT_CONTAINS} ci unset`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_CONTAINS,
-        'smith',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_CONTAINS} ci unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
       entities: { user: {} },
       result: false,
     },
     {
-      name: `${Comparator.NOT_CONTAINS} ci invalid`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_CONTAINS,
-        'smith',
-        { ci: true },
-      ],
+      name: `${Comparator.NOT_CONTAINS} ci invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
       entities: { user: { id: null } },
       result: false,
     },
 
-    // ---- ci flag is ignored for non-string comparators ----
+    // ---- Case-insensitive via object: { i: true } ----
+
+    {
+      name: `${Comparator.EQ} ci match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.EQ, 'UID1', { i: true }],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.ONE_OF} ci match (different case, { i: true })`,
+      condition: [
+        ['user', 'id'],
+        Comparator.ONE_OF,
+        ['UID1', 'UID2'],
+        { i: true },
+      ],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.STARTS_WITH} ci match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', { i: true }],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS} ci match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', { i: true }],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+
+    // ---- 'i' flag is ignored for non-string comparators ----
 
     {
       name: `${Comparator.EXISTS} ci ignored (still matches)`,
-      condition: [['user', 'id'], Comparator.EXISTS, undefined, { ci: true }],
+      condition: [['user', 'id'], Comparator.EXISTS, undefined, 'i'],
       entities: { user: { id: 'uid1' } },
       result: true,
     },
     {
       name: `${Comparator.NOT_EXISTS} ci ignored (still matches)`,
-      condition: [
-        ['user', 'id'],
-        Comparator.NOT_EXISTS,
-        undefined,
-        { ci: true },
-      ],
+      condition: [['user', 'id'], Comparator.NOT_EXISTS, undefined, 'i'],
       entities: { user: {} },
       result: true,
     },
     {
       name: `${Comparator.GT} ci ignored (numeric comparison unchanged)`,
-      condition: [['user', 'age'], Comparator.GT, 20, { ci: true }],
+      condition: [['user', 'age'], Comparator.GT, 20, 'i'],
       entities: { user: { age: 30 } },
       result: true,
     },
     {
       name: `${Comparator.LT} ci ignored (numeric comparison unchanged)`,
-      condition: [['user', 'age'], Comparator.LT, 40, { ci: true }],
+      condition: [['user', 'age'], Comparator.LT, 40, 'i'],
       entities: { user: { age: 30 } },
       result: true,
     },
     {
       name: `${Comparator.GTE} ci ignored (numeric comparison unchanged)`,
-      condition: [['user', 'age'], Comparator.GTE, 30, { ci: true }],
+      condition: [['user', 'age'], Comparator.GTE, 30, 'i'],
       entities: { user: { age: 30 } },
       result: true,
     },
     {
       name: `${Comparator.LTE} ci ignored (numeric comparison unchanged)`,
-      condition: [['user', 'age'], Comparator.LTE, 30, { ci: true }],
+      condition: [['user', 'age'], Comparator.LTE, 30, 'i'],
       entities: { user: { age: 30 } },
       result: true,
     },
@@ -1955,7 +1902,7 @@ describe('evaluate', () => {
         ['user', 'id'],
         Comparator.REGEX,
         { type: 'regex', pattern: '^joe', flags: '' },
-        { ci: true },
+        'i',
       ],
       entities: { user: { id: 'joewilkinson' } },
       result: true,
@@ -1966,30 +1913,20 @@ describe('evaluate', () => {
         ['user', 'id'],
         Comparator.NOT_REGEX,
         { type: 'regex', pattern: '^joe', flags: '' },
-        { ci: true },
+        'i',
       ],
       entities: { user: { id: 'joewilkinson' } },
       result: false,
     },
     {
       name: `${Comparator.BEFORE} ci ignored (date comparison unchanged)`,
-      condition: [
-        ['user', 'createdAt'],
-        Comparator.BEFORE,
-        '2025-01-02',
-        { ci: true },
-      ],
+      condition: [['user', 'createdAt'], Comparator.BEFORE, '2025-01-02', 'i'],
       entities: { user: { createdAt: '2025-01-01' } },
       result: true,
     },
     {
       name: `${Comparator.AFTER} ci ignored (date comparison unchanged)`,
-      condition: [
-        ['user', 'createdAt'],
-        Comparator.AFTER,
-        '2024-12-31',
-        { ci: true },
-      ],
+      condition: [['user', 'createdAt'], Comparator.AFTER, '2024-12-31', 'i'],
       entities: { user: { createdAt: '2025-01-01' } },
       result: true,
     },

@@ -144,8 +144,10 @@ function matchConditions<T>(
   return conditions.every((condition) => {
     const [lhsAccessor, cmpKey, rawRhs, options] = condition;
     const ci =
-      options !== undefined &&
-      options.ci === true &&
+      (options === 'i' ||
+        (typeof options === 'object' &&
+          options !== null &&
+          options.i === true)) &&
       CI_COMPARATORS.has(cmpKey);
 
     // ci is not applicable to segment conditions (segments are internal IDs)

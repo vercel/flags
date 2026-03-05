@@ -691,12 +691,12 @@ export namespace Packed {
 
   export type ConditionOptions = {
     /** When true, string comparisons are case-insensitive. */
-    ci?: boolean;
+    i?: boolean;
   };
 
   export type Condition =
     | [LHS, Comparator, RHS]
-    | [LHS, Comparator, RHS, ConditionOptions]
+    | [LHS, Comparator, RHS, ConditionOptions | 'i']
     | [LHS, Comparator.EXISTS]
     | [LHS, Comparator.NOT_EXISTS];
 
