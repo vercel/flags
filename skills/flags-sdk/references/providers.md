@@ -20,10 +20,10 @@
 
 ## Vercel
 
-Package: `@flags-sdk/vercel` (also requires `@vercel/flags-core`)
+Package: `@flags-sdk/vercel`
 
 ```bash
-pnpm i flags @flags-sdk/vercel @vercel/flags-core
+pnpm i flags @flags-sdk/vercel
 ```
 
 ### Setup
@@ -87,6 +87,23 @@ const customAdapter = createVercelAdapter(process.env.CUSTOM_FLAGS_KEY!);
 export const exampleFlag = flag({
   key: 'example-flag',
   adapter: customAdapter(),
+});
+```
+
+### Using your own client (e.g. for singleton)
+
+If the app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both share the same instance:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const vercelFlagsClient = createClient(process.env.FLAGS);
+const vercelAdapter = createVercelAdapter(vercelFlagsClient);
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  adapter: vercelAdapter(),
 });
 ```
 
