@@ -2464,8 +2464,6 @@ describe('Controller (black-box)', () => {
   // ---------------------------------------------------------------------------
   describe('configUpdatedAt guard', () => {
     it('should not overwrite newer data with older stream message', async () => {
-      vi.useRealTimers();
-
       const newerDatafile = makeBundled({
         configUpdatedAt: 2000,
         definitions: {
@@ -2504,16 +2502,15 @@ describe('Controller (black-box)', () => {
 
       // Send newer data first
       stream.push({ type: 'datafile', data: newerDatafile });
-      await new Promise((r) => setTimeout(r, 10));
+      await vi.advanceTimersByTimeAsync(10);
       await initPromise;
 
       // Then send older data
       stream.push({ type: 'datafile', data: olderDatafile });
-      await new Promise((r) => setTimeout(r, 50));
+      await vi.advanceTimersByTimeAsync(50);
 
       // Should still have newer data (older message was rejected)
       const result = await client.evaluate('flagA');
-      const after = new Date();
       expect(result.value).toBe(true); // variant 1 = newer
 
       stream.close();
@@ -2536,7 +2533,7 @@ describe('Controller (black-box)', () => {
           body: JSON.stringify([
             {
               type: 'FLAGS_CONFIG_READ',
-              ts: after.getTime(),
+              ts: date.getTime() + 60,
               payload: {
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
