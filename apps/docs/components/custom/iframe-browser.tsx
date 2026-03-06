@@ -31,12 +31,12 @@ export function IframeBrowser({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border shadow-lg">
-      <div className="flex items-center gap-1.5 bg-gray-100 p-2">
+      <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-card p-2">
         <div className="flex-grow">
           <Input
             defaultValue={resolvedSrc}
             placeholder="Enter URL"
-            className="w-full cursor-default bg-white"
+            className="w-full cursor-default bg-white dark:bg-card"
             readOnly
             aria-labelledby="input-label"
           />
@@ -85,7 +85,10 @@ export function IframeBrowser({
           <TooltipContent>Open in new tab</TooltipContent>
         </Tooltip>
       </div>
-      <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+      <div
+        className="relative w-full bg-white dark:bg-black"
+        style={{ paddingTop: '56.25%' }}
+      >
         <iframe
           title="Embedded Content"
           key={key}

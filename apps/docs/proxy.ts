@@ -87,7 +87,7 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
 export const config = {
   // Matcher ignoring `/_next/`, `/api/`, static assets, favicon, sitemap, robots, etc.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags).*)",
   ],
 };
 

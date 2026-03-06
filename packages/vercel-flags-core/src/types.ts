@@ -358,6 +358,20 @@ export enum Comparator {
   NOT_ENDS_WITH = '!endsWith',
   /**
    * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs contains rhs as a substring
+   */
+  CONTAINS = 'contains',
+  /**
+   * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs does not contain rhs as a substring
+   */
+  NOT_CONTAINS = '!contains',
+  /**
+   * lhs must be string
    * rhs must be never
    */
   EXISTS = 'ex',
@@ -498,6 +512,8 @@ export namespace Original {
     lhs: LHS;
     cmp: Comparator;
     rhs: RHS;
+    /** When true, string comparisons are case-insensitive. */
+    i?: boolean;
   };
 
   export type Rule = {
@@ -679,8 +695,14 @@ export namespace Packed {
     | (string | number)[]
     | { type: 'regex'; pattern: string; flags: string };
 
+  export type ConditionOptions = {
+    /** When true, string comparisons are case-insensitive. */
+    i?: boolean;
+  };
+
   export type Condition =
     | [LHS, Comparator, RHS]
+    | [LHS, Comparator, RHS, ConditionOptions | 'i']
     | [LHS, Comparator.EXISTS]
     | [LHS, Comparator.NOT_EXISTS];
 

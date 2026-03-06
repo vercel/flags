@@ -20,10 +20,10 @@
 
 ## Vercel
 
-Package: `@flags-sdk/vercel` (also requires `@vercel/flags-core`)
+Package: `@flags-sdk/vercel`
 
 ```bash
-pnpm i flags @flags-sdk/vercel @vercel/flags-core
+pnpm i flags @flags-sdk/vercel
 ```
 
 ### Setup
@@ -89,6 +89,43 @@ export const exampleFlag = flag({
   adapter: customAdapter(),
 });
 ```
+
+### Using your own client (e.g. for singleton)
+
+If the app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both share the same instance:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const vercelFlagsClient = createClient(process.env.FLAGS);
+const vercelAdapter = createVercelAdapter(vercelFlagsClient);
+
+export const exampleFlag = flag({
+  key: 'example-flag',
+  adapter: vercelAdapter(),
+});
+```
+
+### CLI
+
+Manage Vercel Flags from the terminal with `vercel flags`. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`pnpm i -g vercel`) and a linked project.
+
+Available subcommands: `list`, `add`, `inspect`, `enable`, `disable`, `archive`, `rm`, `sdk-keys`.
+
+```bash
+vercel flags add my-feature --kind boolean --description "New onboarding flow"
+vercel flags enable my-feature --environment production
+vercel flags list
+vercel flags sdk-keys ls
+```
+
+`enable` / `disable` only work with boolean flags. A flag must be archived before it can be deleted.
+
+Full CLI reference: https://vercel.com/docs/cli/flags
+
+> For broader Vercel CLI usage, install the `vercel-cli` skill:
+> `npx skills add https://github.com/vercel/vercel --skill vercel-cli`
 
 ---
 
