@@ -197,27 +197,19 @@ export default async function Page({ params }: { params: Params }) {
 }
 ```
 
-### Enable ISR
+### Step 4: Enable ISR & build time prerendering
 
 ```tsx
 // app/[code]/layout.tsx
-export async function generateStaticParams() {
-  return []; // empty array enables ISR
-}
-
-export default async function Layout({ children }) {
-  return children;
-}
-```
-
-### Build-time rendering
-
-```tsx
 import { generatePermutations } from 'flags/next';
 
 export async function generateStaticParams() {
   const codes = await generatePermutations(marketingFlags);
   return codes.map((code) => ({ code }));
+}
+
+export default async function Layout({ children }) {
+  return children;
 }
 ```
 
