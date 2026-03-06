@@ -7,6 +7,7 @@ import {
   flag,
   generatePermutations,
   getPrecomputed,
+  precompute,
   serialize,
 } from './index';
 
@@ -31,6 +32,15 @@ async function expectPermutations(
 }
 
 describe('generatePermutations', () => {
+  describe('when flags array is empty', () => {
+    it('should return a single __no_flags__ permutation', async () => {
+      process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+      const result = await generatePermutations([]);
+      expect(result).toEqual(['__no_flags__']);
+    });
+  });
+
   describe('when flag declares no options', () => {
     it('should infer boolean options', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
@@ -186,6 +196,13 @@ describe('generatePermutations', () => {
         (permutation) => permutation.c === 'two' && permutation.b,
       );
     });
+  });
+});
+
+describe('precompute', () => {
+  it('should return __no_flags__ for an empty flags array', async () => {
+    const result = await precompute([] as const);
+    expect(result).toBe('__no_flags__');
   });
 });
 
