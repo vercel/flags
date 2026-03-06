@@ -66,9 +66,12 @@ export type NormalizedOptions = {
 export function normalizeOptions(
   options: ControllerOptions,
 ): NormalizedOptions {
+  // Auto-detect build step from environment variables.
+  // Note: NEXT_PHASE is set by the Next.js build process itself and is harder
+  // to spoof than CI. We check both but prefer the more specific signal.
   const autoDetectedBuildStep =
-    process.env.CI === '1' ||
-    process.env.NEXT_PHASE === 'phase-production-build';
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.CI === '1';
   const buildStep = options.buildStep ?? autoDetectedBuildStep;
 
   let stream: NormalizedOptions['stream'];

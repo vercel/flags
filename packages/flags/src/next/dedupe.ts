@@ -110,6 +110,18 @@ export function dedupe<A extends Array<unknown>, T>(
 
     try {
       const result = fn.apply(this, args);
+      // For async functions, wrap the promise so concurrent callers
+      // share the same in-flight promise rather than invoking fn twice
+      // when both observe UNTERMINATED before either resolves.
+      if (result && typeof (result as any).then === 'function') {
+        cacheNode.s = Status.TERMINATED;
+        cacheNode.v = (result as Promise<T>).catch((error: unknown) => {
+          cacheNode.s = Status.ERRORED;
+          cacheNode.v = error;
+          throw error;
+        });
+        return cacheNode.v as T;
+      }
       cacheNode.s = Status.TERMINATED;
       cacheNode.v = result;
       return result;

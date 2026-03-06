@@ -16,9 +16,11 @@ export type TaggedData = DatafileInput & {
 
 /**
  * Tags a DatafileInput with its origin.
+ * Creates a shallow copy to avoid mutating the original object, which could
+ * corrupt shared references (e.g. bundled definitions reused across calls).
  */
 export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
-  return Object.assign(data, { _origin: origin }) as TaggedData;
+  return { ...data, _origin: origin };
 }
 
 /**

@@ -327,10 +327,14 @@ export function createHandle({
             secret,
           );
 
-          return html.replace(
-            '</body>',
-            `<script type="application/json" data-flag-values>${safeJsonStringify(encryptedFlagValues)}</script></body>`,
-          );
+          // Use string concatenation with indexOf check instead of
+          // String.replace to avoid regex replacement pattern injection
+          // (e.g., $`, $', $& in the replacement string).
+          const closingTag = '</body>';
+          const idx = html.lastIndexOf(closingTag);
+          if (idx === -1) return html;
+          const scriptTag = `<script type="application/json" data-flag-values>${safeJsonStringify(encryptedFlagValues)}</script>`;
+          return html.slice(0, idx) + scriptTag + html.slice(idx);
         },
       }),
     );

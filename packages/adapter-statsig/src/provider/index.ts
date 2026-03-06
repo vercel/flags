@@ -101,7 +101,7 @@ export async function getProviderData(
       definitions[gate.id] = {
         description: gate.description,
         origin: options.projectId
-          ? `https://console.statsig.com/${options.projectId}/gates/${gate.id}`
+          ? `https://console.statsig.com/${encodeURIComponent(options.projectId)}/gates/${encodeURIComponent(gate.id)}`
           : undefined,
         options: [
           { label: 'Off', value: false },
@@ -112,9 +112,14 @@ export async function getProviderData(
       };
     });
   } else {
+    // Avoid leaking sensitive details (e.g. API keys) from error messages
+    const safeMessage =
+      gates.reason instanceof Error
+        ? gates.reason.message.replace(/key[=:]\S+/gi, 'key=[REDACTED]')
+        : 'Failed to load feature gates';
     hints.push({
       key: 'statsig/failed-to-load-feature-gates',
-      text: gates.reason.message,
+      text: safeMessage,
     });
   }
 
@@ -123,7 +128,7 @@ export async function getProviderData(
       definitions[experiment.id] = {
         description: experiment.description,
         origin: options.projectId
-          ? `https://console.statsig.com/${options.projectId}/experiments/${experiment.id}/setup`
+          ? `https://console.statsig.com/${encodeURIComponent(options.projectId)}/experiments/${encodeURIComponent(experiment.id)}/setup`
           : undefined,
         options: experiment.groups.map((group) => {
           return {
@@ -136,13 +141,29 @@ export async function getProviderData(
       };
     });
   } else {
+    const safeMessage =
+      experiments.reason instanceof Error
+        ? experiments.reason.message.replace(/key[=:]\S+/gi, 'key=[REDACTED]')
+        : 'Failed to load experiments';
     hints.push({
       key: 'statsig/failed-to-load-experiments',
-      text: experiments.reason.message,
+      text: safeMessage,
     });
   }
 
   return { definitions, hints };
+}
+
+/** Maximum number of pages to fetch to prevent infinite pagination loops */
+const MAX_PAGINATION_PAGES = 100;
+
+/**
+ * Validates that a pagination URL stays within the expected Statsig API domain
+ * to prevent SSRF via malicious nextPage values.
+ */
+function isValidStatsigUrl(suffix: string): boolean {
+  // nextPage must be a relative path starting with /
+  return suffix.startsWith('/console/v1/');
 }
 
 /**
@@ -152,8 +173,23 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
   const data: StatsigFeatureGateResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/gates';
+  let pageCount = 0;
 
   do {
+    if (pageCount++ >= MAX_PAGINATION_PAGES) {
+      console.warn(
+        '@flags-sdk/statsig: Maximum pagination pages reached for feature gates',
+      );
+      break;
+    }
+
+    if (!isValidStatsigUrl(suffix)) {
+      console.warn(
+        '@flags-sdk/statsig: Invalid pagination URL for feature gates, stopping',
+      );
+      break;
+    }
+
     const response = await fetch(`https://statsigapi.net${suffix}`, {
       method: 'GET',
       headers: {
@@ -168,7 +204,7 @@ async function getFeatureGates(options: { consoleApiKey: string }) {
       await response.arrayBuffer();
 
       throw new Error(
-        `Failed to fetch Statsig (Received ${response.status} response)`,
+        `Failed to fetch Statsig feature gates (Received ${response.status} response)`,
       );
     }
 
@@ -187,8 +223,23 @@ async function getExperiments(options: { consoleApiKey: string }) {
   const data: StatsigExperimentsResponse['data'] = [];
 
   let suffix: string | null = '/console/v1/experiments';
+  let pageCount = 0;
 
   do {
+    if (pageCount++ >= MAX_PAGINATION_PAGES) {
+      console.warn(
+        '@flags-sdk/statsig: Maximum pagination pages reached for experiments',
+      );
+      break;
+    }
+
+    if (!isValidStatsigUrl(suffix)) {
+      console.warn(
+        '@flags-sdk/statsig: Invalid pagination URL for experiments, stopping',
+      );
+      break;
+    }
+
     const response = await fetch(`https://statsigapi.net${suffix}`, {
       method: 'GET',
       headers: {
@@ -203,7 +254,7 @@ async function getExperiments(options: { consoleApiKey: string }) {
       await response.arrayBuffer();
 
       throw new Error(
-        `Failed to fetch Statsig (Received ${response.status} response)`,
+        `Failed to fetch Statsig experiments (Received ${response.status} response)`,
       );
     }
 

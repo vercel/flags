@@ -11,6 +11,19 @@ import {
 type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
+const MAX_REGEX_PATTERN_LENGTH = 1_000;
+const MAX_NESTED_DEPTH = 10;
+
+/**
+ * Property names that must never be traversed when accessing entity data.
+ * Prevents prototype-pollution-style attacks where a crafted path such as
+ * `["__proto__", "polluted"]` could reach — or modify — inherited properties.
+ */
+const FORBIDDEN_PROPERTY_NAMES: ReadonlySet<string> = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+]);
 
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
@@ -18,7 +31,12 @@ function exhaustivenessCheck(_: never): never {
 
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {
-    if (acc && key in acc) {
+    if (acc == null) return undefined;
+    // Block prototype pollution vectors
+    if (typeof key === 'string' && FORBIDDEN_PROPERTY_NAMES.has(key)) {
+      return undefined;
+    }
+    if (Object.hasOwn(acc, key)) {
       return acc[key];
     }
     return undefined; // Return undefined if the property is not found
@@ -55,9 +73,13 @@ function isArray(input: unknown): input is unknown[] {
   return Array.isArray(input);
 }
 
-function lower<T>(input: T): T {
+function lower<T>(input: T, depth = 0): T {
   if (typeof input === 'string') return input.toLowerCase() as T;
-  if (Array.isArray(input)) return input.map(lower) as T;
+  if (Array.isArray(input)) {
+    // Prevent stack overflow on deeply nested arrays
+    if (depth >= MAX_NESTED_DEPTH) return input;
+    return input.map((item) => lower(item, depth + 1)) as T;
+  }
   return input;
 }
 
@@ -259,7 +281,10 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            isString(rhs.pattern) &&
+            rhs.pattern.length <= MAX_REGEX_PATTERN_LENGTH &&
+            (!rhs.flags || (isString(rhs.flags) && /^[gimsuy]*$/.test(rhs.flags)))
           ) {
             return new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }
@@ -271,7 +296,10 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            isString(rhs.pattern) &&
+            rhs.pattern.length <= MAX_REGEX_PATTERN_LENGTH &&
+            (!rhs.flags || (isString(rhs.flags) && /^[gimsuy]*$/.test(rhs.flags)))
           ) {
             return !new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }

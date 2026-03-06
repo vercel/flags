@@ -42,6 +42,8 @@ interface EventBatcher {
 const MAX_RETRIES = 3;
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
+/** Maximum total queued events across all batches to prevent memory exhaustion */
+const MAX_QUEUE_SIZE = 500;
 
 interface RequestContext {
   ctx: object | undefined;
@@ -196,6 +198,13 @@ export class UsageTracker {
         event.payload.environment = environment;
       }
 
+      // Drop oldest events when queue exceeds max size to prevent memory exhaustion
+      if (this.batcher.events.length >= MAX_QUEUE_SIZE) {
+        this.batcher.events.splice(
+          0,
+          this.batcher.events.length - MAX_QUEUE_SIZE + 1,
+        );
+      }
       this.batcher.events.push(event);
       this.scheduleFlush();
     } catch (error) {
@@ -272,9 +281,11 @@ export class UsageTracker {
           break; // Break the loop if the request succeeded
         }
 
+        // Consume response body to free connections, but don't log it
+        // to avoid leaking potentially sensitive server-side details
+        await response.arrayBuffer().catch(() => {});
         throw new Error(
-          `Ingest endpoint responded with status ${response.status} for ${eventsToSend.length} events on request ${response.headers.get('x-vercel-id')}.\n` +
-            `Response body: ${await response.text().catch(() => null)}`,
+          `Ingest endpoint responded with status ${response.status} for ${eventsToSend.length} events`,
         );
       } catch (error) {
         console.error(

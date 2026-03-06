@@ -18,6 +18,8 @@ const MAX_RETRY_COUNT = 15;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60_000;
 const PING_TIMEOUT_MS = 90_000;
+/** Maximum length of a single NDJSON line (10 MB) to prevent memory exhaustion */
+const MAX_LINE_LENGTH = 10 * 1024 * 1024;
 
 function backoff(retryCount: number): number {
   if (retryCount === 1) return 0;
@@ -172,12 +174,32 @@ export async function connectStream(
             for (const line of lines) {
               if (line === '') continue;
 
+              // Prevent memory exhaustion from oversized lines
+              if (line.length > MAX_LINE_LENGTH) {
+                console.warn(
+                  '@vercel/flags-core: Stream message exceeds maximum line length, skipping',
+                );
+                continue;
+              }
+
               let message: StreamMessage;
               try {
                 message = JSON.parse(line) as StreamMessage;
               } catch {
                 console.warn(
                   '@vercel/flags-core: Failed to parse stream message, skipping',
+                );
+                continue;
+              }
+
+              // Validate message structure
+              if (
+                typeof message !== 'object' ||
+                message === null ||
+                typeof message.type !== 'string'
+              ) {
+                console.warn(
+                  '@vercel/flags-core: Invalid stream message structure, skipping',
                 );
                 continue;
               }

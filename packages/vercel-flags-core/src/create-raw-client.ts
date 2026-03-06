@@ -17,6 +17,12 @@ import type {
   Value,
 } from './types';
 
+/**
+ * Incrementing client ID counter.
+ * Uses modular arithmetic to wrap around safely and avoid exceeding
+ * Number.MAX_SAFE_INTEGER, which would make IDs unreliable as Map keys.
+ */
+const MAX_SAFE_ID = 2 ** 31 - 1;
 let idCount = 0;
 
 async function performInitialize(
@@ -48,6 +54,7 @@ export function createCreateRawClient(fns: {
     origin?: { provider: string; sdkKey: string };
   }): FlagsClient {
     const id = idCount++;
+    if (idCount > MAX_SAFE_ID) idCount = 0;
     controllerInstanceMap.set(id, {
       controller,
       initialized: false,

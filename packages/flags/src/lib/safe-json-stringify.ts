@@ -34,5 +34,9 @@ export function safeJsonStringify(
   replacer: any,
   space: any,
 ): string {
-  return JSON.stringify(value, replacer, space).replace(/</g, '\\u003c');
+  return JSON.stringify(value, replacer, space)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }

@@ -68,10 +68,19 @@ export async function deserialize(
       ? [payload]
       : splitUint8Array(payload, flags.length);
 
-  const valuesArray = valuesUint8Array
-    ? // re-add opening and closing brackets since we remove them when serializing
-      JSON.parse(`[${new TextDecoder().decode(valuesUint8Array)}]`)
-    : null;
+  let valuesArray: any[] | null = null;
+  if (valuesUint8Array) {
+    try {
+      // re-add opening and closing brackets since we remove them when serializing
+      valuesArray = JSON.parse(
+        `[${new TextDecoder().decode(valuesUint8Array)}]`,
+      );
+    } catch {
+      throw new Error(
+        'flags: Failed to parse serialized flag values - data may be corrupted',
+      );
+    }
+  }
 
   let spilled = 0;
   return matchedIndicesArray.reduce<Record<string, JsonValue>>(
