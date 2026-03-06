@@ -37,7 +37,7 @@
       }
     }
   },
-  "main": "./dist/index.default.cjs",
+  "main": "./dist/index.default.js",
   "typesVersions": {
     "*": {
       ".": [
