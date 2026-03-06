@@ -50,6 +50,28 @@ function isArray(input: unknown): input is unknown[] {
   return Array.isArray(input);
 }
 
+function lower<T>(input: T): T {
+  if (typeof input === 'string') return input.toLowerCase() as T;
+  if (Array.isArray(input)) return input.map(lower) as T;
+  return input;
+}
+
+const IGNORE_CASE_COMPARATORS: ReadonlySet<Comparator> = new Set([
+  Comparator.EQ,
+  Comparator.NOT_EQ,
+  Comparator.ONE_OF,
+  Comparator.NOT_ONE_OF,
+  Comparator.CONTAINS_ALL_OF,
+  Comparator.CONTAINS_ANY_OF,
+  Comparator.CONTAINS_NONE_OF,
+  Comparator.STARTS_WITH,
+  Comparator.NOT_STARTS_WITH,
+  Comparator.ENDS_WITH,
+  Comparator.NOT_ENDS_WITH,
+  Comparator.CONTAINS,
+  Comparator.NOT_CONTAINS,
+]);
+
 function matchTargetList<T>(
   targets: Packed.TargetList,
   params: EvaluationParams<T>,
@@ -120,13 +142,25 @@ function matchConditions<T>(
   params: EvaluationParams<T>,
 ): boolean {
   return conditions.every((condition) => {
-    const [lhsAccessor, cmpKey, rhs] = condition;
+    const [lhsAccessor, cmpKey, rawRhs, options] = condition;
+    const hasIgnoreCaseFlag =
+      typeof options === 'string' && options.includes('i');
+    const hasIgnoreCaseOption =
+      typeof options === 'object' && options !== null && options.i === true;
+    const ignoreCase =
+      IGNORE_CASE_COMPARATORS.has(cmpKey) &&
+      (hasIgnoreCaseFlag || hasIgnoreCaseOption);
 
+    // ignoreCase is not applicable to segment conditions (segments are internal IDs)
     if (lhsAccessor === Packed.AccessorType.SEGMENT) {
-      return rhs && matchSegmentCondition(cmpKey, rhs, params);
+      return rawRhs && matchSegmentCondition(cmpKey, rawRhs, params);
     }
 
-    const lhs = access(lhsAccessor, params);
+    const lhs = ignoreCase
+      ? lower(access(lhsAccessor, params))
+      : access(lhsAccessor, params);
+    const rhs = ignoreCase ? lower(rawRhs) : rawRhs;
+
     try {
       switch (cmpKey) {
         case Comparator.EQ:
@@ -191,6 +225,10 @@ function matchConditions<T>(
           return isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
         case Comparator.NOT_ENDS_WITH:
           return isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
+        case Comparator.CONTAINS:
+          return isString(lhs) && isString(rhs) && lhs.includes(rhs);
+        case Comparator.NOT_CONTAINS:
+          return isString(lhs) && isString(rhs) && !lhs.includes(rhs);
         case Comparator.EXISTS:
           return lhs !== undefined && lhs !== null;
         case Comparator.NOT_EXISTS:
