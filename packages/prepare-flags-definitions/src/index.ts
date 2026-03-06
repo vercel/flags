@@ -9,6 +9,7 @@ type BundledDefinitions = Record<string, unknown>;
 
 export interface Output {
   debug(message: string): void;
+  time<T>(label: string, promise: Promise<T>): Promise<T>;
 }
 
 /**
@@ -146,7 +147,7 @@ export async function prepareFlagsDefinitions(options: {
   }
 
   // Fetch definitions for each SDK key
-  const values = await Promise.all(
+  const fetchPromise = Promise.all(
     sdkKeys.map(async (sdkKey) => {
       const headers: Record<string, string> = {
         authorization: `Bearer ${sdkKey}`,
@@ -178,6 +179,10 @@ export async function prepareFlagsDefinitions(options: {
       return res.json() as Promise<BundledDefinitions>;
     }),
   );
+
+  const values = output
+    ? await output.time('vercel-flags: load datafiles', fetchPromise)
+    : await fetchPromise;
 
   // Generate the JS module
   const definitionsJs = generateDefinitionsModule(sdkKeys, values);
