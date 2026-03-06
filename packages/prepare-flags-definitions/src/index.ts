@@ -7,6 +7,9 @@ const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 
 type BundledDefinitions = Record<string, unknown>;
 
+/**
+ * Obfuscates SDK key for logging (shows first 18 chars)
+ */
 function obfuscate(sdkKey: string, prefixLength = 18): string {
   if (prefixLength >= sdkKey.length) return sdkKey;
   return (
@@ -14,10 +17,27 @@ function obfuscate(sdkKey: string, prefixLength = 18): string {
   );
 }
 
+/**
+ * Computes a SHA-256 hex digest of the given SDK key.
+ */
 export function hashSdkKey(sdkKey: string): string {
   return createHash('sha256').update(sdkKey).digest('hex');
 }
 
+/**
+ * Generates a JS module with deduplicated, lazily-parsed definitions.
+ *
+ * The map keys are SHA-256 hashes of the SDK keys so that raw keys
+ * are not embedded in the output.
+ *
+ * Output format:
+ * ```js
+ * const memo = (fn) => { let cached; return () => (cached ??= fn()); };
+ * const _d0 = memo(() => JSON.parse('...'));
+ * const map = { "<sha256_hash>": _d0 };
+ * export function get(hashedSdkKey) { return map[hashedSdkKey]?.() ?? null; }
+ * ```
+ */
 export function generateDefinitionsModule(
   sdkKeys: string[],
   values: BundledDefinitions[],
@@ -68,6 +88,11 @@ export function generateDefinitionsModule(
   return lines.join('\n');
 }
 
+/**
+ * Prepares flag definitions by reading SDK keys from environment variables,
+ * fetching definitions from flags.vercel.com, and writing them into a
+ * synthetic `@vercel/flags-definitions` package inside `node_modules/`.
+ */
 export async function prepareFlagsDefinitions(options: {
   cwd: string;
   env: Record<string, string | undefined>;
