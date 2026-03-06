@@ -42,8 +42,10 @@ export function generateDefinitionsModule(
   sdkKeys: string[],
   values: BundledDefinitions[],
 ): string {
+  // Stringify each definition
   const stringified = sdkKeys.map((_, i) => JSON.stringify(values[i]));
 
+  // Deduplicate: map unique strings to indices
   const uniqueStrings: string[] = [];
   const stringToIndex = new Map<string, number>();
   for (const s of stringified) {
@@ -53,17 +55,21 @@ export function generateDefinitionsModule(
     }
   }
 
+  // Map SDK keys to their definition index
   const keyToIndex = sdkKeys.map(
     (_, i) => stringToIndex.get(stringified[i]!) ?? 0,
   );
 
+  // Hash each SDK key
   const hashedKeys = sdkKeys.map(hashSdkKey);
 
+  // Generate JS
   const lines: string[] = [
     'const memo = (fn) => { let cached; return () => (cached ??= fn()); };',
     '',
   ];
 
+  // Add definition constants
   for (let i = 0; i < uniqueStrings.length; i++) {
     lines.push(
       `const _d${i} = memo(() => JSON.parse(${JSON.stringify(uniqueStrings[i])}));`,
@@ -106,6 +112,8 @@ export async function prepareFlagsDefinitions(options: {
     fetch: fetchFn = globalThis.fetch,
   } = options;
 
+  // Collect unique SDK keys from environment variables
+  // Supports both direct SDK keys (vf_ prefix) and flags: format
   const sdkKeys = Array.from(
     Object.values(env).reduce<Set<string>>((acc, value) => {
       if (typeof value === 'string') {
@@ -127,6 +135,7 @@ export async function prepareFlagsDefinitions(options: {
     return;
   }
 
+  // Fetch definitions for each SDK key
   const values = await Promise.all(
     sdkKeys.map(async (sdkKey) => {
       const headers: Record<string, string> = {
@@ -134,6 +143,7 @@ export async function prepareFlagsDefinitions(options: {
         'user-agent': `prepare-flags-definitions/${version}`,
       };
 
+      // Add Vercel metadata headers if available
       if (env.VERCEL_PROJECT_ID) {
         headers['x-vercel-project-id'] = env.VERCEL_PROJECT_ID;
       }
@@ -159,8 +169,10 @@ export async function prepareFlagsDefinitions(options: {
     }),
   );
 
+  // Generate the JS module
   const definitionsJs = generateDefinitionsModule(sdkKeys, values);
 
+  // Write to node_modules/@vercel/flags-definitions/
   const storageDir = join(cwd, 'node_modules', '@vercel', 'flags-definitions');
   const indexPath = join(storageDir, 'index.js');
   const dtsPath = join(storageDir, 'index.d.ts');
