@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { version } from '../package.json';
 import type { StreamMessage } from './controller/stream-connection';
 import { type BundledDefinitions, createClient } from './index.default';
 import { internalReportValue } from './lib/report-value';
@@ -81,18 +82,18 @@ function makeBundled(
 const ingestRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
   'Content-Type': 'application/json',
-  'User-Agent': 'VercelFlagsCore/1.0.1',
+  'User-Agent': `VercelFlagsCore/${version}`,
 });
 
 const streamRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
-  'User-Agent': 'VercelFlagsCore/1.0.1',
+  'User-Agent': `VercelFlagsCore/${version}`,
   'X-Retry-Attempt': '0',
 });
 
 const datafileRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
-  'User-Agent': 'VercelFlagsCore/1.0.1',
+  'User-Agent': `VercelFlagsCore/${version}`,
 });
 
 const originalEnv = { ...process.env };
@@ -1232,7 +1233,7 @@ describe('Controller (black-box)', () => {
           headers: {
             Authorization: 'Bearer vf_fake',
             'Content-Type': 'application/json',
-            'User-Agent': 'VercelFlagsCore/1.0.1',
+            'User-Agent': `VercelFlagsCore/${version}`,
           },
           method: 'POST',
         },
