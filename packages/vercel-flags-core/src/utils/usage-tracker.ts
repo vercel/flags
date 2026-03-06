@@ -18,12 +18,16 @@ export interface FlagsConfigReadEvent {
     region?: string;
     invocationHost?: string;
     vercelRequestId?: string;
-    cacheStatus?: 'HIT' | 'MISS';
+    cacheStatus?: 'HIT' | 'MISS' | 'BYPASS' | 'STALE';
+    cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
     cacheIsBlocking?: boolean;
     cacheIsFirstRead?: boolean;
     duration?: number;
     configUpdatedAt?: number;
-    configOrigin?: 'in-memory' | 'embedded';
+    configOrigin?: 'in-memory' | 'embedded' | 'poll' | 'stream' | 'constructor';
+    mode?: 'poll' | 'stream' | 'build' | 'offline';
+    revision?: string;
+    environment?: string;
   };
 }
 
@@ -35,12 +39,9 @@ interface EventBatcher {
   pending: null | Promise<void>;
 }
 
+const MAX_RETRIES = 3;
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
-
-// WeakSet to track request contexts that have already been recorded
-// Using WeakSet allows the context objects to be garbage collected
-const trackedRequests = new WeakSet<object>();
 
 interface RequestContext {
   ctx: object | undefined;
@@ -75,13 +76,16 @@ function getRequestContext(): RequestContext {
 export interface UsageTrackerOptions {
   sdkKey: string;
   host: string;
+  fetch: typeof fetch;
 }
 
 export interface TrackReadOptions {
   /** Whether the config was read from in-memory cache or embedded bundle */
   configOrigin: 'in-memory' | 'embedded';
-  /** HIT when definitions exist in memory, MISS when not. Omitted for embedded reads. */
-  cacheStatus?: 'HIT' | 'MISS';
+  /** HIT when definitions exist in memory, MISS when not, BYPASS when using fallback as primary source */
+  cacheStatus?: 'HIT' | 'MISS' | 'BYPASS';
+  /** FOLLOWING when streaming, REFRESHING when polling, NONE otherwise */
+  cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
   /** True for the very first getData call */
   cacheIsFirstRead?: boolean;
   /** Whether the cache read was blocking */
@@ -90,14 +94,19 @@ export interface TrackReadOptions {
   duration?: number;
   /** Timestamp when the config was last updated */
   configUpdatedAt?: number;
+  /** The mode the SDK is operating in */
+  mode?: 'poll' | 'stream' | 'build' | 'offline';
+  /** Revision of the config */
+  revision?: number;
 }
 
 /**
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
 export class UsageTracker {
-  private sdkKey: string;
-  private host: string;
+  private flushCounter: number = 0;
+  private options: UsageTrackerOptions;
+  private trackedRequests = new WeakSet<object>();
   private batcher: EventBatcher = {
     events: [],
     resolveWait: null,
@@ -105,8 +114,7 @@ export class UsageTracker {
   };
 
   constructor(options: UsageTrackerOptions) {
-    this.sdkKey = options.sdkKey;
-    this.host = options.host;
+    this.options = options;
   }
 
   /**
@@ -114,8 +122,17 @@ export class UsageTracker {
    * Returns a promise that resolves when the flush completes.
    */
   flush(): Promise<void> {
-    this.batcher.resolveWait?.();
-    return this.batcher.pending ?? RESOLVED_VOID;
+    if (this.batcher.pending) {
+      this.batcher.resolveWait?.();
+      return this.batcher.pending;
+    }
+
+    // No scheduled flush yet — flush directly if there are queued events
+    if (this.batcher.events.length > 0) {
+      return this.flushEvents();
+    }
+
+    return RESOLVED_VOID;
   }
 
   /**
@@ -127,8 +144,8 @@ export class UsageTracker {
 
       // Skip if we've already tracked this request
       if (ctx) {
-        if (trackedRequests.has(ctx)) return;
-        trackedRequests.add(ctx);
+        if (this.trackedRequests.has(ctx)) return;
+        this.trackedRequests.add(ctx);
       }
 
       const event: FlagsConfigReadEvent = {
@@ -150,6 +167,9 @@ export class UsageTracker {
         if (options.cacheStatus !== undefined) {
           event.payload.cacheStatus = options.cacheStatus;
         }
+        if (options.cacheAction !== undefined) {
+          event.payload.cacheAction = options.cacheAction;
+        }
         if (options.cacheIsFirstRead !== undefined) {
           event.payload.cacheIsFirstRead = options.cacheIsFirstRead;
         }
@@ -162,6 +182,18 @@ export class UsageTracker {
         if (options.configUpdatedAt !== undefined) {
           event.payload.configUpdatedAt = options.configUpdatedAt;
         }
+        if (options.mode !== undefined) {
+          event.payload.mode = options.mode;
+        }
+        if (options.revision !== undefined) {
+          event.payload.revision = String(options.revision);
+        }
+      }
+
+      const environment =
+        process.env.VERCEL_ENV || process.env.NODE_ENV || undefined;
+      if (environment) {
+        event.payload.environment = environment;
       }
 
       this.batcher.events.push(event);
@@ -192,7 +224,11 @@ export class UsageTracker {
       // Use waitUntil to keep the function alive until flush completes
       // If `waitUntil` is not available this will be a no-op and leave
       // a floating promise that will be completed in the background
-      waitUntil(pending);
+      try {
+        waitUntil(pending);
+      } catch {
+        // waitUntil is best-effort; falling through leaves a floating promise
+      }
 
       this.batcher.pending = pending;
     }
@@ -210,30 +246,45 @@ export class UsageTracker {
     const eventsToSend = this.batcher.events;
     this.batcher.events = [];
 
-    try {
-      const response = await fetch(`${this.host}/v1/ingest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.sdkKey}`,
-          'User-Agent': `VercelFlagsCore/${version}`,
-          ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
-        },
-        body: JSON.stringify(eventsToSend),
-      });
+    const flushId = ++this.flushCounter;
 
-      debugLog(
-        `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
-      );
-
-      if (!response.ok) {
-        debugLog(
-          '@vercel/flags-core: Failed to send events:',
-          response.statusText,
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await this.options.fetch(
+          `${this.options.host}/v1/ingest`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.options.sdkKey}`,
+              'User-Agent': `VercelFlagsCore/${version}`,
+              ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+            },
+            body: JSON.stringify(eventsToSend),
+          },
         );
+
+        debugLog(
+          `@vercel/flags-core: Ingest response ${response.status} for ${eventsToSend.length} events on ${response.headers.get('x-vercel-id')}`,
+        );
+
+        if (response.ok) {
+          break; // Break the loop if the request succeeded
+        }
+
+        throw new Error(
+          `Ingest endpoint responded with status ${response.status} for ${eventsToSend.length} events on request ${response.headers.get('x-vercel-id')}.\n` +
+            `Response body: ${await response.text().catch(() => null)}`,
+        );
+      } catch (error) {
+        console.error(
+          `@vercel/flags-core: Error sending events (attempt=${attempt}/${MAX_RETRIES} flushId=${flushId}):`,
+          error,
+        );
+        if (attempt < MAX_RETRIES) {
+          await new Promise((res) => setTimeout(res, attempt * 100));
+        }
       }
-    } catch (error) {
-      debugLog('@vercel/flags-core: Error sending events:', error);
     }
   }
 }

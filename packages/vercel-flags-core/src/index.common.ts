@@ -1,7 +1,11 @@
 export {
-  FlagNetworkDataSource,
-  type FlagNetworkDataSourceOptions,
-} from './data-source/flag-network-data-source';
+  Controller,
+  /** @deprecated Use `Controller` instead */
+  Controller as FlagNetworkDataSource,
+  type ControllerOptions,
+  /** @deprecated Use `ControllerOptions` instead */
+  type ControllerOptions as FlagNetworkDataSourceOptions,
+} from './controller';
 export {
   FallbackEntryNotFoundError,
   FallbackNotFoundError,
