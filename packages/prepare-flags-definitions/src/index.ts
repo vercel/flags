@@ -7,6 +7,10 @@ const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 
 type BundledDefinitions = Record<string, unknown>;
 
+export interface Output {
+  debug(message: string): void;
+}
+
 /**
  * Obfuscates SDK key for logging (shows first 18 chars)
  */
@@ -104,13 +108,17 @@ export async function prepareFlagsDefinitions(options: {
   env: Record<string, string | undefined>;
   version?: string;
   fetch?: typeof globalThis.fetch;
+  output?: Output;
 }): Promise<void> {
   const {
     cwd,
     env,
     version = 'unknown',
     fetch: fetchFn = globalThis.fetch,
+    output,
   } = options;
+
+  output?.debug('vercel-flags: checking env vars for SDK Keys');
 
   // Collect unique SDK keys from environment variables
   // Supports both direct SDK keys (vf_ prefix) and flags: format
@@ -130,6 +138,8 @@ export async function prepareFlagsDefinitions(options: {
       return acc;
     }, new Set<string>()),
   );
+
+  output?.debug(`vercel-flags: found ${sdkKeys.length} SDK keys`);
 
   if (sdkKeys.length === 0) {
     return;
@@ -204,4 +214,12 @@ export async function prepareFlagsDefinitions(options: {
     writeFile(dtsPath, dts),
     writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2)),
   ]);
+
+  output?.debug('vercel-flags: created module');
+  output?.debug(`  → ${indexPath}`);
+  output?.debug(`  → ${dtsPath}`);
+  output?.debug(`  → ${packageJsonPath}`);
+  output?.debug(
+    `  → included definitions for keys "${sdkKeys.map((key) => obfuscate(key)).join(', ')}"`,
+  );
 }
