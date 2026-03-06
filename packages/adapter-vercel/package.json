@@ -34,9 +34,10 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vercel/flags-core": "workspace:*"
+  },
   "devDependencies": {
-    "@vercel/flags-core": "workspace:*",
     "@types/node": "20.11.17",
     "flags": "workspace:*",
     "msw": "2.6.4",
@@ -47,7 +48,6 @@
     "vitest": "2.1.9"
   },
   "peerDependencies": {
-    "@vercel/flags-core": "workspace:*",
     "flags": "*"
   },
   "publishConfig": {
