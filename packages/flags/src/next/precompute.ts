@@ -29,7 +29,6 @@ export async function evaluate<T extends FlagsArray>(
 export async function precompute<T extends FlagsArray>(
   flags: T,
 ): Promise<string> {
-  if (flags.length === 0) return '__no_flags__';
   const values = await evaluate(flags);
   return serialize(flags, values);
 }
@@ -65,6 +64,7 @@ export async function serialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (flags.length === 0) return '__no_flags__';
   return s.serialize(combine(flags, values), flags, secret);
 }
 
@@ -84,6 +84,7 @@ export async function deserialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (code === '__no_flags__') return {};
   return s.deserialize(code, flags, secret);
 }
 
