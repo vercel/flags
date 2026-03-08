@@ -64,6 +64,7 @@ export async function serialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (flags.length === 0) return '__no_flags__';
   return s.serialize(combine(flags, values), flags, secret);
 }
 
@@ -83,6 +84,7 @@ export async function deserialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (code === '__no_flags__') return {};
   return s.deserialize(code, flags, secret);
 }
 
@@ -173,6 +175,8 @@ export async function generatePermutations(
       'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
+
+  if (flags.length === 0) return ['__no_flags__'];
 
   const options = flags.map((flag) => {
     // infer boolean permutations if you don't declare any options.
