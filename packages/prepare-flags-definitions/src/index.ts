@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { version as PACKAGE_VERSION } from '../package.json';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
 const FLAGS_DEFINITIONS_VERSION = '1.0.1';
@@ -107,14 +108,18 @@ export function generateDefinitionsModule(
 export async function prepareFlagsDefinitions(options: {
   cwd: string;
   env: Record<string, string | undefined>;
-  version?: string;
+  /**
+   * Appended to the user-agent header to identify the caller.
+   * Example: `"vercel-cli/35.0.0"`
+   */
+  userAgentSuffix?: string;
   fetch?: typeof globalThis.fetch;
   output?: Output;
 }): Promise<void> {
   const {
     cwd,
     env,
-    version = 'unknown',
+    userAgentSuffix,
     fetch: fetchFn = globalThis.fetch,
     output,
   } = options;
@@ -151,7 +156,12 @@ export async function prepareFlagsDefinitions(options: {
     sdkKeys.map(async (sdkKey) => {
       const headers: Record<string, string> = {
         authorization: `Bearer ${sdkKey}`,
-        'user-agent': `prepare-flags-definitions/${version}`,
+        'user-agent': [
+          `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
+          userAgentSuffix,
+        ]
+          .filter(Boolean)
+          .join(' '),
       };
 
       // Add Vercel metadata headers if available
