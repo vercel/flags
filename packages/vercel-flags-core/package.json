@@ -63,7 +63,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/functions": "^3.3.6",
+    "@vercel/functions": "^3.4.3",
     "jose": "5.2.1",
     "js-xxhash": "4.0.0"
   },
