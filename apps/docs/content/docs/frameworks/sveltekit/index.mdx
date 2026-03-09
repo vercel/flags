@@ -110,6 +110,12 @@ npm i -g vercel@latest
    npm i flags
    ```
 
+   If you use an AI coding assistant, we recommend installing the Flags SDK agent skill:
+
+   ```sh
+   npx skills add vercel/flags --skill flags-sdk
+   ```
+
 2. Create your first feature flag by importing the `flag` method from `flags/sveltekit`:
 
    ```ts title="src/lib/flags.ts"
