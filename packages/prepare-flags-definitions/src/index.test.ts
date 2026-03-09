@@ -69,6 +69,30 @@ describe('generateDefinitionsModule', () => {
 });
 
 describe('prepareFlagsDefinitions', () => {
+  it('returns { created: false, reason: "no-sdk-keys" } when no SDK keys in env', async () => {
+    const result = await prepareFlagsDefinitions({
+      cwd: '/tmp/test',
+      env: { SOME_VAR: 'hello' },
+    });
+
+    expect(result).toEqual({ created: false, reason: 'no-sdk-keys' });
+  });
+
+  it('returns { created: true, sdkKeysCount: N } when definitions are created', async () => {
+    const mockFetch = async () =>
+      new Response(JSON.stringify({ flag_a: { value: true } }), {
+        status: 200,
+      });
+
+    const result = await prepareFlagsDefinitions({
+      cwd: '/tmp/test-definitions',
+      env: { FLAGS_SECRET: 'vf_test_key_123' },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, sdkKeysCount: 1 });
+  });
+
   it('sends default user-agent with package version', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
