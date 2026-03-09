@@ -192,6 +192,8 @@ describe('flag on app router', () => {
   });
 
   it('falls back to the defaultValue if an async decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -218,9 +220,17 @@ describe('flag on app router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue if a sync decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -235,6 +245,12 @@ describe('flag on app router', () => {
 
     await expect(f()).resolves.toEqual(false);
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
@@ -360,6 +376,8 @@ describe('flag on pages router', () => {
   });
 
   it('should re-throw errors when no defaultValue is provided', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -372,7 +390,12 @@ describe('flag on pages router', () => {
     expect(mockDecide).toHaveBeenCalledTimes(0);
     await expect(() => f(firstRequest)).rejects.toThrow('custom error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('could not be evaluated'),
+    );
     socket1.destroy();
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
@@ -451,6 +474,8 @@ describe('flag on pages router', () => {
   });
 
   it('falls back to the defaultValue if an async decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -477,9 +502,16 @@ describe('flag on pages router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue if a sync decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -495,7 +527,13 @@ describe('flag on pages router', () => {
 
     await expect(f(firstRequest)).resolves.toEqual(false);
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
     socket1.destroy();
+
+    warnSpy.mockRestore();
   });
 });
 
