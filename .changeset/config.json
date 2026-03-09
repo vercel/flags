@@ -13,7 +13,8 @@
     "next-15",
     "next-16",
     "sveltekit-e2e",
-    "snippets"
+    "snippets",
+    "docs"
   ],
   "snapshot": {
     "useCalculatedVersion": true
