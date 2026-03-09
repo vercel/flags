@@ -13,6 +13,10 @@ export interface Output {
   time<T>(label: string, promise: Promise<T>): Promise<T>;
 }
 
+export type PrepareFlagsDefinitionsResult =
+  | { created: false; reason: 'no-sdk-keys' }
+  | { created: true; sdkKeysCount: number };
+
 /**
  * Obfuscates SDK key for logging (shows first 18 chars)
  */
@@ -115,7 +119,7 @@ export async function prepareFlagsDefinitions(options: {
   userAgentSuffix?: string;
   fetch?: typeof globalThis.fetch;
   output?: Output;
-}): Promise<void> {
+}): Promise<PrepareFlagsDefinitionsResult> {
   const {
     cwd,
     env,
@@ -148,7 +152,7 @@ export async function prepareFlagsDefinitions(options: {
   output?.debug(`vercel-flags: found ${sdkKeys.length} SDK keys`);
 
   if (sdkKeys.length === 0) {
-    return;
+    return { created: false, reason: 'no-sdk-keys' };
   }
 
   // Fetch definitions for each SDK key
@@ -237,4 +241,6 @@ export async function prepareFlagsDefinitions(options: {
   output?.debug(
     `  → included definitions for keys "${sdkKeys.map((key) => obfuscate(key)).join(', ')}"`,
   );
+
+  return { created: true, sdkKeysCount: sdkKeys.length };
 }
