@@ -107,25 +107,82 @@ export const exampleFlag = flag({
 });
 ```
 
-### CLI
+### `vercel flags` CLI
 
-Manage Vercel Flags from the terminal with `vercel flags`. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`pnpm i -g vercel`) and a linked project.
+Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`pnpm i -g vercel`) and a linked project (`vercel link`).
 
-Available subcommands: `list`, `add`, `inspect`, `enable`, `disable`, `archive`, `rm`, `sdk-keys`.
+#### Subcommands
+
+| Subcommand   | Description                                           |
+| ------------ | ----------------------------------------------------- |
+| `list`       | List all flags in the project                         |
+| `add`        | Create a new flag                                     |
+| `inspect`    | Show details, status, and targeting rules of a flag   |
+| `enable`     | Enable a boolean flag for a specific environment      |
+| `disable`    | Disable a boolean flag for a specific environment     |
+| `archive`    | Archive a flag (required before deleting)              |
+| `rm`         | Delete an archived flag                               |
+| `sdk-keys`   | Manage SDK keys (subcommands: `ls`, `add`, `rm`)      |
+
+#### Create and toggle a flag
 
 ```bash
+# Create a boolean flag with a description
 vercel flags add my-feature --kind boolean --description "New onboarding flow"
+
+# Enable in development first
+vercel flags enable my-feature --environment development
+
+# Promote to production
 vercel flags enable my-feature --environment production
-vercel flags list
-vercel flags sdk-keys ls
+
+# Disable in production
+vercel flags disable my-feature --environment production
 ```
 
-`enable` / `disable` only work with boolean flags. A flag must be archived before it can be deleted.
+`enable` and `disable` only work with boolean flags. For other flag types, configure values in the Vercel dashboard.
+
+#### Inspect and list flags
+
+```bash
+# Show details of a specific flag (status, environments, targeting rules)
+vercel flags inspect my-feature
+
+# List all flags in the project
+vercel flags list
+```
+
+#### Archive and delete a flag
+
+A flag must be archived before it can be deleted:
+
+```bash
+vercel flags archive my-feature
+vercel flags rm my-feature
+```
+
+#### Manage SDK keys
+
+SDK keys connect your application to Vercel Flags. The `FLAGS` environment variable contains an SDK key.
+
+```bash
+# List SDK keys for the project
+vercel flags sdk-keys ls
+
+# Create a new SDK key
+vercel flags sdk-keys add
+
+# Remove an SDK key
+vercel flags sdk-keys rm <sdk-key-id>
+```
+
+These examples cover common flag operations, but the CLI supports additional commands and options not listed here. For the full `vercel flags` reference and other Vercel CLI commands, install the `vercel-cli` skill:
+
+```bash
+npx skills add https://github.com/vercel/vercel --skill vercel-cli
+```
 
 Full CLI reference: https://vercel.com/docs/cli/flags
-
-> For broader Vercel CLI usage, install the `vercel-cli` skill:
-> `npx skills add https://github.com/vercel/vercel --skill vercel-cli`
 
 ---
 

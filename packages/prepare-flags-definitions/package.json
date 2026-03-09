@@ -1,6 +1,6 @@
 {
-  "name": "@flags-sdk/vercel",
-  "version": "1.0.2",
+  "name": "@vercel/prepare-flags-definitions",
+  "version": "0.2.0",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -9,11 +9,13 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
   },
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
       ".": [
@@ -34,21 +36,12 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "@vercel/flags-core": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "20.11.17",
-    "flags": "workspace:*",
-    "msw": "2.6.4",
-    "next": "16.1.5",
     "tsup": "8.5.1",
     "typescript": "5.6.3",
     "vite": "6.4.1",
     "vitest": "2.1.9"
-  },
-  "peerDependencies": {
-    "flags": "*"
   },
   "publishConfig": {
     "access": "public"

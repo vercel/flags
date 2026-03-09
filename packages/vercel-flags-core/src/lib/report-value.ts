@@ -2,7 +2,7 @@ import { version } from '../../package.json';
 import type { OutcomeType, ResolutionReason } from '../types';
 
 /**
- * Only used interally for now.
+ * Only used internally for now.
  */
 export function internalReportValue(
   key: string,

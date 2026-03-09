@@ -1,3 +1,5 @@
+import type { ControllerInstance } from './controller-fns';
+
 /**
  * Options for stream connection behavior
  */
@@ -30,6 +32,8 @@ export type DatafileInput = Packed.Data & {
    * Some older responses might return a string instead of a number. Both will be timestamps.
    */
   configUpdatedAt?: number | string;
+  /** Version number of the data */
+  revision?: number;
 };
 
 /** Datafile with metrics attached (returned by the client) */
@@ -44,7 +48,7 @@ export type BundledDefinitions = DatafileInput & {
   configUpdatedAt: number;
   /** hash of the data */
   digest: string;
-  /** version number of the dat */
+  /** version number of the data */
   revision: number;
 };
 
@@ -65,6 +69,8 @@ export type Metrics = {
   cacheStatus: 'HIT' | 'MISS' | 'STALE';
   /** Whether the stream is currently connected */
   connectionState: 'connected' | 'disconnected';
+  /** The current operating mode of the client */
+  mode: 'streaming' | 'polling' | 'build' | 'offline';
   /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
   evaluationMs?: number;
 };
@@ -72,7 +78,7 @@ export type Metrics = {
 /**
  * DataSource interface for the Vercel Flags client
  */
-export interface DataSource {
+export interface ControllerInterface {
   /**
    * Initialize the data source by fetching the initial file or setting up polling or
    * subscriptions.
@@ -273,7 +279,7 @@ export enum OutcomeType {
  * - ends with (endsWith)
  * - does not end with (!endsWith)
  * - exists (ex)
- * - deos not exist (!ex)
+ * - does not exist (!ex)
  * - is greater than (gt)
  * - is greater than or equal to (gte)
  * - is lower than (lt)
