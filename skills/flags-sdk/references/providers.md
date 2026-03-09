@@ -176,10 +176,13 @@ vercel flags sdk-keys add
 vercel flags sdk-keys rm <sdk-key-id>
 ```
 
-Full CLI reference: https://vercel.com/docs/cli/flags
+These examples cover common flag operations, but the CLI supports additional commands and options not listed here. For the full `vercel flags` reference and other Vercel CLI commands, install the `vercel-cli` skill:
 
-> For broader Vercel CLI usage, install the `vercel-cli` skill:
-> `npx skills add https://github.com/vercel/vercel --skill vercel-cli`
+```bash
+npx skills add https://github.com/vercel/vercel --skill vercel-cli
+```
+
+Full CLI reference: https://vercel.com/docs/cli/flags
 
 ---
 

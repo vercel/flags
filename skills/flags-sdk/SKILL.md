@@ -170,9 +170,13 @@ vercel flags rm my-feature
 
 `enable` and `disable` only work with boolean flags. A flag must be archived before it can be deleted.
 
-Full CLI reference: https://vercel.com/docs/cli/flags
+These examples cover the most common flag operations, but the CLI supports additional commands and options not listed here. For the full `vercel flags` reference and other Vercel CLI commands, install the `vercel-cli` skill:
 
-For advanced configuration (custom SDK keys, singleton clients), see [references/providers.md](references/providers.md#vercel).
+```bash
+npx skills add https://github.com/vercel/vercel --skill vercel-cli
+```
+
+For advanced adapter configuration (custom SDK keys, singleton clients), see [references/providers.md](references/providers.md#vercel).
 
 ## Declaring flags
 
