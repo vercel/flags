@@ -407,7 +407,14 @@ export function flag<
         >;
         if (precomputedCode && precomputedGroup) {
           setSpanAttribute('method', 'precomputed');
-          return getPrecomputed(api, precomputedGroup, precomputedCode, secret);
+          const value = await getPrecomputed(
+            api,
+            precomputedGroup,
+            precomputedCode,
+            secret,
+          );
+          if (value === undefined) return definition.defaultValue!;
+          return value;
         }
       }
 
