@@ -135,42 +135,11 @@ Configure which entity types are available for targeting in the Vercel Flags das
 
 ### `vercel flags` CLI
 
-Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project (`vercel link`).
+You can manage Vercel Flags from the terminal with `vercel flags`. The CLI supports creating, toggling, inspecting, archiving, and deleting flags, as well as managing SDK keys. It requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project (`vercel link`).
 
-| Subcommand  | Description                                    |
-| ----------- | ---------------------------------------------- |
-| `list`      | List all flags in the project                  |
-| `add`       | Create a new flag                              |
-| `inspect`   | Show details of a specific flag                |
-| `enable`    | Enable a boolean flag for an environment       |
-| `disable`   | Disable a boolean flag for an environment      |
-| `archive`   | Archive a flag (required before deleting)       |
-| `rm`        | Delete an archived flag                        |
-| `sdk-keys`  | Manage SDK keys for the project                |
+Available subcommands: `list`, `add`, `inspect`, `enable`, `disable`, `archive`, `rm`, `sdk-keys`.
 
-Common workflows:
-
-```bash
-# Create a boolean flag
-vercel flags add my-feature --kind boolean --description "New onboarding flow"
-
-# Enable it in production
-vercel flags enable my-feature --environment production
-
-# Check flag details
-vercel flags inspect my-feature
-
-# List all flags
-vercel flags list
-
-# Archive, then delete
-vercel flags archive my-feature
-vercel flags rm my-feature
-```
-
-`enable` and `disable` only work with boolean flags. A flag must be archived before it can be deleted.
-
-These examples cover the most common flag operations, but the CLI supports additional commands and options not listed here. For the full `vercel flags` reference and other Vercel CLI commands, install the `vercel-cli` skill:
+For detailed examples and all subcommand options, see [references/providers.md](references/providers.md#vercel-flags-cli). For the full Vercel CLI reference (beyond flags), install the `vercel-cli` skill:
 
 ```bash
 npx skills add https://github.com/vercel/vercel --skill vercel-cli
