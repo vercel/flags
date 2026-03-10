@@ -71,9 +71,10 @@ Install the adapter:
 pnpm i flags @flags-sdk/vercel
 ```
 
-Create a flag in the Vercel dashboard, then pull environment variables:
+Create a flag via the CLI or in the Vercel dashboard, then pull environment variables:
 
 ```bash
+vercel flags add example-flag
 vercel env pull
 ```
 
