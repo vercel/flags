@@ -25,7 +25,8 @@
         "KV_REST_API_READ_ONLY_TOKEN",
         "KV_REST_API_TOKEN",
         "KV_REST_API_URL",
-        "REDIS_URL"
+        "REDIS_URL",
+        "BLOB_READ_WRITE_TOKEN"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [
