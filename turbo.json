@@ -26,7 +26,8 @@
         "KV_REST_API_TOKEN",
         "KV_REST_API_URL",
         "REDIS_URL",
-        "BLOB_READ_WRITE_TOKEN"
+        "BLOB_READ_WRITE_TOKEN",
+        "VERCEL_ENV"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [
