@@ -59,110 +59,69 @@ export const exampleFlag = flag({
 });
 ```
 
+## Agent workflow: Creating a new flag
+
+When a user asks you to create or add a feature flag, follow these steps in order. Do not leave CLI steps as "next steps" for the user — execute them yourself.
+
+### Before you start
+
+Check the project state to decide which steps you can skip:
+
+- Is `flags` in `package.json`? → Skip install (step 1)
+- Does `.vercel/` directory exist? → Project is linked, skip `vercel link` in step 2
+- Does `.env.local` contain `FLAGS=`? → Env vars already pulled, skip step 3
+- Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch (step 4)
+- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 6
+
+### Steps
+
+1. **Install packages** (if not already in `package.json`):
+   ```bash
+   pnpm i flags @flags-sdk/vercel
+   ```
+
+2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
+
+   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, read and follow the `vercel-cli` skill. If it's not installed, run `npx skills add https://github.com/vercel/vercel --skill vercel-cli`.
+
+   Before running `vercel flags add`, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
+
+3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter()` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
+
+4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter()`:
+   ```ts
+   import { flag } from 'flags/next';
+   import { vercelAdapter } from '@flags-sdk/vercel';
+
+   export const myFlag = flag({
+     key: 'my-flag',
+     adapter: vercelAdapter(),
+   });
+   ```
+
+5. **Use the flag**: Call it in your page or component and conditionally render based on the result:
+   ```tsx
+   import { myFlag } from '../flags';
+
+   export default async function Page() {
+     const enabled = await myFlag();
+     return <div>{enabled ? 'Feature on' : 'Feature off'}</div>;
+   }
+   ```
+
+6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see the [Flags Explorer setup](#flags-explorer-setup) section below.
+
 ## Vercel Flags
 
 Vercel Flags is Vercel's feature flags platform. You create and manage flags from the Vercel dashboard or the `vercel flags` CLI, then connect them to your code with the `@flags-sdk/vercel` adapter. When you create a flag in Vercel, the `FLAGS` and `FLAGS_SECRET` environment variables are configured automatically.
 
-### Quickstart
+To create a flag end-to-end, follow the [Agent workflow](#agent-workflow-creating-a-new-flag) above.
 
-Install the adapter:
-
-```bash
-pnpm i flags @flags-sdk/vercel
-```
-
-Create a flag via the CLI or in the Vercel dashboard, then pull environment variables:
-
-```bash
-vercel flags add example-flag
-vercel env pull
-```
-
-You may need to run `vercel link` first if your project isn't linked to Vercel yet.
-
-Declare the flag in your code:
-
-```ts
-// flags.ts
-import { flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
-
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: vercelAdapter(),
-});
-```
-
-`vercelAdapter()` reads the `FLAGS` environment variable automatically. Call the flag as a function to resolve its value:
-
-```tsx
-// app/page.tsx
-import { exampleFlag } from '../flags';
-
-export default async function Page() {
-  const showExample = await exampleFlag();
-  return <div>{showExample ? 'Feature enabled' : 'Feature disabled'}</div>;
-}
-```
-
-Toggle the flag in the Vercel dashboard for any environment (development, preview, production) and reload the page to see the change.
-
-### User targeting
-
-Target specific users or groups by providing an `identify` function. The returned entities are passed to Vercel Flags for rule evaluation:
-
-```ts
-import { dedupe, flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
-
-type Entities = {
-  team?: { id: string };
-  user?: { id: string };
-};
-
-const identify = dedupe(async (): Promise<Entities> => ({
-  team: { id: 'team-123' },
-  user: { id: 'user-456' },
-}));
-
-export const exampleFlag = flag<boolean, Entities>({
-  key: 'example-flag',
-  identify,
-  adapter: vercelAdapter(),
-});
-```
-
-Configure which entity types are available for targeting in the Vercel Flags dashboard under your project's flags settings.
-
-### `vercel flags` CLI
-
-You can manage Vercel Flags from the terminal with `vercel flags`. The CLI supports creating, toggling, inspecting, archiving, and deleting flags, as well as managing SDK keys. It requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project (`vercel link`).
-
-Available subcommands: `list`, `add`, `inspect`, `enable`, `disable`, `archive`, `rm`, `sdk-keys`.
-
-For detailed examples and all subcommand options, see [references/providers.md](references/providers.md#vercel-flags-cli). For the full Vercel CLI reference (beyond flags), install the `vercel-cli` skill:
-
-```bash
-npx skills add https://github.com/vercel/vercel --skill vercel-cli
-```
-
-For advanced adapter configuration (custom SDK keys, singleton clients), see [references/providers.md](references/providers.md#vercel).
+For the full Vercel provider reference — user targeting, `vercel flags` CLI subcommands, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel).
 
 ## Declaring flags
 
-### With Vercel Flags (recommended)
-
-Use `vercelAdapter()` to connect your flag to Vercel Flags. The adapter handles evaluation, so you don't need a `decide` function:
-
-```ts
-import { flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
-
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: vercelAdapter(),
-});
-```
+When using Vercel Flags, declare flags with `vercelAdapter()` as shown in the [Agent workflow](#agent-workflow-creating-a-new-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
 
 ### Basic flag
 
@@ -270,22 +229,7 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 
 ### With external provider data
 
-```ts
-import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
-import { getProviderData as getStatsigProviderData } from '@flags-sdk/statsig';
-import { mergeProviderData } from 'flags';
-import * as flags from '../../../../flags';
-
-export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return mergeProviderData([
-    getProviderData(flags),
-    getStatsigProviderData({
-      consoleApiKey: process.env.STATSIG_CONSOLE_API_KEY,
-      projectId: process.env.STATSIG_PROJECT_ID,
-    }),
-  ]);
-});
-```
+When using a third-party provider alongside Vercel Flags, combine their data with `mergeProviderData`. Each provider adapter exports its own `getProviderData` — see the provider-specific examples in [references/providers.md](references/providers.md).
 
 ### SvelteKit
 
@@ -324,25 +268,7 @@ For full implementation details, see framework-specific references:
 
 ## Custom adapters
 
-Create an adapter factory returning an object with `origin` and `decide`:
-
-```ts
-import type { Adapter } from 'flags';
-
-export function createMyAdapter(/* options */) {
-  return function myAdapter<ValueType, EntitiesType>(): Adapter<ValueType, EntitiesType> {
-    return {
-      origin(key) {
-        return `https://my-provider.com/flags/${key}`;
-      },
-      async decide({ key }): Promise<ValueType> {
-        // evaluate against your provider
-        return false as ValueType;
-      },
-    };
-  };
-}
-```
+Create an adapter factory that returns an object with `origin` and `decide`. For the full pattern (including default adapter and singleton client examples), see [references/providers.md](references/providers.md#custom-adapters).
 
 ## Encryption functions
 
