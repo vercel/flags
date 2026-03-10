@@ -272,8 +272,8 @@ export enum OutcomeType {
  * - is not equal to (!eq)
  * - is one of (oneOf)
  * - is not one of (!oneOf)
- * - contains (contains)
- * - does not contain (!contains)
+ * - includes (includes)
+ * - does not include (!includes)
  * - starts with (startsWith)
  * - does not start with (!startsWith)
  * - ends with (endsWith)
@@ -360,16 +360,16 @@ export enum Comparator {
    * lhs must be string
    * rhs must be string
    *
-   * checks if lhs contains rhs as a substring
+   * checks if lhs includes rhs as a substring
    */
-  CONTAINS = 'contains',
+  INCLUDES = 'includes',
   /**
    * lhs must be string
    * rhs must be string
    *
-   * checks if lhs does not contain rhs as a substring
+   * checks if lhs does not include rhs as a substring
    */
-  NOT_CONTAINS = '!contains',
+  NOT_INCLUDES = '!includes',
   /**
    * lhs must be string
    * rhs must be never

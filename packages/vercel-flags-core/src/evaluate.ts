@@ -73,8 +73,8 @@ const IGNORE_CASE_COMPARATORS: ReadonlySet<Comparator> = new Set([
   Comparator.NOT_STARTS_WITH,
   Comparator.ENDS_WITH,
   Comparator.NOT_ENDS_WITH,
-  Comparator.CONTAINS,
-  Comparator.NOT_CONTAINS,
+  Comparator.INCLUDES,
+  Comparator.NOT_INCLUDES,
 ]);
 
 function matchTargetList<T>(
@@ -232,9 +232,9 @@ function matchConditions<T>(
           return isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
         case Comparator.NOT_ENDS_WITH:
           return isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
-        case Comparator.CONTAINS:
+        case Comparator.INCLUDES:
           return isString(lhs) && isString(rhs) && lhs.includes(rhs);
-        case Comparator.NOT_CONTAINS:
+        case Comparator.NOT_INCLUDES:
           return isString(lhs) && isString(rhs) && !lhs.includes(rhs);
         case Comparator.EXISTS:
           return lhs !== undefined && lhs !== null;
