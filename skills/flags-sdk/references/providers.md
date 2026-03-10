@@ -28,8 +28,12 @@ pnpm i flags @flags-sdk/vercel
 
 ### Setup
 
-1. Create a flag in the Vercel dashboard
-2. Pull env vars: `vercel env pull` (sets `FLAGS` and `FLAGS_SECRET`)
+> **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, read and follow the `vercel-cli` skill. If it's not installed, run `npx skills add https://github.com/vercel/vercel --skill vercel-cli`.
+
+Before running any `vercel flags` command, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
+
+1. Create a flag in the Vercel dashboard or via CLI: `vercel flags add <flag-key> --kind boolean --description "<description>"`
+2. Pull env vars: you **must** run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter()` will not be able to evaluate flags.
 3. Declare the flag:
 
 ```ts
@@ -109,7 +113,9 @@ export const exampleFlag = flag({
 
 ### `vercel flags` CLI
 
-Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`pnpm i -g vercel`) and a linked project (`vercel link`).
+Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project.
+
+> **Prerequisite**: The Vercel CLI must be installed (`pnpm i -g vercel`) and the project must be linked (`vercel link` — check for a `.vercel` directory). For authentication issues, read and follow the `vercel-cli` skill.
 
 #### Subcommands
 
@@ -176,11 +182,7 @@ vercel flags sdk-keys add
 vercel flags sdk-keys rm <sdk-key-id>
 ```
 
-These examples cover common flag operations, but the CLI supports additional commands and options not listed here. For the full `vercel flags` reference and other Vercel CLI commands, install the `vercel-cli` skill:
-
-```bash
-npx skills add https://github.com/vercel/vercel --skill vercel-cli
-```
+These examples cover common flag operations. For the full `vercel flags` reference and other Vercel CLI commands, see the `vercel-cli` skill. If it's not installed: `npx skills add https://github.com/vercel/vercel --skill vercel-cli`
 
 Full CLI reference: https://vercel.com/docs/cli/flags
 
