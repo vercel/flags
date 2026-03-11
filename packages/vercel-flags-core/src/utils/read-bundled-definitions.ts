@@ -59,6 +59,10 @@ export async function readBundledDefinitions(
     return { definitions: null, state: 'unexpected-error', error };
   }
 
+  if (typeof get !== 'function') {
+    return { definitions: null, state: 'missing-file' };
+  }
+
   // try plain sdk key first
   const entry = get(sdkKey);
   if (entry) return { definitions: entry, state: 'ok' };

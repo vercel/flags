@@ -48,6 +48,21 @@ describe('readBundledDefinitions', () => {
     expect(result.definitions).toBeNull();
   });
 
+  it('should return missing-file when the bundled definitions module has no get export', async () => {
+    vi.doMock('@vercel/flags-definitions', () => ({ get: undefined }));
+
+    const { readBundledDefinitions } = await import(
+      './read-bundled-definitions'
+    );
+
+    const result = await readBundledDefinitions('nonexistent-id');
+
+    expect(result).toEqual({
+      definitions: null,
+      state: 'missing-file',
+    });
+  });
+
   // The detailed behavior of readBundledDefinitions is tested indirectly
   // through Controller tests which mock readBundledDefinitions.
   // Those tests cover:
