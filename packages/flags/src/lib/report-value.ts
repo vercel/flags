@@ -23,7 +23,7 @@ export function reportValue(key: string, value: unknown) {
   const ctx = Reflect.get(globalThis, symbol)?.get();
   const reportFlagValue = ctx?.flags?.reportValue;
   if (typeof reportFlagValue !== 'function') return;
-  reportFlagValue(key, value, {
+  reportFlagValue.call(ctx.flags, key, value, {
     sdkVersion: version,
   });
 }
@@ -44,7 +44,7 @@ export function internalReportValue(
   const ctx = Reflect.get(globalThis, symbol)?.get();
   const reportFlagValue = ctx?.flags?.reportValue;
   if (typeof reportFlagValue !== 'function') return;
-  reportFlagValue(key, value, {
+  reportFlagValue.call(ctx.flags, key, value, {
     sdkVersion: version,
     ...data,
   });

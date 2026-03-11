@@ -18,6 +18,29 @@ const mocks = vi.hoisted(() => {
 const requestContextSymbol = Symbol.for('@vercel/request-context');
 const previousRequestContext = Reflect.get(globalThis, requestContextSymbol);
 
+type ReportCall = {
+  readonly key: string;
+  readonly value: unknown;
+  readonly data: Record<string, unknown>;
+};
+
+function createRequestContext() {
+  const calls: ReportCall[] = [];
+  const flags = {
+    calls,
+    reportValue(
+      this: { calls: ReportCall[] },
+      key: string,
+      value: unknown,
+      data: Record<string, unknown>,
+    ) {
+      this.calls.push({ key, value, data });
+    },
+  };
+
+  return { flags };
+}
+
 vi.mock('next/headers', async (importOriginal) => {
   const mod = await importOriginal<typeof import('next/headers')>();
   return {
@@ -207,6 +230,72 @@ describe('flag on app router', () => {
 
     await expect(f()).resolves.toEqual(true);
     expect(decide).not.toHaveBeenCalled();
+  });
+
+  it('preserves method binding for normal flag reporting hooks', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide: () => true,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(f()).resolves.toEqual(true);
+    expect(requestContext.flags.calls).toEqual([
+      {
+        key: 'first-flag',
+        value: true,
+        data: expect.objectContaining({
+          sdkVersion: expect.any(String),
+        }),
+      },
+    ]);
+  });
+
+  it('preserves method binding for override reporting hooks', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const decide = vi.fn(() => false);
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide,
+      config: { reportValue: false },
+    });
+
+    const headersOfFirstRequest = new Headers();
+    const override = await encryptOverrides({ 'first-flag': true });
+    const cookieMock = vi.fn((cookieName: string) => {
+      if (cookieName === 'vercel-flag-overrides') {
+        return { name: 'vercel-flag-overrides', value: override };
+      }
+      return undefined;
+    });
+    mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+
+    await expect(f()).resolves.toEqual(true);
+    expect(decide).not.toHaveBeenCalled();
+    expect(requestContext.flags.calls).toEqual([
+      {
+        key: 'first-flag',
+        value: true,
+        data: expect.objectContaining({
+          reason: 'override',
+          sdkVersion: expect.any(String),
+        }),
+      },
+    ]);
   });
 
   it('uses precomputed values', async () => {
