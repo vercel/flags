@@ -65,8 +65,9 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 
 ### Before you start
 
-Check the project state to decide which steps you can skip:
+Check the project state to adapt commands and decide which steps you can skip:
 
+- Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
 - Is `flags` in `package.json`? → Skip install (step 1)
 - Does `.vercel/` directory exist? → Project is linked, skip `vercel link` in step 2
 - Does `.env.local` contain `FLAGS=`? → Env vars already pulled, skip step 3
