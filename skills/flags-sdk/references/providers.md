@@ -146,7 +146,7 @@ vercel flags enable my-feature --environment production
 vercel flags disable my-feature --environment production
 ```
 
-`enable` and `disable` only work with boolean flags. For other flag types, configure values in the Vercel dashboard.
+`enable` and `disable` only work with boolean flags. For other flag types, see the vercel-cli skill
 
 #### Inspect and list flags
 
