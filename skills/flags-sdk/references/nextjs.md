@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Quickstart](#quickstart)
+- [Toolbar Setup](#toolbar-setup)
 - [App Router](#app-router)
 - [Pages Router](#pages-router)
 - [Evaluation Context](#evaluation-context)
@@ -30,6 +31,52 @@ export const exampleFlag = flag({
     return Math.random() > 0.5;
   },
 });
+```
+
+## Toolbar Setup
+
+1. Install `@vercel/toolbar`:
+
+```sh
+pnpm i @vercel/toolbar
+```
+
+2. Add Next.js plugin:
+
+```ts
+// next.config.ts
+import type { NextConfig } from 'next';
+import createWithVercelToolbar from '@vercel/toolbar/plugins/next';
+
+const nextConfig: NextConfig = {};
+
+const withVercelToolbar = createWithVercelToolbar();
+export default withVercelToolbar(nextConfig);
+```
+
+3. Render toolbar in root layout:
+
+```tsx
+// app/layout.tsx
+import { VercelToolbar } from '@vercel/toolbar/next';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // On Vercel, the toolbar is auto-injected in preview deployments.
+  // This manual injection is only needed for local development.
+  const shouldInjectToolbar = process.env.NODE_ENV === 'development';
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        {shouldInjectToolbar && <VercelToolbar />}
+      </body>
+    </html>
+  );
+}
 ```
 
 ## App Router
@@ -431,6 +478,8 @@ async function Example() {
 The `hasAuthCookieFlag` checks cookie existence without authenticating. Two shells get prerendered — one for each auth state — served statically with no layout shift.
 
 ## Flags Explorer (Next.js)
+
+The Flags Explorer is part of the Vercel Toolbar. Before adding the discovery endpoint below, make sure the toolbar is set up by following the [Toolbar Setup](#toolbar-setup) steps first.
 
 ### App Router
 
