@@ -144,9 +144,13 @@ vercel flags enable my-feature --environment production
 
 # Disable in production
 vercel flags disable my-feature --environment production
+
+# Change string variant in production
+vercel flags set my-feature -e production --variant my-variant
 ```
 
-`enable` and `disable` only work with boolean flags. For other flag types, configure values in the Vercel dashboard.
+`enable` and `disable` only work with boolean flags. For changing the state of other flag types, use the `set` command. Use the vercel-cli skill for full reference.
+
 
 #### Inspect and list flags
 

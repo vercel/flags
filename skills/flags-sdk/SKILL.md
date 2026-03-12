@@ -65,13 +65,15 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 
 ### Before you start
 
-Check the project state to decide which steps you can skip:
+Check the project state to adapt commands and decide which steps you can skip:
 
+- Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
 - Is `flags` in `package.json`? → Skip install (step 1)
 - Does `.vercel/` directory exist? → Project is linked, skip `vercel link` in step 2
 - Does `.env.local` contain `FLAGS=`? → Env vars already pulled, skip step 3
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch (step 4)
-- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 6
+- Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 6)
+- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 7
 
 ### Steps
 
@@ -109,7 +111,13 @@ Check the project state to decide which steps you can skip:
    }
    ```
 
-6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see the [Flags Explorer setup](#flags-explorer-setup) section below.
+6. **Set up the Vercel Toolbar** (if not already present):
+   - Run `pnpm i @vercel/toolbar`
+   - Wrap `next.config.ts` with the toolbar plugin
+   - Render `<VercelToolbar />` in the root layout
+   See [references/nextjs.md — Toolbar Setup](references/nextjs.md#toolbar-setup) for the full code.
+
+7. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see the [Flags Explorer setup](#flags-explorer-setup) section below.
 
 ## Vercel Flags
 
@@ -311,7 +319,7 @@ import { FlagValues, FlagDefinitions } from 'flags/react';
 
 Detailed framework and provider guides are in separate files to keep context lean:
 
-- **[references/nextjs.md](references/nextjs.md)**: Next.js quickstart, App Router, Pages Router, middleware/proxy, precompute, dedupe, dashboard pages, marketing pages, suspense fallbacks
-- **[references/sveltekit.md](references/sveltekit.md)**: SvelteKit quickstart, hooks setup, toolbar, precompute with reroute + middleware, dashboard pages, marketing pages
+- **[references/nextjs.md](references/nextjs.md)**: Next.js quickstart, toolbar, App Router, Pages Router, middleware/proxy, precompute, dedupe, dashboard pages, marketing pages, suspense fallbacks
+- **[references/sveltekit.md](references/sveltekit.md)**: SvelteKit quickstart, toolbar, hooks setup, precompute with reroute + middleware, dashboard pages, marketing pages
 - **[references/providers.md](references/providers.md)**: All provider adapters — Vercel, Edge Config, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune, Flagsmith, Reflag, Split, Optimizely, OpenFeature, and custom adapters
 - **[references/api.md](references/api.md)**: Full API reference for `flags`, `flags/react`, `flags/next`, and `flags/sveltekit`
