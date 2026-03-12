@@ -24,12 +24,16 @@ function jsonResponse(
   );
 }
 
+let cleanupContext: (() => void) | undefined;
+
 beforeEach(() => {
-  // Set VERCEL_ENV so trackRead doesn't skip (it's skipped when undefined or 'development')
-  vi.stubEnv('VERCEL_ENV', 'production');
+  // Set up request context so trackRead doesn't skip (it's skipped when ctx is unavailable)
+  cleanupContext = setRequestContext({ host: 'example.com' });
 });
 
 afterEach(() => {
+  cleanupContext?.();
+  cleanupContext = undefined;
   fetchMock.mockReset();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
@@ -62,8 +66,11 @@ describe('UsageTracker', () => {
   });
 
   describe('trackRead', () => {
-    it('should skip when VERCEL_ENV is undefined', async () => {
-      vi.unstubAllEnvs();
+    it('should skip when request context is unavailable', async () => {
+      // Remove the request context set up in beforeEach
+      cleanupContext?.();
+      cleanupContext = undefined;
+
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
@@ -71,28 +78,6 @@ describe('UsageTracker', () => {
       await tracker.flush();
 
       expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('should skip when VERCEL_ENV is development', async () => {
-      vi.stubEnv('VERCEL_ENV', 'development');
-      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
-
-      const tracker = createTracker();
-      tracker.trackRead();
-      await tracker.flush();
-
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('should send when VERCEL_ENV is preview', async () => {
-      vi.stubEnv('VERCEL_ENV', 'preview');
-      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
-
-      const tracker = createTracker();
-      tracker.trackRead();
-      await tracker.flush();
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should batch events and send them after flush', async () => {
@@ -133,10 +118,15 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Track multiple reads (without request context, so they won't be deduplicated)
-      tracker.trackRead();
-      tracker.trackRead();
-      tracker.trackRead();
+      // Track multiple reads with different request contexts so they won't be deduplicated
+      for (let i = 0; i < 3; i++) {
+        cleanupContext?.();
+        cleanupContext = setRequestContext({
+          host: 'example.com',
+          'x-vercel-id': `req-${i}`,
+        });
+        tracker.trackRead();
+      }
       await tracker.flush();
 
       const events = getBody() as Array<{ type: string }>;
@@ -455,8 +445,13 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Track 50 events (without request context to avoid deduplication)
+      // Track 50 events with different request contexts to avoid deduplication
       for (let i = 0; i < 50; i++) {
+        cleanupContext?.();
+        cleanupContext = setRequestContext({
+          host: 'example.com',
+          'x-vercel-id': `req-${i}`,
+        });
         tracker.trackRead();
       }
 

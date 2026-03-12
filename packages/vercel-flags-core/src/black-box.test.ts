@@ -118,7 +118,7 @@ describe('Controller (black-box)', () => {
       if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
       return undefined as unknown as Promise<Response>;
     });
-    // Set VERCEL_ENV so usage tracking is active (it's skipped when undefined or 'development')
+    // Set VERCEL_ENV so X-Vercel-Env headers are sent in requests
     process.env.VERCEL_ENV = 'production';
     // Reset env vars that affect build step detection
     delete process.env.CI;
@@ -129,6 +129,9 @@ describe('Controller (black-box)', () => {
     vi.restoreAllMocks();
     vi.useRealTimers();
     process.env = { ...originalEnv };
+    // Clean up any request context set during the test
+    const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
+    delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
   });
 
   // ---------------------------------------------------------------------------
@@ -204,32 +207,8 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'embedded',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'build',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should detect build step when NEXT_PHASE=phase-production-build', async () => {
@@ -248,32 +227,8 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'embedded',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'build',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should NOT detect build step when neither CI nor NEXT_PHASE is set', async () => {
@@ -322,6 +277,7 @@ describe('Controller (black-box)', () => {
       process.env.CI = '1'; // Would normally trigger build step
 
       const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -352,6 +308,7 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       stream.close();
+      cleanupCtx();
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -362,6 +319,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: date.getTime(),
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
                 cacheAction: 'FOLLOWING',
@@ -430,32 +388,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'build',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should throw when bundled definitions missing and fetch fails during build (no defaultValue)', async () => {
@@ -1175,6 +1109,7 @@ describe('Controller (black-box)', () => {
       });
 
       let pollCount = 0;
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -1222,6 +1157,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: after.getTime(),
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
                 cacheAction: 'NONE',
@@ -1239,6 +1175,7 @@ describe('Controller (black-box)', () => {
           method: 'POST',
         },
       );
+      cleanupCtx();
     });
 
     it('should use bundled definitions when stream fails after init timeout (skip polling)', async () => {
@@ -1248,6 +1185,7 @@ describe('Controller (black-box)', () => {
       });
 
       let pollCount = 0;
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -1297,6 +1235,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: after.getTime(),
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
                 cacheAction: 'NONE',
@@ -1314,6 +1253,7 @@ describe('Controller (black-box)', () => {
           method: 'POST',
         },
       );
+      cleanupCtx();
     });
 
     it('should never stream and poll simultaneously when stream is connected', async () => {
@@ -2115,6 +2055,7 @@ describe('Controller (black-box)', () => {
 
     it('should cleanly shut down mid-stream', async () => {
       const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -2162,6 +2103,7 @@ describe('Controller (black-box)', () => {
                 type: 'FLAGS_CONFIG_READ',
                 ts: date.getTime(),
                 payload: {
+                  invocationHost: 'example.com',
                   configOrigin: 'in-memory',
                   cacheStatus: 'HIT',
                   cacheAction: 'FOLLOWING',
@@ -2183,6 +2125,7 @@ describe('Controller (black-box)', () => {
 
       // still no streaming calls, as the count has not changed from above
       expect(fetchMock).toHaveBeenCalledTimes(2);
+      cleanupCtx();
     });
   });
 
@@ -2487,6 +2430,7 @@ describe('Controller (black-box)', () => {
       });
 
       const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -2537,6 +2481,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: date.getTime() + 60,
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
                 cacheAction: 'FOLLOWING',
@@ -2552,6 +2497,7 @@ describe('Controller (black-box)', () => {
           ]),
         },
       );
+      cleanupCtx();
     });
 
     it('should skip stream data with equal configUpdatedAt', async () => {
@@ -3235,7 +3181,7 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should deduplicate concurrent evaluate() calls that trigger initialize, and track each read individually when request context is missing', async () => {
+    it('should skip tracking when request context is missing', async () => {
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -3274,62 +3220,8 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'FOLLOWING',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'stream',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'FOLLOWING',
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'stream',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'FOLLOWING',
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'stream',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {
@@ -3409,6 +3301,7 @@ describe('Controller (black-box)', () => {
       });
 
       let fetchCallCount = 0;
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -3469,6 +3362,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: date.getTime(),
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
                 cacheAction: 'NONE',
@@ -3484,6 +3378,7 @@ describe('Controller (black-box)', () => {
           ]),
         },
       );
+      cleanupCtx();
     });
   });
 
@@ -3682,35 +3577,11 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
 
-      expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'in-memory',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 2,
-                mode: 'build',
-                revision: '2',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('should only track one FLAGS_CONFIG_READ during build step', async () => {
+    it('should not track FLAGS_CONFIG_READ during build step (no request context)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ configUpdatedAt: 1 }),
@@ -3726,36 +3597,13 @@ describe('Controller (black-box)', () => {
       await client.evaluate('flagA');
 
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'embedded',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 1,
-                mode: 'build',
-                revision: '1',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('should report FLAGS_CONFIG_READ with FOLLOWING cacheAction when streaming', async () => {
       const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -3801,6 +3649,7 @@ describe('Controller (black-box)', () => {
               type: 'FLAGS_CONFIG_READ',
               ts: date.getTime(),
               payload: {
+                invocationHost: 'example.com',
                 configOrigin: 'in-memory',
                 cacheStatus: 'HIT',
                 cacheAction: 'FOLLOWING',
@@ -3820,9 +3669,10 @@ describe('Controller (black-box)', () => {
       );
 
       stream.close();
+      cleanupCtx();
     });
 
-    it('should report FLAGS_CONFIG_READ when using bundled definitions in build step', async () => {
+    it('should not report FLAGS_CONFIG_READ during build step (no request context)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ configUpdatedAt: 2, revision: 2 }),
@@ -3851,32 +3701,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
 
-      expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://flags.vercel.com/v1/ingest',
-        {
-          body: JSON.stringify([
-            {
-              type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
-              payload: {
-                configOrigin: 'embedded',
-                cacheStatus: 'HIT',
-                cacheAction: 'NONE',
-                cacheIsFirstRead: true,
-                cacheIsBlocking: false,
-                duration: 0,
-                configUpdatedAt: 2,
-                mode: 'build',
-                revision: '2',
-                environment: 'production',
-              },
-            },
-          ]),
-          headers: ingestRequestHeaders,
-          method: 'POST',
-        },
-      );
+      // No ingest call: trackRead skips when request context is unavailable
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });
