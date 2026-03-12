@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setRequestContext } from '../test-utils';
 import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
 
@@ -24,13 +24,17 @@ function jsonResponse(
   );
 }
 
+const originalEnv = { ...process.env };
+
+beforeEach(() => {
+  // Set VERCEL_ENV so trackRead doesn't skip (it's skipped when undefined or 'development')
+  process.env.VERCEL_ENV = 'production';
+});
+
 afterEach(() => {
   fetchMock.mockReset();
   vi.restoreAllMocks();
-  // Clean up environment variables
-  delete process.env.VERCEL_DEPLOYMENT_ID;
-  delete process.env.VERCEL_REGION;
-  delete process.env.DEBUG;
+  process.env = { ...originalEnv };
 });
 
 function createTracker(sdkKey = 'test-key') {
@@ -60,6 +64,39 @@ describe('UsageTracker', () => {
   });
 
   describe('trackRead', () => {
+    it('should skip when VERCEL_ENV is undefined', async () => {
+      delete process.env.VERCEL_ENV;
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('should skip when VERCEL_ENV is development', async () => {
+      process.env.VERCEL_ENV = 'development';
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('should send when VERCEL_ENV is preview', async () => {
+      process.env.VERCEL_ENV = 'preview';
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('should batch events and send them after flush', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 

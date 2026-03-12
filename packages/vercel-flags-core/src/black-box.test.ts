@@ -83,17 +83,20 @@ const ingestRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
   'Content-Type': 'application/json',
   'User-Agent': `VercelFlagsCore/${version}`,
+  'X-Vercel-Env': 'production',
 });
 
 const streamRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
   'User-Agent': `VercelFlagsCore/${version}`,
   'X-Retry-Attempt': '0',
+  'X-Vercel-Env': 'production',
 });
 
 const datafileRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_fake',
   'User-Agent': `VercelFlagsCore/${version}`,
+  'X-Vercel-Env': 'production',
 });
 
 const originalEnv = { ...process.env };
@@ -115,6 +118,8 @@ describe('Controller (black-box)', () => {
       if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
       return undefined as unknown as Promise<Response>;
     });
+    // Set VERCEL_ENV so usage tracking is active (it's skipped when undefined or 'development')
+    process.env.VERCEL_ENV = 'production';
     // Reset env vars that affect build step detection
     delete process.env.CI;
     delete process.env.NEXT_PHASE;
@@ -217,7 +222,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'build',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -261,7 +266,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'build',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -366,7 +371,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -443,7 +448,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'build',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -1226,15 +1231,11 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'offline',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
-          headers: {
-            Authorization: 'Bearer vf_fake',
-            'Content-Type': 'application/json',
-            'User-Agent': `VercelFlagsCore/${version}`,
-          },
+          headers: ingestRequestHeaders,
           method: 'POST',
         },
       );
@@ -1305,7 +1306,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'offline',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -2170,7 +2171,7 @@ describe('Controller (black-box)', () => {
                   configUpdatedAt: 1,
                   mode: 'stream',
                   revision: '1',
-                  environment: 'test',
+                  environment: 'production',
                 },
               },
             ]),
@@ -2545,7 +2546,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 2000,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3224,7 +3225,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3291,7 +3292,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
             {
@@ -3306,7 +3307,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
             {
@@ -3321,7 +3322,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3477,7 +3478,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'offline',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3699,7 +3700,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 2,
                 mode: 'build',
                 revision: '2',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3743,7 +3744,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 1,
                 mode: 'build',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3809,7 +3810,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 5,
                 mode: 'stream',
                 revision: '1',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),
@@ -3868,7 +3869,7 @@ describe('Controller (black-box)', () => {
                 configUpdatedAt: 2,
                 mode: 'build',
                 revision: '2',
-                environment: 'test',
+                environment: 'production',
               },
             },
           ]),

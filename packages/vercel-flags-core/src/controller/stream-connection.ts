@@ -119,6 +119,10 @@ export async function connectStream(
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
+        const vercelEnv = process.env.VERCEL_ENV;
+        if (vercelEnv) {
+          headers['X-Vercel-Env'] = vercelEnv;
+        }
         const revision = config.revision?.();
         if (revision !== undefined) {
           headers['X-Revision'] = String(revision);

@@ -33,6 +33,9 @@ export async function fetchDatafile(options: {
       headers: {
         Authorization: `Bearer ${options.sdkKey}`,
         'User-Agent': `VercelFlagsCore/${version}`,
+        ...(process.env.VERCEL_ENV
+          ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+          : null),
       },
       signal: controller.signal,
     });
