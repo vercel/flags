@@ -140,19 +140,14 @@ export class UsageTracker {
    */
   trackRead(options?: TrackReadOptions): void {
     try {
-      // Skip config read reporting outside of Vercel deployments.
-      // VERCEL_ENV is only set on Vercel; in local dev or custom backends
-      // the metric would be inaccurate (no request-context deduplication).
-      const vercelEnv = process.env.VERCEL_ENV;
-      if (!vercelEnv || vercelEnv === 'development') return;
-
       const { ctx, headers } = getRequestContext();
 
+      // Skip if request context can't be inferred
+      if (!ctx) return;
+
       // Skip if we've already tracked this request
-      if (ctx) {
-        if (this.trackedRequests.has(ctx)) return;
-        this.trackedRequests.add(ctx);
-      }
+      if (this.trackedRequests.has(ctx)) return;
+      this.trackedRequests.add(ctx);
 
       const event: FlagsConfigReadEvent = {
         type: 'FLAGS_CONFIG_READ',

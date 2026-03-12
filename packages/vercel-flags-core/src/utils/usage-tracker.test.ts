@@ -24,17 +24,15 @@ function jsonResponse(
   );
 }
 
-const originalEnv = { ...process.env };
-
 beforeEach(() => {
   // Set VERCEL_ENV so trackRead doesn't skip (it's skipped when undefined or 'development')
-  process.env.VERCEL_ENV = 'production';
+  vi.stubEnv('VERCEL_ENV', 'production');
 });
 
 afterEach(() => {
   fetchMock.mockReset();
   vi.restoreAllMocks();
-  process.env = { ...originalEnv };
+  vi.unstubAllEnvs();
 });
 
 function createTracker(sdkKey = 'test-key') {
@@ -65,7 +63,7 @@ describe('UsageTracker', () => {
 
   describe('trackRead', () => {
     it('should skip when VERCEL_ENV is undefined', async () => {
-      delete process.env.VERCEL_ENV;
+      vi.unstubAllEnvs();
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
@@ -76,7 +74,7 @@ describe('UsageTracker', () => {
     });
 
     it('should skip when VERCEL_ENV is development', async () => {
-      process.env.VERCEL_ENV = 'development';
+      vi.stubEnv('VERCEL_ENV', 'development');
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
@@ -87,7 +85,7 @@ describe('UsageTracker', () => {
     });
 
     it('should send when VERCEL_ENV is preview', async () => {
-      process.env.VERCEL_ENV = 'preview';
+      vi.stubEnv('VERCEL_ENV', 'preview');
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
@@ -114,8 +112,8 @@ describe('UsageTracker', () => {
     });
 
     it('should include deployment ID and region from environment', async () => {
-      process.env.VERCEL_DEPLOYMENT_ID = 'dpl_123';
-      process.env.VERCEL_REGION = 'iad1';
+      vi.stubEnv('VERCEL_DEPLOYMENT_ID', 'dpl_123');
+      vi.stubEnv('VERCEL_REGION', 'iad1');
 
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -226,7 +224,7 @@ describe('UsageTracker', () => {
     });
 
     it('should send x-vercel-debug-ingest header in debug mode', async () => {
-      process.env.DEBUG = '@vercel/flags-core';
+      vi.stubEnv('DEBUG', '@vercel/flags-core');
       vi.resetModules();
       const { UsageTracker: FreshUsageTracker } = await import(
         './usage-tracker'
@@ -269,7 +267,7 @@ describe('UsageTracker', () => {
     });
 
     it('should log ingest response in debug mode', async () => {
-      process.env.DEBUG = '@vercel/flags-core';
+      vi.stubEnv('DEBUG', '@vercel/flags-core');
       vi.resetModules();
       const { UsageTracker: FreshUsageTracker } = await import(
         './usage-tracker'
