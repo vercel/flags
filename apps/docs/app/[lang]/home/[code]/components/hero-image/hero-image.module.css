@@ -1,0 +1,26 @@
+.image {
+  position: absolute;
+  inset: 0;
+
+  height: 100%;
+  width: 100%;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  color: transparent;
+}
+
+.image[data-theme="dark"] {
+  display: none;
+}
+
+:global(.dark-theme) {
+  .image[data-theme="dark"] {
+    display: block;
+  }
+
+  .image[data-theme="light"] {
+    display: none;
+  }
+}

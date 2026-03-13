@@ -6,7 +6,7 @@ export const config = {
   matcher: ['/', '/pages-router', '/app-router-static', '/pages-router-static'],
 };
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname === '/pages-router'

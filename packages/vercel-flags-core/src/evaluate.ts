@@ -7,9 +7,14 @@ import {
   Packed,
   ResolutionReason,
 } from './types';
-import { exhaustivenessCheck } from './utils';
 
 type PathArray = (string | number)[];
+
+const MAX_REGEX_INPUT_LENGTH = 10_000;
+
+function exhaustivenessCheck(_: never): never {
+  throw new Error('Exhaustiveness check failed');
+}
 
 function getProperty(obj: any, pathArray: PathArray): any {
   return pathArray.reduce((acc: any, key: string | number) => {
@@ -50,14 +55,38 @@ function isArray(input: unknown): input is unknown[] {
   return Array.isArray(input);
 }
 
+function lower<T>(input: T): T {
+  if (typeof input === 'string') return input.toLowerCase() as T;
+  if (Array.isArray(input)) return input.map(lower) as T;
+  return input;
+}
+
+const IGNORE_CASE_COMPARATORS: ReadonlySet<Comparator> = new Set([
+  Comparator.EQ,
+  Comparator.NOT_EQ,
+  Comparator.ONE_OF,
+  Comparator.NOT_ONE_OF,
+  Comparator.CONTAINS_ALL_OF,
+  Comparator.CONTAINS_ANY_OF,
+  Comparator.CONTAINS_NONE_OF,
+  Comparator.STARTS_WITH,
+  Comparator.NOT_STARTS_WITH,
+  Comparator.ENDS_WITH,
+  Comparator.NOT_ENDS_WITH,
+  Comparator.CONTAINS,
+  Comparator.NOT_CONTAINS,
+]);
+
 function matchTargetList<T>(
   targets: Packed.TargetList,
   params: EvaluationParams<T>,
 ): boolean {
-  for (const [kind, attributes] of Object.entries(targets)) {
-    for (const [attribute, values] of Object.entries(attributes)) {
+  for (const kind in targets) {
+    const attributes = targets[kind]!;
+    for (const attribute in attributes) {
       const entity = access([kind, attribute], params);
-      if (isString(entity) && values.includes(entity)) return true;
+      if (isString(entity) && attributes[attribute]!.includes(entity))
+        return true;
     }
   }
   return false;
@@ -107,7 +136,7 @@ function matchSegmentCondition<T>(
       return segmentIds.every((segmentId) => {
         const segment = params.segments?.[segmentId];
         if (!segment) return false;
-        return matchSegment<T>(segment, params);
+        return !matchSegment<T>(segment, params);
       });
     }
     default:
@@ -120,13 +149,25 @@ function matchConditions<T>(
   params: EvaluationParams<T>,
 ): boolean {
   return conditions.every((condition) => {
-    const [lhsAccessor, cmpKey, rhs] = condition;
+    const [lhsAccessor, cmpKey, rawRhs, options] = condition;
+    const hasIgnoreCaseFlag =
+      typeof options === 'string' && options.includes('i');
+    const hasIgnoreCaseOption =
+      typeof options === 'object' && options !== null && options.i === true;
+    const ignoreCase =
+      IGNORE_CASE_COMPARATORS.has(cmpKey) &&
+      (hasIgnoreCaseFlag || hasIgnoreCaseOption);
 
+    // ignoreCase is not applicable to segment conditions (segments are internal IDs)
     if (lhsAccessor === Packed.AccessorType.SEGMENT) {
-      return rhs && matchSegmentCondition(cmpKey, rhs, params);
+      return rawRhs && matchSegmentCondition(cmpKey, rawRhs, params);
     }
 
-    const lhs = access(lhsAccessor, params);
+    const lhs = ignoreCase
+      ? lower(access(lhsAccessor, params))
+      : access(lhsAccessor, params);
+    const rhs = ignoreCase ? lower(rawRhs) : rawRhs;
+
     try {
       switch (cmpKey) {
         case Comparator.EQ:
@@ -191,6 +232,10 @@ function matchConditions<T>(
           return isString(lhs) && isString(rhs) && lhs.endsWith(rhs);
         case Comparator.NOT_ENDS_WITH:
           return isString(lhs) && isString(rhs) && !lhs.endsWith(rhs);
+        case Comparator.CONTAINS:
+          return isString(lhs) && isString(rhs) && lhs.includes(rhs);
+        case Comparator.NOT_CONTAINS:
+          return isString(lhs) && isString(rhs) && !lhs.includes(rhs);
         case Comparator.EXISTS:
           return lhs !== undefined && lhs !== null;
         case Comparator.NOT_EXISTS:
@@ -211,6 +256,7 @@ function matchConditions<T>(
         case Comparator.REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
@@ -222,6 +268,7 @@ function matchConditions<T>(
         case Comparator.NOT_REGEX:
           if (
             isString(lhs) &&
+            lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
@@ -289,6 +336,15 @@ function handleSegmentOutcome<T>(
   }
 }
 
+function getVariant<T>(variants: unknown[], index: number): T {
+  if (index < 0 || index >= variants.length) {
+    throw new Error(
+      `@vercel/flags-core: Invalid variant index ${index}, variants length is ${variants.length}`,
+    );
+  }
+  return variants[index] as T;
+}
+
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
@@ -298,18 +354,21 @@ function handleOutcome<T>(
 } {
   if (typeof outcome === 'number') {
     return {
-      value: params.definition.variants[outcome] as T,
+      value: getVariant<T>(params.definition.variants, outcome),
       outcomeType: OutcomeType.VALUE,
     };
   }
   switch (outcome.type) {
     case 'split': {
       const lhs = access(outcome.base, params);
-      const defaultOutcome = params.definition.variants[outcome.defaultVariant];
+      const defaultOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.defaultVariant,
+      );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return { value: defaultOutcome as T, outcomeType: OutcomeType.SPLIT };
+        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
       }
 
       /** 2^32-1 */
@@ -328,8 +387,8 @@ function handleOutcome<T>(
       return {
         value:
           variantIndex === -1
-            ? (defaultOutcome as T)
-            : (params.definition.variants[variantIndex] as T),
+            ? defaultOutcome
+            : getVariant<T>(params.definition.variants, variantIndex),
         outcomeType: OutcomeType.SPLIT,
       };
     }
@@ -354,15 +413,16 @@ export function evaluate<T>(
    * The params used for the evaluation
    */
   params: EvaluationParams<T>,
+  /** Tracks visited environments to detect circular reuse. */
+  _visited?: Set<string>,
 ): EvaluationResult<T> {
   const envConfig = params.definition.environments[params.environment];
 
   // handle shortcut where a value is a number directly
   if (typeof envConfig === 'number') {
-    return {
-      ...handleOutcome<T>(params, envConfig),
-      reason: ResolutionReason.PAUSED,
-    };
+    return Object.assign(handleOutcome<T>(params, envConfig), {
+      reason: ResolutionReason.PAUSED as const,
+    }) satisfies EvaluationResult<T>;
   }
 
   if (!envConfig) {
@@ -384,7 +444,17 @@ export function evaluate<T>(
       );
     }
 
-    return evaluate<T>({ ...params, environment: envConfig.reuse });
+    const visited = _visited ?? new Set<string>();
+    if (visited.has(envConfig.reuse)) {
+      return {
+        reason: ResolutionReason.ERROR,
+        errorMessage: `Circular environment reuse detected: "${envConfig.reuse}"`,
+        value: params.defaultValue,
+      };
+    }
+    visited.add(params.environment);
+
+    return evaluate<T>({ ...params, environment: envConfig.reuse }, visited);
   }
 
   if (envConfig.targets) {
@@ -393,10 +463,9 @@ export function evaluate<T>(
     );
 
     if (matchedIndex > -1) {
-      return {
-        ...handleOutcome<T>(params, matchedIndex),
-        reason: ResolutionReason.TARGET_MATCH,
-      };
+      return Object.assign(handleOutcome<T>(params, matchedIndex), {
+        reason: ResolutionReason.TARGET_MATCH as const,
+      }) satisfies EvaluationResult<T>;
     }
   }
 
@@ -405,16 +474,14 @@ export function evaluate<T>(
     : undefined;
 
   if (firstMatchingRule) {
-    return {
-      ...handleOutcome<T>(params, firstMatchingRule.outcome),
-      reason: ResolutionReason.RULE_MATCH,
-    };
+    return Object.assign(handleOutcome<T>(params, firstMatchingRule.outcome), {
+      reason: ResolutionReason.RULE_MATCH as const,
+    }) satisfies EvaluationResult<T>;
   }
 
-  return {
-    ...handleOutcome<T>(params, envConfig.fallthrough),
-    reason: ResolutionReason.FALLTHROUGH,
-  };
+  return Object.assign(handleOutcome<T>(params, envConfig.fallthrough), {
+    reason: ResolutionReason.FALLTHROUGH as const,
+  }) satisfies EvaluationResult<T>;
 }
 
 /**

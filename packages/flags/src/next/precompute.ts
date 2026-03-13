@@ -64,6 +64,7 @@ export async function serialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (flags.length === 0) return '__no_flags__';
   return s.serialize(combine(flags, values), flags, secret);
 }
 
@@ -83,6 +84,7 @@ export async function deserialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
+  if (code === '__no_flags__') return {};
   return s.deserialize(code, flags, secret);
 }
 
@@ -139,14 +141,36 @@ export async function getPrecomputed<T extends JsonValue>(
     );
   }
 
+  if (code === '__no_flags__') {
+    const keys = Array.isArray(flagOrFlags)
+      ? flagOrFlags.map((f) => f.key).join(', ')
+      : (flagOrFlags as Flag<T, any>).key;
+    console.warn(
+      `flags: getPrecomputed was called with a code generated from an empty flags array. The flag(s) "${keys}" can not be resolved. Make sure to include them in the array passed to serialize/precompute.`,
+    );
+  }
+
   const flagSet = await deserialize(precomputeFlags, code, secret);
 
   if (Array.isArray(flagOrFlags)) {
     // Handle case when an array of flags is passed
-    return flagOrFlags.map((flag) => flagSet[flag.key]);
+    return flagOrFlags.map((flag) => {
+      if (!Object.hasOwn(flagSet, flag.key)) {
+        console.warn(
+          `flags: Tried to read precomputed value for flag "${flag.key}" which is not part of the precomputed flags. Make sure to include it in the array passed to serialize/precompute.`,
+        );
+      }
+      return flagSet[flag.key];
+    });
   } else {
     // Handle case when a single flag is passed
-    return flagSet[(flagOrFlags as Flag<T, any>).key];
+    const key = (flagOrFlags as Flag<T, any>).key;
+    if (!Object.hasOwn(flagSet, key)) {
+      console.warn(
+        `flags: Tried to read precomputed value for flag "${key}" which is not part of the precomputed flags. Make sure to include it in the array passed to serialize/precompute.`,
+      );
+    }
+    return flagSet[key];
   }
 }
 
@@ -173,6 +197,8 @@ export async function generatePermutations(
       'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
     );
   }
+
+  if (flags.length === 0) return ['__no_flags__'];
 
   const options = flags.map((flag) => {
     // infer boolean permutations if you don't declare any options.

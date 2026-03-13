@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JsonValue } from '../types';
 import {
   deserialize,
@@ -7,6 +7,7 @@ import {
   flag,
   generatePermutations,
   getPrecomputed,
+  precompute,
   serialize,
 } from './index';
 
@@ -31,6 +32,15 @@ async function expectPermutations(
 }
 
 describe('generatePermutations', () => {
+  describe('when flags array is empty', () => {
+    it('should return a single __no_flags__ permutation', async () => {
+      process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+      const result = await generatePermutations([]);
+      expect(result).toEqual(['__no_flags__']);
+    });
+  });
+
   describe('when flag declares no options', () => {
     it('should infer boolean options', async () => {
       process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
@@ -189,6 +199,13 @@ describe('generatePermutations', () => {
   });
 });
 
+describe('precompute', () => {
+  it('should return __no_flags__ for an empty flags array', async () => {
+    const result = await precompute([] as const);
+    expect(result).toBe('__no_flags__');
+  });
+});
+
 describe('getPrecomputed', () => {
   it('should return the precomputed value', async () => {
     process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
@@ -199,5 +216,54 @@ describe('getPrecomputed', () => {
     const group = [flagA, flagB];
     const code = await serialize(group, [true, false]);
     await expect(getPrecomputed(flagA, group, code)).resolves.toBe(true);
+  });
+
+  it('should warn when called with __no_flags__ code', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const result = await getPrecomputed(flagA, [], '__no_flags__');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('empty flags array'),
+    );
+    expect(result).toBeUndefined();
+
+    warnSpy.mockRestore();
+  });
+
+  it('should warn when called with __no_flags__ code and an array of flags', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const result = await getPrecomputed([flagA], [], '__no_flags__');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('empty flags array'),
+    );
+    expect(result).toEqual([undefined]);
+
+    warnSpy.mockRestore();
+  });
+
+  it('should warn when flag is not part of precomputed flags', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const flagB = flag<boolean>({ key: 'b', decide: () => false });
+
+    const group = [flagA];
+    const code = await serialize(group, [true]);
+    const result = await getPrecomputed(flagB, group, code);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('not part of the precomputed flags'),
+    );
+    expect(result).toBeUndefined();
+
+    warnSpy.mockRestore();
   });
 });

@@ -1,4 +1,3 @@
-import { encryptFlagValues } from 'flags';
 import { deserialize, generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import { FreeDelivery } from '@/app/free-delivery';
@@ -33,14 +32,12 @@ export default async function Layout(props: {
     productFlags,
   );
 
-  const encryptedFlagValues = await encryptFlagValues(values);
-
   return (
     <div className="bg-white">
       <FreeDelivery show={showFreeDeliveryBanner} />
       <Navigation />
       {props.children}
-      <FlagValues values={encryptedFlagValues} />
+      <FlagValues values={values} />
       <Footer />
       <DevTools />
     </div>

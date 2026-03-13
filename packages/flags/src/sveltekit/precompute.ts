@@ -62,6 +62,7 @@ async function serialize(
   values: ValuesArray,
   secret: string,
 ) {
+  if (flags.length === 0) return '__no_flags__';
   return s.serialize(combine(flags, values), flags, secret);
 }
 
@@ -73,6 +74,7 @@ async function serialize(
  * @returns - An object consisting of each flag's key and its resolved value.
  */
 async function deserialize(flags: FlagsArray, code: string, secret: string) {
+  if (code === '__no_flags__') return {};
   return s.deserialize(code, flags, secret);
 }
 
@@ -90,7 +92,19 @@ export async function getPrecomputed<T extends JsonValue>(
   code: string,
   secret: string,
 ): Promise<T> {
+  if (code === '__no_flags__') {
+    console.warn(
+      `flags: getPrecomputed was called with a code generated from an empty flags array. The flag "${flagKey}" can not be resolved. Make sure to include it in the array passed to serialize/precompute.`,
+    );
+  }
+
   const flagSet = await deserialize(precomputeFlags, code, secret);
+
+  if (!Object.hasOwn(flagSet, flagKey)) {
+    console.warn(
+      `flags: Tried to read precomputed value for flag "${flagKey}" which is not part of the precomputed flags. Make sure to include it in the array passed to serialize/precompute.`,
+    );
+  }
 
   return flagSet[flagKey];
 }
@@ -113,6 +127,8 @@ export async function generatePermutations(
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
   secret: string,
 ): Promise<string[]> {
+  if (flags.length === 0) return ['__no_flags__'];
+
   const options = flags.map((flag) => {
     // infer boolean permutations if you don't declare any options.
     //

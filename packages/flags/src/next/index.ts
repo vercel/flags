@@ -169,6 +169,21 @@ async function getEntities<ValueType, EntitiesType>(
 function getDecide<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
+  if (definition.adapter && typeof definition.adapter.decide !== 'function') {
+    throw new Error(
+      `flags: You passed an adapter that does not have a "decide" method for flag "${definition.key}". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?`,
+    );
+  }
+
+  if (
+    typeof definition.decide !== 'function' &&
+    typeof definition.adapter?.decide !== 'function'
+  ) {
+    throw new Error(
+      `flags: You passed a flag declaration that does not have a "decide" method for flag "${definition.key}"`,
+    );
+  }
+
   return function decide(params) {
     if (typeof definition.decide === 'function') {
       return definition.decide(params);
@@ -378,7 +393,7 @@ export function flag<
   const run = getRun<ValueType, EntitiesType>(definition, decide);
   const origin = getOrigin(definition);
 
-  const flag = trace(
+  const api = trace(
     async (...args: any[]) => {
       // Default method, may be overwritten by `getPrecomputed` or `run`
       // which is why we must not trace them directly in here,
@@ -392,12 +407,14 @@ export function flag<
         >;
         if (precomputedCode && precomputedGroup) {
           setSpanAttribute('method', 'precomputed');
-          return getPrecomputed(
-            flag,
+          const value = await getPrecomputed(
+            api,
             precomputedGroup,
             precomputedCode,
             secret,
           );
+          if (value === undefined) return definition.defaultValue!;
+          return value;
         }
       }
 
@@ -424,30 +441,30 @@ export function flag<
     },
   ) as Flag<ValueType, EntitiesType>;
 
-  flag.key = definition.key;
-  flag.defaultValue = definition.defaultValue;
-  flag.origin = origin;
-  flag.options = normalizeOptions<ValueType>(definition.options);
-  flag.description = definition.description;
-  flag.identify = identify
+  api.key = definition.key;
+  api.defaultValue = definition.defaultValue;
+  api.origin = origin;
+  api.options = normalizeOptions<ValueType>(definition.options);
+  api.description = definition.description;
+  api.identify = identify
     ? trace(identify, {
         isVerboseTrace: false,
         name: 'identify',
         attributes: { key: definition.key },
       })
     : identify;
-  flag.decide = trace(decide, {
+  api.decide = trace(decide, {
     isVerboseTrace: false,
     name: 'decide',
     attributes: { key: definition.key },
   });
-  flag.run = trace(run, {
+  api.run = trace(run, {
     isVerboseTrace: false,
     name: 'run',
     attributes: { key: definition.key },
   });
 
-  return flag;
+  return api;
 }
 
 export type KeyedFlagDefinitionType = { key: string } & FlagDefinitionType;

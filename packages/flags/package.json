@@ -1,6 +1,6 @@
 {
   "name": "flags",
-  "version": "4.0.2",
+  "version": "4.0.5",
   "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
   "keywords": [
     "feature flags",
@@ -79,20 +79,19 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^5.0.2",
-    "jose": "^5.2.1"
+    "jose": "^5.10.0"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "0.17.3",
+    "@arethetypeswrong/cli": "0.18.2",
     "@types/node": "20.11.17",
-    "@types/react": "18.2.55",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "4.2.1",
     "msw": "2.6.4",
-    "next": "15.1.4",
-    "react": "canary",
-    "tsup": "8.0.1",
+    "tsup": "8.5.1",
     "typescript": "5.6.3",
-    "vite": "5.1.1",
-    "vitest": "1.4.0"
+    "vite": "5.4.21",
+    "vitest": "1.6.1"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",

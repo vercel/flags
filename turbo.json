@@ -20,7 +20,13 @@
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
         "LAUNCHDARKLY_PROJECT_SLUG",
         "FLAGS",
-        "BACKEND_URL"
+        "BACKEND_URL",
+        "KV_URL",
+        "KV_REST_API_READ_ONLY_TOKEN",
+        "KV_REST_API_TOKEN",
+        "KV_REST_API_URL",
+        "REDIS_URL",
+        "BLOB_READ_WRITE_TOKEN"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [

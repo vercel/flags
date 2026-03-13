@@ -1,14 +1,167 @@
-export interface ConnectionOptions {
-  edgeConfigId: string;
-  edgeConfigToken: string;
-  edgeConfigItemKey: string | null;
-  env: string | null;
+import type { ControllerInstance } from './controller-fns';
+
+/**
+ * Options for stream connection behavior
+ */
+export type StreamOptions = {
+  /** Timeout in ms to wait for initial stream connection before falling back */
+  initTimeoutMs: number;
+};
+
+/**
+ * Options for polling behavior
+ */
+export type PollingOptions = {
+  /** Interval in ms between polling requests */
+  intervalMs: number;
+  /** Timeout in ms to wait for initial poll before falling back */
+  initTimeoutMs: number;
+};
+
+/** Input type for creating a datafile (without metrics) */
+export type DatafileInput = Packed.Data & {
+  /**
+   * If a data source is used with a specific sdk key then
+   * the sdk key or data source might contain information
+   * about the environment to be evaluated
+   */
+  environment: string;
+  /** Vercel project id of the source of these flags  */
   projectId: string;
+  /**
+   * Some older responses might return a string instead of a number. Both will be timestamps.
+   */
+  configUpdatedAt?: number | string;
+  /** Version number of the data */
+  revision?: number;
+};
+
+/** Datafile with metrics attached (returned by the client) */
+export type Datafile = DatafileInput & {
+  /** Metrics about how the data was retrieved */
+  metrics: Metrics;
+};
+
+/** Flag Definitions of a Vercel project */
+export type BundledDefinitions = DatafileInput & {
+  /** when the data was last updated */
+  configUpdatedAt: number;
+  /** hash of the data */
+  digest: string;
+  /** version number of the data */
+  revision: number;
+};
+
+export type BundledDefinitionsResult =
+  | { definitions: BundledDefinitions; state: 'ok' }
+  | { definitions: null; state: 'missing-file' | 'missing-entry' }
+  | { definitions: null; state: 'unexpected-error'; error: unknown };
+
+/**
+ * Metrics about how data was retrieved and evaluated
+ */
+export type Metrics = {
+  /** Time in ms to read the datafile */
+  readMs: number;
+  /** Where the data came from */
+  source: 'in-memory' | 'embedded' | 'remote';
+  /** Whether data was already cached, or stale (fallback used) */
+  cacheStatus: 'HIT' | 'MISS' | 'STALE';
+  /** Whether the stream is currently connected */
+  connectionState: 'connected' | 'disconnected';
+  /** The current operating mode of the client */
+  mode: 'streaming' | 'polling' | 'build' | 'offline';
+  /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
+  evaluationMs?: number;
+};
+
+/**
+ * DataSource interface for the Vercel Flags client
+ */
+export interface ControllerInterface {
+  /**
+   * Initialize the data source by fetching the initial file or setting up polling or
+   * subscriptions.
+   *
+   * @see https://openfeature.dev/specification/sections/providers#requirement-241
+   */
+  initialize: () => Promise<void>;
+
+  /**
+   * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.
+   */
+  read(): Promise<Datafile>;
+
+  /**
+   * End polling or subscriptions. Flush any remaining data.
+   */
+  shutdown(): void;
+
+  /**
+   * Return the actual datafile containing flag definitions.
+   */
+  getDatafile(): Promise<Datafile>;
+
+  /**
+   * Returns the bundled fallback definitions.
+   * Throws FallbackNotFoundError if the fallback file doesn't exist.
+   * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
+   */
+  getFallbackDatafile?(): Promise<BundledDefinitions>;
 }
 
-// -----------------------------------------------------------------------------
-// Shared data
-// -----------------------------------------------------------------------------
+export type Source = {
+  orgId: string;
+  orgSlug: string;
+  projectId: string;
+  projectSlug: string;
+};
+
+/**
+ * A client for Vercel Flags
+ */
+export type FlagsClient<Entities = Record<string, unknown>> = {
+  /**
+   * Origin information for this client (provider and sdkKey)
+   */
+  origin?: {
+    provider: string;
+    sdkKey: string;
+  };
+  /**
+   * Evaluate a feature flag
+   *
+   * Requires initialize() to have been called and awaited first.
+   *
+   * @param flagKey
+   * @param defaultValue
+   * @param entities
+   * @returns
+   */
+  evaluate: <T = Value, E extends Entities = Entities>(
+    flagKey: string,
+    defaultValue?: T,
+    entities?: E,
+  ) => Promise<EvaluationResult<T>>;
+  /**
+   * Retrieve the latest datafile during startup, and set up subscriptions if needed.
+   */
+  initialize(): void | Promise<void>;
+  /**
+   * Facilitates a clean shutdown process which may include flushing telemetry information, or closing remote connections.
+   */
+  shutdown(): void | Promise<void>;
+  /**
+   * Returns the actual datafile containing flag definitions
+   */
+  getDatafile(): Promise<Datafile>;
+  /**
+   * Returns the bundled fallback definitions.
+   * Throws FallbackNotFoundError if the fallback file doesn't exist.
+   * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
+   */
+  getFallbackDatafile(): Promise<BundledDefinitions>;
+};
 
 export type EvaluationParams<T> = {
   entities?: Record<string, unknown>;
@@ -58,7 +211,7 @@ export enum ErrorCode {
 }
 
 /**
- * The detailed result of a flag evaluation as returned by the `evaluate` function.
+ * The detailed result of a flag evaluation as returned by the client's `evaluate` function.
  */
 export type EvaluationResult<T> =
   | {
@@ -76,15 +229,20 @@ export type EvaluationResult<T> =
       reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
       errorMessage?: never;
       errorCode?: never;
+      /** Metrics about the evaluation (optional) */
+      metrics?: Metrics;
     }
   | {
       reason: ResolutionReason.ERROR;
       errorMessage: string;
       errorCode?: ErrorCode;
+      outcomeType?: never;
       /**
-       * In cases of errors this is the he defaultValue if one was provided
+       * In cases of errors this is the defaultValue if one was provided
        */
       value?: T;
+      /** Metrics about the evaluation (optional) */
+      metrics?: Metrics;
     };
 
 export type FlagKey = string;
@@ -121,7 +279,7 @@ export enum OutcomeType {
  * - ends with (endsWith)
  * - does not end with (!endsWith)
  * - exists (ex)
- * - deos not exist (!ex)
+ * - does not exist (!ex)
  * - is greater than (gt)
  * - is greater than or equal to (gte)
  * - is lower than (lt)
@@ -198,6 +356,20 @@ export enum Comparator {
    * other comparisons have to be handled with a regex
    */
   NOT_ENDS_WITH = '!endsWith',
+  /**
+   * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs contains rhs as a substring
+   */
+  CONTAINS = 'contains',
+  /**
+   * lhs must be string
+   * rhs must be string
+   *
+   * checks if lhs does not contain rhs as a substring
+   */
+  NOT_CONTAINS = '!contains',
   /**
    * lhs must be string
    * rhs must be never
@@ -340,6 +512,8 @@ export namespace Original {
     lhs: LHS;
     cmp: Comparator;
     rhs: RHS;
+    /** When true, string comparisons are case-insensitive. */
+    i?: boolean;
   };
 
   export type Rule = {
@@ -521,8 +695,14 @@ export namespace Packed {
     | (string | number)[]
     | { type: 'regex'; pattern: string; flags: string };
 
+  export type ConditionOptions = {
+    /** When true, string comparisons are case-insensitive. */
+    i?: boolean;
+  };
+
   export type Condition =
     | [LHS, Comparator, RHS]
+    | [LHS, Comparator, RHS, ConditionOptions | 'i']
     | [LHS, Comparator.EXISTS]
     | [LHS, Comparator.NOT_EXISTS];
 

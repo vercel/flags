@@ -1,0 +1,119 @@
+---
+title: 'flags/react'
+description: APIs for working with feature flags in React.
+---
+
+If you are using React, you can use the `FlagValues` and `FlagDefinitions` components. These abstract you from needing to manually render `script` tags.
+These components handle setting the correct data attributes and escaping any data to prevent XSS.
+
+### `FlagValues`
+
+This component is a convenience method to render the `script` tag which is used by the Flags Explorer and Web Analytics to learn about the values your feature flags evaluated to.
+
+Pass flag data into the `FlagValues` component with the `values` prop.
+
+| Prop     | Type             | Description                                             |
+| -------- | ---------------- | ------------------------------------------------------- |
+| `values` | `FlagValuesType` | The feature flag values to expose to the Vercel Toolbar |
+
+```tsx title="app/page.tsx"
+import { FlagValues } from 'flags/react';
+
+export function Page() {
+  return (
+    <div>
+      {/* Some other content */}
+      <FlagValues values={{ exampleFlag: true }} />
+    </div>
+  );
+}
+```
+
+To keep your flags confidential, encrypt the input:
+
+```tsx title="app/page.tsx"
+import { encryptFlagValues, type FlagValuesType } from 'flags';
+import { FlagValues } from 'flags/react';
+
+async function ConfidentialFlagValues({ values }: { values: FlagValuesType }) {
+  const encryptedFlagValues = await encryptFlagValues(values);
+  return <FlagValues values={encryptedFlagValues} />;
+}
+
+export function Page() {
+  const values = { exampleFlag: true };
+  return (
+    <div>
+      {/* Some other content */}
+      <Suspense fallback={null}>
+        <ConfidentialFlagValues values={values} />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+### `FlagDefinitions`
+
+This component is a convenience method to render the `script` tag which is used by the Flags Explorer to learn metadata about your feature flags, like the description.
+
+Pass flag data into the `FlagDefinitions` component with the `definitions` prop.
+
+| Prop          | Type                  | Description                                                  |
+| ------------- | --------------------- | ------------------------------------------------------------ |
+| `definitions` | `FlagDefinitionsType` | The feature flag definitions to expose to the Vercel Toolbar |
+
+```tsx title="app/page.tsx"
+import { FlagDefinitions } from 'flags/react';
+
+export function Page() {
+  const flagDefinitions = {
+    exampleFlag: {
+      options: [{ value: false }, { value: true }],
+      origin: 'https://example.com/flag/exampleFlag',
+      description: 'This is an example flag.',
+    },
+  };
+  return (
+    <div>
+      {/* Some other content */}
+      <FlagDefinitions definitions={flagDefinitions} />
+    </div>
+  );
+}
+```
+
+To keep your flags confidential, encrypt the input:
+
+```tsx title="app/page.tsx"
+import { encryptFlagDefinitions, type FlagDefinitionsType } from 'flags';
+import { FlagDefinitions } from 'flags/react';
+
+async function ConfidentialFlagDefinitions({
+  definitions,
+}: {
+  definitions: FlagDefinitionsType;
+}) {
+  const encryptedFlagDefinitions = await encryptFlagDefinitions(definitions);
+  return <FlagDefinitions definitions={encryptedFlagDefinitions} />;
+}
+
+export function Page() {
+  const flagDefinitions = {
+    exampleFlag: {
+      options: [{ value: false }, { value: true }],
+      origin: 'https://example.com/flag/exampleFlag',
+      description: 'This is an example flag.',
+    },
+  };
+
+  return (
+    <div>
+      {/* Some other content */}
+      <Suspense fallback={null}>
+        <ConfidentialFlagDefinitions definitions={flagDefinitions} />
+      </Suspense>
+    </div>
+  );
+}
+```

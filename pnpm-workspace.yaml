@@ -1,5 +1,9 @@
 packages:
-  - "packages/*"
-  - "tests/*"
-  - "examples/*"
-  - "apps/*"
+  - packages/*
+  - tests/*
+  - examples/*
+  - apps/*
+
+catalog:
+  '@types/react': ^19
+  '@types/react-dom': ^19

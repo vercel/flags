@@ -653,6 +653,7 @@ describe('evaluate', () => {
     name: string;
     condition: Packed.Condition;
     entities: Record<string, unknown> | undefined;
+    segments?: Record<string, Packed.Segment>;
     result: boolean;
   }>([
     // EQ (string)
@@ -752,6 +753,97 @@ describe('evaluate', () => {
       name: `${Comparator.NOT_ONE_OF} unset`,
       condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2']],
       entities: {},
+      result: false,
+    },
+
+    // NOT_EQ (segment)
+    {
+      name: `${Comparator.NOT_EQ} segment match`,
+      condition: ['segment', Comparator.NOT_EQ, 'segment1'],
+      entities: { user: { name: 'Jim' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_EQ} segment miss`,
+      condition: ['segment', Comparator.NOT_EQ, 'segment1'],
+      entities: { user: { name: 'Joe' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: false,
+    },
+
+    // NOT_ONE_OF (segment)
+    {
+      name: `${Comparator.NOT_ONE_OF} segment match`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['segment1', 'segment2']],
+      entities: { user: { name: 'Jim' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+        segment2: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Alice']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} segment miss`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['segment1', 'segment2']],
+      entities: { user: { name: 'Joe' } },
+      segments: {
+        segment1: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+        segment2: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Alice']],
+              outcome: 1 as const,
+            },
+          ],
+        },
+      },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} segment nonexistent`,
+      condition: ['segment', Comparator.NOT_ONE_OF, ['nonexistent_segment']],
+      entities: { user: { name: 'Joe' } },
+      segments: {},
       result: false,
     },
 
@@ -1044,6 +1136,58 @@ describe('evaluate', () => {
       result: false,
     },
 
+    // CONTAINS
+    {
+      name: `${Comparator.CONTAINS} match`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'wilk'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS} miss`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'smith'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS} unset`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'wilk'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS} invalid`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'wilk'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // NOT_CONTAINS
+    {
+      name: `${Comparator.NOT_CONTAINS} match`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} miss`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'wilk'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} unset`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} invalid`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
     // EXISTS
     {
       name: `${Comparator.EXISTS} match`,
@@ -1315,7 +1459,483 @@ describe('evaluate', () => {
       entities: { user: {} },
       result: false,
     },
-  ])('should evaluate comparator $name', ({ condition, entities, result }) => {
+
+    // ---- Case-insensitive via string shorthand: 'i' ----
+
+    // EQ 'i'
+    {
+      name: `${Comparator.EQ} case-insensitive match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'UID1', 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.EQ} case-insensitive match (same case, 'i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid1', 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.EQ} case-insensitive miss ('i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid2', 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.EQ} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.EQ, 'uid1', 'i'],
+      entities: {},
+      result: false,
+    },
+    {
+      name: `${Comparator.EQ} case-insensitive with number (no effect, 'i')`,
+      condition: [['user', 'age'], Comparator.EQ, 42, 'i'],
+      entities: { user: { age: 42 } },
+      result: true,
+    },
+
+    // NOT_EQ 'i'
+    {
+      name: `${Comparator.NOT_EQ} case-insensitive match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid2', 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_EQ} case-insensitive miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'UID1', 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_EQ} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_EQ, 'uid1', 'i'],
+      entities: {},
+      result: true,
+    },
+
+    // ONE_OF 'i'
+    {
+      name: `${Comparator.ONE_OF} case-insensitive match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['UID1', 'UID2'], 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.ONE_OF} case-insensitive miss ('i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['uid2'], 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.ONE_OF} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.ONE_OF, ['uid1'], 'i'],
+      entities: {},
+      result: false,
+    },
+
+    // NOT_ONE_OF 'i'
+    {
+      name: `${Comparator.NOT_ONE_OF} case-insensitive match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2'], 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} case-insensitive miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['UID1'], 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_ONE_OF} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ONE_OF, ['uid2'], 'i'],
+      entities: {},
+      result: false,
+    },
+
+    // CONTAINS_ALL_OF 'i'
+    {
+      name: `${Comparator.CONTAINS_ALL_OF} case-insensitive match (different case, 'i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ALL_OF,
+        ['TEAM1', 'TEAM2'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team2', 'team1'] } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS_ALL_OF} case-insensitive partial match ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ALL_OF,
+        ['TEAM1', 'TEAM2'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team2'] } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS_ALL_OF} case-insensitive miss ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ALL_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team2'] } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS_ALL_OF} case-insensitive unset ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ALL_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: {},
+      result: false,
+    },
+
+    // CONTAINS_ANY_OF 'i'
+    {
+      name: `${Comparator.CONTAINS_ANY_OF} case-insensitive match (different case, 'i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ANY_OF,
+        ['TEAM1', 'TEAM2'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team2'] } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS_ANY_OF} case-insensitive miss ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ANY_OF,
+        ['TEAM1', 'TEAM2'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team3'] } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS_ANY_OF} case-insensitive unset ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_ANY_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: { user: {} },
+      result: false,
+    },
+
+    // CONTAINS_NONE_OF 'i'
+    {
+      name: `${Comparator.CONTAINS_NONE_OF} case-insensitive match (different case, 'i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_NONE_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team2'] } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS_NONE_OF} case-insensitive miss (different case, 'i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_NONE_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: { user: { teamIds: ['team1'] } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS_NONE_OF} case-insensitive unset entity ('i')`,
+      condition: [
+        ['user', 'teamIds'],
+        Comparator.CONTAINS_NONE_OF,
+        ['TEAM1'],
+        'i',
+      ],
+      entities: {},
+      result: true,
+    },
+
+    // STARTS_WITH 'i'
+    {
+      name: `${Comparator.STARTS_WITH} case-insensitive match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.STARTS_WITH} case-insensitive miss ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'jim', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.STARTS_WITH} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.STARTS_WITH} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // NOT_STARTS_WITH 'i'
+    {
+      name: `${Comparator.NOT_STARTS_WITH} case-insensitive match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'jim', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_STARTS_WITH} case-insensitive miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_STARTS_WITH} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_STARTS_WITH} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_STARTS_WITH, 'JOE', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // ENDS_WITH 'i'
+    {
+      name: `${Comparator.ENDS_WITH} case-insensitive match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.ENDS_WITH} case-insensitive miss ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'jim', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.ENDS_WITH} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.ENDS_WITH} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.ENDS_WITH, 'SON', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // NOT_ENDS_WITH 'i'
+    {
+      name: `${Comparator.NOT_ENDS_WITH} case-insensitive match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_ENDS_WITH} case-insensitive miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'SON', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_ENDS_WITH} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_ENDS_WITH} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_ENDS_WITH, 'jim', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // CONTAINS 'i'
+    {
+      name: `${Comparator.CONTAINS} case-insensitive match (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS} case-insensitive miss ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'smith', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.CONTAINS} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // NOT_CONTAINS 'i'
+    {
+      name: `${Comparator.NOT_CONTAINS} case-insensitive match ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} case-insensitive miss (different case, 'i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'WILK', 'i'],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} case-insensitive unset ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
+      entities: { user: {} },
+      result: false,
+    },
+    {
+      name: `${Comparator.NOT_CONTAINS} case-insensitive invalid ('i')`,
+      condition: [['user', 'id'], Comparator.NOT_CONTAINS, 'smith', 'i'],
+      entities: { user: { id: null } },
+      result: false,
+    },
+
+    // ---- Case-insensitive via object: { i: true } ----
+
+    {
+      name: `${Comparator.EQ} case-insensitive match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.EQ, 'UID1', { i: true }],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.ONE_OF} case-insensitive match (different case, { i: true })`,
+      condition: [
+        ['user', 'id'],
+        Comparator.ONE_OF,
+        ['UID1', 'UID2'],
+        { i: true },
+      ],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.STARTS_WITH} case-insensitive match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.STARTS_WITH, 'JOE', { i: true }],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.CONTAINS} case-insensitive match (different case, { i: true })`,
+      condition: [['user', 'id'], Comparator.CONTAINS, 'WILK', { i: true }],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+
+    // ---- 'i' flag is ignored for non-string comparators ----
+
+    {
+      name: `${Comparator.EXISTS} case-insensitive ignored (still matches)`,
+      condition: [['user', 'id'], Comparator.EXISTS, undefined, 'i'],
+      entities: { user: { id: 'uid1' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_EXISTS} case-insensitive ignored (still matches)`,
+      condition: [['user', 'id'], Comparator.NOT_EXISTS, undefined, 'i'],
+      entities: { user: {} },
+      result: true,
+    },
+    {
+      name: `${Comparator.GT} case-insensitive ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.GT, 20, 'i'],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.LT} case-insensitive ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.LT, 40, 'i'],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.GTE} case-insensitive ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.GTE, 30, 'i'],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.LTE} case-insensitive ignored (numeric comparison unchanged)`,
+      condition: [['user', 'age'], Comparator.LTE, 30, 'i'],
+      entities: { user: { age: 30 } },
+      result: true,
+    },
+    {
+      name: `${Comparator.REGEX} case-insensitive ignored (uses raw values)`,
+      condition: [
+        ['user', 'id'],
+        Comparator.REGEX,
+        { type: 'regex', pattern: '^joe', flags: '' },
+        'i',
+      ],
+      entities: { user: { id: 'joewilkinson' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.NOT_REGEX} case-insensitive ignored (uses raw values)`,
+      condition: [
+        ['user', 'id'],
+        Comparator.NOT_REGEX,
+        { type: 'regex', pattern: '^joe', flags: '' },
+        'i',
+      ],
+      entities: { user: { id: 'joewilkinson' } },
+      result: false,
+    },
+    {
+      name: `${Comparator.BEFORE} case-insensitive ignored (date comparison unchanged)`,
+      condition: [['user', 'createdAt'], Comparator.BEFORE, '2025-01-02', 'i'],
+      entities: { user: { createdAt: '2025-01-01' } },
+      result: true,
+    },
+    {
+      name: `${Comparator.AFTER} case-insensitive ignored (date comparison unchanged)`,
+      condition: [['user', 'createdAt'], Comparator.AFTER, '2024-12-31', 'i'],
+      entities: { user: { createdAt: '2025-01-01' } },
+      result: true,
+    },
+  ])('should evaluate comparator $name', ({
+    condition,
+    entities,
+    segments,
+    result,
+  }) => {
     expect(
       evaluate({
         definition: {
@@ -1330,6 +1950,7 @@ describe('evaluate', () => {
         } satisfies Packed.FlagDefinition,
         environment: 'production',
         entities,
+        segments,
       }),
     ).toEqual({
       value: result,
@@ -1337,6 +1958,113 @@ describe('evaluate', () => {
         ? ResolutionReason.RULE_MATCH
         : ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
+    });
+  });
+
+  describe('regex input length limit', () => {
+    it('should return false for REGEX when input exceeds MAX_REGEX_INPUT_LENGTH', () => {
+      const longString = 'a'.repeat(10_001);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.REGEX,
+                        { type: 'regex', pattern: 'a+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: longString } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+
+    it('should return false for NOT_REGEX when input exceeds MAX_REGEX_INPUT_LENGTH', () => {
+      const longString = 'a'.repeat(10_001);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.NOT_REGEX,
+                        { type: 'regex', pattern: 'b+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: longString } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+
+    it('should still match REGEX when input is within limit', () => {
+      const okString = 'a'.repeat(10_000);
+      expect(
+        evaluate({
+          definition: {
+            seed: undefined,
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [
+                      [
+                        ['user', 'id'],
+                        Comparator.REGEX,
+                        { type: 'regex', pattern: 'a+', flags: '' },
+                      ],
+                    ],
+                    outcome: 1,
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            variants: [false, true],
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: okString } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.VALUE,
+      });
     });
   });
 

@@ -2,7 +2,7 @@ import { version } from '../../package.json';
 import type { OutcomeType, ResolutionReason } from '../types';
 
 /**
- * Only used interally for now.
+ * Only used internally for now.
  */
 export function internalReportValue(
   key: string,
@@ -16,7 +16,10 @@ export function internalReportValue(
 ) {
   const symbol = Symbol.for('@vercel/request-context');
   const ctx = Reflect.get(globalThis, symbol)?.get();
-  ctx?.flags?.reportValue(key, value, {
+  const reportFlagValue = ctx?.flags?.reportValue;
+  if (typeof reportFlagValue !== 'function') return;
+
+  reportFlagValue.call(ctx.flags, key, value, {
     sdkVersion: version,
     ...data,
   });

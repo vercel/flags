@@ -1,0 +1,238 @@
+---
+title: 'GrowthBook'
+---
+
+The GrowthBook adapter integrates [GrowthBook](https://www.growthbook.io/) with the Flags SDK, enabling feature flagging, experimentation, and configuration management in your application. This adapter provides a seamless way to evaluate feature flags and experiments, with support for server-side, client-side, and Edge Config bootstrapping.
+
+GrowthBook is an open-source feature flagging and experimentation platform that helps you safely roll out features, run A/B tests, and manage configuration at scale.
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/templates/next.js/growthbook-flags-sdk-example"
+  target="_blank"
+>
+  Deploy the GrowthBook template
+</LearnMore>
+
+## Installation
+
+Install the GrowthBook adapter package:
+
+```bash
+npm install @flags-sdk/growthbook
+```
+
+## Adapter Usage
+
+### Import the Default Adapter
+
+A default adapter is available for use, assuming the appropriate [environment variables](#environment-variables) are set.
+
+```ts
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+```
+
+### Environment Variables
+
+The default adapter considers the following environment variables:
+
+| Environment Variable                | Description                                                                                           |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `GROWTHBOOK_CLIENT_KEY`             | **Required.** GrowthBook SDK key                                                                      |
+| `GROWTHBOOK_API_HOST`               | Optional. Override the GrowthBook API endpoint                                                        |
+| `GROWTHBOOK_APP_ORIGIN`             | Optional. Override the GrowthBook app URL                                                             |
+| `GROWTHBOOK_EDGE_CONNECTION_STRING` | Optional. Edge Config connection string                                                               |
+| `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY`   | Optional. Edge Config item key (Defaults to your client key)                                          |
+| `EXPERIMENTATION_CONFIG`            | Optional. Used when installed through Vercel Marketplace (replaces GROWTHBOOK_EDGE_CONNECTION_STRING) |
+
+### Create a Custom Adapter
+
+You can provide custom configuration by using `createGrowthbookAdapter`:
+
+```ts
+import { createGrowthbookAdapter } from '@flags-sdk/growthbook';
+
+const myGrowthBookAdapter = createGrowthbookAdapter({
+  clientKey: process.env.GROWTHBOOK_CLIENT_KEY!,
+  apiHost: process.env.GROWTHBOOK_API_HOST, // optional
+  appOrigin: process.env.GROWTHBOOK_APP_ORIGIN, // optional
+  edgeConfig: {
+    connectionString: process.env.GROWTHBOOK_EDGE_CONNECTION_STRING!,
+    itemKey: process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY, // optional
+  },
+  trackingCallback: (experiment, result) => {
+    // Custom exposure logging
+  },
+  clientOptions: {}, // GrowthBook ClientOptions (optional)
+  initOptions: {},   // GrowthBook InitOptions (optional)
+  stickyBucketService: undefined, // Optional
+});
+```
+
+## User Identification
+
+GrowthBook uses [Attributes](https://docs.growthbook.io/features/targeting#attributes) to evaluate feature flags and experiments.
+
+You should write an identify function providing these Attributes to GrowthBook flags.
+
+```ts
+import { dedupe, flag } from 'flags/next';
+import type { Identify } from 'flags';
+import { growthbookAdapter, type Attributes } from '@flags-sdk/growthbook';
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  return {
+    id: cookies.get('user_id')?.value,
+    // ...other attributes
+  };
+}) satisfies Identify<Attributes>);
+
+export const myFeatureFlag = flag({
+  key: 'my_feature_flag',
+  identify,
+  adapter: growthbookAdapter.feature<boolean>(),
+});
+```
+
+**Dedupe** is used above to ensure that the Attributes are computed once per request.
+
+## Adapter Methods and Properties
+
+### `feature<T>()`
+
+This method implements the Adapter interface for a GrowthBook feature. Typically flag definitions are applied in a single file (e.g. `flags.ts`).
+
+```ts filename="flags.ts"
+export const myFlag = flag({
+  key: 'my_flag',
+  adapter: growthbookAdapter.feature<string>(),
+  defaultValue: false,
+  identify,
+});
+```
+
+| Option            | Default | Description                          |
+|-------------------|---------|--------------------------------------|
+| `exposureLogging` | `true`  | Enable/disable exposure logging.     |
+
+If your flag returns a type other than `boolean`, you can provide a type argument to the `feature` method.
+
+### `initialize`
+
+Initializes the GrowthBook SDK. This is done on-demand when a growthbook flag is evaluated, and is not required to be called manually.
+
+```ts
+const growthbookClient = await growthbookAdapter.initialize();
+```
+
+### `setTrackingCallback`
+
+Set a back-end callback to handle experiment exposures. This allows you to log exposures to your analytics platform. Typically this is done in the same file where your flags are defined (e.g. `flags.ts`).
+
+```ts filename="flags.ts"
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { after } from 'next/server';
+
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  // Safely fire and forget async calls (Next.js)
+  after(async () => {
+    console.log('Viewed Experiment', {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  });
+});
+```
+
+Front-end experiment tracking is also supported, although it requires additional manual setup. See the [GrowthBook docs](https://docs.growthbook.io/lib/nextjs#client-side-tracking) for more information.
+
+### `setStickyBucketService`
+
+Sticky bucketing ensures users continue to see the same variation when you make changes to a running experiment.
+GrowthBook's flavor of sticky bucketing has a few additional features:
+1. Bucketing based on either a primary hash attribute (i.e. user id) or a secondary attribute (i.e. anonymous id)
+2. The ability to version-control and purge your users' assigned buckets.
+
+See GrowthBook's documentation on [Sticky Bucketing](https://docs.growthbook.io/app/sticky-bucketing#front-end-and-back-end-nodejs) for more details.
+
+```ts
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { StickyBucketService } from '@growthbook/growthbook';
+
+class MyStickyBucketService extends StickyBucketService {
+  // Implement your sticky bucket service
+}
+
+growthbookAdapter.setStickyBucketService(new MyStickyBucketService());
+```
+
+### `.growthbook`
+
+You may access the underlying GrowthBook instance. Specifically, the GrowthBook Flags SDK adapter wraps a `GrowthBookClient` instance.
+
+### `.stickyBucketService`
+
+If you have set a sticky bucket service, you may retrieve its instance here.
+
+## Edge Config
+
+The adapter can load feature configuration from [Vercel Edge Config](https://vercel.com/docs/storage/edge-config) to lower the latency of feature flag evaluation.
+
+- Set `GROWTHBOOK_EDGE_CONNECTION_STRING` (or `EXPERIMENTATION_CONFIG` if installed through the Vercel Marketplace) in your environment. Optionally set `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` to override the default key name (defaults to your client key).
+- Or pass `edgeConfig` directly to the adapter.
+
+If Edge Config is not set, the adapter will fetch configuration from GrowthBook's API.
+
+### Configuring a SDK Webhook
+
+1. To automatically populate the Edge Config whenever your feature definitions change, create a GrowthBook [SDK Webhook](https://docs.growthbook.io/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for the Next.js integration.ts
+
+2. Select "Vercel Edge Config" as the webhook type and fill out the following fields:
+- Vercel Edge Config ID (begins with `ecfg_`)
+- Team ID (optional)
+- Vercel API Token (see Vercel &rarr; Account Settings &rarr; Tokens)
+
+Under the hood, the webhook is being configured with the following properties. If you need to change any of these settings for any reason, you can always edit the webhook.
+
+- **Endpoint URL** is being set to
+  ```
+  https://api.vercel.com/v1/edge-config/{edge_config_id}/items
+  ```
+- **Method** is being set to `PATCH`
+- An **Authorization: Bearer token** header is being added with your Vercel API Token
+- The **Payload format** is being set to `Vercel Edge Config`
+
+## Caveats & Best Practices
+
+- **Initialization:** The adapter auto-initializes when a flag is evaluated. To pre-initialize, call `initialize()` manually.
+- **Exposure Logging:** By default, exposures are logged when flags are evaluated. You can disable this with `exposureLogging: false` or provide a custom tracking callback.
+- **Sticky Buckets:** For advanced experimentation (e.g., Bandits), use a StickyBucketService.
+- **Multiple Flags, Same Key:** You can use the same GrowthBook feature key with different mapping functions if needed.
+
+## Flags Explorer Integration
+
+To expose GrowthBook data to the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer), use the `getProviderData` function in your API route:
+
+```ts
+import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData as getGrowthBookProviderData } from '@flags-sdk/growthbook';
+import { mergeProviderData } from 'flags';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async (request) => {
+  return mergeProviderData([
+    getProviderData(flags),
+    getGrowthBookProviderData({
+      // Add any required options here
+    }),
+  ]);
+});
+```
+
+## More Resources
+
+- [GrowthBook Documentation](https://docs.growthbook.io/)
+- [GrowthBook JS SDK Reference](https://docs.growthbook.io/lib/js)
+- [Vercel Edge Config](https://vercel.com/docs/storage/edge-config)
+- [Flags Explorer](https://vercel.com/docs/flags/flags-explorer)
+- [Deploy the GrowthBook template](https://vercel.com/templates/next.js/growthbook-flags-sdk-example)

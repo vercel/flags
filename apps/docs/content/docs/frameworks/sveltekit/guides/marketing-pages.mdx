@@ -1,0 +1,143 @@
+---
+title: Marketing Pages
+description: Use feature flags on static pages.
+---
+
+import Link from 'next/link';
+
+This example shows how to use feature flags for marketing pages.
+Marketing pages are typically static, and served from a CDN at the edge.
+
+When A/B testing on marketing pages it's important to avoid layout
+shift and jank, and to keep the pages static. At first glance this seems
+at odds with the dynamic nature of feature flags. This example shows
+how to keep a page static and serveable from the CDN even when running
+multiple A/B tests on the page.
+
+## Precomputing
+
+The approach used to keep pages static even when using feature flags on them is described in more detail on the Precompute section.
+At a high level we use Routing Middleware and SvelteKit's `reroute` hook to rewrite the incoming request between static versions of the page.
+These static versions represent the different feature flag states and can be computed at build time or at request time.
+If they are computed at request time we can use Incremental Static Regeneration (ISR).
+Relying on ISR avoids the combinatory explosion which would otherwise increase the build time, while simulatenously allowing pages to stay cached after the first time they were requested.
+
+<LearnMore href="/frameworks/sveltekit/precompute" icon="arrow">
+  Learn more about `precompute`
+</LearnMore>
+
+## Identifying
+
+This example uses a random id stored in a cookie to target users.
+SvelteKit can't set cookies while rendering pages, because they would become part of the ISR response which we don't want (every user would get the same visitor cookie).
+You therefore must use create a cookie (for example with a random id) as part of Routing Middleware and `reroute`. Here's how you do it within middleware (similarly for reroute):
+
+```ts title="middleware.ts"
+import { randomUUID } from 'crypto';
+import { rewrite } from '@vercel/edge';
+import { parse } from 'cookie';
+import { normalizeUrl } from '@sveltejs/kit';
+import { precompute } from 'flags/sveltekit';
+import {
+  marketingFlags,
+  computeInternalRoute,
+  createVisitorId,
+} from './src/lib/precomputed-flags';
+import { examplePrecomputed } from './flags';
+
+export const config = {
+  matcher: ['/examples/marketing-pages'],
+};
+
+export default async function middleware(request: Request) {
+  const { url, denormalize } = normalizeUrl(request.url);
+
+  // Retrieve cookies which contain the feature flags.
+  let visitorId = parse(request.headers.get('cookie') ?? '').visitorId || '';
+
+  if (!visitorId) {
+    visitorId = createVisitorId();
+    request.headers.set('x-visitorId', visitorId); // cookie is not available on the initial request
+  }
+
+  return rewrite(
+    // Get destination URL based on the feature flag
+    denormalize(await computeInternalRoute(url.pathname, request)),
+  );
+}
+
+// Similar logic for `reroute`
+```
+
+The `identify` function which is used by flags then reads that id to generate the entity, which the flags then use to decide which variant to show.
+By making `identify` a shared function its call can be deduplicated between flags, i.e. `identify` is only called once per request.
+
+```ts title="src/lib/flags.ts"
+import { flag } from 'flags/sveltekit';
+
+interface Entities {
+  visitorId?: string;
+}
+
+function identify({
+  cookies,
+  headers,
+}: {
+  cookies: ReadonlyRequestCookies;
+  headers: ReadonlyHeaders;
+}): Entities {
+  const visitorId =
+    cookies.get('visitorId')?.value ?? headers.get('x-visitorId');
+
+  if (!visitorId) {
+    throw new Error(
+      'Visitor ID not found - should have been set by middleware or within api/reroute',
+    );
+  }
+
+  return { visitorId };
+}
+
+export const firstMarketingABTest = flag<boolean, Entities>({
+  key: 'firstMarketingABTest',
+  description: 'Example of a precomputed flag',
+  identify,
+  decide({ entities }) {
+    if (!entities?.visitorId) return false;
+
+    // Use any kind of deterministic method that runs on the visitorId
+    return /^[a-n0-5]/i.test(entities?.visitorId);
+  },
+});
+
+// ...
+```
+
+<LearnMore href="/frameworks/sveltekit/evaluation-context" icon="arrow">
+  Learn more about `identify`
+</LearnMore>
+
+## Ensuring the generated id is always available
+
+When a user visits the page for the first time they will not have the{" "}
+`visitorId` cookie. Routing Middleware (or `reroute` indirectly via the API call) will generate
+an id and store that in a cookie. However, this means the page will not
+see the generated cookie as it will only be supplied with the next
+request. This means a dynamic page would have no knowledge of the
+generated id.
+
+To solve this issue the approach above also sets a{" "}
+`x-visitorId` request header from Routing Middleware and the API,
+which holds the parsed or generated id. This allows the{" "}
+`identify` function to always see the id by
+either reading it from the cookie or the header.
+
+## Example
+
+The example below shows the usage of two feature flags on a static page.
+These flags represent two A/B tests which you could be running simulatenously.
+
+<IframeBrowser
+  src="sveltekit-snippets:/examples/marketing-pages"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/sveltekit-example/src/routes/examples/marketing-pages"
+/>

@@ -2,7 +2,7 @@ import { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Adapter, encryptOverrides } from '..';
 import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from '.';
 
@@ -14,6 +14,32 @@ const mocks = vi.hoisted(() => {
     })),
   };
 });
+
+const requestContextSymbol = Symbol.for('@vercel/request-context');
+const previousRequestContext = Reflect.get(globalThis, requestContextSymbol);
+
+type ReportCall = {
+  readonly key: string;
+  readonly value: unknown;
+  readonly data: Record<string, unknown>;
+};
+
+function createRequestContext() {
+  const calls: ReportCall[] = [];
+  const flags = {
+    calls,
+    reportValue(
+      this: { calls: ReportCall[] },
+      key: string,
+      value: unknown,
+      data: Record<string, unknown>,
+    ) {
+      this.calls.push({ key, value, data });
+    },
+  };
+
+  return { flags };
+}
 
 vi.mock('next/headers', async (importOriginal) => {
   const mod = await importOriginal<typeof import('next/headers')>();
@@ -65,6 +91,16 @@ describe('flag on app router', () => {
     // a random secret for testing purposes
     process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
   });
+
+  afterEach(() => {
+    if (previousRequestContext === undefined) {
+      Reflect.deleteProperty(globalThis, requestContextSymbol);
+      return;
+    }
+
+    Reflect.set(globalThis, requestContextSymbol, previousRequestContext);
+  });
+
   it('allows declaring a flag', async () => {
     mocks.headers.mockReturnValueOnce(new Headers());
 
@@ -75,6 +111,18 @@ describe('flag on app router', () => {
 
     expect(f).toHaveProperty('key', 'first-flag');
     await expect(f()).resolves.toEqual(false);
+  });
+
+  it('throws when passing invalid adapter', () => {
+    expect(() => flag({ key: 'my-key', adapter: {} as any })).toThrowError(
+      'flags: You passed an adapter that does not have a "decide" method for flag "my-key". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?',
+    );
+  });
+
+  it('throws when passing no decide function', () => {
+    expect(() => flag({ key: 'my-key' } as any)).toThrowError(
+      'flags: You passed a flag declaration that does not have a "decide" method for flag "my-key"',
+    );
   });
 
   it('caches for the duration of a request', async () => {
@@ -155,6 +203,101 @@ describe('flag on app router', () => {
     expect(decide).not.toHaveBeenCalled();
   });
 
+  it('does not crash when override reporting hook is not a function', async () => {
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return { flags: { reportValue: true } };
+      },
+    });
+
+    const decide = vi.fn(() => false);
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide,
+      config: { reportValue: false },
+    });
+
+    const headersOfFirstRequest = new Headers();
+    const override = await encryptOverrides({ 'first-flag': true });
+    const cookieMock = vi.fn((cookieName: string) => {
+      if (cookieName === 'vercel-flag-overrides') {
+        return { name: 'vercel-flag-overrides', value: override };
+      }
+      return undefined;
+    });
+    mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+
+    await expect(f()).resolves.toEqual(true);
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it('preserves method binding for normal flag reporting hooks', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide: () => true,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(f()).resolves.toEqual(true);
+    expect(requestContext.flags.calls).toEqual([
+      {
+        key: 'first-flag',
+        value: true,
+        data: expect.objectContaining({
+          sdkVersion: expect.any(String),
+        }),
+      },
+    ]);
+  });
+
+  it('preserves method binding for override reporting hooks', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const decide = vi.fn(() => false);
+    const f = flag<boolean>({
+      key: 'first-flag',
+      decide,
+      config: { reportValue: false },
+    });
+
+    const headersOfFirstRequest = new Headers();
+    const override = await encryptOverrides({ 'first-flag': true });
+    const cookieMock = vi.fn((cookieName: string) => {
+      if (cookieName === 'vercel-flag-overrides') {
+        return { name: 'vercel-flag-overrides', value: override };
+      }
+      return undefined;
+    });
+    mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+
+    await expect(f()).resolves.toEqual(true);
+    expect(decide).not.toHaveBeenCalled();
+    expect(requestContext.flags.calls).toEqual([
+      {
+        key: 'first-flag',
+        value: true,
+        data: expect.objectContaining({
+          reason: 'override',
+          sdkVersion: expect.any(String),
+        }),
+      },
+    ]);
+  });
+
   it('uses precomputed values', async () => {
     const decide = vi.fn(() => true);
     const f = flag<boolean>({
@@ -180,6 +323,8 @@ describe('flag on app router', () => {
   });
 
   it('falls back to the defaultValue if an async decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -206,9 +351,17 @@ describe('flag on app router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue if a sync decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -223,6 +376,12 @@ describe('flag on app router', () => {
 
     await expect(f()).resolves.toEqual(false);
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
@@ -348,6 +507,8 @@ describe('flag on pages router', () => {
   });
 
   it('should re-throw errors when no defaultValue is provided', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -360,7 +521,12 @@ describe('flag on pages router', () => {
     expect(mockDecide).toHaveBeenCalledTimes(0);
     await expect(() => f(firstRequest)).rejects.toThrow('custom error');
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('could not be evaluated'),
+    );
     socket1.destroy();
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue when a decide function returns undefined', async () => {
@@ -439,6 +605,8 @@ describe('flag on pages router', () => {
   });
 
   it('falls back to the defaultValue if an async decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     let rejectPromise: () => void;
     const promise = new Promise<boolean>((resolve, reject) => {
       rejectPromise = reject;
@@ -465,9 +633,16 @@ describe('flag on pages router', () => {
     await expect(value1).resolves.toEqual(false);
     expect(catchFn).not.toHaveBeenCalled();
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it('falls back to the defaultValue if a sync decide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mockDecide = vi.fn(() => {
       throw new Error('custom error');
     });
@@ -483,7 +658,13 @@ describe('flag on pages router', () => {
 
     await expect(f(firstRequest)).resolves.toEqual(false);
     expect(mockDecide).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('falling back to its defaultValue'),
+      expect.any(Error),
+    );
     socket1.destroy();
+
+    warnSpy.mockRestore();
   });
 });
 

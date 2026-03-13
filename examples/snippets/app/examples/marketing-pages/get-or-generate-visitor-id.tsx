@@ -18,7 +18,7 @@ export const getOrGenerateVisitorId = async (
   const cookieVisitorId = cookies.get('marketing-visitor-id')?.value;
   if (cookieVisitorId) return cookieVisitorId;
 
-  // check headers in case middleware set a cookie on the response, as it will
+  // check headers in case proxy set a cookie on the response, as it will
   // not be present on the initial request
   const headerVisitorId = headers.get('x-marketing-visitor-id');
   if (headerVisitorId) return headerVisitorId;

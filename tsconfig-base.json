@@ -16,7 +16,7 @@
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "module": "ES2020",
     "types": ["@types/node"],
     "jsx": "react"

@@ -1,0 +1,170 @@
+---
+title: Evaluation Context
+description: Segment by any criteria, using an evaluation context.
+---
+
+import Link from 'next/link';
+
+It is common for features to be on for some users, but off for others.
+For example team members working on a new setting might need to see and
+use the setting, while the rest of the team need the setting to be
+hidden.
+
+The `flag` declaration accepts an `identify`
+function. The entities returned from the `identify` function
+are passed as an argument to the `decide` function.
+
+## Example
+
+A trivial case to illustrate the concept:
+
+```tsx title="flags.tsx#next"
+import { flag } from 'flags/next';
+
+export const exampleFlag = flag<boolean>({
+  key: 'identify-example-flag',
+  identify() {
+    return { user: { id: 'user1' } };
+  },
+  decide({ entities }) {
+    return entities?.user?.id === 'user1';
+  },
+});
+```
+
+<IframeBrowser
+  src="snippets:/concepts/identify/basic"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/identify/basic"
+/>
+
+Having first-class support for an evaluation context allows decoupling
+the identifying step from the decision making step.
+
+## Type safety
+
+The entities can be typed using the `flag` function.
+
+```tsx title="flags.tsx#next"
+import { flag } from 'flags/next';
+
+interface Entities {
+  user?: { id: string };
+}
+
+export const exampleFlag = flag<boolean, Entities>({
+  key: 'identify-example-flag',
+  identify() {
+    return { user: { id: 'user1' } };
+  },
+  decide({ entities }) {
+    return entities?.user?.id === 'user1';
+  },
+});
+```
+
+## Headers and Cookies
+
+The `identify` function is called with `headers`{" "}
+and `cookies` arguments, which is useful when dealing with
+anonymous or authenticated users.
+
+The arguments are normalized to a common format so the same flag to be
+used in Routing Middleware, App Router, and Pages Router without having to
+worry about the differences in how `headers` and{" "}
+`cookies` are represented there.
+
+```tsx title="flags.tsx#next"
+import { flag } from 'flags/next';
+
+export const exampleFlag = flag<boolean, Entities>({
+  // ...
+  identify({ headers, cookies }) {
+    // access to normalized headers and cookies here
+    headers.get('auth');
+    cookies.get('auth')?.value;
+    // ...
+  },
+  // ...
+});
+```
+
+## Deduplication
+
+The `dedupe` function is a helper to prevent duplicate work.
+
+Any function wrapped in `dedupe` will only ever run once for
+the same request within the same runtime and given the same arguments.
+
+This helper is extremly useful in combination with the{" "}
+`identify` function, as it allows the identification to only
+happen once per request. This is useful in preventing overhead when
+passing the same `identify` function to multiple feature
+flags.
+
+<LearnMore href="/frameworks/next/dedupe" icon="arrow">
+  Learn more about `dedupe`
+</LearnMore>
+
+## Precomputing and targeting
+
+The [Marketing Pages](/docs/guides/marketing-pages) example which shows how to identify and target users using cookies when
+precomputing pages.
+
+## Custom evaluation context
+
+While it is best practice to let the `identify` function
+determine the evaluation context, it is possible to provide a custom
+evaluation context.
+
+```tsx
+// pass a custom evaluation context from the call side
+await exampleFlag.run({ identify: { user: { id: 'user1' } } });
+
+// pass a custom evaluation context function from the call side
+await exampleFlag.run({ identify: () => ({ user: { id: 'user1' } }) });
+```
+
+This should be used sparsely, as custom evaluation context can make
+feature flags less predictable across your code base.
+
+### Full example
+
+The example below shows how to use the `identify` function to
+display different content to different users.
+
+<IframeBrowser
+  src="snippets:/concepts/identify/full"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/identify/full"
+/>
+
+The above example is implemented using this feature flag:
+
+```tsx title="flags.tsx#next"
+import type { ReadonlyRequestCookies } from 'flags';
+import { dedupe, flag } from 'flags/next';
+
+interface Entities {
+  user?: { id: string };
+}
+
+const identify = dedupe(
+  ({ cookies }: { cookies: ReadonlyRequestCookies }): Entities => {
+    // This could read a JWT instead
+    const userId = cookies.get('identify-example-user-id')?.value;
+    return { user: userId ? { id: userId } : undefined };
+  },
+);
+
+export const identifyExampleFlag = flag<boolean, Entities>({
+  key: 'identify-example-flag',
+  identify,
+  decide({ entities }) {
+    if (!entities?.user) return false;
+    return entities.user.id === 'user1';
+  },
+});
+```
+
+<LearnMore href="/frameworks/next/guides/marketing-pages" icon="arrow">
+  See the Marketing Pages example
+</LearnMore>

@@ -1,5 +1,46 @@
 # @vercel/flags-core
 
+## 1.1.1
+
+### Patch Changes
+
+- dd1396e: Guard internal flag hooks when Vercel does not expose the expected runtime helpers during evaluation.
+
+## 1.1.0
+
+### Minor Changes
+
+- 823bf78: Add CJS support
+- 722b0d0: - adds CONTAINS & NOT_CONTAINS comparators
+  - adds case insensitive versions of all string based comparators
+- b70c2ea: This version of the SDK will no longer fall back to polling in case of streaming issues, and rely on the current in-memory version of the datafile instead, or fall back to the embedded datafile if no in-memory version is available.
+
+  - Rename `FlagNetworkDataSource` to `Controller` (old name still exported as alias)
+  - Rename `FlagNetworkDataSourceOptions` to `ControllerOptions` (old name still exported as alias)
+  - Rename `DataSource` interface to `ControllerInterface`
+  - Add optional `revision` field to `DatafileInput`
+
+### Patch Changes
+
+- a924044: Fix bug with inverted NOT_ONE_OF segment comparator
+
+## 1.0.1
+
+### Patch Changes
+
+- 7d7719a: Fixed an issue where concurrent flag evaluations (e.g. `Promise.all([client.evaluate('a'), client.evaluate('b')])`) would each trigger a separate initialization, causing a flood of network requests to the flags service. Also fixed stream disconnect during initialization from starting a duplicate polling cycle.
+
+## 1.0.0
+
+### Major Changes
+
+- c71729b: See http://vercel.com/docs/flags/vercel-flags for more information.
+
+### Patch Changes
+
+- Updated dependencies [795dfd4]
+  - flags@4.0.3
+
 ## 0.1.8
 
 ### Patch Changes
