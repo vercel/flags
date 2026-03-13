@@ -40,13 +40,13 @@ export function createCreateRawClient(fns: {
   evaluate: typeof evaluate;
   getDatafile: typeof getDatafile;
 }) {
-  return function createRawClient({
+  return function createRawClient<Entities = Record<string, unknown>>({
     controller,
     origin,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey: string };
-  }): FlagsClient {
+  }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
       controller,
@@ -92,7 +92,7 @@ export function createCreateRawClient(fns: {
       getFallbackDatafile: (): Promise<BundledDefinitions> => {
         return fns.getFallbackDatafile(id);
       },
-      evaluate: async <T = Value, E = Record<string, unknown>>(
+      evaluate: async <T = Value, E = Entities>(
         flagKey: string,
         defaultValue?: T,
         entities?: E,

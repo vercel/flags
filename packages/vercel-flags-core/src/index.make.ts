@@ -17,20 +17,20 @@ export function make(
 ): {
   flagsClient: FlagsClient;
   resetDefaultFlagsClient: () => void;
-  createClient: (
+  createClient: <Entities = Record<string, unknown>>(
     sdkKeyOrConnectionString: string,
     options?: CreateClientOptions,
-  ) => FlagsClient;
+  ) => FlagsClient<Entities>;
 } {
   let _defaultFlagsClient: FlagsClient | null = null;
 
   // Insights
   // - data source must specify the environment & projectId as sdkKey has that info
   // - "reuse" functionality relies on the data source having the data for all envs
-  function createClient(
+  function createClient<Entities = Record<string, unknown>>(
     sdkKeyOrConnectionString: string,
     options?: CreateClientOptions,
-  ): FlagsClient {
+  ): FlagsClient<Entities> {
     if (!sdkKeyOrConnectionString)
       throw new Error('@vercel/flags-core: Missing sdkKey');
 
@@ -51,7 +51,7 @@ export function make(
 
     // sdk key contains the environment
     const controller = new Controller({ sdkKey, ...options });
-    return createRawClient({
+    return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey },
     });

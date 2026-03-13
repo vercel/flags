@@ -120,7 +120,7 @@ export type Source = {
 /**
  * A client for Vercel Flags
  */
-export type FlagsClient = {
+export type FlagsClient<Entities = Record<string, unknown>> = {
   /**
    * Origin information for this client (provider and sdkKey)
    */
@@ -138,7 +138,7 @@ export type FlagsClient = {
    * @param entities
    * @returns
    */
-  evaluate: <T = Value, E = Record<string, unknown>>(
+  evaluate: <T = Value, E extends Entities = Entities>(
     flagKey: string,
     defaultValue?: T,
     entities?: E,
