@@ -1,5 +1,6 @@
 ---
 "@vercel/flags-core": minor
+"@flags-sdk/vercel": minor
 ---
 
 Allow specifying entities type when creating clients
