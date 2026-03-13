@@ -21,7 +21,9 @@ import { version } from '../../package.json';
 export function reportValue(key: string, value: unknown) {
   const symbol = Symbol.for('@vercel/request-context');
   const ctx = Reflect.get(globalThis, symbol)?.get();
-  ctx?.flags?.reportValue(key, value, {
+  const reportFlagValue = ctx?.flags?.reportValue;
+  if (typeof reportFlagValue !== 'function') return;
+  reportFlagValue.call(ctx.flags, key, value, {
     sdkVersion: version,
   });
 }
@@ -40,7 +42,9 @@ export function internalReportValue(
 ) {
   const symbol = Symbol.for('@vercel/request-context');
   const ctx = Reflect.get(globalThis, symbol)?.get();
-  ctx?.flags?.reportValue(key, value, {
+  const reportFlagValue = ctx?.flags?.reportValue;
+  if (typeof reportFlagValue !== 'function') return;
+  reportFlagValue.call(ctx.flags, key, value, {
     sdkVersion: version,
     ...data,
   });

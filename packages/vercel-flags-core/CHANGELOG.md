@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.1.1
+
+### Patch Changes
+
+- dd1396e: Guard internal flag hooks when Vercel does not expose the expected runtime helpers during evaluation.
+
 ## 1.1.0
 
 ### Minor Changes
