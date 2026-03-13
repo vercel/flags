@@ -142,11 +142,12 @@ export class UsageTracker {
     try {
       const { ctx, headers } = getRequestContext();
 
+      // Skip if request context can't be inferred
+      if (!ctx) return;
+
       // Skip if we've already tracked this request
-      if (ctx) {
-        if (this.trackedRequests.has(ctx)) return;
-        this.trackedRequests.add(ctx);
-      }
+      if (this.trackedRequests.has(ctx)) return;
+      this.trackedRequests.add(ctx);
 
       const event: FlagsConfigReadEvent = {
         type: 'FLAGS_CONFIG_READ',
@@ -258,6 +259,9 @@ export class UsageTracker {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${this.options.sdkKey}`,
               'User-Agent': `VercelFlagsCore/${version}`,
+              ...(process.env.VERCEL_ENV
+                ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+                : null),
               ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
             },
             body: JSON.stringify(eventsToSend),

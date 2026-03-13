@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setRequestContext } from '../test-utils';
 import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
 
@@ -24,13 +24,19 @@ function jsonResponse(
   );
 }
 
+let cleanupContext: (() => void) | undefined;
+
+beforeEach(() => {
+  // Set up request context so trackRead doesn't skip (it's skipped when ctx is unavailable)
+  cleanupContext = setRequestContext({ host: 'example.com' });
+});
+
 afterEach(() => {
+  cleanupContext?.();
+  cleanupContext = undefined;
   fetchMock.mockReset();
   vi.restoreAllMocks();
-  // Clean up environment variables
-  delete process.env.VERCEL_DEPLOYMENT_ID;
-  delete process.env.VERCEL_REGION;
-  delete process.env.DEBUG;
+  vi.unstubAllEnvs();
 });
 
 function createTracker(sdkKey = 'test-key') {
@@ -60,6 +66,20 @@ describe('UsageTracker', () => {
   });
 
   describe('trackRead', () => {
+    it('should skip when request context is unavailable', async () => {
+      // Remove the request context set up in beforeEach
+      cleanupContext?.();
+      cleanupContext = undefined;
+
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('should batch events and send them after flush', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -77,8 +97,8 @@ describe('UsageTracker', () => {
     });
 
     it('should include deployment ID and region from environment', async () => {
-      process.env.VERCEL_DEPLOYMENT_ID = 'dpl_123';
-      process.env.VERCEL_REGION = 'iad1';
+      vi.stubEnv('VERCEL_DEPLOYMENT_ID', 'dpl_123');
+      vi.stubEnv('VERCEL_REGION', 'iad1');
 
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -98,10 +118,15 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Track multiple reads (without request context, so they won't be deduplicated)
-      tracker.trackRead();
-      tracker.trackRead();
-      tracker.trackRead();
+      // Track multiple reads with different request contexts so they won't be deduplicated
+      for (let i = 0; i < 3; i++) {
+        cleanupContext?.();
+        cleanupContext = setRequestContext({
+          host: 'example.com',
+          'x-vercel-id': `req-${i}`,
+        });
+        tracker.trackRead();
+      }
       await tracker.flush();
 
       const events = getBody() as Array<{ type: string }>;
@@ -189,7 +214,7 @@ describe('UsageTracker', () => {
     });
 
     it('should send x-vercel-debug-ingest header in debug mode', async () => {
-      process.env.DEBUG = '@vercel/flags-core';
+      vi.stubEnv('DEBUG', '@vercel/flags-core');
       vi.resetModules();
       const { UsageTracker: FreshUsageTracker } = await import(
         './usage-tracker'
@@ -232,7 +257,7 @@ describe('UsageTracker', () => {
     });
 
     it('should log ingest response in debug mode', async () => {
-      process.env.DEBUG = '@vercel/flags-core';
+      vi.stubEnv('DEBUG', '@vercel/flags-core');
       vi.resetModules();
       const { UsageTracker: FreshUsageTracker } = await import(
         './usage-tracker'
@@ -420,8 +445,13 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Track 50 events (without request context to avoid deduplication)
+      // Track 50 events with different request contexts to avoid deduplication
       for (let i = 0; i < 50; i++) {
+        cleanupContext?.();
+        cleanupContext = setRequestContext({
+          host: 'example.com',
+          'x-vercel-id': `req-${i}`,
+        });
         tracker.trackRead();
       }
 
