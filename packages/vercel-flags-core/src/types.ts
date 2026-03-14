@@ -1,5 +1,3 @@
-import type { ControllerInstance } from './controller-fns';
-
 /**
  * Options for stream connection behavior
  */
@@ -249,7 +247,17 @@ export type FlagKey = string;
 export type VariantId = string;
 export type EnvironmentKey = string;
 export type SegmentId = string;
-export type Value = string | number | boolean;
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonArray = JsonValue[];
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonObject
+  | JsonArray;
+
+export type Value = string | number | boolean | JsonObject | JsonArray;
 
 export enum ResolutionReason {
   PAUSED = 'paused',

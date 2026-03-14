@@ -2879,6 +2879,10 @@ describe('Controller (black-box)', () => {
             environments: { production: 0 },
             variants: [42],
           },
+          jsonFlag: {
+            environments: { production: 0 },
+            variants: [{ color: 'red', size: 12 }],
+          },
         },
       });
 
@@ -2893,6 +2897,10 @@ describe('Controller (black-box)', () => {
       expect((await client.evaluate('boolFlag')).value).toBe(true);
       expect((await client.evaluate('stringFlag')).value).toBe('hello');
       expect((await client.evaluate('numberFlag')).value).toBe(42);
+      expect((await client.evaluate('jsonFlag')).value).toEqual({
+        color: 'red',
+        size: 12,
+      });
     });
 
     it('should call internalReportValue when projectId exists', async () => {
