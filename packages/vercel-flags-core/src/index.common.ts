@@ -19,8 +19,12 @@ export {
   type EvaluationParams,
   type EvaluationResult,
   type FlagsClient,
+  type JsonArray,
+  type JsonObject,
+  type JsonValue,
   type Packed,
   type PollingOptions,
   ResolutionReason as Reason,
   type StreamOptions,
+  type Value,
 } from './types';
