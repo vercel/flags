@@ -118,6 +118,18 @@ export async function evaluate<T, E = Record<string, unknown>>(
     });
   }
 
+  if (
+    result.reason !== ResolutionReason.ERROR &&
+    flagDefinition.id &&
+    result.variantId
+  ) {
+    controller.trackEvaluation({
+      flagId: flagDefinition.id,
+      variantId: result.variantId,
+      reason: result.reason,
+    });
+  }
+
   return Object.assign(result, {
     metrics: {
       evaluationMs: evaluationDurationMs,

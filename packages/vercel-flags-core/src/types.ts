@@ -1,5 +1,3 @@
-import type { ControllerInstance } from './controller-fns';
-
 /**
  * Options for stream connection behavior
  */
@@ -108,6 +106,15 @@ export interface ControllerInterface {
    * Throws FallbackEntryNotFoundError if the file exists but has no entry for the SDK key.
    */
   getFallbackDatafile?(): Promise<BundledDefinitions>;
+
+  /**
+   * Tracks a flag evaluation event for reporting to the ingest endpoint.
+   */
+  trackEvaluation(options: {
+    flagId: string;
+    variantId: string;
+    reason: string;
+  }): void;
 }
 
 export type Source = {
@@ -223,6 +230,10 @@ export type EvaluationResult<T> =
        * Indicates whether the outcome was a single variant or a split
        */
       outcomeType?: OutcomeType;
+      /**
+       * The ID of the resolved variant, if available
+       */
+      variantId?: string;
       /**
        * Indicates why the flag evaluated to a certain value
        */
@@ -776,7 +787,9 @@ export namespace Packed {
   };
 
   export type FlagDefinition = {
-    /** for backwards compatibility with HappyKit */
+    /** Stable identifier for this flag */
+    id?: string;
+    /** IDs corresponding to each entry in the variants array */
     variantIds?: string[];
     /**  variants, packed down to just their values */
     variants: Value[];

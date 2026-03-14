@@ -345,30 +345,45 @@ function getVariant<T>(variants: unknown[], index: number): T {
   return variants[index] as T;
 }
 
+function resolveVariantId(
+  definition: Packed.FlagDefinition,
+  index: number,
+): string | undefined {
+  return definition.variantIds?.[index];
+}
+
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
 ): {
   value: T;
   outcomeType: OutcomeType;
+  variantId: string | undefined;
 } {
   if (typeof outcome === 'number') {
     return {
       value: getVariant<T>(params.definition.variants, outcome),
       outcomeType: OutcomeType.VALUE,
+      variantId: resolveVariantId(params.definition, outcome),
     };
   }
   switch (outcome.type) {
     case 'split': {
       const lhs = access(outcome.base, params);
-      const defaultOutcome = getVariant<T>(
-        params.definition.variants,
-        outcome.defaultVariant,
-      );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.defaultVariant,
+          ),
+          outcomeType: OutcomeType.SPLIT,
+          variantId: resolveVariantId(
+            params.definition,
+            outcome.defaultVariant,
+          ),
+        };
       }
 
       /** 2^32-1 */
@@ -383,13 +398,13 @@ function handleOutcome<T>(
       const scaledWeights = outcome.weights.map(
         (weight) => (weight / sumOfWeights) * maxValue,
       );
-      const variantIndex = findWeightedIndex(scaledWeights, value, maxValue);
+      const resolvedIndex = findWeightedIndex(scaledWeights, value, maxValue);
+      const variantIndex =
+        resolvedIndex === -1 ? outcome.defaultVariant : resolvedIndex;
       return {
-        value:
-          variantIndex === -1
-            ? defaultOutcome
-            : getVariant<T>(params.definition.variants, variantIndex),
+        value: getVariant<T>(params.definition.variants, variantIndex),
         outcomeType: OutcomeType.SPLIT,
+        variantId: resolveVariantId(params.definition, variantIndex),
       };
     }
     default: {
