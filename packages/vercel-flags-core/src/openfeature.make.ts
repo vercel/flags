@@ -101,6 +101,7 @@ export function make(
       return {
         value: result.value,
         reason: mapReason(result.reason),
+        variant: result.variantId,
       };
     }
 
@@ -136,6 +137,7 @@ export function make(
       return {
         value: result.value,
         reason: mapReason(result.reason),
+        variant: result.variantId,
         errorMessage: result.errorMessage,
       };
     }
@@ -172,6 +174,7 @@ export function make(
       return {
         value: result.value,
         reason: mapReason(result.reason),
+        variant: result.variantId,
         errorMessage: result.errorMessage,
       };
     }
@@ -199,6 +202,7 @@ export function make(
       return {
         value: result.value,
         reason: mapReason(result.reason),
+        variant: result.variantId,
         errorMessage: result.errorMessage,
       };
     }

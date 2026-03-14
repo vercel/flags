@@ -348,6 +348,15 @@ export class Controller implements ControllerInterface {
     await this.usageTracker.flush();
   }
 
+  trackEvaluation(options: {
+    flagId: string;
+    variantId: string;
+    reason: string;
+  }): void {
+    if (this.unauthorized) return;
+    this.usageTracker.trackEvaluation(options);
+  }
+
   /**
    * Returns the datafile with metrics.
    * Uses in-memory data if available, otherwise falls back to bundled,
