@@ -1,0 +1,116 @@
+---
+title: 'Supaship'
+---
+
+The [Supaship](https://supaship.com/) provider contains support for Supaship feature flags.
+
+The `@flags-sdk/supaship` package provides an adapter for evaluating Supaship flags with the Flags SDK.
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+---
+
+## Setup
+
+The Supaship provider is available in the `@flags-sdk/supaship` module. Install it with
+
+```bash
+npm install @flags-sdk/supaship
+```
+
+Set required variables:
+
+```sh
+SUPASHIP_SDK_KEY=your-supaship-sdk-key
+SUPASHIP_ENVIRONMENT=production
+```
+
+---
+
+## Provider Instance
+
+Import the default adapter instance `supashipAdapter` from `@flags-sdk/supaship`:
+
+```ts
+import { supashipAdapter } from '@flags-sdk/supaship';
+```
+
+If you need custom client settings, create an adapter instance manually:
+
+```ts
+import { createSupashipAdapter } from '@flags-sdk/supaship';
+
+const customSupashipAdapter = createSupashipAdapter({
+  sdkKey: process.env.SUPASHIP_SDK_KEY,
+  environment: process.env.SUPASHIP_ENVIRONMENT,
+  context: { app: 'dashboard' },
+  networkConfig: {
+    requestTimeoutMs: 5000,
+  },
+});
+```
+
+---
+
+## Identify Users
+
+Supaship uses context properties for targeting. Use `identify` to return those properties per request.
+
+```ts
+import { dedupe, flag } from 'flags/next';
+import type { Identify } from 'flags';
+import { supashipAdapter, type FeatureContext } from '@flags-sdk/supaship';
+
+const identify = dedupe((async ({ headers, cookies }) => {
+  const user = await getUser(headers, cookies);
+
+  return {
+    userId: user.id,
+    email: user.email,
+    plan: user.plan,
+  } satisfies FeatureContext;
+}) satisfies Identify<FeatureContext>);
+
+export const newHeader = flag<boolean, FeatureContext>({
+  key: 'new-header',
+  defaultValue: false,
+  identify,
+  adapter: supashipAdapter.feature(),
+});
+```
+
+<LearnMore icon="arrow" href="/frameworks/next/dedupe">
+  Learn more about `dedupe`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/principles/evaluation-context">
+  Learn more about `identify`
+</LearnMore>
+
+---
+
+## Methods
+
+### `feature`
+
+Use `feature()` to evaluate a Supaship feature value:
+
+```ts
+import { flag } from 'flags/next';
+import { supashipAdapter, type FeatureContext } from '@flags-sdk/supaship';
+
+export const promoBanner = flag<boolean, FeatureContext>({
+  key: 'promo-banner',
+  defaultValue: false,
+  adapter: supashipAdapter.feature(),
+});
+```
+
+---
+
+## Read More
+
+- [Adapter Source Code](https://github.com/vercel/flags/tree/main/packages/adapter-supaship)
+- [Supaship JavaScript SDK](https://www.npmjs.com/package/@supashiphq/javascript-sdk)

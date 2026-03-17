@@ -1,0 +1,66 @@
+{
+  "name": "@flags-sdk/supaship",
+  "version": "0.1.0",
+  "description": "Supaship adapter for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "supaship",
+    "vercel",
+    "feature flags",
+    "flags"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "license": "MIT",
+  "author": "",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "check": "biome check",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supashiphq/javascript-sdk": "1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.17",
+    "flags": "workspace:*",
+    "rimraf": "6.1.2",
+    "tsup": "8.5.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.21",
+    "vitest": "1.6.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
