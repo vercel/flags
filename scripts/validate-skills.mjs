@@ -1,5 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { glob } from 'node:fs/promises';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const MAX_DESCRIPTION_LENGTH = 1024;
@@ -45,12 +44,18 @@ function ok(file, message) {
 }
 
 const root = resolve(import.meta.dirname, '..');
-const pattern = resolve(root, 'skills/*/SKILL.md');
-const files = [];
-
-for await (const entry of glob(pattern)) {
-  files.push(entry);
-}
+const skillsDir = resolve(root, 'skills');
+const files = readdirSync(skillsDir, { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .map((d) => resolve(skillsDir, d.name, 'SKILL.md'))
+  .filter((f) => {
+    try {
+      readFileSync(f);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
 if (files.length === 0) {
   console.log('No SKILL.md files found — skipping validation.');
