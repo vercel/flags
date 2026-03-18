@@ -12,6 +12,7 @@ description: >
   writing custom adapters, or encrypting/decrypting flag values.
   Triggers: feature flags, A/B testing, experimentation, flags SDK, flag adapters, precompute,
   Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add,
+  vercel flags list, vercel flags enable, vercel flags disable,
   `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
