@@ -63,9 +63,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+
       - uses: actions/setup-node@v3
         with:
           node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Validate SKILL.md files
         run: node scripts/validate-skills.mjs
