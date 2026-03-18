@@ -10,6 +10,7 @@ import { OptimizelyLogo } from './logos/optimizely';
 import { PostHogLogo } from './logos/posthog';
 import { ReflagLogo } from './logos/reflag';
 import { StatsigLogo } from './logos/statsig';
+import { SupashipLogo } from './logos/supaship';
 
 type Provider = {
   key: string;
@@ -103,6 +104,15 @@ const providers: Provider[] = [
     logo: FlagsmithLogo,
     badges: ['Adapter', 'Flags Explorer'],
     glowColor: '#5d5dff',
+  },
+  {
+    key: 'supaship',
+    name: 'Supaship',
+    href: '/providers/supaship',
+    logo: SupashipLogo,
+    badges: ['Adapter'],
+    glowColor: '#e4f222',
+    skipInvert: true,
   },
   {
     key: 'openfeature',
