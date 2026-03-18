@@ -44,6 +44,7 @@
     "@biomejs/biome": "^2.4.6",
     "@changesets/cli": "2.29.8",
     "@types/node": "22.9.0",
+    "gray-matter": "4.0.3",
     "husky": "9.0.10",
     "lint-staged": "15.2.2",
     "next": "^16.1.6",

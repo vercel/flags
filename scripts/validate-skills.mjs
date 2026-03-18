@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import matter from 'gray-matter';
 
 const LIMITS = {
   name: 64,
@@ -8,45 +9,7 @@ const LIMITS = {
   bodyLines: 500,
 };
 
-const NAME_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return null;
-
-  const fields = {};
-  let currentKey = null;
-  let multilineStyle = null; // 'folded' (>) or 'literal' (|)
-
-  for (const line of match[1].split('\n')) {
-    const keyMatch = line.match(/^(\w+):\s*(.*)$/);
-    if (keyMatch) {
-      const [, key, rest] = keyMatch;
-      const trimmed = rest.trim();
-      if (trimmed === '>' || trimmed === '>-') {
-        currentKey = key;
-        multilineStyle = 'folded';
-        fields[key] = '';
-      } else if (trimmed === '|' || trimmed === '|-') {
-        currentKey = key;
-        multilineStyle = 'literal';
-        fields[key] = '';
-      } else {
-        currentKey = key;
-        multilineStyle = null;
-        fields[key] = trimmed.replace(/^(['"])(.*)\1$/, '$2');
-      }
-    } else if (multilineStyle && currentKey && line.startsWith('  ')) {
-      const joiner = multilineStyle === 'folded' ? ' ' : '\n';
-      fields[currentKey] += (fields[currentKey] ? joiner : '') + line.trim();
-    }
-  }
-
-  const bodyStart = content.indexOf('---', 3);
-  const body = bodyStart !== -1 ? content.slice(bodyStart + 3).trim() : '';
-
-  return { fields, body };
-}
+const ALLOWED_NAME_CHARS = new Set('abcdefghijklmnopqrstuvwxyz0123456789-');
 
 let hasErrors = false;
 
@@ -89,13 +52,20 @@ for (const { dir, path: file } of files) {
   const relPath = file.replace(`${root}/`, '');
   const content = readFileSync(file, 'utf8');
 
-  const parsed = parseFrontmatter(content);
-  if (!parsed) {
-    error(relPath, 'Missing YAML frontmatter (--- block)');
+  let fields;
+  let body;
+  try {
+    const parsed = matter(content);
+    if (!parsed.data || Object.keys(parsed.data).length === 0) {
+      error(relPath, 'Missing YAML frontmatter (--- block)');
+      continue;
+    }
+    fields = parsed.data;
+    body = parsed.content.trim();
+  } catch (e) {
+    error(relPath, `Invalid frontmatter: ${e.message}`);
     continue;
   }
-
-  const { fields, body } = parsed;
 
   // name: required, max 64 chars, format constraints, must match directory
   if (!fields.name) {
@@ -105,11 +75,14 @@ for (const { dir, path: file } of files) {
     if (name.length > LIMITS.name) {
       error(relPath, `Name is ${name.length} chars (max ${LIMITS.name})`);
     }
-    if (!NAME_RE.test(name)) {
+    if ([...name].some((ch) => !ALLOWED_NAME_CHARS.has(ch))) {
       error(
         relPath,
-        'Name must be lowercase alphanumeric + hyphens, no leading/trailing hyphens',
+        'Name must only contain lowercase alphanumeric characters and hyphens',
       );
+    }
+    if (name.startsWith('-') || name.endsWith('-')) {
+      error(relPath, 'Name must not start or end with a hyphen');
     }
     if (name.includes('--')) {
       error(relPath, 'Name must not contain consecutive hyphens (--)');
