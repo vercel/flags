@@ -32,6 +32,7 @@
     "test:e2e": "turbo test:e2e",
     "test:integration": "turbo test:integration",
     "type-check": "turbo type-check",
+    "validate-skills": "node scripts/validate-skills.mjs",
     "version-packages": "changeset version && pnpm i --no-frozen-lockfile && git add ."
   },
   "lint-staged": {
