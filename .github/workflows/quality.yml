@@ -63,6 +63,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: ".node-version"
+
       - name: Validate SKILL.md files
         run: node scripts/validate-skills.mjs
 

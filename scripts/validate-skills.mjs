@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const LIMITS = {
@@ -16,23 +16,29 @@ function parseFrontmatter(content) {
 
   const fields = {};
   let currentKey = null;
-  let isMultiline = false;
+  let multilineStyle = null; // 'folded' (>) or 'literal' (|)
 
   for (const line of match[1].split('\n')) {
     const keyMatch = line.match(/^(\w+):\s*(.*)$/);
     if (keyMatch) {
       const [, key, rest] = keyMatch;
-      if (rest.trim() === '>' || rest.trim() === '>-') {
+      const trimmed = rest.trim();
+      if (trimmed === '>' || trimmed === '>-') {
         currentKey = key;
-        isMultiline = true;
+        multilineStyle = 'folded';
+        fields[key] = '';
+      } else if (trimmed === '|' || trimmed === '|-') {
+        currentKey = key;
+        multilineStyle = 'literal';
         fields[key] = '';
       } else {
         currentKey = key;
-        isMultiline = false;
-        fields[key] = rest.trim();
+        multilineStyle = null;
+        fields[key] = trimmed.replace(/^(['"])(.*)\1$/, '$2');
       }
-    } else if (isMultiline && currentKey && line.startsWith('  ')) {
-      fields[currentKey] += (fields[currentKey] ? ' ' : '') + line.trim();
+    } else if (multilineStyle && currentKey && line.startsWith('  ')) {
+      const joiner = multilineStyle === 'folded' ? ' ' : '\n';
+      fields[currentKey] += (fields[currentKey] ? joiner : '') + line.trim();
     }
   }
 
@@ -72,14 +78,7 @@ try {
 
 const files = dirs
   .map((d) => ({ dir: d.name, path: resolve(skillsDir, d.name, 'SKILL.md') }))
-  .filter(({ path }) => {
-    try {
-      readFileSync(path);
-      return true;
-    } catch {
-      return false;
-    }
-  });
+  .filter(({ path }) => existsSync(path));
 
 if (files.length === 0) {
   console.log('No SKILL.md files found — skipping validation.');
