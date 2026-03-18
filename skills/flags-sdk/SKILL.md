@@ -2,12 +2,16 @@
 name: flags-sdk
 description: >
   Guide for feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when: declaring flags with `flag()`, using `vercelAdapter()` or `vercel flags` CLI,
-  setting up providers/adapters (Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune, etc.),
+  Use when: declaring flags with `flag()`, using `vercelAdapter()` or `vercel flags` CLI
+  (add, list, enable, disable, inspect, archive, rm, sdk-keys),
+  setting up providers/adapters (Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
+  Edge Config, OpenFeature, Split, Flagsmith, Optimizely, or custom adapters),
   implementing precompute patterns, setting up `identify`/`dedupe`, integrating Flags Explorer/Toolbar,
-  working with flags in Next.js or SvelteKit, writing custom adapters, or encrypting flag values.
-  Triggers: feature flags, A/B testing, flags SDK, flag adapters, precompute, Flags Explorer,
-  Vercel Flags, vercel flags CLI, `flags/next`, `flags/sveltekit`, `@flags-sdk/*`.
+  working with flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
+  writing custom adapters, or encrypting/decrypting flag values.
+  Triggers: feature flags, A/B testing, experimentation, flags SDK, flag adapters, precompute,
+  Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI,
+  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
 # Flags SDK
