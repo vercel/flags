@@ -136,7 +136,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    * @param entities
    * @returns
    */
-  evaluate: <T = Value, E extends Entities = Entities>(
+  evaluate: <T = Value, E = Entities>(
     flagKey: string,
     defaultValue?: T,
     entities?: E,

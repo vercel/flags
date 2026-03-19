@@ -30,10 +30,10 @@ export function createVercelAdapter(
       ? createClient(sdkKeyOrFlagsClient)
       : sdkKeyOrFlagsClient;
 
-  return function vercelAdapter<
+  return function vercelAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
-    EntitiesType extends Record<string, unknown>,
-  >(): Adapter<ValueType, EntitiesType> {
+    EntitiesType
+  > {
     return {
       origin: flagsClient.origin,
       config: { reportValue: false },
@@ -75,10 +75,10 @@ export function resetDefaultVercelAdapter() {
  *
  */
 // This is initialized lazily to avoid warning when it is not actually used and env vars are missing.
-export function vercelAdapter<
+export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   ValueType,
-  EntitiesType extends Record<string, unknown>,
->(): Adapter<ValueType, EntitiesType> {
+  EntitiesType
+> {
   if (!defaultVercelAdapter) {
     defaultVercelAdapter = createVercelAdapter(flagsClient);
   }
