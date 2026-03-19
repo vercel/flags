@@ -1,20 +1,19 @@
 ---
 name: flags-sdk
 description: >
-  Comprehensive guide for implementing feature flags and A/B tests using the Flags SDK (the `flags` npm package)
-  and Vercel Flags (Vercel's feature flags platform, managed via dashboard or `vercel flags` CLI).
-  Use when: (1) Creating or declaring feature flags with `flag()`, (2) Using Vercel Flags with `vercelAdapter()` or
-  the `vercel flags` CLI (`add`, `list`, `enable`, `disable`, `inspect`, `archive`, `rm`, `sdk-keys`),
-  (3) Setting up feature flag providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
-  Edge Config, OpenFeature, Flagsmith, Reflag, Split, Optimizely, or custom adapters),
-  (4) Implementing precompute patterns for static pages with feature flags,
-  (5) Setting up evaluation context with `identify` and `dedupe`, (6) Integrating the Flags Explorer / Vercel Toolbar,
-  (7) Working with feature flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
-  (8) Writing custom adapters, (9) Encrypting/decrypting flag values for the toolbar,
-  (10) Any task involving the `flags`, `flags/next`, `flags/sveltekit`, `flags/react`, or `@flags-sdk/*` packages.
-  Triggers on: feature flags, A/B testing, experimentation, flags SDK, flag adapters, precompute flags,
+  Guide for feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
+  Use when: declaring flags with `flag()`, using `vercelAdapter()` or `vercel flags` CLI
+  (add, list, enable, disable, inspect, archive, rm, sdk-keys),
+  setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
+  Edge Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
+  implementing precompute patterns for static pages, setting up `identify`/`dedupe`,
+  integrating Flags Explorer/Toolbar,
+  working with flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
+  writing custom adapters, or encrypting/decrypting flag values.
+  Triggers: feature flags, A/B testing, experimentation, flags SDK, flag adapters, precompute,
   Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add,
-  vercel flags list, vercel flags enable, vercel flags disable.
+  vercel flags list, vercel flags enable, vercel flags disable,
+  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
 # Flags SDK
