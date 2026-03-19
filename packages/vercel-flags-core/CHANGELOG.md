@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.2.1
+
+### Patch Changes
+
+- b81963d: Loosen the type restrictions on the `Evaluation` type as the previous implementation would only work with `interface` but not with `type` that lead to an accidental breaking change.
+
 ## 1.2.0
 
 ### Minor Changes
