@@ -1,5 +1,3 @@
-import type { ControllerInstance } from './controller-fns';
-
 /**
  * Options for stream connection behavior
  */
@@ -138,7 +136,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    * @param entities
    * @returns
    */
-  evaluate: <T = Value, E extends Entities = Entities>(
+  evaluate: <T = Value, E = Entities>(
     flagKey: string,
     defaultValue?: T,
     entities?: E,

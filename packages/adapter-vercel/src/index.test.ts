@@ -1,5 +1,5 @@
 import { flagsClient, resetDefaultFlagsClient } from '@vercel/flags-core';
-import type { Origin, ProviderData } from 'flags';
+import type { Adapter, Origin, ProviderData } from 'flags';
 import { flag } from 'flags/next';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -10,6 +10,7 @@ import {
   beforeEach,
   describe,
   expect,
+  expectTypeOf,
   it,
   vi,
 } from 'vitest';
@@ -101,6 +102,20 @@ describe('createVercelAdapter', () => {
       provider: 'vercel',
       sdkKey: 'vf_my_sdk_key',
     } satisfies Origin);
+  });
+
+  it('has correct types', () => {
+    const adapter = createVercelAdapter(flagsClient);
+    type SampleValue = boolean;
+    type SampleEvaluationContext = { user: { id: string } };
+    const instance = adapter<SampleValue, SampleEvaluationContext>();
+    expectTypeOf(instance).toEqualTypeOf<
+      Adapter<SampleValue, SampleEvaluationContext>
+    >();
+    expectTypeOf(instance.decide)
+      .parameter(0)
+      .toHaveProperty('entities')
+      .toEqualTypeOf<SampleEvaluationContext | undefined>();
   });
 });
 
