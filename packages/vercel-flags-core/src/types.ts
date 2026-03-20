@@ -247,17 +247,22 @@ export type FlagKey = string;
 export type VariantId = string;
 export type EnvironmentKey = string;
 export type SegmentId = string;
-export type JsonObject = { [key: string]: JsonValue };
-export type JsonArray = JsonValue[];
+
+/**
+ * Any JSON Value
+ */
 export type JsonValue =
   | string
   | number
   | boolean
   | null
-  | JsonObject
-  | JsonArray;
+  | { [key: string]: JsonValue }
+  | JsonValue[];
 
-export type Value = string | number | boolean | JsonObject | JsonArray;
+/**
+ * The value of a feature flag variant
+ */
+export type Value = JsonValue;
 
 export enum ResolutionReason {
   PAUSED = 'paused',
