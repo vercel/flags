@@ -249,20 +249,15 @@ export type EnvironmentKey = string;
 export type SegmentId = string;
 
 /**
- * Any JSON Value
+ * The value of a feature flag variant
  */
-export type JsonValue =
+export type Value =
   | string
   | number
   | boolean
   | null
-  | { [key: string]: JsonValue }
-  | JsonValue[];
-
-/**
- * The value of a feature flag variant
- */
-export type Value = JsonValue;
+  | { [key: string]: Value }
+  | Value[];
 
 export enum ResolutionReason {
   PAUSED = 'paused',

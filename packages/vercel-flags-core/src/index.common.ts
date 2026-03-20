@@ -19,7 +19,6 @@ export {
   type EvaluationParams,
   type EvaluationResult,
   type FlagsClient,
-  type JsonValue,
   type Packed,
   type PollingOptions,
   ResolutionReason as Reason,
