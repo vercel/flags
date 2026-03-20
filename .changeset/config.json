@@ -8,6 +8,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "playground",
     "shirt-shop",
     "svelte-example",
     "next-15",
