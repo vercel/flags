@@ -23,4 +23,5 @@ export {
   type PollingOptions,
   ResolutionReason as Reason,
   type StreamOptions,
+  type Value,
 } from './types';

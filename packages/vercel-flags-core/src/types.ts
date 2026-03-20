@@ -247,7 +247,17 @@ export type FlagKey = string;
 export type VariantId = string;
 export type EnvironmentKey = string;
 export type SegmentId = string;
-export type Value = string | number | boolean;
+
+/**
+ * The value of a feature flag variant
+ */
+export type Value =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Value }
+  | Value[];
 
 export enum ResolutionReason {
   PAUSED = 'paused',
