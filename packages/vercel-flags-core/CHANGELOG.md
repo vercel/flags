@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.3.0
+
+### Minor Changes
+
+- 4446057: Support JSON flag values in addition to boolean, string, and number
+
 ## 1.2.1
 
 ### Patch Changes
