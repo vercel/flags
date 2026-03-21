@@ -130,17 +130,19 @@ export async function prepareFlagsDefinitions(options: {
 
   output?.debug('vercel-flags: checking env vars for SDK Keys');
 
+  const sdkKeyShape = /^vf_(server|client)_/;
+
   // Collect unique SDK keys from environment variables
   // Supports both direct SDK keys (vf_ prefix) and flags: format
   const sdkKeys = Array.from(
     Object.values(env).reduce<Set<string>>((acc, value) => {
       if (typeof value === 'string') {
-        if (value.startsWith('vf_')) {
+        if (sdkKeyShape.test(value)) {
           acc.add(value);
         } else if (value.startsWith('flags:')) {
           const params = new URLSearchParams(value.slice('flags:'.length));
           const sdkKey = params.get('sdkKey');
-          if (sdkKey?.startsWith('vf_')) {
+          if (typeof sdkKey === 'string' && sdkKeyShape.test(sdkKey)) {
             acc.add(sdkKey);
           }
         }
