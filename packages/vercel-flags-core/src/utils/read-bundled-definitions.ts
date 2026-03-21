@@ -41,10 +41,9 @@ export async function readBundledDefinitions(
   try {
     const module = await import(
       /* turbopackOptional: true */
-      // @ts-expect-error this only exists at build time
       '@vercel/flags-definitions'
     );
-    get = module.get;
+    get = module.get as (sdkKey: string) => BundledDefinitions | null;
   } catch (error) {
     // If the module doesn't exist, the prepare script didn't run
     if (

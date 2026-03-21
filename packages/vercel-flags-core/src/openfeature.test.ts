@@ -49,7 +49,7 @@ describe('VercelProvider', () => {
 
     it('should accept a connection string', () => {
       const connectionString =
-        'flags:edgeConfigId=test&edgeConfigToken=test&sdkKey=vf_test_key';
+        'flags:edgeConfigId=test&edgeConfigToken=test&sdkKey=vf_server_test_key';
       const provider = new VercelProvider(connectionString);
 
       expect(provider.metadata.name).toBe('vercel-nodejs-provider');

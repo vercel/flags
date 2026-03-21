@@ -69,7 +69,7 @@ describe('createVercelAdapter', () => {
     originalFlagsSecret = process.env.FLAGS_SECRET;
     originalFlags = process.env.FLAGS;
     process.env.FLAGS_SECRET = 'a'.repeat(32);
-    process.env.FLAGS = 'vf_test_sdk_key';
+    process.env.FLAGS = 'vf_server_test_sdk_key';
   });
 
   afterAll(() => {
@@ -89,18 +89,18 @@ describe('createVercelAdapter', () => {
     expect(amended).toHaveProperty('decide');
     expect(amended).toHaveProperty('origin', {
       provider: 'vercel',
-      sdkKey: 'vf_test_sdk_key',
+      sdkKey: 'vf_server_test_sdk_key',
     } satisfies Origin);
   });
 
   it('returns origin when created with sdkKey string', () => {
-    const adapter = createVercelAdapter('vf_my_sdk_key');
+    const adapter = createVercelAdapter('vf_client_my_sdk_key');
 
     const amended = adapter();
     expect(amended).toHaveProperty('decide');
     expect(amended).toHaveProperty('origin', {
       provider: 'vercel',
-      sdkKey: 'vf_my_sdk_key',
+      sdkKey: 'vf_client_my_sdk_key',
     } satisfies Origin);
   });
 
@@ -124,7 +124,7 @@ describe('when used with getProviderData', () => {
 
   beforeAll(() => {
     originalFlags = process.env.FLAGS;
-    process.env.FLAGS = 'vf_test_sdk_key';
+    process.env.FLAGS = 'vf_server_test_sdk_key';
   });
 
   afterAll(() => {
@@ -181,7 +181,7 @@ describe('vercelAdapter', () => {
     originalFlagsSecret = process.env.FLAGS_SECRET;
     originalFlags = process.env.FLAGS;
     process.env.FLAGS_SECRET = 'a'.repeat(32);
-    process.env.FLAGS = 'vf_test_sdk_key';
+    process.env.FLAGS = 'vf_server_test_sdk_key';
 
     resetDefaultFlagsClient();
     resetDefaultVercelAdapter();
@@ -229,16 +229,16 @@ describe('vercelAdapter', () => {
       const testFlag = flag({ key: 'test-flag', adapter: vercelAdapter() });
       expect(testFlag.origin).toEqual({
         provider: 'vercel',
-        sdkKey: 'vf_test_sdk_key',
+        sdkKey: 'vf_server_test_sdk_key',
       } satisfies Origin);
     });
 
     it('sets vercel origin when using adapter created with sdkKey', () => {
-      const adapter = createVercelAdapter('vf_my_sdk_key');
+      const adapter = createVercelAdapter('vf_client_my_sdk_key');
       const testFlag = flag({ key: 'test-flag', adapter: adapter() });
       expect(testFlag.origin).toEqual({
         provider: 'vercel',
-        sdkKey: 'vf_my_sdk_key',
+        sdkKey: 'vf_client_my_sdk_key',
       } satisfies Origin);
     });
   });

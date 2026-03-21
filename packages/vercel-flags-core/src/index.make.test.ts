@@ -60,10 +60,10 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
 
-      const client = createClient('vf_test_key');
+      const client = createClient('vf_server_test_key');
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_test_key',
+        sdkKey: 'vf_server_test_key',
       });
       expect(createRawClient).toHaveBeenCalled();
       expect(client).toBeDefined();
@@ -74,11 +74,11 @@ describe('make', () => {
       const { createClient } = make(createRawClient);
 
       const connectionString =
-        'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_conn_key';
+        'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_client_conn_key';
       const client = createClient(connectionString);
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_conn_key',
+        sdkKey: 'vf_client_conn_key',
       });
       expect(client).toBeDefined();
     });
@@ -114,7 +114,7 @@ describe('make', () => {
   describe('flagsClient proxy', () => {
     it('should not create client until property is accessed', () => {
       const createRawClient = createMockCreateRawClient();
-      process.env.FLAGS = 'vf_test_key';
+      process.env.FLAGS = 'vf_server_test_key';
 
       const { flagsClient } = make(createRawClient);
 
@@ -151,7 +151,7 @@ describe('make', () => {
 
     it('should cache the client after first access', () => {
       const createRawClient = createMockCreateRawClient();
-      process.env.FLAGS = 'vf_test_key';
+      process.env.FLAGS = 'vf_server_test_key';
 
       const { flagsClient } = make(createRawClient);
 
@@ -166,26 +166,26 @@ describe('make', () => {
 
     it('should use FLAGS env var to create default client', () => {
       const createRawClient = createMockCreateRawClient();
-      process.env.FLAGS = 'vf_env_key';
+      process.env.FLAGS = 'vf_server_env_key';
 
       const { flagsClient } = make(createRawClient);
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_env_key',
+        sdkKey: 'vf_server_env_key',
       });
     });
 
     it('should support FLAGS as connection string', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS =
-        'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_flags_key';
+        'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_client_flags_key';
 
       const { flagsClient } = make(createRawClient);
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_flags_key',
+        sdkKey: 'vf_client_flags_key',
       });
     });
   });
@@ -193,7 +193,7 @@ describe('make', () => {
   describe('resetDefaultFlagsClient', () => {
     it('should clear the cached client', () => {
       const createRawClient = createMockCreateRawClient();
-      process.env.FLAGS = 'vf_test_key';
+      process.env.FLAGS = 'vf_server_test_key';
 
       const { flagsClient, resetDefaultFlagsClient } = make(createRawClient);
 
@@ -211,24 +211,24 @@ describe('make', () => {
 
     it('should allow reconfiguration after reset', () => {
       const createRawClient = createMockCreateRawClient();
-      process.env.FLAGS = 'vf_first_key';
+      process.env.FLAGS = 'vf_server_first_key';
 
       const { flagsClient, resetDefaultFlagsClient } = make(createRawClient);
 
       // Access with first key
       const _ = flagsClient.evaluate;
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_first_key',
+        sdkKey: 'vf_server_first_key',
       });
 
       // Reset and change env
       resetDefaultFlagsClient();
-      process.env.FLAGS = 'vf_second_key';
+      process.env.FLAGS = 'vf_client_second_key';
 
       // Access again with new key
       const __ = flagsClient.initialize;
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_second_key',
+        sdkKey: 'vf_client_second_key',
       });
     });
   });
@@ -238,7 +238,7 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
 
-      const client = createClient('vf_test_key');
+      const client = createClient('vf_server_test_key');
 
       // All methods should be callable
       await expect(client.initialize()).resolves.toBeUndefined();
