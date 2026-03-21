@@ -24,7 +24,7 @@ vi.mock('./lib/report-value', () => ({
   internalReportValue: vi.fn(),
 }));
 
-const sdkKey = 'vf_fake';
+const sdkKey = 'vf_server_fake';
 const fetchMock = vi.fn<typeof fetch>();
 
 /**
@@ -80,21 +80,21 @@ function makeBundled(
 }
 
 const ingestRequestHeaders = Object.freeze({
-  Authorization: 'Bearer vf_fake',
+  Authorization: 'Bearer vf_server_fake',
   'Content-Type': 'application/json',
   'User-Agent': `VercelFlagsCore/${version}`,
   'X-Vercel-Env': 'production',
 });
 
 const streamRequestHeaders = Object.freeze({
-  Authorization: 'Bearer vf_fake',
+  Authorization: 'Bearer vf_server_fake',
   'User-Agent': `VercelFlagsCore/${version}`,
   'X-Retry-Attempt': '0',
   'X-Vercel-Env': 'production',
 });
 
 const datafileRequestHeaders = Object.freeze({
-  Authorization: 'Bearer vf_fake',
+  Authorization: 'Bearer vf_server_fake',
   'User-Agent': `VercelFlagsCore/${version}`,
   'X-Vercel-Env': 'production',
 });
@@ -168,7 +168,7 @@ describe('Controller (black-box)', () => {
 
     it('should accept valid SDK key', () => {
       expect(() =>
-        createClient('vf_valid_key', {
+        createClient('vf_server_valid_key', {
           fetch: fetchMock,
           stream: false,
           polling: false,

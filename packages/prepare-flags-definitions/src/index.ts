@@ -35,6 +35,14 @@ export function hashSdkKey(sdkKey: string): string {
 }
 
 /**
+ * Regex to match valid Vercel Flags SDK keys.
+ * SDK keys must follow the format: vf_server_* or vf_client_*
+ * This avoids false positives with third-party identifiers that happen
+ * to start with 'vf_' (e.g., Stripe identity flow IDs like 'vf_1PyH...').
+ */
+const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
+
+/**
  * Generates a JS module with deduplicated, lazily-parsed definitions.
  *
  * The map keys are SHA-256 hashes of the SDK keys so that raw keys
@@ -131,16 +139,16 @@ export async function prepareFlagsDefinitions(options: {
   output?.debug('vercel-flags: checking env vars for SDK Keys');
 
   // Collect unique SDK keys from environment variables
-  // Supports both direct SDK keys (vf_ prefix) and flags: format
+  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
   const sdkKeys = Array.from(
     Object.values(env).reduce<Set<string>>((acc, value) => {
       if (typeof value === 'string') {
-        if (value.startsWith('vf_')) {
+        if (SDK_KEY_REGEX.test(value)) {
           acc.add(value);
         } else if (value.startsWith('flags:')) {
           const params = new URLSearchParams(value.slice('flags:'.length));
           const sdkKey = params.get('sdkKey');
-          if (sdkKey?.startsWith('vf_')) {
+          if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
             acc.add(sdkKey);
           }
         }
