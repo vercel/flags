@@ -23,6 +23,7 @@
     "prepare": "husky",
     "publint": "turbo publint",
     "registry": "pnpm dev -F registry",
+    "playground": "turbo dev -F playground",
     "release": "turbo build --filter='./packages/*' && changeset publish",
     "shirt-shop": "pnpm dev -F shirt-shop",
     "shirt-shop-api": "pnpm dev -F shirt-shop-api",

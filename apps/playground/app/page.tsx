@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { jsonFlag } from '../flags';
+import { Example } from './example';
 
 export default async function Home() {
   const data = await jsonFlag();
@@ -17,6 +18,7 @@ export default async function Home() {
         />
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
           <pre>{JSON.stringify(data, null, 2)}</pre>
+          <Example />
           <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
             To get started, edit the page.tsx file.
           </h1>
