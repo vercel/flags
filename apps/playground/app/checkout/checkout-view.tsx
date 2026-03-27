@@ -123,7 +123,6 @@ export function CheckoutView({
           type="button"
           onClick={async () => {
             await checkout();
-            console.log('track purchase', identity.visitor.id);
             track('completed-purchase', {
               visitorId: identity.visitor.id,
             });
