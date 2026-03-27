@@ -1,15 +1,7 @@
 import { vercelAdapter } from '@flags-sdk/vercel';
-import { dedupe, flag } from 'flags/next';
-import type { CheckoutExperiment, Entity } from './types';
-import { generateRandomId } from './utils';
-
-export const identify = dedupe((): Entity => {
-  return {
-    visitor: {
-      id: generateRandomId(),
-    },
-  };
-});
+import { flag } from 'flags/next';
+import type { CheckoutExperiment } from './types';
+import { identify } from './utils';
 
 export const checkoutExperiment = flag<CheckoutExperiment>({
   key: 'fake-hat-checkout-experiment',

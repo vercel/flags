@@ -1,4 +1,14 @@
 import { randomBytes } from 'crypto';
+import { dedupe } from 'flags/next';
+import type { Entity } from './types';
+
+export const identify = dedupe((): Entity => {
+  return {
+    visitor: {
+      id: generateRandomId(),
+    },
+  };
+});
 
 export function generateRandomId(length = 16) {
   return randomBytes(length)
