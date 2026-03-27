@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { checkoutExperiment, identify } from '@/flags';
 import { CheckoutView } from './checkout-view';
 
 const hats: Record<string, { name: string; price: number; color: string }> = {
@@ -15,10 +16,21 @@ export default async function CheckoutPage() {
   const cartCookie = cookieStore.get('cart');
   const cart: string[] = cartCookie?.value ? JSON.parse(cartCookie.value) : [];
 
+  const identity = await identify();
+
+  const checkout = await checkoutExperiment();
+
   const items = cart
     .map((id) => ({ id, ...hats[id] }))
     .filter((item) => item.name);
   const total = items.reduce((sum, item) => sum + item.price, 0);
 
-  return <CheckoutView items={items} total={total} />;
+  return (
+    <CheckoutView
+      items={items}
+      total={total}
+      experiment={checkout}
+      identity={identity}
+    />
+  );
 }

@@ -1,18 +1,39 @@
 'use client';
 
+import { track } from '@vercel/analytics/react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { CheckoutExperiment, Entity } from '@/types';
 import { checkout } from '../actions';
 import { HatIcon } from '../hat';
 
 export function CheckoutView({
   items,
   total,
+  experiment,
+  identity,
 }: {
   items: { id: string; name: string; price: number; color: string }[];
   total: number;
+  experiment: CheckoutExperiment;
+  identity: Entity;
 }) {
   const [purchased, setPurchased] = useState(false);
+
+  console.log('experiment', experiment);
+  console.log('identity', identity);
+
+  useEffect(() => {
+    if (purchased) return;
+    if (!experiment) return;
+
+    track('exposure', {
+      unitId: identity.visitor.id,
+      unitType: 'visitorId',
+      experimentId: experiment.experimentId,
+      variantId: experiment.variantId,
+    });
+  }, [experiment, purchased, identity.visitor.id]);
 
   if (purchased) {
     return (
@@ -102,6 +123,10 @@ export function CheckoutView({
           type="button"
           onClick={async () => {
             await checkout();
+            console.log('track purchase', identity.visitor.id);
+            track('completed-purchase', {
+              visitorId: identity.visitor.id,
+            });
             setPurchased(true);
           }}
           className="w-full rounded-full bg-amber-800 py-3 text-lg font-semibold text-white transition-colors hover:bg-amber-900 dark:bg-amber-600 dark:hover:bg-amber-700"
