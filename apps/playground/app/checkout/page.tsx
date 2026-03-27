@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { checkoutExperiment, identify } from '@/flags';
+import { checkoutExperiment } from '@/flags';
+import { identify } from '@/utils';
 import { CheckoutView } from './checkout-view';
 
 const hats: Record<string, { name: string; price: number; color: string }> = {
