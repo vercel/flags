@@ -1,4 +1,5 @@
 export type CheckoutExperiment = {
+  unitType: string;
   experimentId: string;
   variantId: string;
   isControl: boolean;

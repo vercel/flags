@@ -29,7 +29,7 @@ export function CheckoutView({
 
     track('exposure', {
       unitId: identity.visitor.id,
-      unitType: 'visitorId',
+      unitType: experiment.unitType,
       experimentId: experiment.experimentId,
       variantId: experiment.variantId,
     });
