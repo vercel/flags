@@ -11,6 +11,7 @@
   "dependencies": {
     "@flags-sdk/vercel": "workspace:*",
     "@vercel/analytics": "2.0.1",
+    "@vercel/toolbar": "0.1.36",
     "flags": "workspace:*",
     "next": "16.2.0",
     "react": "19.2.4",
