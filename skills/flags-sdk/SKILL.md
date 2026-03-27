@@ -314,6 +314,10 @@ import { FlagValues, FlagDefinitions } from 'flags/react';
 <FlagDefinitions definitions={{ myFlag: { options: [...], description: '...' } }} />
 ```
 
+## Related skills
+
+- **Experiment design, dashboard experiment workflows, metrics, and hypothesis** — see `skills/experimentation/SKILL.md` (`vercel-experimentation`). This `flags-sdk` skill covers SDK usage, adapters, and tooling.
+
 ## References
 
 Detailed framework and provider guides are in separate files to keep context lean:
