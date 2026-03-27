@@ -8,6 +8,13 @@ export type CheckoutExperiment = {
   };
 };
 
+export type ShopProduct = {
+  id: string;
+  name: string;
+  price: number;
+  color: string;
+};
+
 export type Entity = {
   visitor: {
     id: string;

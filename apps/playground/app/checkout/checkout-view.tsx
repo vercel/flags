@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import type { CheckoutExperiment, Entity } from '@/types';
+import type { CheckoutExperiment, Entity, ShopProduct } from '@/types';
 import { HatIcon } from '../hat';
 import { CompletePurchase } from './complete-purchase';
 
@@ -12,7 +12,7 @@ export function CheckoutView({
   experiment,
   identity,
 }: {
-  items: { id: string; name: string; price: number; color: string }[];
+  items: ShopProduct[];
   total: number;
   experiment: CheckoutExperiment;
   identity: Entity;

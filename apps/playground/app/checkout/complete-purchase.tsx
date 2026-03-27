@@ -1,6 +1,6 @@
 import { track } from '@vercel/analytics/react';
 import Link from 'next/link';
-import type { CheckoutExperiment, Entity } from '@/types';
+import type { CheckoutExperiment, Entity, ShopProduct } from '@/types';
 import { checkout } from '../actions';
 import { HatIcon } from '../hat';
 import { useExperiment } from './hook';
@@ -12,7 +12,7 @@ export function CompletePurchase({
   identity,
   experiment,
 }: {
-  items: { id: string; name: string; price: number; color: string }[];
+  items: ShopProduct[];
   total: number;
   setPurchased: (v: boolean) => void;
   identity: Entity;

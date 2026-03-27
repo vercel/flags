@@ -1,5 +1,6 @@
 'use client';
 
+import type { ShopProduct } from '@/types';
 import { addToCart } from './actions';
 import { HatIcon } from './hat';
 
@@ -7,7 +8,7 @@ export function HatCard({
   hat,
   inCart,
 }: {
-  hat: { id: string; name: string; price: number; color: string };
+  hat: ShopProduct;
   inCart: boolean;
 }) {
   return (
