@@ -1,12 +1,13 @@
 'use client';
 
 import { addToCart } from './actions';
+import { HatIcon } from './hat';
 
 export function HatCard({
   hat,
   inCart,
 }: {
-  hat: { id: string; name: string; price: number; emoji: string };
+  hat: { id: string; name: string; price: number; color: string };
   inCart: boolean;
 }) {
   return (
@@ -18,7 +19,7 @@ export function HatCard({
       }}
       className="flex flex-col items-center gap-3 rounded-xl border border-amber-200 bg-white p-6 text-center shadow-sm transition-all hover:shadow-md hover:border-amber-400 disabled:opacity-60 disabled:cursor-default disabled:hover:shadow-sm disabled:hover:border-amber-200 dark:border-amber-800 dark:bg-zinc-900 dark:hover:border-amber-600"
     >
-      <span className="text-5xl">{hat.emoji}</span>
+      <HatIcon className="w-20 h-auto" style={{ color: hat.color }} />
       <span className="text-lg font-semibold text-amber-900 dark:text-amber-100">
         {hat.name}
       </span>

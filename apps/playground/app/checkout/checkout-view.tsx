@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { checkout } from '../actions';
+import { HatIcon } from '../hat';
 
 export function CheckoutView({
   items,
   total,
 }: {
-  items: { id: string; name: string; price: number; emoji: string }[];
+  items: { id: string; name: string; price: number; color: string }[];
   total: number;
 }) {
   const [purchased, setPurchased] = useState(false);
@@ -17,7 +18,7 @@ export function CheckoutView({
     return (
       <div className="flex flex-col flex-1 items-center justify-center bg-amber-50 font-sans dark:bg-zinc-950">
         <div className="flex flex-col items-center gap-4 text-center">
-          <span className="text-7xl">{'\u{1F920}'}</span>
+          <HatIcon className="w-28 h-auto" style={{ color: '#8B4513' }} />
           <h1 className="text-3xl font-bold text-amber-900 dark:text-amber-100">
             Order Confirmed!
           </h1>
@@ -75,7 +76,10 @@ export function CheckoutView({
               className="flex items-center justify-between rounded-xl border border-amber-200 bg-white p-4 dark:border-amber-800 dark:bg-zinc-900"
             >
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{item.emoji}</span>
+                <HatIcon
+                  className="w-10 h-auto"
+                  style={{ color: item.color }}
+                />
                 <span className="font-medium text-amber-900 dark:text-amber-100">
                   {item.name}
                 </span>

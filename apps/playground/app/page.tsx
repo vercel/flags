@@ -7,23 +7,23 @@ const hats = [
     id: 'classic-cowboy',
     name: 'Classic Cowboy',
     price: 59.99,
-    emoji: '\u{1F920}',
+    color: '#8B4513',
   },
   {
     id: 'black-stallion',
     name: 'Black Stallion',
     price: 79.99,
-    emoji: '\u{1F3A9}',
+    color: '#1a1a1a',
   },
-  { id: 'rodeo-king', name: 'Rodeo King', price: 99.99, emoji: '\u{1F451}' },
+  { id: 'rodeo-king', name: 'Rodeo King', price: 99.99, color: '#B8860B' },
   {
     id: 'desert-drifter',
     name: 'Desert Drifter',
     price: 44.99,
-    emoji: '\u2600\uFE0F',
+    color: '#C2185B',
   },
-  { id: 'ranch-hand', name: 'Ranch Hand', price: 34.99, emoji: '\u{1F33E}' },
-  { id: 'silver-spur', name: 'Silver Spur', price: 119.99, emoji: '\u2B50' },
+  { id: 'ranch-hand', name: 'Ranch Hand', price: 34.99, color: '#1565C0' },
+  { id: 'silver-spur', name: 'Silver Spur', price: 119.99, color: '#708090' },
 ];
 
 export default async function Home() {
