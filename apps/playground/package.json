@@ -13,7 +13,7 @@
     "@vercel/analytics": "2.0.1",
     "@vercel/toolbar": "0.1.36",
     "flags": "workspace:*",
-    "next": "16.1.5",
+    "next": "16.1.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
