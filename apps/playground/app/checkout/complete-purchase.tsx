@@ -4,6 +4,7 @@ import type { CheckoutExperiment, Entity, ShopProduct } from '@/types';
 import { checkout } from '../actions';
 import { HatIcon } from '../hat';
 import { useExperiment } from './hook';
+import { StageCoachIcon } from './stage-coach';
 
 export function CompletePurchase({
   items,
@@ -64,11 +65,7 @@ export function CompletePurchase({
         </div>
         {displayFreeShippingLabel && (
           <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 px-5 py-3 dark:from-emerald-950 dark:to-teal-950 dark:border-emerald-800">
-            <img
-              src="/stage-coach.svg"
-              alt="Free shipping"
-              className="w-8 h-8 object-contain grayscale mix-blend-multiply dark:mix-blend-screen opacity-60"
-            />
+            <StageCoachIcon className="w-8 h-8 object-contain grayscale mix-blend-multiply dark:mix-blend-screen opacity-60" />
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
                 Free shipping
