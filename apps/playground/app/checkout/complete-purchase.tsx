@@ -62,6 +62,23 @@ export function CompletePurchase({
             ${total.toFixed(2)}
           </span>
         </div>
+        {displayFreeShippingLabel && (
+          <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 px-5 py-3 dark:from-emerald-950 dark:to-teal-950 dark:border-emerald-800">
+            <img
+              src="/stage-coach.svg"
+              alt="Free shipping"
+              className="w-8 h-8 object-contain grayscale mix-blend-multiply dark:mix-blend-screen opacity-60"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                Free shipping
+              </span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                Included with your order
+              </span>
+            </div>
+          </div>
+        )}
         <button
           type="button"
           onClick={async () => {
