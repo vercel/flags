@@ -5,7 +5,7 @@ import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react';
 function beforeSend(event: BeforeSendEvent) {
   if (
     event.type === 'event' &&
-    !new URL(event.url).pathname.startsWith('/checkout')
+    !new URL(event.url).pathname.endsWith('/checkout')
   ) {
     return null;
   }
