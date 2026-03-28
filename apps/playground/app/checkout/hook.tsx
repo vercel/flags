@@ -1,4 +1,5 @@
 import { track } from '@vercel/analytics/react';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { CheckoutExperiment, Entity } from '@/types';
 
@@ -6,11 +7,11 @@ export function useExperiment(
   experiment: CheckoutExperiment,
   identity: Entity,
 ) {
-  const [tracked, setTracked] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!experiment) return;
-    if (tracked) return;
+    if (pathname === '/') return;
 
     track('exposure', {
       unitId: identity.visitor.id,
@@ -18,8 +19,7 @@ export function useExperiment(
       experimentId: experiment.experimentId,
       variantId: experiment.variantId,
     });
-    setTracked(true);
-  }, [experiment, identity.visitor.id, tracked]);
+  }, [experiment, identity.visitor.id, pathname]);
 
   return experiment.params;
 }
