@@ -1,6 +1,6 @@
 import { track } from '@vercel/analytics/react';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { CheckoutExperiment, Entity } from '@/types';
 
 export function useExperiment(
