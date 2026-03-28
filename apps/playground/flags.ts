@@ -4,7 +4,7 @@ import type { CheckoutExperiment } from './types';
 import { identify } from './utils';
 
 export const checkoutExperiment = flag<CheckoutExperiment>({
-  key: 'fake-hat-checkout-experiment',
+  key: 'free-shipping-banner',
   adapter: vercelAdapter(),
   identify,
 });
