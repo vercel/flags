@@ -4,7 +4,6 @@ import type { CheckoutExperiment, Entity, ShopProduct } from '@/types';
 import { checkout } from '../actions';
 import { HatIcon } from '../hat';
 import { useExperiment } from './hook';
-import { StageCoachIcon } from './stage-coach';
 
 export function CompletePurchase({
   items,
@@ -65,13 +64,18 @@ export function CompletePurchase({
         </div>
         {displayFreeShippingLabel && (
           <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 px-5 py-3 dark:from-emerald-950 dark:to-teal-950 dark:border-emerald-800">
-            <StageCoachIcon className="w-8 h-8 object-contain grayscale mix-blend-multiply dark:mix-blend-screen opacity-60" />
+            {/** biome-ignore lint/performance/noImgElement: demo */}
+            <img
+              src="/stage-coach.png"
+              alt="Free shipping"
+              className="w-20 h-20 object-contain grayscale mix-blend-multiply dark:mix-blend-screen"
+            />
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              <span className="text-lg font-semibold text-emerald-800 dark:text-emerald-200">
                 Free shipping
               </span>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                Included with your order
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">
+                Yeehaw, your order qualifies for free delivery
               </span>
             </div>
           </div>
