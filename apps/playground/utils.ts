@@ -1,11 +1,15 @@
 import { randomBytes } from 'crypto';
 import { dedupe } from 'flags/next';
+import { cookies } from 'next/headers';
 import type { Entity } from './types';
 
-export const identify = dedupe((): Entity => {
+export const identify = dedupe(async (): Promise<Entity> => {
+  const cookieStore = await cookies();
+  const visitorId = cookieStore.get('visitorId')?.value ?? generateRandomId();
+
   return {
     visitor: {
-      id: generateRandomId(),
+      id: visitorId,
     },
   };
 });
