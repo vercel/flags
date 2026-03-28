@@ -1,4 +1,4 @@
-import { Analytics } from '@vercel/analytics/next';
+import { Analytics, type BeforeSendEvent } from '@vercel/analytics/next';
 import { VercelToolbar } from '@vercel/toolbar/next';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
@@ -31,7 +31,18 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <Analytics />
+        <Analytics
+          beforeSend={(event: BeforeSendEvent) => {
+            // Only send custom events (exposure tracking) on /checkout pages
+            if (
+              event.type === 'event' &&
+              !new URL(event.url).pathname.startsWith('/checkout')
+            ) {
+              return null;
+            }
+            return event;
+          }}
+        />
         {process.env.NODE_ENV === 'development' && <VercelToolbar />}
       </body>
     </html>
