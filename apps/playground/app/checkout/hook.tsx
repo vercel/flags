@@ -11,7 +11,7 @@ export function useExperiment(
 
   useEffect(() => {
     if (!experiment) return;
-    if (pathname === '/') return;
+    if (pathname === '/' || window.location.pathname !== '/checkout') return;
 
     track('exposure', {
       unitId: identity.visitor.id,
