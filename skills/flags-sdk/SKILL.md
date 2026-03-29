@@ -226,7 +226,8 @@ Note: `dedupe` is not available in Pages Router.
 
 ```ts
 // app/.well-known/vercel/flags/route.ts
-import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';
+import { createFlagsDiscoveryEndpoint } from 'flags/next';
+import { getProviderData } from '@flags-sdk/vercel';
 import * as flags from '../../../../flags';
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
