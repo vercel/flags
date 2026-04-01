@@ -220,6 +220,9 @@ type Run<ValueType, EntitiesType> = (options: {
   request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
 }) => Promise<ValueType>;
 
+let headersModulePromise: Promise<typeof import('next/headers')>;
+let headersModule: typeof import('next/headers') | undefined;
+
 function getRun<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
   decide: Decide<ValueType, EntitiesType>,
@@ -240,8 +243,13 @@ function getRun<ValueType, EntitiesType>(
       // app router
 
       // async import required as turbopack errors in Pages Router
-      // when next/headers is imported at the top-level
-      const { headers, cookies } = await import('next/headers');
+      // when next/headers is imported at the top-level.
+      //
+      // cache import so we don't await on every call since this adds
+      // additional microtask queue overhead
+      if (!headersModulePromise) headersModulePromise = import('next/headers');
+      if (!headersModule) headersModule = await headersModulePromise;
+      const { headers, cookies } = headersModule;
 
       const [headersStore, cookiesStore] = await Promise.all([
         headers(),
