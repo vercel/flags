@@ -1,3 +1,4 @@
+import { generateNotFoundMarkdown, isAIAgent } from "@vercel/agent-readability";
 import { precompute } from "flags/next";
 import { createI18nMiddleware } from "fumadocs-core/i18n/middleware";
 import { isMarkdownPreferred, rewritePath } from "fumadocs-core/negotiation";
@@ -8,7 +9,6 @@ import {
 } from "next/server";
 import { rootFlags } from "@/flags";
 import { i18n } from "@/lib/geistdocs/i18n";
-import { isAIAgent } from "@/lib/ai-agent-detection";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 
 const { rewrite: rewriteLLM } = rewritePath(
@@ -65,7 +65,6 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
   }
 
   // AI agent detection — rewrite docs pages to markdown for agents
-  // so they always get structured content without needing .md URLs or Accept headers
   if (
     (pathname === "/docs" || pathname.startsWith("/docs/")) &&
     !pathname.includes("/llms.mdx/")
@@ -90,6 +89,10 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
         );
         return NextResponse.rewrite(new URL(result, request.nextUrl));
       }
+      // Agent requested a non-existent docs URL — return helpful markdown
+      return new NextResponse(generateNotFoundMarkdown(pathname), {
+        headers: { "Content-Type": "text/markdown; charset=utf-8" },
+      });
     }
   }
 
@@ -115,7 +118,6 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
 };
 
 export const config = {
-  // Matcher ignoring `/_next/`, `/api/`, static assets, favicon, sitemap, robots, etc.
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags).*)",
   ],
