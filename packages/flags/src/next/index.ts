@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
@@ -193,6 +194,62 @@ function getDecide<ValueType, EntitiesType>(
   };
 }
 
+interface BulkStoreData {
+  headers: ReadonlyHeaders;
+  cookies: ReadonlyRequestCookies;
+  dedupeCacheKey: Headers;
+  overrides: Record<string, any> | null;
+}
+
+const bulkStore = new AsyncLocalStorage<BulkStoreData>();
+
+type BulkFlags = Record<string, Flag<any, any>>;
+type BulkResult<T extends BulkFlags> = {
+  [K in keyof T]: T[K] extends Flag<infer V, any> ? V : never;
+};
+
+export async function bulk<T extends BulkFlags>(
+  flags: T,
+): Promise<BulkResult<T>> {
+  // Read headers & cookies once
+  if (!headersModulePromise) headersModulePromise = import('next/headers');
+  if (!headersModule) headersModule = await headersModulePromise;
+  const { headers, cookies } = headersModule;
+
+  const [headersStore, cookiesStore] = await Promise.all([
+    headers(),
+    cookies(),
+  ]);
+
+  const readonlyHeaders = headersStore as ReadonlyHeaders;
+  const readonlyCookies = cookiesStore as ReadonlyRequestCookies;
+
+  // Read overrides once
+  const override = readonlyCookies.get('vercel-flag-overrides')?.value;
+  const overrides =
+    typeof override === 'string' && override !== ''
+      ? await getOverrides(override)
+      : null;
+
+  const storeData: BulkStoreData = {
+    headers: readonlyHeaders,
+    cookies: readonlyCookies,
+    dedupeCacheKey: headersStore,
+    overrides,
+  };
+
+  // Run all flags within the bulk store context
+  return bulkStore.run(storeData, async () => {
+    const entries = Object.entries(flags);
+    const values = await Promise.all(entries.map(([, flagFn]) => flagFn()));
+    const result = {} as BulkResult<T>;
+    for (let i = 0; i < entries.length; i++) {
+      (result as any)[entries[i]![0]] = values[i];
+    }
+    return result;
+  });
+}
+
 function getIdentify<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Identify<EntitiesType> {
@@ -231,12 +288,30 @@ function getRun<ValueType, EntitiesType>(
     let readonlyCookies: ReadonlyRequestCookies;
     let dedupeCacheKey: Headers | IncomingHttpHeaders;
 
+    // Check if running inside bulk() — reuse pre-read headers/cookies/overrides
+    const bulkData = bulkStore.getStore();
+
+    let overrides: Record<string, any> | null;
+
     if (options.request) {
       // pages router
       const headers = transformToHeaders(options.request.headers);
       readonlyHeaders = sealHeaders(headers);
       readonlyCookies = sealCookies(headers);
       dedupeCacheKey = options.request.headers;
+
+      // skip microtask if cookie does not exist or is empty
+      const override = readonlyCookies.get('vercel-flag-overrides')?.value;
+      overrides =
+        typeof override === 'string' && override !== ''
+          ? await getOverrides(override)
+          : null;
+    } else if (bulkData) {
+      // app router — bulk mode, everything pre-read
+      readonlyHeaders = bulkData.headers;
+      readonlyCookies = bulkData.cookies;
+      dedupeCacheKey = bulkData.dedupeCacheKey;
+      overrides = bulkData.overrides;
     } else {
       // app router
 
@@ -256,14 +331,14 @@ function getRun<ValueType, EntitiesType>(
       readonlyHeaders = headersStore as ReadonlyHeaders;
       readonlyCookies = cookiesStore as ReadonlyRequestCookies;
       dedupeCacheKey = headersStore;
-    }
 
-    // skip microtask if cookie does not exist or is empty
-    const override = readonlyCookies.get('vercel-flag-overrides')?.value;
-    const overrides =
-      typeof override === 'string' && override !== ''
-        ? await getOverrides(override)
-        : null;
+      // skip microtask if cookie does not exist or is empty
+      const override = readonlyCookies.get('vercel-flag-overrides')?.value;
+      overrides =
+        typeof override === 'string' && override !== ''
+          ? await getOverrides(override)
+          : null;
+    }
 
     // the flag is being used in app router
     // skip microtask if identify does not exist
