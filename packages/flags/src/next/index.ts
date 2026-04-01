@@ -55,9 +55,7 @@ function getCachedValuePromise(
   flagKey: string,
   entitiesKey: string,
 ): any {
-  const map = evaluationCache.get(headers)?.get(flagKey);
-  if (!map) return undefined;
-  return map.get(entitiesKey);
+  return evaluationCache.get(headers)?.get(flagKey)?.get(entitiesKey);
 }
 
 function setCachedValuePromise(
@@ -260,17 +258,23 @@ function getRun<ValueType, EntitiesType>(
       dedupeCacheKey = headersStore;
     }
 
-    const overrides = await getOverrides(
-      readonlyCookies.get('vercel-flag-overrides')?.value,
-    );
+    // skip microtask if cookie does not exist or is empty
+    const override = readonlyCookies.get('vercel-flag-overrides')?.value;
+    const overrides =
+      typeof override === 'string' && override !== ''
+        ? await getOverrides(override)
+        : null;
 
     // the flag is being used in app router
-    const entities = (await getEntities(
-      options.identify,
-      dedupeCacheKey,
-      readonlyHeaders,
-      readonlyCookies,
-    )) as EntitiesType | undefined;
+    // skip microtask if identify does not exist
+    const entities = options.identify
+      ? ((await getEntities(
+          options.identify,
+          dedupeCacheKey,
+          readonlyHeaders,
+          readonlyCookies,
+        )) as EntitiesType | undefined)
+      : undefined;
 
     // check cache
     const entitiesKey = JSON.stringify(entities) ?? '';
