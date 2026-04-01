@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { evaluate } from './evaluate';
 import {
   Comparator,
@@ -2210,6 +2210,251 @@ describe('evaluate', () => {
       };
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);
+    });
+  });
+
+  describe('progressive rollouts', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const evaluateProgressive = ({
+      nowMs,
+      schedule,
+      entities,
+      seed = 7,
+    }: {
+      nowMs: number;
+      schedule: Packed.ProgressiveRolloutStep[];
+      entities?: Record<string, unknown>;
+      seed?: number;
+    }) => {
+      vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+      return evaluate({
+        definition: {
+          environments: {
+            production: {
+              fallthrough: {
+                type: 'progressive-rollout',
+                base: ['user', 'id'],
+                targetVariant: 1,
+                defaultVariant: 0,
+                schedule,
+              },
+            },
+          },
+          seed,
+          variants: [false, true],
+        } satisfies Packed.FlagDefinition,
+        environment: 'production',
+        entities,
+      });
+    };
+
+    it('returns the default variant when base is missing or non-string', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 100 }],
+          entities: {},
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 100 }],
+          entities: { user: { id: 123 } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('uses 0% before the first scheduled window', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 999,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 100 }],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('applies in-window percentage and returns split outcome type', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 100 }],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 0 }],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('holds the previous percentage in schedule gaps', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 2_500,
+          schedule: [
+            { startMs: 1_000, endMs: 2_000, percentage: 100 },
+            { startMs: 3_000, endMs: 4_000, percentage: 0 },
+          ],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('holds the last started percentage after the final window', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 5_000,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 100 }],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('uses the active overlapping window with the latest startMs', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 1_750,
+          schedule: [
+            { startMs: 1_000, endMs: 2_000, percentage: 0 },
+            { startMs: 1_500, endMs: 2_500, percentage: 100 },
+          ],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('supports decimal percentages', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [{ startMs: 1_000, endMs: 2_000, percentage: 12.5 }],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('ignores invalid steps and falls back to 0% when all are invalid', () => {
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [
+            { startMs: Number.NaN, endMs: 2_000, percentage: 100 },
+            { startMs: 1_000, endMs: 2_000, percentage: Number.NaN },
+            { startMs: 2_000, endMs: 1_000, percentage: 100 },
+            { startMs: 1_000, endMs: 2_000, percentage: 100 },
+          ],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+
+      expect(
+        evaluateProgressive({
+          nowMs: 1_500,
+          schedule: [
+            { startMs: Number.NaN, endMs: 2_000, percentage: 100 },
+            { startMs: 1_000, endMs: 2_000, percentage: Number.NaN },
+            { startMs: 2_000, endMs: 1_000, percentage: 100 },
+          ],
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.SPLIT,
+      });
+    });
+
+    it('distributes close to representative percentages across large samples', () => {
+      const nowMs = 1_500;
+      vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+
+      const getTargetCount = (percentage: number) => {
+        let count = 0;
+        for (let i = 0; i < 10_000; i++) {
+          const result = evaluate({
+            definition: {
+              environments: {
+                production: {
+                  fallthrough: {
+                    type: 'progressive-rollout',
+                    base: ['user', 'id'],
+                    targetVariant: 1,
+                    defaultVariant: 0,
+                    schedule: [{ startMs: 1_000, endMs: 2_000, percentage }],
+                  },
+                },
+              },
+              seed: 9,
+              variants: [false, true],
+            } satisfies Packed.FlagDefinition,
+            environment: 'production',
+            entities: { user: { id: `uid${i}` } },
+          }).value;
+          if (result === true) count++;
+        }
+        return count;
+      };
+
+      const count10 = getTargetCount(10);
+      const count50 = getTargetCount(50);
+      const count90 = getTargetCount(90);
+
+      expect(count10).toBeGreaterThan(900);
+      expect(count10).toBeLessThan(1_100);
+      expect(count50).toBeGreaterThan(4_900);
+      expect(count50).toBeLessThan(5_100);
+      expect(count90).toBeGreaterThan(8_900);
+      expect(count90).toBeLessThan(9_100);
     });
   });
 });

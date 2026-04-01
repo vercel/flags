@@ -452,6 +452,42 @@ export namespace Original {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
+  export type ProgressiveRolloutStep = {
+    /**
+     * Start of the rollout window in epoch milliseconds (inclusive).
+     */
+    startMs: number;
+    /**
+     * End of the rollout window in epoch milliseconds (exclusive).
+     */
+    endMs: number;
+    /**
+     * Rollout percentage for this window (0..100, decimals allowed).
+     */
+    percentage: number;
+  };
+
+  export type ProgressiveRolloutOutcome = {
+    type: 'progressive-rollout';
+    /**
+     * Based on which attribute the traffic should be split.
+     */
+    base: EntityAccessor;
+    /**
+     * This variant will be used when the hash falls within the rollout bucket.
+     */
+    targetVariant: VariantId;
+    /**
+     * This variant will be used when the hash falls outside the rollout bucket,
+     * or when the base attribute does not exist.
+     */
+    defaultVariant: VariantId;
+    /**
+     * Absolute rollout windows in epoch milliseconds.
+     */
+    schedule: ProgressiveRolloutStep[];
+  };
+
   export type Outcome =
     | {
         type: 'variant';
@@ -471,7 +507,8 @@ export namespace Original {
          * This variant will be used when the base attribute does not exist
          */
         defaultVariantId: VariantId;
-      };
+      }
+    | ProgressiveRolloutOutcome;
 
   export type SegmentAllOutcome = {
     type: 'all';
@@ -661,6 +698,46 @@ export namespace Packed {
     defaultVariant: VariantIndex;
   };
 
+  export type ProgressiveRolloutStep = {
+    /**
+     * Start of the rollout window in epoch milliseconds (inclusive).
+     */
+    startMs: number;
+    /**
+     * End of the rollout window in epoch milliseconds (exclusive).
+     */
+    endMs: number;
+    /**
+     * Rollout percentage for this window (0..100, decimals allowed).
+     */
+    percentage: number;
+  };
+
+  export type ProgressiveRolloutOutcome = {
+    type: 'progressive-rollout';
+    /**
+     * Based on which attribute the traffic should be split.
+     */
+    base: EntityAccessor;
+    /**
+     * This variant will be used when the hash falls within the rollout bucket.
+     */
+    targetVariant: VariantIndex;
+    /**
+     * This variant will be used when the hash falls outside the rollout bucket,
+     * or when the base attribute does not exist.
+     */
+    defaultVariant: VariantIndex;
+    /**
+     * Absolute rollout windows in epoch milliseconds.
+     *
+     * The active window is selected using startMs <= now < endMs.
+     * Overlapping windows resolve to the latest startMs.
+     * Outside active windows, the latest already-started step is held.
+     */
+    schedule: ProgressiveRolloutStep[];
+  };
+
   export type SegmentAllOutcome = 1;
 
   export type SegmentSplitOutcome = {
@@ -679,7 +756,7 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type Outcome = VariantIndex | SplitOutcome;
+  export type Outcome = VariantIndex | SplitOutcome | ProgressiveRolloutOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];

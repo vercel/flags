@@ -11,6 +11,8 @@ import {
 type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
+/** 2^32 - 1 (max uint32 value) */
+const MAX_HASH_VALUE = 4_294_967_295;
 
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
@@ -306,6 +308,56 @@ function sum(list: number[]) {
   return list.reduce((acc, n) => acc + n, 0);
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function isValidProgressiveRolloutStep(
+  step: Packed.ProgressiveRolloutStep,
+): boolean {
+  return (
+    Number.isFinite(step.startMs) &&
+    Number.isFinite(step.endMs) &&
+    step.endMs > step.startMs &&
+    Number.isFinite(step.percentage)
+  );
+}
+
+function getEffectiveProgressiveRolloutPercentage(
+  schedule: Packed.ProgressiveRolloutStep[],
+  now: number,
+): number {
+  let activeStep: Packed.ProgressiveRolloutStep | undefined;
+  let latestStartedStep: Packed.ProgressiveRolloutStep | undefined;
+
+  for (const step of schedule) {
+    if (!isValidProgressiveRolloutStep(step)) continue;
+
+    // Track the latest step that has started, when no window is active
+    // (gap handling and after-last-step behavior).
+    if (
+      step.startMs <= now &&
+      (!latestStartedStep || step.startMs > latestStartedStep.startMs)
+    ) {
+      latestStartedStep = step;
+    }
+
+    // Select the currently active window using start-inclusive/end-exclusive
+    // bounds. If windows overlap, the one with the latest startMs wins.
+    if (
+      step.startMs <= now &&
+      now < step.endMs &&
+      (!activeStep || step.startMs > activeStep.startMs)
+    ) {
+      activeStep = step;
+    }
+  }
+
+  if (activeStep) return clamp(activeStep.percentage, 0, 100);
+  if (latestStartedStep) return clamp(latestStartedStep.percentage, 0, 100);
+  return 0;
+}
+
 function handleSegmentOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.SegmentOutcome,
@@ -371,24 +423,62 @@ function handleOutcome<T>(
         return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
       }
 
-      /** 2^32-1 */
-      const maxValue = 4_294_967_295;
       /**
        * (xxHash32): turns the string into a number between 0 and 2^32-1 (max uint32 value)
        * Since we know the range of the hash function, we don't use modulo here. If we change
-       * the hash function, or if the range changes, we should add a modulo here and/or adjust maxValue.
+       * the hash function, or if the range changes, we should add a modulo here and/or adjust MAX_HASH_VALUE.
        */
       const value = hashInput(lhs, params.definition.seed);
       const sumOfWeights = sum(outcome.weights);
       const scaledWeights = outcome.weights.map(
-        (weight) => (weight / sumOfWeights) * maxValue,
+        (weight) => (weight / sumOfWeights) * MAX_HASH_VALUE,
       );
-      const variantIndex = findWeightedIndex(scaledWeights, value, maxValue);
+      const variantIndex = findWeightedIndex(
+        scaledWeights,
+        value,
+        MAX_HASH_VALUE,
+      );
       return {
         value:
           variantIndex === -1
             ? defaultOutcome
             : getVariant<T>(params.definition.variants, variantIndex),
+        outcomeType: OutcomeType.SPLIT,
+      };
+    }
+    case 'progressive-rollout': {
+      const lhs = access(outcome.base, params);
+      const defaultOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.defaultVariant,
+      );
+
+      // serve the default variant if the lhs is not a string
+      if (typeof lhs !== 'string') {
+        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
+      }
+
+      const targetOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.targetVariant,
+      );
+      const percentage = getEffectiveProgressiveRolloutPercentage(
+        outcome.schedule,
+        Date.now(),
+      );
+
+      if (percentage <= 0) {
+        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
+      }
+
+      if (percentage >= 100) {
+        return { value: targetOutcome, outcomeType: OutcomeType.SPLIT };
+      }
+
+      const value = hashInput(lhs, params.definition.seed);
+      const threshold = (percentage / 100) * MAX_HASH_VALUE;
+      return {
+        value: value < threshold ? targetOutcome : defaultOutcome,
         outcomeType: OutcomeType.SPLIT,
       };
     }
