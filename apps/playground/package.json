@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@flags-sdk/vercel": "workspace:*",
-    "@vercel/analytics": "2.0.1",
+    "@vercel/analytics": "2.0.2-canary",
     "@vercel/toolbar": "0.1.36",
     "flags": "workspace:*",
     "next": "16.1.6",

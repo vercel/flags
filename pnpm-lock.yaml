@@ -205,11 +205,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapter-vercel
       '@vercel/analytics':
-        specifier: 2.0.1
-        version: 2.0.1(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
+        specifier: 2.0.2-canary
+        version: 2.0.2-canary(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
       '@vercel/toolbar':
         specifier: 0.1.36
-        version: 0.1.36(078f415e02f3986f338d26cb320f5775)
+        version: 0.1.36(cb79ae60c4203dba0134dbed996474a8)
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
@@ -5319,6 +5319,35 @@ packages:
       svelte: '>= 4'
       vue: ^3
       vue-router: ^4
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
+
+  '@vercel/analytics@2.0.2-canary':
+    resolution: {integrity: sha512-jC7Hs3FcLVxLSudXiN3mbSWuPGzfnxVXEJ4rI34b/EAPlVYShzVL3uBJjM41PWCgDfGXdQ3yRwwjiMMQJz1j1A==}
+    peerDependencies:
+      '@remix-run/react': ^2
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4 || ^5
     peerDependenciesMeta:
       '@remix-run/react':
         optional: true
@@ -14508,7 +14537,7 @@ snapshots:
       svelte: 5.41.3
     optional: true
 
-  '@vercel/analytics@2.0.1(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)':
+  '@vercel/analytics@2.0.2-canary(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)':
     optionalDependencies:
       '@sveltejs/kit': 2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1))
       next: 16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -14722,27 +14751,6 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@vercel/microfrontends@1.1.0(078f415e02f3986f338d26cb320f5775)':
-    dependencies:
-      ajv: 8.17.1
-      commander: 12.1.0
-      cookie: 0.4.0
-      fast-glob: 3.3.3
-      http-proxy: 1.18.1
-      jsonc-parser: 3.3.1
-      nanoid: 3.3.11
-      path-to-regexp: 6.2.1
-    optionalDependencies:
-      '@sveltejs/kit': 2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1))
-      '@vercel/analytics': 2.0.1(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
-      '@vercel/speed-insights': 1.3.1(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
-      next: 16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      vite: 6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - debug
-
   '@vercel/microfrontends@1.1.0(6b805eb699e437e0ce05f4c801c13681)':
     dependencies:
       ajv: 8.17.1
@@ -14803,6 +14811,27 @@ snapshots:
       react: 19.0.0-rc.1
       react-dom: 19.0.0-rc.1(react@19.0.0-rc.1)
       vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - debug
+
+  '@vercel/microfrontends@1.1.0(cb79ae60c4203dba0134dbed996474a8)':
+    dependencies:
+      ajv: 8.17.1
+      commander: 12.1.0
+      cookie: 0.4.0
+      fast-glob: 3.3.3
+      http-proxy: 1.18.1
+      jsonc-parser: 3.3.1
+      nanoid: 3.3.11
+      path-to-regexp: 6.2.1
+    optionalDependencies:
+      '@sveltejs/kit': 2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1))
+      '@vercel/analytics': 2.0.2-canary(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
+      '@vercel/speed-insights': 1.3.1(@sveltejs/kit@2.53.4(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.41.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(svelte@5.41.3)(typescript@5.9.3)(vite@6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)))(next@16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.41.3)
+      next: 16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      vite: 6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
     transitivePeerDependencies:
       - debug
 
@@ -15015,28 +15044,6 @@ snapshots:
       - debug
       - react-dom
 
-  '@vercel/toolbar@0.1.36(078f415e02f3986f338d26cb320f5775)':
-    dependencies:
-      '@tinyhttp/app': 1.3.0
-      '@vercel/microfrontends': 1.1.0(078f415e02f3986f338d26cb320f5775)
-      chokidar: 3.6.0
-      execa: 5.1.1
-      fast-glob: 3.3.3
-      find-up: 5.0.0
-      get-port: 5.1.1
-      jsonc-parser: 3.3.1
-      strip-ansi: 6.0.1
-    optionalDependencies:
-      next: 16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      vite: 6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - '@sveltejs/kit'
-      - '@vercel/analytics'
-      - '@vercel/speed-insights'
-      - debug
-      - react-dom
-
   '@vercel/toolbar@0.1.36(6b805eb699e437e0ce05f4c801c13681)':
     dependencies:
       '@tinyhttp/app': 1.3.0
@@ -15096,6 +15103,28 @@ snapshots:
       next: 16.1.5(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       react: 19.0.0-rc.1
       vite: 6.4.1(@types/node@20.11.17)(jiti@1.21.7)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
+    transitivePeerDependencies:
+      - '@sveltejs/kit'
+      - '@vercel/analytics'
+      - '@vercel/speed-insights'
+      - debug
+      - react-dom
+
+  '@vercel/toolbar@0.1.36(cb79ae60c4203dba0134dbed996474a8)':
+    dependencies:
+      '@tinyhttp/app': 1.3.0
+      '@vercel/microfrontends': 1.1.0(cb79ae60c4203dba0134dbed996474a8)
+      chokidar: 3.6.0
+      execa: 5.1.1
+      fast-glob: 3.3.3
+      find-up: 5.0.0
+      get-port: 5.1.1
+      jsonc-parser: 3.3.1
+      strip-ansi: 6.0.1
+    optionalDependencies:
+      next: 16.1.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      vite: 6.4.1(@types/node@20.11.17)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@sveltejs/kit'
       - '@vercel/analytics'

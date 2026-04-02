@@ -1,4 +1,4 @@
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics } from '@vercel/analytics/next';
 import { VercelToolbar } from '@vercel/toolbar/next';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';

@@ -1,4 +1,4 @@
-import { track } from '@vercel/analytics/react';
+import { track } from '@vercel/analytics/next';
 import Link from 'next/link';
 import type { CheckoutExperiment, Entity, ShopProduct } from '@/types';
 import { checkout } from '../actions';
