@@ -55,9 +55,7 @@ function getCachedValuePromise(
   flagKey: string,
   entitiesKey: string,
 ): any {
-  const map = evaluationCache.get(headers)?.get(flagKey);
-  if (!map) return undefined;
-  return map.get(entitiesKey);
+  return evaluationCache.get(headers)?.get(flagKey)?.get(entitiesKey);
 }
 
 function setCachedValuePromise(
@@ -220,6 +218,9 @@ type Run<ValueType, EntitiesType> = (options: {
   request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
 }) => Promise<ValueType>;
 
+let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
+let headersModule: typeof import('next/headers') | undefined;
+
 function getRun<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
   decide: Decide<ValueType, EntitiesType>,
@@ -240,8 +241,13 @@ function getRun<ValueType, EntitiesType>(
       // app router
 
       // async import required as turbopack errors in Pages Router
-      // when next/headers is imported at the top-level
-      const { headers, cookies } = await import('next/headers');
+      // when next/headers is imported at the top-level.
+      //
+      // cache import so we don't await on every call since this adds
+      // additional microtask queue overhead
+      if (!headersModulePromise) headersModulePromise = import('next/headers');
+      if (!headersModule) headersModule = await headersModulePromise;
+      const { headers, cookies } = headersModule;
 
       const [headersStore, cookiesStore] = await Promise.all([
         headers(),
@@ -252,17 +258,23 @@ function getRun<ValueType, EntitiesType>(
       dedupeCacheKey = headersStore;
     }
 
-    const overrides = await getOverrides(
-      readonlyCookies.get('vercel-flag-overrides')?.value,
-    );
+    // skip microtask if cookie does not exist or is empty
+    const override = readonlyCookies.get('vercel-flag-overrides')?.value;
+    const overrides =
+      typeof override === 'string' && override !== ''
+        ? await getOverrides(override)
+        : null;
 
     // the flag is being used in app router
-    const entities = (await getEntities(
-      options.identify,
-      dedupeCacheKey,
-      readonlyHeaders,
-      readonlyCookies,
-    )) as EntitiesType | undefined;
+    // skip microtask if identify does not exist
+    const entities = options.identify
+      ? ((await getEntities(
+          options.identify,
+          dedupeCacheKey,
+          readonlyHeaders,
+          readonlyCookies,
+        )) as EntitiesType | undefined)
+      : undefined;
 
     // check cache
     const entitiesKey = JSON.stringify(entities) ?? '';
@@ -293,52 +305,55 @@ function getRun<ValueType, EntitiesType>(
       return decision;
     }
 
-    // We use an async iife to ensure we can catch both sync and async errors of
-    // the original decide function, as that one is not guaranted to be async.
-    //
-    // Also fall back to defaultValue when the decide function returns undefined or throws an error.
-    const decisionPromise = (async () => {
-      return decide({
+    // Normalize the result of decide() into a promise. decide() may return
+    // synchronously or asynchronously, and may also throw synchronously.
+    // Fall back to defaultValue when decide returns undefined or throws.
+    let decisionResult: ValueType | PromiseLike<ValueType>;
+    try {
+      decisionResult = decide({
         // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
         defaultValue: definition.defaultValue,
         headers: readonlyHeaders,
         cookies: readonlyCookies,
         entities,
       });
-    })()
-      // catch errors in async "decide" functions
-      .then<ValueType, ValueType>(
-        (value) => {
-          if (value !== undefined) return value;
-          if (definition.defaultValue !== undefined)
-            return definition.defaultValue;
-          throw new Error(
-            `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
-          );
-        },
-        (error: Error) => {
-          if (isInternalNextError(error)) throw error;
+    } catch (error) {
+      decisionResult = Promise.reject(error);
+    }
 
-          // try to recover if defaultValue is set
-          if (definition.defaultValue !== undefined) {
-            if (process.env.NODE_ENV === 'development') {
-              console.info(
-                `flags: Flag "${definition.key}" is falling back to its defaultValue`,
-              );
-            } else {
-              console.warn(
-                `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
-                error,
-              );
-            }
-            return definition.defaultValue;
+    const decisionPromise = Promise.resolve(decisionResult).then<
+      ValueType,
+      ValueType
+    >(
+      (value) => {
+        if (value !== undefined) return value;
+        if (definition.defaultValue !== undefined)
+          return definition.defaultValue;
+        throw new Error(
+          `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
+        );
+      },
+      (error: Error) => {
+        if (isInternalNextError(error)) throw error;
+
+        // try to recover if defaultValue is set
+        if (definition.defaultValue !== undefined) {
+          if (process.env.NODE_ENV === 'development') {
+            console.info(
+              `flags: Flag "${definition.key}" is falling back to its defaultValue`,
+            );
+          } else {
+            console.warn(
+              `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
+              error,
+            );
           }
-          console.warn(
-            `flags: Flag "${definition.key}" could not be evaluated`,
-          );
-          throw error;
-        },
-      );
+          return definition.defaultValue;
+        }
+        console.warn(`flags: Flag "${definition.key}" could not be evaluated`);
+        throw error;
+      },
+    );
 
     setCachedValuePromise(
       readonlyHeaders,
