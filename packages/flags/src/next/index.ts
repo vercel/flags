@@ -218,7 +218,7 @@ type Run<ValueType, EntitiesType> = (options: {
   request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
 }) => Promise<ValueType>;
 
-let headersModulePromise: Promise<typeof import('next/headers')>;
+let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
 let headersModule: typeof import('next/headers') | undefined;
 
 function getRun<ValueType, EntitiesType>(
