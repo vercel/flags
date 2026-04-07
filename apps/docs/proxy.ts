@@ -87,12 +87,23 @@ const proxy = async (request: NextRequest, context: NextFetchEvent) => {
             detectionMethod: agentResult.method,
           })
         );
-        return NextResponse.rewrite(new URL(result, request.nextUrl));
+        const response = NextResponse.rewrite(new URL(result, request.nextUrl));
+        response.headers.set("Vary", "Accept");
+        return response;
       }
       // Agent requested a non-existent docs URL — return helpful markdown
-      return new NextResponse(generateNotFoundMarkdown(pathname), {
-        headers: { "Content-Type": "text/markdown; charset=utf-8" },
-      });
+      return new NextResponse(
+        generateNotFoundMarkdown(pathname, {
+          sitemapUrl: "/sitemap.md",
+          indexUrl: "/llms.txt",
+        }),
+        {
+          headers: {
+            "Content-Type": "text/markdown; charset=utf-8",
+            Vary: "Accept",
+          },
+        },
+      );
     }
   }
 
