@@ -416,6 +416,42 @@ describe('UsageTracker', () => {
       expect(requestCount).toBe(3);
     });
 
+    it('should not retry on 401 response', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Ingest auth error (401), not retrying',
+      );
+
+      errorSpy.mockRestore();
+    });
+
+    it('should not retry on 403 response', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      fetchMock.mockResolvedValue(new Response(null, { status: 403 }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead();
+      await tracker.flush();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Ingest auth error (403), not retrying',
+      );
+
+      errorSpy.mockRestore();
+    });
+
     it('should retry on fetch error and succeed', async () => {
       let requestCount = 0;
       fetchMock.mockImplementation(async () => {

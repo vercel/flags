@@ -276,6 +276,13 @@ export class UsageTracker {
           break; // Break the loop if the request succeeded
         }
 
+        if (response.status === 401 || response.status === 403) {
+          console.error(
+            `@vercel/flags-core: Ingest auth error (${response.status}), not retrying`,
+          );
+          return;
+        }
+
         throw new Error(
           `Ingest endpoint responded with status ${response.status} for ${eventsToSend.length} events on request ${response.headers.get('x-vercel-id')}.\n` +
             `Response body: ${await response.text().catch(() => null)}`,
