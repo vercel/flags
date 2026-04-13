@@ -420,14 +420,40 @@ function handleOutcome<T>(
       }
 
       // Walk slots to find current promille.
-      // Each slot activates after its cumulative duration from startTimestamp.
-      // We find the last slot whose activation time <= elapsed.
+      // Each slot's durationMs is how long that slot is served before
+      // moving to the next one. Once all slots are exhausted the
+      // rollout is complete (100% to rollToVariant).
       let cumulativeDuration = 0;
       let currentPromille = 0;
-      for (const [durationMs, promille] of outcome.slots) {
-        cumulativeDuration += durationMs;
-        if (cumulativeDuration > elapsed) break;
+      let exhausted = true;
+      for (const [promille, durationMs] of outcome.slots) {
         currentPromille = promille;
+        cumulativeDuration += durationMs;
+        if (cumulativeDuration > elapsed) {
+          exhausted = false;
+          break;
+        }
+      }
+      if (exhausted) currentPromille = 100_000;
+
+      // short-circuit common edges
+      if (currentPromille <= 0) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollFromVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+      if (currentPromille >= 100_000) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollToVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
       }
 
       /** 2^32-1 */

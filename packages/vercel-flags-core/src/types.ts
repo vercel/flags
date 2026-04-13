@@ -497,13 +497,16 @@ export namespace Original {
          */
         defaultVariantId: VariantId;
         /**
-         * Progressive rollout slots. Each slot has a duration (delay since previous slot)
-         * and a promille value (0-100_000) representing the traffic for rollToVariant.
+         * Progressive rollout slots. Each slot has a promille value (0-100_000)
+         * representing the traffic for rollToVariant and a duration (how long
+         * it is served before moving to the next slot).
          *       1 = 0.001%
          *   1_000 =     1%
          * 100_000 =   100%
+         *
+         * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
          */
-        slots: { durationMs: number; promille: number }[];
+        slots: { promille: number; durationMs: number }[];
       };
 
   export type SegmentAllOutcome = {
@@ -718,10 +721,12 @@ export namespace Packed {
     defaultVariant: VariantIndex;
     /**
      * Progressive rollout slots.
-     * Each tuple: [durationMs since previous slot, promille 0-100_000 for rollToVariant]
+     * Each tuple: [promille 0-100_000 for rollToVariant, durationMs (how long this slot is served)]
      *       1 = 0.001%
      *   1_000 =     1%
      * 100_000 =   100%
+     *
+     * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
      */
     slots: [number, number][];
   };

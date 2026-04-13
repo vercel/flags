@@ -2235,9 +2235,8 @@ describe('evaluate', () => {
       rollToVariant: 1,
       defaultVariant: 0,
       slots: [
-        [0, 0], // initial: 0%
-        [6 * HOUR, 50_000], // after 6h: 50%
-        [6 * HOUR, 100_000], // after 12h: 100%
+        [0, 6 * HOUR], // 0% for 6h
+        [50_000, 6 * HOUR], // 50% for 6h
       ],
       ...overrides,
     });
@@ -2344,10 +2343,8 @@ describe('evaluate', () => {
     it('distributes monotonically (users who got rollTo at lower % keep it at higher %)', () => {
       const rollout = makeRollout({
         slots: [
-          [0, 0],
-          [1 * HOUR, 10_000], // 10%
-          [1 * HOUR, 50_000], // 50%
-          [1 * HOUR, 100_000], // 100%
+          [10_000, 1 * HOUR], // 10% for 1h
+          [50_000, 1 * HOUR], // 50% for 1h
         ],
       });
 
@@ -2370,9 +2367,12 @@ describe('evaluate', () => {
         return result;
       };
 
-      const at10 = usersAtTime(startTimestamp + 1 * HOUR);
-      const at50 = usersAtTime(startTimestamp + 2 * HOUR);
-      const at100 = usersAtTime(startTimestamp + 3 * HOUR);
+      // 10% slot is active from t=0 to t=1h
+      const at10 = usersAtTime(startTimestamp);
+      // 50% slot is active from t=1h to t=2h
+      const at50 = usersAtTime(startTimestamp + 1 * HOUR);
+      // 100% slot is active from t=2h onwards
+      const at100 = usersAtTime(startTimestamp + 2 * HOUR);
 
       // Every user in the 10% group must also be in the 50% group
       for (const uid of at10) {
@@ -2386,12 +2386,12 @@ describe('evaluate', () => {
       expect(at100.size).toBe(1000);
     });
 
-    it('stays at last slot percentage after all slots are exhausted', () => {
+    it('goes to 100% after all slots are exhausted', () => {
       vi.setSystemTime(startTimestamp + 100 * HOUR);
       const rollout = makeRollout({
         slots: [
-          [0, 0],
-          [1 * HOUR, 50_000], // 50%
+          [0, 1 * HOUR], // 0% for 1h
+          [50_000, 1 * HOUR], // 50% for 1h
         ],
       });
 
@@ -2409,9 +2409,8 @@ describe('evaluate', () => {
         if (result.value === true) trueCount++;
       }
 
-      // Should still be ~50%
-      expect(trueCount).toBeGreaterThan(400);
-      expect(trueCount).toBeLessThan(600);
+      // All users should get rollToVariant
+      expect(trueCount).toBe(1000);
     });
 
     it('works as a rule outcome', () => {
