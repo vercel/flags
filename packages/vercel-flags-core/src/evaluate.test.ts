@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluate } from './evaluate';
 import {
   Comparator,
@@ -2210,6 +2210,237 @@ describe('evaluate', () => {
       };
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);
+    });
+  });
+
+  describe('rollouts', () => {
+    const HOUR = 60 * 60 * 1000;
+    const startTimestamp = 1_000_000_000_000;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const makeRollout = (
+      overrides: Partial<Packed.RolloutOutcome> = {},
+    ): Packed.RolloutOutcome => ({
+      type: 'rollout',
+      base: ['user', 'id'],
+      startTimestamp,
+      rollFromVariant: 0,
+      rollToVariant: 1,
+      defaultVariant: 0,
+      slots: [
+        [0, 0], // initial: 0%
+        [6 * HOUR, 50_000], // after 6h: 50%
+        [6 * HOUR, 100_000], // after 12h: 100%
+      ],
+      ...overrides,
+    });
+
+    it('serves rollFromVariant before startTimestamp', () => {
+      vi.setSystemTime(startTimestamp - 1);
+      expect(
+        evaluate({
+          definition: {
+            environments: { production: { fallthrough: makeRollout() } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
+    });
+
+    it('serves rollFromVariant at 0% (initial slot)', () => {
+      vi.setSystemTime(startTimestamp);
+      expect(
+        evaluate({
+          definition: {
+            environments: { production: { fallthrough: makeRollout() } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
+    });
+
+    it('serves rollToVariant at 100% (final slot)', () => {
+      vi.setSystemTime(startTimestamp + 12 * HOUR);
+      expect(
+        evaluate({
+          definition: {
+            environments: { production: { fallthrough: makeRollout() } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
+    });
+
+    it('serves defaultVariant when entity attribute is missing', () => {
+      vi.setSystemTime(startTimestamp + 12 * HOUR);
+      expect(
+        evaluate({
+          definition: {
+            environments: { production: { fallthrough: makeRollout() } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: {},
+        }),
+      ).toEqual({
+        value: false,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
+    });
+
+    it('transitions correctly between slots based on elapsed time', () => {
+      vi.setSystemTime(startTimestamp + 6 * HOUR);
+      const rollout = makeRollout();
+
+      let trueCount = 0;
+      for (let i = 0; i < 1000; i++) {
+        const result = evaluate({
+          definition: {
+            environments: { production: { fallthrough: rollout } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        });
+        if (result.value === true) trueCount++;
+      }
+
+      // At 50%, roughly half should get true (allow some variance)
+      expect(trueCount).toBeGreaterThan(400);
+      expect(trueCount).toBeLessThan(600);
+    });
+
+    it('distributes monotonically (users who got rollTo at lower % keep it at higher %)', () => {
+      const rollout = makeRollout({
+        slots: [
+          [0, 0],
+          [1 * HOUR, 10_000], // 10%
+          [1 * HOUR, 50_000], // 50%
+          [1 * HOUR, 100_000], // 100%
+        ],
+      });
+
+      const usersAtTime = (time: number) => {
+        vi.setSystemTime(time);
+        const result = new Set<string>();
+        for (let i = 0; i < 1000; i++) {
+          const uid = `uid${i}`;
+          const evalResult = evaluate({
+            definition: {
+              environments: { production: { fallthrough: rollout } },
+              seed: 7,
+              variants: [false, true],
+            },
+            environment: 'production',
+            entities: { user: { id: uid } },
+          });
+          if (evalResult.value === true) result.add(uid);
+        }
+        return result;
+      };
+
+      const at10 = usersAtTime(startTimestamp + 1 * HOUR);
+      const at50 = usersAtTime(startTimestamp + 2 * HOUR);
+      const at100 = usersAtTime(startTimestamp + 3 * HOUR);
+
+      // Every user in the 10% group must also be in the 50% group
+      for (const uid of at10) {
+        expect(at50.has(uid)).toBe(true);
+      }
+      // Every user in the 50% group must also be in the 100% group
+      for (const uid of at50) {
+        expect(at100.has(uid)).toBe(true);
+      }
+      // 100% should include all users
+      expect(at100.size).toBe(1000);
+    });
+
+    it('stays at last slot percentage after all slots are exhausted', () => {
+      vi.setSystemTime(startTimestamp + 100 * HOUR);
+      const rollout = makeRollout({
+        slots: [
+          [0, 0],
+          [1 * HOUR, 50_000], // 50%
+        ],
+      });
+
+      let trueCount = 0;
+      for (let i = 0; i < 1000; i++) {
+        const result = evaluate({
+          definition: {
+            environments: { production: { fallthrough: rollout } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        });
+        if (result.value === true) trueCount++;
+      }
+
+      // Should still be ~50%
+      expect(trueCount).toBeGreaterThan(400);
+      expect(trueCount).toBeLessThan(600);
+    });
+
+    it('works as a rule outcome', () => {
+      vi.setSystemTime(startTimestamp + 12 * HOUR);
+      expect(
+        evaluate({
+          definition: {
+            environments: {
+              production: {
+                rules: [
+                  {
+                    conditions: [[['user', 'plan'], Comparator.EQ, 'pro']],
+                    outcome: makeRollout(),
+                  },
+                ],
+                fallthrough: 0,
+              },
+            },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: 'uid1', plan: 'pro' } },
+        }),
+      ).toEqual({
+        value: true,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
     });
   });
 });

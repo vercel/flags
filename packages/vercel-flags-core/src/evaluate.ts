@@ -392,6 +392,60 @@ function handleOutcome<T>(
         outcomeType: OutcomeType.SPLIT,
       };
     }
+    case 'rollout': {
+      const lhs = access(outcome.base, params);
+      const defaultOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.defaultVariant,
+      );
+
+      // serve the default variant if the lhs is not a string
+      if (typeof lhs !== 'string') {
+        return { value: defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+      }
+
+      // Determine active slot based on elapsed time
+      const now = Date.now();
+      const elapsed = now - outcome.startTimestamp;
+
+      // Before rollout starts or no slots, serve rollFromVariant
+      if (elapsed < 0 || outcome.slots.length === 0) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollFromVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+
+      // Walk slots to find current promille.
+      // Each slot activates after its cumulative duration from startTimestamp.
+      // We find the last slot whose activation time <= elapsed.
+      let cumulativeDuration = 0;
+      let currentPromille = 0;
+      for (const [durationMs, promille] of outcome.slots) {
+        cumulativeDuration += durationMs;
+        if (cumulativeDuration > elapsed) break;
+        currentPromille = promille;
+      }
+
+      /** 2^32-1 */
+      const maxValue = 4_294_967_295;
+      const value = hashInput(lhs, params.definition.seed);
+      const threshold = (currentPromille / 100_000) * maxValue;
+
+      return {
+        value:
+          value < threshold
+            ? getVariant<T>(params.definition.variants, outcome.rollToVariant)
+            : getVariant<T>(
+                params.definition.variants,
+                outcome.rollFromVariant,
+              ),
+        outcomeType: OutcomeType.ROLLOUT,
+      };
+    }
     default: {
       const { type } = outcome;
       exhaustivenessCheck(type);
