@@ -272,6 +272,8 @@ export enum OutcomeType {
   VALUE = 'value',
   /** When the outcome type was a split */
   SPLIT = 'split',
+  /** When the outcome type was a progressive rollout */
+  ROLLOUT = 'rollout',
 }
 
 /**
@@ -471,6 +473,40 @@ export namespace Original {
          * This variant will be used when the base attribute does not exist
          */
         defaultVariantId: VariantId;
+      }
+    | {
+        type: 'rollout';
+        /**
+         * Based on which attribute the traffic should be split
+         */
+        base: EntityAccessor;
+        /**
+         * Epoch ms when the rollout begins
+         */
+        startTimestamp: number;
+        /**
+         * The variant to roll away from
+         */
+        rollFromVariantId: VariantId;
+        /**
+         * The variant to roll towards
+         */
+        rollToVariantId: VariantId;
+        /**
+         * This variant will be used when the base attribute does not exist
+         */
+        defaultVariantId: VariantId;
+        /**
+         * Progressive rollout slots. Each slot has a promille value (0-100_000)
+         * representing the traffic for rollToVariant and a duration (how long
+         * it is served before moving to the next slot).
+         *       1 = 0.001%
+         *   1_000 =     1%
+         * 100_000 =   100%
+         *
+         * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
+         */
+        slots: { promille: number; durationMs: number }[];
       };
 
   export type SegmentAllOutcome = {
@@ -661,6 +697,40 @@ export namespace Packed {
     defaultVariant: VariantIndex;
   };
 
+  export type RolloutOutcome = {
+    type: 'rollout';
+    /**
+     * Based on which attribute the traffic should be split.
+     */
+    base: EntityAccessor;
+    /**
+     * Epoch ms when the rollout begins.
+     */
+    startTimestamp: number;
+    /**
+     * Variant index to roll away from.
+     */
+    rollFromVariant: VariantIndex;
+    /**
+     * Variant index to roll towards.
+     */
+    rollToVariant: VariantIndex;
+    /**
+     * This variant will be used when the base attribute does not exist.
+     */
+    defaultVariant: VariantIndex;
+    /**
+     * Progressive rollout slots.
+     * Each tuple: [promille 0-100_000 for rollToVariant, durationMs (how long this slot is served)]
+     *       1 = 0.001%
+     *   1_000 =     1%
+     * 100_000 =   100%
+     *
+     * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
+     */
+    slots: [number, number][];
+  };
+
   export type SegmentAllOutcome = 1;
 
   export type SegmentSplitOutcome = {
@@ -679,7 +749,7 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type Outcome = VariantIndex | SplitOutcome;
+  export type Outcome = VariantIndex | SplitOutcome | RolloutOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];
