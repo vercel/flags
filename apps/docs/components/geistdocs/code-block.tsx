@@ -9,9 +9,28 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { NextLogo } from "@/components/custom/logos/next";
+import { SvelteKitLogo } from "@/components/custom/logos/sveltekit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+const FRAMEWORK_ICONS: Record<string, ReactNode> = {
+  next: <NextLogo className="dark:invert" />,
+  svelte: <SvelteKitLogo className="grayscale" />,
+};
+
+function parseFrameworkFromTitle(title: string): {
+  cleanTitle: string;
+  frameworkIcon: ReactNode | undefined;
+} {
+  const match = title.match(/#(\w+)$/);
+  if (!match) return { cleanTitle: title, frameworkIcon: undefined };
+  return {
+    cleanTitle: title.slice(0, -match[0].length),
+    frameworkIcon: FRAMEWORK_ICONS[match[1]],
+  };
+}
 
 interface CodeBlockProps {
   children: ReactNode;
@@ -100,16 +119,24 @@ export const CodeBlock = ({
     );
   }
 
+  const { cleanTitle, frameworkIcon } = parseFrameworkFromTitle(title);
+
   return (
     <Card className="not-prose mb-6 gap-0 overflow-hidden rounded-sm p-0 shadow-none">
       <CardHeader className="flex items-center gap-2 border-b bg-sidebar py-1.5! pr-1.5 pl-4 text-muted-foreground">
-        <div
-          className="flex size-3.5 shrink-0"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required for icon prop."
-          dangerouslySetInnerHTML={{ __html: icon as unknown as TrustedHTML }}
-        />
+        {frameworkIcon ? (
+          <div className="flex size-3.5 shrink-0 items-center justify-center">
+            {frameworkIcon}
+          </div>
+        ) : (
+          <div
+            className="flex size-3.5 shrink-0"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required for icon prop."
+            dangerouslySetInnerHTML={{ __html: icon as unknown as TrustedHTML }}
+          />
+        )}
         <CardTitle className="flex-1 font-mono font-normal text-sm tracking-tight">
-          {title}
+          {cleanTitle}
         </CardTitle>
         <Button
           className={cn("shrink-0", className)}

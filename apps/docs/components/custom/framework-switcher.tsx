@@ -175,7 +175,7 @@ export const FrameworkSwitcher = () => {
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-1"
+        className="w-(--radix-popover-trigger-width) p-1"
       >
         {tabs.map((tab) => (
           <Button

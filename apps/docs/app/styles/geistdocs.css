@@ -537,7 +537,7 @@
 
 /* TOC and footer links use gray-1000 */
 #nd-toc {
-  @apply text-gray-1000;
+  @apply text-gray-1000 md:pl-6;
 }
 
 #nd-toc a {
@@ -547,4 +547,3 @@
 #nd-toc a[data-active="true"] {
   @apply text-gray-1000;
 }
-
