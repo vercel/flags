@@ -12,7 +12,7 @@ export const Navbar = () => (
       <div className="flex select-none flex-row items-center">
         <NavbarLogo
           className="ml-4"
-          logo={<LogoFlagsSdk height={18} />}
+          logo={<LogoFlagsSdk height={22} />}
           variant="oss"
         />
         <DesktopMenu className="hidden pl-6 lg:flex" items={nav} />
