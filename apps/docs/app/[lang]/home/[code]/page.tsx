@@ -144,7 +144,7 @@ export default async function HomePage({
         <div className="relative p-4 sm:p-6">
           {ditheredHeroFlag ? <HeroImage /> : null}
 
-          <div className="relative rounded-xl border bg-background p-4 shadow-md md:p-6">
+          <div className="relative rounded-xl bg-background p-4 md:p-6 shadow-(--ds-shadow-menu)">
             <div className="flex flex-col gap-y-1 px-2">
               <div className="mb-0.5 font-semibold text-lg tracking-tight">
                 Try the Flags SDK
