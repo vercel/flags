@@ -16,7 +16,7 @@ interface DocsLayoutProps {
 export const DocsLayout = ({ tree, children }: DocsLayoutProps) => (
   <FumadocsDocsLayout
     containerProps={{
-      className: "bg-background-100 max-w-[1448px] mx-auto",
+      className: "bg-background-200 max-w-[1448px] mx-auto",
       style: {
         "--fd-docs-row-1": "4rem",
       } as CSSProperties,
