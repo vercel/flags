@@ -5,6 +5,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
+  CommandPromptContent,
+  CommandPromptCopy,
+  CommandPromptList,
+  CommandPromptPrefix,
+  CommandPromptRoot,
+  CommandPromptSurface,
+  CommandPromptTrigger,
+  CommandPromptTriggerDivider,
+  CommandPromptViewport,
+} from '@/components/ui/command-prompt';
+import {
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
@@ -37,6 +48,9 @@ const FEATURES = [
     illustration: <Adaptable />,
   },
 ];
+
+const COMMAND_FOR_HUMANS = 'npm install flags';
+const COMMAND_FOR_AGENTS = 'npx skills add vercel/flags@flags-sdk';
 
 const flagsSetupCodeblock = `import { flag } from 'flags/next';
 
@@ -97,17 +111,40 @@ export default async function HomePage({
             Flags SDK is a free, open-source library for using feature flags in
             Next.js and SvelteKit.
           </p>
-          <div className="mt-6 inline-flex w-fit items-center gap-3">
-            <Button size="lg" asChild>
-              <Link href="/frameworks/next">Get Started</Link>
-            </Button>
-            <CopySnippet text="npm i flags" />
-          </div>
+          <CommandPromptRoot className="mt-6 items-start" defaultValue="agents">
+            <CommandPromptList>
+              <CommandPromptTrigger className="min-w-[90px]" value="humans">
+                For humans
+              </CommandPromptTrigger>
+              <CommandPromptTriggerDivider />
+              <CommandPromptTrigger className="min-w-[84px]" value="agents">
+                For agents
+              </CommandPromptTrigger>
+            </CommandPromptList>
+            <CommandPromptSurface>
+              <CommandPromptPrefix>$</CommandPromptPrefix>
+              <CommandPromptViewport>
+                <CommandPromptContent
+                  copyValue={COMMAND_FOR_HUMANS}
+                  value="humans"
+                >
+                  {COMMAND_FOR_HUMANS}
+                </CommandPromptContent>
+                <CommandPromptContent
+                  copyValue={COMMAND_FOR_AGENTS}
+                  value="agents"
+                >
+                  {COMMAND_FOR_AGENTS}
+                </CommandPromptContent>
+              </CommandPromptViewport>
+              <CommandPromptCopy />
+            </CommandPromptSurface>
+          </CommandPromptRoot>
         </div>
         <div className="relative p-4 sm:p-6">
           {ditheredHeroFlag ? <HeroImage /> : null}
 
-          <div className="relative rounded-xl border bg-background p-4 shadow-md md:p-6">
+          <div className="relative rounded-xl bg-background p-4 md:p-6 shadow-(--ds-shadow-menu)">
             <div className="flex flex-col gap-y-1 px-2">
               <div className="mb-0.5 font-semibold text-lg tracking-tight">
                 Try the Flags SDK

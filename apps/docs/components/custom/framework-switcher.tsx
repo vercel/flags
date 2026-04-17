@@ -23,64 +23,81 @@ const tabs: Tab[] = [
     url: '/docs/frameworks/next',
     icon: (
       <svg
+        className="text-gray-1000"
+        fill="none"
         height="16"
         strokeLinejoin="round"
         viewBox="0 0 16 16"
         width="16"
-        style={{ color: 'currentcolor' }}
       >
-        <g clipPath="url(#clip0_53_108)">
-          <circle
-            cx="8"
-            cy="8"
-            r="7.375"
-            fill="black"
-            stroke="var(--ds-gray-1000)"
-            strokeWidth="1.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M10.63 11V5"
-            stroke="url(#paint0_linear_53_108S1)"
-            strokeWidth="1.25"
-            strokeMiterlimit="1.41421"
-          />
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M5.995 5.00087V5H4.745V11H5.995V6.96798L12.3615 14.7076C12.712 14.4793 13.0434 14.2242 13.353 13.9453L5.99527 5.00065L5.995 5.00087Z"
-            fill="url(#paint1_linear_53_108S1)"
-          />
-        </g>
+        <circle
+          cx="8"
+          cy="8"
+          r="7.375"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.25"
+        />
+        <path
+          d="M10.63 11V5"
+          stroke="url(#logo-next__b)"
+          strokeMiterlimit="1.414"
+          strokeWidth="1.25"
+        />
+        <path
+          clipRule="evenodd"
+          d="M6 5H4.75v6H6V6.97l6.36 7.74q.52-.35 1-.76z"
+          fill="url(#logo-next__c)"
+          fillRule="evenodd"
+        />
         <defs>
           <linearGradient
-            id="paint0_linear_53_108S1"
-            x1="11.13"
-            y1="5"
-            x2="11.13"
-            y2="11"
             gradientUnits="userSpaceOnUse"
+            id="logo-next__b"
+            x1="11.13"
+            x2="11.13"
+            y1="5"
+            y2="11"
           >
-            <stop stopColor="white" />
-            <stop offset="0.609375" stopColor="white" stopOpacity="0.57" />
-            <stop offset="0.796875" stopColor="white" stopOpacity="0" />
-            <stop offset="1" stopColor="white" stopOpacity="0" />
+            <stop style={{ stopColor: 'var(--ds-background-100)' }} />
+            <stop
+              offset=".609"
+              stopOpacity=".57"
+              style={{ stopColor: 'var(--ds-background-100)' }}
+            />
+            <stop
+              offset=".797"
+              stopOpacity="0"
+              style={{ stopColor: 'var(--ds-background-100)' }}
+            />
+            <stop
+              offset="1"
+              stopOpacity="0"
+              style={{ stopColor: 'var(--ds-background-100)' }}
+            />
           </linearGradient>
           <linearGradient
-            id="paint1_linear_53_108S1"
-            x1="9.9375"
-            y1="9.0625"
-            x2="13.5574"
-            y2="13.3992"
             gradientUnits="userSpaceOnUse"
+            id="logo-next__c"
+            x1="9.702"
+            x2="12.791"
+            y1="10.474"
+            y2="14.414"
           >
-            <stop stopColor="white" />
-            <stop offset="1" stopColor="white" stopOpacity="0" />
+            <stop style={{ stopColor: 'var(--ds-background-100)' }} />
+            <stop
+              offset=".604"
+              stopOpacity="0"
+              style={{ stopColor: 'var(--ds-background-100)' }}
+            />
+            <stop
+              offset="1"
+              stopOpacity="0"
+              style={{ stopColor: 'var(--ds-background-100)' }}
+            />
           </linearGradient>
-          <clipPath id="clip0_53_108">
-            <rect width="16" height="16" fill="red" />
-          </clipPath>
         </defs>
       </svg>
     ),
@@ -158,7 +175,7 @@ export const FrameworkSwitcher = () => {
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-1"
+        className="w-(--radix-popover-trigger-width) p-1"
       >
         {tabs.map((tab) => (
           <Button
