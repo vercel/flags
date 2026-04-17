@@ -49,7 +49,7 @@ const FEATURES = [
   },
 ];
 
-const COMMAND_FOR_HUMANS = 'npm i flags';
+const COMMAND_FOR_HUMANS = 'npm install flags';
 const COMMAND_FOR_AGENTS = 'npx skills add vercel/flags@flags-sdk';
 
 const flagsSetupCodeblock = `import { flag } from 'flags/next';
