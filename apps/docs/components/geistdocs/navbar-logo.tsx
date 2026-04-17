@@ -5,7 +5,6 @@ import type { ComponentType, ReactNode } from "react";
 import { IconSlashForward } from "@/components/geistcn-fallbacks/geistcn-assets/icons/icon-slash-forward";
 import { LogoAiElements } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-ai-elements";
 import { LogoChatSdk } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-chat-sdk";
-import { LogoFlagsSdk } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-flags-sdk";
 import { LogoIconVercel } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-icon-vercel";
 import { LogoStreamdown } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-streamdown";
 import { LogoVercelOss } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-vercel-oss";
@@ -25,7 +24,6 @@ const OSS_PRODUCT_LINKS: {
   logo: ComponentType<{ height: number }>;
   height: number;
 }[] = [
-  { href: "https://flags-sdk.dev/", logo: LogoFlagsSdk, height: 20 },
   { href: "https://chat-sdk.dev/", logo: LogoChatSdk, height: 20 },
   { href: "https://elements.ai-sdk.dev/", logo: LogoAiElements, height: 12 },
   { href: "https://workflow-sdk.dev/", logo: LogoWorkflowSdk, height: 12 },
