@@ -111,7 +111,7 @@ export default async function HomePage({
             Flags SDK is a free, open-source library for using feature flags in
             Next.js and SvelteKit.
           </p>
-          <CommandPromptRoot className="mt-6 items-start" defaultValue="humans">
+          <CommandPromptRoot className="mt-6 items-start" defaultValue="agents">
             <CommandPromptList>
               <CommandPromptTrigger className="min-w-[90px]" value="humans">
                 For humans
