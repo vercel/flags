@@ -5,20 +5,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
-  CommandPromptContent,
-  CommandPromptCopy,
-  CommandPromptList,
-  CommandPromptPrefix,
-  CommandPromptRoot,
-  CommandPromptSurface,
-  CommandPromptTrigger,
-  CommandPromptTriggerDivider,
-  CommandPromptViewport,
-} from '@/components/ui/command-prompt';
-import {
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
+  installAudienceFlag,
   rootFlags,
 } from '@/flags';
 import HeroImage from './components/hero-image';
@@ -26,6 +16,7 @@ import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
 import { CopySnippet } from './copy-snippet';
 import { HighlightedCode } from './highlighted-code';
+import { InstallCommand } from './install-command';
 import { FlagSelect, FlagToggle } from './toggles';
 
 const FEATURES = [
@@ -48,9 +39,6 @@ const FEATURES = [
     illustration: <Adaptable />,
   },
 ];
-
-const COMMAND_FOR_HUMANS = 'npm install flags';
-const COMMAND_FOR_AGENTS = 'npx skills add vercel/flags@flags-sdk';
 
 const flagsSetupCodeblock = `import { flag } from 'flags/next';
 
@@ -85,11 +73,13 @@ export default async function HomePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [bannerFlag, ditheredHeroFlag, heroTextFlag] = await Promise.all([
-    enableBannerFlag(code, rootFlags),
-    enableDitheredHeroFlag(code, rootFlags),
-    enableHeroTextFlag(code, rootFlags),
-  ]);
+  const [bannerFlag, ditheredHeroFlag, heroTextFlag, installAudience] =
+    await Promise.all([
+      enableBannerFlag(code, rootFlags),
+      enableDitheredHeroFlag(code, rootFlags),
+      enableHeroTextFlag(code, rootFlags),
+      installAudienceFlag(code, rootFlags),
+    ]);
 
   return (
     <div className="container mx-auto max-w-5xl">
@@ -98,6 +88,7 @@ export default async function HomePage({
           [enableBannerFlag.key]: bannerFlag,
           [enableDitheredHeroFlag.key]: ditheredHeroFlag,
           [enableHeroTextFlag.key]: heroTextFlag,
+          [installAudienceFlag.key]: installAudience,
         }}
       />
 
@@ -111,35 +102,10 @@ export default async function HomePage({
             Flags SDK is a free, open-source library for using feature flags in
             Next.js and SvelteKit.
           </p>
-          <CommandPromptRoot className="mt-6 items-start" defaultValue="agents">
-            <CommandPromptList>
-              <CommandPromptTrigger className="min-w-[90px]" value="humans">
-                For humans
-              </CommandPromptTrigger>
-              <CommandPromptTriggerDivider />
-              <CommandPromptTrigger className="min-w-[84px]" value="agents">
-                For agents
-              </CommandPromptTrigger>
-            </CommandPromptList>
-            <CommandPromptSurface>
-              <CommandPromptPrefix>$</CommandPromptPrefix>
-              <CommandPromptViewport>
-                <CommandPromptContent
-                  copyValue={COMMAND_FOR_HUMANS}
-                  value="humans"
-                >
-                  {COMMAND_FOR_HUMANS}
-                </CommandPromptContent>
-                <CommandPromptContent
-                  copyValue={COMMAND_FOR_AGENTS}
-                  value="agents"
-                >
-                  {COMMAND_FOR_AGENTS}
-                </CommandPromptContent>
-              </CommandPromptViewport>
-              <CommandPromptCopy />
-            </CommandPromptSurface>
-          </CommandPromptRoot>
+          <InstallCommand
+            flagKey={installAudienceFlag.key}
+            value={installAudience}
+          />
         </div>
         <div className="relative p-4 sm:p-6">
           {ditheredHeroFlag ? <HeroImage /> : null}
