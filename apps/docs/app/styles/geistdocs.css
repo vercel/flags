@@ -545,6 +545,7 @@
   @apply text-gray-1000;
 }
 
-#nd-toc {
+/* Override fumadocs primary color to match design system */
+:root {
   --color-fd-primary: var(--ds-gray-1000);
 }
