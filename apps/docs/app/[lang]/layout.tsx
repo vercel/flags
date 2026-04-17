@@ -1,5 +1,5 @@
 import "../global.css";
-import { VercelToolbar } from '@vercel/toolbar/next';
+import { VercelToolbar } from "@vercel/toolbar/next";
 import { Footer } from "@/components/geistdocs/footer";
 import { Navbar } from "@/components/geistdocs/navbar";
 import { GeistdocsProvider } from "@/components/geistdocs/provider";
@@ -10,8 +10,8 @@ import { translations } from "@/geistdocs";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-   metadataBase: new URL("https://flags-sdk.dev"),
-}
+  metadataBase: new URL("https://flags-sdk.dev"),
+};
 
 export const generateStaticParams = async () => {
   const langs = Object.keys(translations);
@@ -20,11 +20,11 @@ export const generateStaticParams = async () => {
 
 const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
   const { lang } = await params;
-  const shouldInjectToolbar = process.env.NODE_ENV === 'development';
+  const shouldInjectToolbar = process.env.NODE_ENV === "development";
 
   return (
     <html
-      className={cn(sans.variable, mono.variable, "scroll-smooth antialiased")}
+      className={cn(sans.variable, mono.variable, "antialiased")}
       lang={lang}
       suppressHydrationWarning
     >

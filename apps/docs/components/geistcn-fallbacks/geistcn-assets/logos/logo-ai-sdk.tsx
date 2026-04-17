@@ -3,9 +3,11 @@
  */
 export function LogoAiSdk({
   height = 22,
+  color = 'currentColor',
   className,
 }: {
   height?: number;
+  color?: string;
   className?: string;
 }) {
   const width = (280 / 77) * height;
@@ -16,6 +18,7 @@ export function LogoAiSdk({
       fill="none"
       height={height}
       role="img"
+      style={{ color }}
       viewBox="0 0 280 77"
       width={width}
       xmlns="http://www.w3.org/2000/svg"

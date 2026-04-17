@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { IconSlashForward } from "@/components/geistcn-fallbacks/geistcn-assets/icons/icon-slash-forward";
 import { LogoAiElements } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-ai-elements";
+import { LogoAiSdk } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-ai-sdk";
 import { LogoChatSdk } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-chat-sdk";
 import { LogoIconVercel } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-icon-vercel";
 import { LogoStreamdown } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-streamdown";
@@ -24,6 +25,7 @@ const OSS_PRODUCT_LINKS: {
   logo: ComponentType<{ height: number }>;
   height: number;
 }[] = [
+  { href: "https://ai-sdk.dev/", logo: LogoAiSdk, height: 12 },
   { href: "https://chat-sdk.dev/", logo: LogoChatSdk, height: 20 },
   { href: "https://elements.ai-sdk.dev/", logo: LogoAiElements, height: 12 },
   { href: "https://workflow-sdk.dev/", logo: LogoWorkflowSdk, height: 12 },
@@ -103,7 +105,7 @@ export function NavbarLogo({
                           </Link>
                         </NavigationMenuLink>
                       </li>
-                    )
+                    ),
                   )}
                 </ul>
               </NavigationMenuContent>
