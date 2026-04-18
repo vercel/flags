@@ -17,7 +17,7 @@ export default async function Layout({
         </div>
       ) : null}
       <HomeLayout tree={source.pageTree[lang]}>
-        <div className="bg-sidebar pt-0 pb-32">{children}</div>
+        <div className="bg-background-200 pt-0 pb-32">{children}</div>
       </HomeLayout>
     </>
   );
