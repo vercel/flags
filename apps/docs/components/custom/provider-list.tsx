@@ -4,7 +4,6 @@ import { Badge } from '../ui/badge';
 import { FlagsmithLogo } from './logos/flagsmith';
 import { GrowthbookLogo } from './logos/growthbook';
 import { HypertuneLogo } from './logos/hypertune';
-import { LaunchDarklyLogo } from './logos/launchdarkly';
 import { OpenFeatureLogo } from './logos/openfeature';
 import { OptimizelyLogo } from './logos/optimizely';
 import { PostHogLogo } from './logos/posthog';
@@ -63,14 +62,6 @@ const providers: Provider[] = [
     logo: HypertuneLogo,
     badges: ['Adapter', 'Edge Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#000000',
-  },
-  {
-    key: 'launchdarkly',
-    name: 'LaunchDarkly',
-    href: '/providers/launchdarkly',
-    logo: LaunchDarklyLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer'],
-    glowColor: '#7084ff',
   },
   {
     key: 'growthbook',
