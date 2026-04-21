@@ -24,16 +24,27 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./provider": {
+      "types": "./dist/provider/index.d.ts",
+      "import": "./dist/provider/index.js",
+      "require": "./dist/provider/index.cjs"
     }
   },
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
       ".": [
-        "dist/*.d.ts",
-        "dist/*.d.cts"
+        "./dist/index.d.ts",
+        "./dist/index.d.cts"
+      ],
+      "provider": [
+        "./dist/provider/index.d.ts",
+        "./dist/provider/index.d.cts"
       ]
     }
   },
