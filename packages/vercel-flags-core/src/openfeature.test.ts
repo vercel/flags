@@ -27,6 +27,7 @@ function createStaticController(opts: {
     read: () => Promise.resolve(datafile),
     getDatafile: () => Promise.resolve(datafile),
     shutdown: () => {},
+    trackEvaluation: () => {},
   };
 }
 

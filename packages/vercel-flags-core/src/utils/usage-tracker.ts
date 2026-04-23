@@ -31,8 +31,22 @@ export interface FlagsConfigReadEvent {
   };
 }
 
+export interface FlagEvaluationEvent {
+  type: 'FLAG_EVALUATION';
+  ts: number;
+  payload: {
+    flagId: string;
+    variantId: string;
+    reason: string;
+    deploymentId?: string;
+    region?: string;
+  };
+}
+
+export type IngestEvent = FlagsConfigReadEvent | FlagEvaluationEvent;
+
 interface EventBatcher {
-  events: FlagsConfigReadEvent[];
+  events: IngestEvent[];
   /** Resolves the current wait period early (e.g., when batch size is reached) */
   resolveWait: (() => void) | null;
   /** Promise for flush operation */
@@ -98,6 +112,12 @@ export interface TrackReadOptions {
   mode?: 'poll' | 'stream' | 'build' | 'offline';
   /** Revision of the config */
   revision?: number;
+}
+
+export interface TrackEvaluationOptions {
+  flagId: string;
+  variantId: string;
+  reason: string;
 }
 
 /**
@@ -202,6 +222,33 @@ export class UsageTracker {
     } catch (error) {
       // trackRead should never throw, but log the error
       console.error('@vercel/flags-core: Failed to record event:', error);
+    }
+  }
+
+  /**
+   * Tracks a flag evaluation event.
+   */
+  trackEvaluation(options: TrackEvaluationOptions): void {
+    try {
+      const event: FlagEvaluationEvent = {
+        type: 'FLAG_EVALUATION',
+        ts: Date.now(),
+        payload: {
+          flagId: options.flagId,
+          variantId: options.variantId,
+          reason: options.reason,
+          deploymentId: process.env.VERCEL_DEPLOYMENT_ID,
+          region: process.env.VERCEL_REGION,
+        },
+      };
+
+      this.batcher.events.push(event);
+      this.scheduleFlush();
+    } catch (error) {
+      console.error(
+        '@vercel/flags-core: Failed to record evaluation event:',
+        error,
+      );
     }
   }
 
