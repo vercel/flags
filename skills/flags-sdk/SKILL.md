@@ -258,7 +258,15 @@ Required for precompute and Flags Explorer. Must be 32 random bytes, base64-enco
 node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
 ```
 
-Store as `FLAGS_SECRET` env var. On Vercel: `vc env add FLAGS_SECRET` then `vc env pull`.
+Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, Production), and mark the Preview and Production values as Sensitive. Run the generator once per environment to produce distinct values, then store each on Vercel:
+
+```sh
+vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
+vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
+vercel env add FLAGS_SECRET development --value <development-secret>
+```
+
+Then run `vc env pull` to sync to local.
 
 ## Precompute pattern
 

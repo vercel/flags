@@ -32,6 +32,14 @@ The `FLAGS_SECRET` value must have a specific length (32 random bytes encoded in
 node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
 ```
 
+Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, Production), and mark the Preview and Production values as Sensitive. Run the generator once per environment to produce distinct values, then store each on Vercel:
+
+```sh
+vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
+vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
+vercel env add FLAGS_SECRET development --value <development-secret>
+```
+
 This secret is required to use the SDK. It is used to read overrides and to encrypt flag values in case they are sent to the client and should stay secret.
 
 ## Usage
