@@ -1,6 +1,6 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "$schema": "https://unpkg.com/@changesets/config@3/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "vercel/flags" }],
   "commit": false,
   "fixed": [],
   "linked": [],
