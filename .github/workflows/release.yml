@@ -1,5 +1,34 @@
 name: Release
 
+# This workflow handles two release modes:
+#
+#   1. Regular release (push to main): runs changesets/action, which either
+#      opens a "chore: release" PR with version bumps from queued changesets,
+#      or publishes the bumped versions to npm if the release PR has been
+#      merged.
+#
+#   2. Snapshot release (workflow_dispatch): publishes a one-off version for
+#      the current branch under the `snapshot` dist-tag, so changes can be
+#      previewed without entering changesets pre-release mode. See
+#      `.changeset/README.md` for usage.
+#
+# Both modes go through this single workflow file because npm Trusted
+# Publishers (OIDC) bind publish authorization to one specific workflow
+# filename per package. Renaming this file or moving the publish step
+# elsewhere will break publishing until the npm-side configuration is
+# updated to match.
+#
+# Configure a Trusted Publisher for each released package on npm.com:
+#   https://www.npmjs.com/package/<package> → Settings → Trusted Publishers
+#   Repository: vercel/flags
+#   Workflow:   release.yml
+#
+# `commitMode: github-api` on changesets/action makes the release commit go
+# through the GitHub REST API so it's auto-signed by GitHub — no GPG keys
+# or bypass exceptions for commit-signature rules.
+#
+# See https://docs.npmjs.com/trusted-publishers for details.
+
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -8,38 +37,50 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   release:
+    if: github.event_name == 'push'
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v3
+      # Node 24 (LTS) ships npm >= 11.12, which has Trusted Publisher OIDC
+      # authentication. Node 22's bundled npm 10.x can sign provenance
+      # attestations but cannot use OIDC tokens to authenticate the publish
+      # itself, leading to a confusing 404 after provenance signing succeeds.
+      - uses: actions/setup-node@v4
         with:
-          node-version-file: ".node-version"
+          node-version: "24"
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install Dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           # This expects you to have a script called release which does a build for your packages and calls changeset publish
           publish: pnpm release
           version: pnpm version-packages
+          commitMode: github-api
         env:
+          NPM_CONFIG_PROVENANCE: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
           FLAGS: ${{ secrets.FLAGS }}
@@ -47,3 +88,48 @@ jobs:
           HAPPYKIT_ENV_KEY: ${{ secrets.HAPPYKIT_ENV_KEY }}
           LAUNCHDARKLY_CLIENT_SIDE_ID: ${{ secrets.LAUNCHDARKLY_CLIENT_SIDE_ID }}
           LAUNCHDARKLY_PROJECT_SLUG: ${{ secrets.LAUNCHDARKLY_PROJECT_SLUG }}
+
+  snapshot:
+    if: github.event_name == 'workflow_dispatch'
+    name: Release Snapshot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Version Packages
+        run: pnpm changeset version --snapshot ${SHORT_SHA}
+
+      - name: Build
+        run: pnpm turbo build --filter='./packages/*'
+        env:
+          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
+          FLAGS: ${{ secrets.FLAGS }}
+          HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}
+          HAPPYKIT_ENV_KEY: ${{ secrets.HAPPYKIT_ENV_KEY }}
+          LAUNCHDARKLY_CLIENT_SIDE_ID: ${{ secrets.LAUNCHDARKLY_CLIENT_SIDE_ID }}
+          LAUNCHDARKLY_PROJECT_SLUG: ${{ secrets.LAUNCHDARKLY_PROJECT_SLUG }}
+
+      - name: Publish Snapshot Release
+        run: pnpm changeset publish --no-git-tag --tag snapshot
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
