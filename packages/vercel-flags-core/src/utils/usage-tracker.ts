@@ -1,5 +1,6 @@
 import { waitUntil } from '@vercel/functions';
 import { version } from '../../package.json';
+import { getJitteredWaitMs, getRetryDelayMs } from './backoff';
 
 const RESOLVED_VOID: Promise<void> = Promise.resolve();
 
@@ -42,6 +43,12 @@ interface EventBatcher {
 const MAX_RETRIES = 3;
 const MAX_BATCH_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 5000;
+
+/**
+ * Symmetric jitter applied to MAX_BATCH_WAIT_MS so that independent processes
+ * that started at the same wall-clock time do not flush in lockstep.
+ */
+const BATCH_WAIT_JITTER_RATIO = 0.2;
 
 interface RequestContext {
   ctx: object | undefined;
@@ -212,7 +219,10 @@ export class UsageTracker {
       const pending = (async () => {
         await new Promise<void>((res) => {
           this.batcher.resolveWait = res;
-          timeout = setTimeout(res, MAX_BATCH_WAIT_MS);
+          timeout = setTimeout(
+            res,
+            getJitteredWaitMs(MAX_BATCH_WAIT_MS, BATCH_WAIT_JITTER_RATIO),
+          );
         });
 
         this.batcher.pending = null;
@@ -286,7 +296,14 @@ export class UsageTracker {
           error,
         );
         if (attempt < MAX_RETRIES) {
-          await new Promise((res) => setTimeout(res, attempt * 100));
+          const delayMs = getRetryDelayMs(attempt);
+          await new Promise((res) => setTimeout(res, delayMs));
+        } else {
+          // All retries exhausted — surface a structured warning so consumers
+          // can alert on dropped batches. The events are not persisted anywhere.
+          console.error(
+            `@vercel/flags-core: Dropped ${eventsToSend.length} events after ${MAX_RETRIES} attempts (flushId=${flushId})`,
+          );
         }
       }
     }
