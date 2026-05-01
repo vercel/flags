@@ -13,9 +13,10 @@ export async function marketingProxy(request: NextRequest) {
   // precompute the flags
   const code = await precompute(marketingFlags);
 
-  // rewrite the page with the code and set the cookie
+  // rewrite the page with the code and set the cookie. Precomputed pages
+  // are nested under a `precomputed` folder by convention.
   return NextResponse.rewrite(
-    new URL(`/examples/marketing-pages/${code}`, request.url),
+    new URL(`/examples/marketing-pages/precomputed/${code}`, request.url),
     {
       headers: {
         // Set the cookie on the response

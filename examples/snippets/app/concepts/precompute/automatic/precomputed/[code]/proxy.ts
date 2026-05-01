@@ -6,8 +6,9 @@ export async function automaticPrecomputeProxy(request: NextRequest) {
   // precompute the flags
   const code = await precompute(marketingFlags);
 
-  // rewrite the page with the code
+  // rewrite the page with the code, nested under a `precomputed` folder so
+  // it's clear which routes are served via the precompute pattern
   return NextResponse.rewrite(
-    new URL(`/concepts/precompute/automatic/${code}`, request.url),
+    new URL(`/concepts/precompute/automatic/precomputed/${code}`, request.url),
   );
 }

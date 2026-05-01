@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { automaticPrecomputeProxy } from './app/concepts/precompute/automatic/[code]/proxy';
+import { automaticPrecomputeProxy } from './app/concepts/precompute/automatic/precomputed/[code]/proxy';
 import { manualPrecomputeProxy } from './app/concepts/precompute/manual/proxy';
 import { featureFlagsInProxy } from './app/examples/feature-flags-in-proxy/proxy';
 import { marketingProxy } from './app/examples/marketing-pages/proxy';
