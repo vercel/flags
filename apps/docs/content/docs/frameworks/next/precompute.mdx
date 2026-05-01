@@ -178,7 +178,7 @@ works with API Routes.
 
 <IframeBrowser
   src="snippets:/concepts/precompute/automatic"
-  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/precompute/automatic/%5Bcode%5D"
+  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/precompute/automatic/precomputed/%5Bcode%5D"
 />
 
 ## Enabling ISR (optional)
@@ -226,9 +226,9 @@ If you're using the Pages Router, you need to pass a flag to `generatePermutatio
 
 You also need to specify a `getStaticPaths` function which can return the permutations to generate at build time or an empty array to use ISR.
 
-```tsx title="pages/[code]/index.tsx#next"
+```tsx title="pages/precomputed/[code]/index.tsx#next"
 import { generatePermutations } from 'flags/next';
-import { marketingFlags, exampleFlag } from '../flags';
+import { marketingFlags, exampleFlag } from '../../flags';
 
 export const getStaticPaths = (async () => {
   const codes = await generatePermutations(marketingFlags);
@@ -249,7 +249,7 @@ export const getStaticProps = (async (context) => {
 
 <IframeBrowser
   src="snippets:/examples/pages-router-precomputed"
-  codeSrc="https://github.com/vercel/flags/blob/main/examples/snippets/pages/examples/pages-router-precomputed/%5Bcode%5D/index.tsx"
+  codeSrc="https://github.com/vercel/flags/blob/main/examples/snippets/pages/examples/pages-router-precomputed/precomputed/%5Bcode%5D/index.tsx"
 />
 
 ## Declaring available options (optional)
