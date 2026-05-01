@@ -114,7 +114,7 @@ export const marketingFlags = [showSummerSale, showBanner] as const;
 
 ### 2. Precompute flags in middleware
 
-Import and pass the group of flags to the `precompute` function in middleware. Then, forward the precomputation result (`code`) to the underlying page using an URL rewrite:
+Import and pass the group of flags to the `precompute` function in middleware. Then, forward the precomputation result (`code`) to the underlying page using an URL rewrite. We recommend nesting precomputed pages under a dedicated `precomputed` folder so it's clear at a glance which routes participate in precomputation:
 
 ```tsx title="proxy.ts#next"
 import { type NextRequest, NextResponse } from 'next/server';
@@ -131,7 +131,7 @@ export async function proxy(request: NextRequest) {
 
   // rewrites the request to include the precomputed code for this flag combination
   const nextUrl = new URL(
-    `/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
+    `/precomputed/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
     request.url,
   );
 
@@ -143,10 +143,12 @@ export async function proxy(request: NextRequest) {
 
 Next, import the feature flags you created earlier, such as `showBanner`, while providing the code from the URL and the `marketingFlags` list of flags used in the precomputation.
 
+Place the page under `app/precomputed/[code]/page.tsx`. Keeping precomputed pages in a `precomputed` folder makes it obvious which routes are served via the precompute pattern and avoids accidentally turning every top-level route into a dynamic segment.
+
 When the `showBanner` flag is called within this component it reads the result from the precomputation, and it does not invoke the flag's `decide` function again:
 
-```tsx title="app/[code]/page.tsx#next"
-import { marketingFlags, showSummerSale, showBanner } from '../../flags';
+```tsx title="app/precomputed/[code]/page.tsx#next"
+import { marketingFlags, showSummerSale, showBanner } from '../../../flags';
 type Params = Promise<{ code: string }>;
 
 export default async function Page({ params }: { params: Params }) {
@@ -183,7 +185,7 @@ works with API Routes.
 
 You can enable Incremental Static Regeneration (ISR) to cache generated pages after their initial render:
 
-```tsx title="app/[code]/layout.tsx#next"
+```tsx title="app/precomputed/[code]/layout.tsx#next"
 import type { ReactNode } from 'react';
 
 export async function generateStaticParams() {
@@ -202,7 +204,7 @@ In the example above, we used [`generateStaticParams`](https://nextjs.org/docs/a
 
 The `flags/next` submodule exposes the [`generatePermutations`](/docs/api-reference/frameworks/next#generatepermutations) helper function for generating pages for different combinations of flags at build time. This function is called and takes a list of flags and returns an array of strings representing each combination of flags:
 
-```tsx title="app/[code]/page.tsx#next"
+```tsx title="app/precomputed/[code]/page.tsx#next"
 import type { ReactNode } from 'react';
 import { generatePermutations } from 'flags/next';
 
@@ -313,19 +315,19 @@ This section shows how to adapt the precompute pattern to different scenarios.
 
 ### Precomputing a single page only
 
-The examples above use a single top-level group of flags, which will opt all pages nested under `app/[code]` into precomputation. Instead of opting the whole application into precomputation, you can also precompute a single page only.
+The examples above use a single top-level `precomputed` segment, which opts every page nested under `app/precomputed/[code]` into precomputation. Instead of opting a whole subtree into precomputation, you can also precompute a single page only by scoping the `precomputed` segment to that route.
 
 For example, if you want to precompute the `/pricing` page only:
-- Move your pricing page from `app/pricing/page.tsx` to `app/pricing/[pricingCode]/page.tsx`
+- Move your pricing page from `app/pricing/page.tsx` to `app/pricing/precomputed/[pricingCode]/page.tsx`
 - Export a `pricingFlags` array of flags from your `flags.ts` file, containing all flags used by the pricing page
 - Run Proxy for requests to `/pricing`, and pass `pricingFlags` to the `precompute` function
-- Adjust the rewrite in Proxy to rewrite requests from `/pricing` to `/pricing/[pricingCode]`
-- Use the `pricingFlags` array to access the precomputed result in `app/pricing/[pricingCode]/page.tsx` when using Flags
+- Adjust the rewrite in Proxy to rewrite requests from `/pricing` to `/pricing/precomputed/[pricingCode]`
+- Use the `pricingFlags` array to access the precomputed result in `app/pricing/precomputed/[pricingCode]/page.tsx` when using Flags
 
-```tsx title="app/pricing/[pricingCode]/page.tsx#next"
+```tsx title="app/pricing/precomputed/[pricingCode]/page.tsx#next"
 import type { ReactNode } from 'react';
 import { generatePermutations } from 'flags/next';
-import { pricingFlags, discountFlag } from '../../../flags';
+import { pricingFlags, discountFlag } from '../../../../flags';
 
 export async function generateStaticParams() {
   const codes = await generatePermutations(pricingFlags);
@@ -340,33 +342,13 @@ export default async function Page(props: { params: Promise<{ pricingCode: strin
 }
 ```
 
-### Precomputing a subset of pages
-
-This section describes an alternative folder structure where only a part of the page tree makes use of precomputation.
-
-So far the examples have used a single top-level group of flags under `app/[code]`.
-
-Instead, you can nest precomputed flags under a folder like `app/precomputed/[code]`. This makes it clear that only those pages will have access to the precomputed flags.
-
-
-```md
-app
-├─page.tsx
-└─precomputed
-   └─[rootCode]
-      └─page.tsx
-```
-
-Adjust the rewrite in Proxy to include the `precomputed` segment.
-
-Note that you will need to manually maintain the paths in Proxy for which the rewrite should run.
-
+Keeping the `precomputed` folder convention — even when the dynamic segment is scoped to a single route — makes it obvious which routes are served via the precompute pattern.
 
 ### Multiple groups
 
-Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by eacha subset of your pages.
+Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by each subset of your pages.
 
-For example, you can have a root group of flags which apply to all pages, and a nested group of flags which only apply to a single page or subset of pages. Create a root `[rootCode]` at the root of your application for the common flags, and a `[pricingCode]` for the flags used by the pricing page.
+For example, you can have a root group of flags which apply to all pages, and a nested group of flags which only apply to a single page or subset of pages. Create a root `precomputed/[rootCode]` for the common flags, and a nested `precomputed/[pricingCode]` for the flags used by the pricing page.
 
 ```tsx title="flags.ts#next"
 // all available flags
@@ -383,11 +365,13 @@ The file tree would look like this:
 
 ```md
 app
-└─[rootCode]
-   ├─ page.tsx
-   └─ pricing
-       └─ [pricingCode]
-            └─ page.tsx
+└─precomputed
+   └─[rootCode]
+      ├─ page.tsx
+      └─ pricing
+          └─ precomputed
+              └─ [pricingCode]
+                   └─ page.tsx
 ```
 
 To use this pattern, you need to adjust Proxy:

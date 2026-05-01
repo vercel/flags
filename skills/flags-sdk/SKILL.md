@@ -275,8 +275,8 @@ Use precompute to keep pages static while using feature flags. Middleware evalua
 High-level flow:
 1. Declare flags and group them in an array
 2. Call `precompute(flagGroup)` in middleware, get a `code` string
-3. Rewrite request to `/${code}/original-path`
-4. Page reads flag values from `code`: `await myFlag(code, flagGroup)`
+3. Rewrite request to `/precomputed/${code}/original-path` — always nest precomputed routes under a `precomputed` folder so it's clear which pages participate in the pattern
+4. Page (at `app/precomputed/[code]/page.tsx`) reads flag values from `code`: `await myFlag(code, flagGroup)`
 
 For full implementation details, see framework-specific references:
 - **Next.js**: See [references/nextjs.md](references/nextjs.md) — covers proxy middleware, precompute setup, ISR, generatePermutations, multiple groups
