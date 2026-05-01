@@ -222,7 +222,7 @@ When using server-side rendering the server can inline the information needed to
 Your application roughly needs to follow these steps:
 
 1. Call the same `identify` function your feature flags use to get the Statsig user.
-2. Call `statsigAdapter.initialize()` to initialize the `statsig-node-lite` SDK.
+2. Call `statsigAdapter.initialize()` to initialize the `@statsig/statsig-node-core` SDK.
 3. Prepare the bootstrap data on the server, and pass it to the client.
 4. Use the bootstrap data on the browser to initialize a client and set up the Statsig React provider.
 
@@ -232,7 +232,7 @@ Below are the most critical pieces you need to implement this, which is meant as
 
 ```tsx title="app/(example)/layout.tsx#next"
 import { cookies, headers } from "next/headers";
-import { statsigAdapter } from "@flags-sdk/statsig";
+import { statsigAdapter, StatsigUser } from "@flags-sdk/statsig";
 import { DynamicStatsigProvider } from "./dynamic-statsig-provider";
 // The same identify function you use when declaring flags
 // See https://flags-sdk.dev/docs/api-reference/adapters/statsig#identify-users
@@ -247,11 +247,12 @@ export default async function Layout({
   const user = await identify({ headers: headersStore, cookies: cookieStore });
 
   // Get a reference to the Statsig SDK instance configured by the adapter
-  const Statsig = await statsigAdapter.initialize();
+  const statsig = await statsigAdapter.initialize();
 
-  // Prepare the bootstrap data on the server, and pass it to the client
-  const datafile = await Statsig.getClientInitializeResponse(user, {
-    hash: "djb2", // must use this hash function for compatibility with the client
+  // Prepare the bootstrap data on the server, and pass it to the client.
+  // The core SDK returns a JSON string ready to hand to the browser client.
+  const datafile = statsig.getClientInitializeResponse(new StatsigUser(user), {
+    hashAlgorithm: "djb2", // must use this hash function for compatibility with the client
   });
 
   return (
@@ -268,7 +269,6 @@ export default async function Layout({
 "use client";
 
 import { useMemo } from "react";
-import type { Statsig } from "@flags-sdk/statsig";
 import {
   StatsigProvider,
   useClientBootstrapInit,
@@ -279,23 +279,26 @@ export function DynamicStatsigProvider({
   datafile,
 }: {
   children: React.ReactNode;
-  datafile: Awaited<ReturnType<typeof Statsig.getClientInitializeResponse>>;
+  datafile: string;
 }) {
   if (!datafile) throw new Error("Missing datafile");
 
-  // Statsig expects a stringified datafile, but ideally the Statsig SDK
-  // would accept a JSON object so we could avoid this stringification.
-  const datafileString = useMemo(() => JSON.stringify(datafile), [datafile]);
+  // The server returns the datafile as a JSON string already, but we still need
+  // to parse out the user to pass it to the StatsigProvider.
+  const parsed = useMemo(
+    () => JSON.parse(datafile) as { user: Record<string, unknown> },
+    [datafile],
+  );
 
   const client = useClientBootstrapInit(
     process.env.NEXT_PUBLIC_STATSIG_CLIENT_KEY as string,
-    datafile.user,
-    datafileString
+    parsed.user,
+    datafile,
     // NOTE you could provide the Autocapture plugin here
   );
 
   return (
-    <StatsigProvider user={datafile.user} client={client}>
+    <StatsigProvider user={parsed.user} client={client}>
       {children}
     </StatsigProvider>
   );
@@ -371,21 +374,20 @@ The default Statsig adapter, exported as `statsigAdapter`, will automatically co
 
 The Flags SDK automatically initializes the Statsig client when a flag is evaluated.
 
-If you want to initialize the Statsig client before the first flag is used, you can call `statsigAdapter.initialize` manually. Further,
-use the manual call to initialize `statsig-node-lite` for usage with other server-side code.
+If you want to initialize the Statsig client before the first flag is used, you can call `statsigAdapter.initialize` manually. The returned `Statsig` instance is the same one the adapter uses internally, so you can reuse it for other server-side code.
 
 ```ts
-import { statsigAdapter, Statsig } from '@flags-sdk/statsig';
+import { statsigAdapter, type StatsigUser } from '@flags-sdk/statsig';
 
-const statsigInitializationPromise = statsigAdapter.initialize();
+const statsigPromise = statsigAdapter.initialize();
 
-export async function getStatsigExperiment(key: string) {
-  await statsigInitializationPromise;
-  return Statsig.getExperimentSync(key);
+export async function getStatsigExperiment(user: StatsigUser, key: string) {
+  const statsig = await statsigPromise;
+  return statsig.getExperiment(user, key);
 }
 ```
 
-Use `statsigAdapter.initialize` instead of `Statsig.initialize` as it configures the Statsig client specifically for Flags SDK compatibility.
+Use `statsigAdapter.initialize` instead of `new Statsig(...)` directly, as it configures the Statsig client specifically for Flags SDK compatibility (including Edge Config bootstrapping when configured).
 
 
 ### Same key with different mapping functions
@@ -416,9 +418,9 @@ export const myDynamicPrice = flag<number, StatsigUser>({
 });
 ```
 
-### Statsig Node Lite
+### Statsig Node Core
 
-The adapter uses `statsig-node-lite`, which is a slimmed version of the Statsig Node.js SDK optimized for server side and Routing Middleware usage.
+The adapter uses [`@statsig/statsig-node-core`](https://www.npmjs.com/package/@statsig/statsig-node-core), Statsig's Rust-based server SDK with Node.js bindings. It runs on Node.js (including Vercel's Fluid Compute) and is not compatible with the Edge Runtime.
 
 ### Exposure Logging
 
@@ -434,7 +436,7 @@ export const exampleFlag = flag<boolean, StatsigUser>({
 });
 ```
 
-When logging is on, your application should also call `Statsig.flush` appropriately to ensure exposures are recorded.
+When logging is on, your application should also call `statsig.flushEvents()` (using the instance returned from `statsigAdapter.initialize()`) appropriately to ensure exposures are recorded.
 
 The recommended approach for experimentation is to log exposures from the client when
 the user is indeed exposed to an experiment, either when seen or interacted with.
@@ -482,4 +484,4 @@ Read more about Statsig, Flags SDK, and the Statsig adapter.
 - [Adapter Concept](/docs/adapters/supported-providers)
 - [Precompute Concept](/principles/precompute)
 - [Statsig with Next.js](https://docs.statsig.com/client/javascript-sdk/next-js/)
-- [Statsig Node Lite on NPM](https://www.npmjs.com/package/statsig-node-lite)
+- [Statsig Node Core on NPM](https://www.npmjs.com/package/@statsig/statsig-node-core)
