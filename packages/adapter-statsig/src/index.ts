@@ -1,43 +1,79 @@
 export { getProviderData } from './provider';
 
-import type { Adapter } from 'flags';
-import Statsig, {
+import {
+  type DataStore,
   type DynamicConfig,
+  type Experiment,
+  type FeatureGate,
   type Layer,
+  Statsig,
   type StatsigOptions,
   type StatsigUser,
-} from 'statsig-node-lite';
-import {
-  createEdgeConfigDataAdapter,
-  createSyncingHandler,
-} from './edge-runtime-hooks';
+} from '@statsig/statsig-node-core';
+import type { Adapter } from 'flags';
 
-// Export the Statsig instance
 export {
   Statsig,
   type StatsigUser,
   type StatsigOptions,
   type DynamicConfig,
+  type Experiment,
+  type FeatureGate,
   type Layer,
 };
 
-export type FeatureGate = ReturnType<
-  typeof Statsig.getFeatureGateWithExposureLoggingDisabledSync
->;
-
-type AdapterFunction<O> = <T>(
+type AdapterFunction<O, U = StatsigUser> = <T>(
   getValue: (obj: O) => T,
   opts?: { exposureLogging?: boolean },
-) => Adapter<T, StatsigUser>;
+) => Adapter<T, U>;
 
 type AdapterResponse = {
   featureGate: AdapterFunction<FeatureGate>;
   dynamicConfig: AdapterFunction<DynamicConfig>;
-  experiment: AdapterFunction<DynamicConfig>;
+  experiment: AdapterFunction<Experiment>;
   autotune: AdapterFunction<DynamicConfig>;
   layer: AdapterFunction<Layer>;
-  initialize: () => Promise<typeof Statsig>;
+  initialize: () => Promise<Statsig>;
 };
+
+// Statsig's Vercel integration writes the config-specs payload to Edge Config
+// as a parsed JSON object. The Statsig core SDK requests it via DataStore.get
+// using keys of the form `statsig|/v2/download_config_specs|<format>|<id>` (or
+// the legacy `statsig.cache`). We match either, then stringify the object so
+// the SDK can parse it.
+function isConfigSpecsKey(key: string): boolean {
+  return (
+    key === 'statsig.cache' ||
+    key === '/v1/download_config_specs' ||
+    key === '/v2/download_config_specs' ||
+    /^statsig\|\/v[12]\/download_config_specs\|/.test(key)
+  );
+}
+
+async function createEdgeConfigDataStore(options: {
+  edgeConfigItemKey: string;
+  edgeConfigConnectionString: string;
+}): Promise<DataStore> {
+  const { createClient } = await import('@vercel/edge-config');
+  const client = createClient(options.edgeConfigConnectionString, {
+    // We disable the development cache as Statsig caches for 10 seconds internally,
+    // and we want to avoid situations where Statsig tries to read the latest value,
+    // but hits the development cache and then caches the outdated value for another 10 seconds,
+    // as this would lead to the developer having to wait 20 seconds to see the latest value.
+    disableDevelopmentCache: true,
+  });
+
+  return {
+    get: async (key) => {
+      if (!isConfigSpecsKey(key)) return { result: undefined };
+      const data = await client.get(options.edgeConfigItemKey);
+      if (data == null) return { result: undefined };
+      const result = typeof data === 'string' ? data : JSON.stringify(data);
+      return { result };
+    },
+    supportPollingUpdatesFor: async (key) => isConfigSpecsKey(key),
+  };
+}
 
 /**
  * Create a Statsig adapter for use with the Flags SDK.
@@ -58,28 +94,27 @@ export function createStatsigAdapter(options: {
     itemKey: string;
   };
 }): AdapterResponse {
-  const initializeStatsig = async (): Promise<void> => {
-    let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
+  const initializeStatsig = async (): Promise<Statsig> => {
+    let dataStore: DataStore | undefined;
     if (options.edgeConfig) {
-      dataAdapter = await createEdgeConfigDataAdapter({
+      dataStore = await createEdgeConfigDataStore({
         edgeConfigItemKey: options.edgeConfig.itemKey,
         edgeConfigConnectionString: options.edgeConfig.connectionString,
       });
     }
 
-    await Statsig.initialize(options.statsigServerApiKey, {
-      dataAdapter,
-      // ID list syncing is disabled by default
-      // Can be opted in using `options.statsigOptions`
-      initStrategyForIDLists: 'none',
-      disableIdListsSync: true,
+    const instance = new Statsig(options.statsigServerApiKey, {
+      dataStore,
       // Set a shorter interval during development so developers see changes earlier
-      rulesetsSyncIntervalMs:
+      specsSyncIntervalMs:
         process.env.NODE_ENV === 'development' ? 5_000 : undefined,
       ...options.statsigOptions,
     });
+
+    await instance.initialize();
+    return instance;
   };
-  let _initializePromise: Promise<void> | undefined;
+  let _initializePromise: Promise<Statsig> | undefined;
 
   /**
    * Initialize the Statsig SDK.
@@ -89,30 +124,27 @@ export function createStatsigAdapter(options: {
    * You can pre-initialize the SDK by calling `adapter.initialize()`,
    * otherwise it will be initialized lazily when needed.
    */
-  const initialize = async (): Promise<typeof Statsig> => {
+  const initialize = async (): Promise<Statsig> => {
     if (!_initializePromise) {
       _initializePromise = initializeStatsig();
     }
-    await _initializePromise;
-    return Statsig;
+    return _initializePromise;
   };
 
   const isStatsigUser = (user: unknown): user is StatsigUser => {
     return user != null && typeof user === 'object';
   };
 
-  const minSyncDelayMs = options.edgeConfig ? 1_000 : 5_000;
-  const syncHandler = createSyncingHandler(minSyncDelayMs);
-
-  async function predecide(user?: StatsigUser): Promise<StatsigUser> {
-    await initialize();
-    syncHandler?.();
+  async function predecide(
+    user?: StatsigUser,
+  ): Promise<{ statsig: Statsig; user: StatsigUser }> {
+    const instance = await initialize();
     if (!isStatsigUser(user)) {
       throw new Error(
         '@flags-sdk/statsig: Invalid or missing statsigUser from identify. See https://flags-sdk.dev/concepts/identify',
       );
     }
-    return user;
+    return { statsig: instance, user };
   }
 
   function origin(prefix: string) {
@@ -130,7 +162,7 @@ export function createStatsigAdapter(options: {
   /**
    * Resolve a flag powered by a Feature Gate.
    *
-   * Implements `decide` to resolve the Feature Gate with `Statsig.getFeatureGateSync`
+   * Implements `decide` to resolve the Feature Gate with `Statsig.getFeatureGate`.
    *
    * If a function is provided, the return value of the function called
    * with the feature gate is returned.
@@ -147,10 +179,10 @@ export function createStatsigAdapter(options: {
     return {
       origin: origin('gates'),
       decide: async ({ key, entities }) => {
-        const user = await predecide(entities);
-        const gate = opts?.exposureLogging
-          ? Statsig.getFeatureGateSync(user, key)
-          : Statsig.getFeatureGateWithExposureLoggingDisabledSync(user, key);
+        const { statsig, user } = await predecide(entities);
+        const gate = statsig.getFeatureGate(user, key, {
+          disableExposureLogging: !opts?.exposureLogging,
+        });
         return getValue(gate);
       },
     };
@@ -159,7 +191,7 @@ export function createStatsigAdapter(options: {
   /**
    * Resolve a flag powered by a Dynamic Config.
    *
-   * Implements `decide` to resolve the Dynamic Config with `Statsig.getConfigSync`
+   * Implements `decide` to resolve the Dynamic Config with `Statsig.getDynamicConfig`.
    *
    * If a function is provided, the return value of the function called
    * with the dynamic config is returned.
@@ -176,28 +208,28 @@ export function createStatsigAdapter(options: {
     return {
       origin: origin('dynamic_configs'),
       decide: async ({ key, entities }) => {
-        const user = await predecide(entities);
+        const { statsig, user } = await predecide(entities);
         const configKey = key.split('.')[0] ?? '';
-        const config = opts?.exposureLogging
-          ? Statsig.getConfigSync(user, configKey)
-          : Statsig.getConfigWithExposureLoggingDisabledSync(user, configKey);
+        const config = statsig.getDynamicConfig(user, configKey, {
+          disableExposureLogging: !opts?.exposureLogging,
+        });
         return getValue(config);
       },
     };
   }
 
   function experiment<T>(
-    getValue: (experiment: DynamicConfig) => T,
+    getValue: (experiment: Experiment) => T,
     opts?: { exposureLogging?: boolean },
   ): Adapter<T, StatsigUser> {
     return {
       origin: origin('experiments'),
       decide: async ({ key, entities }) => {
-        const user = await predecide(entities);
-        const experiment = opts?.exposureLogging
-          ? Statsig.getExperimentSync(user, key)
-          : Statsig.getExperimentWithExposureLoggingDisabledSync(user, key);
-        return getValue(experiment);
+        const { statsig, user } = await predecide(entities);
+        const result = statsig.getExperiment(user, key, {
+          disableExposureLogging: !opts?.exposureLogging,
+        });
+        return getValue(result);
       },
     };
   }
@@ -209,11 +241,11 @@ export function createStatsigAdapter(options: {
     return {
       origin: origin('autotune'),
       decide: async ({ key, entities }) => {
-        const user = await predecide(entities);
-        const autotune = opts?.exposureLogging
-          ? Statsig.getConfigSync(user, key)
-          : Statsig.getConfigWithExposureLoggingDisabledSync(user, key);
-        return getValue(autotune);
+        const { statsig, user } = await predecide(entities);
+        const result = statsig.getDynamicConfig(user, key, {
+          disableExposureLogging: !opts?.exposureLogging,
+        });
+        return getValue(result);
       },
     };
   }
@@ -225,11 +257,11 @@ export function createStatsigAdapter(options: {
     return {
       origin: origin('layers'),
       decide: async ({ key, entities }) => {
-        const user = await predecide(entities);
-        const layer = opts?.exposureLogging
-          ? Statsig.getLayerSync(user, key)
-          : Statsig.getLayerWithExposureLoggingDisabledSync(user, key);
-        return getValue(layer);
+        const { statsig, user } = await predecide(entities);
+        const result = statsig.getLayer(user, key, {
+          disableExposureLogging: !opts?.exposureLogging,
+        });
+        return getValue(result);
       },
     };
   }
