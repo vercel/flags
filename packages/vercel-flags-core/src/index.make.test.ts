@@ -63,7 +63,7 @@ describe('make', () => {
       const client = createClient('vf_server_test_key');
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_server_test_key',
+        token: 'vf_server_test_key',
       });
       expect(createRawClient).toHaveBeenCalled();
       expect(client).toBeDefined();
@@ -172,7 +172,7 @@ describe('make', () => {
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_server_env_key',
+        token: 'vf_server_env_key',
       });
     });
 
@@ -185,7 +185,7 @@ describe('make', () => {
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_client_flags_key',
+        token: 'vf_client_flags_key',
       });
     });
   });
@@ -218,7 +218,7 @@ describe('make', () => {
       // Access with first key
       const _ = flagsClient.evaluate;
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_server_first_key',
+        token: 'vf_server_first_key',
       });
 
       // Reset and change env
@@ -228,7 +228,7 @@ describe('make', () => {
       // Access again with new key
       const __ = flagsClient.initialize;
       expect(Controller).toHaveBeenCalledWith({
-        sdkKey: 'vf_client_second_key',
+        token: 'vf_client_second_key',
       });
     });
   });
