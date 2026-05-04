@@ -119,14 +119,8 @@ export class Controller implements ControllerInterface {
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
-    if (
-      !options.sdkKey ||
-      typeof options.sdkKey !== 'string' ||
-      !options.sdkKey.startsWith('vf_')
-    ) {
-      throw new Error(
-        '@vercel/flags-core: SDK key must be a string starting with "vf_"',
-      );
+    if (!options.token || typeof options.token !== 'string') {
+      throw new Error('@vercel/flags-core: SDK key must be a string');
     }
 
     this.options = normalizeOptions(options);
@@ -140,7 +134,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource = new PollingSource(this.options);
 
     this.bundledSource = new BundledSource({
-      sdkKey: this.options.sdkKey,
+      sdkKey: this.options.token,
       readBundledDefinitions,
     });
 
@@ -388,7 +382,7 @@ export class Controller implements ControllerInterface {
         try {
           const fetched = await fetchDatafile({
             host: this.options.host,
-            sdkKey: this.options.sdkKey,
+            token: this.options.token,
             fetch: this.options.fetch,
           });
           this.data = tagData(fetched, 'fetched');
@@ -624,7 +618,7 @@ export class Controller implements ControllerInterface {
     try {
       const fetched = await fetchDatafile({
         host: this.options.host,
-        sdkKey: this.options.sdkKey,
+        token: this.options.token,
         fetch: this.options.fetch,
       });
       return tagData(fetched, 'fetched');
@@ -665,7 +659,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          sdkKey: this.options.sdkKey,
+          token: this.options.token,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');
@@ -730,7 +724,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          sdkKey: this.options.sdkKey,
+          token: this.options.token,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');

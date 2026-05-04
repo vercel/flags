@@ -4,7 +4,7 @@ import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
   host: string;
-  sdkKey: string;
+  token: string;
   polling: {
     intervalMs: number;
   };

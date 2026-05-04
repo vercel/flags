@@ -124,7 +124,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    */
   origin?: {
     provider: string;
-    sdkKey: string;
+    token: string;
   };
   /**
    * Evaluate a feature flag

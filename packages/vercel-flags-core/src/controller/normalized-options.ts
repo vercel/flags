@@ -9,8 +9,8 @@ const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
  * Configuration options for Controller
  */
 export type ControllerOptions = {
-  /** SDK key for authentication (must start with "vf_") */
-  sdkKey: string;
+  /** Token for authentication (either a Flags SDK key starting with "vf_" or a Vercel OIDC token) */
+  token: string;
 
   /**
    * Initial datafile to use immediately
@@ -54,7 +54,7 @@ export type ControllerOptions = {
 };
 
 export type NormalizedOptions = {
-  sdkKey: string;
+  token: string;
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
@@ -103,7 +103,7 @@ export function normalizeOptions(
   }
 
   return {
-    sdkKey: options.sdkKey,
+    token: options.token,
     datafile: options.datafile,
     stream,
     polling,

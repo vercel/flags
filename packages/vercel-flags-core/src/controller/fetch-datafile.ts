@@ -8,7 +8,7 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
  */
 export async function fetchDatafile(options: {
   host: string;
-  sdkKey: string;
+  token: string;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
 }): Promise<BundledDefinitions> {
@@ -31,7 +31,7 @@ export async function fetchDatafile(options: {
   try {
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
-        Authorization: `Bearer ${options.sdkKey}`,
+        Authorization: `Bearer ${options.token}`,
         'User-Agent': `VercelFlagsCore/${version}`,
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }

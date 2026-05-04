@@ -41,7 +41,7 @@ afterEach(() => {
 
 function createTracker(sdkKey = 'test-key') {
   return new UsageTracker({
-    sdkKey,
+    token: sdkKey,
     host: 'https://example.com',
     fetch: fetchMock,
   });
@@ -137,7 +137,7 @@ describe('UsageTracker', () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = new UsageTracker({
-        sdkKey: 'my-secret-key',
+        token: 'my-secret-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -229,7 +229,7 @@ describe('UsageTracker', () => {
       );
 
       const tracker = new FreshUsageTracker({
-        sdkKey: 'test-key',
+        token: 'test-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -267,7 +267,7 @@ describe('UsageTracker', () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = new FreshUsageTracker({
-        sdkKey: 'test-key',
+        token: 'test-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -367,13 +367,13 @@ describe('UsageTracker', () => {
       });
 
       const tracker1 = new UsageTracker({
-        sdkKey: 'key-1',
+        token: 'key-1',
         host: 'https://example.com',
         fetch: fetchMock,
       });
 
       const tracker2 = new UsageTracker({
-        sdkKey: 'key-2',
+        token: 'key-2',
         host: 'https://example.com',
         fetch: fetchMock,
       });

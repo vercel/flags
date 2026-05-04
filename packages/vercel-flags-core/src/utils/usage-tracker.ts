@@ -81,7 +81,7 @@ function getRequestContext(): RequestContext {
 }
 
 export interface UsageTrackerOptions {
-  sdkKey: string;
+  token: string;
   host: string;
   fetch: typeof fetch;
 }
@@ -267,7 +267,7 @@ export class UsageTracker {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.options.sdkKey}`,
+              Authorization: `Bearer ${this.options.token}`,
               'User-Agent': `VercelFlagsCore/${version}`,
               ...(process.env.VERCEL_ENV
                 ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
