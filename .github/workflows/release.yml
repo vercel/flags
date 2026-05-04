@@ -117,6 +117,8 @@ jobs:
 
       - name: Version Packages
         run: pnpm changeset version --snapshot ${SHORT_SHA}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: pnpm turbo build --filter='./packages/*'
