@@ -37,9 +37,7 @@ export function make(
     const controller = new Controller({ auth, ...options });
     return createRawClient<Entities>({
       controller,
-      origin: auth.sdkKey
-        ? { provider: 'vercel', sdkKey: auth.sdkKey }
-        : { provider: 'vercel' },
+      origin: { provider: 'vercel', sdkKey: auth.sdkKey },
     });
   }
 

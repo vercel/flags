@@ -86,9 +86,9 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
   return defaultVercelAdapter<ValueType, EntitiesType>();
 }
 
-const flagsClients = new Map<string, FlagsClient>();
+const flagsClients = new Map<string | undefined, FlagsClient>();
 
-function getOrCreateClient(sdkKey: string): FlagsClient {
+function getOrCreateClient(sdkKey?: string): FlagsClient {
   let client = flagsClients.get(sdkKey);
   if (!client) {
     client = createClient(sdkKey);
@@ -99,14 +99,12 @@ function getOrCreateClient(sdkKey: string): FlagsClient {
 
 function isVercelOrigin(
   origin: unknown,
-): origin is { provider: 'vercel'; sdkKey: string } {
+): origin is { provider: 'vercel'; sdkKey?: string } {
   return (
     typeof origin === 'object' &&
     origin !== null &&
     'provider' in origin &&
-    (origin as Record<string, unknown>).provider === 'vercel' &&
-    'sdkKey' in origin &&
-    typeof (origin as Record<string, unknown>).sdkKey === 'string'
+    (origin as Record<string, unknown>).provider === 'vercel'
   );
 }
 
@@ -122,14 +120,14 @@ export async function getProviderData(
     .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i));
 
   // Collect unique sdkKeys and resolve their projectIds
-  const sdkKeys = new Set<string>();
+  const sdkKeys = new Set<string | undefined>();
   for (const d of flagDefs) {
     if (isVercelOrigin(d.origin)) {
       sdkKeys.add(d.origin.sdkKey);
     }
   }
 
-  const projectIdBySdkKey = new Map<string, string>();
+  const projectIdBySdkKey = new Map<string | undefined, string>();
   await Promise.all(
     Array.from(sdkKeys).map(async (sdkKey) => {
       const client = getOrCreateClient(sdkKey);
