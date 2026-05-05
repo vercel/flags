@@ -52,27 +52,29 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     );
 
     try {
-      const promise = connectStream(
-        {
-          host: this.options.host,
-          sdkKey: this.options.token,
-          abortController,
-          fetch: this.options.fetch,
-          revision: this.revision,
-        },
-        {
-          onDatafile: (newData) => {
-            this.emit('data', newData);
-            this.emit('connected');
+      const promise = this.options.auth.resolveToken().then((token) =>
+        connectStream(
+          {
+            host: this.options.host,
+            token,
+            abortController,
+            fetch: this.options.fetch,
+            revision: this.revision,
           },
-          onPrimed: (message) => {
-            this.emit('primed', message);
-            this.emit('connected');
+          {
+            onDatafile: (newData) => {
+              this.emit('data', newData);
+              this.emit('connected');
+            },
+            onPrimed: (message) => {
+              this.emit('primed', message);
+              this.emit('connected');
+            },
+            onDisconnect: () => {
+              this.emit('disconnected');
+            },
           },
-          onDisconnect: () => {
-            this.emit('disconnected');
-          },
-        },
+        ),
       );
 
       this.promise = promise;

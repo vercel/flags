@@ -1,4 +1,5 @@
 import type { DatafileInput, PollingOptions, StreamOptions } from '../types';
+import type { Auth } from './auth';
 
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
@@ -9,8 +10,8 @@ const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
  * Configuration options for Controller
  */
 export type ControllerOptions = {
-  /** Token for authentication (either a Flags SDK key starting with "vf_" or a Vercel OIDC token) */
-  token: string;
+  /** Authentication which resolves the token for requests */
+  auth: Auth;
 
   /**
    * Initial datafile to use immediately
@@ -54,7 +55,7 @@ export type ControllerOptions = {
 };
 
 export type NormalizedOptions = {
-  token: string;
+  auth: Auth;
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
@@ -103,7 +104,7 @@ export function normalizeOptions(
   }
 
   return {
-    token: options.token,
+    auth: options.auth,
     datafile: options.datafile,
     stream,
     polling,

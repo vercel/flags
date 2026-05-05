@@ -119,10 +119,6 @@ export class Controller implements ControllerInterface {
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
-    if (!options.token || typeof options.token !== 'string') {
-      throw new Error('@vercel/flags-core: SDK key must be a string');
-    }
-
     this.options = normalizeOptions(options);
 
     // Create source modules
@@ -134,7 +130,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource = new PollingSource(this.options);
 
     this.bundledSource = new BundledSource({
-      sdkKey: this.options.token,
+      auth: this.options.auth,
       readBundledDefinitions,
     });
 
@@ -382,7 +378,7 @@ export class Controller implements ControllerInterface {
         try {
           const fetched = await fetchDatafile({
             host: this.options.host,
-            token: this.options.token,
+            auth: this.options.auth,
             fetch: this.options.fetch,
           });
           this.data = tagData(fetched, 'fetched');
@@ -618,7 +614,7 @@ export class Controller implements ControllerInterface {
     try {
       const fetched = await fetchDatafile({
         host: this.options.host,
-        token: this.options.token,
+        auth: this.options.auth,
         fetch: this.options.fetch,
       });
       return tagData(fetched, 'fetched');
@@ -659,7 +655,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          token: this.options.token,
+          auth: this.options.auth,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');
@@ -724,7 +720,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          token: this.options.token,
+          auth: this.options.auth,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');

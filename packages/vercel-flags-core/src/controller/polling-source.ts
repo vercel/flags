@@ -1,10 +1,11 @@
 import type { DatafileInput } from '../types';
+import type { Auth } from './auth';
 import { fetchDatafile } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
   host: string;
-  token: string;
+  auth: Auth;
   polling: {
     intervalMs: number;
   };

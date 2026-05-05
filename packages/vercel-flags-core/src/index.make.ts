@@ -2,31 +2,15 @@
  * Factory functions for exports of index.default.ts and index.next-js.ts
  */
 
-import { getVercelOidcTokenSync } from '@vercel/oidc';
 import { Controller, type ControllerOptions } from './controller';
+import { Authentication } from './controller/auth';
 import type { createCreateRawClient } from './create-raw-client';
 import type { FlagsClient } from './types';
-import { parseSdkKeyFromFlagsConnectionString } from './utils/sdk-keys';
 
 /**
  * Options for createClient
  */
-export type CreateClientOptions = Omit<ControllerOptions, 'token'>;
-
-function validateSdkKey(key: string) {
-  if (typeof key !== 'string')
-    throw new Error(
-      `@vercel/flags-core: Invalid sdkKey. Expected string, got ${typeof key}`,
-    );
-
-  // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
-  const sdkKey = parseSdkKeyFromFlagsConnectionString(key);
-  if (!sdkKey) {
-    throw new Error('@vercel/flags-core: Missing sdkKey in connection string');
-  }
-
-  return sdkKey;
-}
+export type CreateClientOptions = Omit<ControllerOptions, 'auth'>;
 
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
@@ -34,7 +18,7 @@ export function make(
   flagsClient: FlagsClient;
   resetDefaultFlagsClient: () => void;
   createClient: <Entities = Record<string, unknown>>(
-    sdkKeyOrConnectionString: string,
+    sdkKeyOrConnectionString?: string,
     options?: CreateClientOptions,
   ) => FlagsClient<Entities>;
 } {
@@ -47,22 +31,15 @@ export function make(
     sdkKeyOrConnectionString?: string,
     options?: CreateClientOptions,
   ): FlagsClient<Entities> {
-    let token: string | undefined;
-    if (sdkKeyOrConnectionString) {
-      token = validateSdkKey(sdkKeyOrConnectionString);
-    } else {
-      token = getVercelOidcTokenSync();
-    }
-
-    if (!token) {
-      throw new Error('@vercel/flags-core: Missing sdkKey');
-    }
+    const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
-    const controller = new Controller({ token, ...options });
+    const controller = new Controller({ auth, ...options });
     return createRawClient<Entities>({
       controller,
-      origin: { provider: 'vercel', token },
+      origin: auth.sdkKey
+        ? { provider: 'vercel', sdkKey: auth.sdkKey }
+        : { provider: 'vercel' },
     });
   }
 

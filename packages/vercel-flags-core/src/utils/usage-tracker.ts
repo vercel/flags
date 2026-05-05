@@ -1,6 +1,7 @@
 import { waitUntil } from '@vercel/functions';
 import { version } from '../../package.json';
 import { getJitteredWaitMs, getRetryDelayMs } from './backoff';
+import type { Auth } from '../controller/auth';
 
 const RESOLVED_VOID: Promise<void> = Promise.resolve();
 
@@ -81,7 +82,7 @@ function getRequestContext(): RequestContext {
 }
 
 export interface UsageTrackerOptions {
-  token: string;
+  auth: Auth;
   host: string;
   fetch: typeof fetch;
 }
@@ -259,6 +260,8 @@ export class UsageTracker {
 
     const flushId = ++this.flushCounter;
 
+    const token = await this.options.auth.resolveToken();
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const response = await this.options.fetch(
@@ -267,7 +270,7 @@ export class UsageTracker {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.options.token}`,
+              Authorization: `Bearer ${token}`,
               'User-Agent': `VercelFlagsCore/${version}`,
               ...(process.env.VERCEL_ENV
                 ? { 'X-Vercel-Env': process.env.VERCEL_ENV }

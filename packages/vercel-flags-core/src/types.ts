@@ -120,11 +120,12 @@ export type Source = {
  */
 export type FlagsClient<Entities = Record<string, unknown>> = {
   /**
-   * Origin information for this client (provider and sdkKey)
+   * Origin information for this client.
+   * sdkKey is only present when the client was explicitly created with one.
    */
   origin?: {
     provider: string;
-    token: string;
+    sdkKey?: string;
   };
   /**
    * Evaluate a feature flag
