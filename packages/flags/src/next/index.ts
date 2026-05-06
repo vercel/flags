@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { IncomingHttpHeaders } from 'node:http';
+import type { IncomingHttpHeaders, IncomingMessage } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
   type FlagDefinitionsType,
@@ -43,17 +43,26 @@ export {
 export type { Flag } from './types';
 
 /**
- * AsyncLocalStorage holding the current `Request` for App Router contexts
- * (e.g. Route Handlers) where the request is available directly. When a
- * request is set here, `flag()` reads headers and cookies from it instead
- * of importing and calling `next/headers`.
+ * Either a Web `Request` (App Router Route Handler) or a Node
+ * `IncomingMessage` (Pages Router API Route).
  */
-export const requestStorage = new AsyncLocalStorage<Request>();
+type StoredRequest = Request | IncomingMessage;
 
 /**
- * Wraps a Route Handler so its execution runs inside `requestStorage`.
+ * AsyncLocalStorage holding the current request. When a request is set here,
+ * `flag()` reads headers and cookies from it instead of importing and calling
+ * `next/headers`. Accepts either a Web `Request` (App Router Route Handler)
+ * or a Node `IncomingMessage` (Pages Router API Route).
+ */
+export const requestStorage = new AsyncLocalStorage<StoredRequest>();
+
+/**
+ * Wraps a Route Handler or API Route so its execution runs inside
+ * `requestStorage`. Accepts either a Web `Request` (App Router) or a Node
+ * `IncomingMessage` (Pages Router) as the first argument; remaining arguments
+ * (e.g. `{ params }` in App Router, `res` in Pages Router) are forwarded.
  *
- * @example
+ * @example App Router Route Handler
  * ```ts
  * import { attach } from 'flags/next';
  *
@@ -62,10 +71,24 @@ export const requestStorage = new AsyncLocalStorage<Request>();
  *   return Response.json({ value });
  * });
  * ```
+ *
+ * @example Pages Router API Route
+ * ```ts
+ * import { attach } from 'flags/next';
+ *
+ * export default attach(async (req, res) => {
+ *   const value = await someFlag();
+ *   res.json({ value });
+ * });
+ * ```
  */
-export function attach<TArgs extends unknown[], TReturn>(
-  handler: (request: Request, ...args: TArgs) => TReturn | Promise<TReturn>,
-): (request: Request, ...args: TArgs) => Promise<TReturn> {
+export function attach<
+  TRequest extends StoredRequest,
+  TArgs extends unknown[],
+  TReturn,
+>(
+  handler: (request: TRequest, ...args: TArgs) => TReturn | Promise<TReturn>,
+): (request: TRequest, ...args: TArgs) => Promise<TReturn> {
   return async (request, ...args) =>
     requestStorage.run(request, async () => handler(request, ...args));
 }
@@ -260,40 +283,40 @@ function getRun<ValueType, EntitiesType>(
     let readonlyCookies: ReadonlyRequestCookies;
     let dedupeCacheKey: Headers | IncomingHttpHeaders;
 
-    if (options.request) {
-      // pages router
-      const headers = transformToHeaders(options.request.headers);
-      readonlyHeaders = sealHeaders(headers);
-      readonlyCookies = sealCookies(headers);
-      dedupeCacheKey = options.request.headers;
-    } else {
-      const storedRequest = requestStorage.getStore();
-      if (storedRequest) {
-        // route handler / explicit request via AsyncLocalStorage
+    const storedRequest = options.request ?? requestStorage.getStore();
+    if (storedRequest) {
+      if (storedRequest instanceof Request) {
+        // app router route handler with a Web Request via AsyncLocalStorage
         readonlyHeaders = sealHeaders(storedRequest.headers);
         readonlyCookies = sealCookies(storedRequest.headers);
         dedupeCacheKey = storedRequest.headers;
       } else {
-        // app router
-
-        // async import required as turbopack errors in Pages Router
-        // when next/headers is imported at the top-level.
-        //
-        // cache import so we don't await on every call since this adds
-        // additional microtask queue overhead
-        if (!headersModulePromise)
-          headersModulePromise = import('next/headers');
-        if (!headersModule) headersModule = await headersModulePromise;
-        const { headers, cookies } = headersModule;
-
-        const [headersStore, cookiesStore] = await Promise.all([
-          headers(),
-          cookies(),
-        ]);
-        readonlyHeaders = headersStore as ReadonlyHeaders;
-        readonlyCookies = cookiesStore as ReadonlyRequestCookies;
-        dedupeCacheKey = headersStore;
+        // pages router api route — either passed explicitly to the flag or
+        // set on requestStorage
+        const headers = transformToHeaders(storedRequest.headers);
+        readonlyHeaders = sealHeaders(headers);
+        readonlyCookies = sealCookies(headers);
+        dedupeCacheKey = storedRequest.headers;
       }
+    } else {
+      // app router
+
+      // async import required as turbopack errors in Pages Router
+      // when next/headers is imported at the top-level.
+      //
+      // cache import so we don't await on every call since this adds
+      // additional microtask queue overhead
+      if (!headersModulePromise) headersModulePromise = import('next/headers');
+      if (!headersModule) headersModule = await headersModulePromise;
+      const { headers, cookies } = headersModule;
+
+      const [headersStore, cookiesStore] = await Promise.all([
+        headers(),
+        cookies(),
+      ]);
+      readonlyHeaders = headersStore as ReadonlyHeaders;
+      readonlyCookies = cookiesStore as ReadonlyRequestCookies;
+      dedupeCacheKey = headersStore;
     }
 
     // skip microtask if cookie does not exist or is empty

@@ -815,6 +815,66 @@ describe('flag with requestStorage', () => {
     expect(params.headers.get('x-user')).toBe('alice');
     expect(params.cookies.get('session')?.value).toBe('abc');
   });
+
+  it('reads headers from a stored IncomingMessage (Pages Router)', async () => {
+    const decide = vi.fn(
+      ({ headers }: { headers: Headers }) => headers.get('x-test') === 'on',
+    );
+    const f = flag<boolean>({ key: 'first-flag', decide });
+
+    const [request, socket] = createRequest();
+    request.headers['x-test'] = 'on';
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(true);
+    });
+
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(mocks.headers).not.toHaveBeenCalled();
+    expect(mocks.cookies).not.toHaveBeenCalled();
+    socket.destroy();
+  });
+
+  it('attach() works with a Pages Router IncomingMessage and forwards res', async () => {
+    const decide = vi.fn(
+      ({ headers }: { headers: Headers }) => headers.get('x-test') === 'on',
+    );
+    const f = flag<boolean>({ key: 'first-flag', decide });
+
+    const [request, socket] = createRequest();
+    request.headers['x-test'] = 'on';
+
+    const res = { json: vi.fn() };
+    const handler = attach(
+      async (req: typeof request, response: typeof res) => {
+        const value = await f();
+        response.json({ value });
+        return value;
+      },
+    );
+
+    await expect(handler(request, res)).resolves.toEqual(true);
+    expect(res.json).toHaveBeenCalledWith({ value: true });
+    expect(mocks.headers).not.toHaveBeenCalled();
+    socket.destroy();
+  });
+
+  it('respects overrides parsed from the cookie header of a stored IncomingMessage', async () => {
+    const decide = vi.fn(() => false);
+    const f = flag<boolean>({ key: 'first-flag', decide });
+    const override = await encryptOverrides({ 'first-flag': true });
+
+    const [request, socket] = createRequest({
+      'vercel-flag-overrides': override,
+    });
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(true);
+    });
+
+    expect(decide).not.toHaveBeenCalled();
+    socket.destroy();
+  });
 });
 
 describe('dynamic io', () => {
