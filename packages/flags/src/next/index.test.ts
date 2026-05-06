@@ -2,9 +2,24 @@ import { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { type Adapter, encryptOverrides } from '..';
-import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from '.';
+import {
+  attach,
+  clearDedupeCacheForCurrentRequest,
+  dedupe,
+  flag,
+  precompute,
+  requestStorage,
+} from '.';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -83,6 +98,13 @@ describe('exports', () => {
   });
   it('should export clearDedupeCacheForCurrentRequest', () => {
     expect(typeof clearDedupeCacheForCurrentRequest).toBe('function');
+  });
+  it('should export attach', () => {
+    expect(typeof attach).toBe('function');
+  });
+  it('should export requestStorage', () => {
+    expect(typeof requestStorage.run).toBe('function');
+    expect(typeof requestStorage.getStore).toBe('function');
   });
 });
 
@@ -665,6 +687,133 @@ describe('flag on pages router', () => {
     socket1.destroy();
 
     warnSpy.mockRestore();
+  });
+});
+
+describe('flag with requestStorage', () => {
+  beforeAll(() => {
+    // a random secret for testing purposes
+    process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
+  });
+
+  beforeEach(() => {
+    mocks.headers.mockClear();
+    mocks.cookies.mockClear();
+  });
+
+  it('reads headers from the stored Request and never calls next/headers', async () => {
+    const decide = vi.fn(
+      ({ headers }: { headers: Headers }) => headers.get('x-test') === 'on',
+    );
+    const f = flag<boolean>({ key: 'first-flag', decide });
+
+    const request = new Request('http://localhost/test', {
+      headers: { 'x-test': 'on' },
+    });
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(true);
+    });
+
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(mocks.headers).not.toHaveBeenCalled();
+    expect(mocks.cookies).not.toHaveBeenCalled();
+  });
+
+  it('attach() forwards the request and additional args', async () => {
+    const decide = vi.fn(
+      ({ headers }: { headers: Headers }) => headers.get('x-test') === 'on',
+    );
+    const f = flag<boolean>({ key: 'first-flag', decide });
+
+    const handler = attach(async (request, ctx: { params: { id: string } }) => {
+      const value = await f();
+      return { value, id: ctx.params.id, url: request.url };
+    });
+
+    const request = new Request('http://localhost/test', {
+      headers: { 'x-test': 'on' },
+    });
+
+    await expect(handler(request, { params: { id: '42' } })).resolves.toEqual({
+      value: true,
+      id: '42',
+      url: 'http://localhost/test',
+    });
+
+    expect(mocks.headers).not.toHaveBeenCalled();
+    expect(mocks.cookies).not.toHaveBeenCalled();
+  });
+
+  it('caches across multiple flag calls within the same scope', async () => {
+    let i = 0;
+    const decide = vi.fn(() => i++);
+    const f = flag<number>({ key: 'first-flag', decide });
+
+    const request = new Request('http://localhost/test');
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(0);
+      await expect(f()).resolves.toEqual(0);
+    });
+
+    expect(decide).toHaveBeenCalledTimes(1);
+
+    // a second request gets a fresh evaluation
+    await requestStorage.run(new Request('http://localhost/test'), async () => {
+      await expect(f()).resolves.toEqual(1);
+    });
+
+    expect(decide).toHaveBeenCalledTimes(2);
+  });
+
+  it('respects overrides parsed from the request cookie header', async () => {
+    const decide = vi.fn(() => false);
+    const f = flag<boolean>({ key: 'first-flag', decide });
+    const override = await encryptOverrides({ 'first-flag': true });
+
+    const request = new Request('http://localhost/test', {
+      headers: { cookie: `vercel-flag-overrides=${override}` },
+    });
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(true);
+    });
+
+    expect(decide).not.toHaveBeenCalled();
+    expect(mocks.cookies).not.toHaveBeenCalled();
+  });
+
+  it('passes sealed headers and cookies to identify', async () => {
+    const identify = vi.fn(({ headers, cookies }) => ({
+      user: headers.get('x-user'),
+      session: cookies.get('session')?.value,
+    }));
+    const decide = vi.fn(
+      ({ entities }: { entities?: { user: string | null } }) =>
+        entities?.user === 'alice',
+    );
+    const f = flag<boolean, { user: string | null; session: string }>({
+      key: 'first-flag',
+      identify,
+      decide,
+    });
+
+    const request = new Request('http://localhost/test', {
+      headers: { 'x-user': 'alice', cookie: 'session=abc' },
+    });
+
+    await requestStorage.run(request, async () => {
+      await expect(f()).resolves.toEqual(true);
+      // second call hits the per-request decide cache
+      await expect(f()).resolves.toEqual(true);
+    });
+
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(identify).toHaveBeenCalled();
+    const [params] = identify.mock.calls[0] ?? [];
+    expect(params.headers.get('x-user')).toBe('alice');
+    expect(params.cookies.get('session')?.value).toBe('abc');
   });
 });
 

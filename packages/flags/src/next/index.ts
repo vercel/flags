@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
@@ -40,6 +41,34 @@ export {
   serialize,
 } from './precompute';
 export type { Flag } from './types';
+
+/**
+ * AsyncLocalStorage holding the current `Request` for App Router contexts
+ * (e.g. Route Handlers) where the request is available directly. When a
+ * request is set here, `flag()` reads headers and cookies from it instead
+ * of importing and calling `next/headers`.
+ */
+export const requestStorage = new AsyncLocalStorage<Request>();
+
+/**
+ * Wraps a Route Handler so its execution runs inside `requestStorage`.
+ *
+ * @example
+ * ```ts
+ * import { attach } from 'flags/next';
+ *
+ * export const GET = attach(async (request) => {
+ *   const value = await someFlag();
+ *   return Response.json({ value });
+ * });
+ * ```
+ */
+export function attach<TArgs extends unknown[], TReturn>(
+  handler: (request: Request, ...args: TArgs) => TReturn | Promise<TReturn>,
+): (request: Request, ...args: TArgs) => Promise<TReturn> {
+  return async (request, ...args) =>
+    requestStorage.run(request, async () => handler(request, ...args));
+}
 
 // a map of (headers, flagKey, entitiesKey) => value
 const evaluationCache = new WeakMap<
@@ -238,24 +267,33 @@ function getRun<ValueType, EntitiesType>(
       readonlyCookies = sealCookies(headers);
       dedupeCacheKey = options.request.headers;
     } else {
-      // app router
+      const storedRequest = requestStorage.getStore();
+      if (storedRequest) {
+        // route handler / explicit request via AsyncLocalStorage
+        readonlyHeaders = sealHeaders(storedRequest.headers);
+        readonlyCookies = sealCookies(storedRequest.headers);
+        dedupeCacheKey = storedRequest.headers;
+      } else {
+        // app router
 
-      // async import required as turbopack errors in Pages Router
-      // when next/headers is imported at the top-level.
-      //
-      // cache import so we don't await on every call since this adds
-      // additional microtask queue overhead
-      if (!headersModulePromise) headersModulePromise = import('next/headers');
-      if (!headersModule) headersModule = await headersModulePromise;
-      const { headers, cookies } = headersModule;
+        // async import required as turbopack errors in Pages Router
+        // when next/headers is imported at the top-level.
+        //
+        // cache import so we don't await on every call since this adds
+        // additional microtask queue overhead
+        if (!headersModulePromise)
+          headersModulePromise = import('next/headers');
+        if (!headersModule) headersModule = await headersModulePromise;
+        const { headers, cookies } = headersModule;
 
-      const [headersStore, cookiesStore] = await Promise.all([
-        headers(),
-        cookies(),
-      ]);
-      readonlyHeaders = headersStore as ReadonlyHeaders;
-      readonlyCookies = cookiesStore as ReadonlyRequestCookies;
-      dedupeCacheKey = headersStore;
+        const [headersStore, cookiesStore] = await Promise.all([
+          headers(),
+          cookies(),
+        ]);
+        readonlyHeaders = headersStore as ReadonlyHeaders;
+        readonlyCookies = cookiesStore as ReadonlyRequestCookies;
+        dedupeCacheKey = headersStore;
+      }
     }
 
     // skip microtask if cookie does not exist or is empty
