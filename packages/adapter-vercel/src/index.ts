@@ -23,10 +23,10 @@ export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
  */
 export function createVercelAdapter(
   // usually a connection string, but can also be a pre-configured FlagsClient
-  sdkKeyOrFlagsClient: string | FlagsClient,
+  sdkKeyOrFlagsClient?: string | FlagsClient,
 ) {
   const flagsClient =
-    typeof sdkKeyOrFlagsClient === 'string'
+    typeof sdkKeyOrFlagsClient === 'string' || sdkKeyOrFlagsClient === undefined
       ? createClient(sdkKeyOrFlagsClient)
       : sdkKeyOrFlagsClient;
 
