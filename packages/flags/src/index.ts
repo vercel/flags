@@ -38,3 +38,5 @@ export type {
   Origin,
   ProviderData,
 } from './types';
+
+export const debug = 1;
