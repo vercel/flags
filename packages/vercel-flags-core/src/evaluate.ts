@@ -11,6 +11,50 @@ import {
 type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
+const MAX_REGEX_PATTERN_LENGTH = 500;
+
+/**
+ * A pattern that matches nested quantifiers which can cause catastrophic
+ * backtracking (ReDoS), e.g. (a+)+ or (a*)*.
+ *
+ * This is a heuristic; a comprehensive ReDoS checker would need a full
+ * regex AST analysis, but nested quantifiers are the most common and
+ * dangerous pattern. This check follows OWASP guidance for preventing
+ * ReDoS in feature flag evaluation contexts.
+ */
+const REDOS_PATTERN = /\(\?<[^>]+>[^()]*\)\s*[+*]/;
+
+function isSafeRegexPattern(pattern: string): boolean {
+  // Reject patterns that exceed the maximum length
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return false;
+  }
+
+  // Reject patterns containing nested quantifiers, which are the
+  // most common cause of catastrophic backtracking (ReDoS).
+  // Example of dangerous pattern: (a+)+b, (a*)*, (?:a+)+
+  if (REDOS_PATTERN.test(pattern)) {
+    return false;
+  }
+
+  // Reject deeply nested groups (more than 20 levels deep)
+  // which can also cause performance issues
+  let depth = 0;
+  let maxDepth = 0;
+  for (const char of pattern) {
+    if (char === '(') {
+      depth++;
+      maxDepth = Math.max(maxDepth, depth);
+    } else if (char === ')') {
+      depth--;
+    }
+  }
+  if (maxDepth > 20) {
+    return false;
+  }
+
+  return true;
+}
 
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
@@ -259,7 +303,8 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            isSafeRegexPattern(rhs.pattern)
           ) {
             return new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }
@@ -271,7 +316,8 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            isSafeRegexPattern(rhs.pattern)
           ) {
             return !new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }

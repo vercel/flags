@@ -200,6 +200,25 @@ export async function generatePermutations(
 
   if (flags.length === 0) return ['__no_flags__'];
 
+  const MAX_PERMUTATIONS = 10_000;
+
+  // Calculate the expected number of permutations
+  let expectedPermutations = 1;
+  for (const flag of flags) {
+    const optionCount = flag.options
+      ? flag.options.length
+      : 2; // boolean flags default to 2 options (true/false)
+    expectedPermutations *= optionCount;
+  }
+
+  if (expectedPermutations > MAX_PERMUTATIONS) {
+    throw new Error(
+      `flags: generatePermutations would generate ${expectedPermutations} permutations from ${flags.length} flags, ` +
+        `which exceeds the maximum of ${MAX_PERMUTATIONS}. ` +
+        `Reduce the number of flags, limit flag options, or use the 'filter' parameter to prune unreachable states.`,
+    );
+  }
+
   const options = flags.map((flag) => {
     // infer boolean permutations if you don't declare any options.
     //
