@@ -70,7 +70,18 @@ export async function deserialize(
 
   const valuesArray = valuesUint8Array
     ? // re-add opening and closing brackets since we remove them when serializing
-      JSON.parse(`[${new TextDecoder().decode(valuesUint8Array)}]`)
+      // Limit the size of data before parsing to prevent memory exhaustion
+      (() => {
+        const MAX_VALUES_BYTE_LENGTH = 1_000_000; // 1 MB limit
+        if (valuesUint8Array.byteLength > MAX_VALUES_BYTE_LENGTH) {
+          throw new Error(
+            `flags: Unlisted values payload exceeds maximum size of ${MAX_VALUES_BYTE_LENGTH} bytes. ` +
+            `This limit protects against resource exhaustion attacks. ` +
+            `If you have a legitimate use case requiring larger payloads, please open an issue.`
+          );
+        }
+        return JSON.parse(`[${new TextDecoder().decode(valuesUint8Array)}]`);
+      })()
     : null;
 
   let spilled = 0;
