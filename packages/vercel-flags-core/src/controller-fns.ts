@@ -1,10 +1,16 @@
-import { evaluate as evalFlag } from './evaluate';
+import {
+  type BulkEvaluationInput,
+  bulkEvaluate as bulkEvalFlags,
+  evaluate as evalFlag,
+} from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import type {
+  BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
   Datafile,
   EvaluationResult,
+  Metrics,
   Packed,
 } from './types';
 import { ErrorCode, ResolutionReason } from './types';
@@ -128,4 +134,97 @@ export async function evaluate<T, E = Record<string, unknown>>(
       mode: datafile.metrics.mode,
     },
   });
+}
+
+export async function bulkEvaluate<T, E = Record<string, unknown>>(
+  id: number,
+  flags: BulkEvaluateInput<T>[],
+  entities?: E,
+): Promise<Record<string, EvaluationResult<T>>> {
+  const controller = getInstance(id).controller;
+
+  let datafile: Datafile;
+  try {
+    datafile = await controller.read();
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to read datafile';
+
+    const results: Record<string, EvaluationResult<T>> = {};
+    for (const flag of flags) {
+      results[flag.flagKey] = {
+        value: flag.defaultValue,
+        reason: ResolutionReason.ERROR,
+        errorMessage,
+      };
+    }
+    return results;
+  }
+
+  const baseMetrics: Metrics = {
+    readMs: datafile.metrics.readMs,
+    source: datafile.metrics.source,
+    cacheStatus: datafile.metrics.cacheStatus,
+    connectionState: datafile.metrics.connectionState,
+    mode: datafile.metrics.mode,
+  };
+
+  const projectId = datafile.projectId;
+  const results: Record<string, EvaluationResult<T>> = {};
+  const toEvaluate: Record<string, BulkEvaluationInput<T>> = {};
+
+  for (const flag of flags) {
+    const { flagKey, defaultValue } = flag;
+    const flagDefinition = datafile.definitions[
+      flagKey
+    ] as Packed.FlagDefinition;
+
+    if (flagDefinition === undefined) {
+      if (projectId) {
+        internalReportValue(flagKey, defaultValue, {
+          originProjectId: projectId,
+          originProvider: 'vercel',
+          reason: ResolutionReason.ERROR,
+        });
+      }
+      results[flagKey] = {
+        value: defaultValue,
+        reason: ResolutionReason.ERROR,
+        errorCode: ErrorCode.FLAG_NOT_FOUND,
+        errorMessage: `@vercel/flags-core: Definition not found for flag "${flagKey}"`,
+        metrics: { evaluationMs: 0, ...baseMetrics },
+      };
+      continue;
+    }
+
+    toEvaluate[flagKey] = { definition: flagDefinition, defaultValue };
+  }
+
+  const evalStartTime = Date.now();
+  const evaluated = bulkEvalFlags<T>(toEvaluate, {
+    entities: (entities ?? {}) as Record<string, unknown>,
+    environment: datafile.environment,
+    segments: datafile.segments,
+  });
+  const evaluationDurationMs = Date.now() - evalStartTime;
+
+  for (const flagKey in toEvaluate) {
+    const result = evaluated[flagKey]!;
+    if (projectId) {
+      internalReportValue(flagKey, result.value, {
+        originProjectId: projectId,
+        originProvider: 'vercel',
+        reason: result.reason,
+        outcomeType:
+          result.reason !== ResolutionReason.ERROR
+            ? result.outcomeType
+            : undefined,
+      });
+    }
+    results[flagKey] = Object.assign(result, {
+      metrics: { evaluationMs: evaluationDurationMs, ...baseMetrics },
+    });
+  }
+
+  return results;
 }
