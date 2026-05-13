@@ -146,6 +146,18 @@ export interface Adapter<ValueType, EntitiesType> {
   config?: {
     reportValue?: boolean;
   };
+  /**
+   * Stable identifier for the underlying resource this adapter talks to
+   * (e.g. an SDK key, shared client, or factory closure). Adapter authors
+   * should set this once per "logical adapter" — typically inside a factory
+   * function so every adapter object the factory returns shares the same id.
+   *
+   * The Flags SDK uses this for cross-instance grouping (most notably,
+   * `bulk()` batches flags whose adapters share an `adapterId` and an
+   * `identify` source through a single `bulkDecide` call). Adapters without
+   * an `adapterId` are never batched.
+   */
+  adapterId?: string | symbol;
   decide: (params: {
     key: string;
     entities?: EntitiesType;
@@ -153,6 +165,23 @@ export interface Adapter<ValueType, EntitiesType> {
     cookies: ReadonlyRequestCookies;
     defaultValue?: ValueType;
   }) => Promise<ValueType> | ValueType;
+  /**
+   * Optional batch hook used by `bulk()` to evaluate many flags that share
+   * this adapter's `adapterId` and the same `identify` source in a single
+   * call. When implemented (and `adapterId` is set), `bulk()` calls this
+   * once per group instead of invoking `decide` per flag.
+   *
+   * - Return `Record<flagKey, value>`. Missing keys or `value: undefined`
+   *   trigger the per-flag `defaultValue` fallback in the SDK.
+   * - Throwing causes per-flag `defaultValue` fallback (and rejection for
+   *   flags without a `defaultValue`).
+   */
+  bulkDecide?: (params: {
+    flags: { key: string; defaultValue?: ValueType }[];
+    entities?: EntitiesType;
+    headers: ReadonlyHeaders;
+    cookies: ReadonlyRequestCookies;
+  }) => Promise<Record<string, ValueType>> | Record<string, ValueType>;
 }
 
 /**

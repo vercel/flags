@@ -47,6 +47,16 @@ type FlagMeta<ValueType, EntitiesType> = {
    */
   identify?: FlagDeclaration<ValueType, EntitiesType>['identify'];
   /**
+   * The adapter used to evaluate this flag, if any. Exposed so `bulk()` can
+   * group flags that share an `adapterId` and call `adapter.bulkDecide` once
+   * per group.
+   */
+  adapter?: FlagDeclaration<ValueType, EntitiesType>['adapter'];
+  /**
+   * Flag-level configuration (e.g. `reportValue`).
+   */
+  config?: FlagDeclaration<ValueType, EntitiesType>['config'];
+  /**
    * Evaluates a feature flag with custom entities.
    *
    * Calling .run() bypasses the identify call and uses the provided entities directly.

@@ -4,7 +4,13 @@ import { Readable } from 'node:stream';
 import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Adapter, encryptOverrides } from '..';
-import { clearDedupeCacheForCurrentRequest, dedupe, flag, precompute } from '.';
+import {
+  bulk,
+  clearDedupeCacheForCurrentRequest,
+  dedupe,
+  flag,
+  precompute,
+} from '.';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -745,5 +751,263 @@ describe('adapters', () => {
     });
 
     expect(await exampleFlag()).toBe(outerValue);
+  });
+});
+
+describe('bulk', () => {
+  beforeAll(() => {
+    process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
+  });
+
+  afterEach(() => {
+    if (previousRequestContext === undefined) {
+      Reflect.deleteProperty(globalThis, requestContextSymbol);
+      return;
+    }
+    Reflect.set(globalThis, requestContextSymbol, previousRequestContext);
+  });
+
+  // Factory that mints adapters all sharing the same closure-captured id.
+  // Each call returns a fresh adapter object (mirroring the playground
+  // pattern: every flag does `adapter: makeAdapter()`).
+  function makeBulkAdapter<V>(opts?: {
+    bulkDecide?: Adapter<V, any>['bulkDecide'];
+    decide?: Adapter<V, any>['decide'];
+    identify?: Adapter<V, any>['identify'];
+    omitAdapterId?: boolean;
+    omitBulkDecide?: boolean;
+  }) {
+    const id = Symbol('test-adapter');
+    return (): Adapter<V, any> => ({
+      ...(opts?.omitAdapterId ? {} : { adapterId: id }),
+      origin: 'test://origin',
+      decide:
+        opts?.decide ??
+        (() => {
+          throw new Error('decide should not be called in bulk path');
+        }),
+      identify: opts?.identify,
+      ...(opts?.omitBulkDecide ? {} : { bulkDecide: opts?.bulkDecide }),
+    });
+  }
+
+  it('calls bulkDecide once for flags sharing an adapterId and identify source', async () => {
+    const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A', b: 'B' });
+    const decideMock = vi.fn();
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: bulkDecideMock,
+      decide: decideMock,
+    });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+    expect(bulkDecideMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flags: [
+          { key: 'a', defaultValue: undefined },
+          { key: 'b', defaultValue: undefined },
+        ],
+        entities: undefined,
+      }),
+    );
+    expect(decideMock).not.toHaveBeenCalled();
+  });
+
+  it('splits into separate bulkDecide calls when identify sources differ', async () => {
+    const bulkDecideMock = vi
+      .fn()
+      .mockImplementation(({ flags }: { flags: { key: string }[] }) =>
+        Object.fromEntries(flags.map((f) => [f.key, `v-${f.key}`])),
+      );
+    const identifyA = () => ({ user: 'alice' });
+    const identifyB = () => ({ user: 'bob' });
+
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+    const a = flag({
+      key: 'a',
+      adapter: adapter(),
+      identify: identifyA,
+    });
+    const b = flag({
+      key: 'b',
+      adapter: adapter(),
+      identify: identifyB,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({ a: 'v-a', b: 'v-b' });
+    expect(bulkDecideMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('splits into separate bulkDecide calls when adapterIds differ', async () => {
+    const bulkA = vi.fn().mockResolvedValue({ a: 'A' });
+    const bulkB = vi.fn().mockResolvedValue({ b: 'B' });
+    const adapterA = makeBulkAdapter<string>({ bulkDecide: bulkA });
+    const adapterB = makeBulkAdapter<string>({ bulkDecide: bulkB });
+
+    const a = flag<string>({ key: 'a', adapter: adapterA() });
+    const b = flag<string>({ key: 'b', adapter: adapterB() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+    expect(bulkA).toHaveBeenCalledTimes(1);
+    expect(bulkB).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to per-flag decide when adapter has no adapterId', async () => {
+    const bulkDecideMock = vi.fn();
+    const decideMock = vi.fn().mockResolvedValue('from-decide');
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: bulkDecideMock,
+      decide: decideMock,
+      omitAdapterId: true,
+    });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a })).resolves.toEqual({ a: 'from-decide' });
+    expect(bulkDecideMock).not.toHaveBeenCalled();
+    expect(decideMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to per-flag decide when adapter has no bulkDecide', async () => {
+    const decideMock = vi.fn().mockResolvedValue('single');
+    const adapter = makeBulkAdapter<string>({
+      decide: decideMock,
+      omitBulkDecide: true,
+    });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a })).resolves.toEqual({ a: 'single' });
+    expect(decideMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps inline-decide flags out of the bulk path', async () => {
+    const inlineDecide = vi.fn(() => 'inline-result');
+    const bulkDecideMock = vi.fn().mockResolvedValue({ b: 'bulk-result' });
+
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+    const a = flag<string>({ key: 'a', decide: inlineDecide });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({
+      a: 'inline-result',
+      b: 'bulk-result',
+    });
+    expect(inlineDecide).toHaveBeenCalledTimes(1);
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to defaultValue when bulkDecide throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bulkDecideMock = vi.fn().mockRejectedValue(new Error('bulk failed'));
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<string>({
+      key: 'a',
+      adapter: adapter(),
+      defaultValue: 'fa',
+    });
+    const b = flag<string>({
+      key: 'b',
+      adapter: adapter(),
+      defaultValue: 'fb',
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({ a: 'fa', b: 'fb' });
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('rejects when bulkDecide throws and a flag has no defaultValue', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bulkDecideMock = vi.fn().mockRejectedValue(new Error('bulk failed'));
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<string>({
+      key: 'a',
+      adapter: adapter(),
+      defaultValue: 'fa',
+    });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).rejects.toThrow('bulk failed');
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to defaultValue for keys bulkDecide omits', async () => {
+    const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A' });
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({
+      key: 'b',
+      adapter: adapter(),
+      defaultValue: 'fb',
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'fb' });
+  });
+
+  it('lets overrides win over bulkDecide results', async () => {
+    const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'bulk-value' });
+    const adapter = makeBulkAdapter<boolean>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<boolean>({ key: 'a', adapter: adapter() });
+
+    const override = await encryptOverrides({ a: true });
+    const cookieMock = vi.fn((name: string) =>
+      name === 'vercel-flag-overrides'
+        ? { name: 'vercel-flag-overrides', value: override }
+        : undefined,
+    );
+    mocks.headers.mockReturnValueOnce(new Headers());
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+
+    await expect(bulk({ a })).resolves.toEqual({ a: true });
+  });
+
+  it('populates the evaluation cache so a subsequent flagFn() hits cache', async () => {
+    const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A' });
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+
+    const headers = new Headers();
+    mocks.headers.mockReturnValue(headers);
+    await expect(bulk({ a })).resolves.toEqual({ a: 'A' });
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+
+    // Subsequent direct call in the same "request" (same headers object)
+    // should return the cached value without re-calling bulkDecide or decide.
+    await expect(a()).resolves.toEqual('A');
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves input key order in the result', async () => {
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: ({ flags }: { flags: { key: string }[] }) =>
+        Object.fromEntries(flags.map((f) => [f.key, f.key])),
+    });
+
+    const zebra = flag<string>({ key: 'zebra', adapter: adapter() });
+    const apple = flag<string>({ key: 'apple', adapter: adapter() });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    const result = await bulk({ zebra, apple });
+    expect(Object.keys(result)).toEqual(['zebra', 'apple']);
   });
 });

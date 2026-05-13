@@ -117,6 +117,72 @@ describe('createVercelAdapter', () => {
       .toHaveProperty('entities')
       .toEqualTypeOf<SampleEvaluationContext | undefined>();
   });
+
+  describe('adapterId', () => {
+    it('shares one adapterId across all adapters from the same factory call', () => {
+      const adapter = createVercelAdapter(flagsClient);
+      const a = adapter();
+      const b = adapter();
+      expect(a).not.toBe(b);
+      expect(a.adapterId).toBeDefined();
+      expect(a.adapterId).toBe(b.adapterId);
+    });
+
+    it('uses different adapterIds across separate factory calls', () => {
+      const adapterA = createVercelAdapter('vf_client_key_a');
+      const adapterB = createVercelAdapter('vf_client_key_b');
+      expect(adapterA().adapterId).not.toBe(adapterB().adapterId);
+    });
+  });
+
+  describe('bulkDecide', () => {
+    it('forwards to flagsClient.bulkEvaluate with mapped flags and entities', async () => {
+      const bulkEvaluateMock = vi
+        .fn()
+        .mockResolvedValue({ a: { value: 'x' }, b: { value: 'y' } });
+      const fakeClient = {
+        origin: { provider: 'vercel', sdkKey: 'vf_x' },
+        bulkEvaluate: bulkEvaluateMock,
+      } as unknown as typeof flagsClient;
+
+      const adapter = createVercelAdapter(fakeClient)();
+      const result = await adapter.bulkDecide!({
+        flags: [{ key: 'a', defaultValue: 'da' }, { key: 'b' }],
+        entities: { user: { id: 'u1' } } as any,
+        headers: undefined as any,
+        cookies: undefined as any,
+      });
+
+      expect(bulkEvaluateMock).toHaveBeenCalledTimes(1);
+      expect(bulkEvaluateMock).toHaveBeenCalledWith(
+        [
+          { flagKey: 'a', defaultValue: 'da' },
+          { flagKey: 'b', defaultValue: undefined },
+        ],
+        { user: { id: 'u1' } },
+      );
+      expect(result).toEqual({ a: 'x', b: 'y' });
+    });
+
+    it('omits keys whose EvaluationResult.value is undefined', async () => {
+      const fakeClient = {
+        origin: { provider: 'vercel', sdkKey: 'vf_x' },
+        bulkEvaluate: vi.fn().mockResolvedValue({
+          a: { value: 'ok' },
+          b: { value: undefined, reason: 'error', errorMessage: 'nope' },
+        }),
+      } as unknown as typeof flagsClient;
+
+      const adapter = createVercelAdapter(fakeClient)();
+      const result = await adapter.bulkDecide!({
+        flags: [{ key: 'a' }, { key: 'b' }],
+        headers: undefined as any,
+        cookies: undefined as any,
+      });
+      expect(result).toEqual({ a: 'ok' });
+      expect('b' in result).toBe(false);
+    });
+  });
 });
 
 describe('when used with getProviderData', () => {

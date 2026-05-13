@@ -30,11 +30,18 @@ export function createVercelAdapter(
       ? createClient(sdkKeyOrFlagsClient)
       : sdkKeyOrFlagsClient;
 
+  // Stable identity for this adapter's underlying flagsClient. Captured in
+  // the closure so every adapter object the factory below returns shares it,
+  // letting `bulk()` group flags from multiple `vercelAdapter()` calls into
+  // a single `bulkDecide` invocation.
+  const adapterId = Symbol('vercelAdapter');
+
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
   > {
     return {
+      adapterId,
       origin: flagsClient.origin,
       config: { reportValue: false },
       async decide({ key, entities }): Promise<ValueType> {
@@ -56,6 +63,20 @@ export function createVercelAdapter(
         // runs when the flag evaluates successfully or
         // when there was an error but the defaultValue was set
         return evaluationResult.value;
+      },
+      async bulkDecide({ flags, entities }) {
+        const results = await flagsClient.bulkEvaluate<ValueType, EntitiesType>(
+          flags.map((f) => ({ flagKey: f.key, defaultValue: f.defaultValue })),
+          entities,
+        );
+        const out: Record<string, ValueType> = {};
+        for (const key in results) {
+          const r = results[key]!;
+          // Omit undefined so the SDK applies the per-flag `defaultValue`
+          // fallback (matches single-decide semantics).
+          if (r.value !== undefined) out[key] = r.value;
+        }
+        return out;
       },
     };
   };

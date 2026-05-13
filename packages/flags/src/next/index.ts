@@ -19,6 +19,7 @@ import {
   RequestCookiesAdapter,
 } from '../spec-extension/adapters/request-cookies';
 import type {
+  Adapter,
   Decide,
   FlagDeclaration,
   FlagParamsType,
@@ -41,6 +42,12 @@ export {
   serialize,
 } from './precompute';
 export type { Flag } from './types';
+
+// Internal markers stamped on the flag api by `flag()`. Read by `bulk()`.
+// Kept off the public FlagMeta type — they're an implementation detail of
+// how we partition flags for bulk evaluation.
+const BULK_IDENTIFY_REF = Symbol('flags.bulkIdentifyRef');
+const BULKABLE = Symbol('flags.bulkable');
 
 // a map of (headers, flagKey, entitiesKey) => value
 const evaluationCache = new WeakMap<
@@ -238,13 +245,128 @@ export async function bulk<T extends BulkFlags>(
     overrides,
   };
 
-  // Run all flags within the bulk store context
+  // Run all flags within the bulk store context. We partition flags by
+  // (adapterId, identifyRef) so adapters that implement `bulkDecide` can
+  // evaluate an entire group in a single call. Flags whose adapters don't
+  // opt into bulk (no `adapterId` or no `bulkDecide`) and flags with an
+  // inline `decide` fall back to the per-flag `flagFn()` path — which still
+  // benefits from the pre-read headers/cookies/overrides via `bulkStore`.
   return bulkStore.run(storeData, async () => {
     const entries = Object.entries(flags);
-    const values = await Promise.all(entries.map(([, flagFn]) => flagFn()));
+
+    type Entry = { name: string; flagFn: Flag<any, any> };
+    const standalone: Entry[] = [];
+    // adapterId -> identifyRef -> { adapter, entries }
+    const groups = new Map<
+      string | symbol,
+      Map<unknown, { adapter: Adapter<any, any>; entries: Entry[] }>
+    >();
+
+    for (const [name, flagFn] of entries) {
+      const entry: Entry = { name, flagFn };
+      if (!(flagFn as any)[BULKABLE]) {
+        standalone.push(entry);
+        continue;
+      }
+      const adapter = flagFn.adapter as Adapter<any, any>;
+      const groupId = adapter.adapterId as string | symbol;
+      const identifyRef = (flagFn as any)[BULK_IDENTIFY_REF] ?? null;
+      let byIdentify = groups.get(groupId);
+      if (!byIdentify) {
+        byIdentify = new Map();
+        groups.set(groupId, byIdentify);
+      }
+      let bucket = byIdentify.get(identifyRef);
+      if (!bucket) {
+        // Capture the first adapter for this group — any adapter with the
+        // same adapterId must wrap the same underlying resource.
+        bucket = { adapter, entries: [] };
+        byIdentify.set(identifyRef, bucket);
+      }
+      bucket.entries.push(entry);
+    }
+
+    const valuesByName: Record<string, any> = {};
+    const groupPromises: Promise<void>[] = [];
+
+    for (const [, byIdentify] of groups) {
+      for (const [identifyRef, { adapter, entries: list }] of byIdentify) {
+        groupPromises.push(
+          (async () => {
+            // Resolve entities once for the entire group. The dedupe key is
+            // the raw `headersStore` (same key getRun uses), so any flag
+            // called individually after `bulk()` reuses the cached identify
+            // args from `identifyArgsMap`.
+            const entities = identifyRef
+              ? await getEntities(
+                  identifyRef as any,
+                  headersStore,
+                  readonlyHeaders,
+                  readonlyCookies,
+                )
+              : undefined;
+            const entitiesKey = JSON.stringify(entities) ?? '';
+
+            // Call bulkDecide. If it throws, every flag in the group still
+            // goes through `applyResult` — its producer just rethrows, so
+            // the catch arm handles the per-flag defaultValue fallback (or
+            // rejects for flags without a defaultValue).
+            let bulkResult: Record<string, any> | null = null;
+            let bulkError: unknown = null;
+            try {
+              bulkResult = await adapter.bulkDecide!({
+                flags: list.map(({ flagFn }) => ({
+                  key: flagFn.key,
+                  defaultValue: flagFn.defaultValue,
+                })),
+                entities,
+                headers: readonlyHeaders,
+                cookies: readonlyCookies,
+              });
+            } catch (err) {
+              bulkError = err;
+            }
+
+            await Promise.all(
+              list.map(async ({ name, flagFn }) => {
+                valuesByName[name] = await applyResult({
+                  definition: flagFn,
+                  readonlyHeaders,
+                  entitiesKey,
+                  overrides,
+                  produce: () => {
+                    if (bulkError) throw bulkError;
+                    return bulkResult![flagFn.key];
+                  },
+                });
+              }),
+            );
+          })(),
+        );
+      }
+    }
+
+    if (standalone.length > 0) {
+      groupPromises.push(
+        (async () => {
+          const values = await Promise.all(
+            standalone.map(({ flagFn }) => flagFn()),
+          );
+          standalone.forEach(({ name }, i) => {
+            valuesByName[name] = values[i];
+          });
+        })(),
+      );
+    }
+
+    console.log('groupPromises', groupPromises.length);
+    console.log('standalone', standalone.length);
+
+    await Promise.all(groupPromises);
+
     const result = {} as BulkResult<T>;
     for (let i = 0; i < entries.length; i++) {
-      (result as any)[entries[i]![0]] = values[i];
+      (result as any)[entries[i]![0]] = valuesByName[entries[i]![0]];
     }
     return result;
   });
@@ -277,6 +399,122 @@ type Run<ValueType, EntitiesType> = (options: {
 
 let headersModulePromise: Promise<typeof import('next/headers')>;
 let headersModule: typeof import('next/headers') | undefined;
+
+/**
+ * Subset of a flag declaration / flag function that `applyResult` reads.
+ * `FlagDeclaration` (passed from `getRun`) and the `api` (passed from `bulk()`)
+ * both satisfy this shape after `flag()` stamps `config` onto the api.
+ */
+type FlagInfo<ValueType> = {
+  key: string;
+  defaultValue?: ValueType;
+  config?: { reportValue?: boolean };
+};
+
+/**
+ * Finalize a flag evaluation given an already-computed `entitiesKey`.
+ *
+ * Shared by `getRun` (single-flag path) and `bulk()` (group path). Handles, in
+ * order: cache hit → override → produce → defaultValue/error normalization →
+ * cache write → reportValue. Override and cache writes write to the same
+ * `evaluationCache` either path uses, so a subsequent `flagFn()` in the same
+ * request hits cache regardless of which path populated it.
+ */
+async function applyResult<ValueType>(args: {
+  definition: FlagInfo<ValueType>;
+  readonlyHeaders: ReadonlyHeaders;
+  entitiesKey: string;
+  overrides: Record<string, any> | null;
+  produce: () => ValueType | PromiseLike<ValueType>;
+}): Promise<ValueType> {
+  const { definition, readonlyHeaders, entitiesKey, overrides, produce } = args;
+
+  const cachedValue = getCachedValuePromise(
+    readonlyHeaders,
+    definition.key,
+    entitiesKey,
+  );
+  if (cachedValue !== undefined) {
+    setSpanAttribute('method', 'cached');
+    return await cachedValue;
+  }
+
+  if (overrides && overrides[definition.key] !== undefined) {
+    setSpanAttribute('method', 'override');
+    const decision = overrides[definition.key] as ValueType;
+    setCachedValuePromise(
+      readonlyHeaders,
+      definition.key,
+      entitiesKey,
+      Promise.resolve(decision),
+    );
+    internalReportValue(definition.key, decision, {
+      reason: 'override',
+    });
+    return decision;
+  }
+
+  // Normalize the result of produce() into a promise. produce() may return
+  // synchronously or asynchronously, and may also throw synchronously.
+  // Fall back to defaultValue when produce returns undefined or throws.
+  let decisionResult: ValueType | PromiseLike<ValueType>;
+  try {
+    decisionResult = produce();
+  } catch (error) {
+    decisionResult = Promise.reject(error);
+  }
+
+  const decisionPromise = Promise.resolve(decisionResult).then<
+    ValueType,
+    ValueType
+  >(
+    (value) => {
+      if (value !== undefined) return value;
+      if (definition.defaultValue !== undefined) return definition.defaultValue;
+      throw new Error(
+        `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
+      );
+    },
+    (error: Error) => {
+      if (isInternalNextError(error)) throw error;
+
+      // try to recover if defaultValue is set
+      if (definition.defaultValue !== undefined) {
+        if (process.env.NODE_ENV === 'development') {
+          console.info(
+            `flags: Flag "${definition.key}" is falling back to its defaultValue`,
+          );
+        } else {
+          console.warn(
+            `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
+            error,
+          );
+        }
+        return definition.defaultValue;
+      }
+      console.warn(`flags: Flag "${definition.key}" could not be evaluated`);
+      throw error;
+    },
+  );
+
+  setCachedValuePromise(
+    readonlyHeaders,
+    definition.key,
+    entitiesKey,
+    decisionPromise,
+  );
+
+  const decision = await decisionPromise;
+
+  if (definition.config?.reportValue !== false) {
+    // Only check `config.reportValue` for the result of `decide`.
+    // No need to check it for `override` since the client will have
+    // be short circuited in that case.
+    reportValue(definition.key, decision);
+  }
+
+  return decision;
+}
 
 function getRun<ValueType, EntitiesType>(
   definition: FlagDeclaration<ValueType, EntitiesType>,
@@ -351,102 +589,22 @@ function getRun<ValueType, EntitiesType>(
         )) as EntitiesType | undefined)
       : undefined;
 
-    // check cache
     const entitiesKey = JSON.stringify(entities) ?? '';
 
-    const cachedValue = getCachedValuePromise(
+    return applyResult({
+      definition,
       readonlyHeaders,
-      definition.key,
       entitiesKey,
-    );
-    if (cachedValue !== undefined) {
-      setSpanAttribute('method', 'cached');
-      const value = await cachedValue;
-      return value;
-    }
-
-    if (overrides && overrides[definition.key] !== undefined) {
-      setSpanAttribute('method', 'override');
-      const decision = overrides[definition.key] as ValueType;
-      setCachedValuePromise(
-        readonlyHeaders,
-        definition.key,
-        entitiesKey,
-        Promise.resolve(decision),
-      );
-      internalReportValue(definition.key, decision, {
-        reason: 'override',
-      });
-      return decision;
-    }
-
-    // Normalize the result of decide() into a promise. decide() may return
-    // synchronously or asynchronously, and may also throw synchronously.
-    // Fall back to defaultValue when decide returns undefined or throws.
-    let decisionResult: ValueType | PromiseLike<ValueType>;
-    try {
-      decisionResult = decide({
-        // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
-        defaultValue: definition.defaultValue,
-        headers: readonlyHeaders,
-        cookies: readonlyCookies,
-        entities,
-      });
-    } catch (error) {
-      decisionResult = Promise.reject(error);
-    }
-
-    const decisionPromise = Promise.resolve(decisionResult).then<
-      ValueType,
-      ValueType
-    >(
-      (value) => {
-        if (value !== undefined) return value;
-        if (definition.defaultValue !== undefined)
-          return definition.defaultValue;
-        throw new Error(
-          `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
-        );
-      },
-      (error: Error) => {
-        if (isInternalNextError(error)) throw error;
-
-        // try to recover if defaultValue is set
-        if (definition.defaultValue !== undefined) {
-          if (process.env.NODE_ENV === 'development') {
-            console.info(
-              `flags: Flag "${definition.key}" is falling back to its defaultValue`,
-            );
-          } else {
-            console.warn(
-              `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
-              error,
-            );
-          }
-          return definition.defaultValue;
-        }
-        console.warn(`flags: Flag "${definition.key}" could not be evaluated`);
-        throw error;
-      },
-    );
-
-    setCachedValuePromise(
-      readonlyHeaders,
-      definition.key,
-      entitiesKey,
-      decisionPromise,
-    );
-
-    const decision = await decisionPromise;
-
-    if (definition.config?.reportValue !== false) {
-      // Only check `config.reportValue` for the result of `decide`.
-      // No need to check it for `override` since the client will have
-      // be short circuited in that case.
-      reportValue(definition.key, decision);
-    }
-
-    return decision;
+      overrides,
+      produce: () =>
+        decide({
+          // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
+          defaultValue: definition.defaultValue,
+          headers: readonlyHeaders,
+          cookies: readonlyCookies,
+          entities,
+        }),
+    });
   };
 }
 
@@ -553,6 +711,22 @@ export function flag<
     name: 'run',
     attributes: { key: definition.key },
   });
+  api.adapter = definition.adapter;
+  api.config = definition.config;
+
+  // Internal markers used by `bulk()` to partition flags into adapter groups.
+  // - BULK_IDENTIFY_REF: the raw identify source for reference-equality
+  //   comparison across flags. `api.identify` is a wrapper created per
+  //   `flag()` call, so it can't be used for grouping.
+  // - BULKABLE: whether the flag can participate in adapter-level bulk
+  //   evaluation. An inline `definition.decide` disqualifies the flag
+  //   because `getDecide` prefers it over the adapter's decide.
+  (api as any)[BULK_IDENTIFY_REF] =
+    definition.identify ?? definition.adapter?.identify ?? null;
+  (api as any)[BULKABLE] =
+    !definition.decide &&
+    !!definition.adapter?.bulkDecide &&
+    definition.adapter.adapterId !== undefined;
 
   return api;
 }
