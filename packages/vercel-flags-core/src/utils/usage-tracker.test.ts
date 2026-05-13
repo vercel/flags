@@ -437,6 +437,56 @@ describe('UsageTracker', () => {
       // 2 failed + 1 success = 3 total
       expect(requestCount).toBe(3);
     });
+
+    it('should log a structured warning when all retries are exhausted', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      fetchMock.mockResolvedValue(new Response('err', { status: 500 }));
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      // All 3 attempts fail; SDK logs an extra "Dropped" line
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const droppedLogs = consoleSpy.mock.calls.filter(
+        ([msg]) =>
+          typeof msg === 'string' && msg.includes('Dropped 1 events after 3'),
+      );
+      expect(droppedLogs).toHaveLength(1);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not log the exhaustion warning when a retry eventually succeeds', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      let requestCount = 0;
+      fetchMock.mockImplementation(async () => {
+        requestCount++;
+        if (requestCount < 3) {
+          return new Response('err', { status: 500 });
+        }
+        return jsonResponse({ ok: true });
+      });
+
+      const tracker = createTracker();
+      tracker.trackRead();
+      await tracker.flush();
+
+      const droppedLogs = consoleSpy.mock.calls.filter(
+        ([msg]) => typeof msg === 'string' && msg.includes('Dropped'),
+      );
+      expect(droppedLogs).toHaveLength(0);
+
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('batch size limit', () => {

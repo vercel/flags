@@ -392,6 +392,86 @@ function handleOutcome<T>(
         outcomeType: OutcomeType.SPLIT,
       };
     }
+    case 'rollout': {
+      const lhs = access(outcome.base, params);
+      const defaultOutcome = getVariant<T>(
+        params.definition.variants,
+        outcome.defaultVariant,
+      );
+
+      // serve the default variant if the lhs is not a string
+      if (typeof lhs !== 'string') {
+        return { value: defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+      }
+
+      // Determine active slot based on elapsed time
+      const now = Date.now();
+      const elapsed = now - outcome.startTimestamp;
+
+      // Before rollout starts or no slots, serve rollFromVariant
+      if (elapsed < 0 || outcome.slots.length === 0) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollFromVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+
+      // Walk slots to find current promille.
+      // Each slot's durationMs is how long that slot is served before
+      // moving to the next one. Once all slots are exhausted the
+      // rollout is complete (100% to rollToVariant).
+      let cumulativeDuration = 0;
+      let currentPromille = 0;
+      let exhausted = true;
+      for (const [promille, durationMs] of outcome.slots) {
+        currentPromille = promille;
+        cumulativeDuration += durationMs;
+        if (cumulativeDuration > elapsed) {
+          exhausted = false;
+          break;
+        }
+      }
+      if (exhausted) currentPromille = 100_000;
+
+      // short-circuit common edges
+      if (currentPromille <= 0) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollFromVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+      if (currentPromille >= 100_000) {
+        return {
+          value: getVariant<T>(
+            params.definition.variants,
+            outcome.rollToVariant,
+          ),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+
+      /** 2^32-1 */
+      const maxValue = 4_294_967_295;
+      const value = hashInput(lhs, params.definition.seed);
+      const threshold = (currentPromille / 100_000) * maxValue;
+
+      return {
+        value:
+          value < threshold
+            ? getVariant<T>(params.definition.variants, outcome.rollToVariant)
+            : getVariant<T>(
+                params.definition.variants,
+                outcome.rollFromVariant,
+              ),
+        outcomeType: OutcomeType.ROLLOUT,
+      };
+    }
     default: {
       const { type } = outcome;
       exhaustivenessCheck(type);

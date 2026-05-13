@@ -1,8 +1,6 @@
 "use client";
 
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { NextLogo } from "@/components/custom/logos/next";
-import { SvelteKitLogo } from "@/components/custom/logos/sveltekit";
 import {
   type CSSProperties,
   type ReactNode,
@@ -11,20 +9,11 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { NextLogo } from "@/components/custom/logos/next";
+import { SvelteKitLogo } from "@/components/custom/logos/sveltekit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-type CodeBlockProps = {
-  children: ReactNode;
-  className?: string;
-  icon?: ReactNode;
-  style?: CSSProperties;
-  tabIndex?: number;
-  title?: string;
-  "data-line-numbers"?: string;
-  "data-line-highlighting"?: string;
-};
 
 const FRAMEWORK_ICONS: Record<string, ReactNode> = {
   next: <NextLogo className="dark:invert" />,
@@ -37,30 +26,32 @@ function parseFrameworkFromTitle(title: string): {
 } {
   const match = title.match(/#(\w+)$/);
   if (!match) return { cleanTitle: title, frameworkIcon: undefined };
-  const framework = match[1];
   return {
     cleanTitle: title.slice(0, -match[0].length),
-    frameworkIcon: FRAMEWORK_ICONS[framework],
+    frameworkIcon: FRAMEWORK_ICONS[match[1]],
   };
+}
+
+interface CodeBlockProps {
+  children: ReactNode;
+  className?: string;
+  "data-line-highlighting"?: string;
+  "data-line-numbers"?: string;
+  icon?: ReactNode;
+  style?: CSSProperties;
+  tabIndex?: number;
+  title?: string;
 }
 
 export const CodeBlock = ({
   children,
   className,
-  icon: iconProp,
+  icon,
   style,
   tabIndex,
-  title: titleProp,
+  title,
   ...rest
 }: CodeBlockProps) => {
-  const { cleanTitle: title, frameworkIcon } = titleProp
-    ? parseFrameworkFromTitle(titleProp)
-    : { cleanTitle: titleProp, frameworkIcon: undefined };
-  const icon = frameworkIcon ?? (
-    typeof iconProp === "string"
-      ? <div dangerouslySetInnerHTML={{ __html: iconProp }} />
-      : iconProp
-  );
   const ref = useRef<HTMLPreElement>(null);
   const [isCopied, setIsCopied] = useState(false);
   const { "data-line-numbers": lineNumbers } = rest;
@@ -128,14 +119,24 @@ export const CodeBlock = ({
     );
   }
 
+  const { cleanTitle, frameworkIcon } = parseFrameworkFromTitle(title);
+
   return (
     <Card className="not-prose mb-6 gap-0 overflow-hidden rounded-sm p-0 shadow-none">
       <CardHeader className="flex items-center gap-2 border-b bg-sidebar py-1.5! pr-1.5 pl-4 text-muted-foreground">
-        {icon ? (
-          <div className="size-3.5 shrink-0 [&>svg]:size-full">{icon}</div>
-        ) : null}
+        {frameworkIcon ? (
+          <div className="flex size-3.5 shrink-0 items-center justify-center">
+            {frameworkIcon}
+          </div>
+        ) : (
+          <div
+            className="flex size-3.5 shrink-0"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required for icon prop."
+            dangerouslySetInnerHTML={{ __html: icon as unknown as TrustedHTML }}
+          />
+        )}
         <CardTitle className="flex-1 font-mono font-normal text-sm tracking-tight">
-          {title}
+          {cleanTitle}
         </CardTitle>
         <Button
           className={cn("shrink-0", className)}

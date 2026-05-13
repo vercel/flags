@@ -8,6 +8,7 @@ import {
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
+  installAudienceFlag,
   rootFlags,
 } from '@/flags';
 import HeroImage from './components/hero-image';
@@ -15,6 +16,7 @@ import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
 import { CopySnippet } from './copy-snippet';
 import { HighlightedCode } from './highlighted-code';
+import { InstallCommand } from './install-command';
 import { FlagSelect, FlagToggle } from './toggles';
 
 const FEATURES = [
@@ -71,11 +73,13 @@ export default async function HomePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [bannerFlag, ditheredHeroFlag, heroTextFlag] = await Promise.all([
-    enableBannerFlag(code, rootFlags),
-    enableDitheredHeroFlag(code, rootFlags),
-    enableHeroTextFlag(code, rootFlags),
-  ]);
+  const [bannerFlag, ditheredHeroFlag, heroTextFlag, installAudience] =
+    await Promise.all([
+      enableBannerFlag(code, rootFlags),
+      enableDitheredHeroFlag(code, rootFlags),
+      enableHeroTextFlag(code, rootFlags),
+      installAudienceFlag(code, rootFlags),
+    ]);
 
   return (
     <div className="container mx-auto max-w-5xl">
@@ -84,6 +88,7 @@ export default async function HomePage({
           [enableBannerFlag.key]: bannerFlag,
           [enableDitheredHeroFlag.key]: ditheredHeroFlag,
           [enableHeroTextFlag.key]: heroTextFlag,
+          [installAudienceFlag.key]: installAudience,
         }}
       />
 
@@ -97,17 +102,15 @@ export default async function HomePage({
             Flags SDK is a free, open-source library for using feature flags in
             Next.js and SvelteKit.
           </p>
-          <div className="mt-6 inline-flex w-fit items-center gap-3">
-            <Button size="lg" asChild>
-              <Link href="/frameworks/next">Get Started</Link>
-            </Button>
-            <CopySnippet text="npm i flags" />
-          </div>
+          <InstallCommand
+            flagKey={installAudienceFlag.key}
+            value={installAudience}
+          />
         </div>
         <div className="relative p-4 sm:p-6">
           {ditheredHeroFlag ? <HeroImage /> : null}
 
-          <div className="relative rounded-xl border bg-background p-4 shadow-md md:p-6">
+          <div className="relative rounded-xl bg-background p-4 md:p-6 shadow-(--ds-shadow-menu)">
             <div className="flex flex-col gap-y-1 px-2">
               <div className="mb-0.5 font-semibold text-lg tracking-tight">
                 Try the Flags SDK

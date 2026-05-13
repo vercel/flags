@@ -1,0 +1,7 @@
+# Release plumbing — the workflow filename is bound to npm Trusted Publisher
+# config, so a rename or behavioural change is a security-relevant edit.
+# Keep these locked to maintainers explicitly.
+/.github/workflows/release.yml @dferber90
+/.github/workflows/tag-canary.yaml @dferber90
+/.changeset/config.json           @dferber90
+/.github/CODEOWNERS               @dferber90

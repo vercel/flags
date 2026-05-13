@@ -60,16 +60,20 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 Ensure you have a  `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work. It must contain a random string of 32 characters, encoded as Base64.
 
-Generate a random value using the following command:
+Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
+
+Generate a random value using the following command, and run it once per environment to produce distinct values:
 
 ```sh title="Terminal"
 node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
 ```
 
-Create the environment variable on Vercel, and fill with the generated random value:
+Create the environment variable on Vercel for each environment, filling in the generated values:
 
 ```sh title="Terminal"
-vc env add FLAGS_SECRET
+vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
+vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
+vercel env add FLAGS_SECRET development --value <development-secret>
 ```
 
 Pull the environment variable to your local project:
@@ -360,7 +364,7 @@ Note that you will need to manually maintain the paths in Proxy for which the re
 
 ### Multiple groups
 
-Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by eacha subset of your pages. 
+Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by eacha subset of your pages.
 
 For example, you can have a root group of flags which apply to all pages, and a nested group of flags which only apply to a single page or subset of pages. Create a root `[rootCode]` at the root of your application for the common flags, and a `[pricingCode]` for the flags used by the pricing page.
 

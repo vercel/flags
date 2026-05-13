@@ -105,6 +105,12 @@ const config: NextConfig = {
       '/home-a': '/',
       '/home-a/page.tsx': '/',
       '/home-b': '/',
+      "/docs/core-concepts/precompute": "/principles/precompute",
+
+      // -----------------------------------------------------------------------
+      // Shortcuts
+      // -----------------------------------------------------------------------
+      "/precompute": "/frameworks/next/precompute",
     };
 
     return [

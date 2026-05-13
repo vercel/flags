@@ -42,13 +42,17 @@ npm i -g vercel@latest
    ```sh title="Terminal"
    vc link
    ```
-3. Add `FLAGS_SECRET` environment variable. Run this command to create a secret:
+3. Add the `FLAGS_SECRET` environment variable. Use a separate value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
+
+   Run this command once per environment to generate distinct secrets:
    ```sh title="Terminal"
    node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
    ```
-   Then store the secret as the `FLAGS_SECRET` environment variable, and select all environments when prompted.
+   Then store each secret as the `FLAGS_SECRET` environment variable for the matching environment:
    ```sh title="Terminal"
-   vc env add FLAGS_SECRET
+   vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
+   vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
+   vercel env add FLAGS_SECRET development --value <development-secret>
    ```
 4. Finally, pull any env vars from your project on Vercel locally
    ```sh title="Terminal"

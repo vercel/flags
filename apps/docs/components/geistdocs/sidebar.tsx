@@ -13,7 +13,6 @@ import type { SidebarPageTreeComponents } from "fumadocs-ui/components/sidebar/p
 import { useTreeContext, useTreePath } from "fumadocs-ui/contexts/tree";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef } from "react";
-import { FrameworkSwitcher } from "@/components/custom/framework-switcher";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { FrameworkSwitcher } from "@/components/custom/framework-switcher";
 import { useSidebarContext } from "@/hooks/geistdocs/use-sidebar";
 import { SearchButton } from "./search";
 
@@ -65,7 +65,7 @@ export const Sidebar = () => {
         <Fragment key={root.$id}>{renderSidebarList(root.children)}</Fragment>
       </div>
       <Sheet onOpenChange={setIsOpen} open={isOpen}>
-        <SheetContent className="gap-0">
+        <SheetContent className="gap-0" side="left">
           <SheetHeader className="mt-8">
             <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
             <SheetDescription className="sr-only">

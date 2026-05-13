@@ -36,8 +36,21 @@ export const enableHeroTextFlag = flag<string>({
   },
 });
 
+export const installAudienceFlag = flag<'humans' | 'agents'>({
+  key: 'install-audience',
+  description: 'Default tab of the hero install-command switcher',
+  options: ['humans', 'agents'],
+  decide({ cookies }) {
+    const cookieValue = cookies.get(this.key)?.value;
+    return cookieValue === 'humans' || cookieValue === 'agents'
+      ? cookieValue
+      : 'agents';
+  },
+});
+
 export const rootFlags = [
   enableBannerFlag,
   enableHeroTextFlag,
   enableDitheredHeroFlag,
+  installAudienceFlag,
 ] as const;

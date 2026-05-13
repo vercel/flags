@@ -1,5 +1,16 @@
 # @flags-sdk/vercel
 
+## 1.3.0
+
+### Minor Changes
+
+- 80dcdad: Add progressive rollout outcome
+
+### Patch Changes
+
+- Updated dependencies [80dcdad]
+  - @vercel/flags-core@1.4.0
+
 ## 1.2.1
 
 ### Patch Changes
