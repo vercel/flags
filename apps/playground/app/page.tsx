@@ -1,3 +1,4 @@
+import { bulk } from 'flags/next';
 import Image from 'next/image';
 import Link from 'next/link';
 import * as flags from '../flags';
@@ -32,7 +33,12 @@ async function measureParallel() {
 }
 
 async function measureBulk() {
-  return measureParallel();
+  const before = Date.now();
+  const resolved = await bulk(flags);
+  const after = Date.now();
+  const duration = after - before;
+
+  return { duration, resolved };
 }
 
 function getMode(modeParam: string | undefined): Mode {
