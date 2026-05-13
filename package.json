@@ -27,6 +27,7 @@
     "shirt-shop": "pnpm dev -F shirt-shop",
     "shirt-shop-api": "pnpm dev -F shirt-shop-api",
     "snippets": "pnpm dev -F snippets",
+    "playground": "pnpm dev -F playground",
     "svelte": "pnpm dev -F svelte-example",
     "test": "turbo test",
     "test:e2e": "turbo test:e2e",
