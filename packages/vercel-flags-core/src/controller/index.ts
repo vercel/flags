@@ -96,6 +96,12 @@ export class Controller implements ControllerInterface {
   // Data state — tagged with origin
   private data: TaggedData | undefined;
 
+  // Memoized data spread for read() / getDatafile().
+  // Rebuilt only when `this.data` reference changes (e.g. on stream/poll update).
+  // Holds the result of stripping `_origin`; metrics are appended per-call.
+  private dataViewSource: TaggedData | undefined = undefined;
+  private dataViewBase: DatafileInput | undefined = undefined;
+
   // Sources (I/O delegates)
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
@@ -316,12 +322,17 @@ export class Controller implements ControllerInterface {
     const [result, cacheStatus] = await this.resolveData();
 
     const readMs = Date.now() - startTime;
-    const { _origin, ...data } = result;
-    const source = originToMetricsSource(_origin);
+    const source = originToMetricsSource(result._origin);
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
+    if (this.dataViewSource !== result) {
+      const { _origin, ...rest } = result;
+      this.dataViewBase = rest;
+      this.dataViewSource = result;
+    }
+
     return {
-      ...data,
+      ...(this.dataViewBase as DatafileInput),
       metrics: {
         readMs,
         source,
@@ -394,8 +405,14 @@ export class Controller implements ControllerInterface {
 
     const source = originToMetricsSource(result._origin);
 
+    if (this.dataViewSource !== result) {
+      const { _origin, ...rest } = result;
+      this.dataViewBase = rest;
+      this.dataViewSource = result;
+    }
+
     return {
-      ...result,
+      ...(this.dataViewBase as DatafileInput),
       metrics: {
         readMs: Date.now() - startTime,
         source,
