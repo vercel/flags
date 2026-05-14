@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/vercel",
-  "version": "1.3.0",
+  "version": "1.3.0-bulk.0",
   "description": "",
   "keywords": [],
   "license": "MIT",
@@ -35,7 +35,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/flags-core": "workspace:*"
+    "@vercel/flags-core": "https://67qyyqfpszu3ptbw.public.blob.vercel-storage.com/flags-sdk-bulk-eval/vercel-flags-core-1.4.0-bulk.0.tgz"
   },
   "devDependencies": {
     "@types/node": "20.11.17",
