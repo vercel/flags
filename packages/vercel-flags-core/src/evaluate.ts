@@ -11,6 +11,7 @@ import {
 type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
+const MAX_REGEX_PATTERN_LENGTH = 1000;
 
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
@@ -259,7 +260,9 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            typeof rhs.pattern === 'string' &&
+            rhs.pattern.length <= MAX_REGEX_PATTERN_LENGTH
           ) {
             return new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }
@@ -271,7 +274,9 @@ function matchConditions<T>(
             lhs.length <= MAX_REGEX_INPUT_LENGTH &&
             typeof rhs === 'object' &&
             !Array.isArray(rhs) &&
-            rhs?.type === 'regex'
+            rhs?.type === 'regex' &&
+            typeof rhs.pattern === 'string' &&
+            rhs.pattern.length <= MAX_REGEX_PATTERN_LENGTH
           ) {
             return !new RegExp(rhs.pattern, rhs.flags).test(lhs);
           }
