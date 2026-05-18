@@ -12,6 +12,34 @@ type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
 
+/** uint32 max — domain of xxHash32 output, used for split/rollout thresholds */
+const UINT32_MAX = 4_294_967_295;
+
+// Symbol-keyed caches attached to outcome / rhs objects on first evaluation.
+// Symbols are invisible to JSON.stringify, for..in, and Object.keys, so they
+// don't leak into serialized datafiles or surprise consumers.
+const SCALED_WEIGHTS = Symbol('@vercel/flags-core:scaledWeights');
+const COMPILED_REGEX = Symbol('@vercel/flags-core:compiledRegex');
+
+function getScaledWeights(outcome: Packed.SplitOutcome): number[] {
+  const cached = (outcome as unknown as Record<symbol, number[]>)[
+    SCALED_WEIGHTS
+  ];
+  if (cached) return cached;
+  const total = sum(outcome.weights);
+  const scaled = outcome.weights.map((w) => (w / total) * UINT32_MAX);
+  (outcome as unknown as Record<symbol, number[]>)[SCALED_WEIGHTS] = scaled;
+  return scaled;
+}
+
+function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
+  const cached = (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX];
+  if (cached) return cached;
+  const compiled = new RegExp(rhs.pattern, rhs.flags);
+  (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX] = compiled;
+  return compiled;
+}
+
 function exhaustivenessCheck(_: never): never {
   throw new Error('Exhaustiveness check failed');
 }
@@ -261,7 +289,7 @@ function matchConditions<T>(
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
           ) {
-            return new RegExp(rhs.pattern, rhs.flags).test(lhs);
+            return getCompiledRegex(rhs).test(lhs);
           }
           return false;
 
@@ -273,7 +301,7 @@ function matchConditions<T>(
             !Array.isArray(rhs) &&
             rhs?.type === 'regex'
           ) {
-            return !new RegExp(rhs.pattern, rhs.flags).test(lhs);
+            return !getCompiledRegex(rhs).test(lhs);
           }
           return false;
         case Comparator.BEFORE: {
@@ -371,19 +399,14 @@ function handleOutcome<T>(
         return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
       }
 
-      /** 2^32-1 */
-      const maxValue = 4_294_967_295;
       /**
        * (xxHash32): turns the string into a number between 0 and 2^32-1 (max uint32 value)
        * Since we know the range of the hash function, we don't use modulo here. If we change
-       * the hash function, or if the range changes, we should add a modulo here and/or adjust maxValue.
+       * the hash function, or if the range changes, we should add a modulo here and/or adjust UINT32_MAX.
        */
       const value = hashInput(lhs, params.definition.seed);
-      const sumOfWeights = sum(outcome.weights);
-      const scaledWeights = outcome.weights.map(
-        (weight) => (weight / sumOfWeights) * maxValue,
-      );
-      const variantIndex = findWeightedIndex(scaledWeights, value, maxValue);
+      const scaledWeights = getScaledWeights(outcome);
+      const variantIndex = findWeightedIndex(scaledWeights, value, UINT32_MAX);
       return {
         value:
           variantIndex === -1
@@ -456,10 +479,8 @@ function handleOutcome<T>(
         };
       }
 
-      /** 2^32-1 */
-      const maxValue = 4_294_967_295;
       const value = hashInput(lhs, params.definition.seed);
-      const threshold = (currentPromille / 100_000) * maxValue;
+      const threshold = (currentPromille / 100_000) * UINT32_MAX;
 
       return {
         value:
