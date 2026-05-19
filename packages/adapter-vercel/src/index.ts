@@ -88,6 +88,10 @@ export function vercelAdapter<ValueType, EntitiesType>(): Adapter<
 
 const flagsClients = new Map<string | undefined, FlagsClient>();
 
+/**
+ * Ensures we only ever create a single client per SDK Key
+ * When undefined is passed, due to OIDC being used, then we return a single client too.
+ **/
 function getOrCreateClient(sdkKey?: string): FlagsClient {
   let client = flagsClients.get(sdkKey);
   if (!client) {

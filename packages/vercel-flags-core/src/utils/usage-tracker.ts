@@ -1,7 +1,7 @@
 import { waitUntil } from '@vercel/functions';
 import { version } from '../../package.json';
-import { getJitteredWaitMs, getRetryDelayMs } from './backoff';
 import type { Auth } from '../controller/auth';
+import { getJitteredWaitMs, getRetryDelayMs } from './backoff';
 
 const RESOLVED_VOID: Promise<void> = Promise.resolve();
 
