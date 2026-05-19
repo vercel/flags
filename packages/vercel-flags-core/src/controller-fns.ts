@@ -152,7 +152,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
 
     const results: Record<string, EvaluationResult<T>> = {};
     for (const flag of flags) {
-      results[flag.flagKey] = {
+      results[flag.key] = {
         value: flag.defaultValue,
         reason: ResolutionReason.ERROR,
         errorMessage,
@@ -174,30 +174,28 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   const toEvaluate: Record<string, BulkEvaluationInput<T>> = {};
 
   for (const flag of flags) {
-    const { flagKey, defaultValue } = flag;
-    const flagDefinition = datafile.definitions[
-      flagKey
-    ] as Packed.FlagDefinition;
+    const { key, defaultValue } = flag;
+    const flagDefinition = datafile.definitions[key] as Packed.FlagDefinition;
 
     if (flagDefinition === undefined) {
       if (projectId) {
-        internalReportValue(flagKey, defaultValue, {
+        internalReportValue(key, defaultValue, {
           originProjectId: projectId,
           originProvider: 'vercel',
           reason: ResolutionReason.ERROR,
         });
       }
-      results[flagKey] = {
+      results[key] = {
         value: defaultValue,
         reason: ResolutionReason.ERROR,
         errorCode: ErrorCode.FLAG_NOT_FOUND,
-        errorMessage: `@vercel/flags-core: Definition not found for flag "${flagKey}"`,
+        errorMessage: `@vercel/flags-core: Definition not found for flag "${key}"`,
         metrics: { evaluationMs: 0, ...baseMetrics },
       };
       continue;
     }
 
-    toEvaluate[flagKey] = { definition: flagDefinition, defaultValue };
+    toEvaluate[key] = { definition: flagDefinition, defaultValue };
   }
 
   const evalStartTime = Date.now();
@@ -208,10 +206,10 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 
-  for (const flagKey in toEvaluate) {
-    const result = evaluated[flagKey]!;
+  for (const key in toEvaluate) {
+    const result = evaluated[key]!;
     if (projectId) {
-      internalReportValue(flagKey, result.value, {
+      internalReportValue(key, result.value, {
         originProjectId: projectId,
         originProvider: 'vercel',
         reason: result.reason,
@@ -221,7 +219,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
             : undefined,
       });
     }
-    results[flagKey] = Object.assign(result, {
+    results[key] = Object.assign(result, {
       metrics: { evaluationMs: evaluationDurationMs, ...baseMetrics },
     });
   }

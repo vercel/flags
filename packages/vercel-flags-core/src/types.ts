@@ -119,7 +119,7 @@ export type Source = {
  * Input for a single flag in a bulk evaluation call.
  */
 export type BulkEvaluateInput<T = Value> = {
-  flagKey: string;
+  key: string;
   defaultValue?: T;
 };
 
@@ -157,9 +157,9 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    *
    * Requires initialize() to have been called and awaited first.
    *
-   * @param flags Array of `{ flagKey, defaultValue? }` entries to evaluate.
+   * @param flags Array of `{ key, defaultValue? }` entries to evaluate.
    * @param entities Shared entities used for every flag in the bulk call.
-   * @returns Object mapping each flagKey to its EvaluationResult.
+   * @returns Object mapping each key to its EvaluationResult.
    */
   bulkEvaluate: <T = Value, E = Entities>(
     flags: BulkEvaluateInput<T>[],

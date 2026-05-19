@@ -156,8 +156,8 @@ describe('createVercelAdapter', () => {
       expect(bulkEvaluateMock).toHaveBeenCalledTimes(1);
       expect(bulkEvaluateMock).toHaveBeenCalledWith(
         [
-          { flagKey: 'a', defaultValue: 'da' },
-          { flagKey: 'b', defaultValue: undefined },
+          { key: 'a', defaultValue: 'da' },
+          { key: 'b', defaultValue: undefined },
         ],
         { user: { id: 'u1' } },
       );
