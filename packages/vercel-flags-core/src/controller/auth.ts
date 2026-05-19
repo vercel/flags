@@ -11,6 +11,20 @@ export interface Auth {
   resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup>;
 }
 
+async function getOidcToken(): Promise<string> {
+  try {
+    return await getVercelOidcToken();
+  } catch {
+    throw new Error(
+      [
+        '@vercel/flags-core: Failed to get OIDC token.',
+        'Are you running in a Vercel Environment where OIDC tokens are available?',
+        'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
+      ].join(' '),
+    );
+  }
+}
+
 function getProjectIdFromOidcToken(oidcToken: string): string {
   const tokenParts = oidcToken.split('.');
   if (tokenParts.length !== 3 || !tokenParts[1]) {
@@ -33,7 +47,7 @@ function getProjectIdFromOidcToken(oidcToken: string): string {
 export class Authentication implements Auth {
   public readonly sdkKey?: string;
 
-  constructor(sdkKeyOrConnectionString?: string) {
+  constructor(sdkKeyOrConnectionString: string | undefined) {
     // validate sdk key format
     if (sdkKeyOrConnectionString !== undefined) {
       if (typeof sdkKeyOrConnectionString !== 'string') {
@@ -59,7 +73,7 @@ export class Authentication implements Auth {
       return this.sdkKey;
     }
 
-    return await getVercelOidcToken();
+    return await getOidcToken();
   }
 
   public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
