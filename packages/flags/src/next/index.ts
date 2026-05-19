@@ -307,24 +307,38 @@ export async function bulk<T extends BulkFlags>(
               : undefined;
             const entitiesKey = JSON.stringify(entities) ?? '';
 
-            // Call bulkDecide. If it throws, every flag in the group still
-            // goes through `applyResult` — its producer just rethrows, so
-            // the catch arm handles the per-flag defaultValue fallback (or
+            // Skip flags already resolved this request — `applyResult` would
+            // discard the bulk result for them anyway. If every flag in the
+            // group is cached, the adapter call is avoided entirely.
+            const uncached = list.filter(
+              ({ flagFn }) =>
+                getCachedValuePromise(
+                  readonlyHeaders,
+                  flagFn.key,
+                  entitiesKey,
+                ) === undefined,
+            );
+
+            // Call bulkDecide. If it throws, every uncached flag still goes
+            // through `applyResult` — its producer just rethrows, so the
+            // catch arm handles the per-flag defaultValue fallback (or
             // rejects for flags without a defaultValue).
             let bulkResult: Record<string, any> | null = null;
             let bulkError: unknown = null;
-            try {
-              bulkResult = await adapter.bulkDecide!({
-                flags: list.map(({ flagFn }) => ({
-                  key: flagFn.key,
-                  defaultValue: flagFn.defaultValue,
-                })),
-                entities,
-                headers: readonlyHeaders,
-                cookies: readonlyCookies,
-              });
-            } catch (err) {
-              bulkError = err;
+            if (uncached.length > 0) {
+              try {
+                bulkResult = await adapter.bulkDecide!({
+                  flags: uncached.map(({ flagFn }) => ({
+                    key: flagFn.key,
+                    defaultValue: flagFn.defaultValue,
+                  })),
+                  entities,
+                  headers: readonlyHeaders,
+                  cookies: readonlyCookies,
+                });
+              } catch (err) {
+                bulkError = err;
+              }
             }
 
             await Promise.all(
