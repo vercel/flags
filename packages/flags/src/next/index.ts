@@ -210,14 +210,21 @@ interface BulkStoreData {
 
 const bulkStore = new AsyncLocalStorage<BulkStoreData>();
 
-type BulkFlags = Record<string, Flag<any, any>>;
-type BulkResult<T extends BulkFlags> = {
-  [K in keyof T]: T[K] extends Flag<infer V, any> ? V : never;
-};
+// Distributive value extraction. `Flag` is itself a union
+// (AppRouterFlag | PagesRouterFlag | PrecomputedFlag), so inferring V against
+// a union element type only works when the conditional's check type is a
+// naked type parameter — hence the helper.
+type BulkValue<F> = F extends Flag<infer V, any> ? V : never;
 
-export async function bulk<T extends BulkFlags>(
+export async function bulk<T extends Record<string, Flag<any, any>>>(
   flags: T,
-): Promise<BulkResult<T>> {
+): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
+export async function bulk<const T extends readonly Flag<any, any>[]>(
+  flags: T,
+): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
+export async function bulk(
+  flags: Record<string, Flag<any, any>> | readonly Flag<any, any>[],
+): Promise<any> {
   // Read headers & cookies once
   if (!headersModulePromise) headersModulePromise = import('next/headers');
   if (!headersModule) headersModule = await headersModulePromise;
@@ -380,9 +387,9 @@ export async function bulk<T extends BulkFlags>(
 
     await Promise.all(groupPromises);
 
-    const result = {} as BulkResult<T>;
+    const result: any = Array.isArray(flags) ? new Array(entries.length) : {};
     for (const [name] of entries) {
-      (result as any)[name] = valuesByName[name];
+      result[name] = valuesByName[name];
     }
     return result;
   });
