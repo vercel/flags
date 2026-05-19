@@ -768,8 +768,8 @@ describe('bulk', () => {
   });
 
   // Factory that mints adapters all sharing the same closure-captured id.
-  // Each call returns a fresh adapter object (mirroring the playground
-  // pattern: every flag does `adapter: makeAdapter()`).
+  // Each call returns a fresh adapter object (mirroring the
+  // pattern where every flag does `adapter: adapter()`).
   function makeBulkAdapter<V>(opts?: {
     bulkDecide?: Adapter<V, any>['bulkDecide'];
     decide?: Adapter<V, any>['decide'];

@@ -359,9 +359,6 @@ export async function bulk<T extends BulkFlags>(
       );
     }
 
-    console.log('groupPromises', groupPromises.length);
-    console.log('standalone', standalone.length);
-
     await Promise.all(groupPromises);
 
     const result = {} as BulkResult<T>;
