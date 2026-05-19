@@ -254,16 +254,21 @@ export async function bulk<T extends BulkFlags>(
   return bulkStore.run(storeData, async () => {
     const entries = Object.entries(flags);
 
-    type Entry = { name: string; flagFn: Flag<any, any> };
-    const standalone: Entry[] = [];
+    const standalone: { name: string; flagFn: Flag<any, any> }[] = [];
     // adapterId -> identifyRef -> { adapter, entries }
     const groups = new Map<
       string | symbol,
-      Map<unknown, { adapter: Adapter<any, any>; entries: Entry[] }>
+      Map<
+        unknown,
+        {
+          adapter: Adapter<any, any>;
+          entries: { name: string; flagFn: Flag<any, any> }[];
+        }
+      >
     >();
 
     for (const [name, flagFn] of entries) {
-      const entry: Entry = { name, flagFn };
+      const entry = { name, flagFn };
       if (!(flagFn as any)[BULKABLE]) {
         standalone.push(entry);
         continue;
@@ -289,7 +294,7 @@ export async function bulk<T extends BulkFlags>(
     const valuesByName: Record<string, any> = {};
     const groupPromises: Promise<void>[] = [];
 
-    for (const [, byIdentify] of groups) {
+    for (const byIdentify of groups.values()) {
       for (const [identifyRef, { adapter, entries: list }] of byIdentify) {
         groupPromises.push(
           (async () => {
@@ -376,8 +381,8 @@ export async function bulk<T extends BulkFlags>(
     await Promise.all(groupPromises);
 
     const result = {} as BulkResult<T>;
-    for (let i = 0; i < entries.length; i++) {
-      (result as any)[entries[i]![0]] = valuesByName[entries[i]![0]];
+    for (const [name] of entries) {
+      (result as any)[name] = valuesByName[name];
     }
     return result;
   });
