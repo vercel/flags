@@ -1,67 +1,8 @@
-import { bulk } from 'flags/next';
 import Image from 'next/image';
-import Link from 'next/link';
-import * as flags from '../flags';
+import { jsonFlag } from '../flags';
 
-type Mode = 'sequential' | 'parallel' | 'bulk';
-
-async function measureSequential() {
-  const resolved: Record<string, unknown> = {};
-  const before = Date.now();
-  for (const [, flag] of Object.entries(flags)) {
-    const value = await flag();
-    resolved[flag.key] = value;
-  }
-  const after = Date.now();
-  const duration = after - before;
-
-  return { duration, resolved };
-}
-
-async function measureParallel() {
-  const resolved: Record<string, unknown> = {};
-  const before = Date.now();
-  const promises = Object.entries(flags).map(async ([, flag]) => {
-    const value = await flag();
-    resolved[flag.key] = value;
-  });
-  await Promise.all(promises);
-  const after = Date.now();
-  const duration = after - before;
-
-  return { duration, resolved };
-}
-
-async function measureBulk() {
-  const before = Date.now();
-  const resolved = await bulk(flags);
-  const after = Date.now();
-  const duration = after - before;
-
-  return { duration, resolved };
-}
-
-function getMode(modeParam: string | undefined): Mode {
-  return modeParam === 'parallel'
-    ? 'parallel'
-    : modeParam === 'bulk'
-      ? 'bulk'
-      : 'sequential';
-}
-
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ mode?: string }>;
-}) {
-  const { mode: modeParam } = await searchParams;
-  const mode: Mode = getMode(modeParam);
-  const result =
-    mode === 'parallel'
-      ? await measureParallel()
-      : mode === 'bulk'
-        ? await measureBulk()
-        : await measureSequential();
+export default async function Home() {
+  const data = await jsonFlag();
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -75,44 +16,7 @@ export default async function Home({
           priority
         />
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <div className="flex gap-2 rounded-full border border-black/[.08] p-1 dark:border-white/[.145]">
-            <Link
-              href="/?mode=sequential"
-              prefetch={false}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                mode === 'sequential'
-                  ? 'bg-black text-white dark:bg-white dark:text-black'
-                  : 'text-zinc-600 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]'
-              }`}
-            >
-              Sequential
-            </Link>
-            <Link
-              href="/?mode=parallel"
-              prefetch={false}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                mode === 'parallel'
-                  ? 'bg-black text-white dark:bg-white dark:text-black'
-                  : 'text-zinc-600 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]'
-              }`}
-            >
-              Parallel
-            </Link>
-            <Link
-              href="/?mode=bulk"
-              prefetch={false}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                mode === 'bulk'
-                  ? 'bg-black text-white dark:bg-white dark:text-black'
-                  : 'text-zinc-600 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]'
-              }`}
-            >
-              Bulk
-            </Link>
-          </div>
-          <pre>
-            {JSON.stringify({ mode, duration: result.duration }, null, 2)}
-          </pre>
+          <pre>{JSON.stringify(data, null, 2)}</pre>
           <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
             To get started, edit the page.tsx file.
           </h1>
