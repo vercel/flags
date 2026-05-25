@@ -1,10 +1,19 @@
 {
   "name": "@vercel/prepare-flags-definitions",
   "version": "0.2.1",
-  "description": "",
-  "keywords": [],
+  "description": "A utility for preparing flags definitions for embedding",
+  "keywords": [
+    "flags",
+    "flags sdk",
+    "experimentation",
+    "ab testing"
+  ],
   "license": "MIT",
-  "author": "",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {

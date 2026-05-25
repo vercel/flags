@@ -1,12 +1,19 @@
 {
   "name": "@flags-sdk/optimizely",
   "version": "0.1.1",
-  "description": "",
-  "keywords": [],
+  "description": "A provider for the Flags Explorer",
+  "keywords": [
+    "optimizely",
+    "flags explorer"
+  ],
   "license": "MIT",
-  "author": "",
+  "author": "Dominik Ferber <dominik@vercel.com>",
   "sideEffects": false,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",

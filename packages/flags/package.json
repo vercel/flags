@@ -10,6 +10,7 @@
     "overrides",
     "SvelteKit"
   ],
+  "author": "Dominik Ferber <dominik@vercel.com>",
   "homepage": "https://flags-sdk.dev",
   "bugs": {
     "url": "https://github.com/vercel/flags/issues"
