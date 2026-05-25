@@ -18,7 +18,7 @@
     "url": "git+https://github.com/vercel/flags.git"
   },
   "license": "MIT",
-  "author": "",
+  "author": "Dominik Ferber <dominik@vercel.com>",
   "sideEffects": false,
   "type": "module",
   "exports": {

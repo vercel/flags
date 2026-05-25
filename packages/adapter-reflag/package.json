@@ -19,7 +19,7 @@
     "url": "git+https://github.com/vercel/flags.git"
   },
   "license": "MIT",
-  "author": "",
+  "author": "Ron Cohen <cohen1@gmail.com>",
   "sideEffects": false,
   "type": "module",
   "exports": {
