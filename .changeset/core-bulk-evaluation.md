@@ -7,8 +7,8 @@ Add `bulkEvaluate` method to `FlagsClient` for resolving multiple flags against 
 ```ts
 const results = await client.bulkEvaluate(
   [
-    { flagKey: 'a', defaultValue: false },
-    { flagKey: 'b', defaultValue: 'off' },
+    { key: 'a', defaultValue: false },
+    { key: 'b', defaultValue: 'off' },
   ],
   entities,
 );
