@@ -10,6 +10,14 @@
     "type": "git",
     "url": "git+https://github.com/vercel/flags.git"
   },
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "keywords": [
+    "growthbook",
+    "flags",
+    "flags sdk",
+    "experimentation",
+    "ab testing"
+  ],
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
