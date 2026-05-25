@@ -77,6 +77,20 @@ jobs:
       - name: Validate SKILL.md files
         run: node scripts/validate-skills.mjs
 
+  packages:
+    name: "Packages"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: ".node-version"
+
+      - name: Validate package.json files
+        run: node scripts/validate-packages.mjs
+
   publint:
     name: "publint"
     runs-on: ubuntu-latest
