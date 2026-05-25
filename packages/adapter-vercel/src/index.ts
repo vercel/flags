@@ -66,7 +66,7 @@ export function createVercelAdapter(
       },
       async bulkDecide({ flags, entities }) {
         const results = await flagsClient.bulkEvaluate<ValueType, EntitiesType>(
-          flags.map((f) => ({ key: f.key, defaultValue: f.defaultValue })),
+          flags,
           entities,
         );
         const out: Record<string, ValueType> = {};
