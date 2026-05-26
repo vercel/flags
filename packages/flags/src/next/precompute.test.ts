@@ -18,7 +18,7 @@ import {
  * @param expected the expected permutations
  */
 async function expectPermutations(
-  group: Flag<any, any>[],
+  group: Flag<unknown, unknown>[],
   expected: unknown[],
   filter?: ((permutation: Record<string, JsonValue>) => boolean) | null,
 ) {

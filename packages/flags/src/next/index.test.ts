@@ -745,7 +745,7 @@ describe('adapters', () => {
       key: 'example-flag',
       defaultValue: outerValue,
       adapter: {
-        decide: ({ defaultValue }) => defaultValue || -1,
+        decide: ({ defaultValue }) => (defaultValue as number) || -1,
         origin: (key) => `fake-origin#${key}`,
       },
     });

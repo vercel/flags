@@ -163,7 +163,10 @@ export interface Adapter<ValueType, EntitiesType> {
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
-    defaultValue?: ValueType;
+    // Typed as `unknown` rather than `ValueType` so `ValueType` stays in
+    // output positions only. Keeping it covariant lets `Adapter<boolean>` and
+    // `Flag<boolean>` remain assignable to `Adapter<unknown>` / `Flag<unknown>`.
+    defaultValue?: unknown;
   }) => Promise<ValueType> | ValueType;
   /**
    * Optional batch hook used by `bulk()` to evaluate many flags that share
@@ -177,7 +180,9 @@ export interface Adapter<ValueType, EntitiesType> {
    *   flags without a `defaultValue`).
    */
   bulkDecide?: (params: {
-    flags: { key: string; defaultValue?: ValueType }[];
+    // `defaultValue` is `unknown` for the same reason as in `decide` above:
+    // it keeps `ValueType` covariant on `Adapter`.
+    flags: { key: string; defaultValue?: unknown }[];
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
