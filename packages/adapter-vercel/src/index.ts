@@ -65,8 +65,12 @@ export function createVercelAdapter(
         return evaluationResult.value;
       },
       async bulkDecide({ flags, entities }) {
+        // `flags` is typed `{ key: string; defaultValue?: unknown }[]` on
+        // `Adapter.bulkDecide` (to keep `ValueType` covariant). The client
+        // here narrows it back to `ValueType`; `defaultValue` is shuttled
+        // through opaquely so the cast is safe.
         const results = await flagsClient.bulkEvaluate<ValueType, EntitiesType>(
-          flags,
+          flags as { key: string; defaultValue?: ValueType }[],
           entities,
         );
         const out: Record<string, ValueType> = {};
