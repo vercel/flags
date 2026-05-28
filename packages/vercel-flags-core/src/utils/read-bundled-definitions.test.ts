@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Auth } from '../controller/auth';
 
 // The readBundledDefinitions function uses dynamic import which is hard to mock.
 // Instead, we test the behavior indirectly through the Controller
@@ -7,6 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('readBundledDefinitions', () => {
   const originalEnv = process.env;
+  const auth: Auth = {
+    sdkKey: 'test-id',
+    resolveToken: () => Promise.resolve('test-id'),
+    resolveBundledDefinitionsLookup: () =>
+      Promise.resolve({ type: 'sdk-key', sdkKey: 'test-id' }),
+  };
 
   beforeEach(() => {
     vi.resetModules();
@@ -26,7 +33,7 @@ describe('readBundledDefinitions', () => {
     expect(typeof readBundledDefinitions).toBe('function');
 
     // Calling it should return a promise (will likely fail since the module doesn't exist)
-    const result = readBundledDefinitions('test-id');
+    const result = readBundledDefinitions(auth);
     expect(result).toBeInstanceOf(Promise);
 
     // The result should have the expected shape
@@ -40,7 +47,7 @@ describe('readBundledDefinitions', () => {
       './read-bundled-definitions'
     );
 
-    const result = await readBundledDefinitions('nonexistent-id');
+    const result = await readBundledDefinitions(auth);
 
     // Since @vercel/flags-definitions/definitions.json doesn't exist in test env,
     // it should return either missing-file or unexpected-error
@@ -55,12 +62,43 @@ describe('readBundledDefinitions', () => {
       './read-bundled-definitions'
     );
 
-    const result = await readBundledDefinitions('nonexistent-id');
+    const result = await readBundledDefinitions(auth);
 
     expect(result).toEqual({
       definitions: null,
       state: 'missing-file',
     });
+  });
+
+  it('should read OIDC bundled definitions by project id', async () => {
+    const definitions = {
+      projectId: 'prj_test',
+      environment: 'production',
+      definitions: {},
+      configUpdatedAt: 1,
+      digest: 'digest',
+      revision: 1,
+    };
+    const get = vi.fn((key: string) =>
+      key === 'prj_test' ? definitions : null,
+    );
+    vi.doMock('@vercel/flags-definitions', () => ({ get }));
+
+    const oidcAuth: Auth = {
+      resolveToken: () => Promise.resolve('token'),
+      resolveBundledDefinitionsLookup: () =>
+        Promise.resolve({ type: 'project-id', projectId: 'prj_test' }),
+    };
+
+    const { readBundledDefinitions } = await import(
+      './read-bundled-definitions'
+    );
+
+    await expect(readBundledDefinitions(oidcAuth)).resolves.toEqual({
+      definitions,
+      state: 'ok',
+    });
+    expect(get).toHaveBeenCalledWith('prj_test');
   });
 
   // The detailed behavior of readBundledDefinitions is tested indirectly
