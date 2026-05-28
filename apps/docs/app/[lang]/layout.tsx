@@ -1,12 +1,11 @@
 import "../global.css";
+import { Footer } from "@vercel/geistdocs/footer";
+import { Navbar } from "@vercel/geistdocs/navbar";
 import { VercelToolbar } from "@vercel/toolbar/next";
-import { Footer } from "@/components/geistdocs/footer";
-import { Navbar } from "@/components/geistdocs/navbar";
 import { GeistdocsProvider } from "@/components/geistdocs/provider";
-import { basePath } from "@/geistdocs";
+import { config } from "@/lib/geistdocs/config";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { cn } from "@/lib/utils";
-import { translations } from "@/geistdocs";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export const generateStaticParams = async () => {
-  const langs = Object.keys(translations);
+  const langs = Object.keys(config.translations ?? {});
   return langs.map((lang) => ({ lang }));
 };
 
@@ -29,11 +28,11 @@ const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
       suppressHydrationWarning
     >
       <body>
-        <GeistdocsProvider basePath={basePath} lang={lang}>
-          <Navbar />
+        <GeistdocsProvider basePath={config.basePath} lang={lang}>
+          <Navbar config={config} />
           {children}
           {shouldInjectToolbar && <VercelToolbar />}
-          <Footer />
+          <Footer config={config} />
         </GeistdocsProvider>
       </body>
     </html>

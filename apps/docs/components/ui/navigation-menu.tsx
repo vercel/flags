@@ -1,7 +1,7 @@
 import * as React from "react"
 import { NavigationMenu as NavigationMenuPrimitive } from "radix-ui"
 import { cva } from "class-variance-authority"
-import { IconChevronDownSmall } from "@/components/geistcn-fallbacks/geistcn-assets/icons/icon-chevron-down-small"
+import { IconChevronDownSmall } from "@vercel/geistdocs/assets/icons/icon-chevron-down-small"
 
 import { cn } from "@/lib/utils"
 

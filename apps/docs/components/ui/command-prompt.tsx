@@ -14,8 +14,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { IconCheck } from "@/components/geistcn-fallbacks/geistcn-assets/icons/icon-check";
-import { IconCopy } from "@/components/geistcn-fallbacks/geistcn-assets/icons/icon-copy";
+import { IconCheck } from "@vercel/geistdocs/assets/icons/icon-check";
+import { IconCopy } from "@vercel/geistdocs/assets/icons/icon-copy";
 import { cn } from "@/lib/utils";
 
 type CommandPromptContextValue = {
@@ -205,7 +205,7 @@ export function CommandPromptSurface({
   return (
     <motion.div
       className={cn(
-        "relative flex items-center group gap-1 material-small transition-colors pl-5 py-2 pr-3 max-w-[calc(100vw-48px)] rounded-full",
+        "relative flex items-center group gap-1 bg-background-100 transition-colors pl-5 py-2 pr-3 max-w-[calc(100vw-48px)] rounded-full [box-shadow:var(--ds-shadow-border-small)]",
         className
       )}
       layout
