@@ -45,7 +45,7 @@ export function createCreateRawClient(fns: {
     origin,
   }: {
     controller: ControllerInterface;
-    origin?: { provider: string; sdkKey: string };
+    origin?: { provider: string; sdkKey?: string };
   }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
