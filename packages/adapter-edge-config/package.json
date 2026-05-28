@@ -1,10 +1,20 @@
 {
   "name": "@flags-sdk/edge-config",
   "version": "0.1.2",
-  "description": "",
-  "keywords": [],
+  "description": "A Flags SDK adapter for Edge Config",
+  "keywords": [
+    "vercel",
+    "flags",
+    "vercel flags",
+    "feature flags",
+    "flags sdk"
+  ],
   "license": "MIT",
-  "author": "",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {

@@ -1,10 +1,19 @@
 {
   "name": "@flags-sdk/hypertune",
   "version": "0.3.2",
-  "description": "",
-  "keywords": [],
+  "description": "A HyperTune adapter for the Flags SDK",
+  "keywords": [
+    "hypertune",
+    "flags",
+    "flags sdk",
+    "experimentation",
+    "ab testing"
+  ],
   "license": "MIT",
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {
@@ -13,6 +22,7 @@
       "require": "./dist/index.cjs"
     }
   },
+  "author": "Miraan Tabrez <miraan@hypertune.com>",
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
