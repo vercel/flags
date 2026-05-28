@@ -32,8 +32,8 @@ export function createVercelAdapter(
 
   // Stable identity for this adapter's underlying flagsClient. Captured in
   // the closure so every adapter object the factory below returns shares it,
-  // letting `bulk()` group flags from multiple `vercelAdapter()` calls into
-  // a single `bulkDecide` invocation.
+  // letting `evaluate()` group flags from multiple `vercelAdapter()` calls
+  // into a single `bulkDecide` invocation.
   const adapterId = Symbol('vercelAdapter');
 
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<

@@ -153,7 +153,7 @@ export interface Adapter<ValueType, EntitiesType> {
    * function so every adapter object the factory returns shares the same id.
    *
    * The Flags SDK uses this for cross-instance grouping (most notably,
-   * `bulk()` batches flags whose adapters share an `adapterId` and an
+   * `evaluate()` batches flags whose adapters share an `adapterId` and an
    * `identify` source through a single `bulkDecide` call). Adapters without
    * an `adapterId` are never batched.
    */
@@ -169,10 +169,10 @@ export interface Adapter<ValueType, EntitiesType> {
     defaultValue?: unknown;
   }) => Promise<ValueType> | ValueType;
   /**
-   * Optional batch hook used by `bulk()` to evaluate many flags that share
-   * this adapter's `adapterId` and the same `identify` source in a single
-   * call. When implemented (and `adapterId` is set), `bulk()` calls this
-   * once per group instead of invoking `decide` per flag.
+   * Optional batch hook used by `evaluate()` to resolve many flags that
+   * share this adapter's `adapterId` and the same `identify` source in a
+   * single call. When implemented (and `adapterId` is set), `evaluate()`
+   * calls this once per group instead of invoking `decide` per flag.
    *
    * - Return `Record<flagKey, value>`. Missing keys or `value: undefined`
    *   trigger the per-flag `defaultValue` fallback in the SDK.

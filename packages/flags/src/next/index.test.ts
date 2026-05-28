@@ -5,9 +5,9 @@ import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Adapter, encryptOverrides } from '..';
 import {
-  bulk,
   clearDedupeCacheForCurrentRequest,
   dedupe,
+  evaluate,
   flag,
   precompute,
 } from '.';
@@ -754,7 +754,7 @@ describe('adapters', () => {
   });
 });
 
-describe('bulk', () => {
+describe('evaluate', () => {
   beforeAll(() => {
     process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
   });
@@ -803,7 +803,7 @@ describe('bulk', () => {
     const b = flag<string>({ key: 'b', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
 
     expect(bulkDecideMock).toHaveBeenCalledTimes(1);
     expect(bulkDecideMock).toHaveBeenCalledWith(
@@ -840,7 +840,7 @@ describe('bulk', () => {
     });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({ a: 'v-a', b: 'v-b' });
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'v-a', b: 'v-b' });
     expect(bulkDecideMock).toHaveBeenCalledTimes(2);
   });
 
@@ -854,7 +854,7 @@ describe('bulk', () => {
     const b = flag<string>({ key: 'b', adapter: adapterB() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
     expect(bulkA).toHaveBeenCalledTimes(1);
     expect(bulkB).toHaveBeenCalledTimes(1);
   });
@@ -871,7 +871,7 @@ describe('bulk', () => {
     const a = flag<string>({ key: 'a', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a })).resolves.toEqual({ a: 'from-decide' });
+    await expect(evaluate({ a })).resolves.toEqual({ a: 'from-decide' });
     expect(bulkDecideMock).not.toHaveBeenCalled();
     expect(decideMock).toHaveBeenCalledTimes(1);
   });
@@ -886,7 +886,7 @@ describe('bulk', () => {
     const a = flag<string>({ key: 'a', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a })).resolves.toEqual({ a: 'single' });
+    await expect(evaluate({ a })).resolves.toEqual({ a: 'single' });
     expect(decideMock).toHaveBeenCalledTimes(1);
   });
 
@@ -899,7 +899,7 @@ describe('bulk', () => {
     const b = flag<string>({ key: 'b', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({
+    await expect(evaluate({ a, b })).resolves.toEqual({
       a: 'inline-result',
       b: 'bulk-result',
     });
@@ -924,7 +924,7 @@ describe('bulk', () => {
     });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({ a: 'fa', b: 'fb' });
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'fa', b: 'fb' });
     expect(bulkDecideMock).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -943,7 +943,7 @@ describe('bulk', () => {
     const b = flag<string>({ key: 'b', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).rejects.toThrow('bulk failed');
+    await expect(evaluate({ a, b })).rejects.toThrow('bulk failed');
     warnSpy.mockRestore();
   });
 
@@ -959,7 +959,7 @@ describe('bulk', () => {
     });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    await expect(bulk({ a, b })).resolves.toEqual({ a: 'A', b: 'fb' });
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'A', b: 'fb' });
   });
 
   it('lets overrides win over bulkDecide results', async () => {
@@ -977,7 +977,7 @@ describe('bulk', () => {
     mocks.headers.mockReturnValueOnce(new Headers());
     mocks.cookies.mockReturnValueOnce({ get: cookieMock });
 
-    await expect(bulk({ a })).resolves.toEqual({ a: true });
+    await expect(evaluate({ a })).resolves.toEqual({ a: true });
   });
 
   it('populates the evaluation cache so a subsequent flagFn() hits cache', async () => {
@@ -988,7 +988,7 @@ describe('bulk', () => {
 
     const headers = new Headers();
     mocks.headers.mockReturnValue(headers);
-    await expect(bulk({ a })).resolves.toEqual({ a: 'A' });
+    await expect(evaluate({ a })).resolves.toEqual({ a: 'A' });
     expect(bulkDecideMock).toHaveBeenCalledTimes(1);
 
     // Subsequent direct call in the same "request" (same headers object)
@@ -1007,7 +1007,7 @@ describe('bulk', () => {
     const apple = flag<string>({ key: 'apple', adapter: adapter() });
 
     mocks.headers.mockReturnValueOnce(new Headers());
-    const result = await bulk({ zebra, apple });
+    const result = await evaluate({ zebra, apple });
     expect(Object.keys(result)).toEqual(['zebra', 'apple']);
   });
 });

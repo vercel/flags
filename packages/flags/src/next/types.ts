@@ -47,9 +47,9 @@ type FlagMeta<ValueType, EntitiesType> = {
    */
   identify?: FlagDeclaration<ValueType, EntitiesType>['identify'];
   /**
-   * The adapter used to evaluate this flag, if any. Exposed so `bulk()` can
-   * group flags that share an `adapterId` and call `adapter.bulkDecide` once
-   * per group.
+   * The adapter used to evaluate this flag, if any. Exposed so `evaluate()`
+   * can group flags that share an `adapterId` and call `adapter.bulkDecide`
+   * once per group.
    */
   adapter?: FlagDeclaration<ValueType, EntitiesType>['adapter'];
   /**

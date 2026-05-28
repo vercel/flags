@@ -1,22 +1,10 @@
 import type { JsonValue } from '..';
 import * as s from '../lib/serialization';
+import { evaluate } from './evaluate';
 import type { Flag } from './types';
 
 type FlagsArray = readonly Flag<any, any>[];
 type ValuesArray = readonly any[];
-
-/**
- * Resolves a list of flags
- * @param flags - list of flags
- * @returns - an array of evaluated flag values with one entry per flag
- */
-export async function evaluate<T extends FlagsArray>(
-  flags: T,
-): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
-  return Promise.all(flags.map((flag) => flag())) as Promise<{
-    [K in keyof T]: Awaited<ReturnType<T[K]>>;
-  }>;
-}
 
 /**
  * Evaluate a list of feature flags and generate a signed string representing their values.
