@@ -4,8 +4,8 @@ import { make } from './index.make';
 
 // Mock the Controller to avoid real network calls
 vi.mock('./controller', () => ({
-  Controller: vi.fn().mockImplementation(({ auth }) => ({
-    auth,
+  Controller: vi.fn().mockImplementation(({ sdkKey }) => ({
+    sdkKey,
     read: vi.fn().mockResolvedValue({
       projectId: 'test',
       definitions: {},
@@ -20,7 +20,7 @@ vi.mock('./controller', () => ({
 import { Controller } from './controller';
 
 function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
-  return vi.fn().mockImplementation(({ controller }) => ({
+  return vi.fn().mockImplementation(({ dataSource }) => ({
     initialize: vi.fn().mockResolvedValue(undefined),
     shutdown: vi.fn().mockResolvedValue(undefined),
     getDatafile: vi.fn().mockResolvedValue({
@@ -38,7 +38,7 @@ function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
       revision: 1,
     }),
     evaluate: vi.fn().mockResolvedValue({ value: true, reason: 'static' }),
-    _dataSource: controller, // For testing inspection
+    _dataSource: dataSource, // For testing inspection
   }));
 }
 
@@ -63,7 +63,7 @@ describe('make', () => {
       const client = createClient('vf_server_test_key');
 
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        sdkKey: 'vf_server_test_key',
       });
       expect(createRawClient).toHaveBeenCalled();
       expect(client).toBeDefined();
@@ -78,7 +78,7 @@ describe('make', () => {
       const client = createClient(connectionString);
 
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_client_conn_key' }),
+        sdkKey: 'vf_client_conn_key',
       });
       expect(client).toBeDefined();
     });
@@ -127,16 +127,15 @@ describe('make', () => {
       expect(createRawClient).toHaveBeenCalledTimes(1);
     });
 
-    it('should create an OIDC-authenticated default client if FLAGS env var is missing', () => {
+    it('should throw if FLAGS env var is missing when accessed', () => {
       const createRawClient = createMockCreateRawClient();
       delete process.env.FLAGS;
 
       const { flagsClient } = make(createRawClient);
-      const _ = flagsClient.evaluate;
 
-      expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: undefined }),
-      });
+      expect(() => flagsClient.evaluate).toThrow(
+        'flags: Missing environment variable FLAGS',
+      );
     });
 
     it('should throw if FLAGS env var has invalid value', () => {
@@ -173,7 +172,7 @@ describe('make', () => {
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_server_env_key' }),
+        sdkKey: 'vf_server_env_key',
       });
     });
 
@@ -186,7 +185,7 @@ describe('make', () => {
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_client_flags_key' }),
+        sdkKey: 'vf_client_flags_key',
       });
     });
   });
@@ -219,7 +218,7 @@ describe('make', () => {
       // Access with first key
       const _ = flagsClient.evaluate;
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_server_first_key' }),
+        sdkKey: 'vf_server_first_key',
       });
 
       // Reset and change env
@@ -229,7 +228,7 @@ describe('make', () => {
       // Access again with new key
       const __ = flagsClient.initialize;
       expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_client_second_key' }),
+        sdkKey: 'vf_client_second_key',
       });
     });
   });
