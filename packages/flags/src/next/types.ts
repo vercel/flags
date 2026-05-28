@@ -7,6 +7,13 @@ type NextApiRequestCookies = Partial<{
 }>;
 
 /**
+ * The Pages Router request shape accepted by `flag(req)` and `evaluate(flags, req)`.
+ */
+export type PagesRouterRequest = IncomingMessage & {
+  cookies: NextApiRequestCookies;
+};
+
+/**
  * Metadata on a feature flag function
  */
 type FlagMeta<ValueType, EntitiesType> = {
@@ -65,7 +72,7 @@ type FlagMeta<ValueType, EntitiesType> = {
     identify:
       | FlagDeclaration<ValueType, EntitiesType>['identify']
       | EntitiesType;
-    request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
+    request?: PagesRouterRequest;
   }) => Promise<ValueType>;
 };
 
@@ -74,9 +81,7 @@ export type AppRouterFlag<ValueType, EntitiesType> =
 
 export type PagesRouterFlag<ValueType, EntitiesType> = {
   (): never;
-  (
-    request: IncomingMessage & { cookies: NextApiRequestCookies },
-  ): Promise<ValueType>;
+  (request: PagesRouterRequest): Promise<ValueType>;
 } & FlagMeta<ValueType, EntitiesType>;
 
 export type PrecomputedFlag<ValueType, EntitiesType> = {

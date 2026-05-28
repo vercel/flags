@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import { isInternalNextError } from './is-internal-next-error';
 import { getOverrides } from './overrides';
-import type { Flag, PagesRouterFlag } from './types';
+import type { Flag, PagesRouterRequest } from './types';
 
 // Internal markers stamped on the flag api by `flag()`. Read by `evaluate()`
 // to partition flags into adapter groups.
@@ -294,7 +294,7 @@ type Run<ValueType, EntitiesType> = (options: {
   /**
    * For Pages Router only
    */
-  request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
+  request?: PagesRouterRequest;
 }) => Promise<ValueType>;
 
 /**
@@ -399,7 +399,7 @@ export function getRun<ValueType, EntitiesType>(
 // naked type parameter — hence the helper.
 type BulkValue<F> = F extends Flag<infer V, any> ? V : never;
 
-type PagesRouterRequest = Parameters<PagesRouterFlag<any, any>>[0];
+type EvaluateRequest = PagesRouterRequest | Request;
 
 /**
  * Resolves a set of flags in a single call.
@@ -415,22 +415,23 @@ type PagesRouterRequest = Parameters<PagesRouterFlag<any, any>>[0];
  * Accepts either an array of flags (positional results) or an object whose
  * values are flags (keyed results).
  *
- * For Pages Router (`getServerSideProps`, API routes), pass the
- * `IncomingMessage` request as the second argument. Without it, `evaluate()`
- * reads from `next/headers`, which is only available in App Router and
- * routing middleware.
+ * Pass a `request` as the second argument when calling outside App Router —
+ * an `IncomingMessage` from Pages Router (`getServerSideProps`, API routes)
+ * or a `NextRequest` / Web `Request` from routing middleware. Without it,
+ * `evaluate()` reads from `next/headers`, which is only available in App
+ * Router and routing middleware.
  */
 export async function evaluate<const T extends readonly Flag<any, any>[]>(
   flags: T,
-  request?: PagesRouterRequest,
+  request?: EvaluateRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
 export async function evaluate<T extends Record<string, Flag<any, any>>>(
   flags: T,
-  request?: PagesRouterRequest,
+  request?: EvaluateRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
 export async function evaluate(
   flags: Record<string, Flag<any, any>> | readonly Flag<any, any>[],
-  request?: PagesRouterRequest,
+  request?: EvaluateRequest,
 ): Promise<any> {
   // Skip the `next/headers` read when there's nothing to evaluate. This also
   // lets `precompute([])` return `__no_flags__` outside a request scope (e.g.
@@ -447,9 +448,14 @@ export async function evaluate(
   let dedupeCacheKey: Headers | IncomingHttpHeaders;
 
   if (request) {
-    // pages router — derive headers/cookies from the request, do NOT import
-    // `next/headers` (it isn't available outside App Router / middleware).
-    const headers = transformToHeaders(request.headers);
+    // Derive headers/cookies from the request, skipping the `next/headers`
+    // import. Discriminate by whether `.headers` is already a `Headers`
+    // instance (NextRequest / Web Request) or an `IncomingHttpHeaders` plain
+    // object (Pages Router `IncomingMessage`).
+    const headers =
+      request.headers instanceof Headers
+        ? request.headers
+        : transformToHeaders(request.headers);
     readonlyHeaders = sealHeaders(headers);
     readonlyCookies = sealCookies(headers);
     dedupeCacheKey = request.headers;

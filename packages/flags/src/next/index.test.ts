@@ -1011,8 +1011,8 @@ describe('evaluate', () => {
     expect(Object.keys(result)).toEqual(['zebra', 'apple']);
   });
 
-  describe('pages router', () => {
-    it('resolves flags using the request without touching next/headers', async () => {
+  describe('with request argument', () => {
+    it('resolves flags using a Pages Router IncomingMessage without touching next/headers', async () => {
       const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A', b: 'B' });
       const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
 
@@ -1028,6 +1028,30 @@ describe('evaluate', () => {
       expect(mocks.headers).not.toHaveBeenCalled();
       expect(bulkDecideMock).toHaveBeenCalledTimes(1);
       socket.destroy();
+    });
+
+    it('accepts a web Request (NextRequest) and skips next/headers', async () => {
+      const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A', b: 'B' });
+      const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+      const a = flag<string>({ key: 'a', adapter: adapter() });
+      const b = flag<string>({ key: 'b', adapter: adapter() });
+
+      mocks.headers.mockClear();
+      const webRequest = new Request('http://example.com/', {
+        headers: { cookie: 'foo=bar' },
+      });
+      await expect(evaluate({ a, b }, webRequest)).resolves.toEqual({
+        a: 'A',
+        b: 'B',
+      });
+      expect(mocks.headers).not.toHaveBeenCalled();
+      expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+
+      // bulkDecide receives the request's own headers (not a copy via
+      // transformToHeaders) — verify by checking a header round-trips.
+      const [callArgs] = bulkDecideMock.mock.calls;
+      expect(callArgs[0].headers.get('cookie')).toBe('foo=bar');
     });
 
     it('shares the per-request cache with direct flag(req) calls', async () => {
