@@ -1010,4 +1010,47 @@ describe('evaluate', () => {
     const result = await evaluate({ zebra, apple });
     expect(Object.keys(result)).toEqual(['zebra', 'apple']);
   });
+
+  describe('pages router', () => {
+    it('resolves flags using the request without touching next/headers', async () => {
+      const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A', b: 'B' });
+      const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+      const a = flag<string>({ key: 'a', adapter: adapter() });
+      const b = flag<string>({ key: 'b', adapter: adapter() });
+
+      mocks.headers.mockClear();
+      const [request, socket] = createRequest();
+      await expect(evaluate({ a, b }, request)).resolves.toEqual({
+        a: 'A',
+        b: 'B',
+      });
+      expect(mocks.headers).not.toHaveBeenCalled();
+      expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+      socket.destroy();
+    });
+
+    it('shares the per-request cache with direct flag(req) calls', async () => {
+      const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A' });
+      const decideMock = vi.fn(() => 'inline');
+      const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+      const a = flag<string>({ key: 'a', adapter: adapter() });
+      const b = flag<string>({ key: 'b', decide: decideMock });
+
+      const [request, socket] = createRequest();
+      await expect(evaluate({ a, b }, request)).resolves.toEqual({
+        a: 'A',
+        b: 'inline',
+      });
+
+      // Subsequent direct call in the same request should hit cache,
+      // not re-invoke bulkDecide/decide.
+      await expect(a(request)).resolves.toEqual('A');
+      await expect(b(request)).resolves.toEqual('inline');
+      expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+      expect(decideMock).toHaveBeenCalledTimes(1);
+      socket.destroy();
+    });
+  });
 });

@@ -160,7 +160,7 @@ async function getEntities<ValueType, EntitiesType>(
 interface BulkStoreData {
   headers: ReadonlyHeaders;
   cookies: ReadonlyRequestCookies;
-  dedupeCacheKey: Headers;
+  dedupeCacheKey: Headers | IncomingHttpHeaders;
   overrides: Record<string, any> | null;
 }
 
@@ -399,6 +399,8 @@ export function getRun<ValueType, EntitiesType>(
 // naked type parameter — hence the helper.
 type BulkValue<F> = F extends Flag<infer V, any> ? V : never;
 
+type PagesRouterRequest = Parameters<PagesRouterFlag<any, any>>[0];
+
 /**
  * Resolves a set of flags in a single call.
  *
@@ -412,15 +414,23 @@ type BulkValue<F> = F extends Flag<infer V, any> ? V : never;
  *
  * Accepts either an array of flags (positional results) or an object whose
  * values are flags (keyed results).
+ *
+ * For Pages Router (`getServerSideProps`, API routes), pass the
+ * `IncomingMessage` request as the second argument. Without it, `evaluate()`
+ * reads from `next/headers`, which is only available in App Router and
+ * routing middleware.
  */
 export async function evaluate<const T extends readonly Flag<any, any>[]>(
   flags: T,
+  request?: PagesRouterRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
 export async function evaluate<T extends Record<string, Flag<any, any>>>(
   flags: T,
+  request?: PagesRouterRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
 export async function evaluate(
   flags: Record<string, Flag<any, any>> | readonly Flag<any, any>[],
+  request?: PagesRouterRequest,
 ): Promise<any> {
   // Skip the `next/headers` read when there's nothing to evaluate. This also
   // lets `precompute([])` return `__no_flags__` outside a request scope (e.g.
@@ -432,18 +442,32 @@ export async function evaluate(
     return Array.isArray(flags) ? [] : {};
   }
 
-  // Read headers & cookies once
-  if (!headersModulePromise) headersModulePromise = import('next/headers');
-  if (!headersModule) headersModule = await headersModulePromise;
-  const { headers, cookies } = headersModule;
+  let readonlyHeaders: ReadonlyHeaders;
+  let readonlyCookies: ReadonlyRequestCookies;
+  let dedupeCacheKey: Headers | IncomingHttpHeaders;
 
-  const [headersStore, cookiesStore] = await Promise.all([
-    headers(),
-    cookies(),
-  ]);
+  if (request) {
+    // pages router — derive headers/cookies from the request, do NOT import
+    // `next/headers` (it isn't available outside App Router / middleware).
+    const headers = transformToHeaders(request.headers);
+    readonlyHeaders = sealHeaders(headers);
+    readonlyCookies = sealCookies(headers);
+    dedupeCacheKey = request.headers;
+  } else {
+    // app router — read headers & cookies via `next/headers`.
+    if (!headersModulePromise) headersModulePromise = import('next/headers');
+    if (!headersModule) headersModule = await headersModulePromise;
+    const { headers, cookies } = headersModule;
 
-  const readonlyHeaders = headersStore as ReadonlyHeaders;
-  const readonlyCookies = cookiesStore as ReadonlyRequestCookies;
+    const [headersStore, cookiesStore] = await Promise.all([
+      headers(),
+      cookies(),
+    ]);
+
+    readonlyHeaders = headersStore as ReadonlyHeaders;
+    readonlyCookies = cookiesStore as ReadonlyRequestCookies;
+    dedupeCacheKey = headersStore;
+  }
 
   // Read overrides once
   const override = readonlyCookies.get('vercel-flag-overrides')?.value;
@@ -455,7 +479,7 @@ export async function evaluate(
   const storeData: BulkStoreData = {
     headers: readonlyHeaders,
     cookies: readonlyCookies,
-    dedupeCacheKey: headersStore,
+    dedupeCacheKey,
     overrides,
   };
 
@@ -507,13 +531,14 @@ export async function evaluate(
         groupPromises.push(
           (async () => {
             // Resolve entities once for the entire group. The dedupe key is
-            // the raw `headersStore` (same key getRun uses), so any flag
-            // called individually after `evaluate()` reuses the cached
+            // the same one `getRun` uses (`request.headers` for Pages Router,
+            // the `headers()` store for App Router), so any flag called
+            // individually before/after `evaluate()` reuses the cached
             // identify args from `identifyArgsMap`.
             const entities = identifyRef
               ? await getEntities(
                   identifyRef as any,
-                  headersStore,
+                  dedupeCacheKey,
                   readonlyHeaders,
                   readonlyCookies,
                 )
