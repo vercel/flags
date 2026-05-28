@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Auth } from '../controller/auth';
 import { setRequestContext } from '../test-utils';
 import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
 
@@ -40,18 +39,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-function createAuth(sdkKey = 'test-key'): Auth {
-  return {
-    sdkKey,
-    resolveToken: () => Promise.resolve(sdkKey),
-    resolveBundledDefinitionsLookup: () =>
-      Promise.resolve({ type: 'sdk-key', sdkKey }),
-  };
-}
-
 function createTracker(sdkKey = 'test-key') {
   return new UsageTracker({
-    auth: createAuth(sdkKey),
+    sdkKey,
     host: 'https://example.com',
     fetch: fetchMock,
   });
@@ -147,7 +137,7 @@ describe('UsageTracker', () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = new UsageTracker({
-        auth: createAuth('my-secret-key'),
+        sdkKey: 'my-secret-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -239,7 +229,7 @@ describe('UsageTracker', () => {
       );
 
       const tracker = new FreshUsageTracker({
-        auth: createAuth('test-key'),
+        sdkKey: 'test-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -277,7 +267,7 @@ describe('UsageTracker', () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = new FreshUsageTracker({
-        auth: createAuth('test-key'),
+        sdkKey: 'test-key',
         host: 'https://example.com',
         fetch: fetchMock,
       });
@@ -377,13 +367,13 @@ describe('UsageTracker', () => {
       });
 
       const tracker1 = new UsageTracker({
-        auth: createAuth('key-1'),
+        sdkKey: 'key-1',
         host: 'https://example.com',
         fetch: fetchMock,
       });
 
       const tracker2 = new UsageTracker({
-        auth: createAuth('key-2'),
+        sdkKey: 'key-2',
         host: 'https://example.com',
         fetch: fetchMock,
       });
