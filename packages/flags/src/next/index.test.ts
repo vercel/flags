@@ -3,7 +3,7 @@ import type { Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type Adapter, encryptOverrides } from '..';
+import { type Adapter, encryptOverrides, setTracerProvider } from '..';
 import {
   clearDedupeCacheForCurrentRequest,
   dedupe,
@@ -1091,6 +1091,241 @@ describe('evaluate', () => {
       expect(bulkDecideMock).toHaveBeenCalledTimes(1);
       expect(decideMock).toHaveBeenCalledTimes(1);
       socket.destroy();
+    });
+  });
+});
+
+describe('tracing', () => {
+  beforeAll(() => {
+    process.env.FLAGS_SECRET = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
+  });
+
+  // `setTracerProvider` writes to a global symbol; capture/restore it so a
+  // registered tracer doesn't leak into other test files.
+  const traceSymbol = Symbol.for('flags:global-trace');
+  const previousTraceProvider = Reflect.get(globalThis, traceSymbol);
+
+  afterEach(() => {
+    if (previousTraceProvider === undefined) {
+      Reflect.deleteProperty(globalThis, traceSymbol);
+    } else {
+      Reflect.set(globalThis, traceSymbol, previousTraceProvider);
+    }
+    if (previousRequestContext === undefined) {
+      Reflect.deleteProperty(globalThis, requestContextSymbol);
+    } else {
+      Reflect.set(globalThis, requestContextSymbol, previousRequestContext);
+    }
+  });
+
+  interface RecordedSpan {
+    name: string;
+    attributes: Record<string, unknown>;
+    status?: { code: number; message?: string };
+    ended: boolean;
+  }
+
+  // Minimal recording TracerProvider. `trace()` only needs
+  // `getTracer().startActiveSpan(name, fn)` plus
+  // `setAttribute(s)`/`setStatus`/`end` on the span, so we record just those.
+  function recordSpans(): RecordedSpan[] {
+    const spans: RecordedSpan[] = [];
+    const tracer = {
+      startActiveSpan(name: string, fn: (span: any) => any) {
+        const record: RecordedSpan = { name, attributes: {}, ended: false };
+        spans.push(record);
+        return fn({
+          setAttributes(attrs: Record<string, unknown>) {
+            Object.assign(record.attributes, attrs);
+          },
+          setAttribute(key: string, value: unknown) {
+            record.attributes[key] = value;
+          },
+          setStatus(status: { code: number; message?: string }) {
+            record.status = status;
+          },
+          end() {
+            record.ended = true;
+          },
+        });
+      },
+    };
+    setTracerProvider({ getTracer: () => tracer } as any);
+    return spans;
+  }
+
+  function makeBulkAdapter<V>(opts: {
+    bulkDecide: Adapter<V, any>['bulkDecide'];
+  }) {
+    const id = Symbol('trace-adapter');
+    return (): Adapter<V, any> => ({
+      adapterId: id,
+      origin: 'test://origin',
+      decide: () => {
+        throw new Error('decide should not be called in bulk path');
+      },
+      bulkDecide: opts.bulkDecide,
+    });
+  }
+
+  it('emits an evaluate span and a batch span with aggregate attributes', async () => {
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockResolvedValue({ a: 'A', b: 'B' }),
+    });
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+
+    const evaluateSpan = spans.find((s) => s.name === 'evaluate');
+    expect(evaluateSpan).toBeDefined();
+    expect(evaluateSpan!.attributes.flagCount).toBe(2);
+    expect(evaluateSpan!.ended).toBe(true);
+
+    const batchSpans = spans.filter((s) => s.name === 'batch');
+    expect(batchSpans).toHaveLength(1);
+    const [batchSpan] = batchSpans;
+    expect(batchSpan!.attributes).toMatchObject({
+      method: 'bulk',
+      keys: ['a', 'b'],
+      cachedCount: 0,
+      overrideCount: 0,
+      decidedCount: 2,
+    });
+    expect(typeof batchSpan!.attributes.adapterId).toBe('string');
+    expect(batchSpan!.ended).toBe(true);
+
+    // Bulkable flags must not also emit their own per-flag `run`/`flag` span —
+    // that's the per-flag overhead the batch span exists to replace.
+    expect(spans.some((s) => s.name === 'run')).toBe(false);
+    expect(spans.some((s) => s.name === 'flag')).toBe(false);
+  });
+
+  it('keeps the per-flag `flag` span for standalone (non-bulkable) flags', async () => {
+    const a = flag<string>({ key: 'a', decide: () => 'inline' });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(evaluate({ a })).resolves.toEqual({ a: 'inline' });
+
+    expect(spans.some((s) => s.name === 'evaluate')).toBe(true);
+    expect(spans.some((s) => s.name === 'batch')).toBe(false);
+    // standalone flags resolve via `flagFn()`, which still emits a `flag` span
+    expect(spans.some((s) => s.name === 'flag')).toBe(true);
+  });
+
+  it('counts overrides separately from decided flags on the batch span', async () => {
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockResolvedValue({ a: 'A', b: 'B' }),
+    });
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    const override = await encryptOverrides({ a: 'overridden' });
+    const cookieMock = vi.fn((name: string) =>
+      name === 'vercel-flag-overrides'
+        ? { name: 'vercel-flag-overrides', value: override }
+        : undefined,
+    );
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+    await expect(evaluate({ a, b })).resolves.toEqual({
+      a: 'overridden',
+      b: 'B',
+    });
+
+    const batch = spans.find((s) => s.name === 'batch');
+    expect(batch).toBeDefined();
+    expect(batch!.attributes).toMatchObject({
+      cachedCount: 0,
+      overrideCount: 1,
+      decidedCount: 1,
+    });
+  });
+
+  it('emits a flag span with the key and method for a direct app-router call', async () => {
+    const a = flag<string>({ key: 'my-flag', decide: () => 'value' });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(a()).resolves.toBe('value');
+
+    const flagSpan = spans.find((s) => s.name === 'flag');
+    expect(flagSpan).toBeDefined();
+    expect(flagSpan!.attributes).toMatchObject({
+      key: 'my-flag',
+      method: 'decided',
+    });
+    expect(flagSpan!.ended).toBe(true);
+  });
+
+  it('records method "override" on the flag span when an override is set', async () => {
+    const a = flag<string>({ key: 'my-flag', decide: () => 'value' });
+
+    const override = await encryptOverrides({ 'my-flag': 'forced' });
+    const cookieMock = vi.fn((name: string) =>
+      name === 'vercel-flag-overrides'
+        ? { name: 'vercel-flag-overrides', value: override }
+        : undefined,
+    );
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+    await expect(a()).resolves.toBe('forced');
+
+    const flagSpan = spans.find((s) => s.name === 'flag');
+    expect(flagSpan!.attributes).toMatchObject({
+      key: 'my-flag',
+      method: 'override',
+    });
+  });
+
+  it('records method "cached" on a repeated call within the same request', async () => {
+    const decide = vi.fn(() => 'value');
+    const a = flag<string>({ key: 'my-flag', decide });
+
+    // Same headers object both calls → same per-request cache key.
+    const headers = new Headers();
+    mocks.headers.mockReturnValueOnce(headers).mockReturnValueOnce(headers);
+
+    const spans = recordSpans();
+    await expect(a()).resolves.toBe('value');
+    await expect(a()).resolves.toBe('value');
+    expect(decide).toHaveBeenCalledTimes(1);
+
+    const methods = spans
+      .filter((s) => s.name === 'flag')
+      .map((s) => s.attributes.method);
+    expect(methods).toEqual(['decided', 'cached']);
+  });
+
+  it('precompute emits the same evaluate and batch spans as evaluate', async () => {
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockResolvedValue({ a: 'A', b: 'B' }),
+    });
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await precompute([a, b]);
+
+    const evaluateSpan = spans.find((s) => s.name === 'evaluate');
+    expect(evaluateSpan).toBeDefined();
+    // array overload → `flagCount` reflects the array length
+    expect(evaluateSpan!.attributes.flagCount).toBe(2);
+
+    const batch = spans.find((s) => s.name === 'batch');
+    expect(batch).toBeDefined();
+    expect(batch!.attributes).toMatchObject({
+      method: 'bulk',
+      keys: ['a', 'b'],
+      decidedCount: 2,
     });
   });
 });

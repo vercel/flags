@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import { internalReportValue, reportValue } from '../lib/report-value';
-import { setSpanAttribute } from '../lib/tracing';
+import { setSpanAttribute, trace } from '../lib/tracing';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -424,15 +424,35 @@ type EvaluateRequest = PagesRouterRequest | Request;
  * `evaluate()` reads from `next/headers`, which is only available in App
  * Router and routing middleware.
  */
-export async function evaluate<const T extends readonly Flag<any, any>[]>(
+export function evaluate<const T extends readonly Flag<any, any>[]>(
   flags: T,
   request?: EvaluateRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
-export async function evaluate<T extends Record<string, Flag<any, any>>>(
+export function evaluate<T extends Record<string, Flag<any, any>>>(
   flags: T,
   request?: EvaluateRequest,
 ): Promise<{ [K in keyof T]: BulkValue<T[K]> }>;
-export async function evaluate(
+export function evaluate(
+  flags: Record<string, Flag<any, any>> | readonly Flag<any, any>[],
+  request?: EvaluateRequest,
+): Promise<any> {
+  // Non-async wrapper so the returned promise is the traced one verbatim — no
+  // extra microtask. `trace` short-circuits to `evaluateImpl` when no tracer
+  // is registered.
+  return tracedEvaluate(flags, request);
+}
+
+const tracedEvaluate = trace(evaluateImpl, {
+  name: 'evaluate',
+  isVerboseTrace: false,
+  attributesSuccess: (result) => ({
+    flagCount: Array.isArray(result)
+      ? result.length
+      : Object.keys(result).length,
+  }),
+});
+
+async function evaluateImpl(
   flags: Record<string, Flag<any, any>> | readonly Flag<any, any>[],
   request?: EvaluateRequest,
 ): Promise<any> {
@@ -529,76 +549,118 @@ export async function evaluate(
     }
 
     const valuesByName: Record<string, any> = {};
-    const groupPromises: Promise<void>[] = [];
+    const groupPromises: Promise<unknown>[] = [];
 
     for (const byIdentify of groups.values()) {
       for (const [identifyRef, { adapter, entries: list }] of byIdentify) {
         groupPromises.push(
-          (async () => {
-            // Resolve entities once for the entire group. The dedupe key is
-            // the same one `getRun` uses (`request.headers` for Pages Router,
-            // the `headers()` store for App Router), so any flag called
-            // individually before/after `evaluate()` reuses the cached
-            // identify args from `identifyArgsMap`.
-            const entities = identifyRef
-              ? await getEntities(
-                  identifyRef as any,
-                  dedupeCacheKey,
-                  readonlyHeaders,
-                  readonlyCookies,
-                )
-              : undefined;
-            const entitiesKey = JSON.stringify(entities) ?? '';
+          // One `batch` span per bulk-evaluated group (a batch being a single
+          // group within the overall `evaluate()` bulk), replacing the
+          // per-flag `run` span that bulkable flags would otherwise get via
+          // `flagFn()`. A per-flag span here would reintroduce the per-flag
+          // instrumentation overhead (closure + span + microtask) that bulk
+          // evaluation exists to avoid, so the batch reports an aggregate
+          // `method`/count summary instead. Standalone flags still emit their
+          // own `flag` span.
+          trace(
+            async () => {
+              // Resolve entities once for the entire group. The dedupe key is
+              // the same one `getRun` uses (`request.headers` for Pages Router,
+              // the `headers()` store for App Router), so any flag called
+              // individually before/after `evaluate()` reuses the cached
+              // identify args from `identifyArgsMap`.
+              const entities = identifyRef
+                ? await getEntities(
+                    identifyRef as any,
+                    dedupeCacheKey,
+                    readonlyHeaders,
+                    readonlyCookies,
+                  )
+                : undefined;
+              const entitiesKey = JSON.stringify(entities) ?? '';
 
-            // Skip flags already resolved this request — `applyResult` would
-            // discard the bulk result for them anyway. If every flag in the
-            // group is cached, the adapter call is avoided entirely.
-            const uncached = list.filter(
-              ({ flagFn }) =>
-                getCachedValuePromise(
-                  readonlyHeaders,
-                  flagFn.key,
-                  entitiesKey,
-                ) === undefined,
-            );
+              // Skip flags already resolved this request — `applyResult` would
+              // discard the bulk result for them anyway. If every flag in the
+              // group is cached, the adapter call is avoided entirely.
+              const uncached = list.filter(
+                ({ flagFn }) =>
+                  getCachedValuePromise(
+                    readonlyHeaders,
+                    flagFn.key,
+                    entitiesKey,
+                  ) === undefined,
+              );
 
-            // Call bulkDecide. If it throws, every uncached flag still goes
-            // through `applyResult` — its producer just rethrows, so the
-            // catch arm handles the per-flag defaultValue fallback (or
-            // rejects for flags without a defaultValue).
-            let bulkResult: Record<string, any> | null = null;
-            let bulkError: unknown = null;
-            if (uncached.length > 0) {
-              try {
-                bulkResult = await adapter.bulkDecide!({
-                  flags: uncached.map(({ flagFn }) => ({
-                    key: flagFn.key,
-                    defaultValue: flagFn.defaultValue,
-                  })),
-                  entities,
-                  headers: readonlyHeaders,
-                  cookies: readonlyCookies,
-                });
-              } catch (err) {
-                bulkError = err;
+              // Call bulkDecide. If it throws, every uncached flag still goes
+              // through `applyResult` — its producer just rethrows, so the
+              // catch arm handles the per-flag defaultValue fallback (or
+              // rejects for flags without a defaultValue).
+              let bulkResult: Record<string, any> | null = null;
+              let bulkError: unknown = null;
+              if (uncached.length > 0) {
+                try {
+                  bulkResult = await adapter.bulkDecide!({
+                    flags: uncached.map(({ flagFn }) => ({
+                      key: flagFn.key,
+                      defaultValue: flagFn.defaultValue,
+                    })),
+                    entities,
+                    headers: readonlyHeaders,
+                    cookies: readonlyCookies,
+                  });
+                } catch (err) {
+                  bulkError = err;
+                }
               }
-            }
 
-            await Promise.all(
-              list.map(async ({ name, flagFn }) => {
-                valuesByName[name] = await applyResult({
-                  definition: flagFn,
-                  readonlyHeaders,
-                  entitiesKey,
-                  overrides,
-                  produce: () => {
-                    if (bulkError) throw bulkError;
-                    return bulkResult![flagFn.key];
-                  },
-                });
-              }),
-            );
-          })(),
+              await Promise.all(
+                list.map(async ({ name, flagFn }) => {
+                  valuesByName[name] = await applyResult({
+                    definition: flagFn,
+                    readonlyHeaders,
+                    entitiesKey,
+                    overrides,
+                    produce: () => {
+                      if (bulkError) throw bulkError;
+                      return bulkResult![flagFn.key];
+                    },
+                  });
+                }),
+              );
+
+              // `applyResult` stamps a per-flag `method` onto the active span;
+              // here that span is shared by the whole group, so overwrite it
+              // with `bulk`. `trace` flushes the span-context store last, so
+              // this final write wins over the per-flag ones. The per-flag
+              // breakdown is reported as counts via `attributesSuccess`.
+              setSpanAttribute('method', 'bulk');
+
+              // Returned so the span can derive aggregate counts lazily —
+              // `attributesSuccess` only runs when a tracer is registered, so
+              // nothing here costs anything on the untraced hot path.
+              return uncached;
+            },
+            {
+              name: 'batch',
+              isVerboseTrace: false,
+              attributes: { adapterId: String(adapter.adapterId) },
+              attributesSuccess: (uncached) => {
+                const cachedCount = list.length - uncached.length;
+                let overrideCount = 0;
+                if (overrides) {
+                  for (const { flagFn } of uncached) {
+                    if (overrides[flagFn.key] !== undefined) overrideCount++;
+                  }
+                }
+                return {
+                  keys: list.map(({ flagFn }) => flagFn.key),
+                  cachedCount,
+                  overrideCount,
+                  decidedCount: uncached.length - overrideCount,
+                };
+              },
+            },
+          )(),
         );
       }
     }
