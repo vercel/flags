@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
-import { reportValue } from '..';
+import { reportValue } from '../lib/report-value';
 import { internalReportValue } from '../lib/report-value';
 import { setSpanAttribute } from '../lib/tracing';
 import {
