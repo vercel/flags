@@ -157,6 +157,20 @@ async function getEntities<ValueType, EntitiesType>(
   return identify(...(nextArgs as [FlagParamsType]));
 }
 
+/**
+ * Reads and decrypts the `vercel-flag-overrides` cookie. Returns `null` when
+ * the cookie is absent or empty (skipping the decrypt microtask).
+ */
+function readOverrides(
+  cookies: ReadonlyRequestCookies,
+): Promise<Record<string, any> | null> {
+  // skip microtask if cookie does not exist or is empty
+  const override = cookies.get('vercel-flag-overrides')?.value;
+  return typeof override === 'string' && override !== ''
+    ? getOverrides(override)
+    : Promise.resolve(null);
+}
+
 interface BulkStoreData {
   headers: ReadonlyHeaders;
   cookies: ReadonlyRequestCookies;
@@ -323,12 +337,7 @@ export function getRun<ValueType, EntitiesType>(
       readonlyCookies = sealCookies(headers);
       dedupeCacheKey = options.request.headers;
 
-      // skip microtask if cookie does not exist or is empty
-      const override = readonlyCookies.get('vercel-flag-overrides')?.value;
-      overrides =
-        typeof override === 'string' && override !== ''
-          ? await getOverrides(override)
-          : null;
+      overrides = await readOverrides(readonlyCookies);
     } else if (bulkData) {
       // app router — evaluate() mode, everything pre-read
       readonlyHeaders = bulkData.headers;
@@ -355,12 +364,7 @@ export function getRun<ValueType, EntitiesType>(
       readonlyCookies = cookiesStore as ReadonlyRequestCookies;
       dedupeCacheKey = headersStore;
 
-      // skip microtask if cookie does not exist or is empty
-      const override = readonlyCookies.get('vercel-flag-overrides')?.value;
-      overrides =
-        typeof override === 'string' && override !== ''
-          ? await getOverrides(override)
-          : null;
+      overrides = await readOverrides(readonlyCookies);
     }
 
     // the flag is being used in app router
@@ -476,11 +480,7 @@ export async function evaluate(
   }
 
   // Read overrides once
-  const override = readonlyCookies.get('vercel-flag-overrides')?.value;
-  const overrides =
-    typeof override === 'string' && override !== ''
-      ? await getOverrides(override)
-      : null;
+  const overrides = await readOverrides(readonlyCookies);
 
   const storeData: BulkStoreData = {
     headers: readonlyHeaders,
