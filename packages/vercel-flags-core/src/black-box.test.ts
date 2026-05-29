@@ -2788,6 +2788,25 @@ describe('Controller (black-box)', () => {
       );
     });
 
+    it('should return FLAG_NOT_FOUND with undefined value when no defaultValue is provided for missing flag', async () => {
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled(),
+        buildStep: true,
+      });
+
+      const result = await client.evaluate('nonexistent-flag');
+
+      expect(result.value).toBeUndefined();
+      expect(result.reason).toBe('error');
+      expect(result.errorCode).toBe('FLAG_NOT_FOUND');
+      expect(result.errorMessage).toContain(
+        '@vercel/flags-core: Definition not found for flag "nonexistent-flag"',
+      );
+    });
+
     it('should evaluate existing paused flag', async () => {
       const client = createClient(sdkKey, {
         fetch: fetchMock,
