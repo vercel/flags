@@ -1054,6 +1054,22 @@ describe('evaluate', () => {
       expect(callArgs[0].headers.get('cookie')).toBe('foo=bar');
     });
 
+    it('array overload preserves order and skips next/headers', async () => {
+      const bulkDecideMock = vi.fn().mockResolvedValue({ z: 'Z', a: 'A' });
+      const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+      const z = flag<string>({ key: 'z', adapter: adapter() });
+      const a = flag<string>({ key: 'a', adapter: adapter() });
+
+      mocks.headers.mockClear();
+      const [request, socket] = createRequest();
+      const result = await evaluate([z, a], request);
+      // positional: index 0 → z, index 1 → a
+      expect(result).toEqual(['Z', 'A']);
+      expect(mocks.headers).not.toHaveBeenCalled();
+      socket.destroy();
+    });
+
     it('shares the per-request cache with direct flag(req) calls', async () => {
       const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A' });
       const decideMock = vi.fn(() => 'inline');
