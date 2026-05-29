@@ -1,14 +1,14 @@
 'use client';
 
-import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@vercel/geistdocs/components/button';
+import { Input } from '@vercel/geistdocs/components/input';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@vercel/geistdocs/components/tooltip';
+import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 export function IframeBrowser({
   src,

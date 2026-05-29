@@ -1,9 +1,9 @@
+import { Button } from '@vercel/geistdocs/components/button';
 import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import { ArrowRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
