@@ -1,12 +1,14 @@
-import type { FlagDefinitionsType, FlagDefinitionType, ProviderData } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import type {
   Decide,
   FlagDeclaration,
+  FlagDefinitionsType,
+  FlagDefinitionType,
   Identify,
   JsonValue,
   Origin,
+  ProviderData,
 } from '../types';
 import { BULK_IDENTIFY_REF, BULKABLE, getRun } from './evaluate';
 import { getPrecomputed } from './precompute';
