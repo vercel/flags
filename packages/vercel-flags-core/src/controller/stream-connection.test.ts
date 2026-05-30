@@ -583,6 +583,57 @@ describe('connectStream', () => {
       abortController.abort();
     });
 
+    it('should not abort the fetch signal when ping timeout fires', async () => {
+      // Regression: aborting the fetch signal surfaced as AbortError on
+      // instrumented fetch spans (e.g. @vercel/otel/fetch) and got reported
+      // by APM/error tracking even though this is an expected reconnect.
+      // The ping timeout must instead cancel the body reader, leaving the
+      // fetch span to close cleanly.
+      let requestCount = 0;
+      const signals: AbortSignal[] = [];
+
+      fetchMock.mockImplementation((_input, init) => {
+        requestCount++;
+        if (init?.signal) signals.push(init.signal);
+        return streamResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(`${JSON.stringify(datafileMsg())}\n`),
+              );
+              // Simulate a zombie connection (server stops sending pings).
+              init?.signal?.addEventListener('abort', () => {
+                controller.close();
+              });
+            },
+          }),
+        );
+      });
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { onDatafile: vi.fn() },
+      );
+
+      expect(requestCount).toBe(1);
+
+      // Trigger the ping timeout.
+      await vi.advanceTimersByTimeAsync(90_000);
+      await vi.advanceTimersByTimeAsync(0);
+      // Advance past the reconnection backoff (min 1s gap).
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Reconnected, but the first request's signal was never aborted —
+      // only the body reader was cancelled.
+      expect(requestCount).toBeGreaterThanOrEqual(2);
+      expect(signals[0]?.aborted).toBe(false);
+
+      abortController.abort();
+    });
+
     it('should reset timeout on each ping', async () => {
       let streamController: ReadableStreamDefaultController<Uint8Array>;
 

@@ -91,24 +91,29 @@ export async function connectStream(
         break;
       }
 
-      // Per-connection abort controller — allows ping timeout to abort a single
-      // connection without stopping the entire retry loop.
-      const connectionAbort = new AbortController();
-      const onMainAbort = (): void => connectionAbort.abort();
+      // Per-connection abort controller for the fetch signal. Forwarded from
+      // the external main abort so a hung fetch (e.g. before headers arrive)
+      // can still be cancelled on shutdown.
+      const fetchAbort = new AbortController();
+      const onMainAbort = (): void => fetchAbort.abort();
       abortController.signal.addEventListener('abort', onMainAbort, {
         once: true,
       });
 
+      // Tracks the in-flight body reader so the ping timeout can cancel reads
+      // gracefully. Cancelling the reader breaks the read loop via
+      // `{ done: true }` without aborting the fetch signal — the fetch span
+      // ends cleanly. Aborting the signal would surface as AbortError on
+      // instrumented fetch spans (e.g. via @vercel/otel/fetch) and get
+      // reported by APM/error tracking even though this is an expected
+      // reconnect path.
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       let pingTimeoutId: ReturnType<typeof setTimeout> | undefined;
-      // Reference to the response body so the ping timeout can cancel it
-      // to break out of the for-await loop.
-      let responseBody: ReadableStream<Uint8Array> | undefined;
       const resetPingTimeout = (): void => {
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
-          responseBody?.cancel().catch(() => {});
-          connectionAbort.abort();
+          reader?.cancel().catch(() => {});
         }, PING_TIMEOUT_MS);
       };
 
@@ -129,7 +134,7 @@ export async function connectStream(
         }
         const response = await fetchFn(`${host}/v1/stream`, {
           headers,
-          signal: connectionAbort.signal,
+          signal: fetchAbort.signal,
         });
 
         if (!response.ok) {
@@ -148,17 +153,18 @@ export async function connectStream(
           throw new Error('stream body was not present');
         }
 
-        responseBody = response.body;
-        const reader = response.body.getReader();
+        reader = response.body.getReader();
         const decoder = new TextDecoder();
         const bufferChunks: string[] = [];
 
-        // Allow the ping timeout (or main abort) to cancel the reader,
-        // which breaks the read loop immediately even on a zombie connection.
-        const onConnectionAbort = (): void => {
-          reader.cancel().catch(() => {});
+        // Ensure the read loop exits promptly when the fetch signal is
+        // aborted, even on zombie connections where the body doesn't observe
+        // the abort. Registered after getReader() so any listeners attached
+        // by the underlying source (e.g. test mocks) fire first.
+        const onFetchAbort = (): void => {
+          reader?.cancel().catch(() => {});
         };
-        connectionAbort.signal.addEventListener('abort', onConnectionAbort, {
+        fetchAbort.signal.addEventListener('abort', onFetchAbort, {
           once: true,
         });
 
@@ -218,13 +224,11 @@ export async function connectStream(
             }
           }
         } finally {
-          connectionAbort.signal.removeEventListener(
-            'abort',
-            onConnectionAbort,
-          );
+          fetchAbort.signal.removeEventListener('abort', onFetchAbort);
         }
 
-        // Stream ended normally (server closed connection) - reconnect
+        // Stream ended (server closed, ping timeout cancelled the reader,
+        // or external abort). Either reconnect or exit the outer loop.
         clearTimeout(pingTimeoutId);
         abortController.signal.removeEventListener('abort', onMainAbort);
         if (!abortController.signal.aborted) {
@@ -241,11 +245,7 @@ export async function connectStream(
         if (abortController.signal.aborted) {
           break;
         }
-        // Ping timeout aborts only the per-connection controller; this is
-        // an expected reconnect, not a real error — skip the noisy log.
-        if (!connectionAbort.signal.aborted) {
-          console.error('@vercel/flags-core: Stream error', error);
-        }
+        console.error('@vercel/flags-core: Stream error', error);
         onDisconnect?.();
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
