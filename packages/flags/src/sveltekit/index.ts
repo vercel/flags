@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
@@ -17,22 +16,22 @@ import {
   type ApiData,
   type FlagDefinitionsType,
   type JsonValue,
-  reportValue,
   safeJsonStringify,
   verifyAccess,
   version,
 } from '..';
+import {
+  attachFlagMetadata,
+  getDecide,
+  getIdentify,
+  getOrigin,
+  resolveFlag,
+  sealCookies,
+  sealHeaders,
+} from '../engine';
+import type { RequestContext } from '../engine/types';
 import { normalizeOptions } from '../lib/normalize-options';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
 import type {
-  Decide,
   FlagDeclaration,
   FlagOverridesType,
   FlagValuesType,
@@ -46,78 +45,19 @@ import {
 } from './precompute';
 import type { Flag, FlagsArray } from './types';
 
-// biome-ignore lint/suspicious/noShadowRestrictedNames: for type safety
-function hasOwnProperty<X extends {}, Y extends PropertyKey>(
-  obj: X,
-  prop: Y,
-): obj is X & Record<Y, unknown> {
-  return Object.hasOwn(obj, prop);
-}
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
-
 type PromisesMap<T> = {
   [K in keyof T]: Promise<T[K]>;
 };
 
 async function resolveObjectPromises<T>(obj: PromisesMap<T>): Promise<T> {
-  // Convert the object into an array of [key, promise] pairs
   const entries = Object.entries(obj) as [keyof T, Promise<any>][];
-
-  // Use Promise.all to wait for all the promises to resolve
   const resolvedEntries = await Promise.all(
     entries.map(async ([key, promise]) => {
       const value = await promise;
       return [key, value] as [keyof T, T[keyof T]];
     }),
   );
-
-  // Convert the array of resolved [key, value] pairs back into an object
   return Object.fromEntries(resolvedEntries) as T;
-}
-
-function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Decide<ValueType, EntitiesType> {
-  return function decide(params) {
-    if (typeof definition.decide === 'function') {
-      return definition.decide(params);
-    }
-    if (typeof definition.adapter?.decide === 'function') {
-      return definition.adapter.decide({ key: definition.key, ...params });
-    }
-    throw new Error(`flags: No decide function provided for ${definition.key}`);
-  };
-}
-
-function getIdentify<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Identify<EntitiesType> | undefined {
-  if (typeof definition.identify === 'function') {
-    return definition.identify;
-  }
-  if (typeof definition.adapter?.identify === 'function') {
-    return definition.adapter.identify;
-  }
 }
 
 /**
@@ -135,6 +75,7 @@ export function flag<
 >(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
   const decide = getDecide<ValueType, EntitiesType>(definition);
   const identify = getIdentify(definition);
+  const origin = getOrigin(definition);
 
   const flagImpl = async function flagImpl(
     requestOrCode?: string | Request,
@@ -157,6 +98,7 @@ export function flag<
       }
     }
 
+    // Precomputed path
     if (
       typeof requestOrCode === 'string' &&
       Array.isArray(flagsArrayOrSecret)
@@ -169,65 +111,31 @@ export function flag<
       );
     }
 
-    if (hasOwnProperty(store.usedFlags, definition.key)) {
-      const valuePromise = store.usedFlags[definition.key];
-      if (typeof valuePromise !== 'undefined') {
-        return valuePromise as Promise<ValueType>;
-      }
-    }
+    const context: RequestContext = {
+      headers: sealHeaders(store.request.headers),
+      cookies: sealCookies(store.request.headers),
+      cacheKey: store.request.headers,
+    };
 
-    const headers = sealHeaders(store.request.headers);
-    const cookies = sealCookies(store.request.headers);
-
-    const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides = overridesCookie
-      ? await _decryptOverrides(overridesCookie, store.secret)
-      : undefined;
-
-    if (overrides && hasOwnProperty(overrides, definition.key)) {
-      const value = overrides[definition.key];
-      if (typeof value !== 'undefined') {
-        reportValue(definition.key, value);
-        store.usedFlags[definition.key] = Promise.resolve(value as JsonValue);
-        return value;
-      }
-    }
-
-    let entities: EntitiesType | undefined;
-    if (identify) {
-      // Deduplicate calls to identify, key being the function itself
-      if (!store.identifiers.has(identify)) {
-        const entities = identify({
-          headers,
-          cookies,
-        });
-        store.identifiers.set(identify, entities);
-      }
-
-      entities = (await store.identifiers.get(identify)) as EntitiesType;
-    }
-
-    const valuePromise = decide({
-      headers,
-      cookies,
-      entities,
+    const value = await resolveFlag<ValueType, EntitiesType>(context, {
+      key: definition.key,
+      defaultValue: definition.defaultValue,
+      config: definition.config,
+      decide,
+      identify,
+      decryptOverrides: (cookie: string) =>
+        _decryptOverrides(cookie, store!.secret),
     });
-    store.usedFlags[definition.key] = valuePromise as Promise<JsonValue>;
 
-    const value = await valuePromise;
-    reportValue(definition.key, value);
+    // Track used flags for HTML injection in createHandle
+    store.usedFlags[definition.key] = Promise.resolve(value as JsonValue);
+
     return value;
   };
 
-  flagImpl.key = definition.key;
-  flagImpl.defaultValue = definition.defaultValue;
-  flagImpl.origin = definition.origin;
-  flagImpl.description = definition.description;
-  flagImpl.options = normalizeOptions(definition.options);
-  flagImpl.decide = decide;
-  flagImpl.identify = identify;
+  attachFlagMetadata(flagImpl, definition, { decide, identify, origin });
 
-  return flagImpl;
+  return flagImpl as Flag<ValueType>;
 }
 
 export function getProviderData(flags: Record<string, Flag<any>>): ApiData {

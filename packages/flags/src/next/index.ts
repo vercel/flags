@@ -1,30 +1,20 @@
 import type { IncomingHttpHeaders } from 'node:http';
-import { RequestCookies } from '@edge-runtime/cookies';
+import type { FlagDefinitionType, ProviderData } from '..';
 import {
-  type FlagDefinitionsType,
-  type FlagDefinitionType,
-  type ProviderData,
-  reportValue,
-} from '..';
-import { normalizeOptions } from '../lib/normalize-options';
-import { internalReportValue } from '../lib/report-value';
+  attachFlagMetadata,
+  getProviderData as engineGetProviderData,
+  getDecide,
+  getIdentify,
+  getOrigin,
+  resolveFlag,
+  sealCookies,
+  sealHeaders,
+} from '../engine';
+import type { RequestContext } from '../engine/types';
 import { setSpanAttribute, trace } from '../lib/tracing';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
-import type {
-  Decide,
-  FlagDeclaration,
-  FlagParamsType,
-  Identify,
-  JsonValue,
-  Origin,
-} from '../types';
+import type { ReadonlyHeaders } from '../spec-extension/adapters/headers';
+import type { ReadonlyRequestCookies } from '../spec-extension/adapters/request-cookies';
+import type { Decide, FlagDeclaration, Identify, JsonValue } from '../types';
 import { isInternalNextError } from './is-internal-next-error';
 import { getOverrides } from './overrides';
 import { getPrecomputed } from './precompute';
@@ -41,65 +31,9 @@ export {
 } from './precompute';
 export type { Flag } from './types';
 
-// a map of (headers, flagKey, entitiesKey) => value
-const evaluationCache = new WeakMap<
-  Headers | IncomingHttpHeaders,
-  Map</* flagKey */ string, Map</* entitiesKey */ string, any>>
->();
-
-function getCachedValuePromise(
-  /**
-   * supports Headers for App Router and IncomingHttpHeaders for Pages Router
-   */
-  headers: Headers | IncomingHttpHeaders,
-  flagKey: string,
-  entitiesKey: string,
-): any {
-  return evaluationCache.get(headers)?.get(flagKey)?.get(entitiesKey);
-}
-
-function setCachedValuePromise(
-  /**
-   * supports Headers for App Router and IncomingHttpHeaders for Pages Router
-   */
-  headers: Headers | IncomingHttpHeaders,
-  flagKey: string,
-  entitiesKey: string,
-  flagValue: any,
-): any {
-  const byHeaders = evaluationCache.get(headers);
-
-  if (!byHeaders) {
-    evaluationCache.set(
-      headers,
-      new Map([[flagKey, new Map([[entitiesKey, flagValue]])]]),
-    );
-    return;
-  }
-
-  const byFlagKey = byHeaders.get(flagKey);
-  if (!byFlagKey) {
-    byHeaders.set(flagKey, new Map([[entitiesKey, flagValue]]));
-    return;
-  }
-
-  byFlagKey.set(entitiesKey, flagValue);
-}
-
-type IdentifyArgs = Parameters<
-  Exclude<FlagDeclaration<any, any>['identify'], undefined>
->;
+// Pages Router: transform IncomingHttpHeaders to Headers
 const transformMap = new WeakMap<IncomingHttpHeaders, Headers>();
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-const identifyArgsMap = new WeakMap<
-  Headers | IncomingHttpHeaders,
-  IdentifyArgs
->();
 
-/**
- * Transforms IncomingHttpHeaders to Headers
- */
 function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
   const cached = transformMap.get(incomingHeaders);
   if (cached !== undefined) return cached;
@@ -107,12 +41,10 @@ function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
   const headers = new Headers();
   for (const [key, value] of Object.entries(incomingHeaders)) {
     if (Array.isArray(value)) {
-      // If the value is an array, add each item separately
       value.forEach((item) => {
         headers.append(key, item);
       });
     } else if (value !== undefined) {
-      // If it's a single value, add it directly
       headers.append(key, value);
     }
   }
@@ -121,89 +53,39 @@ function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
   return headers;
 }
 
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
+// Lazy import of next/headers for App Router
+let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
+let headersModule: typeof import('next/headers') | undefined;
 
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
+async function getAppRouterContext(): Promise<RequestContext> {
+  // async import required as turbopack errors in Pages Router
+  // when next/headers is imported at the top-level.
+  //
+  // cache import so we don't await on every call since this adds
+  // additional microtask queue overhead
+  if (!headersModulePromise) headersModulePromise = import('next/headers');
+  if (!headersModule) headersModule = await headersModulePromise;
+  const { headers, cookies } = headersModule;
 
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
-
-function isIdentifyFunction<ValueType, EntitiesType>(
-  identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
-): identify is FlagDeclaration<ValueType, EntitiesType>['identify'] {
-  return typeof identify === 'function';
-}
-
-async function getEntities<ValueType, EntitiesType>(
-  identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
-  dedupeCacheKey: Headers | IncomingHttpHeaders,
-  readonlyHeaders: ReadonlyHeaders,
-  readonlyCookies: ReadonlyRequestCookies,
-): Promise<EntitiesType | undefined> {
-  if (!identify) return undefined;
-  if (!isIdentifyFunction(identify)) return identify;
-
-  const args = identifyArgsMap.get(dedupeCacheKey);
-  if (args) return identify(...(args as [FlagParamsType]));
-
-  const nextArgs: IdentifyArgs = [
-    { headers: readonlyHeaders, cookies: readonlyCookies },
-  ];
-  identifyArgsMap.set(dedupeCacheKey, nextArgs);
-  return identify(...(nextArgs as [FlagParamsType]));
-}
-
-function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Decide<ValueType, EntitiesType> {
-  if (definition.adapter && typeof definition.adapter.decide !== 'function') {
-    throw new Error(
-      `flags: You passed an adapter that does not have a "decide" method for flag "${definition.key}". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?`,
-    );
-  }
-
-  if (
-    typeof definition.decide !== 'function' &&
-    typeof definition.adapter?.decide !== 'function'
-  ) {
-    throw new Error(
-      `flags: You passed a flag declaration that does not have a "decide" method for flag "${definition.key}"`,
-    );
-  }
-
-  return function decide(params) {
-    if (typeof definition.decide === 'function') {
-      return definition.decide(params);
-    }
-    if (typeof definition.adapter?.decide === 'function') {
-      return definition.adapter.decide({ key: definition.key, ...params });
-    }
-    throw new Error(`flags: No decide function provided for ${definition.key}`);
+  const [headersStore, cookiesStore] = await Promise.all([
+    headers(),
+    cookies(),
+  ]);
+  return {
+    headers: headersStore as ReadonlyHeaders,
+    cookies: cookiesStore as ReadonlyRequestCookies,
+    cacheKey: headersStore,
   };
 }
 
-function getIdentify<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): Identify<EntitiesType> {
-  return function identify(params) {
-    if (typeof definition.identify === 'function') {
-      return definition.identify(params);
-    }
-    if (typeof definition.adapter?.identify === 'function') {
-      return definition.adapter.identify(params);
-    }
-    return definition.identify;
+function getPagesRouterContext(
+  request: Parameters<PagesRouterFlag<any, any>>[0],
+): RequestContext {
+  const headers = transformToHeaders(request.headers);
+  return {
+    headers: sealHeaders(headers),
+    cookies: sealCookies(headers),
+    cacheKey: request.headers,
   };
 }
 
@@ -217,172 +99,6 @@ type Run<ValueType, EntitiesType> = (options: {
    */
   request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
 }) => Promise<ValueType>;
-
-let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
-let headersModule: typeof import('next/headers') | undefined;
-
-function getRun<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-  decide: Decide<ValueType, EntitiesType>,
-): Run<ValueType, EntitiesType> {
-  // use cache to guarantee flags only decide once per request
-  return async function run(options): Promise<ValueType> {
-    let readonlyHeaders: ReadonlyHeaders;
-    let readonlyCookies: ReadonlyRequestCookies;
-    let dedupeCacheKey: Headers | IncomingHttpHeaders;
-
-    if (options.request) {
-      // pages router
-      const headers = transformToHeaders(options.request.headers);
-      readonlyHeaders = sealHeaders(headers);
-      readonlyCookies = sealCookies(headers);
-      dedupeCacheKey = options.request.headers;
-    } else {
-      // app router
-
-      // async import required as turbopack errors in Pages Router
-      // when next/headers is imported at the top-level.
-      //
-      // cache import so we don't await on every call since this adds
-      // additional microtask queue overhead
-      if (!headersModulePromise) headersModulePromise = import('next/headers');
-      if (!headersModule) headersModule = await headersModulePromise;
-      const { headers, cookies } = headersModule;
-
-      const [headersStore, cookiesStore] = await Promise.all([
-        headers(),
-        cookies(),
-      ]);
-      readonlyHeaders = headersStore as ReadonlyHeaders;
-      readonlyCookies = cookiesStore as ReadonlyRequestCookies;
-      dedupeCacheKey = headersStore;
-    }
-
-    // skip microtask if cookie does not exist or is empty
-    const override = readonlyCookies.get('vercel-flag-overrides')?.value;
-    const overrides =
-      typeof override === 'string' && override !== ''
-        ? await getOverrides(override)
-        : null;
-
-    // the flag is being used in app router
-    // skip microtask if identify does not exist
-    const entities = options.identify
-      ? ((await getEntities(
-          options.identify,
-          dedupeCacheKey,
-          readonlyHeaders,
-          readonlyCookies,
-        )) as EntitiesType | undefined)
-      : undefined;
-
-    // check cache
-    const entitiesKey = JSON.stringify(entities) ?? '';
-
-    const cachedValue = getCachedValuePromise(
-      readonlyHeaders,
-      definition.key,
-      entitiesKey,
-    );
-    if (cachedValue !== undefined) {
-      setSpanAttribute('method', 'cached');
-      const value = await cachedValue;
-      return value;
-    }
-
-    if (overrides && overrides[definition.key] !== undefined) {
-      setSpanAttribute('method', 'override');
-      const decision = overrides[definition.key] as ValueType;
-      setCachedValuePromise(
-        readonlyHeaders,
-        definition.key,
-        entitiesKey,
-        Promise.resolve(decision),
-      );
-      internalReportValue(definition.key, decision, {
-        reason: 'override',
-      });
-      return decision;
-    }
-
-    // Normalize the result of decide() into a promise. decide() may return
-    // synchronously or asynchronously, and may also throw synchronously.
-    // Fall back to defaultValue when decide returns undefined or throws.
-    let decisionResult: ValueType | PromiseLike<ValueType>;
-    try {
-      decisionResult = decide({
-        // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
-        defaultValue: definition.defaultValue,
-        headers: readonlyHeaders,
-        cookies: readonlyCookies,
-        entities,
-      });
-    } catch (error) {
-      decisionResult = Promise.reject(error);
-    }
-
-    const decisionPromise = Promise.resolve(decisionResult).then<
-      ValueType,
-      ValueType
-    >(
-      (value) => {
-        if (value !== undefined) return value;
-        if (definition.defaultValue !== undefined)
-          return definition.defaultValue;
-        throw new Error(
-          `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
-        );
-      },
-      (error: Error) => {
-        if (isInternalNextError(error)) throw error;
-
-        // try to recover if defaultValue is set
-        if (definition.defaultValue !== undefined) {
-          if (process.env.NODE_ENV === 'development') {
-            console.info(
-              `flags: Flag "${definition.key}" is falling back to its defaultValue`,
-            );
-          } else {
-            console.warn(
-              `flags: Flag "${definition.key}" is falling back to its defaultValue after catching the following error`,
-              error,
-            );
-          }
-          return definition.defaultValue;
-        }
-        console.warn(`flags: Flag "${definition.key}" could not be evaluated`);
-        throw error;
-      },
-    );
-
-    setCachedValuePromise(
-      readonlyHeaders,
-      definition.key,
-      entitiesKey,
-      decisionPromise,
-    );
-
-    const decision = await decisionPromise;
-
-    if (definition.config?.reportValue !== false) {
-      // Only check `config.reportValue` for the result of `decide`.
-      // No need to check it for `override` since the client will have
-      // be short circuited in that case.
-      reportValue(definition.key, decision);
-    }
-
-    return decision;
-  };
-}
-
-function getOrigin<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
-): string | Origin | undefined {
-  if (definition.origin) return definition.origin;
-  if (typeof definition.adapter?.origin === 'function')
-    return definition.adapter.origin(definition.key);
-  return definition.adapter?.origin;
-}
 
 /**
  * Declares a feature flag.
@@ -405,12 +121,47 @@ export function flag<
 ): Flag<ValueType, EntitiesType> {
   const decide = getDecide<ValueType, EntitiesType>(definition);
   const identify = getIdentify<ValueType, EntitiesType>(definition);
-  const run = getRun<ValueType, EntitiesType>(definition, decide);
   const origin = getOrigin(definition);
+
+  function resolveFlagOptions(identifyOverride?: Identify<EntitiesType>) {
+    return {
+      key: definition.key,
+      defaultValue: definition.defaultValue,
+      config: definition.config,
+      decide,
+      identify: identifyOverride ?? identify,
+      decryptOverrides: (cookie: string) => getOverrides(cookie),
+      shouldRethrowError: isInternalNextError,
+    };
+  }
+
+  const run: Run<ValueType, EntitiesType> = async function run(
+    options,
+  ): Promise<ValueType> {
+    const context = options.request
+      ? getPagesRouterContext(options.request)
+      : await getAppRouterContext();
+
+    // .run() allows passing either a function or static entities
+    let identifyFn: Identify<EntitiesType> | undefined;
+    if (options.identify) {
+      if (typeof options.identify === 'function') {
+        identifyFn = options.identify as Identify<EntitiesType>;
+      } else {
+        // Wrap static entities as an identify function
+        identifyFn = () => options.identify as EntitiesType;
+      }
+    }
+
+    return resolveFlag<ValueType, EntitiesType>(
+      context,
+      resolveFlagOptions(identifyFn),
+    );
+  };
 
   const api = trace(
     async (...args: any[]) => {
-      // Default method, may be overwritten by `getPrecomputed` or `run`
+      // Default method, may be overwritten by `getPrecomputed` or `resolveFlag`
       // which is why we must not trace them directly in here,
       // as the attribute should be part of the `flag` function.
       setSpanAttribute('method', 'decided');
@@ -456,11 +207,7 @@ export function flag<
     },
   ) as Flag<ValueType, EntitiesType>;
 
-  api.key = definition.key;
-  api.defaultValue = definition.defaultValue;
-  api.origin = origin;
-  api.options = normalizeOptions<ValueType>(definition.options);
-  api.description = definition.description;
+  attachFlagMetadata(api, definition, { decide, identify, origin });
   api.identify = identify
     ? trace(identify, {
         isVerboseTrace: false,
@@ -497,23 +244,7 @@ export function getProviderData(
     KeyedFlagDefinitionType | readonly unknown[]
   >,
 ): ProviderData {
-  const definitions = Object.values(flags)
-    // filter out precomputed arrays
-    .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i))
-    .reduce<FlagDefinitionsType>((acc, d) => {
-      // maps the existing type from the facet definitions to the type
-      // the toolbar expects
-      acc[d.key] = {
-        options: d.options,
-        origin: d.origin,
-        description: d.description,
-        defaultValue: d.defaultValue,
-        declaredInCode: true,
-      } satisfies FlagDefinitionType;
-      return acc;
-    }, {});
-
-  return { definitions, hints: [] };
+  return engineGetProviderData(flags);
 }
 
 export { createFlagsDiscoveryEndpoint } from './create-flags-discovery-endpoint';
