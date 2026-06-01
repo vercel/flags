@@ -10,6 +10,10 @@ it is also possible to write a custom adapter in case we don't list
 your provider or in case you have an in-house solution for feature
 flags.
 
+<CopyPrompt text="Create a custom Flags SDK adapter for my feature flag provider. Implement an adapter factory that initializes or accepts my provider client, define `origin` and `decide` behavior, expose a default adapter when appropriate, use the adapter from typed flag declarations, preserve Edge Runtime compatibility where possible, and run the relevant tests or build when finished.">
+  Create a custom Flags SDK adapter for my feature flag provider. Implement an adapter factory that initializes or accepts my provider client, define `origin` and `decide` behavior, expose a default adapter when appropriate, use the adapter from typed flag declarations, preserve Edge Runtime compatibility where possible, and run the relevant tests or build when finished.
+</CopyPrompt>
+
 Adapters conceptually replace the `decide` and `origin` parts of a flag declaration.
 
 ## How to write a custom adapter

@@ -5,6 +5,10 @@ description: Using the Flags SDK in SvelteKit
 
 [SvelteKit](https://svelte.dev/docs/kit/introduction) is a framework for building web applications with [Svelte](https://svelte.dev/). The Flags SDK supports SvelteKit out of the box.
 
+<CopyPrompt text="Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.">
+  Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.
+</CopyPrompt>
+
 A minimal feature flag declaration for SvelteKit looks like this:
 
 ```ts title="src/lib/flags.ts"
