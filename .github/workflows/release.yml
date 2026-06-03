@@ -90,7 +90,7 @@ jobs:
           LAUNCHDARKLY_PROJECT_SLUG: ${{ secrets.LAUNCHDARKLY_PROJECT_SLUG }}
 
   snapshot:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.ref_name != 'main'
     name: Release Snapshot
     runs-on: ubuntu-latest
     permissions:
