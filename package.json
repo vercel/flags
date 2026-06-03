@@ -44,8 +44,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
-    "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "2.29.8",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "2.31.0",
     "@types/node": "22.9.0",
     "gray-matter": "4.0.3",
     "husky": "9.0.10",
