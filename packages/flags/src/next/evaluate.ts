@@ -198,7 +198,7 @@ type FlagInfo<ValueType> = {
 function hasOverride(
   overrides: Record<string, any> | null,
   key: string,
-): boolean {
+): overrides is Record<string, any> {
   return overrides !== null && overrides[key] !== undefined;
 }
 
@@ -239,7 +239,7 @@ async function applyResult<ValueType>(args: {
 
   if (hasOverride(overrides, definition.key)) {
     setSpanAttribute('method', 'override');
-    const decision = overrides![definition.key] as ValueType;
+    const decision = overrides[definition.key] as ValueType;
     setCachedValuePromise(
       readonlyHeaders,
       definition.key,
