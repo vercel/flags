@@ -20,3 +20,5 @@ const { a, b } = await evaluate({ a: flagA, b: flagB });
 ```
 
 Adapters can opt into bulk evaluation by implementing a `bulkDecide` method and setting a stable `adapterId`. When both are present, flag evaluation groups flags that share the same `adapterId` and `identify` source and invokes `bulkDecide` once per group instead of calling `decide` per flag. Flags without a bulk-capable adapter still resolve through the normal per-flag path inside `evaluate()` and still benefit from now reusing the shared per-request headers, cookies, and overrides reads.
+
+Tracing reflects this grouping. `evaluate()` (and therefore `precompute()`) now emits an `evaluate` span carrying a `flagCount` attribute. Within it, bulk-evaluated flags no longer emit an individual per-flag `run` span; instead each adapter group emits a single `batch` span (carrying the `adapterId`, the `keys` evaluated in the batch, and `cachedCount`/`overrideCount`/`decidedCount` attributes summarizing how the batch resolved) so per-flag instrumentation overhead is not reintroduced. Flags that fall back to the per-flag path continue to emit their own `flag` span as before.

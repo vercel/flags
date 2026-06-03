@@ -192,7 +192,22 @@ type FlagInfo<ValueType> = {
   key: string;
   defaultValue?: ValueType;
   config?: { reportValue?: boolean };
+  adapter?: { config?: { reportValue?: boolean } };
 };
+
+function hasOverride(
+  overrides: Record<string, any> | null,
+  key: string,
+): boolean {
+  return overrides !== null && overrides[key] !== undefined;
+}
+
+function shouldReportValue(definition: FlagInfo<any>): boolean {
+  return (
+    (definition.config?.reportValue ??
+      definition.adapter?.config?.reportValue) !== false
+  );
+}
 
 /**
  * Finalize a flag evaluation given an already-computed `entitiesKey`.
@@ -222,9 +237,9 @@ async function applyResult<ValueType>(args: {
     return await cachedValue;
   }
 
-  if (overrides && overrides[definition.key] !== undefined) {
+  if (hasOverride(overrides, definition.key)) {
     setSpanAttribute('method', 'override');
-    const decision = overrides[definition.key] as ValueType;
+    const decision = overrides![definition.key] as ValueType;
     setCachedValuePromise(
       readonlyHeaders,
       definition.key,
@@ -289,10 +304,8 @@ async function applyResult<ValueType>(args: {
 
   const decision = await decisionPromise;
 
-  if (definition.config?.reportValue !== false) {
-    // Only check `config.reportValue` for the result of `decide`.
-    // No need to check it for `override` since the client will have
-    // be short circuited in that case.
+  if (shouldReportValue(definition)) {
+    // Overrides return before this point and report with `reason: "override"`.
     reportValue(definition.key, decision);
   }
 
@@ -580,8 +593,7 @@ async function evaluateImpl(
               const entitiesKey = JSON.stringify(entities) ?? '';
 
               // Skip flags already resolved this request — `applyResult` would
-              // discard the bulk result for them anyway. If every flag in the
-              // group is cached, the adapter call is avoided entirely.
+              // discard the bulk result for them anyway.
               const uncached = list.filter(
                 ({ flagFn }) =>
                   getCachedValuePromise(
@@ -590,17 +602,21 @@ async function evaluateImpl(
                     entitiesKey,
                   ) === undefined,
               );
+              const undecided = uncached.filter(
+                ({ flagFn }) => !hasOverride(overrides, flagFn.key),
+              );
 
-              // Call bulkDecide. If it throws, every uncached flag still goes
+              // Call bulkDecide only for flags that are neither cached nor
+              // overridden. If it throws, every undecided flag still goes
               // through `applyResult` — its producer just rethrows, so the
               // catch arm handles the per-flag defaultValue fallback (or
               // rejects for flags without a defaultValue).
               let bulkResult: Record<string, any> | null = null;
               let bulkError: unknown = null;
-              if (uncached.length > 0) {
+              if (undecided.length > 0) {
                 try {
                   bulkResult = await adapter.bulkDecide!({
-                    flags: uncached.map(({ flagFn }) => ({
+                    flags: undecided.map(({ flagFn }) => ({
                       key: flagFn.key,
                       defaultValue: flagFn.defaultValue,
                     })),
@@ -638,25 +654,20 @@ async function evaluateImpl(
               // Returned so the span can derive aggregate counts lazily —
               // `attributesSuccess` only runs when a tracer is registered, so
               // nothing here costs anything on the untraced hot path.
-              return uncached;
+              return { uncached, undecided };
             },
             {
               name: 'batch',
               isVerboseTrace: false,
               attributes: { adapterId: String(adapter.adapterId) },
-              attributesSuccess: (uncached) => {
+              attributesSuccess: ({ uncached, undecided }) => {
                 const cachedCount = list.length - uncached.length;
-                let overrideCount = 0;
-                if (overrides) {
-                  for (const { flagFn } of uncached) {
-                    if (overrides[flagFn.key] !== undefined) overrideCount++;
-                  }
-                }
+                const overrideCount = uncached.length - undecided.length;
                 return {
                   keys: list.map(({ flagFn }) => flagFn.key),
                   cachedCount,
                   overrideCount,
-                  decidedCount: uncached.length - overrideCount,
+                  decidedCount: undecided.length,
                 };
               },
             },

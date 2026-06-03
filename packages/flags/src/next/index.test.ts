@@ -264,6 +264,57 @@ describe('flag on app router', () => {
     ]);
   });
 
+  it('honors adapter-level reportValue false', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const f = flag<boolean>({
+      key: 'first-flag',
+      adapter: {
+        config: { reportValue: false },
+        decide: () => true,
+      },
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(f()).resolves.toEqual(true);
+    expect(requestContext.flags.calls).toEqual([]);
+  });
+
+  it('lets flag-level reportValue override adapter config', async () => {
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    const f = flag<boolean>({
+      key: 'first-flag',
+      config: { reportValue: true },
+      adapter: {
+        config: { reportValue: false },
+        decide: () => true,
+      },
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(f()).resolves.toEqual(true);
+    expect(requestContext.flags.calls).toEqual([
+      {
+        key: 'first-flag',
+        value: true,
+        data: expect.objectContaining({
+          sdkVersion: expect.any(String),
+        }),
+      },
+    ]);
+  });
+
   it('preserves method binding for override reporting hooks', async () => {
     const requestContext = createRequestContext();
     Reflect.set(globalThis, requestContextSymbol, {
@@ -978,6 +1029,37 @@ describe('evaluate', () => {
     mocks.cookies.mockReturnValueOnce({ get: cookieMock });
 
     await expect(evaluate({ a })).resolves.toEqual({ a: true });
+    expect(bulkDecideMock).not.toHaveBeenCalled();
+  });
+
+  it('omits overridden flags from bulkDecide input', async () => {
+    const bulkDecideMock = vi.fn(({ flags }: { flags: { key: string }[] }) =>
+      Object.fromEntries(flags.map((f) => [f.key, `bulk-${f.key}`])),
+    );
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    const a = flag<string>({ key: 'a', adapter: adapter() });
+    const b = flag<string>({ key: 'b', adapter: adapter() });
+
+    const override = await encryptOverrides({ a: 'overridden' });
+    const cookieMock = vi.fn((name: string) =>
+      name === 'vercel-flag-overrides'
+        ? { name: 'vercel-flag-overrides', value: override }
+        : undefined,
+    );
+    mocks.headers.mockReturnValueOnce(new Headers());
+    mocks.cookies.mockReturnValueOnce({ get: cookieMock });
+
+    await expect(evaluate({ a, b })).resolves.toEqual({
+      a: 'overridden',
+      b: 'bulk-b',
+    });
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
+    expect(bulkDecideMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flags: [{ key: 'b', defaultValue: undefined }],
+      }),
+    );
   });
 
   it('populates the evaluation cache so a subsequent flagFn() hits cache', async () => {
