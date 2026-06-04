@@ -5,6 +5,7 @@ import type {
   DatafileInput,
 } from '../types';
 import type { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import type { Auth } from './auth';
 
 /**
  * Manages loading of bundled flag definitions.
@@ -12,17 +13,13 @@ import type { readBundledDefinitions } from '../utils/read-bundled-definitions';
  */
 export class BundledSource {
   private promise: Promise<BundledDefinitionsResult> | undefined;
-  private options: {
-    sdkKey: string;
-    readBundledDefinitions: typeof readBundledDefinitions;
-  };
 
-  constructor(options: {
-    sdkKey: string;
-    readBundledDefinitions: typeof readBundledDefinitions;
-  }) {
-    this.options = options;
-  }
+  constructor(
+    private options: {
+      auth: Auth;
+      readBundledDefinitions: typeof readBundledDefinitions;
+    },
+  ) {}
 
   /**
    * Load bundled definitions.
@@ -76,7 +73,7 @@ export class BundledSource {
 
   private getResult(): Promise<BundledDefinitionsResult> {
     if (!this.promise) {
-      this.promise = this.options.readBundledDefinitions(this.options.sdkKey);
+      this.promise = this.options.readBundledDefinitions(this.options.auth);
     }
     return this.promise;
   }
