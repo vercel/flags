@@ -188,12 +188,14 @@ npm i -g vercel@latest
 Open the Flags Explorer locally to see the feature flag.
 
 <ThemeAwareImage
-  srcDark="https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/gbkv6rkqirktcgcc8cve.jpg"
-  srcLight="https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/pqlb2ony8jwm6iedf9ds.jpg"
+  src={{
+    light:
+      "https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/pqlb2ony8jwm6iedf9ds.jpg",
+    dark: "https://assets.vercel.com/image/upload/v1740065313/flags-sdk-dev/gbkv6rkqirktcgcc8cve.jpg",
+  }}
   alt="View the flag from the toolbar."
   priority
   className="border-300 rounded-lg border"
-  data-theme="dark"
   width={1042 / 2}
   height={1197 / 2}
 />

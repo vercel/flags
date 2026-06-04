@@ -1,6 +1,6 @@
+import { Badge } from '@vercel/geistdocs/components/badge';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
 import { FlagsmithLogo } from './logos/flagsmith';
 import { GrowthbookLogo } from './logos/growthbook';
 import { HypertuneLogo } from './logos/hypertune';

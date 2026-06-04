@@ -1,10 +1,10 @@
+import { ThemeAwareImage } from "@vercel/geistdocs/components/theme-aware-image";
 import { MobileDocsBar } from "@vercel/geistdocs/mobile-docs-bar";
 import { createDocsPage } from "@vercel/geistdocs/pages/docs";
 import { getMDXComponents } from "@/components/geistdocs/mdx-components";
 import { IframeBrowser } from "@/components/custom/iframe-browser";
 import { LearnMore } from "@/components/custom/learn-more";
 import { ProviderList } from "@/components/custom/provider-list";
-import { ThemeAwareImage } from "@/components/custom/theme-aware-image";
 import { config } from "@/lib/geistdocs/config";
 import { geistdocsSource } from "@/lib/geistdocs/source";
 import { ExternalLinkIcon } from "lucide-react";
