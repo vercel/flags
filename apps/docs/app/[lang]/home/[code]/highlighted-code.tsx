@@ -45,10 +45,13 @@ export const HighlightedCode = async ({
   });
 
   return (
-    <div className="flex flex-col">
-      {/* CodeBlock ships its own bottom margin; drop it so the caption sits tight. */}
-      <div className="*:mb-0">{rendered}</div>
-      <span className="mt-1 block text-xs text-muted-foreground">
+    <div className="flex h-full flex-col">
+      {/* Grow the block to fill the grid cell so both columns share a height
+          (the Card and its <pre> share bg-background-100, so the shorter block
+          fills seamlessly). *:mb-0 drops CodeBlock's own bottom margin so the
+          caption sits tight. */}
+      <div className="*:mb-0 *:h-full flex-1">{rendered}</div>
+      <span className="mt-2 block text-xs text-muted-foreground">
         {caption}
       </span>
     </div>
