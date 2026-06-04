@@ -51,9 +51,7 @@ export const HighlightedCode = async ({
           fills seamlessly). *:mb-0 drops CodeBlock's own bottom margin so the
           caption sits tight. */}
       <div className="*:mb-0 *:h-full flex-1">{rendered}</div>
-      <span className="mt-2 block text-xs text-muted-foreground">
-        {caption}
-      </span>
+      <span className="mt-2 block text-xs text-gray-800">{caption}</span>
     </div>
   );
 };

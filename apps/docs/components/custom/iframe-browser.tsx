@@ -31,12 +31,12 @@ export function IframeBrowser({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border shadow-lg">
-      <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-card p-2">
+      <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-background-100 p-2">
         <div className="flex-grow">
           <Input
             defaultValue={resolvedSrc}
             placeholder="Enter URL"
-            className="w-full cursor-default bg-white dark:bg-card"
+            className="w-full cursor-default bg-white dark:bg-background-100"
             readOnly
             aria-labelledby="input-label"
           />
