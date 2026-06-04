@@ -260,10 +260,10 @@ export class UsageTracker {
 
     const flushId = ++this.flushCounter;
 
-    const token = await this.options.auth.resolveToken();
-
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        const token = await this.options.auth.resolveToken();
+
         const response = await this.options.fetch(
           `${this.options.host}/v1/ingest`,
           {

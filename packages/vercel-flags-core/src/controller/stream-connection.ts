@@ -43,8 +43,7 @@ export type StreamCallbacks = {
 
 export type StreamConfig = {
   host: string;
-  token?: string;
-  sdkKey?: string;
+  token: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
   /** Returns the current revision number to send as X-Revision header */
@@ -61,10 +60,6 @@ export async function connectStream(
   callbacks: StreamCallbacks,
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
-  const token = config.token ?? config.sdkKey;
-  if (!token) {
-    throw new Error('stream: missing auth token');
-  }
   const { onDatafile, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
@@ -115,7 +110,7 @@ export async function connectStream(
       try {
         lastAttemptTime = Date.now();
         const headers: Record<string, string> = {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${config.token}`,
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };

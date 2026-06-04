@@ -63,7 +63,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -85,7 +85,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -109,7 +109,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -144,7 +144,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -177,7 +177,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -194,7 +194,7 @@ describe('connectStream', () => {
     it('should include Authorization header with Bearer token', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_my_key', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_my_key', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -209,7 +209,7 @@ describe('connectStream', () => {
     it('should include User-Agent header with version', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -224,7 +224,7 @@ describe('connectStream', () => {
     it('should include X-Retry-Attempt header starting at 0', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -253,7 +253,7 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -282,7 +282,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -318,7 +318,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -356,7 +356,7 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -389,7 +389,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -431,7 +431,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -472,7 +472,7 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -519,7 +519,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -561,7 +561,7 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -605,7 +605,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -644,7 +644,7 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -680,7 +680,7 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       const promise = connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile },
       );
 
@@ -709,7 +709,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          sdkKey: 'vf_test',
+          token: 'vf_test',
           abortController,
           fetch: fetchMock,
           revision: () => 42,
@@ -728,7 +728,7 @@ describe('connectStream', () => {
     it('should not include X-Revision header when revision is undefined', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
         { onDatafile: vi.fn() },
       );
 
@@ -768,7 +768,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          sdkKey: 'vf_test',
+          token: 'vf_test',
           abortController,
           fetch: fetchMock,
           revision: () => currentRevision,
@@ -825,7 +825,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          sdkKey: 'vf_test',
+          token: 'vf_test',
           abortController,
           fetch: fetchMock,
           revision: () => 33,
@@ -860,7 +860,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          sdkKey: 'vf_test',
+          token: 'vf_test',
           abortController,
           fetch: fetchMock,
           revision: () => 5,
@@ -910,7 +910,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          sdkKey: 'vf_test',
+          token: 'vf_test',
           abortController,
           fetch: fetchMock,
           revision: () => 1,
