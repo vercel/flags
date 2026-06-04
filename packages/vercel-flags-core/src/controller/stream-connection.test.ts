@@ -487,11 +487,45 @@ describe('connectStream', () => {
       vi.useRealTimers();
     });
 
-    // Note: Testing MAX_RETRY_COUNT exceeded is skipped because the backoff delays
-    // make the test too slow. The behavior is:
-    // - After 10 retries without receiving data, the connection aborts
-    // - console.error('@vercel/flags-core: Max retry count exceeded') is logged
-    // This is tested indirectly through Controller integration tests.
+    it('should log the underlying error once max retries are exceeded', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Every attempt fails with the same network-style error.
+      fetchMock.mockImplementation(() =>
+        Promise.reject(new Error('fetch failed')),
+      );
+
+      const abortController = new AbortController();
+
+      const promise = connectStream(
+        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        { onDatafile: vi.fn() },
+      );
+      // Attach the rejection expectation up front so the rejection is never
+      // briefly unhandled while we drive the timers below.
+      const rejection = expect(promise).rejects.toThrow(
+        'stream: max retry count exceeded before receiving data',
+      );
+
+      // Drive the retry loop to exhaustion (MAX_RETRY_COUNT = 15, backoff caps
+      // at 60s). Advancing past the max backoff repeatedly walks every attempt.
+      for (let i = 0; i <= 16; i++) {
+        await vi.advanceTimersByTimeAsync(61_000);
+      }
+
+      await rejection;
+
+      // Retryable failures stay silent; the underlying error surfaces only here.
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Max retry count exceeded',
+        expect.objectContaining({ message: 'fetch failed' }),
+      );
+
+      abortController.abort();
+      errorSpy.mockRestore();
+      vi.useRealTimers();
+    });
 
     it('should stop when abortController is aborted externally', async () => {
       fetchMock.mockImplementation((_input, init) =>

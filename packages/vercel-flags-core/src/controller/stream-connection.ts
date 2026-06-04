@@ -84,7 +84,7 @@ export async function connectStream(
       if (retryCount > MAX_RETRY_COUNT) {
         console.error(
           '@vercel/flags-core: Max retry count exceeded',
-          lastError,
+          lastError ?? 'stream closed repeatedly without an error',
         );
         if (!initialDataReceived) {
           rejectInit!(
