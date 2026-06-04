@@ -78,10 +78,14 @@ export async function connectStream(
 
   void (async () => {
     let initialDataReceived = false;
+    let lastError: unknown;
 
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
-        console.error('@vercel/flags-core: Max retry count exceeded');
+        console.error(
+          '@vercel/flags-core: Max retry count exceeded',
+          lastError,
+        );
         if (!initialDataReceived) {
           rejectInit!(
             new Error('stream: max retry count exceeded before receiving data'),
@@ -242,9 +246,10 @@ export async function connectStream(
           break;
         }
         // Ping timeout aborts only the per-connection controller; this is
-        // an expected reconnect, not a real error — skip the noisy log.
+        // an expected reconnect, not a real error. Stay silent on retryable
+        // failures too — the error is only logged once retries are exhausted.
         if (!connectionAbort.signal.aborted) {
-          console.error('@vercel/flags-core: Stream error', error);
+          lastError = error;
         }
         onDisconnect?.();
         retryCount++;

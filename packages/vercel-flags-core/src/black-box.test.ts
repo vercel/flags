@@ -638,7 +638,7 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.connectionState).toBe('disconnected');
 
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       warnSpy.mockRestore();
     });
@@ -675,12 +675,13 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
-      expect(errorSpy).toHaveBeenCalledWith(
+      // Retryable stream errors are silent until retries are exhausted.
+      expect(errorSpy).not.toHaveBeenCalledWith(
         '@vercel/flags-core: Stream error',
-        expect.any(Error),
+        expect.anything(),
       );
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       errorSpy.mockRestore();
       warnSpy.mockRestore();
@@ -781,7 +782,7 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('embedded');
 
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       warnSpy.mockRestore();
     });
@@ -962,7 +963,7 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('in-memory');
 
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
 
       warnSpy.mockRestore();
@@ -998,7 +999,7 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('in-memory');
 
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
 
       warnSpy.mockRestore();
@@ -1897,11 +1898,10 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('embedded');
       expect(result.metrics?.connectionState).toBe('disconnected');
 
-      expect(errorSpy).toHaveBeenCalledWith(
+      // Retryable stream errors are silent until retries are exhausted.
+      expect(errorSpy).not.toHaveBeenCalledWith(
         '@vercel/flags-core: Stream error',
-        expect.objectContaining({
-          message: 'stream body was not present',
-        }),
+        expect.anything(),
       );
 
       await client.shutdown();
@@ -3289,12 +3289,13 @@ describe('Controller (black-box)', () => {
       expect(h0['X-Retry-Attempt']).toBe('0');
       expect(h1['X-Retry-Attempt']).toBe('1');
 
-      expect(errorSpy).toHaveBeenCalledWith(
+      // Retryable stream errors are silent until retries are exhausted.
+      expect(errorSpy).not.toHaveBeenCalledWith(
         '@vercel/flags-core: Stream error',
-        expect.any(Error),
+        expect.anything(),
       );
       expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back',
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       errorSpy.mockRestore();
       warnSpy.mockRestore();

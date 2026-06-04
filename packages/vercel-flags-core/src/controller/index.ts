@@ -496,7 +496,7 @@ export class Controller implements ControllerInterface {
 
       if (result === 'timeout') {
         console.warn(
-          '@vercel/flags-core: Stream initialization timeout, falling back',
+          '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
         // Don't stop stream - let it continue trying in background.
         // Swallow the rejection from the background stream promise to
@@ -556,7 +556,7 @@ export class Controller implements ControllerInterface {
 
       if (result === 'timeout') {
         console.warn(
-          '@vercel/flags-core: Polling initialization timeout, falling back',
+          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );
         return false;
       }
