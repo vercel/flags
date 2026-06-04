@@ -63,7 +63,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -85,7 +90,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -109,7 +119,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -144,7 +159,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -177,7 +197,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -194,7 +219,12 @@ describe('connectStream', () => {
     it('should include Authorization header with Bearer token', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, token: 'vf_my_key', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_my_key'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -209,7 +239,12 @@ describe('connectStream', () => {
     it('should include User-Agent header with version', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -224,7 +259,12 @@ describe('connectStream', () => {
     it('should include X-Retry-Attempt header starting at 0', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -253,7 +293,12 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -271,6 +316,38 @@ describe('connectStream', () => {
       abortController.abort();
     });
 
+    it('should resolve a fresh token on reconnect', async () => {
+      let requestCount = 0;
+      const resolveToken = vi
+        .fn<() => Promise<string>>()
+        .mockResolvedValueOnce('token-1')
+        .mockResolvedValueOnce('token-2');
+
+      fetchMock.mockImplementation(() => {
+        requestCount++;
+        return ndjsonResponse([datafileMsg()], { keepOpen: requestCount >= 2 });
+      });
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        { host: HOST, resolveToken, abortController, fetch: fetchMock },
+        { onDatafile: vi.fn() },
+      );
+
+      // Advance past the reconnection backoff delay
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(resolveToken).toHaveBeenCalledTimes(2);
+      const h0 = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+      const h1 = fetchMock.mock.calls[1]![1]!.headers as Record<string, string>;
+      expect(h0.Authorization).toBe('Bearer token-1');
+      expect(h1.Authorization).toBe('Bearer token-2');
+
+      abortController.abort();
+    });
+
     it('should reset retryCount to 0 after receiving datafile', async () => {
       let requestCount = 0;
 
@@ -282,7 +359,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -318,7 +400,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -356,7 +443,12 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -376,6 +468,24 @@ describe('connectStream', () => {
     // but the promise resolution is handled by the timeout mechanism in
     // Controller.
 
+    it('should reject if resolving the token fails before first datafile', async () => {
+      const authError = new Error('auth unavailable');
+      const resolveToken = vi
+        .fn<() => Promise<string>>()
+        .mockRejectedValue(authError);
+      const abortController = new AbortController();
+
+      const promise = connectStream(
+        { host: HOST, resolveToken, abortController, fetch: fetchMock },
+        { onDatafile: vi.fn() },
+      );
+
+      await expect(promise).rejects.toBe(authError);
+      expect(resolveToken).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(abortController.signal.aborted).toBe(true);
+    });
+
     it('should retry on error before first datafile and reject when aborted', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -389,7 +499,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -431,7 +546,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -472,7 +592,12 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -519,7 +644,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -561,7 +691,12 @@ describe('connectStream', () => {
       const onDisconnect = vi.fn();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn(), onDisconnect },
       );
 
@@ -605,7 +740,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -644,7 +784,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -680,7 +825,12 @@ describe('connectStream', () => {
       const onDatafile = vi.fn();
 
       const promise = connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile },
       );
 
@@ -709,7 +859,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          token: 'vf_test',
+          resolveToken: () => Promise.resolve('vf_test'),
           abortController,
           fetch: fetchMock,
           revision: () => 42,
@@ -728,7 +878,12 @@ describe('connectStream', () => {
     it('should not include X-Revision header when revision is undefined', async () => {
       const abortController = new AbortController();
       await connectStream(
-        { host: HOST, token: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
 
@@ -768,7 +923,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          token: 'vf_test',
+          resolveToken: () => Promise.resolve('vf_test'),
           abortController,
           fetch: fetchMock,
           revision: () => currentRevision,
@@ -825,7 +980,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          token: 'vf_test',
+          resolveToken: () => Promise.resolve('vf_test'),
           abortController,
           fetch: fetchMock,
           revision: () => 33,
@@ -860,7 +1015,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          token: 'vf_test',
+          resolveToken: () => Promise.resolve('vf_test'),
           abortController,
           fetch: fetchMock,
           revision: () => 5,
@@ -910,7 +1065,7 @@ describe('connectStream', () => {
       await connectStream(
         {
           host: HOST,
-          token: 'vf_test',
+          resolveToken: () => Promise.resolve('vf_test'),
           abortController,
           fetch: fetchMock,
           revision: () => 1,

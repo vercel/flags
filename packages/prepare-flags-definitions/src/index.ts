@@ -167,8 +167,9 @@ async function fetchDatafile(
  * ```js
  * const memo = (fn) => { let cached; return () => (cached ??= fn()); };
  * const _d0 = memo(() => JSON.parse('...'));
- * const map = { "<sha256_hash>": _d0 };
- * export function get(hashedSdkKey) { return map[hashedSdkKey]?.() ?? null; }
+ * const _d1 = memo(() => JSON.parse('...'));
+ * const map = { "<sha256_hash>": _d0, "project_id": _d1 };
+ * export function get(key) { return map[key]?.() ?? null; }
  * ```
  */
 export function generateDefinitionsModule(

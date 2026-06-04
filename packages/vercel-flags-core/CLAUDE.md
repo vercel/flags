@@ -84,7 +84,7 @@ type FlagsClient = {
 
 ```typescript
 type ControllerOptions = {
-  sdkKey?: string;
+  auth: Auth;
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
