@@ -22,7 +22,7 @@ const result = await prepareFlagsDefinitions({
 });
 
 if (result.created) {
-  console.log(`Bundled definitions for ${result.sdkKeysCount} SDK keys`);
+  console.log(`Bundled definitions for ${result.entryCount} entries`);
 } else {
   console.log(`No definitions created: ${result.reason}`);
 }

@@ -14,8 +14,8 @@ export interface Output {
 }
 
 export type PrepareFlagsDefinitionsResult =
-  | { created: false; reason: 'no-sdk-keys' }
-  | { created: true; sdkKeysCount: number };
+  | { created: false; reason: 'no-flags-entries' }
+  | { created: true; entryCount: number };
 
 /**
  * Obfuscates SDK key for logging (shows first 18 chars)
@@ -34,13 +34,128 @@ export function hashSdkKey(sdkKey: string): string {
   return createHash('sha256').update(sdkKey).digest('hex');
 }
 
+export function getProjectIdFromOidcToken(oidcToken: string) {
+  const tokenParts = oidcToken.split('.');
+  if (tokenParts.length !== 3 || !tokenParts[1]) {
+    return;
+  }
+
+  const payload = JSON.parse(
+    Buffer.from(tokenParts[1], 'base64url').toString('utf8'),
+  ) as { project_id?: unknown };
+
+  if (typeof payload.project_id !== 'string' || !payload.project_id) {
+    return;
+  }
+
+  return payload.project_id;
+}
+
+type DefinitionsEntry = {
+  key: string;
+  definitions: BundledDefinitions;
+};
+
+type MapEntry = {
+  key: string;
+  value: string;
+};
+
 /**
- * Regex to match valid Vercel Flags SDK keys.
- * SDK keys must follow the format: vf_server_* or vf_client_*
- * This avoids false positives with third-party identifiers that happen
- * to start with 'vf_' (e.g., Stripe identity flow IDs like 'vf_1PyH...').
+ * Creates js constants pointing to memoized deduplicated flag definitions.
+ * Output format:
+ * ```js
+ * const _d0 = memo(() => JSON.parse('...'));
+ * const _d1 = memo(() => JSON.parse('...'));
+ * ````
  */
-const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
+function generateDefinitionConstants(
+  lines: string[],
+  entries: DefinitionsEntry[],
+): MapEntry[] {
+  const stringToConst = new Map<string, string>();
+
+  return entries.map((entry) => {
+    const stringified = JSON.stringify(entry.definitions);
+    let definitionConst = stringToConst.get(stringified);
+
+    if (!definitionConst) {
+      definitionConst = `_d${stringToConst.size}`;
+      stringToConst.set(stringified, definitionConst);
+      lines.push(
+        `const ${definitionConst} = memo(() => JSON.parse(${JSON.stringify(stringified)}));`,
+      );
+    }
+
+    return { key: entry.key, value: definitionConst };
+  });
+}
+
+/**
+ * Creates a js map and getter function for exposing key value pairs.
+ * Output format:
+ * ```js
+ * const map = { "<sha256_hash_or_project_id>": _d0 };
+ * export function get(key) { return map[key]?.() ?? null; }
+ * ````
+ */
+function generateMap(lines: string[], entries: MapEntry[]): void {
+  lines.push('');
+  lines.push('const map = {');
+  for (const entry of entries) {
+    lines.push(`  ${JSON.stringify(entry.key)}: ${entry.value},`);
+  }
+  lines.push('};');
+  lines.push('');
+  lines.push('export function get(key) {');
+  lines.push('  return map[key]?.() ?? null;');
+  lines.push('}');
+}
+
+async function fetchDatafile(
+  token: string,
+  env: Record<string, string | undefined>,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix?: string,
+): Promise<BundledDefinitions | undefined> {
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${token}`,
+    'user-agent': [
+      `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
+      userAgentSuffix,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  };
+
+  // Add Vercel metadata headers if available
+  if (env.VERCEL_PROJECT_ID) {
+    headers['x-vercel-project-id'] = env.VERCEL_PROJECT_ID;
+  }
+  if (env.VERCEL_ENV) {
+    headers['x-vercel-env'] = env.VERCEL_ENV;
+  }
+  if (env.VERCEL_DEPLOYMENT_ID) {
+    headers['x-vercel-deployment-id'] = env.VERCEL_DEPLOYMENT_ID;
+  }
+  if (env.VERCEL_REGION) {
+    headers['x-vercel-region'] = env.VERCEL_REGION;
+  }
+
+  const res = await fetchFn(`${FLAGS_HOST}/v1/datafile`, { headers });
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      return undefined;
+    }
+
+    throw new Error(
+      `Failed to fetch flag definitions for ${obfuscate(token)}: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  return res.json() as Promise<BundledDefinitions>;
+}
 
 /**
  * Generates a JS module with deduplicated, lazily-parsed definitions.
@@ -52,64 +167,96 @@ const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
  * ```js
  * const memo = (fn) => { let cached; return () => (cached ??= fn()); };
  * const _d0 = memo(() => JSON.parse('...'));
- * const map = { "<sha256_hash>": _d0 };
- * export function get(hashedSdkKey) { return map[hashedSdkKey]?.() ?? null; }
+ * const _d1 = memo(() => JSON.parse('...'));
+ * const map = { "<sha256_hash>": _d0, "project_id": _d1 };
+ * export function get(key) { return map[key]?.() ?? null; }
  * ```
  */
 export function generateDefinitionsModule(
-  sdkKeys: string[],
-  values: BundledDefinitions[],
+  entries: DefinitionsEntry[],
+  output: Output | undefined,
 ): string {
-  // Stringify each definition
-  const stringified = sdkKeys.map((_, i) => JSON.stringify(values[i]));
-
-  // Deduplicate: map unique strings to indices
-  const uniqueStrings: string[] = [];
-  const stringToIndex = new Map<string, number>();
-  for (const s of stringified) {
-    if (!stringToIndex.has(s)) {
-      stringToIndex.set(s, uniqueStrings.length);
-      uniqueStrings.push(s);
-    }
-  }
-
-  // Map SDK keys to their definition index
-  const keyToIndex = sdkKeys.map(
-    (_, i) => stringToIndex.get(stringified[i]!) ?? 0,
+  output?.debug(
+    `vercel-flags: writing flag definitions for "${entries.map(({ key }) => obfuscate(key)).join(', ')}"`,
   );
 
-  // Hash each SDK key
-  const hashedKeys = sdkKeys.map(hashSdkKey);
-
-  // Generate JS
+  // generate shared js
   const lines: string[] = [
     'const memo = (fn) => { let cached; return () => (cached ??= fn()); };',
     '',
   ];
 
-  // Add definition constants
-  for (let i = 0; i < uniqueStrings.length; i++) {
-    lines.push(
-      `const _d${i} = memo(() => JSON.parse(${JSON.stringify(uniqueStrings[i])}));`,
-    );
-  }
+  // generate js const and capture the const names
+  const generatedDefinitions = generateDefinitionConstants(lines, entries);
 
-  lines.push('');
-  lines.push('const map = {');
-  for (let i = 0; i < sdkKeys.length; i++) {
-    lines.push(`  ${JSON.stringify(hashedKeys[i])}: _d${keyToIndex[i]},`);
-  }
-  lines.push('};');
-  lines.push('');
-  lines.push('export function get(hashedSdkKey) {');
-  lines.push('  return map[hashedSdkKey]?.() ?? null;');
-  lines.push('}');
-  lines.push('');
+  // generate a map wiring keys to const names
+  generateMap(lines, generatedDefinitions);
+
   lines.push(
+    '',
     `export const version = ${JSON.stringify(FLAGS_DEFINITIONS_VERSION)};`,
   );
 
   return lines.join('\n');
+}
+
+type FlagEntry = {
+  type: 'oidcToken' | 'sdkKey';
+  key: string;
+};
+
+/**
+ * Regex to match valid Vercel Flags SDK keys.
+ * SDK keys must follow the format: vf_server_* or vf_client_*
+ * This avoids false positives with third-party identifiers that happen
+ * to start with 'vf_' (e.g., Stripe identity flow IDs like 'vf_1PyH...').
+ */
+const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
+
+/**
+ * Collect all possible flag entries the need embedding from the environment
+ */
+function collectFlagEntries(
+  env: Record<string, string | undefined>,
+  output: Output | undefined,
+): FlagEntry[] {
+  const entries: FlagEntry[] = [];
+
+  // Collect unique SDK keys from environment variables
+  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
+  const sdkKeys = Array.from(
+    Object.values(env).reduce<Set<string>>((acc, value) => {
+      if (typeof value === 'string') {
+        if (SDK_KEY_REGEX.test(value)) {
+          acc.add(value);
+        } else if (value.startsWith('flags:')) {
+          const params = new URLSearchParams(value.slice('flags:'.length));
+          const sdkKey = params.get('sdkKey');
+          if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
+            acc.add(sdkKey);
+          }
+        }
+      }
+      return acc;
+    }, new Set<string>()),
+  );
+
+  if (sdkKeys.length > 0) {
+    output?.debug(`vercel-flags: found ${sdkKeys.length} SDK keys`);
+
+    for (const key of sdkKeys) {
+      entries.push({ type: 'sdkKey', key });
+    }
+  }
+
+  const oidcToken = env.VERCEL_OIDC_TOKEN;
+  if (oidcToken && oidcToken?.length > 0) {
+    output?.debug(`vercel-flags: found OIDC token`);
+
+    entries.push({ type: 'oidcToken', key: oidcToken });
+  }
+
+  return entries;
 }
 
 /**
@@ -136,78 +283,49 @@ export async function prepareFlagsDefinitions(options: {
     output,
   } = options;
 
-  output?.debug('vercel-flags: checking env vars for SDK Keys');
+  output?.debug('vercel-flags: checking env vars for SDK Keys and OIDC Token');
 
-  // Collect unique SDK keys from environment variables
-  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
-  const sdkKeys = Array.from(
-    Object.values(env).reduce<Set<string>>((acc, value) => {
-      if (typeof value === 'string') {
-        if (SDK_KEY_REGEX.test(value)) {
-          acc.add(value);
-        } else if (value.startsWith('flags:')) {
-          const params = new URLSearchParams(value.slice('flags:'.length));
-          const sdkKey = params.get('sdkKey');
-          if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
-            acc.add(sdkKey);
-          }
-        }
-      }
-      return acc;
-    }, new Set<string>()),
-  );
-
-  output?.debug(`vercel-flags: found ${sdkKeys.length} SDK keys`);
-
-  if (sdkKeys.length === 0) {
-    return { created: false, reason: 'no-sdk-keys' };
+  const entries = collectFlagEntries(env, output);
+  if (entries.length === 0) {
+    return { created: false, reason: 'no-flags-entries' };
   }
 
-  // Fetch definitions for each SDK key
-  const fetchPromise = Promise.all(
-    sdkKeys.map(async (sdkKey) => {
-      const headers: Record<string, string> = {
-        authorization: `Bearer ${sdkKey}`,
-        'user-agent': [
-          `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
-          userAgentSuffix,
-        ]
-          .filter(Boolean)
-          .join(' '),
-      };
-
-      // Add Vercel metadata headers if available
-      if (env.VERCEL_PROJECT_ID) {
-        headers['x-vercel-project-id'] = env.VERCEL_PROJECT_ID;
-      }
-      if (env.VERCEL_ENV) {
-        headers['x-vercel-env'] = env.VERCEL_ENV;
-      }
-      if (env.VERCEL_DEPLOYMENT_ID) {
-        headers['x-vercel-deployment-id'] = env.VERCEL_DEPLOYMENT_ID;
-      }
-      if (env.VERCEL_REGION) {
-        headers['x-vercel-region'] = env.VERCEL_REGION;
+  // fetch all datafiles for sdk keys and oidc tokens
+  const resolvedEntries = await Promise.all(
+    entries.map(async ({ key, type }) => {
+      const definitions = await fetchDatafile(
+        key,
+        env,
+        fetchFn,
+        userAgentSuffix,
+      );
+      if (!definitions) {
+        return;
       }
 
-      const res = await fetchFn(`${FLAGS_HOST}/v1/datafile`, { headers });
+      if (type === 'oidcToken') {
+        const projectId = getProjectIdFromOidcToken(key);
 
-      if (!res.ok) {
-        throw new Error(
-          `Failed to fetch flag definitions for ${obfuscate(sdkKey)}: ${res.status} ${res.statusText}`,
-        );
+        if (projectId) {
+          return {
+            key: projectId,
+            definitions,
+          };
+        }
       }
 
-      return res.json() as Promise<BundledDefinitions>;
+      if (type === 'sdkKey') {
+        return {
+          key: hashSdkKey(key),
+          definitions,
+        };
+      }
     }),
   );
 
-  const values = output
-    ? await output.time('vercel-flags: load datafiles', fetchPromise)
-    : await fetchPromise;
+  const validEntries = resolvedEntries.filter((entry) => !!entry);
 
-  // Generate the JS module
-  const definitionsJs = generateDefinitionsModule(sdkKeys, values);
+  const definitionsJs = generateDefinitionsModule(validEntries, output);
 
   // Write to node_modules/@vercel/flags-definitions/
   const storageDir = join(cwd, 'node_modules', '@vercel', 'flags-definitions');
@@ -216,7 +334,7 @@ export async function prepareFlagsDefinitions(options: {
   const packageJsonPath = join(storageDir, 'package.json');
 
   const dts = [
-    'export function get(hashedSdkKey: string): Record<string, unknown> | null;',
+    'export function get(key: string): Record<string, unknown> | null;',
     'export const version: string;',
     '',
   ].join('\n');
@@ -246,9 +364,6 @@ export async function prepareFlagsDefinitions(options: {
   output?.debug(`  → ${indexPath}`);
   output?.debug(`  → ${dtsPath}`);
   output?.debug(`  → ${packageJsonPath}`);
-  output?.debug(
-    `  → included definitions for keys "${sdkKeys.map((key) => obfuscate(key)).join(', ')}"`,
-  );
 
-  return { created: true, sdkKeysCount: sdkKeys.length };
+  return { created: true, entryCount: entries.length };
 }
