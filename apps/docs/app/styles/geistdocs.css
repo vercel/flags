@@ -3,7 +3,6 @@
 @source "../**/*.{ts,tsx,mdx}";
 @source "../../components/**/*.{ts,tsx}";
 @source "../../node_modules/@vercel/geistdocs/dist/**/*.js";
-@source "../../node_modules/streamdown/dist/*.js";
 
 @layer base {
   body {
