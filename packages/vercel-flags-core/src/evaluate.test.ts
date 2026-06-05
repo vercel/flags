@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { evaluate } from './evaluate';
+import { bulkEvaluate, evaluate } from './evaluate';
 import {
   Comparator,
   type EvaluationResult,
@@ -2441,5 +2441,138 @@ describe('evaluate', () => {
         outcomeType: OutcomeType.ROLLOUT,
       });
     });
+  });
+});
+
+describe('bulkEvaluate', () => {
+  it('evaluates multiple flags against shared entities, segments, and environment', () => {
+    const activeDef: Packed.FlagDefinition = {
+      environments: { production: { fallthrough: 1 } },
+      variants: [false, true],
+    };
+    const pausedDef: Packed.FlagDefinition = {
+      environments: { production: 0 },
+      variants: [false, true],
+    };
+    const ruleDef: Packed.FlagDefinition = {
+      environments: {
+        production: {
+          rules: [
+            {
+              conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+              outcome: 1,
+            },
+          ],
+          fallthrough: 0,
+        },
+      },
+      variants: [false, true],
+    };
+
+    expect(
+      bulkEvaluate(
+        {
+          active: { definition: activeDef },
+          paused: { definition: pausedDef },
+          ruled: { definition: ruleDef },
+        },
+        {
+          environment: 'production',
+          entities: { user: { name: 'Joe' } },
+        },
+      ),
+    ).toEqual({
+      active: {
+        value: true,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.VALUE,
+      },
+      paused: {
+        value: false,
+        reason: ResolutionReason.PAUSED,
+        outcomeType: OutcomeType.VALUE,
+      },
+      ruled: {
+        value: true,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.VALUE,
+      },
+    });
+  });
+
+  it('returns per-flag defaultValue on error', () => {
+    const definition: Packed.FlagDefinition = {
+      environments: { production: 0 },
+      variants: [false, true],
+    };
+
+    const results = bulkEvaluate(
+      {
+        a: { definition, defaultValue: true },
+        b: { definition, defaultValue: false },
+      },
+      { environment: 'this-env-does-not-exist', entities: {} },
+    );
+
+    expect(results.a).toEqual({
+      value: true,
+      reason: ResolutionReason.ERROR,
+      errorMessage: 'Could not find envConfig for "this-env-does-not-exist"',
+    });
+    expect(results.b).toEqual({
+      value: false,
+      reason: ResolutionReason.ERROR,
+      errorMessage: 'Could not find envConfig for "this-env-does-not-exist"',
+    });
+  });
+
+  it('shares segments across flags', () => {
+    const definition: Packed.FlagDefinition = {
+      environments: {
+        production: {
+          rules: [
+            {
+              conditions: [['segment', Comparator.EQ, 'segment1']],
+              outcome: 1,
+            },
+          ],
+          fallthrough: 0,
+        },
+      },
+      variants: [false, true],
+    };
+
+    const results = bulkEvaluate(
+      {
+        a: { definition },
+        b: { definition },
+      },
+      {
+        environment: 'production',
+        entities: { user: { name: 'Joe' } },
+        segments: {
+          segment1: {
+            rules: [
+              {
+                conditions: [[['user', 'name'], Comparator.EQ, 'Joe']],
+                outcome: 1,
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    const expected: EvaluationResult<boolean> = {
+      value: true,
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.VALUE,
+    };
+    expect(results.a).toEqual(expected);
+    expect(results.b).toEqual(expected);
+  });
+
+  it('returns an empty object when no flags are provided', () => {
+    expect(bulkEvaluate({}, { environment: 'production' })).toEqual({});
   });
 });

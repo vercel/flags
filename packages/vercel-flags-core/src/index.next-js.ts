@@ -58,6 +58,11 @@ const cachedFns: Parameters<typeof createCreateRawClient>[0] = {
     setCacheLife();
     return fns.evaluate(...args);
   },
+  bulkEvaluate: async (...args) => {
+    'use cache';
+    setCacheLife();
+    return fns.bulkEvaluate(...args);
+  },
 };
 
 export * from './index.common';

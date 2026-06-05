@@ -585,6 +585,45 @@ export function evaluate<T>(
   }) satisfies EvaluationResult<T>;
 }
 
+export type BulkEvaluationInput<T> = {
+  definition: Packed.FlagDefinition;
+  defaultValue?: T;
+};
+
+/**
+ * Evaluates multiple feature flags against the same entities, segments, and
+ * environment.
+ *
+ * Reuses a single shared `EvaluationParams` object across flags so callers
+ * avoid the overhead of constructing one per call (and don't need to spawn
+ * parallel promises just to fan out independent sync evaluations).
+ */
+export function bulkEvaluate<T = unknown>(
+  flags: Record<string, BulkEvaluationInput<T>>,
+  shared: {
+    entities?: Record<string, unknown>;
+    environment: string;
+    segments?: EvaluationParams<T>['segments'];
+  },
+): Record<string, EvaluationResult<T>> {
+  const params: EvaluationParams<T> = {
+    entities: shared.entities,
+    environment: shared.environment,
+    segments: shared.segments,
+    definition: undefined as unknown as Packed.FlagDefinition,
+    defaultValue: undefined,
+  };
+
+  const results: Record<string, EvaluationResult<T>> = {};
+  for (const key in flags) {
+    const flag = flags[key]!;
+    params.definition = flag.definition;
+    params.defaultValue = flag.defaultValue;
+    results[key] = evaluate<T>(params);
+  }
+  return results;
+}
+
 /**
  * Find the weighted index that the given value falls into.
  *

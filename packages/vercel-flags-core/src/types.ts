@@ -116,6 +116,14 @@ export type Source = {
 };
 
 /**
+ * Input for a single flag in a bulk evaluation call.
+ */
+export type BulkEvaluateInput<T = Value> = {
+  key: string;
+  defaultValue?: T;
+};
+
+/**
  * A client for Vercel Flags
  */
 export type FlagsClient<Entities = Record<string, unknown>> = {
@@ -142,6 +150,22 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     defaultValue?: T,
     entities?: E,
   ) => Promise<EvaluationResult<T>>;
+  /**
+   * Evaluate multiple feature flags against the same entities in a single call.
+   *
+   * Avoids the per-flag overhead of separate `evaluate()` invocations (in particular,
+   * the parallel promises and repeated datafile reads they would entail).
+   *
+   * Requires initialize() to have been called and awaited first.
+   *
+   * @param flags Array of `{ key, defaultValue? }` entries to evaluate.
+   * @param entities Shared entities used for every flag in the bulk call.
+   * @returns Object mapping each key to its EvaluationResult.
+   */
+  bulkEvaluate: <T = Value, E = Entities>(
+    flags: BulkEvaluateInput<T>[],
+    entities?: E,
+  ) => Promise<Record<string, EvaluationResult<T>>>;
   /**
    * Retrieve the latest datafile during startup, and set up subscriptions if needed.
    */
