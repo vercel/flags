@@ -2,8 +2,6 @@
 'flags': minor
 ---
 
-Introduces a new bulk evaluation method for adapters, which is used when multiple flags are evaluated together to avoid making individual calls to each adapter.
-
 When applications call `evaluate()` or `precompute()` function from `flags/next` it now defers bulk evaluation to the underlying adapters in case those support it, or otherwise falls back to evaluating each flag individually.
 
 This speeds up evaluation for applications that need to evaluate multiple flags at once, as the runtime needs to handle fewer promises and more work is reused. In testing we have seen a 20x improvement when called with 100 flags.
