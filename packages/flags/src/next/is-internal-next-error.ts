@@ -46,6 +46,7 @@ export function isInternalNextError(error: unknown): boolean {
     errorCode === 'NEXT_REDIRECT' ||
     errorCode === 'DYNAMIC_SERVER_USAGE' ||
     errorCode === 'BAILOUT_TO_CLIENT_SIDE_RENDERING' ||
-    errorCode === 'NEXT_NOT_FOUND'
+    errorCode === 'NEXT_NOT_FOUND' ||
+    errorCode === 'HANGING_PROMISE_REJECTION'
   );
 }
