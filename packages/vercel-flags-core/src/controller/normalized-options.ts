@@ -52,6 +52,11 @@ export type ControllerOptions = {
    * @default globalThis.fetch
    */
   fetch?: typeof globalThis.fetch;
+
+  /**
+   * Custom client name included in evaluation telemetry.
+   */
+  clientName?: string;
 };
 
 export type NormalizedOptions = {
@@ -62,6 +67,7 @@ export type NormalizedOptions = {
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   host: string;
+  clientName: string | undefined;
 };
 
 export function normalizeOptions(
@@ -111,5 +117,6 @@ export function normalizeOptions(
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     host: 'https://flags.vercel.com',
+    clientName: options.clientName,
   };
 }
