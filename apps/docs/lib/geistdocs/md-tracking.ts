@@ -1,5 +1,5 @@
 import { siteId } from "@/geistdocs";
-import type { DetectionMethod } from "@/lib/ai-agent-detection";
+import type { DetectionMethod } from "@vercel/agent-readability";
 
 const PLATFORM_URL = "https://geistdocs.com/md-tracking";
 
