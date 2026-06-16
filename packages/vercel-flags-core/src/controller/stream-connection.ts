@@ -35,6 +35,13 @@ export class UnauthorizedError extends Error {
   }
 }
 
+class TokenResolutionError extends Error {
+  constructor(error: unknown) {
+    super('stream: token resolution failed', { cause: error });
+    this.name = 'TokenResolutionError';
+  }
+}
+
 export type StreamCallbacks = {
   onDatafile: (data: BundledDefinitions) => void;
   onPrimed?: (message: PrimedMessage) => void;
@@ -43,11 +50,11 @@ export type StreamCallbacks = {
 
 export type StreamConfig = {
   host: string;
-  sdkKey: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
   /** Returns the current revision number to send as X-Revision header */
   revision?: () => number | undefined;
+  resolveToken: () => Promise<string>;
 };
 
 /**
@@ -59,12 +66,7 @@ export async function connectStream(
   config: StreamConfig,
   callbacks: StreamCallbacks,
 ): Promise<void> {
-  const {
-    host,
-    sdkKey,
-    abortController,
-    fetch: fetchFn = globalThis.fetch,
-  } = config;
+  const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
   const { onDatafile, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
@@ -118,8 +120,11 @@ export async function connectStream(
 
       try {
         lastAttemptTime = Date.now();
+        const token = await config.resolveToken().catch((error) => {
+          throw new TokenResolutionError(error);
+        });
         const headers: Record<string, string> = {
-          Authorization: `Bearer ${sdkKey}`,
+          Authorization: `Bearer ${token}`,
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
@@ -243,6 +248,11 @@ export async function connectStream(
         clearTimeout(pingTimeoutId);
         abortController.signal.removeEventListener('abort', onMainAbort);
         if (abortController.signal.aborted) {
+          break;
+        }
+        if (error instanceof TokenResolutionError && !initialDataReceived) {
+          rejectInit!(error.cause);
+          abortController.abort();
           break;
         }
         // Ping timeout aborts only the per-connection controller; this is

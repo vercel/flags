@@ -1,5 +1,6 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
+import type { Auth } from './auth';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
@@ -8,10 +9,12 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
  */
 export async function fetchDatafile(options: {
   host: string;
-  sdkKey: string;
+  auth: Auth;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
 }): Promise<BundledDefinitions> {
+  const token = await options.auth.resolveToken();
+
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
@@ -31,7 +34,7 @@ export async function fetchDatafile(options: {
   try {
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
-        Authorization: `Bearer ${options.sdkKey}`,
+        Authorization: `Bearer ${token}`,
         'User-Agent': `VercelFlagsCore/${version}`,
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }

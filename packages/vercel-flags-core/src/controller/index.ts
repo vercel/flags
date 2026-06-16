@@ -119,16 +119,6 @@ export class Controller implements ControllerInterface {
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
-    if (
-      !options.sdkKey ||
-      typeof options.sdkKey !== 'string' ||
-      !options.sdkKey.startsWith('vf_')
-    ) {
-      throw new Error(
-        '@vercel/flags-core: SDK key must be a string starting with "vf_"',
-      );
-    }
-
     this.options = normalizeOptions(options);
 
     // Create source modules
@@ -140,7 +130,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource = new PollingSource(this.options);
 
     this.bundledSource = new BundledSource({
-      sdkKey: this.options.sdkKey,
+      auth: this.options.auth,
       readBundledDefinitions,
     });
 
@@ -388,7 +378,7 @@ export class Controller implements ControllerInterface {
         try {
           const fetched = await fetchDatafile({
             host: this.options.host,
-            sdkKey: this.options.sdkKey,
+            auth: this.options.auth,
             fetch: this.options.fetch,
           });
           this.data = tagData(fetched, 'fetched');
@@ -624,7 +614,7 @@ export class Controller implements ControllerInterface {
     try {
       const fetched = await fetchDatafile({
         host: this.options.host,
-        sdkKey: this.options.sdkKey,
+        auth: this.options.auth,
         fetch: this.options.fetch,
       });
       return tagData(fetched, 'fetched');
@@ -665,7 +655,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          sdkKey: this.options.sdkKey,
+          auth: this.options.auth,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');
@@ -730,7 +720,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
-          sdkKey: this.options.sdkKey,
+          auth: this.options.auth,
           fetch: this.options.fetch,
         });
         this.data = tagData(fetched, 'fetched');

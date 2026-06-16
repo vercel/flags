@@ -1,6 +1,6 @@
 {
   "name": "@vercel/flags-core",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A server-side client for Vercel Flags",
   "keywords": [
     "vercel",
@@ -74,6 +74,7 @@
   },
   "dependencies": {
     "@vercel/functions": "^3.4.3",
+    "@vercel/oidc": "3.5.0",
     "jose": "5.2.1",
     "js-xxhash": "4.0.0"
   },

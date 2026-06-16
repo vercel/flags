@@ -55,7 +55,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       const promise = connectStream(
         {
           host: this.options.host,
-          sdkKey: this.options.sdkKey,
+          resolveToken: () => this.options.auth.resolveToken(),
           abortController,
           fetch: this.options.fetch,
           revision: this.revision,
