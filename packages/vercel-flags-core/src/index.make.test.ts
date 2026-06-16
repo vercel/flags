@@ -83,6 +83,21 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
+    it('should pass clientName to the controller', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+
+      const client = createClient('vf_server_test_key', {
+        clientName: 'checkout',
+      });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        clientName: 'checkout',
+      });
+      expect(client).toBeDefined();
+    });
+
     it('should throw for empty SDK key', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);

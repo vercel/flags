@@ -1,7 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Auth } from '../controller/auth';
 import { setRequestContext } from '../test-utils';
-import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
+import { ResolutionReason } from '../types';
+import { EVALUATING_OIDC_TOKEN_HEADER, type IngestOptions } from './ingest';
+import { UsageTracker } from './usage-tracker';
+
+type SerializedConfigReadEvent = {
+  type: 'FLAGS_CONFIG_READ';
+  ts: number;
+  payload: {
+    deploymentId?: string;
+    region?: string;
+    invocationHost?: string;
+    vercelRequestId?: string;
+    cacheStatus?: string;
+    cacheAction?: string;
+    cacheIsBlocking?: boolean;
+    cacheIsFirstRead?: boolean;
+    duration?: number;
+    configUpdatedAt?: number;
+    configOrigin?: string;
+    mode?: string;
+    revision?: string;
+    environment?: string;
+  };
+};
+
+type SerializedEvaluationEvent = {
+  type: 'FLAGS_EVALUATION';
+  ts: number;
+  payload: {
+    flagKey: string;
+    variant: string;
+    reason: ResolutionReason;
+    clientName?: string;
+    count: number;
+  };
+};
+
+const getVercelOidcTokenMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@vercel/oidc', () => ({
+  getVercelOidcToken: getVercelOidcTokenMock,
+}));
 
 // Mock @vercel/functions
 vi.mock('@vercel/functions', () => ({
@@ -36,7 +77,9 @@ afterEach(() => {
   cleanupContext?.();
   cleanupContext = undefined;
   fetchMock.mockReset();
+  getVercelOidcTokenMock.mockReset();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -49,11 +92,12 @@ function createAuth(sdkKey = 'test-key'): Auth {
   };
 }
 
-function createTracker(sdkKey = 'test-key') {
+function createTracker(sdkKey = 'test-key', options?: Partial<IngestOptions>) {
   return new UsageTracker({
     auth: createAuth(sdkKey),
     host: 'https://example.com',
     fetch: fetchMock,
+    ...options,
   });
 }
 
@@ -85,7 +129,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -96,12 +140,12 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const events = getBody() as FlagsConfigReadEvent[];
+      const events = getBody() as SerializedConfigReadEvent[];
       expect(events).toHaveLength(1);
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.type).toBe('FLAGS_CONFIG_READ');
       expect(event.ts).toBeTypeOf('number');
     });
@@ -115,10 +159,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.deploymentId).toBe('dpl_123');
       expect(event.payload.region).toBe('iad1');
     });
@@ -137,7 +181,7 @@ describe('UsageTracker', () => {
         });
         tracker.trackRead();
       }
-      await tracker.flush();
+      await tracker.shutdown();
 
       const events = getBody() as Array<{ type: string }>;
       expect(events).toHaveLength(3);
@@ -153,9 +197,56 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+    });
+
+    it('should send evaluating OIDC header when SDK key auth is used', async () => {
+      getVercelOidcTokenMock.mockResolvedValue('oidc-token');
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker('my-secret-key');
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBe('oidc-token');
+    });
+
+    it('should omit evaluating OIDC header when OIDC is unavailable', async () => {
+      getVercelOidcTokenMock.mockRejectedValue(new Error('No OIDC'));
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker('my-secret-key');
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
+    });
+
+    it('should not send evaluating OIDC header when OIDC is primary auth', async () => {
+      getVercelOidcTokenMock.mockResolvedValue('evaluating-oidc-token');
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = new UsageTracker({
+        auth: {
+          resolveToken: () => Promise.resolve('primary-oidc-token'),
+          resolveBundledDefinitionsLookup: () =>
+            Promise.resolve({ type: 'project-id', projectId: 'prj_123' }),
+        },
+        host: 'https://example.com',
+        fetch: fetchMock,
+      });
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer primary-oidc-token');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
     });
 
     it('should send correct content-type header', async () => {
@@ -164,7 +255,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['Content-Type']).toBe('application/json');
     });
@@ -175,7 +266,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['User-Agent']).toMatch(/^VercelFlagsCore\//);
     });
@@ -185,8 +276,8 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Flush without tracking anything
-      await tracker.flush();
+      // Shut down without tracking anything
+      await tracker.shutdown();
 
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -201,7 +292,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Should not throw, errors are logged via console.error
       expect(consoleSpy).toHaveBeenCalled();
@@ -217,7 +308,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Should not throw, errors are logged via console.error
       expect(consoleSpy).toHaveBeenCalled();
@@ -245,7 +336,7 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['x-vercel-debug-ingest']).toBe('1');
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -261,7 +352,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['x-vercel-debug-ingest']).toBeUndefined();
     });
@@ -283,7 +374,7 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -293,7 +384,154 @@ describe('UsageTracker', () => {
     });
   });
 
-  describe('flush', () => {
+  describe('trackEvaluation', () => {
+    it('should aggregate matching evaluations into counted buckets', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'disabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(2);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'FLAGS_EVALUATION',
+          payload: {
+            flagKey: 'flag-a',
+            variant: 'enabled',
+            reason: ResolutionReason.FALLTHROUGH,
+            clientName: 'checkout',
+            count: 2,
+          },
+        }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          payload: {
+            flagKey: 'flag-a',
+            variant: 'disabled',
+            reason: ResolutionReason.FALLTHROUGH,
+            clientName: 'checkout',
+            count: 1,
+          },
+        }),
+      );
+    });
+
+    it('should send read and evaluation events in the same flush payload', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead({ configOrigin: 'in-memory' });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: '0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getBody()).toEqual([
+        expect.objectContaining({ type: 'FLAGS_CONFIG_READ' }),
+        {
+          type: 'FLAGS_EVALUATION',
+          ts: expect.any(Number),
+          payload: {
+            flagKey: 'flag-a',
+            variant: '0',
+            reason: ResolutionReason.FALLTHROUGH,
+            count: 1,
+          },
+        },
+      ]);
+    });
+
+    it('should reset the idle flush timer when evaluations keep arriving', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: '0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: '0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events[0]?.payload.count).toBe(2);
+    });
+
+    it('should track when request context is unavailable', async () => {
+      cleanupContext?.();
+      cleanupContext = undefined;
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: '0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getBody()).toEqual([
+        {
+          type: 'FLAGS_EVALUATION',
+          ts: expect.any(Number),
+          payload: {
+            flagKey: 'flag-a',
+            variant: '0',
+            reason: ResolutionReason.FALLTHROUGH,
+            count: 1,
+          },
+        },
+      ]);
+    });
+  });
+
+  describe('shutdown', () => {
     it('should trigger immediate flush of pending events', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -301,21 +539,21 @@ describe('UsageTracker', () => {
 
       tracker.trackRead();
 
-      // Flush immediately instead of waiting for timeout
-      await tracker.flush();
+      // Shut down immediately instead of waiting for timeout
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('should be safe to call flush multiple times', async () => {
+    it('should be safe to call shutdown multiple times', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
       tracker.trackRead();
-      tracker.flush();
-      tracker.flush();
-      await tracker.flush();
+      await tracker.shutdown();
+      await tracker.shutdown();
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -336,7 +574,7 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Only one event should be recorded due to deduplication
       const events = getBody() as Array<{ type: string }>;
@@ -356,10 +594,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.vercelRequestId).toBe('req_123');
       expect(event.payload.invocationHost).toBe('myapp.vercel.app');
 
@@ -391,8 +629,8 @@ describe('UsageTracker', () => {
       // Both trackers track with the same request context
       tracker1.trackRead();
       tracker2.trackRead();
-      await tracker1.flush();
-      await tracker2.flush();
+      await tracker1.shutdown();
+      await tracker2.shutdown();
 
       // Each tracker should have sent its own event
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -420,7 +658,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // 2 failed + 1 success = 3 total
       expect(requestCount).toBe(3);
@@ -442,7 +680,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // 2 failed + 1 success = 3 total
       expect(requestCount).toBe(3);
@@ -458,7 +696,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // All 3 attempts fail; SDK logs an extra "Dropped" line
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -488,7 +726,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       const droppedLogs = consoleSpy.mock.calls.filter(
         ([msg]) => typeof msg === 'string' && msg.includes('Dropped'),
@@ -552,10 +790,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('in-memory');
     });
 
@@ -565,10 +803,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheStatus).toBe('HIT');
     });
 
@@ -578,10 +816,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheIsFirstRead).toBe(true);
     });
 
@@ -591,10 +829,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheIsBlocking).toBe(true);
     });
 
@@ -604,10 +842,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.duration).toBe(150);
     });
 
@@ -621,10 +859,10 @@ describe('UsageTracker', () => {
         configOrigin: 'in-memory',
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configUpdatedAt).toBe(timestamp);
     });
 
@@ -642,10 +880,10 @@ describe('UsageTracker', () => {
         duration: 200,
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('in-memory');
       expect(event.payload.cacheStatus).toBe('MISS');
       expect(event.payload.cacheIsFirstRead).toBe(true);
@@ -661,10 +899,10 @@ describe('UsageTracker', () => {
 
       // Only pass configOrigin, omit others
       tracker.trackRead({ configOrigin: 'embedded' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('embedded');
       expect(event.payload.cacheStatus).toBeUndefined();
       expect(event.payload.cacheIsFirstRead).toBeUndefined();

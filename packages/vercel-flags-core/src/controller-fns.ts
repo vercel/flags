@@ -2,6 +2,7 @@ import {
   type BulkEvaluationInput,
   bulkEvaluate as bulkEvalFlags,
   evaluate as evalFlag,
+  getEvaluationVariantIndex,
 } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import type {
@@ -14,6 +15,7 @@ import type {
   Packed,
 } from './types';
 import { ErrorCode, ResolutionReason } from './types';
+import type { TrackEvaluationOptions } from './utils/usage/flags-evaluation';
 
 export type ControllerInstance = {
   controller: ControllerInterface;
@@ -22,6 +24,10 @@ export type ControllerInstance = {
 };
 
 export const controllerInstanceMap = new Map<number, ControllerInstance>();
+
+type EvaluationTrackingController = ControllerInterface & {
+  trackEvaluation?: (options: TrackEvaluationOptions) => void;
+};
 
 function getInstance(id: number): ControllerInstance {
   const instance = controllerInstanceMap.get(id);
@@ -51,13 +57,29 @@ export function getFallbackDatafile(id: number): Promise<BundledDefinitions> {
   throw new Error('flags: This data source does not support fallbacks');
 }
 
+function getVariantIdentifier(
+  definition: Packed.FlagDefinition,
+  result: EvaluationResult<unknown>,
+): string {
+  const variantIndex = getEvaluationVariantIndex(result);
+  if (variantIndex === undefined) return 'unknown';
+  return definition.variantIds?.[variantIndex] ?? String(variantIndex);
+}
+
+function trackEvaluation(
+  controller: EvaluationTrackingController,
+  options: TrackEvaluationOptions,
+): void {
+  controller.trackEvaluation?.(options);
+}
+
 export async function evaluate<T, E = Record<string, unknown>>(
   id: number,
   flagKey: string,
   defaultValue?: T,
   entities?: E,
 ): Promise<EvaluationResult<T>> {
-  const controller = getInstance(id).controller;
+  const controller = getInstance(id).controller as EvaluationTrackingController;
 
   let datafile: Datafile;
   try {
@@ -65,12 +87,18 @@ export async function evaluate<T, E = Record<string, unknown>>(
   } catch (error) {
     // All data sources failed. Fall back to defaultValue if provided.
     if (defaultValue !== undefined) {
-      return {
+      const result: EvaluationResult<T> = {
         value: defaultValue,
         reason: ResolutionReason.ERROR,
         errorMessage:
           error instanceof Error ? error.message : 'Failed to read datafile',
       };
+      trackEvaluation(controller, {
+        flagKey,
+        variant: 'unknown',
+        reason: result.reason,
+      });
+      return result;
     }
     throw error;
   }
@@ -86,7 +114,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       });
     }
 
-    return {
+    const result: EvaluationResult<T> = {
       value: defaultValue,
       reason: ResolutionReason.ERROR,
       errorCode: ErrorCode.FLAG_NOT_FOUND,
@@ -100,6 +128,12 @@ export async function evaluate<T, E = Record<string, unknown>>(
         mode: datafile.metrics.mode,
       },
     };
+    trackEvaluation(controller, {
+      flagKey,
+      variant: 'unknown',
+      reason: result.reason,
+    });
+    return result;
   }
 
   const evalStartTime = Date.now();
@@ -123,6 +157,14 @@ export async function evaluate<T, E = Record<string, unknown>>(
           : undefined,
     });
   }
+  trackEvaluation(controller, {
+    flagKey,
+    variant: getVariantIdentifier(
+      flagDefinition,
+      result as EvaluationResult<unknown>,
+    ),
+    reason: result.reason,
+  });
 
   return Object.assign(result, {
     metrics: {
@@ -141,7 +183,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   flags: BulkEvaluateInput<T>[],
   entities?: E,
 ): Promise<Record<string, EvaluationResult<T>>> {
-  const controller = getInstance(id).controller;
+  const controller = getInstance(id).controller as EvaluationTrackingController;
 
   let datafile: Datafile;
   try {
@@ -157,6 +199,11 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         reason: ResolutionReason.ERROR,
         errorMessage,
       };
+      trackEvaluation(controller, {
+        flagKey: flag.key,
+        variant: 'unknown',
+        reason: ResolutionReason.ERROR,
+      });
     }
     return results;
   }
@@ -192,6 +239,11 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         errorMessage: `@vercel/flags-core: Definition not found for flag "${key}"`,
         metrics: { evaluationMs: 0, ...baseMetrics },
       };
+      trackEvaluation(controller, {
+        flagKey: key,
+        variant: 'unknown',
+        reason: ResolutionReason.ERROR,
+      });
       continue;
     }
 
@@ -219,6 +271,14 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
             : undefined,
       });
     }
+    trackEvaluation(controller, {
+      flagKey: key,
+      variant: getVariantIdentifier(
+        toEvaluate[key]!.definition,
+        result as EvaluationResult<unknown>,
+      ),
+      reason: result.reason,
+    });
     results[key] = Object.assign(result, {
       metrics: { evaluationMs: evaluationDurationMs, ...baseMetrics },
     });
