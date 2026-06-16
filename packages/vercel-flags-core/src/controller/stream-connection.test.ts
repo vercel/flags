@@ -624,7 +624,12 @@ describe('connectStream', () => {
       const abortController = new AbortController();
 
       const promise = connectStream(
-        { host: HOST, sdkKey: 'vf_test', abortController, fetch: fetchMock },
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
         { onDatafile: vi.fn() },
       );
       // Attach the rejection expectation up front so the rejection is never
