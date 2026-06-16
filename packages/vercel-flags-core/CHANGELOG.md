@@ -1,5 +1,17 @@
 # @vercel/flags-core
 
+## 1.5.1
+
+### Patch Changes
+
+- [#395](https://github.com/vercel/flags/pull/395) [`b0150af`](https://github.com/vercel/flags/commit/b0150af9c8190f0db0efc25409fab89769cab6a7) Thanks [@lucleray](https://github.com/lucleray)! - Reduce log noise from stream reconnects.
+
+  Retryable stream errors are no longer logged on every failed attempt; the
+  underlying error is now surfaced only once retries are exhausted (via the
+  existing "Max retry count exceeded" log). The stream/polling initialization
+  timeout warnings were also reworded to make clear the client keeps connecting
+  in the background while serving fallback values.
+
 ## 1.5.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.1.1
+
+### Patch Changes
+
+- [#399](https://github.com/vercel/flags/pull/399) [`50725a8`](https://github.com/vercel/flags/commit/50725a8dcfaca7b31d89c45c70e3e087366649da) Thanks [@dferber90](https://github.com/dferber90)! - Recognize hanging promise rejection as internal Next.js error
+
 ## 4.1.0
 
 ### Minor Changes
