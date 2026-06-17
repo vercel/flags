@@ -9,6 +9,7 @@ import type {
   JsonValue,
   Origin,
   ProviderData,
+  ResolvedFlagDeclaration,
 } from '../types';
 import { BULK_IDENTIFY_REF, BULKABLE, getRun } from './evaluate';
 import { getPrecomputed } from './precompute';
@@ -26,11 +27,11 @@ export {
 export type { Flag } from './types';
 
 function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
   if (definition.adapter && typeof definition.adapter.decide !== 'function') {
     throw new Error(
-      `flags: You passed an adapter that does not have a "decide" method for flag "${definition.key}". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?`,
+      `flags: The adapter passed to flag "${definition.key}" does not have a "decide" method.`,
     );
   }
 
@@ -55,7 +56,7 @@ function getDecide<ValueType, EntitiesType>(
 }
 
 function getIdentify<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
 ): Identify<EntitiesType> {
   return function identify(params) {
     if (typeof definition.identify === 'function') {
@@ -69,7 +70,7 @@ function getIdentify<ValueType, EntitiesType>(
 }
 
 function getOrigin<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
 ): string | Origin | undefined {
   if (definition.origin) return definition.origin;
   if (typeof definition.adapter?.origin === 'function')
@@ -96,10 +97,25 @@ export function flag<
 >(
   definition: FlagDeclaration<ValueType, EntitiesType>,
 ): Flag<ValueType, EntitiesType> {
-  const decide = getDecide<ValueType, EntitiesType>(definition);
-  const identify = getIdentify<ValueType, EntitiesType>(definition);
-  const run = getRun<ValueType, EntitiesType>(definition, decide);
-  const origin = getOrigin(definition);
+  // Allow passing the adapter factory directly (`adapter: vercelAdapter`) as a
+  // shorthand for calling it (`adapter: vercelAdapter()`). Resolve it once here
+  // so every consumer below works with a concrete Adapter instance.
+  const adapter =
+    typeof definition.adapter === 'function'
+      ? definition.adapter()
+      : definition.adapter;
+  // Cast: spreading the discriminated union widens `decide`/`adapter` so TS no
+  // longer sees the "decide or adapter is present" guarantee, but the original
+  // `definition` upheld it and we only narrowed `adapter` to an instance.
+  const resolvedDefinition = {
+    ...definition,
+    adapter,
+  } as ResolvedFlagDeclaration<ValueType, EntitiesType>;
+
+  const decide = getDecide<ValueType, EntitiesType>(resolvedDefinition);
+  const identify = getIdentify<ValueType, EntitiesType>(resolvedDefinition);
+  const run = getRun<ValueType, EntitiesType>(resolvedDefinition, decide);
+  const origin = getOrigin(resolvedDefinition);
 
   const api = trace(
     async (...args: any[]) => {
@@ -171,17 +187,17 @@ export function flag<
     name: 'run',
     attributes: { key: definition.key },
   });
-  api.adapter = definition.adapter;
+  api.adapter = adapter;
   api.config = definition.config;
 
   // Internal markers used by `evaluate()` to partition flags into adapter
   // groups. See `./evaluate.ts` for the symbol definitions.
   (api as any)[BULK_IDENTIFY_REF] =
-    definition.identify ?? definition.adapter?.identify ?? null;
+    definition.identify ?? adapter?.identify ?? null;
   (api as any)[BULKABLE] =
     !definition.decide &&
-    !!definition.adapter?.bulkDecide &&
-    definition.adapter.adapterId !== undefined;
+    !!adapter?.bulkDecide &&
+    adapter.adapterId !== undefined;
 
   return api;
 }
