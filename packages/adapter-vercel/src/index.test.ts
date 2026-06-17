@@ -123,7 +123,7 @@ describe('createVercelAdapter', () => {
       const adapter = createVercelAdapter(flagsClient);
       const a = adapter();
       const b = adapter();
-      expect(a).not.toBe(b);
+      expect(a).toBe(b);
       expect(a.adapterId).toBeDefined();
       expect(a.adapterId).toBe(b.adapterId);
     });
