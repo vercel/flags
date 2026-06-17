@@ -1,5 +1,5 @@
 ---
-"@flags-sdk/vercel": minor
+"@flags-sdk/vercel": patch
 ---
 
-reuse adapter instance on subsequent calls
+Calling `vercelAdapter()` multiple times now returns the same adapter instance instead of creating a new one each time, which improves performance and memory usage.
