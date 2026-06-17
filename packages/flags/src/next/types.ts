@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import type { JsonValue } from '..';
-import type { FlagDeclaration, FlagOption } from '../types';
+import type { Adapter, FlagDeclaration, FlagOption } from '../types';
 
 type NextApiRequestCookies = Partial<{
   [key: string]: string;
@@ -57,8 +57,11 @@ type FlagMeta<ValueType, EntitiesType> = {
    * The adapter used to evaluate this flag, if any. Exposed so `evaluate()`
    * can group flags that share an `adapterId` and call `adapter.bulkDecide`
    * once per group.
+   *
+   * Always a resolved adapter instance — if a factory was passed to `flag()`
+   * it has already been called.
    */
-  adapter?: FlagDeclaration<ValueType, EntitiesType>['adapter'];
+  adapter?: Adapter<ValueType, EntitiesType>;
   /**
    * Flag-level configuration (e.g. `reportValue`).
    */

@@ -37,6 +37,7 @@ import type {
   FlagOverridesType,
   FlagValuesType,
   Identify,
+  ResolvedFlagDeclaration,
 } from '../types';
 import { tryGetSecret } from './env';
 import {
@@ -96,7 +97,7 @@ async function resolveObjectPromises<T>(obj: PromisesMap<T>): Promise<T> {
 }
 
 function getDecide<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
 ): Decide<ValueType, EntitiesType> {
   return function decide(params) {
     if (typeof definition.decide === 'function') {
@@ -110,7 +111,7 @@ function getDecide<ValueType, EntitiesType>(
 }
 
 function getIdentify<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
 ): Identify<EntitiesType> | undefined {
   if (typeof definition.identify === 'function') {
     return definition.identify;
@@ -133,8 +134,19 @@ export function flag<
   ValueType extends JsonValue = boolean | string | number,
   EntitiesType = any,
 >(definition: FlagDeclaration<ValueType, EntitiesType>): Flag<ValueType> {
-  const decide = getDecide<ValueType, EntitiesType>(definition);
-  const identify = getIdentify(definition);
+  // Allow passing the adapter factory directly (`adapter: vercelAdapter`) as a
+  // shorthand for calling it (`adapter: vercelAdapter()`). Resolve it once here.
+  const adapter =
+    typeof definition.adapter === 'function'
+      ? definition.adapter()
+      : definition.adapter;
+  const resolvedDefinition = {
+    ...definition,
+    adapter,
+  } as ResolvedFlagDeclaration<ValueType, EntitiesType>;
+
+  const decide = getDecide<ValueType, EntitiesType>(resolvedDefinition);
+  const identify = getIdentify(resolvedDefinition);
 
   const flagImpl = async function flagImpl(
     requestOrCode?: string | Request,

@@ -121,7 +121,7 @@ describe('flag on app router', () => {
 
   it('throws when passing invalid adapter', () => {
     expect(() => flag({ key: 'my-key', adapter: {} as any })).toThrowError(
-      'flags: You passed an adapter that does not have a "decide" method for flag "my-key". Did you pass "adapter: exampleAdapter" instead of "adapter: exampleAdapter()"?',
+      'flags: The adapter passed to flag "my-key" does not have a "decide" method.',
     );
   });
 
@@ -803,6 +803,60 @@ describe('adapters', () => {
 
     expect(await exampleFlag()).toBe(outerValue);
   });
+
+  it('accepts an adapter factory passed by reference', async () => {
+    // A zero-arg factory, like `vercelAdapter`, can be passed directly
+    // (`adapter: vercelAdapter`) instead of being called (`adapter: vercelAdapter()`).
+    const vercelAdapter = <ValueType, EntitiesType>(): Adapter<
+      ValueType,
+      EntitiesType
+    > => ({
+      decide: () => 5 as ValueType,
+      origin: (key) => `fake-origin#${key}`,
+    });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    const f = flag<number>({
+      key: 'factory-flag',
+      adapter: vercelAdapter,
+    });
+
+    expect(f).toHaveProperty('key', 'factory-flag');
+    await expect(f()).resolves.toEqual(5);
+    // origin/identify still resolve from the factory-produced adapter
+    expect(f).toHaveProperty('origin', 'fake-origin#factory-flag');
+  });
+
+  it('resolves config.reportValue from a factory-passed adapter', async () => {
+    const makeAdapter = (): Adapter<boolean, any> => ({
+      decide: () => true,
+      config: { reportValue: false },
+    });
+
+    const requestContext = createRequestContext();
+    Reflect.set(globalThis, requestContextSymbol, {
+      get() {
+        return requestContext;
+      },
+    });
+
+    try {
+      mocks.headers.mockReturnValueOnce(new Headers());
+
+      const f = flag<boolean>({ key: 'no-report', adapter: makeAdapter });
+      await expect(f()).resolves.toEqual(true);
+
+      // adapter's `reportValue: false` is honored, so nothing is reported
+      expect(requestContext.flags.calls).toHaveLength(0);
+    } finally {
+      if (previousRequestContext === undefined) {
+        Reflect.deleteProperty(globalThis, requestContextSymbol);
+      } else {
+        Reflect.set(globalThis, requestContextSymbol, previousRequestContext);
+      }
+    }
+  });
 });
 
 describe('evaluate', () => {
@@ -867,6 +921,21 @@ describe('evaluate', () => {
       }),
     );
     expect(decideMock).not.toHaveBeenCalled();
+  });
+
+  it('batches flags that pass the same adapter factory by reference', async () => {
+    const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'A', b: 'B' });
+    const adapter = makeBulkAdapter<string>({ bulkDecide: bulkDecideMock });
+
+    // Pass the factory by reference rather than calling it. Both flags share the
+    // factory's closure-captured adapterId, so they still batch into one call.
+    const a = flag<string>({ key: 'a', adapter });
+    const b = flag<string>({ key: 'b', adapter });
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'A', b: 'B' });
+
+    expect(bulkDecideMock).toHaveBeenCalledTimes(1);
   });
 
   it('splits into separate bulkDecide calls when identify sources differ', async () => {

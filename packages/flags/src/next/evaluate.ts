@@ -16,6 +16,7 @@ import type {
   Decide,
   FlagDeclaration,
   FlagParamsType,
+  ResolvedFlagDeclaration,
 } from '../types';
 import { isInternalNextError } from './is-internal-next-error';
 import { getOverrides } from './overrides';
@@ -328,7 +329,7 @@ type Run<ValueType, EntitiesType> = (options: {
  * App Router, and reuse of pre-read data when called from inside `evaluate()`.
  */
 export function getRun<ValueType, EntitiesType>(
-  definition: FlagDeclaration<ValueType, EntitiesType>,
+  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
   decide: Decide<ValueType, EntitiesType>,
 ): Run<ValueType, EntitiesType> {
   // use cache to guarantee flags only decide once per request

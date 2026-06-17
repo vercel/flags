@@ -190,6 +190,29 @@ export interface Adapter<ValueType, EntitiesType> {
 }
 
 /**
+ * An adapter instance, or a zero-arg factory that returns one.
+ *
+ * Passing the factory directly (e.g. `adapter: vercelAdapter`) is shorthand for
+ * calling it (`adapter: vercelAdapter()`). The Flags SDK resolves the factory
+ * once per flag declaration.
+ */
+export type AdapterOrFactory<ValueType, EntitiesType> =
+  | Adapter<ValueType, EntitiesType>
+  | (() => Adapter<ValueType, EntitiesType>);
+
+/**
+ * A {@link FlagDeclaration} whose `adapter` factory (if any) has been resolved
+ * to an {@link Adapter} instance. This is the internal shape the Flags SDK works
+ * with after `flag()` resolves a passed-in factory.
+ */
+export type ResolvedFlagDeclaration<ValueType, EntitiesType> = FlagDeclaration<
+  ValueType,
+  EntitiesType
+> & {
+  adapter?: Adapter<ValueType, EntitiesType>;
+};
+
+/**
  * Definition when declaring a feature flag, as provided to `flag(declaration)`
  */
 export type FlagDeclaration<ValueType, EntitiesType> = {
@@ -231,8 +254,11 @@ export type FlagDeclaration<ValueType, EntitiesType> = {
    * Adapters can implement default behavior for flags.
    *
    * Explicitly provided values always override adapters.
+   *
+   * Accepts either an adapter instance (`adapter: vercelAdapter()`) or a
+   * zero-arg factory that returns one (`adapter: vercelAdapter`).
    */
-  // adapter?: Adapter<ValueType, EntitiesType>;
+  // adapter?: AdapterOrFactory<ValueType, EntitiesType>;
   /**
    * This function is called when the feature flag is used (and no override is present) to return a value.
    */
@@ -243,11 +269,11 @@ export type FlagDeclaration<ValueType, EntitiesType> = {
   identify?: Identify<EntitiesType>;
 } & (
   | {
-      adapter: Adapter<ValueType, EntitiesType>;
+      adapter: AdapterOrFactory<ValueType, EntitiesType>;
       decide?: Decide<ValueType, EntitiesType>;
     }
   | {
-      adapter?: Adapter<ValueType, EntitiesType>;
+      adapter?: AdapterOrFactory<ValueType, EntitiesType>;
       decide: Decide<ValueType, EntitiesType>;
     }
 );
