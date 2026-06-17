@@ -1,5 +1,11 @@
 # @flags-sdk/vercel
 
+## 1.4.2
+
+### Patch Changes
+
+- [#402](https://github.com/vercel/flags/pull/402) [`2cb0b49`](https://github.com/vercel/flags/commit/2cb0b49698019779859181f7825b0956bf7e629a) Thanks [@dferber90](https://github.com/dferber90)! - Calling `vercelAdapter()` multiple times now returns the same adapter instance instead of creating a new one each time, which improves performance and memory usage.
+
 ## 1.4.1
 
 ### Patch Changes
