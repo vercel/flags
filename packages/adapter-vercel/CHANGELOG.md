@@ -1,5 +1,37 @@
 # @flags-sdk/vercel
 
+## 1.4.2
+
+### Patch Changes
+
+- [#402](https://github.com/vercel/flags/pull/402) [`2cb0b49`](https://github.com/vercel/flags/commit/2cb0b49698019779859181f7825b0956bf7e629a) Thanks [@dferber90](https://github.com/dferber90)! - Calling `vercelAdapter()` multiple times now returns the same adapter instance instead of creating a new one each time, which improves performance and memory usage.
+
+## 1.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`b0150af`](https://github.com/vercel/flags/commit/b0150af9c8190f0db0efc25409fab89769cab6a7)]:
+  - @vercel/flags-core@1.5.1
+
+## 1.4.0
+
+### Minor Changes
+
+- [#385](https://github.com/vercel/flags/pull/385) [`201f9d5`](https://github.com/vercel/flags/commit/201f9d5988d7fc307511e35638e66769d38cedb3) Thanks [@dferber90](https://github.com/dferber90)! - Reduces overhead when evaluating multiple flags via `evaluate()` or `precompute()` by using new bulk evaluation capabilities of `@vercel/flags-core`.
+
+- [#390](https://github.com/vercel/flags/pull/390) [`7b5ea9a`](https://github.com/vercel/flags/commit/7b5ea9a808dfd4155bd2bbf321c3b44ec730cda6) Thanks [@luismeyer](https://github.com/luismeyer)! - Add OIDC authentication support for Vercel Flags clients and generated flag definitions.
+
+  `@vercel/flags-core` can now create clients without an SDK key and authenticate with a Vercel OIDC token, while still supporting SDK keys and connection strings. Bundled definitions can be looked up by SDK key hash or OIDC project ID.
+
+  `@vercel/prepare-flags-definitions` now collects both SDK keys and `VERCEL_OIDC_TOKEN`, fetches definitions for each auth entry, deduplicates identical definitions across SDK keys and OIDC project IDs, and writes generated maps keyed by SDK key hash or project ID.
+
+  `@flags-sdk/vercel` now supports provider data lookup for Vercel flag origins that do not include an SDK key, allowing OIDC-backed clients to resolve project metadata.
+
+### Patch Changes
+
+- Updated dependencies [[`201f9d5`](https://github.com/vercel/flags/commit/201f9d5988d7fc307511e35638e66769d38cedb3), [`4d90e91`](https://github.com/vercel/flags/commit/4d90e912a4d7c9d4ef986d5e8dc609c30b203242), [`bd4d01a`](https://github.com/vercel/flags/commit/bd4d01a9b2b5d70bf7ae62cda645d8cd7292ad83), [`7b5ea9a`](https://github.com/vercel/flags/commit/7b5ea9a808dfd4155bd2bbf321c3b44ec730cda6)]:
+  - @vercel/flags-core@1.5.0
+
 ## 1.3.0
 
 ### Minor Changes

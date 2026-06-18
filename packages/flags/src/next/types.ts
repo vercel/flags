@@ -1,10 +1,17 @@
 import type { IncomingMessage } from 'node:http';
 import type { JsonValue } from '..';
-import type { FlagDeclaration, FlagOption } from '../types';
+import type { Adapter, FlagDeclaration, FlagOption } from '../types';
 
 type NextApiRequestCookies = Partial<{
   [key: string]: string;
 }>;
+
+/**
+ * The Pages Router request shape accepted by `flag(req)` and `evaluate(flags, req)`.
+ */
+export type PagesRouterRequest = IncomingMessage & {
+  cookies: NextApiRequestCookies;
+};
 
 /**
  * Metadata on a feature flag function
@@ -47,6 +54,19 @@ type FlagMeta<ValueType, EntitiesType> = {
    */
   identify?: FlagDeclaration<ValueType, EntitiesType>['identify'];
   /**
+   * The adapter used to evaluate this flag, if any. Exposed so `evaluate()`
+   * can group flags that share an `adapterId` and call `adapter.bulkDecide`
+   * once per group.
+   *
+   * Always a resolved adapter instance — if a factory was passed to `flag()`
+   * it has already been called.
+   */
+  adapter?: Adapter<ValueType, EntitiesType>;
+  /**
+   * Flag-level configuration (e.g. `reportValue`).
+   */
+  config?: FlagDeclaration<ValueType, EntitiesType>['config'];
+  /**
    * Evaluates a feature flag with custom entities.
    *
    * Calling .run() bypasses the identify call and uses the provided entities directly.
@@ -55,7 +75,7 @@ type FlagMeta<ValueType, EntitiesType> = {
     identify:
       | FlagDeclaration<ValueType, EntitiesType>['identify']
       | EntitiesType;
-    request?: Parameters<PagesRouterFlag<ValueType, EntitiesType>>[0];
+    request?: PagesRouterRequest;
   }) => Promise<ValueType>;
 };
 
@@ -64,9 +84,7 @@ export type AppRouterFlag<ValueType, EntitiesType> =
 
 export type PagesRouterFlag<ValueType, EntitiesType> = {
   (): never;
-  (
-    request: IncomingMessage & { cookies: NextApiRequestCookies },
-  ): Promise<ValueType>;
+  (request: PagesRouterRequest): Promise<ValueType>;
 } & FlagMeta<ValueType, EntitiesType>;
 
 export type PrecomputedFlag<ValueType, EntitiesType> = {

@@ -14,6 +14,96 @@ describe('createEdgeConfigAdapter', () => {
     expect(adapter).toBeDefined();
   });
 
+  it('returns the same adapter instance on every call', () => {
+    const fakeEdgeConfigClient = {} as EdgeConfigClient;
+    const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+    expect(adapter()).toBe(adapter());
+  });
+
+  describe('adapterId', () => {
+    it('shares one adapterId across all adapters from the same factory call', () => {
+      const fakeEdgeConfigClient = {} as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      const a = adapter();
+      const b = adapter();
+      expect(a).toBe(b);
+      expect(a.adapterId).toBeDefined();
+      expect(a.adapterId).toBe(b.adapterId);
+    });
+
+    it('uses different adapterIds across separate factory calls', () => {
+      const fakeEdgeConfigClient = {} as EdgeConfigClient;
+      const adapterA = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      const adapterB = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      expect(adapterA().adapterId).not.toBe(adapterB().adapterId);
+    });
+  });
+
+  describe('bulkDecide', () => {
+    it('resolves all requested flag keys from Edge Config in one read', async () => {
+      const fakeEdgeConfigClient = {
+        get: vi.fn(async () => ({
+          'flag-a': true,
+          'flag-b': false,
+          'flag-c': true,
+        })),
+      } as unknown as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      const headers = new Headers();
+
+      const result = await adapter().bulkDecide!({
+        flags: [{ key: 'flag-a' }, { key: 'flag-b' }],
+        entities: {},
+        headers,
+        cookies: {} as ReadonlyRequestCookies,
+      });
+
+      expect(result).toEqual({ 'flag-a': true, 'flag-b': false });
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledOnce();
+    });
+
+    it('omits keys missing from Edge Config so the SDK applies defaultValue', async () => {
+      const fakeEdgeConfigClient = {
+        get: vi.fn(async () => ({ 'flag-a': true })),
+      } as unknown as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      const headers = new Headers();
+
+      const result = await adapter().bulkDecide!({
+        flags: [{ key: 'flag-a' }, { key: 'flag-missing' }],
+        entities: {},
+        headers,
+        cookies: {} as ReadonlyRequestCookies,
+      });
+
+      expect(result).toEqual({ 'flag-a': true });
+    });
+
+    it('shares the per-request cache with decide', async () => {
+      const fakeEdgeConfigClient = {
+        get: vi.fn(async () => ({ 'flag-a': true, 'flag-b': false })),
+      } as unknown as EdgeConfigClient;
+      const adapter = createEdgeConfigAdapter(fakeEdgeConfigClient);
+      const headers = new Headers();
+
+      await adapter().decide({
+        key: 'flag-a',
+        entities: {},
+        headers,
+        cookies: {} as ReadonlyRequestCookies,
+      });
+
+      await adapter().bulkDecide!({
+        flags: [{ key: 'flag-b' }],
+        entities: {},
+        headers,
+        cookies: {} as ReadonlyRequestCookies,
+      });
+
+      expect(fakeEdgeConfigClient.get).toHaveBeenCalledOnce();
+    });
+  });
+
   it('should allow creating an adapter with a connection string', () => {
     const adapter = createEdgeConfigAdapter(
       'https://edge-config.vercel.com/ecfg_xxx?token=yyy',

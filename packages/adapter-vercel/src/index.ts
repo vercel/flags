@@ -30,34 +30,62 @@ export function createVercelAdapter(
       ? createClient(sdkKeyOrFlagsClient)
       : sdkKeyOrFlagsClient;
 
+  // Stable identity for this adapter's underlying flagsClient. Captured in
+  // the closure so every adapter object the factory below returns shares it,
+  // letting `evaluate()` group flags from multiple `vercelAdapter()` calls
+  // into a single `bulkDecide` invocation.
+  const adapterId = Symbol('vercelAdapter');
+
+  const adapter: Adapter<unknown, unknown> = {
+    adapterId,
+    origin: flagsClient.origin,
+    config: { reportValue: false },
+    async decide({ key, entities }) {
+      const evaluationResult = await flagsClient.evaluate<unknown, unknown>(
+        key,
+        undefined,
+        entities,
+      );
+
+      if (evaluationResult.value === undefined) {
+        // if there was no defaultValue we need to throw
+        throw new Error(
+          evaluationResult.reason === Reason.ERROR &&
+            evaluationResult.errorMessage
+            ? `flags: Could not evaluate flag "${key}". ${evaluationResult.errorMessage}`
+            : `flags: Could not evaluate flag "${key}"`,
+        );
+      }
+
+      // runs when the flag evaluates successfully or
+      // when there was an error but the defaultValue was set
+      return evaluationResult.value;
+    },
+    async bulkDecide({ flags, entities }) {
+      // `flags` is typed `{ key: string; defaultValue?: unknown }[]` on
+      // `Adapter.bulkDecide` (to keep `ValueType` covariant). The client
+      // here narrows it back to `ValueType`; `defaultValue` is shuttled
+      // through opaquely so the cast is safe.
+      const results = await flagsClient.bulkEvaluate<unknown, unknown>(
+        flags as { key: string; defaultValue?: unknown }[],
+        entities,
+      );
+      const out: Record<string, unknown> = {};
+      for (const key in results) {
+        const r = results[key]!;
+        // Omit undefined so the SDK applies the per-flag `defaultValue`
+        // fallback (matches single-decide semantics).
+        if (r.value !== undefined) out[key] = r.value;
+      }
+      return out;
+    },
+  };
+
   return function vercelAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
   > {
-    return {
-      origin: flagsClient.origin,
-      config: { reportValue: false },
-      async decide({ key, entities }): Promise<ValueType> {
-        const evaluationResult = await flagsClient.evaluate<
-          ValueType,
-          EntitiesType
-        >(key, undefined, entities);
-
-        if (evaluationResult.value === undefined) {
-          // if there was no defaultValue we need to throw
-          throw new Error(
-            evaluationResult.reason === Reason.ERROR &&
-              evaluationResult.errorMessage
-              ? `flags: Could not evaluate flag "${key}". ${evaluationResult.errorMessage}`
-              : `flags: Could not evaluate flag "${key}"`,
-          );
-        }
-
-        // runs when the flag evaluates successfully or
-        // when there was an error but the defaultValue was set
-        return evaluationResult.value;
-      },
-    };
+    return adapter as Adapter<ValueType, EntitiesType>;
   };
 }
 

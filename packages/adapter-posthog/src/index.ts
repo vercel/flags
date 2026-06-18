@@ -23,7 +23,7 @@ export function createPostHogAdapter({
               trimKey(key),
               parsedEntities.distinctId,
               options,
-            )) ?? defaultValue;
+            )) ?? (defaultValue as boolean | undefined);
           if (result === undefined) {
             throw new Error(
               `PostHog Adapter isFeatureEnabled returned undefined for ${trimKey(key)} and no default value was provided.`,
@@ -44,7 +44,7 @@ export function createPostHogAdapter({
           );
           if (flagValue === undefined) {
             if (typeof defaultValue !== 'undefined') {
-              return defaultValue;
+              return defaultValue as string | boolean;
             }
             throw new Error(
               `PostHog Adapter featureFlagValue found undefined for ${trimKey(key)} and no default value was provided.`,
@@ -54,7 +54,10 @@ export function createPostHogAdapter({
         },
       };
     },
-    featureFlagPayload: (getValue, options) => {
+    featureFlagPayload: <T>(
+      getValue: (payload: JsonType) => T,
+      options?: { sendFeatureFlagEvents?: boolean },
+    ) => {
       return {
         async decide({ key, entities, defaultValue }) {
           const parsedEntities = parseEntities(entities);
@@ -66,13 +69,13 @@ export function createPostHogAdapter({
           );
           if (!payload) {
             if (typeof defaultValue !== 'undefined') {
-              return defaultValue;
+              return defaultValue as T;
             }
             throw new Error(
               `PostHog Adapter featureFlagPayload found undefined for ${trimKey(key)} and no default value was provided.`,
             );
           }
-          return getValue(payload);
+          return getValue(payload as JsonType);
         },
       };
     },

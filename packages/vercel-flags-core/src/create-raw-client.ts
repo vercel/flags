@@ -1,4 +1,5 @@
 import type {
+  bulkEvaluate,
   evaluate,
   getDatafile,
   getFallbackDatafile,
@@ -10,6 +11,7 @@ import {
   controllerInstanceMap,
 } from './controller-fns';
 import type {
+  BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
   EvaluationResult,
@@ -38,6 +40,7 @@ export function createCreateRawClient(fns: {
   shutdown: typeof shutdown;
   getFallbackDatafile: typeof getFallbackDatafile;
   evaluate: typeof evaluate;
+  bulkEvaluate: typeof bulkEvaluate;
   getDatafile: typeof getDatafile;
 }) {
   return function createRawClient<Entities = Record<string, unknown>>({
@@ -107,6 +110,21 @@ export function createCreateRawClient(fns: {
           }
         }
         return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
+      },
+      bulkEvaluate: async <T = Value, E = Entities>(
+        flags: BulkEvaluateInput<T>[],
+        entities?: E,
+      ): Promise<Record<string, EvaluationResult<T>>> => {
+        const instance = controllerInstanceMap.get(id);
+        if (!instance?.initialized) {
+          try {
+            await api.initialize();
+          } catch {
+            // Initialization failed — let bulkEvaluate() handle the fallback
+            // chain (last known value → datafile → bundled → defaultValue → throw)
+          }
+        }
+        return fns.bulkEvaluate<T, E>(id, flags, entities);
       },
     };
     return api;

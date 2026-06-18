@@ -1,5 +1,64 @@
 # @vercel/flags-core
 
+## 1.5.1
+
+### Patch Changes
+
+- [#395](https://github.com/vercel/flags/pull/395) [`b0150af`](https://github.com/vercel/flags/commit/b0150af9c8190f0db0efc25409fab89769cab6a7) Thanks [@lucleray](https://github.com/lucleray)! - Reduce log noise from stream reconnects.
+
+  Retryable stream errors are no longer logged on every failed attempt; the
+  underlying error is now surfaced only once retries are exhausted (via the
+  existing "Max retry count exceeded" log). The stream/polling initialization
+  timeout warnings were also reworded to make clear the client keeps connecting
+  in the background while serving fallback values.
+
+## 1.5.0
+
+### Minor Changes
+
+- [#385](https://github.com/vercel/flags/pull/385) [`201f9d5`](https://github.com/vercel/flags/commit/201f9d5988d7fc307511e35638e66769d38cedb3) Thanks [@dferber90](https://github.com/dferber90)! - Add `bulkEvaluate` method to `FlagsClient` for resolving multiple flags against shared entities in a single call.
+
+  ```ts
+  const results = await client.bulkEvaluate(
+    [
+      { key: "a", defaultValue: false },
+      { key: "b", defaultValue: "off" },
+    ],
+    entities
+  );
+
+  results.a; // EvaluationResult<boolean>
+  results.b; // EvaluationResult<string>
+  ```
+
+  Avoids the per-flag overhead of separate `evaluate()` calls — the datafile is read once, entities are resolved once, and all flags share the same environment/segments lookup. Each entry in the returned record is a full `EvaluationResult` with `value`, `reason`, `outcomeType`, and `metrics`.
+
+- [#371](https://github.com/vercel/flags/pull/371) [`bd4d01a`](https://github.com/vercel/flags/commit/bd4d01a9b2b5d70bf7ae62cda645d8cd7292ad83) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Add jitter to ingest retries and the batch-flush window.
+
+  The usage tracker now uses AWS-style "Full Jitter" exponential backoff between
+  retry attempts (replacing the previous deterministic 100/200ms schedule) and
+  randomizes the 5s batch-flush window by ±20% to desynchronize concurrent
+  processes. When all retry attempts are exhausted the SDK now logs a structured
+  warning so consumers can alert on dropped batches.
+
+- [#390](https://github.com/vercel/flags/pull/390) [`7b5ea9a`](https://github.com/vercel/flags/commit/7b5ea9a808dfd4155bd2bbf321c3b44ec730cda6) Thanks [@luismeyer](https://github.com/luismeyer)! - Add OIDC authentication support for Vercel Flags clients and generated flag definitions.
+
+  `@vercel/flags-core` can now create clients without an SDK key and authenticate with a Vercel OIDC token, while still supporting SDK keys and connection strings. Bundled definitions can be looked up by SDK key hash or OIDC project ID.
+
+  `@vercel/prepare-flags-definitions` now collects both SDK keys and `VERCEL_OIDC_TOKEN`, fetches definitions for each auth entry, deduplicates identical definitions across SDK keys and OIDC project IDs, and writes generated maps keyed by SDK key hash or project ID.
+
+  `@flags-sdk/vercel` now supports provider data lookup for Vercel flag origins that do not include an SDK key, allowing OIDC-backed clients to resolve project metadata.
+
+### Patch Changes
+
+- [#382](https://github.com/vercel/flags/pull/382) [`4d90e91`](https://github.com/vercel/flags/commit/4d90e912a4d7c9d4ef986d5e8dc609c30b203242) Thanks [@dferber90](https://github.com/dferber90)! - Speed up flag evaluation on the hot path.
+
+  - `handleOutcome` no longer recomputes `scaledWeights` on every split-outcome evaluation; the per-outcome scaled weights are cached on first call.
+  - `matchConditions` no longer recompiles `RegExp` on every REGEX / NOT_REGEX condition; the compiled regex is cached on first call.
+  - `Controller.read()` and `getDatafile()` no longer re-destructure and re-spread the in-memory datafile on every call; the result is cached and rebuilt only when stream/poll replaces the underlying data.
+
+  In micro-benchmarks the pure `evaluate()` path is ~22% faster for split outcomes and ~32% faster for regex conditions. The full `client.evaluate()` path is 14–22% faster across all scenarios.
+
 ## 1.4.0
 
 ### Minor Changes

@@ -146,14 +146,71 @@ export interface Adapter<ValueType, EntitiesType> {
   config?: {
     reportValue?: boolean;
   };
+  /**
+   * Stable identifier for the underlying resource this adapter talks to
+   * (e.g. an SDK key, shared client, or factory closure). Adapter authors
+   * should set this once per "logical adapter" — typically inside a factory
+   * function so every adapter object the factory returns shares the same id.
+   *
+   * The Flags SDK uses this for cross-instance grouping (most notably,
+   * `evaluate()` batches flags whose adapters share an `adapterId` and an
+   * `identify` source through a single `bulkDecide` call). Adapters without
+   * an `adapterId` are never batched.
+   */
+  adapterId?: string | symbol;
   decide: (params: {
     key: string;
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
-    defaultValue?: ValueType;
+    // Typed as `unknown` rather than `ValueType` so `ValueType` stays in
+    // output positions only. Keeping it covariant lets `Adapter<boolean>` and
+    // `Flag<boolean>` remain assignable to `Adapter<unknown>` / `Flag<unknown>`.
+    defaultValue?: unknown;
   }) => Promise<ValueType> | ValueType;
+  /**
+   * Optional batch hook used by `evaluate()` to resolve many flags that
+   * share this adapter's `adapterId` and the same `identify` source in a
+   * single call. When implemented (and `adapterId` is set), `evaluate()`
+   * calls this once per group instead of invoking `decide` per flag.
+   *
+   * - Return `Record<flagKey, value>`. Missing keys or `value: undefined`
+   *   trigger the per-flag `defaultValue` fallback in the SDK.
+   * - Throwing causes per-flag `defaultValue` fallback (and rejection for
+   *   flags without a `defaultValue`).
+   */
+  bulkDecide?: (params: {
+    // `defaultValue` is `unknown` for the same reason as in `decide` above:
+    // it keeps `ValueType` covariant on `Adapter`.
+    flags: { key: string; defaultValue?: unknown }[];
+    entities?: EntitiesType;
+    headers: ReadonlyHeaders;
+    cookies: ReadonlyRequestCookies;
+  }) => Promise<Record<string, ValueType>> | Record<string, ValueType>;
 }
+
+/**
+ * An adapter instance, or a zero-arg factory that returns one.
+ *
+ * Passing the factory directly (e.g. `adapter: vercelAdapter`) is shorthand for
+ * calling it (`adapter: vercelAdapter()`). The Flags SDK resolves the factory
+ * once per flag declaration.
+ */
+export type AdapterOrFactory<ValueType, EntitiesType> =
+  | Adapter<ValueType, EntitiesType>
+  | (() => Adapter<ValueType, EntitiesType>);
+
+/**
+ * A {@link FlagDeclaration} whose `adapter` factory (if any) has been resolved
+ * to an {@link Adapter} instance. This is the internal shape the Flags SDK works
+ * with after `flag()` resolves a passed-in factory.
+ */
+export type ResolvedFlagDeclaration<ValueType, EntitiesType> = FlagDeclaration<
+  ValueType,
+  EntitiesType
+> & {
+  adapter?: Adapter<ValueType, EntitiesType>;
+};
 
 /**
  * Definition when declaring a feature flag, as provided to `flag(declaration)`
@@ -197,8 +254,11 @@ export type FlagDeclaration<ValueType, EntitiesType> = {
    * Adapters can implement default behavior for flags.
    *
    * Explicitly provided values always override adapters.
+   *
+   * Accepts either an adapter instance (`adapter: vercelAdapter()`) or a
+   * zero-arg factory that returns one (`adapter: vercelAdapter`).
    */
-  // adapter?: Adapter<ValueType, EntitiesType>;
+  // adapter?: AdapterOrFactory<ValueType, EntitiesType>;
   /**
    * This function is called when the feature flag is used (and no override is present) to return a value.
    */
@@ -209,11 +269,11 @@ export type FlagDeclaration<ValueType, EntitiesType> = {
   identify?: Identify<EntitiesType>;
 } & (
   | {
-      adapter: Adapter<ValueType, EntitiesType>;
+      adapter: AdapterOrFactory<ValueType, EntitiesType>;
       decide?: Decide<ValueType, EntitiesType>;
     }
   | {
-      adapter?: Adapter<ValueType, EntitiesType>;
+      adapter?: AdapterOrFactory<ValueType, EntitiesType>;
       decide: Decide<ValueType, EntitiesType>;
     }
 );
