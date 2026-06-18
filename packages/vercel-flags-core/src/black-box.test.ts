@@ -108,6 +108,14 @@ describe('Controller (black-box)', () => {
     return Math.ceil(ts / 60_000) * 60_000;
   }
 
+  function metricValue(value: unknown): string {
+    return JSON.stringify({ value });
+  }
+
+  function metricId(id: string): string {
+    return JSON.stringify({ id });
+  }
+
   function expectEvaluationOnlyIngest(
     evaluationCount = 1,
     extraEvents: Array<{
@@ -129,7 +137,7 @@ describe('Controller (black-box)', () => {
             ts: date.getTime(),
             payload: {
               flagKey: 'flagA',
-              variant: '1',
+              variant: metricValue(true),
               reason: 'paused',
               evaluationCount,
               periodStartedAt,
@@ -387,7 +395,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -454,7 +462,7 @@ describe('Controller (black-box)', () => {
       expectEvaluationOnlyIngest(1, [
         {
           flagKey: 'flagB',
-          variant: 'unknown',
+          variant: metricValue(undefined),
           reason: 'error',
           evaluationCount: 1,
         },
@@ -1245,7 +1253,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(after.getTime()),
@@ -1334,7 +1342,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(after.getTime()),
@@ -2212,7 +2220,7 @@ describe('Controller (black-box)', () => {
                 ts: date.getTime(),
                 payload: {
                   flagKey: 'flagA',
-                  variant: '1',
+                  variant: metricValue(true),
                   reason: 'paused',
                   evaluationCount: 1,
                   periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -2601,7 +2609,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime() + 60,
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime() + 60),
@@ -3319,7 +3327,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 3,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3533,7 +3541,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3639,6 +3647,7 @@ describe('Controller (black-box)', () => {
 
       expect(result).toEqual({
         value: false,
+        variantId: null,
         reason: 'error',
         errorMessage: expect.stringContaining(
           '@vercel/flags-core: No flag definitions available',
@@ -3752,7 +3761,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: 'on',
+                variant: metricId('on'),
                 reason: 'paused',
                 evaluationCount: 2,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3764,7 +3773,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'missing-flag',
-                variant: 'unknown',
+                variant: metricValue(false),
                 reason: 'error',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3776,7 +3785,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagB',
-                variant: '0',
+                variant: metricValue('control'),
                 reason: 'fallthrough',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3838,6 +3847,7 @@ describe('Controller (black-box)', () => {
         outcomeType: 'value',
         reason: 'paused',
         value: true,
+        variantId: null,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();
@@ -3936,7 +3946,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: '1',
+                variant: metricValue(true),
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3975,6 +3985,7 @@ describe('Controller (black-box)', () => {
         outcomeType: 'value',
         reason: 'paused',
         value: true,
+        variantId: null,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();

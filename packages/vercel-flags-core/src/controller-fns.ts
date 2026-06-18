@@ -2,7 +2,6 @@ import {
   type BulkEvaluationInput,
   bulkEvaluate as bulkEvalFlags,
   evaluate as evalFlag,
-  getEvaluationVariantIndex,
 } from './evaluate';
 import { internalReportValue } from './lib/report-value';
 import type {
@@ -57,15 +56,6 @@ export function getFallbackDatafile(id: number): Promise<BundledDefinitions> {
   throw new Error('flags: This data source does not support fallbacks');
 }
 
-function getVariantIdentifier(
-  definition: Packed.FlagDefinition,
-  result: EvaluationResult<unknown>,
-): string {
-  const variantIndex = getEvaluationVariantIndex(result);
-  if (variantIndex === undefined) return 'unknown';
-  return definition.variantIds?.[variantIndex] ?? String(variantIndex);
-}
-
 function trackEvaluation(
   controller: EvaluationTrackingController,
   options: TrackEvaluationOptions,
@@ -89,13 +79,14 @@ export async function evaluate<T, E = Record<string, unknown>>(
     if (defaultValue !== undefined) {
       const result: EvaluationResult<T> = {
         value: defaultValue,
+        variantId: null,
         reason: ResolutionReason.ERROR,
         errorMessage:
           error instanceof Error ? error.message : 'Failed to read datafile',
       };
       trackEvaluation(controller, {
         flagKey,
-        variant: 'unknown',
+        variant: { value: defaultValue },
         reason: result.reason,
       });
       return result;
@@ -116,6 +107,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
 
     const result: EvaluationResult<T> = {
       value: defaultValue,
+      variantId: null,
       reason: ResolutionReason.ERROR,
       errorCode: ErrorCode.FLAG_NOT_FOUND,
       errorMessage: `@vercel/flags-core: Definition not found for flag "${flagKey}"`,
@@ -130,7 +122,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     };
     trackEvaluation(controller, {
       flagKey,
-      variant: 'unknown',
+      variant: { value: defaultValue },
       reason: result.reason,
     });
     return result;
@@ -157,12 +149,13 @@ export async function evaluate<T, E = Record<string, unknown>>(
           : undefined,
     });
   }
+  const variant = result.variantId
+    ? { id: result.variantId }
+    : { value: result.value };
+
   trackEvaluation(controller, {
     flagKey,
-    variant: getVariantIdentifier(
-      flagDefinition,
-      result as EvaluationResult<unknown>,
-    ),
+    variant,
     reason: result.reason,
   });
 
@@ -198,10 +191,11 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         value: flag.defaultValue,
         reason: ResolutionReason.ERROR,
         errorMessage,
+        variantId: null,
       };
       trackEvaluation(controller, {
         flagKey: flag.key,
-        variant: 'unknown',
+        variant: { value: flag.defaultValue },
         reason: ResolutionReason.ERROR,
       });
     }
@@ -238,10 +232,11 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         errorCode: ErrorCode.FLAG_NOT_FOUND,
         errorMessage: `@vercel/flags-core: Definition not found for flag "${key}"`,
         metrics: { evaluationMs: 0, ...baseMetrics },
+        variantId: null,
       };
       trackEvaluation(controller, {
         flagKey: key,
-        variant: 'unknown',
+        variant: { value: defaultValue },
         reason: ResolutionReason.ERROR,
       });
       continue;
@@ -273,10 +268,9 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
     }
     trackEvaluation(controller, {
       flagKey: key,
-      variant: getVariantIdentifier(
-        toEvaluate[key]!.definition,
-        result as EvaluationResult<unknown>,
-      ),
+      variant: result.variantId
+        ? { id: result.variantId }
+        : { value: result.value },
       reason: result.reason,
     });
     results[key] = Object.assign(result, {

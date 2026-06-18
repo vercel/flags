@@ -6,6 +6,7 @@ import {
   OutcomeType,
   Packed,
   ResolutionReason,
+  type VariantId,
 } from './types';
 
 type PathArray = (string | number)[];
@@ -20,36 +21,6 @@ const UINT32_MAX = 4_294_967_295;
 // don't leak into serialized datafiles or surprise consumers.
 const SCALED_WEIGHTS = Symbol('@vercel/flags-core:scaledWeights');
 const COMPILED_REGEX = Symbol('@vercel/flags-core:compiledRegex');
-const EVALUATION_VARIANT_INDEX = Symbol(
-  '@vercel/flags-core:evaluationVariantIndex',
-);
-
-type EvaluationOutcome<T> = {
-  value: T;
-  outcomeType: OutcomeType;
-  [EVALUATION_VARIANT_INDEX]?: number;
-};
-
-function withVariantIndex<T>(
-  value: T,
-  outcomeType: OutcomeType,
-  variantIndex: number,
-): EvaluationOutcome<T> {
-  return Object.defineProperty(
-    {
-      value,
-      outcomeType,
-    },
-    EVALUATION_VARIANT_INDEX,
-    { value: variantIndex },
-  );
-}
-
-export function getEvaluationVariantIndex(
-  result: EvaluationResult<unknown>,
-): number | undefined {
-  return (result as EvaluationOutcome<unknown>)[EVALUATION_VARIANT_INDEX];
-}
 
 function getScaledWeights(outcome: Packed.SplitOutcome): number[] {
   const cached = (outcome as unknown as Record<symbol, number[]>)[
@@ -394,41 +365,58 @@ function handleSegmentOutcome<T>(
   }
 }
 
-function getVariant<T>(variants: unknown[], index: number): T {
+function getVariant<T>(
+  definition: Packed.FlagDefinition,
+  index: number,
+): { value: T; variantId: VariantId | null } {
+  const { variants, variantIds } = definition;
+
   if (index < 0 || index >= variants.length) {
     throw new Error(
       `@vercel/flags-core: Invalid variant index ${index}, variants length is ${variants.length}`,
     );
   }
-  return variants[index] as T;
+
+  let variantId: VariantId | null = null;
+  if (variantIds && index < variantIds.length) {
+    variantId = variantIds[index] ?? null;
+  }
+
+  return {
+    value: variants[index] as T,
+    variantId,
+  };
 }
 
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
-): EvaluationOutcome<T> {
+): {
+  value: T;
+  outcomeType: OutcomeType;
+  variantId: VariantId | null;
+} {
   if (typeof outcome === 'number') {
-    return withVariantIndex<T>(
-      getVariant<T>(params.definition.variants, outcome),
-      OutcomeType.VALUE,
-      outcome,
-    );
+    const variant = getVariant<T>(params.definition, outcome);
+    return {
+      ...variant,
+      outcomeType: OutcomeType.VALUE,
+    };
   }
   switch (outcome.type) {
     case 'split': {
       const lhs = access(outcome.base, params);
       const defaultOutcome = getVariant<T>(
-        params.definition.variants,
+        params.definition,
         outcome.defaultVariant,
       );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return withVariantIndex<T>(
-          defaultOutcome,
-          OutcomeType.SPLIT,
-          outcome.defaultVariant,
-        );
+        return {
+          ...defaultOutcome,
+          outcomeType: OutcomeType.SPLIT,
+        };
       }
 
       /**
@@ -439,43 +427,42 @@ function handleOutcome<T>(
       const value = hashInput(lhs, params.definition.seed);
       const scaledWeights = getScaledWeights(outcome);
       const variantIndex = findWeightedIndex(scaledWeights, value, UINT32_MAX);
-      const selectedVariantIndex =
-        variantIndex === -1 ? outcome.defaultVariant : variantIndex;
-      return withVariantIndex<T>(
-        selectedVariantIndex === outcome.defaultVariant
+      const variant =
+        variantIndex === -1
           ? defaultOutcome
-          : getVariant<T>(params.definition.variants, selectedVariantIndex),
-        OutcomeType.SPLIT,
-        selectedVariantIndex,
-      );
+          : getVariant<T>(params.definition, variantIndex);
+      return {
+        ...variant,
+        outcomeType: OutcomeType.SPLIT,
+      };
     }
     case 'rollout': {
       const lhs = access(outcome.base, params);
       const defaultOutcome = getVariant<T>(
-        params.definition.variants,
+        params.definition,
         outcome.defaultVariant,
       );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return withVariantIndex<T>(
-          defaultOutcome,
-          OutcomeType.ROLLOUT,
-          outcome.defaultVariant,
-        );
+        return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
       }
 
       // Determine active slot based on elapsed time
       const now = Date.now();
       const elapsed = now - outcome.startTimestamp;
 
+      const rollFromVariant = getVariant<T>(
+        params.definition,
+        outcome.rollFromVariant,
+      );
+
       // Before rollout starts or no slots, serve rollFromVariant
       if (elapsed < 0 || outcome.slots.length === 0) {
-        return withVariantIndex<T>(
-          getVariant<T>(params.definition.variants, outcome.rollFromVariant),
-          OutcomeType.ROLLOUT,
-          outcome.rollFromVariant,
-        );
+        return {
+          ...rollFromVariant,
+          outcomeType: OutcomeType.ROLLOUT,
+        };
       }
 
       // Walk slots to find current promille.
@@ -497,30 +484,31 @@ function handleOutcome<T>(
 
       // short-circuit common edges
       if (currentPromille <= 0) {
-        return withVariantIndex<T>(
-          getVariant<T>(params.definition.variants, outcome.rollFromVariant),
-          OutcomeType.ROLLOUT,
-          outcome.rollFromVariant,
-        );
+        return {
+          ...rollFromVariant,
+          outcomeType: OutcomeType.ROLLOUT,
+        };
       }
+      const rollToVariant = getVariant<T>(
+        params.definition,
+        outcome.rollToVariant,
+      );
       if (currentPromille >= 100_000) {
-        return withVariantIndex<T>(
-          getVariant<T>(params.definition.variants, outcome.rollToVariant),
-          OutcomeType.ROLLOUT,
-          outcome.rollToVariant,
-        );
+        return {
+          ...rollToVariant,
+          outcomeType: OutcomeType.ROLLOUT,
+        };
       }
 
       const value = hashInput(lhs, params.definition.seed);
       const threshold = (currentPromille / 100_000) * UINT32_MAX;
-      const selectedVariantIndex =
-        value < threshold ? outcome.rollToVariant : outcome.rollFromVariant;
 
-      return withVariantIndex<T>(
-        getVariant<T>(params.definition.variants, selectedVariantIndex),
-        OutcomeType.ROLLOUT,
-        selectedVariantIndex,
-      );
+      const variant = value < threshold ? rollToVariant : rollFromVariant;
+
+      return {
+        ...variant,
+        outcomeType: OutcomeType.ROLLOUT,
+      };
     }
     default: {
       const { type } = outcome;
@@ -560,6 +548,7 @@ export function evaluate<T>(
       reason: ResolutionReason.ERROR,
       errorMessage: `Could not find envConfig for "${params.environment}"`,
       value: params.defaultValue,
+      variantId: null,
     };
   }
 
@@ -580,6 +569,7 @@ export function evaluate<T>(
         reason: ResolutionReason.ERROR,
         errorMessage: `Circular environment reuse detected: "${envConfig.reuse}"`,
         value: params.defaultValue,
+        variantId: null,
       };
     }
     visited.add(params.environment);
