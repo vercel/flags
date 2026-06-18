@@ -86,7 +86,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       };
       trackEvaluation(controller, {
         flagKey,
-        variant: { value: defaultValue },
+        variant: null,
         reason: result.reason,
       });
       return result;
@@ -122,7 +122,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     };
     trackEvaluation(controller, {
       flagKey,
-      variant: { value: defaultValue },
+      variant: null,
       reason: result.reason,
     });
     return result;
@@ -149,13 +149,10 @@ export async function evaluate<T, E = Record<string, unknown>>(
           : undefined,
     });
   }
-  const variant = result.variantId
-    ? { id: result.variantId }
-    : { value: result.value };
 
   trackEvaluation(controller, {
     flagKey,
-    variant,
+    variant: result.variantId,
     reason: result.reason,
   });
 
@@ -195,7 +192,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
       };
       trackEvaluation(controller, {
         flagKey: flag.key,
-        variant: { value: flag.defaultValue },
+        variant: null,
         reason: ResolutionReason.ERROR,
       });
     }
@@ -236,7 +233,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
       };
       trackEvaluation(controller, {
         flagKey: key,
-        variant: { value: defaultValue },
+        variant: null,
         reason: ResolutionReason.ERROR,
       });
       continue;
@@ -268,9 +265,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
     }
     trackEvaluation(controller, {
       flagKey: key,
-      variant: result.variantId
-        ? { id: result.variantId }
-        : { value: result.value },
+      variant: result.variantId,
       reason: result.reason,
     });
     results[key] = Object.assign(result, {

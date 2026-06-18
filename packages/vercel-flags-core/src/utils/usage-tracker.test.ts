@@ -125,10 +125,6 @@ function getHeaders(callIndex = 0): Record<string, string> {
   return init!.headers as Record<string, string>;
 }
 
-function metricValue(value: unknown): string {
-  return JSON.stringify({ value });
-}
-
 describe('UsageTracker', () => {
   describe('constructor', () => {
     it('should create an instance with sdkKey and host', () => {
@@ -325,7 +321,7 @@ describe('UsageTracker', () => {
       tracker.trackRead({ configOrigin: 'in-memory' });
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       await tracker.shutdown();
@@ -446,19 +442,19 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
         clientName: 'checkout',
       });
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
         clientName: 'checkout',
       });
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'disabled' },
+        variant: 'var_disabled',
         reason: ResolutionReason.FALLTHROUGH,
         clientName: 'checkout',
       });
@@ -473,7 +469,7 @@ describe('UsageTracker', () => {
           type: 'FLAG_EVALUATION',
           payload: expect.objectContaining({
             flagKey: 'flag-a',
-            variant: metricValue('enabled'),
+            variant: 'var_enabled',
             reason: ResolutionReason.FALLTHROUGH,
             clientName: 'checkout',
             evaluationCount: 2,
@@ -485,7 +481,7 @@ describe('UsageTracker', () => {
         expect.objectContaining({
           payload: expect.objectContaining({
             flagKey: 'flag-a',
-            variant: metricValue('disabled'),
+            variant: 'var_disabled',
             reason: ResolutionReason.FALLTHROUGH,
             clientName: 'checkout',
             evaluationCount: 1,
@@ -506,7 +502,7 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       vi.setSystemTime(new Date(trackedAt.getTime() + 10_000));
@@ -527,7 +523,7 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
 
@@ -548,13 +544,13 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       vi.setSystemTime(new Date('2026-01-01T00:00:59.999Z'));
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       vi.setSystemTime(new Date('2026-01-01T00:01:10.000Z'));
@@ -580,13 +576,13 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       vi.setSystemTime(new Date('2026-01-01T00:01:00.001Z'));
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: 'enabled' },
+        variant: 'var_enabled',
         reason: ResolutionReason.FALLTHROUGH,
       });
       await tracker.shutdown();
@@ -598,7 +594,7 @@ describe('UsageTracker', () => {
         ts: new Date('2026-01-01T00:00:59.999Z').getTime(),
         payload: {
           flagKey: 'flag-a',
-          variant: metricValue('enabled'),
+          variant: 'var_enabled',
           reason: ResolutionReason.FALLTHROUGH,
           evaluationCount: 1,
           periodStartedAt: firstBucketTs,
@@ -609,7 +605,7 @@ describe('UsageTracker', () => {
         ts: new Date('2026-01-01T00:01:00.001Z').getTime(),
         payload: {
           flagKey: 'flag-a',
-          variant: metricValue('enabled'),
+          variant: 'var_enabled',
           reason: ResolutionReason.FALLTHROUGH,
           evaluationCount: 1,
           periodStartedAt: secondBucketTs,
@@ -625,7 +621,7 @@ describe('UsageTracker', () => {
       tracker.trackRead({ configOrigin: 'in-memory' });
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: '0' },
+        variant: 'var_0',
         reason: ResolutionReason.FALLTHROUGH,
       });
       await tracker.shutdown();
@@ -638,7 +634,7 @@ describe('UsageTracker', () => {
           ts: expect.any(Number),
           payload: {
             flagKey: 'flag-a',
-            variant: metricValue('0'),
+            variant: 'var_0',
             reason: ResolutionReason.FALLTHROUGH,
             evaluationCount: 1,
             periodStartedAt: expect.any(Number),
@@ -656,7 +652,7 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: '0' },
+        variant: 'var_0',
         reason: ResolutionReason.FALLTHROUGH,
       });
 
@@ -665,7 +661,7 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: '0' },
+        variant: 'var_0',
         reason: ResolutionReason.FALLTHROUGH,
       });
 
@@ -691,7 +687,7 @@ describe('UsageTracker', () => {
       for (let i = 0; i < 60; i++) {
         tracker.trackEvaluation({
           flagKey: 'flag-a',
-          variant: { value: '0' },
+          variant: 'var_0',
           reason: ResolutionReason.FALLTHROUGH,
         });
       }
@@ -718,7 +714,7 @@ describe('UsageTracker', () => {
 
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: '0' },
+        variant: 'var_0',
         reason: ResolutionReason.FALLTHROUGH,
       });
       await tracker.shutdown();
@@ -730,7 +726,7 @@ describe('UsageTracker', () => {
           ts: expect.any(Number),
           payload: {
             flagKey: 'flag-a',
-            variant: metricValue('0'),
+            variant: 'var_0',
             reason: ResolutionReason.FALLTHROUGH,
             evaluationCount: 1,
             periodStartedAt: expect.any(Number),
@@ -796,7 +792,7 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.trackEvaluation({
         flagKey: 'flag-a',
-        variant: { value: '0' },
+        variant: 'var_0',
         reason: ResolutionReason.FALLTHROUGH,
       });
 

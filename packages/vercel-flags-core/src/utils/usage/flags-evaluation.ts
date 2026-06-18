@@ -1,11 +1,9 @@
 import type { ResolutionReason, VariantId } from '../../types';
 import type { UsageEvent } from './events';
 
-type MetricVariant = { id: VariantId } | { value: unknown };
-
 export interface TrackEvaluationOptions {
   flagKey: string;
-  variant: MetricVariant;
+  variant: VariantId | null;
   reason: ResolutionReason;
   clientName?: string;
 }
@@ -37,7 +35,7 @@ export class FlagsEvaluationEvent implements UsageEvent {
 
   payload: {
     flagKey: string;
-    variant: string;
+    variant: string | null;
     reason: ResolutionReason;
     clientName?: string;
     evaluationCount: number;
@@ -47,7 +45,7 @@ export class FlagsEvaluationEvent implements UsageEvent {
   constructor(eventOptions: BucketedTrackEvaluationOptions) {
     this.payload = {
       flagKey: eventOptions.flagKey,
-      variant: JSON.stringify(eventOptions.variant),
+      variant: eventOptions.variant,
       reason: eventOptions.reason,
       evaluationCount: 1,
       periodStartedAt: eventOptions.bucketTs,

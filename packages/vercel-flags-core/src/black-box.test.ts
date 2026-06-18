@@ -108,19 +108,11 @@ describe('Controller (black-box)', () => {
     return Math.ceil(ts / 60_000) * 60_000;
   }
 
-  function metricValue(value: unknown): string {
-    return JSON.stringify({ value });
-  }
-
-  function metricId(id: string): string {
-    return JSON.stringify({ id });
-  }
-
   function expectEvaluationOnlyIngest(
     evaluationCount = 1,
     extraEvents: Array<{
       flagKey: string;
-      variant: string;
+      variant: string | null;
       reason: string;
       evaluationCount: number;
       periodStartedAt?: number;
@@ -137,7 +129,7 @@ describe('Controller (black-box)', () => {
             ts: date.getTime(),
             payload: {
               flagKey: 'flagA',
-              variant: metricValue(true),
+              variant: null,
               reason: 'paused',
               evaluationCount,
               periodStartedAt,
@@ -395,7 +387,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -462,7 +454,7 @@ describe('Controller (black-box)', () => {
       expectEvaluationOnlyIngest(1, [
         {
           flagKey: 'flagB',
-          variant: metricValue(undefined),
+          variant: null,
           reason: 'error',
           evaluationCount: 1,
         },
@@ -1253,7 +1245,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(after.getTime()),
@@ -1342,7 +1334,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(after.getTime()),
@@ -2220,7 +2212,7 @@ describe('Controller (black-box)', () => {
                 ts: date.getTime(),
                 payload: {
                   flagKey: 'flagA',
-                  variant: metricValue(true),
+                  variant: null,
                   reason: 'paused',
                   evaluationCount: 1,
                   periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -2609,7 +2601,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime() + 60,
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime() + 60),
@@ -3327,7 +3319,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 3,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3541,7 +3533,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3716,7 +3708,7 @@ describe('Controller (black-box)', () => {
         datafile: makeBundled({
           definitions: {
             flagA: {
-              variantIds: ['off', 'on'],
+              variantIds: ['var_off', 'var_on'],
               environments: { production: 1 },
               variants: [false, true],
             },
@@ -3761,7 +3753,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricId('on'),
+                variant: 'var_on',
                 reason: 'paused',
                 evaluationCount: 2,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3773,7 +3765,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'missing-flag',
-                variant: metricValue(false),
+                variant: null,
                 reason: 'error',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3785,7 +3777,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagB',
-                variant: metricValue('control'),
+                variant: null,
                 reason: 'fallthrough',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
@@ -3946,7 +3938,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: metricValue(true),
+                variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: nextMinuteBucketTs(date.getTime()),
