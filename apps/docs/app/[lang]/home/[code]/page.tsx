@@ -1,9 +1,9 @@
+import { Button } from '@vercel/geistdocs/components/button';
 import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import { ArrowRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
@@ -98,7 +98,7 @@ export default async function HomePage({
           <h1 className="text-balance font-semibold text-[40px] leading-[1.1] tracking-tight sm:text-5xl xl:text-6xl">
             {heroTextFlag}
           </h1>
-          <p className="mt-5 max-w-3xl text-balance text-muted-foreground leading-relaxed sm:text-xl">
+          <p className="mt-5 max-w-3xl text-balance text-gray-800 leading-relaxed sm:text-xl">
             Flags SDK is a free, open-source library for using feature flags in
             Next.js and SvelteKit.
           </p>
@@ -110,12 +110,12 @@ export default async function HomePage({
         <div className="relative p-4 sm:p-6">
           {ditheredHeroFlag ? <HeroImage /> : null}
 
-          <div className="relative rounded-xl bg-background p-4 md:p-6 shadow-(--ds-shadow-menu)">
+          <div className="relative rounded-xl bg-background-100 p-4 md:p-6 shadow-(--ds-shadow-menu)">
             <div className="flex flex-col gap-y-1 px-2">
               <div className="mb-0.5 font-semibold text-lg tracking-tight">
                 Try the Flags SDK
               </div>
-              <span className="text-muted-foreground text-sm">
+              <span className="text-gray-800 text-sm">
                 Set persistent flags for this page
               </span>
             </div>
@@ -153,7 +153,7 @@ export default async function HomePage({
             <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl lg:text-[40px]">
               Using flags as code
             </h2>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-gray-800">
               The SDK sits between your application and the source of your
               flags, helping you follow best practices and keep your website
               fast.
@@ -168,7 +168,7 @@ export default async function HomePage({
                 <h3 className="mt-3 font-semibold text-lg tracking-tight md:mt-6">
                   {feature.title}
                 </h3>
-                <p className="mt-1.5 text-muted-foreground md:mt-4">
+                <p className="mt-1.5 text-gray-800 md:mt-4">
                   {feature.description}
                 </p>
               </div>
@@ -183,7 +183,7 @@ export default async function HomePage({
               <h2 className="font-semibold text-xl tracking-tight sm:text-2xl md:text-3xl">
                 Effortless setup
               </h2>
-              <p className="text-lg text-muted-foreground">
+              <p className="text-lg text-gray-800">
                 With a simple declarative API to define and use your feature
                 flags.
               </p>

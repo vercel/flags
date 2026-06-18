@@ -50,7 +50,7 @@
     "gray-matter": "4.0.3",
     "husky": "9.0.10",
     "lint-staged": "15.2.2",
-    "next": "^16.1.6",
+    "next": "16.2.6",
     "playwright": "1.56.1",
     "publint": "0.3.14",
     "react": "canary",

@@ -82,7 +82,7 @@ export const FlagToggle = ({
           {label}
         </Label>
         {description ? (
-          <span className="text-muted-foreground text-sm">{description}</span>
+          <span className="text-gray-800 text-sm">{description}</span>
         ) : null}
       </div>
       <Switch
@@ -135,7 +135,7 @@ export const FlagSelect = ({
           {label}
         </Label>
         {description ? (
-          <span className="text-muted-foreground text-sm">{description}</span>
+          <span className="text-gray-800 text-sm">{description}</span>
         ) : null}
 
         <Select

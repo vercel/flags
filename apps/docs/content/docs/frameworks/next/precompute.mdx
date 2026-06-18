@@ -6,6 +6,10 @@ description: Using the precompute pattern in Next.js
 This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
 Ensure you've read about the general precompute concept to understand the pattern and benefits:
 
+<CopyPrompt text="Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.">
+  Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.
+</CopyPrompt>
+
 <LearnMore href="/principles/precompute" icon="arrow">
   <div>Read the introduction to precompute</div>
 </LearnMore>

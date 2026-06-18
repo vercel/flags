@@ -1,8 +1,11 @@
-import { LogoFlagsSdk } from "@/components/geistcn-fallbacks/geistcn-assets/logos/logo-flags-sdk";
+import { LogoFlagsSdk } from "@vercel/geistdocs/assets/logos/logo-flags-sdk";
+import type { GeistdocsAgentReadinessConfig } from "@vercel/geistdocs/config";
 
 export const Logo = () => <LogoFlagsSdk height={22} />;
 
 export const github = {
+  branch: "main",
+  editPath: "content/docs/{path}",
   owner: "vercel",
   repo: "flags",
 };
@@ -37,6 +40,28 @@ export const title = "Flags SDK Documentation";
 
 export const prompt =
   "You are a helpful assistant specializing in answering questions about Flags SDK, a free, open-source library for using feature flags in Next.js and SvelteKit.";
+
+export const agent = {
+  product: {
+    name: "Flags SDK",
+    description:
+      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.",
+    category: "Feature Flags",
+    audience: ["Application developers", "Framework teams"],
+    useCases: [
+      "Implement feature flags as code",
+      "Connect feature flags to providers",
+      "Precompute feature flags in supported frameworks",
+    ],
+  },
+  links: [
+    {
+      label: "Flags SDK source",
+      href: `https://github.com/${github.owner}/${github.repo}`,
+      description: "Source repository for Flags SDK",
+    },
+  ],
+} satisfies GeistdocsAgentReadinessConfig;
 
 export const translations = {
   en: {
