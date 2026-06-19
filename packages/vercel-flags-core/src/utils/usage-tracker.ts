@@ -8,7 +8,7 @@ import {
 import {
   evaluationBatchKey,
   FlagsEvaluationEvent,
-  nextMinuteBucketTs,
+  minuteBucketTs,
   type TrackEvaluationOptions,
 } from './usage/flags-evaluation';
 
@@ -85,7 +85,7 @@ export class UsageTracker {
 
       const bucketedOptions = {
         ...options,
-        bucketTs: nextMinuteBucketTs(),
+        bucketTs: minuteBucketTs(),
       };
       const batchKey = evaluationBatchKey(bucketedOptions);
 

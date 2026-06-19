@@ -491,10 +491,10 @@ describe('UsageTracker', () => {
       );
     });
 
-    it('should preserve evaluation timestamps and bucket periodStartedAt to the next minute', async () => {
+    it('should preserve evaluation timestamps and bucket periodStartedAt to the current minute', async () => {
       vi.useFakeTimers();
       const trackedAt = new Date('2026-01-01T00:00:15.123Z');
-      const bucketTs = new Date('2026-01-01T00:01:00.000Z').getTime();
+      const bucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
       vi.setSystemTime(trackedAt);
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -536,7 +536,7 @@ describe('UsageTracker', () => {
 
     it('should aggregate matching evaluations in the same minute bucket', async () => {
       vi.useFakeTimers();
-      const bucketTs = new Date('2026-01-01T00:01:00.000Z').getTime();
+      const bucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
       vi.setSystemTime(new Date('2026-01-01T00:00:15.000Z'));
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -567,8 +567,8 @@ describe('UsageTracker', () => {
 
     it('should keep matching evaluations in different minute buckets separate', async () => {
       vi.useFakeTimers();
-      const firstBucketTs = new Date('2026-01-01T00:01:00.000Z').getTime();
-      const secondBucketTs = new Date('2026-01-01T00:02:00.000Z').getTime();
+      const firstBucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
+      const secondBucketTs = new Date('2026-01-01T00:01:00.000Z').getTime();
       vi.setSystemTime(new Date('2026-01-01T00:00:59.999Z'));
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 

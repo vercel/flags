@@ -104,8 +104,8 @@ const originalEnv = { ...process.env };
 describe('Controller (black-box)', () => {
   const date = new Date();
 
-  function nextMinuteBucketTs(ts: number): number {
-    return Math.ceil(ts / 60_000) * 60_000;
+  function minuteBucketTs(ts: number): number {
+    return Math.floor(ts / 60_000) * 60_000;
   }
 
   function expectEvaluationOnlyIngest(
@@ -118,7 +118,7 @@ describe('Controller (black-box)', () => {
       periodStartedAt?: number;
     }> = [],
   ) {
-    const periodStartedAt = nextMinuteBucketTs(date.getTime());
+    const periodStartedAt = minuteBucketTs(date.getTime());
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://flags.vercel.com/v1/ingest',
@@ -390,7 +390,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),
@@ -1248,7 +1248,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(after.getTime()),
+                periodStartedAt: minuteBucketTs(after.getTime()),
               },
             },
           ]),
@@ -1337,7 +1337,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(after.getTime()),
+                periodStartedAt: minuteBucketTs(after.getTime()),
               },
             },
           ]),
@@ -2215,7 +2215,7 @@ describe('Controller (black-box)', () => {
                   variant: null,
                   reason: 'paused',
                   evaluationCount: 1,
-                  periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                  periodStartedAt: minuteBucketTs(date.getTime()),
                 },
               },
             ]),
@@ -2604,7 +2604,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime() + 60),
+                periodStartedAt: minuteBucketTs(date.getTime() + 60),
               },
             },
           ]),
@@ -3322,7 +3322,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 3,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),
@@ -3536,7 +3536,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),
@@ -3756,7 +3756,7 @@ describe('Controller (black-box)', () => {
                 variant: 'var_on',
                 reason: 'paused',
                 evaluationCount: 2,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
               },
             },
@@ -3768,7 +3768,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'error',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
               },
             },
@@ -3780,7 +3780,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'fallthrough',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
               },
             },
@@ -3941,7 +3941,7 @@ describe('Controller (black-box)', () => {
                 variant: null,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: nextMinuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),

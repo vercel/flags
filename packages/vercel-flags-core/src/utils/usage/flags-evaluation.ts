@@ -10,8 +10,8 @@ export interface TrackEvaluationOptions {
 
 const MINUTE_MS = 60_000;
 
-export function nextMinuteBucketTs(ts = Date.now()): number {
-  return Math.ceil(ts / MINUTE_MS) * MINUTE_MS;
+export function minuteBucketTs(ts = Date.now()): number {
+  return Math.floor(ts / MINUTE_MS) * MINUTE_MS;
 }
 
 export type BucketedTrackEvaluationOptions = TrackEvaluationOptions & {
