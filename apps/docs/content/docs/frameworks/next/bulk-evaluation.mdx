@@ -60,6 +60,17 @@ can read headers and cookies:
 const [a, b] = await evaluate([flagA, flagB], request);
 ```
 
+## Evaluate vs. precomputed values
+
+`evaluate` always evaluates flags **dynamically** at request time — it calls
+each flag's adapter (or `decide`) just like calling the flag directly does.
+
+It is **not** the way to read the values of [precomputed](/frameworks/next/precompute)
+flags. When flags were precomputed in the proxy and encoded into a `code`,
+read their values without re-evaluating using
+[`getPrecomputed`](/api-reference/frameworks/next#getprecomputed) (or by calling
+the flag with the code, `await myFlag(code, flagGroup)`).
+
 ## Adapters can batch evaluation
 
 Aside from the Flags SDK itself getting faster, adapters can implement the

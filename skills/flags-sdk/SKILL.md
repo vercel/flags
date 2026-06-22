@@ -246,6 +246,8 @@ const { a, b } = await evaluate({ a: flagA, b: flagB });
 
 Outside App Router (Pages Router `getServerSideProps`/API routes, or routing middleware), pass the request as the second argument: `await evaluate([flagA, flagB], request)`.
 
+`evaluate()` always evaluates flags at request time. It is not for reading [precomputed](#precompute-pattern) (static) values — for those, use `getPrecomputed` (or call the flag with the code, `await myFlag(code, flagGroup)`).
+
 Adapters can opt into batching by implementing the optional `bulkDecide` hook. The Vercel adapter (`@flags-sdk/vercel`) implements it — roughly a 10x reduction in evaluation time when resolving hundreds of flags. See [references/providers.md — Custom Adapters](references/providers.md#custom-adapters) for implementing `bulkDecide`, and [references/api.md — `evaluate`](references/api.md#evaluate) for the full signature.
 
 ## Flags Explorer setup
