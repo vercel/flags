@@ -104,15 +104,24 @@ This call is a shorthand for calling `evaluate` and `serialize` manually.
 
 ### `evaluate`
 
-**Description**: Evaluates multiple feature flags and returns their values.
+**Description**: Evaluates multiple feature flags in a single call and returns their values.
 
-| Parameter | Type         | Description                              |
-| --------- | ------------ | ---------------------------------------- |
-| `flags`   | `function[]` | An array of flags declared using `flag`. |
+This is the recommended way to evaluate multiple feature flags at once. Prefer it over `Promise.all([flagA(), flagB()])`: `evaluate` pre-reads headers, cookies, and overrides once for the whole batch and lets adapters that implement [`bulkDecide`](/providers/custom-adapters#bulk-evaluation) resolve a group through a single call. This reduces the number of parallel promises and leaves less room for the work to be interrupted by other microtasks. See [Bulk evaluation](/frameworks/next/bulk-evaluation) for details.
+
+| Parameter            | Type                                       | Description                                                                                  |
+| -------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `flags`              | `Flag[]` \| `Record<string, Flag>`         | An array of flags (positional results) or an object whose values are flags (keyed results).  |
+| `request` (Optional) | `IncomingMessage` \| `NextRequest` \| `Request` | Required outside App Router — pass it in Pages Router or routing middleware.             |
 
 ```ts
 import { evaluate } from 'flags/next';
-const values = await evaluate(precomputeFlags);
+import { flagA, flagB } from './flags';
+
+// Array form — positional results
+const [a, b] = await evaluate([flagA, flagB]);
+
+// Object form — keyed results
+const { a, b } = await evaluate({ a: flagA, b: flagB });
 ```
 
 ### `serialize`

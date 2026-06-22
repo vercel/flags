@@ -1,0 +1,78 @@
+---
+title: Bulk evaluation
+description: Evaluate multiple feature flags at once with evaluate().
+---
+
+
+When you need to evaluate **multiple** feature flags at once, call `evaluate`
+instead of resolving each flag separately with `Promise.all`. To evaluate a
+**single** flag, keep calling it directly: `await myFlag()`.
+
+## Why not `Promise.all`?
+
+For bulk evaluation developers often reach for `Promise.all` to resolve
+multiple flags in parallel.
+
+```ts title="example.ts"
+import { flagA, flagB } from './flags';
+
+// avoid: creates overhead
+const [a, b] = await Promise.all([flagA(), flagB()]);
+```
+
+This creates one promise per feature flag, and each flag creates further
+internal promises while it evaluates. Having many parallel promises increases
+microtask queue overhead and leaves more room for the work to be interrupted by
+other microtasks.
+
+## Use `evaluate` instead
+
+`evaluate` (from `flags/next`) resolves a set of flags in a single call. It
+pre-reads headers, cookies, and overrides once for the whole batch and lets
+adapters resolve a group through a single call, so it shares work across
+evaluations and reduces the number of parallel promises the runtime has to
+juggle.
+
+```ts title="example.ts"
+import { evaluate } from 'flags/next';
+import { flagA, flagB } from './flags';
+
+// prefer: shares work across the batch
+const [a, b] = await evaluate([flagA, flagB]);
+```
+
+`evaluate` accepts either an **array** of flags, returning positional results,
+or an **object** whose values are flags, returning keyed results.
+
+```ts title="example.ts"
+// array form — positional results
+const [a, b] = await evaluate([flagA, flagB]);
+
+// object form — keyed results
+const { a, b } = await evaluate({ a: flagA, b: flagB });
+```
+
+Outside the App Router — in Pages Router (`getServerSideProps`, API routes) or
+in routing middleware — pass the request as the second argument so `evaluate`
+can read headers and cookies:
+
+```ts title="middleware.ts"
+const [a, b] = await evaluate([flagA, flagB], request);
+```
+
+## Adapters can batch evaluation
+
+Aside from the Flags SDK itself getting faster, adapters can implement the
+optional [`bulkDecide`](/providers/custom-adapters#bulk-evaluation) hook. When
+an adapter implements it, `evaluate` calls `bulkDecide` once per group of flags
+that share that adapter and the same `identify` source — instead of calling
+`decide` per flag — so the underlying provider can share work across
+evaluations too.
+
+The [Vercel adapter](/providers/vercel) (`@flags-sdk/vercel`) implements
+`bulkDecide`, with roughly a 10x reduction in evaluation time when resolving
+hundreds of flags in parallel.
+
+<LearnMore href="/providers/custom-adapters#bulk-evaluation" icon="arrow">
+  Implement `bulkDecide` in a custom adapter
+</LearnMore>
