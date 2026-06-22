@@ -112,7 +112,7 @@ describe('Controller (black-box)', () => {
     evaluationCount = 1,
     extraEvents: Array<{
       flagKey: string;
-      variant: string | null;
+      variant: string | undefined;
       reason: string;
       evaluationCount: number;
       periodStartedAt?: number;
@@ -129,7 +129,7 @@ describe('Controller (black-box)', () => {
             ts: date.getTime(),
             payload: {
               flagKey: 'flagA',
-              variant: null,
+              variant: undefined,
               reason: 'paused',
               evaluationCount,
               periodStartedAt,
@@ -387,7 +387,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
@@ -454,7 +454,7 @@ describe('Controller (black-box)', () => {
       expectEvaluationOnlyIngest(1, [
         {
           flagKey: 'flagB',
-          variant: null,
+          variant: undefined,
           reason: 'error',
           evaluationCount: 1,
         },
@@ -1245,7 +1245,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
@@ -1334,7 +1334,7 @@ describe('Controller (black-box)', () => {
               ts: after.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
@@ -2212,7 +2212,7 @@ describe('Controller (black-box)', () => {
                 ts: date.getTime(),
                 payload: {
                   flagKey: 'flagA',
-                  variant: null,
+                  variant: undefined,
                   reason: 'paused',
                   evaluationCount: 1,
                   periodStartedAt: minuteBucketTs(date.getTime()),
@@ -2601,7 +2601,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime() + 60,
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime() + 60),
@@ -3319,7 +3319,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 3,
                 periodStartedAt: minuteBucketTs(date.getTime()),
@@ -3533,7 +3533,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
@@ -3765,7 +3765,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'missing-flag',
-                variant: null,
+                variant: undefined,
                 reason: 'error',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
@@ -3777,7 +3777,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagB',
-                variant: null,
+                variant: undefined,
                 reason: 'fallthrough',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
@@ -3938,7 +3938,7 @@ describe('Controller (black-box)', () => {
               ts: date.getTime(),
               payload: {
                 flagKey: 'flagA',
-                variant: null,
+                variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),

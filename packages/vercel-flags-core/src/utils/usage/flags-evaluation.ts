@@ -35,7 +35,7 @@ export class FlagsEvaluationEvent implements UsageEvent {
 
   payload: {
     flagKey: string;
-    variant: string | null;
+    variant?: string;
     reason: ResolutionReason;
     clientName?: string;
     evaluationCount: number;
@@ -45,7 +45,7 @@ export class FlagsEvaluationEvent implements UsageEvent {
   constructor(eventOptions: BucketedTrackEvaluationOptions) {
     this.payload = {
       flagKey: eventOptions.flagKey,
-      variant: eventOptions.variant,
+      variant: eventOptions.variant ?? undefined,
       reason: eventOptions.reason,
       evaluationCount: 1,
       periodStartedAt: eventOptions.bucketTs,
