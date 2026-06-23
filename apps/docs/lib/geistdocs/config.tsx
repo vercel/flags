@@ -22,7 +22,7 @@ import {
 
 // geistdocs' default OSS products, minus Flags SDK (this site).
 const navbarOssProducts: GeistdocsNavbarOssProduct[] = [
-  { href: "https://eve.dev/", logo: <LogoEve height={12} /> },
+  { href: "https://eve.dev/docs", logo: <LogoEve height={12} /> },
   { href: "https://ai-sdk.dev/", logo: <LogoAiSdk height={12} /> },
   { href: "https://chat-sdk.dev/", logo: <LogoChatSdk height={20} /> },
   { href: "https://workflow-sdk.dev/", logo: <LogoWorkflowSdk height={12} /> },
