@@ -29,7 +29,7 @@ export const {
    */
   resetDefaultFlagsClient,
   /**
-   * Create a flags client based on an SDK Key
+   * Create a flags client using an SDK key, connection string, or Vercel OIDC.
    */
   createClient,
 } = make(createCreateRawClient(fns));
