@@ -175,6 +175,8 @@ Not available in Pages Router.
 
 Keep pages static while using feature flags. Proxy evaluates flags and encodes results into the URL.
 
+Always nest precomputed pages under a `precomputed` folder (for example `app/precomputed/[code]/page.tsx`). This keeps it clear at a glance which routes participate in the precompute pattern and avoids turning every top-level route into a dynamic segment.
+
 ### Prerequisites
 
 Set `FLAGS_SECRET` env var (32 random bytes, base64-encoded). Use a separate value for each environment (Development, Preview, Production), and mark the Preview and Production values as Sensitive. Run the generator once per environment to produce distinct values:
@@ -212,6 +214,8 @@ export const marketingFlags = [showSummerSale, showBanner] as const;
 
 ### Step 2: Precompute in proxy
 
+Rewrite into the `precomputed/` folder so the page tree clearly marks which routes are served via precompute:
+
 ```ts
 // proxy.ts
 import { type NextRequest, NextResponse } from 'next/server';
@@ -223,7 +227,7 @@ export const config = { matcher: ['/'] };
 export async function proxy(request: NextRequest) {
   const code = await precompute(marketingFlags);
   const nextUrl = new URL(
-    `/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
+    `/precomputed/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
     request.url,
   );
   return NextResponse.rewrite(nextUrl, { request });
@@ -233,8 +237,8 @@ export async function proxy(request: NextRequest) {
 ### Step 3: Read precomputed values in page
 
 ```tsx
-// app/[code]/page.tsx
-import { marketingFlags, showSummerSale, showBanner } from '../../flags';
+// app/precomputed/[code]/page.tsx
+import { marketingFlags, showSummerSale, showBanner } from '../../../flags';
 
 type Params = Promise<{ code: string }>;
 
@@ -255,7 +259,7 @@ export default async function Page({ params }: { params: Params }) {
 ### Step 4: Enable ISR & build time prerendering
 
 ```tsx
-// app/[code]/layout.tsx
+// app/precomputed/[code]/layout.tsx
 import { generatePermutations } from 'flags/next';
 
 export async function generateStaticParams() {
@@ -302,12 +306,12 @@ export const rootFlags = [navigationFlag, bannerFlag];
 export const pricingFlags = [discountFlag];
 ```
 
-File tree:
+Each group still lives under its own `precomputed/` folder:
 
 ```
-app/[rootCode]/
+app/precomputed/[rootCode]/
   page.tsx
-  pricing/[pricingCode]/
+  pricing/precomputed/[pricingCode]/
     page.tsx
 ```
 
