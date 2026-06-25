@@ -61,7 +61,7 @@ const exampleAdapter = createExampleAdapter();
 export const exampleFlag = flag({
   key: 'example-flag',
   // use the adapter for many feature flags
-  adapter: exampleAdapter(),
+  adapter: exampleAdapter,
 });
 ```
 
@@ -90,7 +90,7 @@ import { exampleAdapter } from './example-adapter';
 export const exampleFlag = flag({
   key: 'example-flag',
   // use the adapter for many feature flags
-  adapter: exampleAdapter(),
+  adapter: exampleAdapter,
 });
 ```
 

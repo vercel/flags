@@ -2,7 +2,7 @@
 name: flags-sdk
 description: >
   Guide for feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when: declaring flags with `flag()`, using `vercelAdapter()` or `vercel flags` CLI
+  Use when: declaring flags with `flag()`, using `vercelAdapter` or `vercel flags` CLI
   (add, list, enable, disable, inspect, archive, rm, sdk-keys),
   setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
   Edge Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
@@ -54,7 +54,7 @@ import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 
@@ -87,16 +87,16 @@ Check the project state to adapt commands and decide which steps you can skip:
 
    Before running `vercel flags add`, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
-3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter()` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
+3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
 
-4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter()`:
+4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter`:
    ```ts
    import { flag } from 'flags/next';
    import { vercelAdapter } from '@flags-sdk/vercel';
 
    export const myFlag = flag({
      key: 'my-flag',
-     adapter: vercelAdapter(),
+     adapter: vercelAdapter,
    });
    ```
 
@@ -128,7 +128,7 @@ For the full Vercel provider reference — user targeting, `vercel flags` CLI su
 
 ## Declaring flags
 
-When using Vercel Flags, declare flags with `vercelAdapter()` as shown in the [Agent workflow](#agent-workflow-creating-a-new-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
+When using Vercel Flags, declare flags with `vercelAdapter` as shown in the [Agent workflow](#agent-workflow-creating-a-new-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
 
 ### Basic flag
 
