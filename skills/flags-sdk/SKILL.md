@@ -58,6 +58,8 @@ export const exampleFlag = flag({
 });
 ```
 
+> **Version note**: The SDK is published as `flags` (renamed from `@vercel/flags`; that old name still appears in changelog history). `flags` 4.2.0+ accepts the adapter factory by reference (`adapter: vercelAdapter`) and resolves it once per declaration. Older versions require calling it (`adapter: vercelAdapter()`). The called form still works on new versions, so prefer the shorthand unless you're targeting `flags` < 4.2.0.
+
 ## Agent workflow: Creating a new flag
 
 When a user asks you to create or add a feature flag, follow these steps in order. Do not leave CLI steps as "next steps" for the user — execute them yourself.
