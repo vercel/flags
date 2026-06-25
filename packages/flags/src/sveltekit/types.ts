@@ -2,6 +2,7 @@ import type { FlagOption } from '../types';
 
 type FlagsMeta<ReturnValue> = {
   key: string;
+  defaultValue?: ReturnValue;
   description?: string;
   origin?: string | Record<string, unknown>;
   options?: FlagOption<ReturnValue>[];
