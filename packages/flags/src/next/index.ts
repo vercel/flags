@@ -1,13 +1,16 @@
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
+import {
+  getDecide,
+  getIdentify,
+  getOrigin,
+  resolveAdapter,
+} from '../shared/flag-meta';
 import type {
-  Decide,
   FlagDeclaration,
   FlagDefinitionsType,
   FlagDefinitionType,
-  Identify,
   JsonValue,
-  Origin,
   ProviderData,
   ResolvedFlagDeclaration,
 } from '../types';
@@ -25,58 +28,6 @@ export {
   serialize,
 } from './precompute';
 export type { Flag } from './types';
-
-function getDecide<ValueType, EntitiesType>(
-  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
-): Decide<ValueType, EntitiesType> {
-  if (definition.adapter && typeof definition.adapter.decide !== 'function') {
-    throw new Error(
-      `flags: The adapter passed to flag "${definition.key}" does not have a "decide" method.`,
-    );
-  }
-
-  if (
-    typeof definition.decide !== 'function' &&
-    typeof definition.adapter?.decide !== 'function'
-  ) {
-    throw new Error(
-      `flags: You passed a flag declaration that does not have a "decide" method for flag "${definition.key}"`,
-    );
-  }
-
-  return function decide(params) {
-    if (typeof definition.decide === 'function') {
-      return definition.decide(params);
-    }
-    if (typeof definition.adapter?.decide === 'function') {
-      return definition.adapter.decide({ key: definition.key, ...params });
-    }
-    throw new Error(`flags: No decide function provided for ${definition.key}`);
-  };
-}
-
-function getIdentify<ValueType, EntitiesType>(
-  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
-): Identify<EntitiesType> {
-  return function identify(params) {
-    if (typeof definition.identify === 'function') {
-      return definition.identify(params);
-    }
-    if (typeof definition.adapter?.identify === 'function') {
-      return definition.adapter.identify(params);
-    }
-    return definition.identify;
-  };
-}
-
-function getOrigin<ValueType, EntitiesType>(
-  definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
-): string | Origin | undefined {
-  if (definition.origin) return definition.origin;
-  if (typeof definition.adapter?.origin === 'function')
-    return definition.adapter.origin(definition.key);
-  return definition.adapter?.origin;
-}
 
 /**
  * Declares a feature flag.
@@ -100,10 +51,7 @@ export function flag<
   // Allow passing the adapter factory directly (`adapter: vercelAdapter`) as a
   // shorthand for calling it (`adapter: vercelAdapter()`). Resolve it once here
   // so every consumer below works with a concrete Adapter instance.
-  const adapter =
-    typeof definition.adapter === 'function'
-      ? definition.adapter()
-      : definition.adapter;
+  const adapter = resolveAdapter(definition);
   // Cast: spreading the discriminated union widens `decide`/`adapter` so TS no
   // longer sees the "decide or adapter is present" guarantee, but the original
   // `definition` upheld it and we only narrowed `adapter` to an instance.
