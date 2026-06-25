@@ -18,7 +18,7 @@ import { edgeConfigAdapter } from "@flags-sdk/edge-config";
 
 export const exampleFlag = flag({
   key: "example-flag",
-  adapter: edgeConfigAdapter(),
+  adapter: edgeConfigAdapter,
 });
 ```
 
@@ -47,7 +47,7 @@ const edgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG, {
 
 export const exampleFlag = flag({
   key: "example-flag",
-  adapter: edgeConfigAdapter(),
+  adapter: edgeConfigAdapter,
 });
 ```
 
