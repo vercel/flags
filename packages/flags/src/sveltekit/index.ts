@@ -22,6 +22,7 @@ import {
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
 import { handleDiscoveryRequest } from '../shared/discovery';
+import { BULK_IDENTIFY_REF, BULKABLE } from '../shared/evaluate';
 import { applyResult, getEntities, getUsedFlags } from '../shared/evaluation';
 import {
   getDecide,
@@ -44,6 +45,8 @@ import {
   getPrecomputed,
 } from './precompute';
 import type { Flag, FlagsArray } from './types';
+
+export { evaluate } from './evaluate';
 
 type PromisesMap<T> = {
   [K in keyof T]: Promise<T[K]>;
@@ -156,6 +159,17 @@ export function flag<
   flagImpl.options = normalizeOptions(definition.options);
   flagImpl.decide = decide;
   flagImpl.identify = identify;
+  flagImpl.adapter = adapter;
+  flagImpl.config = definition.config;
+
+  // Internal markers read by `evaluate()` to partition flags into adapter
+  // groups. See `../shared/evaluate.ts` for the symbol definitions.
+  (flagImpl as any)[BULK_IDENTIFY_REF] =
+    definition.identify ?? adapter?.identify ?? null;
+  (flagImpl as any)[BULKABLE] =
+    !definition.decide &&
+    !!adapter?.bulkDecide &&
+    adapter.adapterId !== undefined;
 
   return flagImpl;
 }

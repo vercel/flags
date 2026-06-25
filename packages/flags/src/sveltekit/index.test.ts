@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { encryptOverrides, flag, getProviderData } from '.';
+import type { Adapter } from '..';
+import { encryptOverrides, evaluate, flag, getProviderData } from '.';
 
 // A valid 32-byte (256-bit) base64url key, required by the crypto helpers.
 const { secret } = vi.hoisted(() => ({
@@ -157,5 +158,59 @@ describe('flag', () => {
     });
     await expect(f(request)).resolves.toBe(true);
     expect(decide).not.toHaveBeenCalled();
+  });
+});
+
+describe('evaluate', () => {
+  function createBulkAdapter() {
+    const bulkDecide = vi.fn(({ flags }: { flags: { key: string }[] }) =>
+      Object.fromEntries(flags.map(({ key }) => [key, `bulk:${key}`])),
+    );
+    const adapter: Adapter<string, unknown> = {
+      adapterId: 'test-adapter',
+      // inline decide is never used for bulkable flags, but the type requires it
+      decide: () => 'single',
+      bulkDecide,
+    };
+    return { adapter, bulkDecide };
+  }
+
+  it('bulk-evaluates flags sharing an adapter in a single call', async () => {
+    const { adapter, bulkDecide } = createBulkAdapter();
+    const a = flag<string>({ key: 'bulk-a', adapter });
+    const b = flag<string>({ key: 'bulk-b', adapter });
+    const standalone = flag<string>({
+      key: 'standalone',
+      decide: () => 'inline',
+    });
+
+    const values = await evaluate(
+      [a, b, standalone],
+      new Request('https://example.com'),
+    );
+
+    expect(values).toEqual(['bulk:bulk-a', 'bulk:bulk-b', 'inline']);
+    // The two bulkable flags resolve through a single bulkDecide call.
+    expect(bulkDecide).toHaveBeenCalledTimes(1);
+    expect(bulkDecide.mock.calls[0]![0].flags.map((f) => f.key)).toEqual([
+      'bulk-a',
+      'bulk-b',
+    ]);
+  });
+
+  it('returns keyed results for an object input', async () => {
+    const { adapter } = createBulkAdapter();
+    const a = flag<string>({ key: 'bulk-a', adapter });
+    const standalone = flag<string>({
+      key: 'standalone',
+      decide: () => 'inline',
+    });
+
+    const values = await evaluate(
+      { a, standalone },
+      new Request('https://example.com'),
+    );
+
+    expect(values).toEqual({ a: 'bulk:bulk-a', standalone: 'inline' });
   });
 });

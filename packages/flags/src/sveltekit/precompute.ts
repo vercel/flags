@@ -1,22 +1,9 @@
 import type { JsonValue } from '..';
 import * as shared from '../shared/precompute';
+import { evaluate } from './evaluate';
 import type { Flag, FlagsArray } from './types';
 
 type ValuesArray = readonly any[];
-
-/**
- * Resolves a list of flags
- * @param flags - list of flags
- * @returns - an array of evaluated flag values with one entry per flag
- */
-async function evaluate<T extends FlagsArray>(
-  flags: T,
-  request: Request,
-): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
-  return Promise.all(flags.map((flag) => flag(request))) as Promise<{
-    [K in keyof T]: Awaited<ReturnType<T[K]>>;
-  }>;
-}
 
 /**
  * Evaluate a list of feature flags and generate a signed string representing their values.
@@ -31,7 +18,7 @@ export async function precompute<T extends FlagsArray>(
   request: Request,
   secret: string,
 ): Promise<string> {
-  const values = await evaluate(flags, request);
+  const values = await evaluate(flags, request, secret);
   return serialize(flags, values, secret);
 }
 
