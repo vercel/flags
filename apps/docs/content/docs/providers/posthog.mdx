@@ -12,7 +12,7 @@ The [PostHog](https://posthog.com/) package provides a managed PostHog adapter f
   Deploy the template
 </LearnMore>
 
-## Example Usage
+## Example usage
 
 ```tsx title="flags.ts"
 import { flag } from "flags/next";
@@ -39,7 +39,7 @@ export const myFlagPayload = flag({
 });
 ```
 
-## Getting Started
+## Getting started
 
 Install the required dependencies:
 
@@ -56,7 +56,7 @@ NEXT_PUBLIC_POSTHOG_KEY=key
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-Import the PostHog adapter for Flags SDK, which uses the enviroment variables above as defaults:
+Import the PostHog adapter for Flags SDK, which uses the environment variables above as defaults:
 
 ```ts title="flags.ts"
 import { postHogAdapter } from '@flags-sdk/posthog'

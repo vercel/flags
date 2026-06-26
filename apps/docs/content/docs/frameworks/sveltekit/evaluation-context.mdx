@@ -55,13 +55,13 @@ export const exampleFlag = flag<boolean, Entities>({
 });
 ```
 
-## Headers and Cookies
+## Headers and cookies
 
 The `identify` function is called with `headers`{" "}
 and `cookies` arguments, which is useful when dealing with
 anonymous or authenticated users.
 
-The arguments are normalized to a common format so the same flag to be
+The arguments are normalized to a common format so the same flag can be
 used in Routing Middleware and within SvelteKit server contexts (load functions, server endpoints) without having to
 worry about the differences in how `headers` and{" "}
 `cookies` are represented there.
@@ -126,7 +126,7 @@ export const exampleFlag2 = flag<boolean, Entities>({
 
 ## Precomputing and targeting
 
-The [Marketing Pages](/frameworks/sveltekit/guides/marketing-pages) example which shows how to identify and target users using cookies when
+The [Marketing Pages](/frameworks/sveltekit/guides/marketing-pages) example shows how to identify and target users using cookies when
 precomputing pages.
 
 ### Full example

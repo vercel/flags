@@ -93,7 +93,7 @@ which bypasses `identify` and uses the entities you provide.
 ## Evaluate vs. precomputed values
 
 `evaluate` always evaluates flags **dynamically** at request time. It calls each
-flag's adapter (or `decide`), just as calling the flag directly does.
+flag's adapter (or `decide`), the same as calling the flag directly does.
 
 It is **not** the way to read the values of [precomputed](/frameworks/next/precompute)
 flags. When flags were precomputed in the proxy and encoded into a `code`, read

@@ -143,7 +143,7 @@ const code = await serialize(precomputeFlags, values);
 
 Note that `serialize` compresses to a tiny format, with only two bytes per feature flag and a few bytes overhead for JWS signature.
 
-The underlying algorithm basically has special values for boolean values and `null`. If your feature flag can return non-boolean values, it's advised to declare them in `options` when declaring the flag using `flag`. That way this serialization can store the index of the matched option instead of its values, which further shortens the emitted.
+The underlying algorithm has special values for boolean values and `null`. If your feature flag can return non-boolean values, it's advised to declare them in `options` when declaring the flag using `flag`. That way this serialization can store the index of the matched option instead of its values, which further shortens the emitted.
 
 ### `getPrecomputed`
 
@@ -197,7 +197,7 @@ const precomputeFlags = [
 
 const code = await precompute(precomputeFlags);
 
-// This will not actually invoke `showSummerSale`'s `decide` function, it will just read the result.
+// This will not actually invoke `showSummerSale`'s `decide` function, it will only read the result.
 const sale = await showSummerSale(code, precomputeFlags);
 ```
 

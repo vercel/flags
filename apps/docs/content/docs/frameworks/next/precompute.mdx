@@ -16,7 +16,7 @@ Ensure you've read about the general precompute concept to understand the patter
 
 ## Manual approach
 
-It's possible to manually create variants of page by creating two versions of the same page. For example, `app/home-a/page.tsx` and `app/home-b/page.tsx`. Then, use Proxy to rewrite the request either to `/home-a` or `/home-b`.
+You can manually create variants of a page by creating two versions of the same page. For example, `app/home-a/page.tsx` and `app/home-b/page.tsx`. Then, use Proxy to rewrite the request either to `/home-a` or `/home-b`.
 
 ```tsx title="flags.tsx#next"
 import { flag } from 'flags/next';
@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
   codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/precompute/manual"
 />
 
-This approach works well for simple cases, but has a few downsides:
+This approach works well for basic cases, but has a few downsides:
 
 - It can be cumbersome having to maintain both `/home-a/page.tsx` and `/home-b/page.tsx`.
 - It doesn't scale well when a feature flag is used on more than one page, or when multiple feature flags are used on a single page.
@@ -62,7 +62,7 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 ### Prerequisites
 
-Ensure you have a  `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work. It must contain a random string of 32 characters, encoded as Base64.
+Ensure you have a `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work. It must contain a random string of 32 characters, encoded as Base64.
 
 Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
 
@@ -220,7 +220,7 @@ export default function Page() {
 }
 ```
 
-You can further customize which specific combinations you want render by passing a filter function as the second argument of `generatePermutations`. And just like in the example above, you can also control whether you specify these permutations on the individual pages or on a layout.
+You can further customize which specific combinations you want to render by passing a filter function as the second argument of `generatePermutations`. As in the example above, you can also control whether you specify these permutations on the individual pages or on a layout.
 
 ### Pages Router
 
@@ -300,11 +300,11 @@ The Flags SDK uses the declared options for multiple purposes:
 
 1. Efficiently encode the flag values into the URL
 
-   The `precompute` function generates a short code which your appliciation then transports through the URL. The URLs must remain fairly short for the system to stay efficient. When a feature flag's `decide` function returns a value not explicitly declared in `options` the whole value needs to be inlined into the `code` which can quickly exceed the URL size limits. Especially for ISR the URL length needs to stay below 1024 characters.
+   The `precompute` function generates a short code which your application then transports through the URL. The URLs must remain fairly short for the system to stay efficient. When a feature flag's `decide` function returns a value not explicitly declared in `options` the whole value needs to be inlined into the `code`, which can quickly exceed the URL size limits. For ISR in particular, the URL length needs to stay below 1024 characters.
 
-2. Generate the possible permutations flags
+2. Generate the possible permutations of flags
 
-   The `generatePermutations` function generates all possible combinations of flags for prerendering at build time. The function needs to know the available options for each flag to generate the possible permutations. It can only generate and prerender options decalred by the flag.
+   The `generatePermutations` function generates all possible combinations of flags for prerendering at build time. The function needs to know the available options for each flag to generate the possible permutations. It can only generate and prerender options declared by the flag.
 
 3. Show the available options in the [Flags Explorer](/docs/vercel#flags-explorer)
 
@@ -368,7 +368,7 @@ Note that you will need to manually maintain the paths in Proxy for which the re
 
 ### Multiple groups
 
-Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by eacha subset of your pages.
+Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by each subset of your pages.
 
 For example, you can have a root group of flags which apply to all pages, and a nested group of flags which only apply to a single page or subset of pages. Create a root `[rootCode]` at the root of your application for the common flags, and a `[pricingCode]` for the flags used by the pricing page.
 
