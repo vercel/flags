@@ -3,7 +3,6 @@ title: Bulk Evaluation
 description: Evaluate multiple feature flags at once with evaluate().
 ---
 
-
 `evaluate` (from `flags/next`) resolves multiple feature flags in a single call.
 Use it instead of awaiting flags one at a time or resolving them with
 `Promise.all`, both of which add avoidable latency or overhead. To evaluate a
@@ -16,7 +15,7 @@ the flags resolve sequentially. Total latency becomes the sum of every flag's
 evaluation time instead of the slowest single flag.
 
 ```ts title="example.ts"
-import { flagA, flagB } from './flags';
+import { flagA, flagB } from "./flags";
 
 // avoid: each await blocks the next, so the flags resolve sequentially
 const a = await flagA();
@@ -27,7 +26,7 @@ const b = await flagB();
 evaluates each flag in isolation.
 
 ```ts title="example.ts"
-import { flagA, flagB } from './flags';
+import { flagA, flagB } from "./flags";
 
 // avoid: resolves in parallel, but can't share work across the flags
 const [a, b] = await Promise.all([flagA(), flagB()]);
@@ -48,8 +47,8 @@ group through one call, so it shares work across evaluations and reduces the
 number of parallel promises the runtime has to manage.
 
 ```ts title="example.ts"
-import { evaluate } from 'flags/next';
-import { flagA, flagB } from './flags';
+import { evaluate } from "flags/next";
+import { flagA, flagB } from "./flags";
 
 // prefer: shares work across the batch
 const [a, b] = await evaluate([flagA, flagB]);
@@ -92,8 +91,7 @@ which bypasses `identify` and uses the entities you provide.
 
 ## Evaluate vs. precomputed values
 
-`evaluate` always evaluates flags **dynamically** at request time. It calls each
-flag's adapter (or `decide`), the same as calling the flag directly does.
+`evaluate` always evaluates flags **dynamically** at request time. It calls each flag's adapter (or `decide`), the same as calling the flag directly does.
 
 It is **not** the way to read the values of [precomputed](/frameworks/next/precompute)
 flags. When flags were precomputed in the proxy and encoded into a `code`, read

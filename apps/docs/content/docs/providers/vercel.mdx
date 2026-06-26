@@ -60,11 +60,11 @@ import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
   key: "example-flag",
-  adapter: vercelAdapter()
+  adapter: vercelAdapter
 });
 ```
 
-The `vercelAdapter()` automatically uses the `FLAGS` environment variable to connect to your Vercel Flags project.
+The `vercelAdapter` automatically uses the `FLAGS` environment variable to connect to your Vercel Flags project.
 
 ### 4. Use the flag
 
@@ -107,7 +107,7 @@ const identify = dedupe(async (): Promise<Entities> => {
 export const exampleFlag = flag<boolean, Entities>({
   key: "example-flag",
   identify,
-  adapter: vercelAdapter()
+  adapter: vercelAdapter
 });
 ```
 
@@ -156,7 +156,7 @@ const customAdapter = createVercelAdapter(
 
 export const exampleFlag = flag({
   key: "example-flag",
-  adapter: customAdapter()
+  adapter: customAdapter
 });
 ```
 

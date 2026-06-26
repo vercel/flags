@@ -12,15 +12,22 @@ import type { FlagsClient } from './types';
  */
 export type CreateClientOptions = Omit<ControllerOptions, 'auth'>;
 
+type CreateClient = {
+  <Entities = Record<string, unknown>>(
+    options: CreateClientOptions,
+  ): FlagsClient<Entities>;
+  <Entities = Record<string, unknown>>(
+    sdkKeyOrConnectionString?: string,
+    options?: CreateClientOptions,
+  ): FlagsClient<Entities>;
+};
+
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
 ): {
   flagsClient: FlagsClient;
   resetDefaultFlagsClient: () => void;
-  createClient: <Entities = Record<string, unknown>>(
-    sdkKeyOrConnectionString?: string,
-    options?: CreateClientOptions,
-  ) => FlagsClient<Entities>;
+  createClient: CreateClient;
 } {
   let _defaultFlagsClient: FlagsClient | null = null;
 
@@ -28,13 +35,29 @@ export function make(
   // - data source must specify the environment & projectId as sdkKey has that info
   // - "reuse" functionality relies on the data source having the data for all envs
   function createClient<Entities = Record<string, unknown>>(
+    options: CreateClientOptions,
+  ): FlagsClient<Entities>;
+  function createClient<Entities = Record<string, unknown>>(
     sdkKeyOrConnectionString?: string,
     options?: CreateClientOptions,
+  ): FlagsClient<Entities>;
+  function createClient<Entities = Record<string, unknown>>(
+    sdkKeyOrConnectionStringOrOptions?: string | CreateClientOptions,
+    options?: CreateClientOptions,
   ): FlagsClient<Entities> {
+    const optionsOnly =
+      typeof sdkKeyOrConnectionStringOrOptions === 'object' &&
+      sdkKeyOrConnectionStringOrOptions !== null;
+    const sdkKeyOrConnectionString = optionsOnly
+      ? undefined
+      : sdkKeyOrConnectionStringOrOptions;
+    const createClientOptions = optionsOnly
+      ? sdkKeyOrConnectionStringOrOptions
+      : options;
     const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
-    const controller = new Controller({ auth, ...options });
+    const controller = new Controller({ auth, ...createClientOptions });
     return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey: auth.sdkKey },
