@@ -222,20 +222,24 @@ Note: `dedupe` is not available in Pages Router.
 
 ## Bulk evaluation
 
-To evaluate **multiple** flags at once, call `evaluate()` (from `flags/next`) instead of `Promise.all()`. To evaluate a **single** flag, just call it: `await myFlag()`.
+To evaluate **multiple** flags at once, call `evaluate()` (from `flags/next`) instead of awaiting flags one at a time or using `Promise.all()`. To evaluate a **single** flag, just call it: `await myFlag()`.
 
 ```ts
 import { evaluate } from 'flags/next';
 import { flagA, flagB } from '../flags';
 
-// avoid: one promise per flag, extra microtask overhead
+// avoid: each await blocks the next, so the flags resolve sequentially
+const a = await flagA();
+const b = await flagB();
+
+// avoid: parallel, but each flag is evaluated in isolation
 const [a, b] = await Promise.all([flagA(), flagB()]);
 
 // prefer: shares work across the batch
 const [a, b] = await evaluate([flagA, flagB]);
 ```
 
-`evaluate()` is significantly faster than `Promise.all()`: it pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group in a single call. This reduces the number of parallel promises the runtime juggles and leaves less room for the async work to be interrupted by other microtasks.
+`evaluate()` is faster than both approaches. Awaiting flags one at a time makes total latency the sum of every flag's evaluation instead of the slowest single flag, while `Promise.all()` runs them in parallel but evaluates each in isolation. `evaluate()` pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group in a single call, which reduces the number of parallel promises the runtime manages and leaves less room for the async work to be interrupted by other microtasks.
 
 It accepts either an **array** (positional results) or an **object** (keyed results):
 
