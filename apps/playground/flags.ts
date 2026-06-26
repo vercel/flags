@@ -3,5 +3,5 @@ import { flag } from 'flags/next';
 
 export const jsonFlag = flag({
   key: 'json-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });

@@ -83,6 +83,24 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
+    it('should create an OIDC-authenticated client with options as the first argument', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+
+      const client = createClient({ stream: false, polling: false });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: undefined }),
+        stream: false,
+        polling: false,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: undefined },
+      });
+      expect(client).toBeDefined();
+    });
+
     it('should throw for empty SDK key', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);

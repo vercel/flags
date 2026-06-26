@@ -33,7 +33,7 @@ pnpm i flags @flags-sdk/vercel
 Before running any `vercel flags` command, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
 1. Create a flag in the Vercel dashboard or via CLI: `vercel flags add <flag-key> --kind boolean --description "<description>"`
-2. Pull env vars: you **must** run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter()` will not be able to evaluate flags.
+2. Pull env vars: you **must** run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags.
 3. Declare the flag:
 
 ```ts
@@ -42,7 +42,7 @@ import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 
@@ -65,7 +65,7 @@ const identify = dedupe(async (): Promise<Entities> => ({
 export const exampleFlag = flag<boolean, Entities>({
   key: 'example-flag',
   identify,
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 
@@ -90,7 +90,7 @@ const customAdapter = createVercelAdapter(process.env.CUSTOM_FLAGS_KEY!);
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: customAdapter(),
+  adapter: customAdapter,
 });
 ```
 
@@ -107,7 +107,7 @@ const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 
@@ -209,7 +209,7 @@ import { flag } from 'flags/next';
 import { edgeConfigAdapter } from '@flags-sdk/edge-config';
 
 export const exampleFlag = flag({
-  adapter: edgeConfigAdapter(),
+  adapter: edgeConfigAdapter,
   key: 'example-flag',
 });
 ```
@@ -719,6 +719,6 @@ import { myAdapter } from './my-adapter';
 
 export const exampleFlag = flag({
   key: 'example',
-  adapter: myAdapter(),
+  adapter: myAdapter,
 });
 ```
