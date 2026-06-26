@@ -19,16 +19,16 @@ The following assumes you've already set up the Flags SDK for SvelteKit as descr
 
 ## Manual approach
 
-The simplest approach is to have a flag, evaluate it before the CDN is hit, and rewrite a path like `/pricing` to either `/pricing-variant-a` or `/pricing-variant-b`.
+The most direct approach is to have a flag, evaluate it before the CDN is hit, and rewrite a path like `/pricing` to either `/pricing-variant-a` or `/pricing-variant-b`.
 At a high level you use Routing Middleware and SvelteKit's [`reroute` hook](https://svelte.dev/docs/kit/hooks#Universal-hooks-reroute) to rewrite the incoming request between static versions of
-the page. These static versions are hardcoded, i.e. created upfront, and rewriting to one of them happens as hardcoded logic aswell.
+the page. These static versions are hardcoded, i.e. created upfront, and rewriting to one of them happens as hardcoded logic as well.
 
 <IframeBrowser
   src="sveltekit-snippets:/examples/marketing-pages-manual-approach"
   codeSrc="https://github.com/vercel/flags/tree/main/examples/sveltekit-example/src/routes/examples/(marketing-pages-manual-approach)"
 />
 
-This approach works well for simple cases, but has a few downsides:
+This approach works well for straightforward cases, but has a few downsides:
 
 - It can be cumbersome having to maintain both `/pricing-variant-a/+page.svelte` and `/pricing-variant-b/+page.svelte`.
 - It doesn't scale well when a feature flag is used on more than one page, or when multiple feature flags or flags with many variants are used on a single page.

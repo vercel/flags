@@ -2,7 +2,7 @@
 title: 'GrowthBook'
 ---
 
-The GrowthBook adapter integrates [GrowthBook](https://www.growthbook.io/) with the Flags SDK, enabling feature flagging, experimentation, and configuration management in your application. This adapter provides a seamless way to evaluate feature flags and experiments, with support for server-side, client-side, and Edge Config bootstrapping.
+The GrowthBook adapter integrates [GrowthBook](https://www.growthbook.io/) with the Flags SDK, enabling feature flagging, experimentation, and configuration management in your application. This adapter lets you evaluate feature flags and experiments, with support for server-side, client-side, and Edge Config bootstrapping.
 
 GrowthBook is an open-source feature flagging and experimentation platform that helps you safely roll out features, run A/B tests, and manage configuration at scale.
 
@@ -22,9 +22,9 @@ Install the GrowthBook adapter package:
 npm install @flags-sdk/growthbook
 ```
 
-## Adapter Usage
+## Adapter usage
 
-### Import the Default Adapter
+### Import the default adapter
 
 A default adapter is available for use, assuming the appropriate [environment variables](#environment-variables) are set.
 
@@ -32,7 +32,7 @@ A default adapter is available for use, assuming the appropriate [environment va
 import { growthbookAdapter } from '@flags-sdk/growthbook';
 ```
 
-### Environment Variables
+### Environment variables
 
 The default adapter considers the following environment variables:
 
@@ -45,7 +45,7 @@ The default adapter considers the following environment variables:
 | `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY`   | Optional. Edge Config item key (Defaults to your client key)                                          |
 | `EXPERIMENTATION_CONFIG`            | Optional. Used when installed through Vercel Marketplace (replaces GROWTHBOOK_EDGE_CONNECTION_STRING) |
 
-### Create a Custom Adapter
+### Create a custom adapter
 
 You can provide custom configuration by using `createGrowthbookAdapter`:
 
@@ -69,7 +69,7 @@ const myGrowthBookAdapter = createGrowthbookAdapter({
 });
 ```
 
-## User Identification
+## User identification
 
 GrowthBook uses [Attributes](https://docs.growthbook.io/features/targeting#attributes) to evaluate feature flags and experiments.
 
@@ -96,7 +96,7 @@ export const myFeatureFlag = flag({
 
 **Dedupe** is used above to ensure that the Attributes are computed once per request.
 
-## Adapter Methods and Properties
+## Adapter methods and properties
 
 ### `feature<T>()`
 
@@ -202,14 +202,14 @@ Under the hood, the webhook is being configured with the following properties. I
 - An **Authorization: Bearer token** header is being added with your Vercel API Token
 - The **Payload format** is being set to `Vercel Edge Config`
 
-## Caveats & Best Practices
+## Caveats and best practices
 
 - **Initialization:** The adapter auto-initializes when a flag is evaluated. To pre-initialize, call `initialize()` manually.
-- **Exposure Logging:** By default, exposures are logged when flags are evaluated. You can disable this with `exposureLogging: false` or provide a custom tracking callback.
+- **Exposure logging:** By default, exposures are logged when flags are evaluated. You can disable this with `exposureLogging: false` or provide a custom tracking callback.
 - **Sticky Buckets:** For advanced experimentation (e.g., Bandits), use a StickyBucketService.
 - **Multiple Flags, Same Key:** You can use the same GrowthBook feature key with different mapping functions if needed.
 
-## Flags Explorer Integration
+## Flags Explorer integration
 
 To expose GrowthBook data to the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer), use the `getProviderData` function in your API route:
 
@@ -229,7 +229,7 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 });
 ```
 
-## More Resources
+## More resources
 
 - [GrowthBook Documentation](https://docs.growthbook.io/)
 - [GrowthBook JS SDK Reference](https://docs.growthbook.io/lib/js)

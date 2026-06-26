@@ -33,7 +33,7 @@ npm install @flags-sdk/launchdarkly
 
 ---
 
-## Provider Instance
+## Provider instance
 
 Import the default adapter instance `ldAdapter` from `@flags-sdk/launchdarkly`:
 
@@ -68,9 +68,9 @@ The default LaunchDarkly adapter configures itself based on the following enviro
 
 ---
 
-## Identify Users
+## Identify users
 
-LaunchDarkly relies on an [LaunchDarkly Evaluation Context](https://launchdarkly.com/docs/home/observability/contexts) object to evaluate the flags for a given request.
+LaunchDarkly relies on a [LaunchDarkly Evaluation Context](https://launchdarkly.com/docs/home/observability/contexts) object to evaluate the flags for a given request.
 
 Use the `identify` function to determine a LaunchDarkly Evaluation Context.
 
@@ -143,7 +143,7 @@ The LaunchDarkly adapter loads the configuration from [Edge Config](https://verc
 
 Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
-The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config required environment variabless are set.
+The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set.
 
 ---
 
@@ -202,7 +202,7 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 });
 ```
 
-## Read More
+## Read more
 
 Read more about LaunchDarkly, Flags SDK, and the LaunchDarkly adapter.
 

@@ -107,8 +107,7 @@ npm i -g vercel@latest
    npm run dev
    ```
 
-   You will see an error about `SvelteKitError: Not found: /.well-known/vercel/flags`. This happens because we already created the `FLAGS_SECRET` but we did not set up the flags package yet.
-   So let’s do this next.
+   You will see an error about `SvelteKitError: Not found: /.well-known/vercel/flags`. This happens because we already created the `FLAGS_SECRET` but we did not set up the flags package yet. Set it up next.
 
 ## Set up `flags`
 
@@ -141,7 +140,7 @@ npm i -g vercel@latest
    });
    ```
 
-3. Next set up the server hook. This is a one-time setup step which makes the toolbar aware of your application’s feature flags:
+3. Next set up the server hook. This is a one-time setup step which makes the toolbar aware of your application's feature flags:
 
    ```ts title="src/hooks.server.ts"
    import { createHandle } from 'flags/sveltekit';
@@ -242,7 +241,7 @@ Evaluation Contexts allow targeting flags to specific users. The Flags SDK for S
   Learn how to identify users with the evaluation context
 </LearnMore>
 
-### API Reference
+### API reference
 
 <LearnMore href="/api-reference/frameworks/sveltekit" icon="arrow">
   APIs for working with feature flags in SvelteKit
