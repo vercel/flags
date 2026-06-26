@@ -15,28 +15,27 @@ const MAX_REGEX_INPUT_LENGTH = 10_000;
 /** uint32 max — domain of xxHash32 output, used for split/rollout thresholds */
 const UINT32_MAX = 4_294_967_295;
 
-// Symbol-keyed caches attached to outcome / rhs objects on first evaluation.
-// Symbols are invisible to JSON.stringify, for..in, and Object.keys, so they
-// don't leak into serialized datafiles or surprise consumers.
-const SCALED_WEIGHTS = Symbol('@vercel/flags-core:scaledWeights');
-const COMPILED_REGEX = Symbol('@vercel/flags-core:compiledRegex');
+// Per-object memoization caches keyed by the outcome / rhs objects from the
+// datafile. Using WeakMaps (instead of mutating the objects with symbol-keyed
+// props) keeps datafile objects pristine so they serialize cleanly across the
+// RSC server/client boundary. Entries are GC'd when the datafile is dropped.
+const scaledWeightsCache = new WeakMap<Packed.SplitOutcome, number[]>();
+const compiledRegexCache = new WeakMap<object, RegExp>();
 
 function getScaledWeights(outcome: Packed.SplitOutcome): number[] {
-  const cached = (outcome as unknown as Record<symbol, number[]>)[
-    SCALED_WEIGHTS
-  ];
+  const cached = scaledWeightsCache.get(outcome);
   if (cached) return cached;
   const total = sum(outcome.weights);
   const scaled = outcome.weights.map((w) => (w / total) * UINT32_MAX);
-  (outcome as unknown as Record<symbol, number[]>)[SCALED_WEIGHTS] = scaled;
+  scaledWeightsCache.set(outcome, scaled);
   return scaled;
 }
 
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
-  const cached = (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX];
+  const cached = compiledRegexCache.get(rhs);
   if (cached) return cached;
   const compiled = new RegExp(rhs.pattern, rhs.flags);
-  (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX] = compiled;
+  compiledRegexCache.set(rhs, compiled);
   return compiled;
 }
 
