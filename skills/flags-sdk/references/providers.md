@@ -666,6 +666,36 @@ export function createMyAdapter(/* options */) {
 }
 ```
 
+### Bulk evaluation (`bulkDecide`)
+
+Adapters can implement an optional `bulkDecide` hook. When set (and the adapter has an `adapterId`), `evaluate()` calls it once for every group of flags that share this adapter and the same `identify` source — instead of calling `decide` per flag. This lets the provider share work across evaluations (e.g. a single network request for many flags).
+
+```ts
+return {
+  adapterId: 'my-provider', // required for bulkDecide to be used
+  origin(key) {
+    return `https://my-provider.com/flags/${key}`;
+  },
+  async decide({ key }): Promise<ValueType> {
+    return false as ValueType;
+  },
+  // Called by evaluate() for a batch of flags sharing this adapter + identify
+  async bulkDecide({ flags, entities, headers, cookies }) {
+    // flags: { key: string; defaultValue?: unknown }[]
+    // Return a record keyed by flag key.
+    return Object.fromEntries(
+      flags.map(({ key }) => [key, false as ValueType]),
+    );
+  },
+};
+```
+
+Contract:
+
+- Return `Record<flagKey, value>`. Missing keys or `value: undefined` fall back to each flag's `defaultValue`.
+- Throwing falls back to `defaultValue` per flag (and rejects for flags without a `defaultValue`).
+- A flag with an inline `decide` takes precedence and is excluded from bulk evaluation.
+
 ### Default adapter pattern
 
 Expose a lazily-initialized default for simpler usage:

@@ -222,6 +222,40 @@ const identify = dedupe(({ cookies }) => {
 
 Note: `dedupe` is not available in Pages Router.
 
+## Bulk evaluation
+
+To evaluate **multiple** flags at once, call `evaluate()` (from `flags/next`) instead of awaiting flags one at a time or using `Promise.all()`. To evaluate a **single** flag, just call it: `await myFlag()`.
+
+```ts
+import { evaluate } from 'flags/next';
+import { flagA, flagB } from '../flags';
+
+// avoid: each await blocks the next, so the flags resolve sequentially
+const a = await flagA();
+const b = await flagB();
+
+// avoid: parallel, but each flag is evaluated in isolation
+const [a, b] = await Promise.all([flagA(), flagB()]);
+
+// prefer: shares work across the batch
+const [a, b] = await evaluate([flagA, flagB]);
+```
+
+`evaluate()` is faster than both approaches. Awaiting flags one at a time makes total latency the sum of every flag's evaluation instead of the slowest single flag, while `Promise.all()` runs them in parallel but evaluates each in isolation. `evaluate()` pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group in a single call, which reduces the number of parallel promises the runtime manages and leaves less room for the async work to be interrupted by other microtasks.
+
+It accepts either an **array** (positional results) or an **object** (keyed results):
+
+```ts
+const [a, b] = await evaluate([flagA, flagB]);
+const { a, b } = await evaluate({ a: flagA, b: flagB });
+```
+
+Outside App Router (Pages Router `getServerSideProps`/API routes, or routing middleware), pass the request as the second argument: `await evaluate([flagA, flagB], request)`.
+
+`evaluate()` always evaluates flags at request time. It is not for reading [precomputed](#precompute-pattern) (static) values — for those, use `getPrecomputed` (or call the flag with the code, `await myFlag(code, flagGroup)`).
+
+Adapters can opt into batching by implementing the optional `bulkDecide` hook. The Vercel adapter (`@flags-sdk/vercel`) implements it — roughly a 10x reduction in evaluation time when resolving hundreds of flags. See [references/providers.md — Custom Adapters](references/providers.md#custom-adapters) for implementing `bulkDecide`, and [references/api.md — `evaluate`](references/api.md#evaluate) for the full signature.
+
 ## Flags Explorer setup
 
 ### Next.js (App Router)

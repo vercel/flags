@@ -3,15 +3,20 @@ title: Custom Adapters
 description: Integrate any feature flag provider with the Flags SDK using a custom adapter.
 ---
 
-
 Integrate any feature flag provider with the Flags SDK
 using an adapter. We publish adapters for the most [common providers](/docs/adapters/supported-providers), but
 it is also possible to write a custom adapter in case we don't list
 your provider or in case you have an in-house solution for feature
 flags.
 
-<CopyPrompt text="Create a custom Flags SDK adapter for my feature flag provider. Implement an adapter factory that initializes or accepts my provider client, define `origin` and `decide` behavior, expose a default adapter when appropriate, use the adapter from typed flag declarations, preserve Edge Runtime compatibility where possible, and run the relevant tests or build when finished.">
-  Create a custom Flags SDK adapter for my feature flag provider. Implement an adapter factory that initializes or accepts my provider client, define `origin` and `decide` behavior, expose a default adapter when appropriate, use the adapter from typed flag declarations, preserve Edge Runtime compatibility where possible, and run the relevant tests or build when finished.
+<CopyPrompt text="Create a custom Flags SDK adapter for my feature flag provider. Implement an adapter factory that initializes or accepts my provider client, define `origin` and `decide` behavior, optionally implement `bulkDecide` (and set `adapterId`) for batch evaluation, expose a default adapter when appropriate, use the adapter from typed flag declarations, preserve Edge Runtime compatibility where possible, and run the relevant tests or build when finished.">
+  Create a custom Flags SDK adapter for my feature flag provider. Implement an
+  adapter factory that initializes or accepts my provider client, define
+  `origin` and `decide` behavior, optionally implement `bulkDecide` (and set
+  `adapterId`) for batch evaluation, expose a default adapter when appropriate,
+  use the adapter from typed flag declarations, preserve Edge Runtime
+  compatibility where possible, and run the relevant tests or build when
+  finished.
 </CopyPrompt>
 
 Adapters conceptually replace the `decide` and `origin` parts of a flag declaration.
@@ -21,8 +26,8 @@ Adapters conceptually replace the `decide` and `origin` parts of a flag declarat
 Creating custom adapters is possible by creating an adapter factory:
 
 ```ts title="example-adapter.ts"
-import type { Adapter } from 'flags';
-import { createClient, EdgeConfigClient } from '@vercel/edge-config';
+import type { Adapter } from "flags";
+import { createClient, EdgeConfigClient } from "@vercel/edge-config";
 
 /**
  * A factory function for your adapter
@@ -52,18 +57,54 @@ export function createExampleAdapter(/* options */) {
 This allows passing the provider in the flag declaration.
 
 ```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
-import { createExampleAdapter } from './example-adapter';
+import { flag } from "flags/next";
+import { createExampleAdapter } from "./example-adapter";
 
 // create an instance of the adapter
 const exampleAdapter = createExampleAdapter();
 
 export const exampleFlag = flag({
-  key: 'example-flag',
+  key: "example-flag",
   // use the adapter for many feature flags
   adapter: exampleAdapter,
 });
 ```
+
+## Bulk evaluation
+
+Adapters can implement an optional `bulkDecide` hook to share work when many flags are
+evaluated together with [`evaluate`](/frameworks/next/bulk-evaluation). When `bulkDecide` is
+implemented and the adapter sets an `adapterId`, `evaluate` calls `bulkDecide` once for each
+group of flags that share this adapter and the same `identify` source — instead of calling
+`decide` per flag. This lets the provider, for example, resolve many flags through a single
+network request.
+
+```ts title="example-adapter.ts"
+return {
+  // Required for `bulkDecide` to be used by `evaluate`.
+  adapterId: "example",
+  origin(key) {
+    return `https://example.com/flags/${key}`;
+  },
+  async decide({ key }): Promise<ValueType> {
+    return false as ValueType;
+  },
+  // Called by `evaluate` for a batch of flags sharing this adapter and identify.
+  async bulkDecide({ flags, entities, headers, cookies }) {
+    // `flags` is `{ key: string; defaultValue?: unknown }[]`.
+    // Resolve them however your provider allows — ideally in a single call.
+    return Object.fromEntries(
+      flags.map(({ key }) => [key, false as ValueType])
+    );
+  },
+};
+```
+
+`bulkDecide` must return a record keyed by flag key:
+
+- Missing keys or a `value` of `undefined` fall back to that flag's `defaultValue`.
+- Throwing falls back to `defaultValue` per flag (and rejects for flags without a `defaultValue`).
+- A flag declared with an inline `decide` takes precedence and is excluded from bulk evaluation.
 
 ## Example
 
@@ -84,11 +125,11 @@ Usage with a default adapter, where we can import a fully configured{" "}
 `exampleAdapter`.
 
 ```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
-import { exampleAdapter } from './example-adapter';
+import { flag } from "flags/next";
+import { exampleAdapter } from "./example-adapter";
 
 export const exampleFlag = flag({
-  key: 'example-flag',
+  key: "example-flag",
   // use the adapter for many feature flags
   adapter: exampleAdapter,
 });
@@ -115,7 +156,7 @@ export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
   // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
   if (!defaultEdgeConfigAdapter) {
     if (!process.env.EDGE_CONFIG) {
-      throw new Error('Edge Config Adapter: Missing EDGE_CONFIG env var');
+      throw new Error("Edge Config Adapter: Missing EDGE_CONFIG env var");
     }
 
     defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
