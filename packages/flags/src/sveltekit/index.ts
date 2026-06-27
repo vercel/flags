@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
@@ -23,14 +22,9 @@ import {
   version,
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
+import { handleDiscoveryRequest } from '../shared/discovery';
+import { readOverrides } from '../shared/overrides';
+import { sealCookies, sealHeaders } from '../shared/seal';
 import type {
   Decide,
   FlagDeclaration,
@@ -53,27 +47,6 @@ function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   prop: Y,
 ): obj is X & Record<Y, unknown> {
   return Object.hasOwn(obj, prop);
-}
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
 }
 
 type PromisesMap<T> = {
@@ -191,10 +164,7 @@ export function flag<
     const headers = sealHeaders(store.request.headers);
     const cookies = sealCookies(store.request.headers);
 
-    const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides = overridesCookie
-      ? await _decryptOverrides(overridesCookie, store.secret)
-      : undefined;
+    const overrides = await readOverrides(cookies, store.secret);
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
@@ -448,14 +418,13 @@ export function createFlagsDiscoveryEndpoint(
   },
 ) {
   const requestHandler: RequestHandler = async (event) => {
-    const access = await verifyAccess(
-      event.request.headers.get('Authorization'),
-      options?.secret,
-    );
-    if (!access) error(401);
-
-    const apiData = await getApiData(event);
-    return json(apiData, { headers: { 'x-flags-sdk-version': version } });
+    return handleDiscoveryRequest({
+      authHeader: event.request.headers.get('Authorization'),
+      secret: options?.secret,
+      getApiData: () => getApiData(event),
+      unauthorized: () => error(401),
+      respond: (apiData, headers) => json(apiData, { headers }),
+    });
   };
 
   return requestHandler;

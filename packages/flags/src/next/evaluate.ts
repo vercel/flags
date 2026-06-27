@@ -1,16 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
-import { RequestCookies } from '@edge-runtime/cookies';
 import { internalReportValue, reportValue } from '../lib/report-value';
 import { setSpanAttribute, trace } from '../lib/tracing';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
+import { readOverrides } from '../shared/overrides';
+import { sealCookies, sealHeaders, transformToHeaders } from '../shared/seal';
+import type { ReadonlyHeaders } from '../spec-extension/adapters/headers';
+import type { ReadonlyRequestCookies } from '../spec-extension/adapters/request-cookies';
 import type {
   Adapter,
   Decide,
@@ -19,7 +14,6 @@ import type {
   ResolvedFlagDeclaration,
 } from '../types';
 import { isInternalNextError } from './is-internal-next-error';
-import { getOverrides } from './overrides';
 import type { Flag, PagesRouterRequest } from './types';
 
 // Internal markers stamped on the flag api by `flag()`. Read by `evaluate()`
@@ -82,55 +76,10 @@ function setCachedValuePromise(
 type IdentifyArgs = Parameters<
   Exclude<FlagDeclaration<any, any>['identify'], undefined>
 >;
-const transformMap = new WeakMap<IncomingHttpHeaders, Headers>();
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
 const identifyArgsMap = new WeakMap<
   Headers | IncomingHttpHeaders,
   IdentifyArgs
 >();
-
-/**
- * Transforms IncomingHttpHeaders to Headers
- */
-function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
-  const cached = transformMap.get(incomingHeaders);
-  if (cached !== undefined) return cached;
-
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(incomingHeaders)) {
-    if (Array.isArray(value)) {
-      // If the value is an array, add each item separately
-      value.forEach((item) => {
-        headers.append(key, item);
-      });
-    } else if (value !== undefined) {
-      // If it's a single value, add it directly
-      headers.append(key, value);
-    }
-  }
-
-  transformMap.set(incomingHeaders, headers);
-  return headers;
-}
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
 
 function isIdentifyFunction<ValueType, EntitiesType>(
   identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
@@ -155,20 +104,6 @@ async function getEntities<ValueType, EntitiesType>(
   ];
   identifyArgsMap.set(dedupeCacheKey, nextArgs);
   return identify(...(nextArgs as [FlagParamsType]));
-}
-
-/**
- * Reads and decrypts the `vercel-flag-overrides` cookie. Returns `null` when
- * the cookie is absent or empty (skipping the decrypt microtask).
- */
-function readOverrides(
-  cookies: ReadonlyRequestCookies,
-): Promise<Record<string, any> | null> {
-  // skip microtask if cookie does not exist or is empty
-  const override = cookies.get('vercel-flag-overrides')?.value;
-  return typeof override === 'string' && override !== ''
-    ? getOverrides(override)
-    : Promise.resolve(null);
 }
 
 interface BulkStoreData {
