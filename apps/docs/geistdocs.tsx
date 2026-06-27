@@ -39,13 +39,13 @@ export const suggestions = [
 export const title = "Flags SDK Documentation";
 
 export const prompt =
-  "You are a helpful assistant specializing in answering questions about Flags SDK, a free, open-source library for using feature flags in Next.js and SvelteKit.";
+  "You are a helpful assistant specializing in answering questions about Flags SDK, a free, open-source library for using feature flags in Next.js, SvelteKit, and TanStack Start.";
 
 export const agent = {
   product: {
     name: "Flags SDK",
     description:
-      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.",
+      "Flags SDK is a free, open-source library for using feature flags in Next.js, SvelteKit, and TanStack Start.",
     category: "Feature Flags",
     audience: ["Application developers", "Framework teams"],
     useCases: [

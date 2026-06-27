@@ -1,0 +1,216 @@
+---
+title: Quickstart
+description: Using the Flags SDK in TanStack Start
+---
+
+[TanStack Start](https://tanstack.com/start/latest) is a full-stack React framework powered by TanStack Router and Vite. The Flags SDK supports TanStack Start out of the box through the `flags/tanstack-start` entrypoint.
+
+<CopyPrompt text="Add Flags SDK to my existing TanStack Start app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/flags.ts` using `flags/tanstack-start`, add the Flags Explorer discovery endpoint as a server route, evaluate the flag inside a route loader through a server function, and run the relevant type checks or build when finished.">
+  Add Flags SDK to my existing TanStack Start app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/flags.ts` using `flags/tanstack-start`, add the Flags Explorer discovery endpoint as a server route, evaluate the flag inside a route loader through a server function, and run the relevant type checks or build when finished.
+</CopyPrompt>
+
+A minimal feature flag declaration for TanStack Start looks like this:
+
+```ts title="src/flags.ts"
+import { flag } from 'flags/tanstack-start';
+
+export const exampleFlag = flag<boolean>({
+  key: 'example-flag',
+  decide() {
+    return false;
+  },
+});
+```
+
+## Installation
+
+Install the Vercel CLI using the following command:
+
+```sh title="Terminal"
+npm i -g vercel@latest
+```
+
+## Set up TanStack Start application
+
+1. Create a TanStack Start application by following the [official guide](https://tanstack.com/start/latest/docs/framework/react/quick-start), or start from the [Flags SDK example](https://github.com/vercel/flags/tree/main/examples/tanstack-start-example).
+2. At this stage the project only exists locally and not on Vercel. Use the following command to link it to a project on Vercel:
+   ```sh title="Terminal"
+   vc link
+   ```
+3. Add the `FLAGS_SECRET` environment variable. Use a separate value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
+
+   Run this command once per environment to generate distinct secrets:
+   ```sh title="Terminal"
+   node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
+   ```
+   Then store each secret as the `FLAGS_SECRET` environment variable for the matching environment:
+   ```sh title="Terminal"
+   vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
+   vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
+   vercel env add FLAGS_SECRET development --value <development-secret>
+   ```
+4. Finally, pull any env vars from your project on Vercel locally
+   ```sh title="Terminal"
+   vc env pull
+   ```
+
+## Add the toolbar locally
+
+1. Install the `@vercel/toolbar` package:
+   ```sh
+   npm i @vercel/toolbar
+   ```
+2. In your `vite.config.ts` file add the toolbar plugin for Vite:
+
+   ```ts title="vite.config.ts"
+   import { defineConfig } from 'vite';
+   import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+   import viteReact from '@vitejs/plugin-react';
+   import { vercelToolbar } from '@vercel/toolbar/plugins/vite';
+
+   export default defineConfig({
+     plugins: [tanstackStart(), viteReact(), vercelToolbar()],
+   });
+   ```
+
+3. Next render the toolbar in your root route so that it's visible for your visitors. This renders the toolbar for all visitors. In production you may want to [render it for team members only](https://vercel.com/docs/workflow-collaboration/vercel-toolbar/in-production-and-localhost/add-to-production):
+
+   ```tsx title="src/routes/__root.tsx"
+   import { useEffect } from 'react';
+   import { mountVercelToolbar } from '@vercel/toolbar/vite';
+
+   function RootComponent() {
+     useEffect(() => mountVercelToolbar(), []);
+
+     // ...render your app
+   }
+   ```
+
+## Set up `flags`
+
+1. Install the `flags` package:
+
+   ```sh
+   npm i flags
+   ```
+
+   If you use an AI coding assistant, we recommend installing the Flags SDK agent skill:
+
+   ```sh
+   npx skills add vercel/flags --skill flags-sdk
+   ```
+
+2. Create your first feature flag by importing the `flag` method from `flags/tanstack-start`:
+
+   ```ts title="src/flags.ts"
+   import { flag } from 'flags/tanstack-start';
+
+   export const showDashboard = flag<boolean>({
+     key: 'showDashboard',
+     description: 'Show the dashboard', // optional
+     origin: 'https://example.com/#showdashboard', // optional
+     options: [{ value: true }, { value: false }], // optional
+     // can be async and has access to headers, cookies, and entities
+     decide() {
+       return false;
+     },
+   });
+   ```
+
+3. Next set up the Flags Explorer discovery endpoint. This is a one-time setup step which makes the toolbar aware of your application's feature flags. Add it as a server route at `/.well-known/vercel/flags`:
+
+   ```ts title="src/routes/[.]well-known/vercel/flags.ts"
+   // The `[.]` escapes the leading dot so the directory resolves to
+   // `/.well-known/vercel/flags` (folders starting with a real dot are
+   // ignored by the bundler).
+   import { createFileRoute } from '@tanstack/react-router';
+   import {
+     createFlagsDiscoveryEndpoint,
+     getProviderData,
+   } from 'flags/tanstack-start';
+   import * as flags from '../../../flags';
+
+   const handler = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+
+   export const Route = createFileRoute('/.well-known/vercel/flags')({
+     server: { handlers: { GET: handler } },
+   });
+   ```
+
+4. You can now use this flag in code. Flags are evaluated on the server, so wrap the evaluation in a `createServerFn()` server function and call it from a route loader. This keeps it working during client-side navigation too:
+
+   ```tsx title="src/routes/dashboard.tsx"
+   import { createFileRoute } from '@tanstack/react-router';
+   import { createServerFn } from '@tanstack/react-start';
+   import { showDashboard } from '../flags';
+
+   const getDashboardFlags = createServerFn().handler(async () => {
+     return { showDashboard: await showDashboard() };
+   });
+
+   export const Route = createFileRoute('/dashboard')({
+     loader: () => getDashboardFlags(),
+     component: Dashboard,
+   });
+
+   function Dashboard() {
+     const { showDashboard } = Route.useLoaderData();
+     return <h1>{showDashboard ? 'New Dashboard' : 'Old Dashboard'}</h1>;
+   }
+   ```
+
+   Inside a route loader, server function, or server route you can call a flag with no arguments — the request is resolved automatically through TanStack Start's `getRequest()`. You may also pass a `Request` explicitly when evaluating outside of a request context:
+
+   ```ts
+   const value = await showDashboard(request);
+   ```
+
+<LearnMore href="/frameworks/tanstack-start/guides/dashboard-pages" icon="arrow">
+  See the Dashboard Pages guide for more info
+</LearnMore>
+
+## Flags Explorer
+
+Open the Flags Explorer locally to see the feature flag.
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+### Available flags
+
+Notice how the toolbar knows about the flag's name, description and the link to where the flag can be managed. All of these are communicated through the `/.well-known/vercel/flags` endpoint, which is set up by the `createFlagsDiscoveryEndpoint` server route we added above.
+
+This endpoint responds with the application's feature flags when it sees the authenticated request made by Vercel Toolbar to load your application's feature flags.
+
+### Overrides
+
+When you set an override using Vercel Toolbar it will automatically be respected by the feature flags defined through `flags/tanstack-start`. The override is read from the `vercel-flag-overrides` cookie, and when present the flag's `decide` function is skipped in favor of the override value.
+
+## Next steps
+
+### Precomputed flags
+
+Precomputing flags allows experimentation on static pages, while avoiding layout shift. The Flags SDK for TanStack Start supports precomputing flags.
+
+<LearnMore href="/frameworks/tanstack-start/precompute" icon="arrow">
+  Learn how to precompute values
+</LearnMore>
+
+### Evaluation Contexts
+
+Evaluation Contexts allow targeting flags to specific users. The Flags SDK for TanStack Start supports the Evaluation Context by passing an `identify` function to the flag declaration.
+
+<LearnMore href="/frameworks/tanstack-start/evaluation-context" icon="arrow">
+  Learn how to identify users with the evaluation context
+</LearnMore>
+
+### API Reference
+
+<LearnMore href="/api-reference/frameworks/tanstack-start" icon="arrow">
+  APIs for working with feature flags in TanStack Start
+</LearnMore>

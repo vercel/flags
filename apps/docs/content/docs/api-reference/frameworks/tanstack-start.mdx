@@ -1,0 +1,124 @@
+---
+title: 'flags/tanstack-start'
+description: APIs for working with feature flags in TanStack Start.
+---
+
+### `flag`
+
+**Description**: Declares a feature flag.
+
+A feature flag declared this way will automatically respect overrides set by Vercel Toolbar and integrate with Runtime Logs, Web Analytics, and more.
+
+| Parameter                | Type                               | Description                                                                           |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `key`                    | `string`                           | Key of the feature flag.                                                              |
+| `decide`                 | `function`                         | Resolves the value of the feature flag.                                               |
+| `description` (Optional) | `string`                           | Description of the feature flag.                                                      |
+| `origin` (Optional)      | `string`                           | The URL where this feature flag can be managed.                                       |
+| `options` (Optional)     | `{ label?: string, value: any }[]` | Possible values a feature flag can resolve to, which are displayed in Vercel Toolbar. |
+| `identify` (Optional)    | `function`                         | Provide an evaluation context which will be passed to `decide`.                       |
+| `defaultValue` (Optional)| `any`                              | Returned when `decide` (or the adapter) resolves to `undefined`.                      |
+| `adapter` (Optional)     | `Adapter`                          | A provider adapter implementing `decide` and `origin`.                                |
+
+The `key`, `description`, `origin`, and `options` appear in Vercel Toolbar.
+
+```ts title="src/flags.ts"
+import { flag } from 'flags/tanstack-start';
+
+export const showSummerSale = flag<boolean>({
+  key: 'summer-sale',
+  async decide() {
+    return false;
+  },
+  origin: 'https://example.com/flags/summer-sale/',
+  description: 'Show Summer Holiday Sale Banner, 20% off',
+  options: [
+    // options are not necessary for boolean flags, but we customize their labels here
+    { value: false, label: 'Hide' },
+    { value: true, label: 'Show' },
+  ],
+});
+```
+
+#### Calling the flag
+
+The function returned by `flag` can be called in two ways:
+
+| Call signature                       | Description                                                                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `flag()`                             | Evaluates the flag. The request is resolved automatically via TanStack Start's `getRequest()`. Use inside a loader, server function, or server route. |
+| `flag(request, secret?)`             | Evaluates the flag against an explicit `Request`. Use when evaluating outside of a request context.                                      |
+| `flag(code, flagsArray, secret?)`    | Reads a precomputed value out of `code` instead of running `decide`. See [`precompute`](#precompute).                                    |
+
+`decide` and `identify` are deduplicated per request, so calling the same flag multiple times within one request only evaluates it once.
+
+### `getProviderData`
+
+**Description**: Turns flags declared using `flag` into Vercel Toolbar compatible definitions.
+
+| Parameter | Type                   | Description                                                         |
+| --------- | ---------------------- | ------------------------------------------------------------------- |
+| `flags`   | `Record<string, Flag>` | A record where the values are feature flags. The keys are not used. |
+
+### `createFlagsDiscoveryEndpoint`
+
+**Description**: Creates a handler for the `/.well-known/vercel/flags` discovery endpoint. It verifies the Vercel Toolbar's authenticated request and responds with the provided API data. Wire it up as a TanStack Start server route.
+
+| Parameter           | Type                                                       | Description                                              |
+| ------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| `getApiData`        | `(context) => ApiData \| Promise<ApiData>`                 | Returns the API data, typically via `getProviderData`.   |
+| `options` (Optional)| `{ secret?: string }`                                      | The `FLAGS_SECRET` used to verify access. Defaults to the `FLAGS_SECRET` environment variable. |
+
+```ts title="src/routes/[.]well-known/vercel/flags.ts"
+import { createFileRoute } from '@tanstack/react-router';
+import {
+  createFlagsDiscoveryEndpoint,
+  getProviderData,
+} from 'flags/tanstack-start';
+import * as flags from '../../../flags';
+
+const handler = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+
+export const Route = createFileRoute('/.well-known/vercel/flags')({
+  server: { handlers: { GET: handler } },
+});
+```
+
+## Precomputation
+
+These APIs are relevant for [precomputing feature flags](/principles/precompute). See the [marketing pages guide](/frameworks/tanstack-start/guides/marketing-pages) to learn how to use them in TanStack Start.
+
+### `precompute`
+
+**Description**: Evaluates multiple feature flags. Returns their values encoded into a single signed string.
+
+| Parameter           | Type         | Description                                                                              |
+| ------------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `flags`             | `function[]` | The flags to precompute.                                                                 |
+| `request`           | `Request`    | The incoming request used to evaluate the flags.                                         |
+| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to the `FLAGS_SECRET` env variable. |
+
+Read the encoded values back by calling a flag with the generated code and the same flags array: `await myFlag(code, flags)`.
+
+### `generatePermutations`
+
+**Description**: Calculates all precomputations of the options of the provided flags. Useful when you want to prerender or statically cache every variant of a page.
+
+| Parameter           | Type         | Description                                                                                                          |
+| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `flags`             | `function[]` | The flags.                                                                                                          |
+| `filter` (Optional) | `function`   | Called with every possible permutation of the flags' options. Return `true` to keep the permutation.               |
+| `secret` (Optional) | `string`     | The secret used to sign the generated codes. Defaults to the `FLAGS_SECRET` env variable.                          |
+
+## Encryption
+
+These functions keep flag data confidential (used by the Flags Explorer). All of them default to the `FLAGS_SECRET` environment variable when no secret is passed.
+
+| Function                  | Description                          |
+| ------------------------- | ------------------------------------ |
+| `encryptFlagValues`       | Encrypt resolved flag values.        |
+| `decryptFlagValues`       | Decrypt flag values.                 |
+| `encryptFlagDefinitions`  | Encrypt flag definitions/metadata.   |
+| `decryptFlagDefinitions`  | Decrypt flag definitions.            |
+| `encryptOverrides`        | Encrypt toolbar overrides.           |
+| `decryptOverrides`        | Decrypt toolbar overrides.           |

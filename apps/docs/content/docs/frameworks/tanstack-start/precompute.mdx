@@ -1,0 +1,152 @@
+---
+title: Precompute
+description: Using the precompute pattern in TanStack Start
+---
+
+This page shows how to implement the precompute pattern in TanStack Start to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
+Ensure you've read about the general precompute concept to understand the pattern and benefits:
+
+<CopyPrompt text="Implement precomputed feature flags in my TanStack Start app. Add `FLAGS_SECRET`, group the relevant `flags/tanstack-start` declarations into an array, precompute them server-side into a signed code, expose a dynamic `$code` route that reads the precomputed values with `flag(code, flags)`, and run the relevant checks when finished.">
+  Implement precomputed feature flags in my TanStack Start app. Add `FLAGS_SECRET`, group the relevant `flags/tanstack-start` declarations into an array, precompute them server-side into a signed code, expose a dynamic `$code` route that reads the precomputed values with `flag(code, flags)`, and run the relevant checks when finished.
+</CopyPrompt>
+
+<LearnMore href="/principles/precompute" icon="arrow">
+  <div>Read the introduction to precompute</div>
+</LearnMore>
+
+The following assumes you've already set up the Flags SDK for TanStack Start as described in the [Quickstart guide](/frameworks/tanstack-start).
+
+## How it works
+
+The precompute pattern keeps a page static even when feature flags are used on it. Instead of evaluating the flags inside the page itself, you:
+
+1. Evaluate all flags used on the page once, on the server, and encode their values into a short, signed code with `precompute`.
+2. Route the request to a dynamic segment (e.g. `/marketing/$code`) that contains that code.
+3. Read the values back from the code with `flag(code, flags)` — this decodes the value without re-running `decide`.
+
+Because the code is deterministic for a given set of flag values, the resulting `/marketing/$code` page can be cached and served statically.
+
+## 1. Create flags to be precomputed
+
+Create one or multiple flags.
+
+```ts title="src/flags.ts"
+import { flag } from 'flags/tanstack-start';
+
+export const firstMarketingABTest = flag<boolean>({
+  key: 'firstMarketingABTest',
+  decide: () => false,
+});
+
+export const secondMarketingABTest = flag<boolean>({
+  key: 'secondMarketingABTest',
+  decide: () => false,
+});
+```
+
+Export them as an array to be precomputed. Put them into a separate file so you can colocate other precompute-related logic. The order matters: the same array must be passed to `precompute()` and when reading values back with `flag(code, marketingFlags)`.
+
+```ts title="src/precomputed-flags.ts"
+import { precompute } from 'flags/tanstack-start';
+import { firstMarketingABTest, secondMarketingABTest } from './flags';
+
+export const marketingFlags = [
+  firstMarketingABTest,
+  secondMarketingABTest,
+] as const;
+
+export async function precomputeMarketing(request: Request): Promise<string> {
+  return precompute(marketingFlags, request);
+}
+```
+
+## 2. Precompute the code and route to it
+
+Use a server function to precompute the flags into a signed code, then redirect to the dynamic route that carries it. `precompute` invokes each flag, reads its value, and encodes the result so the user-visible `/marketing` URL is internally served as e.g. `/marketing/abc-123`.
+
+```tsx title="src/routes/marketing.tsx"
+import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { getRequest } from '@tanstack/react-start/server';
+import { precomputeMarketing } from '../precomputed-flags';
+
+const getMarketingCode = createServerFn().handler(async () => {
+  const request = getRequest();
+  return precomputeMarketing(request);
+});
+
+export const Route = createFileRoute('/marketing')({
+  loader: async () => {
+    const code = await getMarketingCode();
+    throw redirect({ to: '/marketing/$code', params: { code } });
+  },
+  component: () => null,
+});
+```
+
+## 3. Read the precomputation result from the page
+
+Read the precomputed values by calling each flag with the code from the URL and the same `marketingFlags` array used during precomputation.
+
+When a flag is called this way it reads the result from the precomputation and does **not** invoke the flag's `decide` function again:
+
+```tsx title="src/routes/marketing.$code.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { firstMarketingABTest, secondMarketingABTest } from '../flags';
+import { marketingFlags } from '../precomputed-flags';
+
+const getMarketingFlags = createServerFn()
+  .validator((code: string) => code)
+  .handler(async ({ data: code }) => {
+    return {
+      first: await firstMarketingABTest(code, marketingFlags),
+      second: await secondMarketingABTest(code, marketingFlags),
+    };
+  });
+
+export const Route = createFileRoute('/marketing/$code')({
+  loader: ({ params }) => getMarketingFlags({ data: params.code }),
+  component: MarketingPage,
+});
+
+function MarketingPage() {
+  const { first, second } = Route.useLoaderData();
+  return (
+    <ul>
+      <li>firstMarketingABTest: {String(first)}</li>
+      <li>secondMarketingABTest: {String(second)}</li>
+    </ul>
+  );
+}
+```
+
+## Generating permutations
+
+When you want to prerender or statically cache every variant of a page, use `generatePermutations` to enumerate all possible codes from the flags' options. You can then build a static page per code.
+
+```ts title="src/precomputed-flags.ts"
+import { generatePermutations } from 'flags/tanstack-start';
+import { marketingFlags } from './precomputed-flags';
+
+// returns one signed code per combination of flag values
+const codes = await generatePermutations(marketingFlags);
+```
+
+<LearnMore href="/api-reference/frameworks/tanstack-start" icon="arrow">
+  See the API reference for `precompute` and `generatePermutations`
+</LearnMore>
+
+## Routing Middleware (optional)
+
+The server-function approach above runs inside the TanStack Start runtime. If you want to rewrite the request to the precomputed variant *before* the CDN is hit — for example to keep a marketing page fully static at the edge — you can additionally run `precompute` inside Vercel [Routing Middleware](https://vercel.com/docs/routing-middleware) and `rewrite` to `/marketing/${code}`. Because `precompute` only needs a `Request`, the same `precomputeMarketing` helper can be reused there.
+
+## Next steps
+
+You now know how to use the precompute pattern within TanStack Start.
+The above example didn't get into details about how to use e.g. cookies to determine the value of the flag.
+This and more is covered in the Marketing Pages guide.
+
+<LearnMore href="/frameworks/tanstack-start/guides/marketing-pages" icon="arrow">
+  See the Marketing Pages example which implements this pattern
+</LearnMore>

@@ -1,0 +1,145 @@
+---
+title: Marketing Pages
+description: Use feature flags on static pages.
+---
+
+This example shows how to use feature flags for marketing pages.
+Marketing pages are typically static, and served from a CDN at the edge.
+
+When A/B testing on marketing pages it's important to avoid layout
+shift and jank, and to keep the pages static. At first glance this seems
+at odds with the dynamic nature of feature flags. This example shows
+how to keep a page static and serveable from the CDN even when running
+multiple A/B tests on the page.
+
+## Precomputing
+
+The approach used to keep pages static even when using feature flags on them is described in more detail in the Precompute section.
+At a high level you evaluate the flags once on the server, encode their values into a short signed code, and route to a dynamic `/marketing/$code` segment that reads those values back cheaply.
+Because the code is deterministic for a given set of flag values, the `/marketing/$code` page can be cached and served statically.
+
+<LearnMore href="/frameworks/tanstack-start/precompute" icon="arrow">
+  Learn more about `precompute`
+</LearnMore>
+
+## Identifying
+
+This example uses a stable visitor id to target users. The `identify` function
+reads it from a cookie (falling back to a header, which is useful when the
+visitor id is generated in middleware before the cookie has been set). By making
+`identify` a shared, named function its call is deduplicated between flags —
+`identify` runs only once per request.
+
+```ts title="src/flags.ts"
+import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
+import { flag } from 'flags/tanstack-start';
+
+interface Entities {
+  visitorId?: string;
+}
+
+function identify({
+  cookies,
+  headers,
+}: {
+  cookies: ReadonlyRequestCookies;
+  headers: ReadonlyHeaders;
+}): Entities {
+  const visitorId =
+    cookies.get('visitorId')?.value ??
+    headers.get('x-visitor-id') ??
+    'demo-visitor';
+
+  return { visitorId };
+}
+
+export const firstMarketingABTest = flag<boolean, Entities>({
+  key: 'firstMarketingABTest',
+  description: 'Example of a precomputed flag',
+  identify,
+  decide({ entities }) {
+    if (!entities?.visitorId) return false;
+    // Any deterministic function of the visitorId works here.
+    return /^[a-m0-4]/i.test(entities.visitorId);
+  },
+});
+
+export const secondMarketingABTest = flag<boolean, Entities>({
+  key: 'secondMarketingABTest',
+  description: 'Example of a precomputed flag',
+  identify,
+  decide({ entities }) {
+    if (!entities?.visitorId) return false;
+    return /[a-m0-4]$/i.test(entities.visitorId);
+  },
+});
+```
+
+<LearnMore href="/frameworks/tanstack-start/evaluation-context" icon="arrow">
+  Learn more about `identify`
+</LearnMore>
+
+## Precompute and read the values
+
+Group the flags into an array and precompute them into a signed code, then read
+the values back from the dynamic `$code` route.
+
+```ts title="src/precomputed-flags.ts"
+import { precompute } from 'flags/tanstack-start';
+import { firstMarketingABTest, secondMarketingABTest } from './flags';
+
+export const marketingFlags = [
+  firstMarketingABTest,
+  secondMarketingABTest,
+] as const;
+
+export async function precomputeMarketing(request: Request): Promise<string> {
+  return precompute(marketingFlags, request);
+}
+```
+
+```tsx title="src/routes/marketing.$code.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { firstMarketingABTest, secondMarketingABTest } from '../flags';
+import { marketingFlags } from '../precomputed-flags';
+
+const getMarketingFlags = createServerFn()
+  .validator((code: string) => code)
+  .handler(async ({ data: code }) => {
+    return {
+      first: await firstMarketingABTest(code, marketingFlags),
+      second: await secondMarketingABTest(code, marketingFlags),
+    };
+  });
+
+export const Route = createFileRoute('/marketing/$code')({
+  loader: ({ params }) => getMarketingFlags({ data: params.code }),
+  component: MarketingPage,
+});
+
+function MarketingPage() {
+  const { first, second } = Route.useLoaderData();
+  return (
+    <ul>
+      <li>firstMarketingABTest: {String(first)}</li>
+      <li>secondMarketingABTest: {String(second)}</li>
+    </ul>
+  );
+}
+```
+
+## Ensuring the generated id is always available
+
+When a user visits the page for the first time they will not have the
+`visitorId` cookie yet. If you generate the id in Routing Middleware, the page
+will not see the freshly generated cookie because cookies are only supplied with
+the *next* request. To solve this, set an `x-visitor-id` request header from the
+middleware in addition to the cookie. The `identify` function above reads from
+both, so it always sees the id — whether from the cookie or the header.
+
+## Full example
+
+<LearnMore href="https://github.com/vercel/flags/tree/main/examples/tanstack-start-example" icon="arrow" target="_blank">
+  See the TanStack Start example app
+</LearnMore>

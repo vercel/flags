@@ -16,6 +16,7 @@ export default defineConfig({
     index: 'src/index.ts',
     next: 'src/next/index.ts',
     sveltekit: 'src/sveltekit/index.ts',
+    'tanstack-start': 'src/tanstack-start/index.ts',
     react: 'src/react/index.tsx',
     analytics: 'src/analytics.ts',
   },
