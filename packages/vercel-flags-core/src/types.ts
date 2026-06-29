@@ -124,6 +124,17 @@ export type BulkEvaluateInput<T = Value> = {
 };
 
 /**
+ * Options accepted by evaluate() and bulkEvaluate().
+ */
+export type EvaluateOptions = {
+  /**
+   * When true, an evaluation event is tracked for this call.
+   * @default false
+   */
+  track?: boolean;
+};
+
+/**
  * A client for Vercel Flags
  */
 export type FlagsClient<Entities = Record<string, unknown>> = {
@@ -149,6 +160,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     flagKey: string,
     defaultValue?: T,
     entities?: E,
+    options?: EvaluateOptions,
   ) => Promise<EvaluationResult<T>>;
   /**
    * Evaluate multiple feature flags against the same entities in a single call.
@@ -165,6 +177,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
   bulkEvaluate: <T = Value, E = Entities>(
     flags: BulkEvaluateInput<T>[],
     entities?: E,
+    options?: EvaluateOptions,
   ) => Promise<Record<string, EvaluationResult<T>>>;
   /**
    * Retrieve the latest datafile during startup, and set up subscriptions if needed.

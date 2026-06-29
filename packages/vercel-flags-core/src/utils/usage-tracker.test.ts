@@ -312,26 +312,6 @@ describe('UsageTracker', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('should not emit flag evaluation metrics when disabled by env var', async () => {
-      vi.stubEnv('VERCEL_FLAGS_DISABLE_FLAG_EVALUATIONS', '1');
-      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
-
-      const tracker = createTracker();
-
-      tracker.trackRead({ configOrigin: 'in-memory' });
-      tracker.trackEvaluation({
-        flagKey: 'flag-a',
-        variant: 'var_enabled',
-        reason: ResolutionReason.FALLTHROUGH,
-      });
-      await tracker.shutdown();
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(getBody()).toEqual([
-        expect.objectContaining({ type: 'FLAGS_CONFIG_READ' }),
-      ]);
-    });
-
     it('should handle fetch errors gracefully', async () => {
       const consoleSpy = vi
         .spyOn(console, 'error')

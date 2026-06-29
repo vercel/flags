@@ -9,6 +9,7 @@ import type {
   BundledDefinitions,
   ControllerInterface,
   Datafile,
+  EvaluateOptions,
   EvaluationResult,
   Metrics,
   Packed,
@@ -68,6 +69,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   flagKey: string,
   defaultValue?: T,
   entities?: E,
+  options?: EvaluateOptions,
 ): Promise<EvaluationResult<T>> {
   const controller = getInstance(id).controller as EvaluationTrackingController;
 
@@ -84,11 +86,13 @@ export async function evaluate<T, E = Record<string, unknown>>(
         errorMessage:
           error instanceof Error ? error.message : 'Failed to read datafile',
       };
-      trackEvaluation(controller, {
-        flagKey,
-        variant: null,
-        reason: result.reason,
-      });
+      if (options?.track) {
+        trackEvaluation(controller, {
+          flagKey,
+          variant: null,
+          reason: result.reason,
+        });
+      }
       return result;
     }
     throw error;
@@ -120,11 +124,13 @@ export async function evaluate<T, E = Record<string, unknown>>(
         mode: datafile.metrics.mode,
       },
     };
-    trackEvaluation(controller, {
-      flagKey,
-      variant: null,
-      reason: result.reason,
-    });
+    if (options?.track) {
+      trackEvaluation(controller, {
+        flagKey,
+        variant: null,
+        reason: result.reason,
+      });
+    }
     return result;
   }
 
@@ -150,11 +156,13 @@ export async function evaluate<T, E = Record<string, unknown>>(
     });
   }
 
-  trackEvaluation(controller, {
-    flagKey,
-    variant: result.variantId,
-    reason: result.reason,
-  });
+  if (options?.track) {
+    trackEvaluation(controller, {
+      flagKey,
+      variant: result.variantId,
+      reason: result.reason,
+    });
+  }
 
   return Object.assign(result, {
     metrics: {
@@ -172,6 +180,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   id: number,
   flags: BulkEvaluateInput<T>[],
   entities?: E,
+  options?: EvaluateOptions,
 ): Promise<Record<string, EvaluationResult<T>>> {
   const controller = getInstance(id).controller as EvaluationTrackingController;
 
@@ -190,11 +199,13 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         errorMessage,
         variantId: null,
       };
-      trackEvaluation(controller, {
-        flagKey: flag.key,
-        variant: null,
-        reason: ResolutionReason.ERROR,
-      });
+      if (options?.track) {
+        trackEvaluation(controller, {
+          flagKey: flag.key,
+          variant: null,
+          reason: ResolutionReason.ERROR,
+        });
+      }
     }
     return results;
   }
@@ -231,11 +242,13 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         metrics: { evaluationMs: 0, ...baseMetrics },
         variantId: null,
       };
-      trackEvaluation(controller, {
-        flagKey: key,
-        variant: null,
-        reason: ResolutionReason.ERROR,
-      });
+      if (options?.track) {
+        trackEvaluation(controller, {
+          flagKey: key,
+          variant: null,
+          reason: ResolutionReason.ERROR,
+        });
+      }
       continue;
     }
 
@@ -263,11 +276,13 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
             : undefined,
       });
     }
-    trackEvaluation(controller, {
-      flagKey: key,
-      variant: result.variantId,
-      reason: result.reason,
-    });
+    if (options?.track) {
+      trackEvaluation(controller, {
+        flagKey: key,
+        variant: result.variantId,
+        reason: result.reason,
+      });
+    }
     results[key] = Object.assign(result, {
       metrics: { evaluationMs: evaluationDurationMs, ...baseMetrics },
     });

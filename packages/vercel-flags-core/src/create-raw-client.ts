@@ -14,6 +14,7 @@ import type {
   BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
+  EvaluateOptions,
   EvaluationResult,
   FlagsClient,
   Value,
@@ -99,6 +100,7 @@ export function createCreateRawClient(fns: {
         flagKey: string,
         defaultValue?: T,
         entities?: E,
+        options?: EvaluateOptions,
       ): Promise<EvaluationResult<T>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -109,11 +111,12 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
+        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities, options);
       },
       bulkEvaluate: async <T = Value, E = Entities>(
         flags: BulkEvaluateInput<T>[],
         entities?: E,
+        options?: EvaluateOptions,
       ): Promise<Record<string, EvaluationResult<T>>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -124,7 +127,7 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.bulkEvaluate<T, E>(id, flags, entities);
+        return fns.bulkEvaluate<T, E>(id, flags, entities, options);
       },
     };
     return api;

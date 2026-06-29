@@ -12,11 +12,6 @@ import {
   type TrackEvaluationOptions,
 } from './usage/flags-evaluation';
 
-function evaluationsDisabled(): boolean {
-  const value = process.env.VERCEL_FLAGS_ENABLE_METRICS?.toLowerCase();
-  return value !== 'true';
-}
-
 /**
  * Tracks usage events and batches them for submission to the ingest endpoint.
  */
@@ -79,10 +74,6 @@ export class UsageTracker {
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
     try {
-      if (evaluationsDisabled()) {
-        return;
-      }
-
       const bucketedOptions = {
         ...options,
         bucketTs: minuteBucketTs(),
