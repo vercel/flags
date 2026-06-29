@@ -12,11 +12,9 @@ import {
   type TrackEvaluationOptions,
 } from './usage/flags-evaluation';
 
-const DISABLE_FLAG_EVALUATIONS_ENV = 'VERCEL_FLAGS_DISABLE_FLAG_EVALUATIONS';
-
-function isFlagEvaluationTrackingDisabled(): boolean {
-  const value = process.env[DISABLE_FLAG_EVALUATIONS_ENV]?.toLowerCase();
-  return value === '1' || value === 'true';
+function evaluationsDisabled(): boolean {
+  const value = process.env.VERCEL_FLAGS_ENABLE_METRICS?.toLowerCase();
+  return value !== 'true';
 }
 
 /**
@@ -81,7 +79,9 @@ export class UsageTracker {
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
     try {
-      if (isFlagEvaluationTrackingDisabled()) return;
+      if (evaluationsDisabled()) {
+        return;
+      }
 
       const bucketedOptions = {
         ...options,
