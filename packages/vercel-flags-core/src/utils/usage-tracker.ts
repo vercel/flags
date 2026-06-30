@@ -1,6 +1,6 @@
 import { type IngestOptions, sendIngestEvents } from './ingest';
 import { getRequestContext } from './request-context';
-import { Scheduler } from './scheduler';
+import { type FlushReason, Scheduler } from './scheduler';
 import {
   FlagsConfigReadEvent,
   type TrackReadOptions,
@@ -28,7 +28,7 @@ export class UsageTracker {
 
   constructor(options: IngestOptions) {
     this.options = options;
-    this.scheduler = new Scheduler(() => this.flushEvents());
+    this.scheduler = new Scheduler((reason) => this.flushEvents(reason));
   }
 
   /**
@@ -41,7 +41,7 @@ export class UsageTracker {
 
     // Safety net for events tracked after the drained batch reset; if the
     // drained flush already sent everything this returns early (maps cleared).
-    await this.flushEvents();
+    await this.flushEvents('shutdown');
   }
 
   /**
@@ -107,7 +107,7 @@ export class UsageTracker {
   /**
    * Send all events to the ingest service
    */
-  private async flushEvents() {
+  private async flushEvents(flushReason: FlushReason) {
     const events = [...this.readEvents, ...this.evaluationEvents.values()];
     if (events.length === 0) return;
 
@@ -117,6 +117,6 @@ export class UsageTracker {
     this.readEvents = [];
     this.evaluationEvents.clear();
 
-    await sendIngestEvents(this.options, events, flushId);
+    await sendIngestEvents(this.options, events, flushId, flushReason);
   }
 }

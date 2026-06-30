@@ -6,6 +6,12 @@ const IDLE_FLUSH_WAIT_MS = 5000;
 const IDLE_FLUSH_JITTER_RATIO = 0.2;
 const MAX_FLUSH_WAIT_MS = 60000;
 
+export type FlushReason =
+  | 'max_count'
+  | 'idle_timeout'
+  | 'max_timeout'
+  | 'shutdown';
+
 /**
  * Schedule helper that flushes when any of the following occur:
  * - the batch size is reached ({@link MAX_COUNT} distinct events),
@@ -18,19 +24,21 @@ const MAX_FLUSH_WAIT_MS = 60000;
  */
 export class Scheduler {
   private count: number = 0;
-  private resolveWait: (() => void) | null = null;
+  private resolveWait: ((reason: FlushReason) => void) | null = null;
   private pending: null | Promise<void> = null;
   private idleTimeout: null | ReturnType<typeof setTimeout> = null;
   private maxTimeout: null | ReturnType<typeof setTimeout> = null;
 
-  constructor(private readonly onFlush: () => void | Promise<void>) {}
+  constructor(
+    private readonly onFlush: (reason: FlushReason) => void | Promise<void>,
+  ) {}
 
   increment(): void {
     this.count += 1;
 
     // immediately flush if we've reached the batch size
     if (this.count >= MAX_COUNT) {
-      this.resolveScheduledFlush();
+      this.resolveScheduledFlush('max_count');
     }
   }
 
@@ -38,7 +46,7 @@ export class Scheduler {
     if (!this.pending) {
       this.pending = (async () => {
         // wait for a timeout or the event count to reach the batch size
-        await new Promise<void>((res) => {
+        const reason = await new Promise<FlushReason>((res) => {
           this.resolveWait = res;
         });
 
@@ -46,7 +54,7 @@ export class Scheduler {
         this.reset();
 
         // genuinely await ingest (incl. retries) so waitUntil covers the send
-        await this.onFlush();
+        await this.onFlush(reason);
       })();
 
       try {
@@ -57,7 +65,7 @@ export class Scheduler {
 
       // max window: starts with the batch and is never reset
       this.maxTimeout = setTimeout(
-        () => this.resolveScheduledFlush(),
+        () => this.resolveScheduledFlush('max_timeout'),
         MAX_FLUSH_WAIT_MS,
       );
     }
@@ -72,21 +80,21 @@ export class Scheduler {
   async shutdown(): Promise<void> {
     this.clearTimeouts();
     const pending = this.pending;
-    this.resolveWait?.();
+    this.resolveScheduledFlush('shutdown');
     if (pending) await pending;
   }
 
   private resetIdleTimeout(): void {
     if (this.idleTimeout) clearTimeout(this.idleTimeout);
     this.idleTimeout = setTimeout(
-      () => this.resolveScheduledFlush(),
+      () => this.resolveScheduledFlush('idle_timeout'),
       getJitteredWaitMs(IDLE_FLUSH_WAIT_MS, IDLE_FLUSH_JITTER_RATIO),
     );
   }
 
-  private resolveScheduledFlush(): void {
+  private resolveScheduledFlush(reason: FlushReason): void {
     this.clearTimeouts();
-    this.resolveWait?.();
+    this.resolveWait?.(reason);
   }
 
   private reset(): void {

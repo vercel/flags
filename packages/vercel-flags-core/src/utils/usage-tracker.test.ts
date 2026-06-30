@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Auth } from '../controller/auth';
 import { setRequestContext } from '../test-utils';
 import { ResolutionReason } from '../types';
-import { EVALUATING_OIDC_TOKEN_HEADER, type IngestOptions } from './ingest';
+import {
+  EVALUATING_OIDC_TOKEN_HEADER,
+  FLUSH_REASON_HEADER,
+  type IngestOptions,
+} from './ingest';
 import { UsageTracker } from './usage-tracker';
 
 type SerializedConfigReadEvent = {
@@ -299,6 +303,17 @@ describe('UsageTracker', () => {
       await tracker.shutdown();
 
       expect(getHeaders()['User-Agent']).toMatch(/^VercelFlagsCore\//);
+    });
+
+    it('should send shutdown as the flush reason header for shutdown flushes', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
     });
 
     it('should not send empty batches', async () => {
@@ -655,6 +670,7 @@ describe('UsageTracker', () => {
       });
       const events = getBody() as SerializedEvaluationEvent[];
       expect(events[0]?.payload.evaluationCount).toBe(2);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('idle_timeout');
     });
 
     it('should not count repeated evaluations of the same bucket toward the batch threshold', async () => {
@@ -683,6 +699,7 @@ describe('UsageTracker', () => {
       const events = getBody() as SerializedEvaluationEvent[];
       expect(events).toHaveLength(1);
       expect(events[0]?.payload.evaluationCount).toBe(60);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
     });
 
     it('should track when request context is unavailable', async () => {
@@ -751,6 +768,7 @@ describe('UsageTracker', () => {
       // Ingest has started but not resolved; the waitUntil promise must wait.
       await vi.advanceTimersByTimeAsync(0);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('idle_timeout');
       expect(settled).toBe(false);
 
       fetchDeferred.resolve(
@@ -782,6 +800,37 @@ describe('UsageTracker', () => {
       // safety-net flush is a no-op (maps already cleared).
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(getBody()).toHaveLength(2);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
+    });
+
+    it('should send max_timeout as the flush reason header for max-window flushes', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      for (let elapsed = 0; elapsed < 56000; elapsed += 4000) {
+        await vi.advanceTimersByTimeAsync(4000);
+        expect(fetchMock).not.toHaveBeenCalled();
+        tracker.trackEvaluation({
+          flagKey: 'flag-a',
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      await vi.advanceTimersByTimeAsync(4000);
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_timeout');
     });
 
     it('should be safe to call shutdown multiple times', async () => {
@@ -999,6 +1048,7 @@ describe('UsageTracker', () => {
 
       const events = getBody() as Array<{ type: string }>;
       expect(events).toHaveLength(50);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_count');
     });
   });
 

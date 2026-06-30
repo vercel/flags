@@ -83,6 +83,7 @@ const ingestRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_server_fake',
   'Content-Type': 'application/json',
   'User-Agent': `VercelFlagsCore/${version}`,
+  'X-Vercel-Flags-Flush-Reason': 'shutdown',
   'X-Vercel-Env': 'production',
 });
 
@@ -3816,6 +3817,61 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      cleanupCtx();
+    });
+
+    it('should not report FLAG_EVALUATION events when client metrics are disabled', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled(),
+        disableMetrics: true,
+      });
+
+      await client.evaluate('flagA', undefined, undefined, { track: true });
+      await client.bulkEvaluate([{ key: 'flagA' }], undefined, {
+        track: true,
+      });
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+                mode: 'offline',
+                revision: '1',
+                environment: 'production',
               },
             },
           ]),

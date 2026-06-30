@@ -47,9 +47,11 @@ export function createCreateRawClient(fns: {
   return function createRawClient<Entities = Record<string, unknown>>({
     controller,
     origin,
+    disableMetrics = false,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey?: string };
+    disableMetrics?: boolean;
   }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
@@ -111,7 +113,13 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities, options);
+        return fns.evaluate<T, E>(
+          id,
+          flagKey,
+          defaultValue,
+          entities,
+          disableMetrics ? { ...options, track: false } : options,
+        );
       },
       bulkEvaluate: async <T = Value, E = Entities>(
         flags: BulkEvaluateInput<T>[],
@@ -127,7 +135,12 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.bulkEvaluate<T, E>(id, flags, entities, options);
+        return fns.bulkEvaluate<T, E>(
+          id,
+          flags,
+          entities,
+          disableMetrics ? { ...options, track: false } : options,
+        );
       },
     };
     return api;

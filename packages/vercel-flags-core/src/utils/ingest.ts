@@ -2,11 +2,13 @@ import { getVercelOidcToken } from '@vercel/oidc';
 import { version } from '../../package.json';
 import type { Auth } from '../controller/auth';
 import { getRetryDelayMs } from './backoff';
+import type { FlushReason } from './scheduler';
 import type { UsageEvent } from './usage/events';
 
 const MAX_RETRIES = 3;
 
 export const EVALUATING_OIDC_TOKEN_HEADER = 'X-Vercel-Flags-OIDC-Token';
+export const FLUSH_REASON_HEADER = 'X-Vercel-Flags-Flush-Reason';
 
 const isDebugMode = process.env.DEBUG?.includes('@vercel/flags-core');
 
@@ -33,6 +35,7 @@ async function getEvaluatingOidcToken(auth: Auth): Promise<string | undefined> {
 
 async function getIngestHeaders(
   options: IngestOptions,
+  flushReason: FlushReason,
 ): Promise<Record<string, string>> {
   const token = await options.auth.resolveToken();
   const evaluatingOidcToken = await getEvaluatingOidcToken(options.auth);
@@ -41,6 +44,7 @@ async function getIngestHeaders(
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
     'User-Agent': `VercelFlagsCore/${version}`,
+    [FLUSH_REASON_HEADER]: flushReason,
     ...(process.env.VERCEL_ENV
       ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
       : null),
@@ -55,6 +59,7 @@ export async function sendIngestEvents(
   options: IngestOptions,
   events: UsageEvent[],
   flushId: number,
+  flushReason: FlushReason,
 ): Promise<void> {
   const eventsToSend = events.map((event) => event.ingestEvent());
 
@@ -62,7 +67,7 @@ export async function sendIngestEvents(
     try {
       const response = await options.fetch(`${options.host}/v1/ingest`, {
         method: 'POST',
-        headers: await getIngestHeaders(options),
+        headers: await getIngestHeaders(options, flushReason),
         body: JSON.stringify(eventsToSend),
       });
 

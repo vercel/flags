@@ -42,6 +42,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenCalledWith('idle_timeout');
   });
 
   it('applies jitter to the idle window', async () => {
@@ -59,6 +60,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenCalledWith('idle_timeout');
   });
 
   it('resets the idle window when a new flush is scheduled', async () => {
@@ -77,6 +79,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenCalledWith('idle_timeout');
   });
 
   it('flushes when the count reaches the max batch size', async () => {
@@ -94,6 +97,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenCalledWith('max_count');
   });
 
   it('registers the scheduled flush with waitUntil', () => {
@@ -117,6 +121,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenNthCalledWith(1, 'max_count');
 
     // A new batch should accumulate independently and flush again.
     scheduler.scheduleFlush();
@@ -150,6 +155,7 @@ describe('Scheduler', () => {
     // onFlush has been invoked, but the pending promise must not resolve yet.
     await vi.advanceTimersByTimeAsync(0);
     expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).toHaveBeenCalledWith('max_count');
     expect(settled).toBe(false);
 
     flushDeferred.resolve();
@@ -175,6 +181,7 @@ describe('Scheduler', () => {
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
+    expect(onFlush).toHaveBeenCalledWith('max_timeout');
   });
 
   it('resolves a pending flush on shutdown', async () => {
@@ -186,6 +193,7 @@ describe('Scheduler', () => {
     await scheduler.shutdown();
 
     expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).toHaveBeenCalledWith('shutdown');
   });
 
   it('shutdown resolves without hanging when nothing is pending', async () => {
@@ -211,6 +219,7 @@ describe('Scheduler', () => {
 
     await vi.advanceTimersByTimeAsync(0);
     expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).toHaveBeenCalledWith('shutdown');
     expect(shutdownResolved).toBe(false);
 
     flushDeferred.resolve();
