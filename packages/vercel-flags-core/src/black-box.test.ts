@@ -247,7 +247,9 @@ describe('Controller (black-box)', () => {
       });
 
       const client = createClient(sdkKey, { fetch: fetchMock });
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       expect(result.metrics?.mode).toBe('build');
       expect(result.metrics?.source).toBe('embedded');
@@ -269,7 +271,9 @@ describe('Controller (black-box)', () => {
       });
 
       const client = createClient(sdkKey, { fetch: fetchMock });
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       expect(result.metrics?.mode).toBe('build');
       expect(result.metrics?.source).toBe('embedded');
@@ -350,7 +354,9 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       // Should use stream (buildStep: false overrides CI detection)
       expect(result.metrics?.mode).toBe('streaming');
@@ -425,8 +431,8 @@ describe('Controller (black-box)', () => {
 
       // run two in parallel to ensure we still only track one read
       const [result] = await Promise.all([
-        client.evaluate('flagA'),
-        client.evaluate('flagB'),
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+        client.evaluate('flagB', undefined, undefined, { track: true }),
       ]);
 
       expect(result.value).toBe(true);
@@ -1210,7 +1216,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
       const after = new Date();
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(0);
 
@@ -1299,7 +1307,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
       const after = new Date();
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.source).toBe('embedded');
       // No polling should have started
       expect(pollCount).toBe(0);
@@ -2166,7 +2176,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Verify connected
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.connectionState).toBe('connected');
 
       // Shutdown while stream is still open — should not throw
@@ -2558,7 +2570,9 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(50);
 
       // Should still have newer data (older message was rejected)
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.value).toBe(true); // variant 1 = newer
 
       stream.close();
@@ -3261,9 +3275,15 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, { fetch: fetchMock });
 
       // Three concurrent evaluates trigger lazy initialization
-      const p1 = client.evaluate('flagA');
-      const p2 = client.evaluate('flagA');
-      const p3 = client.evaluate('flagA');
+      const p1 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p2 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p3 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       stream.push({ type: 'datafile', data: makeBundled() });
       await vi.advanceTimersByTimeAsync(0);
@@ -3345,9 +3365,15 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, { fetch: fetchMock });
 
       // Three concurrent evaluates trigger lazy initialization
-      const p1 = client.evaluate('flagA');
-      const p2 = client.evaluate('flagA');
-      const p3 = client.evaluate('flagA');
+      const p1 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p2 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p3 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       stream.push({ type: 'datafile', data: makeBundled() });
       await vi.advanceTimersByTimeAsync(0);
@@ -3499,7 +3525,9 @@ describe('Controller (black-box)', () => {
         },
       );
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.value).toBe(true);
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -3720,9 +3748,15 @@ describe('Controller (black-box)', () => {
         }),
       });
 
-      await client.evaluate('flagA');
-      await client.evaluate('missing-flag', false);
-      await client.bulkEvaluate([{ key: 'flagA' }, { key: 'flagB' }]);
+      await client.evaluate('flagA', undefined, undefined, { track: true });
+      await client.evaluate('missing-flag', false, undefined, {
+        track: true,
+      });
+      await client.bulkEvaluate(
+        [{ key: 'flagA' }, { key: 'flagB' }],
+        undefined,
+        { track: true },
+      );
 
       await client.shutdown();
 
@@ -3827,7 +3861,9 @@ describe('Controller (black-box)', () => {
         datafile: passedDatafile,
       });
 
-      await expect(client.evaluate('flagA')).resolves.toEqual({
+      await expect(
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ).resolves.toEqual({
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
@@ -3863,8 +3899,11 @@ describe('Controller (black-box)', () => {
       });
 
       // Multiple evaluates during build
-      await Promise.all([client.evaluate('flagA'), client.evaluate('flagA')]);
-      await client.evaluate('flagA');
+      await Promise.all([
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ]);
+      await client.evaluate('flagA', undefined, undefined, { track: true });
 
       await client.shutdown();
       // Config reads skip without request context, but evaluations are still reported.
@@ -3900,7 +3939,7 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Evaluate while streaming
-      await client.evaluate('flagA');
+      await client.evaluate('flagA', undefined, undefined, { track: true });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -3965,7 +4004,9 @@ describe('Controller (black-box)', () => {
         fetch: fetchMock,
       });
 
-      await expect(client.evaluate('flagA')).resolves.toEqual({
+      await expect(
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ).resolves.toEqual({
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
