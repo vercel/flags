@@ -24,8 +24,13 @@ The default adapter uses the following environment variables to configure itself
 
 ```sh
 export LAUNCHDARKLY_CLIENT_SIDE_ID="612376f91b8f5713a58777a1"
+# Optional. Only used to deep-link flags to the LaunchDarkly dashboard.
 export LAUNCHDARKLY_PROJECT_SLUG="my-project"
-# Provided by Vercel when connecting an Edge Config to the project
+# Provided by the LaunchDarkly Marketplace integration when Edge Config is
+# enabled for the collection.
+export EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
+# Provided by Vercel when connecting an Edge Config. Used as a fallback when
+# EXPERIMENTATION_CONFIG is not set.
 export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
 ```
 
@@ -57,8 +62,9 @@ import { createLaunchDarklyAdapter } from "@flags-sdk/launchdarkly";
 
 const adapter = createLaunchDarklyAdapter({
   projectSlug: "my-project",
-  ldClientSideKey: "612376f91b8f5713a58777a1",
-  edgeConfigConnectionString: process.env.EDGE_CONFIG,
+  clientSideId: "612376f91b8f5713a58777a1",
+  edgeConfigConnectionString:
+    process.env.EXPERIMENTATION_CONFIG ?? process.env.EDGE_CONFIG,
 });
 ```
 
