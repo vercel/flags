@@ -36,12 +36,35 @@ function assertEnv(name: string): string {
   return value;
 }
 
+/**
+ * Resolves the Edge Config connection string used to load LaunchDarkly flag data.
+ *
+ * The native LaunchDarkly Marketplace integration exposes the connection string
+ * as `EXPERIMENTATION_CONFIG`, while the legacy Vercel integration exposes it as
+ * `EDGE_CONFIG`. We prefer `EXPERIMENTATION_CONFIG` and fall back to `EDGE_CONFIG`
+ * for backwards compatibility.
+ */
+function assertEdgeConfigConnectionString(): string {
+  const value = process.env.EXPERIMENTATION_CONFIG || process.env.EDGE_CONFIG;
+  if (!value) {
+    throw new Error(
+      'LaunchDarkly Adapter: Missing EXPERIMENTATION_CONFIG or EDGE_CONFIG environment variable',
+    );
+  }
+  return value;
+}
+
 export function createLaunchDarklyAdapter({
   projectSlug,
   clientSideId,
   edgeConfigConnectionString,
 }: {
-  projectSlug: string;
+  /**
+   * LaunchDarkly project slug. Only used to construct the `origin` URL that
+   * deep-links a flag to its LaunchDarkly dashboard page. When omitted, the
+   * adapter does not expose an `origin`, but flag evaluation is unaffected.
+   */
+  projectSlug?: string;
   clientSideId: string;
   edgeConfigConnectionString: string;
 }): AdapterResponse {
@@ -80,7 +103,9 @@ export function createLaunchDarklyAdapter({
     options: AdapterOptions<ValueType> = {},
   ): Adapter<ValueType, LDContext> {
     return {
-      origin,
+      // Only expose `origin` when a project slug is available, otherwise the
+      // deep-link would be incorrect.
+      origin: projectSlug ? origin : undefined,
       async decide({ key, entities, headers }): Promise<ValueType> {
         if (!ldClient.initialized()) {
           if (!initPromise) initPromise = ldClient.waitForInitialization();
@@ -108,9 +133,11 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
+    const edgeConfigConnectionString = assertEdgeConfigConnectionString();
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
-    const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
+    // Optional: only used to build the dashboard deep-link (`origin`). The
+    // native Marketplace integration may not provide this.
+    const projectSlug = process.env.LAUNCHDARKLY_PROJECT_SLUG;
 
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       projectSlug,

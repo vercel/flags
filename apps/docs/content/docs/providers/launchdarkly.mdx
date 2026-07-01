@@ -49,21 +49,26 @@ import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
 const customLdAdapter = createLaunchDarklyAdapter({
   projectSlug: process.env.LAUNCHDARKLY_PROJECT_SLUG,
   clientSideId: process.env.LAUNCHDARKLY_CLIENT_SIDE_ID,
-  edgeConfigConnectionString: process.env.EDGE_CONFIG,
+  edgeConfigConnectionString:
+    process.env.EXPERIMENTATION_CONFIG ?? process.env.EDGE_CONFIG,
 });
 ```
 
-| Option key                   | Type     | Description                   |
-| ---------------------------- | ---------| ----------------------------- |
-| `projectSlug`                | `string` | LaunchDarkly project slug     |
-| `clientSideId`               | `string` | LaunchDarkly client-side ID   |
-| `edgeConfigConnectionString` | `string` | Edge Config connection string |
+| Option key                   | Type     | Description                                                        |
+| ---------------------------- | ---------| ------------------------------------------------------------------ |
+| `projectSlug`                | `string` | LaunchDarkly project slug. Optional, only used for dashboard links |
+| `clientSideId`               | `string` | LaunchDarkly client-side ID                                        |
+| `edgeConfigConnectionString` | `string` | Edge Config connection string                                      |
 
 The default LaunchDarkly adapter configures itself based on the following environment variables:
 
 - `LAUNCHDARKLY_CLIENT_SIDE_ID` _(required)_ → `clientSideId`
-- `LAUNCHDARKLY_PROJECT_SLUG` _(required)_ → `projectSlug`
-- `EDGE_CONFIG` _(required)_ → `edgeConfigConnectionString`
+- `LAUNCHDARKLY_PROJECT_SLUG` _(optional)_ → `projectSlug`
+- `EXPERIMENTATION_CONFIG` _(required)_ → `edgeConfigConnectionString`
+
+`LAUNCHDARKLY_PROJECT_SLUG` is only used to deep-link flags to the LaunchDarkly dashboard. When it is not set, flag evaluation is unaffected but the adapter does not expose an `origin`.
+
+The native LaunchDarkly [Marketplace integration](https://vercel.com/marketplace/launchdarkly) exposes the Edge Config connection string as `EXPERIMENTATION_CONFIG` when Edge Config is enabled for the collection. The adapter falls back to `EDGE_CONFIG` (used by the legacy Vercel integration) when `EXPERIMENTATION_CONFIG` is not set.
 
 
 ---
@@ -143,7 +148,7 @@ The LaunchDarkly adapter loads the configuration from [Edge Config](https://verc
 
 Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
-The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set.
+The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set. It reads the connection string from `EXPERIMENTATION_CONFIG` (native Marketplace integration) and falls back to `EDGE_CONFIG` (legacy Vercel integration).
 
 ---
 
