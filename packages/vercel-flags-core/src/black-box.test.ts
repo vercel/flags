@@ -83,6 +83,7 @@ const ingestRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_server_fake',
   'Content-Type': 'application/json',
   'User-Agent': `VercelFlagsCore/${version}`,
+  'X-Vercel-Flags-Flush-Reason': 'shutdown',
   'X-Vercel-Env': 'production',
 });
 
@@ -103,6 +104,54 @@ const originalEnv = { ...process.env };
 
 describe('Controller (black-box)', () => {
   const date = new Date();
+
+  function minuteBucketTs(ts: number): number {
+    return Math.floor(ts / 60_000) * 60_000;
+  }
+
+  function expectEvaluationOnlyIngest(
+    evaluationCount = 1,
+    extraEvents: Array<{
+      flagKey: string;
+      variant: string | undefined;
+      reason: string;
+      evaluationCount: number;
+      periodStartedAt?: number;
+    }> = [],
+  ) {
+    const periodStartedAt = minuteBucketTs(date.getTime());
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://flags.vercel.com/v1/ingest',
+      {
+        body: JSON.stringify([
+          {
+            type: 'FLAG_EVALUATION',
+            ts: date.getTime(),
+            payload: {
+              flagKey: 'flagA',
+              variant: undefined,
+              reason: 'paused',
+              evaluationCount,
+              periodStartedAt,
+            },
+          },
+          ...extraEvents.map(
+            ({ periodStartedAt: eventPeriod, ...payload }) => ({
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                ...payload,
+                periodStartedAt: eventPeriod ?? periodStartedAt,
+              },
+            }),
+          ),
+        ]),
+        headers: ingestRequestHeaders,
+        method: 'POST',
+      },
+    );
+  }
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -199,7 +248,9 @@ describe('Controller (black-box)', () => {
       });
 
       const client = createClient(sdkKey, { fetch: fetchMock });
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       expect(result.metrics?.mode).toBe('build');
       expect(result.metrics?.source).toBe('embedded');
@@ -207,8 +258,9 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
-      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectEvaluationOnlyIngest();
     });
 
     it('should detect build step when NEXT_PHASE=phase-production-build', async () => {
@@ -220,15 +272,18 @@ describe('Controller (black-box)', () => {
       });
 
       const client = createClient(sdkKey, { fetch: fetchMock });
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       expect(result.metrics?.mode).toBe('build');
       expect(result.metrics?.source).toBe('embedded');
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
-      // No ingest call: trackRead skips when request context is unavailable
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectEvaluationOnlyIngest();
     });
 
     it('should NOT detect build step when neither CI nor NEXT_PHASE is set', async () => {
@@ -300,7 +355,9 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       // Should use stream (buildStep: false overrides CI detection)
       expect(result.metrics?.mode).toBe('streaming');
@@ -330,6 +387,17 @@ describe('Controller (black-box)', () => {
                 mode: 'stream',
                 revision: '1',
                 environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),
@@ -364,8 +432,8 @@ describe('Controller (black-box)', () => {
 
       // run two in parallel to ensure we still only track one read
       const [result] = await Promise.all([
-        client.evaluate('flagA'),
-        client.evaluate('flagB'),
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+        client.evaluate('flagB', undefined, undefined, { track: true }),
       ]);
 
       expect(result.value).toBe(true);
@@ -388,8 +456,16 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
 
-      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expectEvaluationOnlyIngest(1, [
+        {
+          flagKey: 'flagB',
+          variant: undefined,
+          reason: 'error',
+          evaluationCount: 1,
+        },
+      ]);
     });
 
     it('should throw when bundled definitions missing and fetch fails during build (no defaultValue)', async () => {
@@ -1141,7 +1217,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
       const after = new Date();
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(0);
 
@@ -1169,6 +1247,17 @@ describe('Controller (black-box)', () => {
                 mode: 'offline',
                 revision: '1',
                 environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: after.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(after.getTime()),
               },
             },
           ]),
@@ -1219,7 +1308,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
       const after = new Date();
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.source).toBe('embedded');
       // No polling should have started
       expect(pollCount).toBe(0);
@@ -1247,6 +1338,17 @@ describe('Controller (black-box)', () => {
                 mode: 'offline',
                 revision: '1',
                 environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: after.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(after.getTime()),
               },
             },
           ]),
@@ -2075,7 +2177,9 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Verify connected
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.metrics?.connectionState).toBe('connected');
 
       // Shutdown while stream is still open — should not throw
@@ -2114,6 +2218,17 @@ describe('Controller (black-box)', () => {
                   mode: 'stream',
                   revision: '1',
                   environment: 'production',
+                },
+              },
+              {
+                type: 'FLAG_EVALUATION',
+                ts: date.getTime(),
+                payload: {
+                  flagKey: 'flagA',
+                  variant: undefined,
+                  reason: 'paused',
+                  evaluationCount: 1,
+                  periodStartedAt: minuteBucketTs(date.getTime()),
                 },
               },
             ]),
@@ -2456,7 +2571,9 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(50);
 
       // Should still have newer data (older message was rejected)
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.value).toBe(true); // variant 1 = newer
 
       stream.close();
@@ -2492,6 +2609,17 @@ describe('Controller (black-box)', () => {
                 mode: 'stream',
                 revision: '1',
                 environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime() + 60,
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime() + 60),
               },
             },
           ]),
@@ -3148,9 +3276,15 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, { fetch: fetchMock });
 
       // Three concurrent evaluates trigger lazy initialization
-      const p1 = client.evaluate('flagA');
-      const p2 = client.evaluate('flagA');
-      const p3 = client.evaluate('flagA');
+      const p1 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p2 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p3 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       stream.push({ type: 'datafile', data: makeBundled() });
       await vi.advanceTimersByTimeAsync(0);
@@ -3201,6 +3335,17 @@ describe('Controller (black-box)', () => {
                 environment: 'production',
               },
             },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 3,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+              },
+            },
           ]),
           headers: ingestRequestHeaders,
           method: 'POST',
@@ -3221,9 +3366,15 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, { fetch: fetchMock });
 
       // Three concurrent evaluates trigger lazy initialization
-      const p1 = client.evaluate('flagA');
-      const p2 = client.evaluate('flagA');
-      const p3 = client.evaluate('flagA');
+      const p1 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p2 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
+      const p3 = client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
 
       stream.push({ type: 'datafile', data: makeBundled() });
       await vi.advanceTimersByTimeAsync(0);
@@ -3247,8 +3398,9 @@ describe('Controller (black-box)', () => {
 
       stream.close();
       await client.shutdown();
-      // No ingest call: trackRead skips when request context is unavailable
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expectEvaluationOnlyIngest(3);
     });
 
     it('should start only one retry loop when concurrent evaluate() calls hit a failing stream', async () => {
@@ -3374,7 +3526,9 @@ describe('Controller (black-box)', () => {
         },
       );
 
-      const result = await client.evaluate('flagA');
+      const result = await client.evaluate('flagA', undefined, undefined, {
+        track: true,
+      });
       expect(result.value).toBe(true);
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -3401,6 +3555,17 @@ describe('Controller (black-box)', () => {
                 mode: 'offline',
                 revision: '1',
                 environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
               },
             },
           ]),
@@ -3503,6 +3668,7 @@ describe('Controller (black-box)', () => {
 
       expect(result).toEqual({
         value: false,
+        variantId: null,
         reason: 'error',
         errorMessage: expect.stringContaining(
           '@vercel/flags-core: No flag definitions available',
@@ -3553,6 +3719,170 @@ describe('Controller (black-box)', () => {
   // Usage tracking
   // ---------------------------------------------------------------------------
   describe('usage tracking', () => {
+    it('should report counted FLAG_EVALUATION events', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        clientName: 'checkout',
+        datafile: makeBundled({
+          definitions: {
+            flagA: {
+              variantIds: ['var_off', 'var_on'],
+              environments: { production: 1 },
+              variants: [false, true],
+            },
+            flagB: {
+              environments: { production: { fallthrough: 0 } },
+              variants: ['control', 'variant'],
+            },
+          },
+        }),
+      });
+
+      await client.evaluate('flagA', undefined, undefined, { track: true });
+      await client.evaluate('missing-flag', false, undefined, {
+        track: true,
+      });
+      await client.bulkEvaluate(
+        [{ key: 'flagA' }, { key: 'flagB' }],
+        undefined,
+        { track: true },
+      );
+
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+                mode: 'offline',
+                revision: '1',
+                environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: 'var_on',
+                reason: 'paused',
+                evaluationCount: 2,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+                clientName: 'checkout',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'missing-flag',
+                variant: undefined,
+                reason: 'error',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+                clientName: 'checkout',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagB',
+                variant: undefined,
+                reason: 'fallthrough',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+                clientName: 'checkout',
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      cleanupCtx();
+    });
+
+    it('should not report FLAG_EVALUATION events when client metrics are disabled', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled(),
+        disableMetrics: true,
+      });
+
+      await client.evaluate('flagA', undefined, undefined, { track: true });
+      await client.bulkEvaluate([{ key: 'flagA' }], undefined, {
+        track: true,
+      });
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+                mode: 'offline',
+                revision: '1',
+                environment: 'production',
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      cleanupCtx();
+    });
+
     it('should report FLAGS_CONFIG_READ when using provided datafile in build step', async () => {
       const passedDatafile = makeBundled({
         configUpdatedAt: 2,
@@ -3587,7 +3917,9 @@ describe('Controller (black-box)', () => {
         datafile: passedDatafile,
       });
 
-      await expect(client.evaluate('flagA')).resolves.toEqual({
+      await expect(
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ).resolves.toEqual({
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
@@ -3599,14 +3931,16 @@ describe('Controller (black-box)', () => {
         outcomeType: 'value',
         reason: 'paused',
         value: true,
+        variantId: null,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
 
-      // No ingest call: trackRead skips when request context is unavailable (build step has no request context)
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectEvaluationOnlyIngest();
     });
 
     it('should not track FLAGS_CONFIG_READ during build step (no request context)', async () => {
@@ -3621,12 +3955,16 @@ describe('Controller (black-box)', () => {
       });
 
       // Multiple evaluates during build
-      await Promise.all([client.evaluate('flagA'), client.evaluate('flagA')]);
-      await client.evaluate('flagA');
+      await Promise.all([
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ]);
+      await client.evaluate('flagA', undefined, undefined, { track: true });
 
       await client.shutdown();
-      // No ingest call: trackRead skips when request context is unavailable
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectEvaluationOnlyIngest(3);
     });
 
     it('should report FLAGS_CONFIG_READ with FOLLOWING cacheAction when streaming', async () => {
@@ -3657,7 +3995,7 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       // Evaluate while streaming
-      await client.evaluate('flagA');
+      await client.evaluate('flagA', undefined, undefined, { track: true });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -3690,6 +4028,17 @@ describe('Controller (black-box)', () => {
                 environment: 'production',
               },
             },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+              },
+            },
           ]),
           headers: ingestRequestHeaders,
           method: 'POST',
@@ -3711,7 +4060,9 @@ describe('Controller (black-box)', () => {
         fetch: fetchMock,
       });
 
-      await expect(client.evaluate('flagA')).resolves.toEqual({
+      await expect(
+        client.evaluate('flagA', undefined, undefined, { track: true }),
+      ).resolves.toEqual({
         metrics: {
           cacheStatus: 'HIT',
           connectionState: 'disconnected',
@@ -3723,14 +4074,16 @@ describe('Controller (black-box)', () => {
         outcomeType: 'value',
         reason: 'paused',
         value: true,
+        variantId: null,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();
 
       await client.shutdown();
 
-      // No ingest call: trackRead skips when request context is unavailable
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Config reads skip without request context, but evaluations are still reported.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectEvaluationOnlyIngest();
     });
   });
 });
