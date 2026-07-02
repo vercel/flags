@@ -85,7 +85,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
 
-   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, read and follow the `vercel-cli` skill. If it's not installed, run `npx skills add https://github.com/vercel/vercel --skill vercel-cli`.
+   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
    Before running `vercel flags add`, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
