@@ -1,5 +1,11 @@
 # @vercel/prepare-flags-definitions
 
+## 0.4.0
+
+### Minor Changes
+
+- [#421](https://github.com/vercel/flags/pull/421) [`d601dba`](https://github.com/vercel/flags/commit/d601dba20a6225c49617937ff11915374597bb48) Thanks [@luismeyer](https://github.com/luismeyer)! - Add fetch retries
+
 ## 0.3.0
 
 ### Minor Changes
