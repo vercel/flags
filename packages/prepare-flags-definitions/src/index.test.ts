@@ -353,6 +353,61 @@ describe('prepareFlagsDefinitions', () => {
     `);
   });
 
+  it('retries transient failures and succeeds', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: 'busy' })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ flag_a: { value: true } }),
+      });
+
+    const result = await prepareFlagsDefinitions({
+      cwd: '/tmp/test-retry-success',
+      env: { FLAGS_SECRET: 'vf_server_retry_key' },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, entryCount: 1 });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up after exhausting retries on persistent failures', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500, statusText: 'boom' });
+
+    await expect(
+      prepareFlagsDefinitions({
+        cwd: '/tmp/test-retry-exhausted',
+        env: { FLAGS_SECRET: 'vf_server_retry_key' },
+        fetch: mockFetch,
+      }),
+    ).rejects.toThrow(/500 boom/);
+
+    // 1 initial attempt + FETCH_MAX_RETRIES retries
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not retry non-retryable client errors', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'unauthorized',
+    });
+
+    await expect(
+      prepareFlagsDefinitions({
+        cwd: '/tmp/test-no-retry',
+        env: { FLAGS_SECRET: 'vf_server_retry_key' },
+        fetch: mockFetch,
+      }),
+    ).rejects.toThrow(/401 unauthorized/);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('stores OIDC definitions alongside SDK Keys with different datafiles', async () => {
     const mockFetch = vi
       .fn()
