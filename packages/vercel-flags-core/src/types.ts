@@ -129,7 +129,7 @@ export type BulkEvaluateInput<T = Value> = {
 export type EvaluateOptions = {
   /**
    * When true, an evaluation event is tracked for this call.
-   * @default false
+   * @default true
    */
   track?: boolean;
 };
