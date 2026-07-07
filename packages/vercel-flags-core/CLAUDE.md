@@ -257,7 +257,7 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 ### Usage Tracking
 
-- Batches flag read/evaluation events; flushes on any of: 50 distinct events, a 5s idle window (reset on every event), or a 60s max window (starts with the batch, never reset)
+- Batches flag read/evaluation events; flushes on any of: 1000 distinct events, a 5s idle window (reset on every event), or a 60s max window (starts with the batch, never reset)
 - The scheduled flush awaits the full ingest send (incl. retries) before its `waitUntil` promise resolves; `shutdown()` drains any in-flight batch instead of orphaning it
 - Sends to `flags.vercel.com/v1/ingest`
 - At runtime: deduplicates by request context (per-instance WeakSet in UsageTracker)

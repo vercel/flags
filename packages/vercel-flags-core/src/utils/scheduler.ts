@@ -1,7 +1,7 @@
 import { waitUntil } from '@vercel/functions';
 import { getJitteredWaitMs } from './backoff';
 
-const MAX_COUNT = 1000;
+const MAX_COUNT = 2000;
 const IDLE_FLUSH_WAIT_MS = 5000;
 const IDLE_FLUSH_JITTER_RATIO = 0.2;
 const MAX_FLUSH_WAIT_MS = 60000;

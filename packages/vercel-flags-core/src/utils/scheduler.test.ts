@@ -87,7 +87,7 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler(onFlush);
 
     scheduler.scheduleFlush();
-    for (let i = 0; i < 49; i++) {
+    for (let i = 0; i < 1999; i++) {
       scheduler.increment();
     }
     expect(onFlush).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler(onFlush);
 
     scheduler.scheduleFlush();
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 2000; i++) {
       scheduler.increment();
     }
 
@@ -125,7 +125,7 @@ describe('Scheduler', () => {
 
     // A new batch should accumulate independently and flush again.
     scheduler.scheduleFlush();
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 2000; i++) {
       scheduler.increment();
     }
 
@@ -148,7 +148,7 @@ describe('Scheduler', () => {
     });
 
     // Trigger the flush via the count threshold.
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 2000; i++) {
       scheduler.increment();
     }
 

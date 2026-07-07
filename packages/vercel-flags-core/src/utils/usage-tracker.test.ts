@@ -1026,13 +1026,13 @@ describe('UsageTracker', () => {
   });
 
   describe('batch size limit', () => {
-    it('should trigger flush when batch size reaches 50', async () => {
+    it('should trigger flush when batch size reaches 2000', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
-      // Track 50 events with different request contexts to avoid deduplication
-      for (let i = 0; i < 50; i++) {
+      // Track 2000 events with different request contexts to avoid deduplication
+      for (let i = 0; i < 2000; i++) {
         cleanupContext?.();
         cleanupContext = setRequestContext({
           host: 'example.com',
@@ -1041,13 +1041,13 @@ describe('UsageTracker', () => {
         tracker.trackRead();
       }
 
-      // Should auto-flush at 50 events — wait for the scheduled flush
+      // Should auto-flush at 2000 events — wait for the scheduled flush
       await vi.waitFor(() => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
       });
 
       const events = getBody() as Array<{ type: string }>;
-      expect(events).toHaveLength(50);
+      expect(events).toHaveLength(2000);
       expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_count');
     });
   });
