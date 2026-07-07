@@ -1050,6 +1050,38 @@ describe('UsageTracker', () => {
       expect(events).toHaveLength(2000);
       expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_count');
     });
+
+    it('should split a flush of more than 2000 events into multiple POSTs', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      // Synchronously track 2500 distinct events. The scheduler resolves the
+      // max_count flush at 2000, but the flush reads the event maps in a
+      // microtask that only runs after this loop, so the batch overshoots.
+      for (let i = 0; i < 2500; i++) {
+        tracker.trackEvaluation({
+          flagKey: `flag-${i}`,
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      });
+
+      // Each POST stays at or below the 2000-event chunk size, and both
+      // chunks belong to the same flush (same flush reason header).
+      expect(getBody(0)).toHaveLength(2000);
+      expect(getBody(1)).toHaveLength(500);
+      expect(getHeaders(0)[FLUSH_REASON_HEADER]).toBe('max_count');
+      expect(getHeaders(1)[FLUSH_REASON_HEADER]).toBe('max_count');
+
+      // Everything was sent; shutdown has nothing left to flush.
+      await tracker.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('error handling in trackRead', () => {
