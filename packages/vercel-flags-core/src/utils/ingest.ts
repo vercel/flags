@@ -10,11 +10,11 @@ const MAX_RETRIES = 3;
 /**
  * Maximum number of events sent in a single POST to the ingest endpoint.
  *
- * The server rejects request bodies with more events than its `maxItems` cap
- * (see `services/api-flags-ingestion/src/index.ts` in vercel/api) — this
- * constant must stay below that cap. Batches can exceed the scheduler's flush
- * threshold because events accumulate until the flush microtask runs, so every
- * flush is chunked to keep each request under the server limit.
+ * Flushes are cut purely by time (see Scheduler), so a single flush can carry
+ * arbitrarily many events. Chunking each send is what bounds the request size:
+ * the server rejects request bodies with more events than its `maxItems` cap
+ * (see `services/api-flags-ingestion/src/index.ts` in vercel/api), so this
+ * constant must stay below that cap.
  */
 export const MAX_EVENTS_PER_REQUEST = 2000;
 

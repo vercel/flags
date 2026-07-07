@@ -82,24 +82,6 @@ describe('Scheduler', () => {
     expect(onFlush).toHaveBeenCalledWith('idle_timeout');
   });
 
-  it('flushes when the count reaches the max batch size', async () => {
-    const onFlush = vi.fn();
-    const scheduler = new Scheduler(onFlush);
-
-    scheduler.scheduleFlush();
-    for (let i = 0; i < 1999; i++) {
-      scheduler.increment();
-    }
-    expect(onFlush).not.toHaveBeenCalled();
-
-    scheduler.increment();
-
-    await vi.waitFor(() => {
-      expect(onFlush).toHaveBeenCalledTimes(1);
-    });
-    expect(onFlush).toHaveBeenCalledWith('max_count');
-  });
-
   it('registers the scheduled flush with waitUntil', () => {
     const scheduler = new Scheduler(vi.fn());
 
@@ -114,20 +96,16 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler(onFlush);
 
     scheduler.scheduleFlush();
-    for (let i = 0; i < 2000; i++) {
-      scheduler.increment();
-    }
+    await vi.advanceTimersByTimeAsync(5000);
 
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(1);
     });
-    expect(onFlush).toHaveBeenNthCalledWith(1, 'max_count');
+    expect(onFlush).toHaveBeenNthCalledWith(1, 'idle_timeout');
 
     // A new batch should accumulate independently and flush again.
     scheduler.scheduleFlush();
-    for (let i = 0; i < 2000; i++) {
-      scheduler.increment();
-    }
+    await vi.advanceTimersByTimeAsync(5000);
 
     await vi.waitFor(() => {
       expect(onFlush).toHaveBeenCalledTimes(2);
@@ -147,15 +125,12 @@ describe('Scheduler', () => {
       settled = true;
     });
 
-    // Trigger the flush via the count threshold.
-    for (let i = 0; i < 2000; i++) {
-      scheduler.increment();
-    }
+    // Trigger the flush via the idle window.
+    await vi.advanceTimersByTimeAsync(5000);
 
     // onFlush has been invoked, but the pending promise must not resolve yet.
-    await vi.advanceTimersByTimeAsync(0);
     expect(onFlush).toHaveBeenCalledTimes(1);
-    expect(onFlush).toHaveBeenCalledWith('max_count');
+    expect(onFlush).toHaveBeenCalledWith('idle_timeout');
     expect(settled).toBe(false);
 
     flushDeferred.resolve();

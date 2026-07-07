@@ -60,9 +60,7 @@ export class UsageTracker {
 
       this.readEvents.push(new FlagsConfigReadEvent(headers, options));
 
-      // always schedule and increment since we are adding a new event here
       this.scheduler.scheduleFlush();
-      this.scheduler.increment();
     } catch (error) {
       // trackRead should never throw, but log the error
       console.error('@vercel/flags-core: Failed to record event:', error);
@@ -89,9 +87,6 @@ export class UsageTracker {
           batchKey,
           new FlagsEvaluationEvent(bucketedOptions),
         );
-
-        // only increment the scheduler if we are adding a new event
-        this.scheduler.increment();
       }
 
       // always schedule to reset the timer

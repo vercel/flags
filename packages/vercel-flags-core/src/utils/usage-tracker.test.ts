@@ -673,13 +673,13 @@ describe('UsageTracker', () => {
       expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('idle_timeout');
     });
 
-    it('should not count repeated evaluations of the same bucket toward the batch threshold', async () => {
+    it('should aggregate repeated evaluations of the same bucket into a single event', async () => {
       vi.useFakeTimers();
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
-      // Track the same bucket well past the 50-event threshold.
+      // Track the same bucket repeatedly.
       for (let i = 0; i < 60; i++) {
         tracker.trackEvaluation({
           flagKey: 'flag-a',
@@ -688,7 +688,7 @@ describe('UsageTracker', () => {
         });
       }
 
-      // No count-based flush should fire (a single distinct bucket).
+      // No flush fires before the idle window elapses.
       await vi.advanceTimersByTimeAsync(4999);
       expect(fetchMock).not.toHaveBeenCalled();
 
@@ -1026,39 +1026,11 @@ describe('UsageTracker', () => {
   });
 
   describe('batch size limit', () => {
-    it('should trigger flush when batch size reaches 2000', async () => {
+    it('should not trigger a flush based on batch size', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
-      // Track 2000 events with different request contexts to avoid deduplication
-      for (let i = 0; i < 2000; i++) {
-        cleanupContext?.();
-        cleanupContext = setRequestContext({
-          host: 'example.com',
-          'x-vercel-id': `req-${i}`,
-        });
-        tracker.trackRead();
-      }
-
-      // Should auto-flush at 2000 events — wait for the scheduled flush
-      await vi.waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-      });
-
-      const events = getBody() as Array<{ type: string }>;
-      expect(events).toHaveLength(2000);
-      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_count');
-    });
-
-    it('should split a flush of more than 2000 events into multiple POSTs', async () => {
-      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
-
-      const tracker = createTracker();
-
-      // Synchronously track 2500 distinct events. The scheduler resolves the
-      // max_count flush at 2000, but the flush reads the event maps in a
-      // microtask that only runs after this loop, so the batch overshoots.
       for (let i = 0; i < 2500; i++) {
         tracker.trackEvaluation({
           flagKey: `flag-${i}`,
@@ -1067,20 +1039,35 @@ describe('UsageTracker', () => {
         });
       }
 
-      await vi.waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledTimes(2);
-      });
+      // Flushing is purely time-based; no count threshold fires.
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await tracker.shutdown();
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('should split a flush of more than 2000 events into multiple POSTs', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      for (let i = 0; i < 2500; i++) {
+        tracker.trackEvaluation({
+          flagKey: `flag-${i}`,
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      await tracker.shutdown();
 
       // Each POST stays at or below the 2000-event chunk size, and both
       // chunks belong to the same flush (same flush reason header).
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(getBody(0)).toHaveLength(2000);
       expect(getBody(1)).toHaveLength(500);
-      expect(getHeaders(0)[FLUSH_REASON_HEADER]).toBe('max_count');
-      expect(getHeaders(1)[FLUSH_REASON_HEADER]).toBe('max_count');
-
-      // Everything was sent; shutdown has nothing left to flush.
-      await tracker.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(getHeaders(0)[FLUSH_REASON_HEADER]).toBe('shutdown');
+      expect(getHeaders(1)[FLUSH_REASON_HEADER]).toBe('shutdown');
     });
   });
 

@@ -1,29 +1,25 @@
 import { waitUntil } from '@vercel/functions';
 import { getJitteredWaitMs } from './backoff';
 
-const MAX_COUNT = 2000;
 const IDLE_FLUSH_WAIT_MS = 5000;
 const IDLE_FLUSH_JITTER_RATIO = 0.2;
 const MAX_FLUSH_WAIT_MS = 60000;
 
-export type FlushReason =
-  | 'max_count'
-  | 'idle_timeout'
-  | 'max_timeout'
-  | 'shutdown';
+export type FlushReason = 'idle_timeout' | 'max_timeout' | 'shutdown';
 
 /**
  * Schedule helper that flushes when any of the following occur:
- * - the batch size is reached ({@link MAX_COUNT} distinct events),
  * - the idle window elapses ({@link IDLE_FLUSH_WAIT_MS}, reset on every event), or
  * - the max window elapses ({@link MAX_FLUSH_WAIT_MS}, starts with the batch and is
  *   never reset, so a batch always flushes under continuous traffic).
+ *
+ * Flushing is purely time-based; batches are only cut down to size when the
+ * ingest events are sent (see MAX_EVENTS_PER_REQUEST in ingest.ts).
  *
  * The scheduled flush awaits {@link onFlush} (including its ingest send + retries),
  * so the promise handed to `waitUntil` does not resolve until ingest completes.
  */
 export class Scheduler {
-  private count: number = 0;
   private resolveWait: ((reason: FlushReason) => void) | null = null;
   private pending: null | Promise<void> = null;
   private idleTimeout: null | ReturnType<typeof setTimeout> = null;
@@ -32,15 +28,6 @@ export class Scheduler {
   constructor(
     private readonly onFlush: (reason: FlushReason) => void | Promise<void>,
   ) {}
-
-  increment(): void {
-    this.count += 1;
-
-    // immediately flush if we've reached the batch size
-    if (this.count >= MAX_COUNT) {
-      this.resolveScheduledFlush('max_count');
-    }
-  }
 
   scheduleFlush(): void {
     if (!this.pending) {
@@ -100,7 +87,6 @@ export class Scheduler {
   private reset(): void {
     this.pending = null;
     this.resolveWait = null;
-    this.count = 0;
     this.clearTimeouts();
   }
 
