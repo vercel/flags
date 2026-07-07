@@ -3,9 +3,20 @@ import { version } from '../../package.json';
 import type { Auth } from '../controller/auth';
 import { getRetryDelayMs } from './backoff';
 import type { FlushReason } from './scheduler';
-import type { UsageEvent } from './usage/events';
+import type { IngestEvent, UsageEvent } from './usage/events';
 
 const MAX_RETRIES = 3;
+
+/**
+ * Maximum number of events sent in a single POST to the ingest endpoint.
+ *
+ * The server rejects request bodies with more events than its `maxItems` cap
+ * (see `services/api-flags-ingestion/src/index.ts` in vercel/api) — this
+ * constant must stay below that cap. Batches can exceed the scheduler's flush
+ * threshold because events accumulate until the flush microtask runs, so every
+ * flush is chunked to keep each request under the server limit.
+ */
+export const MAX_EVENTS_PER_REQUEST = 2000;
 
 export const EVALUATING_OIDC_TOKEN_HEADER = 'X-Vercel-Flags-OIDC-Token';
 export const FLUSH_REASON_HEADER = 'X-Vercel-Flags-Flush-Reason';
@@ -63,6 +74,22 @@ export async function sendIngestEvents(
 ): Promise<void> {
   const eventsToSend = events.map((event) => event.ingestEvent());
 
+  for (let i = 0; i < eventsToSend.length; i += MAX_EVENTS_PER_REQUEST) {
+    await sendIngestChunk(
+      options,
+      eventsToSend.slice(i, i + MAX_EVENTS_PER_REQUEST),
+      flushId,
+      flushReason,
+    );
+  }
+}
+
+async function sendIngestChunk(
+  options: IngestOptions,
+  eventsToSend: IngestEvent[],
+  flushId: number,
+  flushReason: FlushReason,
+): Promise<void> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await options.fetch(`${options.host}/v1/ingest`, {
@@ -76,6 +103,16 @@ export async function sendIngestEvents(
       );
 
       if (response.ok) {
+        break;
+      }
+
+      // 4xx responses are deterministic; retrying the same payload cannot
+      // succeed, so drop the chunk immediately instead of retrying.
+      if (response.status >= 400 && response.status < 500) {
+        console.error(
+          `@vercel/flags-core: Dropped ${eventsToSend.length} events after non-retryable status ${response.status} on request ${response.headers.get('x-vercel-id')} (flushId=${flushId}).\n` +
+            `Response body: ${await response.text().catch(() => null)}`,
+        );
         break;
       }
 
