@@ -1,5 +1,5 @@
 ---
-'@flags-sdk/launchdarkly': minor
+'@flags-sdk/launchdarkly': major
 ---
 
 Support the native LaunchDarkly Marketplace integration.
