@@ -84,9 +84,9 @@ The `decide` function then later gets access to the{" "}
   Learn more about `identify`
 </LearnMore>
 
-## Evaluation Context
+## Evaluation context
 
-Feature Flags used on dashboards will usually run in the Serverless
+Feature flags used on dashboards will usually run in the Serverless
 Function Region, close to the database. This means it is acceptable for
 a feature flag's `decide` function to read the database
 when establishing the evaluation context. However, ideally, it would

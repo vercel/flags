@@ -2,15 +2,14 @@
 title: Data Locality
 ---
 
-This document describes information on where feature flags are
-evaluated, the data they need to be evaluated, and the consequences this
-has on latency.
+Where feature flags are evaluated, and what data they need, determines
+the latency you pay to evaluate them.
 
-In order to evaluate feature flags two types of data are needed:
+To evaluate feature flags, two types of data are needed:
 
 - The **definition** contains the rules for evaluating the feature,
   such as who the feature flag should be enabled for. This is typically
-  loaded from a feature flag provided.
+  loaded from a feature flag provider.
 - The **evaluation context** is data about the user or entity the feature flags are evaluated for.
 
 A feature flag evaluation can be thought of like this:
@@ -22,9 +21,9 @@ evaluate(definition, evaluation context) = value
 Evaluating a feature flag requires the definition and the evaluation
 context.
 
-A simple feature flag which is on or off for all users does not need an
-evaluation context. An advanced feature flag which is only on for some
-users needs an evaluation context.
+A feature flag that is on or off for all users does not need an
+evaluation context. A feature flag that is only on for some users needs
+an evaluation context.
 
 ## Where feature flags can be evaluated
 
@@ -68,8 +67,8 @@ Flags SDK.
 ## Evaluating on the server
 
 Feature flags can be evaluated on the server using the Flags SDK. This
-is the most common way to evaluate feature flags, and is the easiest to
-implement.
+is the most common way to evaluate feature flags, and the most
+straightforward to implement.
 
 The serverless function region is typically close to your
 application&apos;s database, so it is somewhat okay to make a network
@@ -77,8 +76,8 @@ request to establish the evaluation context.
 
 ## Evaluating at the edge
 
-In order to evaluate feature flags at the edge it&apos;s necessary to
-have the definition and the evaluation context available at the edge.
+To evaluate feature flags at the edge, you need the definition and the
+evaluation context available at the edge.
 
 Using Edge Config allows storing definitions at the Edge as shown in the
 previous section. This means you can use feature flags in Routing
@@ -89,7 +88,7 @@ evaluate. Since the evaluation context depends on the application it is
 up to the application to provide it at low latency.
 
 Making a network request or reading a database to get the evaluation
-context inside of Routing Middleware should be avoided at all cost.
+context inside of Routing Middleware should be avoided at all costs.
 
 Instead, it is wise to store the information necessary to evaluate
 feature flags in a cookie when users sign into an application. The
@@ -114,7 +113,7 @@ the evaluation context.
 Feature flags can also be evaluated on the client. The Flags SDK does
 not have a built-in pattern for doing so currently.
 
-It is however possible to evalaute feature flags on the server and pass
+It is however possible to evaluate feature flags on the server and pass
 the evaluated value down to the client.
 
 There is also a pattern, independent of the Flags SDK, which is

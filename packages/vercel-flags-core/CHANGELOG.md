@@ -1,5 +1,20 @@
 # @vercel/flags-core
 
+## 1.5.2
+
+### Patch Changes
+
+- [#416](https://github.com/vercel/flags/pull/416) [`f60c99d`](https://github.com/vercel/flags/commit/f60c99d70741e5e8e5af0a069deaf34a3129a27e) Thanks [@dferber90](https://github.com/dferber90)! - Fix datafile serialization across the RSC server/client boundary.
+
+  Evaluation memoized scaled split weights and compiled regexes by attaching
+  symbol-keyed properties directly onto objects inside the datafile. While
+  symbols are invisible to `JSON.stringify`, React Server Components serialization
+  walks objects directly and chokes on these (notably the non-serializable
+  `RegExp`), so datafiles could no longer be passed from server to client
+  components. Memoization now uses module-level `WeakMap`s keyed by the
+  outcome/rhs objects, leaving datafile objects pristine while keeping identical
+  caching semantics and lifetime.
+
 ## 1.5.1
 
 ### Patch Changes
