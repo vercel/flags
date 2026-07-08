@@ -6,7 +6,9 @@ import type {
   Metrics,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
-import { type TrackReadOptions, UsageTracker } from '../utils/usage-tracker';
+import type { TrackReadOptions } from '../utils/usage/flags-config-read';
+import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
+import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
 import {
@@ -346,7 +348,7 @@ export class Controller implements ControllerInterface {
       ? tagData(this.options.datafile, 'provided')
       : undefined;
     this.transition('shutdown');
-    await this.usageTracker.flush();
+    await this.usageTracker.shutdown();
   }
 
   /**
@@ -813,5 +815,17 @@ export class Controller implements ControllerInterface {
       trackOptions.cacheIsFirstRead = true;
     }
     this.usageTracker.trackRead(trackOptions);
+  }
+
+  /**
+   * Tracks a flag evaluation for usage analytics.
+   */
+  trackEvaluation(options: TrackEvaluationOptions): void {
+    if (this.unauthorized || this.options.disableMetrics) return;
+
+    this.usageTracker.trackEvaluation({
+      ...options,
+      clientName: options.clientName ?? this.options.clientName,
+    });
   }
 }

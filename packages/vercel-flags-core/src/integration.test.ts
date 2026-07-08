@@ -151,6 +151,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -173,6 +174,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -193,6 +195,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -221,6 +224,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -247,6 +251,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });

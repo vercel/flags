@@ -23,6 +23,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -40,6 +41,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
@@ -59,6 +61,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.ERROR,
         errorMessage:
           'Could not find envConfig for "this-env-does-not-exist-and-will-cause-an-error"',
@@ -88,6 +91,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -115,6 +119,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
+      variantId: null,
       reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -140,6 +145,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
+      variantId: null,
       reason: ResolutionReason.FALLTHROUGH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -167,6 +173,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -183,6 +190,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
+      variantId: null,
       reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
@@ -199,6 +207,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
@@ -237,6 +246,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     });
@@ -258,6 +268,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: false,
+      variantId: null,
       reason: ResolutionReason.PAUSED,
       outcomeType: OutcomeType.VALUE,
     });
@@ -281,6 +292,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.TARGET_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -335,6 +347,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -352,6 +365,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -376,6 +390,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -398,6 +413,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -417,6 +433,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -442,6 +459,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -464,6 +482,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -484,6 +503,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -512,6 +532,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -538,6 +559,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -1954,6 +1976,7 @@ describe('evaluate', () => {
       }),
     ).toEqual({
       value: result,
+      variantId: null,
       reason: result
         ? ResolutionReason.RULE_MATCH
         : ResolutionReason.FALLTHROUGH,
@@ -1992,6 +2015,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -2027,6 +2051,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -2062,6 +2087,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -2168,6 +2194,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: result,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.SPLIT,
       });
@@ -2255,6 +2282,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.ROLLOUT,
       });
@@ -2274,6 +2302,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.ROLLOUT,
       });
@@ -2293,6 +2322,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.ROLLOUT,
       });
@@ -2312,6 +2342,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.ROLLOUT,
       });
@@ -2437,6 +2468,7 @@ describe('evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.ROLLOUT,
       });
@@ -2484,16 +2516,19 @@ describe('bulkEvaluate', () => {
     ).toEqual({
       active: {
         value: true,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       },
       paused: {
         value: false,
+        variantId: null,
         reason: ResolutionReason.PAUSED,
         outcomeType: OutcomeType.VALUE,
       },
       ruled: {
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       },
@@ -2516,11 +2551,13 @@ describe('bulkEvaluate', () => {
 
     expect(results.a).toEqual({
       value: true,
+      variantId: null,
       reason: ResolutionReason.ERROR,
       errorMessage: 'Could not find envConfig for "this-env-does-not-exist"',
     });
     expect(results.b).toEqual({
       value: false,
+      variantId: null,
       reason: ResolutionReason.ERROR,
       errorMessage: 'Could not find envConfig for "this-env-does-not-exist"',
     });
@@ -2565,6 +2602,7 @@ describe('bulkEvaluate', () => {
 
     const expected: EvaluationResult<boolean> = {
       value: true,
+      variantId: null,
       reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.VALUE,
     };
