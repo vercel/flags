@@ -10,14 +10,7 @@ import type { FlagsClient } from './types';
 /**
  * Options for createClient
  */
-export type CreateClientOptions = Omit<ControllerOptions, 'auth'> & {
-  /**
-   * Disable evaluation metrics for this client, even when evaluate() or
-   * bulkEvaluate() is called with `{ track: true }`.
-   * @default false
-   */
-  disableMetrics?: boolean;
-};
+export type CreateClientOptions = Omit<ControllerOptions, 'auth'>;
 
 type CreateClient = {
   <Entities = Record<string, unknown>>(
@@ -61,15 +54,14 @@ export function make(
     const createClientOptions = optionsOnly
       ? sdkKeyOrConnectionStringOrOptions
       : options;
-    const { disableMetrics, ...controllerOptions } = createClientOptions ?? {};
+
     const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
-    const controller = new Controller({ auth, ...controllerOptions });
+    const controller = new Controller({ auth, ...createClientOptions });
     return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey: auth.sdkKey },
-      disableMetrics,
     });
   }
 

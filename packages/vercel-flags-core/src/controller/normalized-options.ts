@@ -57,6 +57,12 @@ export type ControllerOptions = {
    * Custom client name included in evaluation telemetry.
    */
   clientName?: string;
+
+  /**
+   * Disable evaluation metrics for this client.
+   * @default false
+   */
+  disableMetrics?: boolean;
 };
 
 export type NormalizedOptions = {
@@ -68,6 +74,7 @@ export type NormalizedOptions = {
   fetch: typeof globalThis.fetch;
   host: string;
   clientName: string | undefined;
+  disableMetrics: boolean;
 };
 
 export function normalizeOptions(
@@ -118,5 +125,6 @@ export function normalizeOptions(
     fetch: options.fetch ?? globalThis.fetch,
     host: 'https://flags.vercel.com',
     clientName: options.clientName,
+    disableMetrics: options.disableMetrics ?? false,
   };
 }

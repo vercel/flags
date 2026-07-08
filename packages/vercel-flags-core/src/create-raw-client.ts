@@ -14,7 +14,6 @@ import type {
   BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
-  EvaluateOptions,
   EvaluationResult,
   FlagsClient,
   Value,
@@ -47,11 +46,9 @@ export function createCreateRawClient(fns: {
   return function createRawClient<Entities = Record<string, unknown>>({
     controller,
     origin,
-    disableMetrics = false,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey?: string };
-    disableMetrics?: boolean;
   }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
@@ -102,7 +99,6 @@ export function createCreateRawClient(fns: {
         flagKey: string,
         defaultValue?: T,
         entities?: E,
-        options: EvaluateOptions = { track: true },
       ): Promise<EvaluationResult<T>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -113,18 +109,11 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.evaluate<T, E>(
-          id,
-          flagKey,
-          defaultValue,
-          entities,
-          disableMetrics ? { ...options, track: false } : options,
-        );
+        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
       },
       bulkEvaluate: async <T = Value, E = Entities>(
         flags: BulkEvaluateInput<T>[],
         entities?: E,
-        options: EvaluateOptions = { track: true },
       ): Promise<Record<string, EvaluationResult<T>>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -135,12 +124,7 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.bulkEvaluate<T, E>(
-          id,
-          flags,
-          entities,
-          disableMetrics ? { ...options, track: false } : options,
-        );
+        return fns.bulkEvaluate<T, E>(id, flags, entities);
       },
     };
     return api;

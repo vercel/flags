@@ -821,7 +821,7 @@ export class Controller implements ControllerInterface {
    * Tracks a flag evaluation for usage analytics.
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
-    if (this.unauthorized) return;
+    if (this.unauthorized || this.options.disableMetrics) return;
 
     this.usageTracker.trackEvaluation({
       ...options,

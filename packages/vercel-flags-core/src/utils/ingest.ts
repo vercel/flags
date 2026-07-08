@@ -12,8 +12,7 @@ const MAX_RETRIES = 3;
  *
  * Flushes are cut purely by time (see Scheduler), so a single flush can carry
  * arbitrarily many events. Chunking each send is what bounds the request size:
- * the server rejects request bodies with more events than its `maxItems` cap
- * (see `services/api-flags-ingestion/src/index.ts` in vercel/api), so this
+ * the server rejects request bodies with more events than its `maxItems` cap, so this
  * constant must stay below that cap.
  */
 export const MAX_EVENTS_PER_REQUEST = 2000;

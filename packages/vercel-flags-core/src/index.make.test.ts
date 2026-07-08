@@ -116,27 +116,6 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
-    it('should pass disableMetrics to the raw client without passing it to the controller', () => {
-      const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
-
-      const client = createClient('vf_server_test_key', {
-        clientName: 'checkout',
-        disableMetrics: true,
-      });
-
-      expect(Controller).toHaveBeenCalledWith({
-        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
-        clientName: 'checkout',
-      });
-      expect(createRawClient).toHaveBeenCalledWith({
-        controller: expect.any(Object),
-        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
-        disableMetrics: true,
-      });
-      expect(client).toBeDefined();
-    });
-
     it('should throw for empty SDK key', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
