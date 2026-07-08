@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/vercel",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "A Flags SDK adapter for Vercel Flags",
   "keywords": [
     "vercel",
