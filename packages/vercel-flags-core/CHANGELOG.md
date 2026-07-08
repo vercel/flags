@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.6.0
+
+### Minor Changes
+
+- [#401](https://github.com/vercel/flags/pull/401) [`9dff590`](https://github.com/vercel/flags/commit/9dff590bd5628bd93098637c2e9b3d1a043e4d4b) Thanks [@luismeyer](https://github.com/luismeyer)! - Add aggregated flag evaluation telemetry and a `clientName` option for the Vercel Flags client.
+
 ## 1.5.2
 
 ### Patch Changes
