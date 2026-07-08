@@ -4053,4 +4053,272 @@ describe('Controller (black-box)', () => {
       expectEvaluationOnlyIngest();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Client config from datafile (config.disableMetrics)
+  // ---------------------------------------------------------------------------
+  describe('client config from datafile', () => {
+    it('should not ingest any metrics when the datafile sets config.disableMetrics', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled({ config: { disableMetrics: true } }),
+      });
+
+      const result = await client.evaluate('flagA', undefined, undefined);
+      expect(result.value).toBe(true);
+      await client.bulkEvaluate([{ key: 'flagA' }], undefined);
+      await client.shutdown();
+
+      // Evaluation still works, but nothing is ever sent to the ingest endpoint
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      cleanupCtx();
+    });
+
+    it('should ingest metrics unchanged when config is present without disableMetrics', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled({ config: {} }),
+      });
+
+      await client.evaluate('flagA', undefined, undefined);
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 1,
+                mode: 'offline',
+                revision: '1',
+                environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      cleanupCtx();
+    });
+
+    it('should stop tracking when a stream update flips disableMetrics on', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 1, revision: 1 }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Tracked while metrics are enabled
+      const result1 = await client.evaluate('flagA', undefined, undefined);
+      expect(result1.value).toBe(true);
+
+      // Server flips disableMetrics via a stream update
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 2,
+          revision: 2,
+          config: { disableMetrics: true },
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Subsequent tracking is suppressed
+      const result2 = await client.evaluate('flagA', undefined, undefined);
+      expect(result2.value).toBe(true);
+
+      stream.close();
+      await client.shutdown();
+
+      // Only the stream connection ever hit the network — pending events are
+      // dropped instead of flushed once the latest datafile disables metrics.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: streamRequestHeaders,
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      cleanupCtx();
+    });
+
+    it('should resume tracking when a stream update flips disableMetrics off', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response(null, { status: 200 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = client.initialize();
+
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 1,
+          revision: 1,
+          config: { disableMetrics: true },
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Not tracked while metrics are disabled
+      await client.evaluate('flagA', undefined, undefined);
+
+      // Server re-enables metrics via a stream update
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 2,
+          revision: 2,
+          config: { disableMetrics: false },
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Tracked again
+      await client.evaluate('flagA', undefined, undefined);
+
+      stream.close();
+      await client.shutdown();
+
+      // Stream connection + a single ingest flush containing only the
+      // events recorded after metrics were re-enabled.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'FOLLOWING',
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 2,
+                mode: 'stream',
+                revision: '2',
+                environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      cleanupCtx();
+    });
+
+    it('should not ingest any metrics when bundled definitions set config.disableMetrics', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled({ config: { disableMetrics: true } }),
+      });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: true,
+        fetch: fetchMock,
+      });
+
+      const result = await client.evaluate('flagA', undefined, undefined);
+      expect(result.value).toBe(true);
+
+      await client.shutdown();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

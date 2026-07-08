@@ -144,7 +144,10 @@ export class Controller implements ControllerInterface {
       this.data = tagData(this.options.datafile, 'provided');
     }
 
-    this.usageTracker = new UsageTracker(this.options);
+    this.usageTracker = new UsageTracker(
+      this.options,
+      () => this.metricsDisabledByConfig,
+    );
   }
 
   // Source event handlers (stored for cleanup)
@@ -344,11 +347,14 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.transition('shutdown');
+    // Flush while `this.data` still reflects the latest known datafile, so
+    // server-driven client config (e.g. `config.disableMetrics`) applies to
+    // the final flush.
+    await this.usageTracker.shutdown();
     this.data = this.options.datafile
       ? tagData(this.options.datafile, 'provided')
       : undefined;
-    this.transition('shutdown');
-    await this.usageTracker.shutdown();
   }
 
   /**
@@ -772,6 +778,19 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
+   * Whether the latest known datafile disables metrics via its client config.
+   *
+   * The server can send `config.disableMetrics: true` in the datafile
+   * (delivered via stream, poll, one-time fetch, bundled definitions, or a
+   * provided datafile). While the latest known data says metrics are
+   * disabled, no usage events may be recorded or sent. Config arriving at
+   * runtime (e.g. a stream update) takes effect for subsequent tracking.
+   */
+  private get metricsDisabledByConfig(): boolean {
+    return this.data?.config?.disableMetrics === true;
+  }
+
+  /**
    * Tracks a read operation for usage analytics.
    * During build steps, only the first read is tracked.
    */
@@ -781,7 +800,7 @@ export class Controller implements ControllerInterface {
     isFirstRead: boolean,
     source: Metrics['source'],
   ): void {
-    if (this.unauthorized) return;
+    if (this.unauthorized || this.metricsDisabledByConfig) return;
     if (this.options.buildStep && this.buildReadTracked) return;
     if (this.options.buildStep) this.buildReadTracked = true;
 
@@ -821,7 +840,13 @@ export class Controller implements ControllerInterface {
    * Tracks a flag evaluation for usage analytics.
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
-    if (this.unauthorized || this.options.disableMetrics) return;
+    if (
+      this.unauthorized ||
+      this.options.disableMetrics ||
+      this.metricsDisabledByConfig
+    ) {
+      return;
+    }
 
     this.usageTracker.trackEvaluation({
       ...options,
