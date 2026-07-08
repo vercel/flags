@@ -24,7 +24,7 @@ describe('ldAdapter', () => {
   describe('with a missing environment', () => {
     it('should throw an error', () => {
       expect(() => ldAdapter.variation()).toThrowError(
-        'LaunchDarkly Adapter: Missing EXPERIMENTATION_CONFIG or EDGE_CONFIG environment variable',
+        'LaunchDarkly Adapter: Missing EXPERIMENTATION_CONFIG environment variable',
       );
     });
   });

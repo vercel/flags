@@ -49,6 +49,8 @@ import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
 const customLdAdapter = createLaunchDarklyAdapter({
   projectSlug: process.env.LAUNCHDARKLY_PROJECT_SLUG,
   clientSideId: process.env.LAUNCHDARKLY_CLIENT_SIDE_ID,
+  // Legacy integrations that provide the connection string as `EDGE_CONFIG`
+  // can pass it explicitly here.
   edgeConfigConnectionString:
     process.env.EXPERIMENTATION_CONFIG ?? process.env.EDGE_CONFIG,
 });
@@ -68,7 +70,9 @@ The default LaunchDarkly adapter configures itself based on the following enviro
 
 `LAUNCHDARKLY_PROJECT_SLUG` is only used to deep-link flags to the LaunchDarkly dashboard. When it is not set, flag evaluation is unaffected but the adapter does not expose an `origin`.
 
-The native LaunchDarkly [Marketplace integration](https://vercel.com/marketplace/launchdarkly) exposes the Edge Config connection string as `EXPERIMENTATION_CONFIG` when Edge Config is enabled for the collection. The adapter falls back to `EDGE_CONFIG` (used by the legacy Vercel integration) when `EXPERIMENTATION_CONFIG` is not set.
+The native LaunchDarkly [Marketplace integration](https://vercel.com/marketplace/launchdarkly) exposes the Edge Config connection string as `EXPERIMENTATION_CONFIG` when Edge Config is enabled for the collection.
+
+If you use the legacy LaunchDarkly Vercel integration, which provides the connection string as `EDGE_CONFIG`, set `EXPERIMENTATION_CONFIG` to the same value, or use `createLaunchDarklyAdapter` to pass `edgeConfigConnectionString` explicitly.
 
 
 ---
@@ -148,7 +152,7 @@ The LaunchDarkly adapter loads the configuration from [Edge Config](https://verc
 
 Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
-The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set. It reads the connection string from `EXPERIMENTATION_CONFIG` (native Marketplace integration) and falls back to `EDGE_CONFIG` (legacy Vercel integration).
+The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set. It reads the connection string from `EXPERIMENTATION_CONFIG` (provided by the native Marketplace integration).
 
 ---
 

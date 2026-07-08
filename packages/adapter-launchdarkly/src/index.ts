@@ -36,24 +36,6 @@ function assertEnv(name: string): string {
   return value;
 }
 
-/**
- * Resolves the Edge Config connection string used to load LaunchDarkly flag data.
- *
- * The native LaunchDarkly Marketplace integration exposes the connection string
- * as `EXPERIMENTATION_CONFIG`, while the legacy Vercel integration exposes it as
- * `EDGE_CONFIG`. We prefer `EXPERIMENTATION_CONFIG` and fall back to `EDGE_CONFIG`
- * for backwards compatibility.
- */
-function assertEdgeConfigConnectionString(): string {
-  const value = process.env.EXPERIMENTATION_CONFIG || process.env.EDGE_CONFIG;
-  if (!value) {
-    throw new Error(
-      'LaunchDarkly Adapter: Missing EXPERIMENTATION_CONFIG or EDGE_CONFIG environment variable',
-    );
-  }
-  return value;
-}
-
 export function createLaunchDarklyAdapter({
   projectSlug,
   clientSideId,
@@ -133,7 +115,7 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEdgeConfigConnectionString();
+    const edgeConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
     // Optional: only used to build the dashboard deep-link (`origin`). The
     // native Marketplace integration may not provide this.

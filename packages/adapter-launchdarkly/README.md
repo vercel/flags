@@ -29,10 +29,13 @@ export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 # Provided by the LaunchDarkly Marketplace integration when Edge Config is
 # enabled for the collection.
 export EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
-# Provided by Vercel when connecting an Edge Config. Used as a fallback when
-# EXPERIMENTATION_CONFIG is not set.
-export EDGE_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
 ```
+
+> **Using the legacy LaunchDarkly Vercel integration?** The default adapter reads
+> the Edge Config connection string from `EXPERIMENTATION_CONFIG` only. If your
+> project provides the connection string as `EDGE_CONFIG`, set
+> `EXPERIMENTATION_CONFIG` to the same value, or pass it explicitly with
+> [`createLaunchDarklyAdapter`](#custom-adapter).
 
 ## Example
 
@@ -63,6 +66,8 @@ import { createLaunchDarklyAdapter } from "@flags-sdk/launchdarkly";
 const adapter = createLaunchDarklyAdapter({
   projectSlug: "my-project",
   clientSideId: "612376f91b8f5713a58777a1",
+  // Legacy integrations that provide the connection string as `EDGE_CONFIG`
+  // can pass it explicitly here.
   edgeConfigConnectionString:
     process.env.EXPERIMENTATION_CONFIG ?? process.env.EDGE_CONFIG,
 });
