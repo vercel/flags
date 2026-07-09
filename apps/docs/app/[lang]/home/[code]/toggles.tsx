@@ -148,7 +148,9 @@ export const FlagSelect = ({
           }}
         >
           <SelectTrigger id={flagKey} className="mt-1.5 w-full">
-            <SelectValue placeholder="Select an option" />
+            <SelectValue placeholder="Select an option">
+              {override === null ? value : override}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {options?.map((option) => (
