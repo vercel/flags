@@ -502,34 +502,40 @@ function handleOutcome<T>(
       const value = hashInput(lhs, params.definition.seed);
 
       // Lay the two rollout variants into the hash space using the same
-      // variant-index-ordered bucketing that splits use (getScaledWeights +
-      // findWeightedIndex). A rollout at promille `p` is exactly the split
-      // { rollFromVariant: 100_000 - p, rollToVariant: p }, so a user is
-      // assigned the same variant whether the flag is expressed as a rollout or
-      // as the equivalent split — switching outcome type reassigns nobody.
+      // variant-index-ordered bucketing that splits use. A rollout at promille
+      // `p` is exactly the split { rollFromVariant: 100_000 - p,
+      // rollToVariant: p }, so a user is assigned the same variant whether the
+      // flag is expressed as a rollout or as the equivalent split — switching
+      // outcome type reassigns nobody.
       //
-      // We cannot reuse the memoized getScaledWeights() here because the weights
-      // change with `currentPromille`, so we scale inline. The total is always
-      // 100_000 (the two weights sum to it), matching how getScaledWeights
-      // divides by the weight total.
-      const rolloutWeights = new Array<number>(
-        params.definition.variants.length,
-      ).fill(0);
-      rolloutWeights[outcome.rollFromVariant] = 100_000 - currentPromille;
-      rolloutWeights[outcome.rollToVariant] = currentPromille;
-      const scaledWeights = rolloutWeights.map(
-        (w) => (w / 100_000) * UINT32_MAX,
-      );
-      const variantIndex = findWeightedIndex(scaledWeights, value, UINT32_MAX);
-      const variant =
-        variantIndex === -1
-          ? defaultOutcome
-          : getVariant<T>(params.definition, variantIndex);
+      // Since only two variants carry weight, the split's findWeightedIndex walk
+      // over a mostly-zero weights array collapses to two boundary comparisons,
+      // so we compute it inline without allocating any array. The lower-index
+      // variant occupies the low bucket [0, itsShare), matching the order in
+      // which findWeightedIndex accumulates. The remaining branches mirror
+      // findWeightedIndex's -1 result (→ defaultOutcome): the >= UINT32_MAX
+      // guard, and the floating-point sliver above both shares when they don't
+      // sum to exactly UINT32_MAX.
+      const rollToShare = (currentPromille / 100_000) * UINT32_MAX;
+      const rollFromShare =
+        ((100_000 - currentPromille) / 100_000) * UINT32_MAX;
 
-      return {
-        ...variant,
-        outcomeType: OutcomeType.ROLLOUT,
-      };
+      const rollToIsLowerIndex =
+        outcome.rollToVariant < outcome.rollFromVariant;
+      const lowShare = rollToIsLowerIndex ? rollToShare : rollFromShare;
+      const lowVariant = rollToIsLowerIndex ? rollToVariant : rollFromVariant;
+      const highVariant = rollToIsLowerIndex ? rollFromVariant : rollToVariant;
+
+      if (value >= UINT32_MAX) {
+        return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+      }
+      if (value < lowShare) {
+        return { ...lowVariant, outcomeType: OutcomeType.ROLLOUT };
+      }
+      if (value < rollToShare + rollFromShare) {
+        return { ...highVariant, outcomeType: OutcomeType.ROLLOUT };
+      }
+      return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
     }
     default: {
       const { type } = outcome;
