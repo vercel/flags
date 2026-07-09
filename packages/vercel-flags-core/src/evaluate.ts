@@ -14,19 +14,10 @@ type PathArray = (string | number)[];
 const MAX_REGEX_INPUT_LENGTH = 10_000;
 
 /**
- * Size of the hash bucket space that all traffic splitting operates in.
- *
- * `hashInput` (xxHash32) returns an integer in `[0, 2**32 - 1]`, i.e. exactly
- * `2**32` distinct values, so we use `2**32` directly as the bucket space and
- * compare the raw hash against boundaries in it — no modulo. Two consequences
- * we rely on:
- *
- * - **No modulo bias.** Folding the hash into a smaller range with `%` would
- *   make the low buckets slightly heavier (since `2**32` is not divisible by
- *   e.g. 100_000). Using the full range as-is keeps every bucket uniform.
- * - **No unassigned value.** The final variant's boundary is exactly `2**32`
- *   (its cumulative weight equals the total), and every hash is `< 2**32`, so
- *   the top variant catches the whole tail. Nothing falls through to a default.
+ * Bucket space for all traffic splitting. `hashInput` (xxHash32) returns exactly
+ * `2**32` distinct values, so we use `2**32` as the space and compare the raw
+ * hash against boundaries in it — no modulo (which would bias low buckets), and
+ * the final variant's boundary is exactly `2**32` so nothing falls through.
  */
 const HASH_SPACE = 2 ** 32;
 
@@ -34,36 +25,27 @@ const HASH_SPACE = 2 ** 32;
 const PROMILLE_SCALE = 100_000;
 
 /**
- * The single boundary function every splitting path shares.
- *
- * Maps the fraction `numerator / denominator` to an integer cut point in
- * `[0, HASH_SPACE]`; a hash is "below" the fraction if `hash < boundaryFor(…)`.
- * Because splits, rollouts, and segments all derive their cut points from this
- * one expression, a rollout at promille `p` produces a bit-for-bit identical cut
- * to the split `{ rollFrom: PROMILLE_SCALE - p, rollTo: p }` — which is what lets
- * a flag switch between split and rollout without reassigning anyone.
- *
- * `numerator === denominator` yields exactly `HASH_SPACE` (the final variant
- * catches everything); `denominator === 0` yields `NaN`, so every `hash < NaN`
- * check is false and evaluation falls through to the default.
+ * Maps the fraction `numerator / denominator` to a cut point in `[0, HASH_SPACE]`;
+ * a hash is "below" the fraction iff `hash < boundaryFor(…)`. Splits, rollouts,
+ * and segments all cut with this one function, so a rollout at promille `p` is
+ * bit-for-bit identical to the split `{ rollFrom: PROMILLE_SCALE - p, rollTo: p }`
+ * — which is what lets a flag switch between split and rollout without reassigning
+ * anyone. `denominator === 0` yields `NaN`, so evaluation falls through to default.
  */
 function boundaryFor(numerator: number, denominator: number): number {
   return Math.floor((numerator / denominator) * HASH_SPACE);
 }
 
-// Per-object memoization caches keyed by the outcome / rhs objects from the
-// datafile. Using WeakMaps (instead of mutating the objects with symbol-keyed
-// props) keeps datafile objects pristine so they serialize cleanly across the
-// RSC server/client boundary. Entries are GC'd when the datafile is dropped.
-//
-// Split boundaries are static per outcome (weights don't change), so the
-// cumulative cut points are computed once and reused across every evaluation.
+// WeakMaps keyed by datafile objects, so those objects stay pristine (no
+// symbol-keyed props) and serialize cleanly across the RSC boundary; entries
+// are GC'd with the datafile. Split boundaries are static per outcome, so the
+// cumulative cut points are computed once and reused across evaluations.
 const splitBoundariesCache = new WeakMap<Packed.SplitOutcome, number[]>();
 const compiledRegexCache = new WeakMap<object, RegExp>();
 
 /**
- * Cumulative hash boundaries for a split, one per variant, in variant-index
- * order. Variant `i` is served for hashes in `[boundaries[i-1], boundaries[i])`.
+ * Cumulative hash boundaries for a split, one per variant in index order.
+ * Variant `i` is served for hashes in `[boundaries[i-1], boundaries[i])`.
  */
 function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
   const cached = splitBoundariesCache.get(outcome);
@@ -476,8 +458,7 @@ function handleOutcome<T>(
         }
       }
 
-      // Only reached when the weights sum to 0 (every boundary is NaN, so no
-      // bucket claims any traffic).
+      // Only reached when the weights sum to 0 (every boundary is NaN).
       return {
         ...defaultOutcome,
         outcomeType: OutcomeType.SPLIT,
@@ -549,14 +530,10 @@ function handleOutcome<T>(
 
       const bucket = hashInput(lhs, params.definition.seed);
 
-      // A rollout at promille `p` is exactly the split
-      // { rollFromVariant: PROMILLE_SCALE - p, rollToVariant: p }, laid out with
-      // the same boundaryFor cut points. So rollTo occupies the low buckets
-      // `[0, boundary(p))` when it is the lower-index variant (matching where the
-      // split would place it), otherwise rollFrom holds the low buckets and
-      // rollTo takes the top. Sharing boundaryFor with the split path is what
-      // makes the two bit-for-bit identical, so switching outcome type reassigns
-      // nobody.
+      // Equivalent to the split { rollFrom: PROMILLE_SCALE - p, rollTo: p }: the
+      // lower-index variant takes the low buckets, matching where the split
+      // places it (see boundaryFor). So rollTo holds `[0, boundary(p))` when it
+      // has the lower index, otherwise rollFrom holds the low buckets.
       if (outcome.rollToVariant < outcome.rollFromVariant) {
         const rollToBoundary = boundaryFor(currentPromille, PROMILLE_SCALE);
         return {
