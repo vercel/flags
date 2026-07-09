@@ -150,7 +150,12 @@ export const FlagSelect = ({
           }}
         >
           <SelectTrigger id={flagKey} className="mt-1.5 w-full">
-            <SelectValue placeholder="Select an option" />
+            {/* Render the label as children so it is present in the
+                server-rendered HTML. Radix otherwise injects the selected
+                label via a client-only portal, which flickers on reload. */}
+            <SelectValue placeholder="Select an option">
+              {override === null ? value : override}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {options?.map((option) => (
