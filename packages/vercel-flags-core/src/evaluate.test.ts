@@ -2473,6 +2473,98 @@ describe('evaluate', () => {
         outcomeType: OutcomeType.ROLLOUT,
       });
     });
+
+    describe('assigns identically to the equivalent split (no reassignment on type change)', () => {
+      const SEED = 7;
+      const VARIANTS = [false, true] as const;
+      const USER_COUNT = 1000;
+
+      // Evaluate a rollout pinned to `promille` (single slot active at t=0).
+      const rolloutValue = (
+        rollFromVariant: number,
+        rollToVariant: number,
+        promille: number,
+        uid: string,
+      ): unknown => {
+        vi.setSystemTime(startTimestamp);
+        return evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: makeRollout({
+                  rollFromVariant,
+                  rollToVariant,
+                  defaultVariant: rollFromVariant,
+                  slots: [[promille, 100 * HOUR]],
+                }),
+              },
+            },
+            seed: SEED,
+            variants: [...VARIANTS],
+          },
+          environment: 'production',
+          entities: { user: { id: uid } },
+        }).value;
+      };
+
+      // Evaluate the split that expresses the same instantaneous distribution:
+      // rollToVariant gets `promille`, rollFromVariant gets the remainder.
+      const splitValue = (
+        rollFromVariant: number,
+        rollToVariant: number,
+        promille: number,
+        uid: string,
+      ): unknown => {
+        const weights = [0, 0];
+        weights[rollFromVariant] = 100_000 - promille;
+        weights[rollToVariant] = promille;
+        return evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: {
+                  type: 'split',
+                  base: ['user', 'id'],
+                  defaultVariant: rollFromVariant,
+                  weights,
+                },
+              },
+            },
+            seed: SEED,
+            variants: [...VARIANTS],
+          },
+          environment: 'production',
+          entities: { user: { id: uid } },
+        }).value;
+      };
+
+      // Both index orderings: rollTo after rollFrom, and rollTo before rollFrom.
+      const orderings = [
+        {
+          rollFromVariant: 0,
+          rollToVariant: 1,
+          label: 'rollTo index > rollFrom',
+        },
+        {
+          rollFromVariant: 1,
+          rollToVariant: 0,
+          label: 'rollTo index < rollFrom',
+        },
+      ];
+
+      for (const { rollFromVariant, rollToVariant, label } of orderings) {
+        for (const promille of [1_000, 30_000, 50_000, 70_000, 99_000]) {
+          it(`matches split at ${promille / 1_000}% (${label})`, () => {
+            for (let i = 0; i < USER_COUNT; i++) {
+              const uid = `uid${i}`;
+              expect(
+                rolloutValue(rollFromVariant, rollToVariant, promille, uid),
+              ).toBe(splitValue(rollFromVariant, rollToVariant, promille, uid));
+            }
+          });
+        }
+      }
+    });
   });
 });
 
