@@ -596,8 +596,8 @@ describe('evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 500
-      expect(trueCount).toBe(5070);
-      expect(falseCount).toBe(4930);
+      expect(trueCount).toBe(5023);
+      expect(falseCount).toBe(4977);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -631,8 +631,8 @@ describe('evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 100 (1%)
-      expect(trueCount).toBe(102);
-      expect(falseCount).toBe(9898);
+      expect(trueCount).toBe(118);
+      expect(falseCount).toBe(9882);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -666,8 +666,8 @@ describe('evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 9900 (99%)
-      expect(trueCount).toBe(9891);
-      expect(falseCount).toBe(109);
+      expect(trueCount).toBe(9903);
+      expect(falseCount).toBe(97);
     });
   });
 
@@ -2230,10 +2230,10 @@ describe('evaluate', () => {
       // these show how many people were assigned to each group,
       // an ideal distribution would assign 2500 to each group
       const expectedTotals = {
-        a: 2570,
-        b: 2477,
-        c: 2516,
-        d: 2437,
+        a: 2477,
+        b: 2602,
+        c: 2458,
+        d: 2463,
       };
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);
