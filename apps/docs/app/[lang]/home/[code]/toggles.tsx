@@ -89,9 +89,7 @@ export const FlagToggle = ({
         id={flagKey}
         checked={override === null ? value : override}
         onCheckedChange={(nextValue) => {
-          document.cookie = nextValue
-            ? `${flagKey}=1; max-age=${oneYearInSeconds}; path=/`
-            : `${flagKey}=; max-age=0; path=/`;
+          document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
           initSlowConnectionWarning();
