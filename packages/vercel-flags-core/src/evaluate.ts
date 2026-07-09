@@ -37,7 +37,7 @@ const PROMILLE_SCALE = 100_000;
  * The single boundary function every splitting path shares.
  *
  * Maps the fraction `numerator / denominator` to an integer cut point in
- * `[0, HASH_SPACE]`; a hash is "below" the fraction if `hash < hashBoundary(…)`.
+ * `[0, HASH_SPACE]`; a hash is "below" the fraction if `hash < boundaryFor(…)`.
  * Because splits, rollouts, and segments all derive their cut points from this
  * one expression, a rollout at promille `p` produces a bit-for-bit identical cut
  * to the split `{ rollFrom: PROMILLE_SCALE - p, rollTo: p }` — which is what lets
@@ -47,7 +47,7 @@ const PROMILLE_SCALE = 100_000;
  * catches everything); `denominator === 0` yields `NaN`, so every `hash < NaN`
  * check is false and evaluation falls through to the default.
  */
-function hashBoundary(numerator: number, denominator: number): number {
+function boundaryFor(numerator: number, denominator: number): number {
   return Math.floor((numerator / denominator) * HASH_SPACE);
 }
 
@@ -73,7 +73,7 @@ function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
   let cumulative = 0;
   for (const weight of outcome.weights) {
     cumulative += weight;
-    boundaries.push(hashBoundary(cumulative, total));
+    boundaries.push(boundaryFor(cumulative, total));
   }
   splitBoundariesCache.set(outcome, boundaries);
   return boundaries;
@@ -400,7 +400,7 @@ function handleSegmentOutcome<T>(
       if (outcome.passPromille >= PROMILLE_SCALE) return true;
 
       const bucket = hashInput(lhs, params.definition.seed);
-      return bucket < hashBoundary(outcome.passPromille, PROMILLE_SCALE);
+      return bucket < boundaryFor(outcome.passPromille, PROMILLE_SCALE);
     }
     default: {
       const { type } = outcome;
@@ -551,20 +551,20 @@ function handleOutcome<T>(
 
       // A rollout at promille `p` is exactly the split
       // { rollFromVariant: PROMILLE_SCALE - p, rollToVariant: p }, laid out with
-      // the same hashBoundary cut points. So rollTo occupies the low buckets
+      // the same boundaryFor cut points. So rollTo occupies the low buckets
       // `[0, boundary(p))` when it is the lower-index variant (matching where the
       // split would place it), otherwise rollFrom holds the low buckets and
-      // rollTo takes the top. Sharing hashBoundary with the split path is what
+      // rollTo takes the top. Sharing boundaryFor with the split path is what
       // makes the two bit-for-bit identical, so switching outcome type reassigns
       // nobody.
       if (outcome.rollToVariant < outcome.rollFromVariant) {
-        const rollToBoundary = hashBoundary(currentPromille, PROMILLE_SCALE);
+        const rollToBoundary = boundaryFor(currentPromille, PROMILLE_SCALE);
         return {
           ...(bucket < rollToBoundary ? rollToVariant : rollFromVariant),
           outcomeType: OutcomeType.ROLLOUT,
         };
       }
-      const rollFromBoundary = hashBoundary(
+      const rollFromBoundary = boundaryFor(
         PROMILLE_SCALE - currentPromille,
         PROMILLE_SCALE,
       );
