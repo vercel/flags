@@ -595,7 +595,7 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 500
+      // both should be close to 5000 (50% of 10k)
       expect(trueCount).toBe(5023);
       expect(falseCount).toBe(4977);
     });
@@ -630,7 +630,7 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 100 (1%)
+      // should be close to 100 (1% of 10k)
       expect(trueCount).toBe(118);
       expect(falseCount).toBe(9882);
     });
@@ -652,7 +652,7 @@ describe('evaluate', () => {
                     outcome: {
                       type: 'split',
                       base: ['user', 'name'],
-                      passPromille: 99_000, // pass 1%
+                      passPromille: 99_000, // pass 99%
                     },
                   },
                 ],
@@ -665,7 +665,7 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 9900 (99%)
+      // both should be close to 9900 (99% of 10k)
       expect(trueCount).toBe(9903);
       expect(falseCount).toBe(97);
     });

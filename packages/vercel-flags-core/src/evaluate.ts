@@ -37,7 +37,7 @@ const PROMILLE_SCALE = 100_000;
  * The single boundary function every splitting path shares.
  *
  * Maps the fraction `numerator / denominator` to an integer cut point in
- * `[0, HASH_SPACE]`; a hash is "below" the fraction iff `hash < hashBoundary(…)`.
+ * `[0, HASH_SPACE]`; a hash is "below" the fraction if `hash < hashBoundary(…)`.
  * Because splits, rollouts, and segments all derive their cut points from this
  * one expression, a rollout at promille `p` produces a bit-for-bit identical cut
  * to the split `{ rollFrom: PROMILLE_SCALE - p, rollTo: p }` — which is what lets
