@@ -2238,6 +2238,54 @@ describe('evaluate', () => {
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);
     });
+
+    it.each([
+      { weights: [30_000, 70_000] },
+      { weights: [1, 99] },
+      { weights: [10_000, 20_000, 30_000, 40_000] },
+      { weights: [1, 1, 1, 1] },
+    ])('assigns roughly proportional to weights $weights across many ids (statistical check)', ({
+      weights,
+    }) => {
+      const N = 20_000;
+      const variants = weights.map((_, i) => `v${i}`);
+      const counts = new Array(weights.length).fill(0) as number[];
+
+      for (let i = 0; i < N; i++) {
+        const result = evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: {
+                  type: 'split',
+                  base: ['user', 'id'],
+                  defaultVariant: 0,
+                  weights,
+                },
+              },
+            },
+            variants,
+            seed: 7,
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        }).value as string;
+        counts[variants.indexOf(result)]!++;
+      }
+
+      // Expected count per variant under its configured weight, with a
+      // binomial standard error; assignment is hash-based (deterministic),
+      // so this is not flaky, but confirms the actual split tracks the
+      // configured weight ratios rather than some other distribution.
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      weights.forEach((weight, index) => {
+        const p = weight / totalWeight;
+        const expected = N * p;
+        const stderr = Math.sqrt(N * p * (1 - p));
+        expect(counts[index]).toBeGreaterThan(expected - 4 * stderr);
+        expect(counts[index]).toBeLessThan(expected + 4 * stderr);
+      });
+    });
   });
 
   describe('rollouts', () => {
@@ -2442,6 +2490,40 @@ describe('evaluate', () => {
 
       // All users should get rollToVariant
       expect(trueCount).toBe(1000);
+    });
+
+    it.each([
+      1_000, 10_000, 25_000, 50_000, 75_000, 90_000, 99_000,
+    ])('assigns roughly %i/100000 of entities to rollToVariant across many ids (statistical check)', (promille) => {
+      const N = 20_000;
+      vi.setSystemTime(startTimestamp);
+      const rollout = makeRollout({
+        slots: [[promille, 100 * HOUR]],
+      });
+
+      let rollToCount = 0;
+      for (let i = 0; i < N; i++) {
+        const result = evaluate({
+          definition: {
+            environments: { production: { fallthrough: rollout } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        });
+        if (result.value === true) rollToCount++;
+      }
+
+      // Expected count under the configured promille, with a binomial
+      // standard error; assignment is hash-based (deterministic), so this
+      // is not flaky, but confirms the actual split tracks the configured
+      // percentage rather than some other distribution.
+      const p = promille / 100_000;
+      const expected = N * p;
+      const stderr = Math.sqrt(N * p * (1 - p));
+      expect(rollToCount).toBeGreaterThan(expected - 2 * stderr);
+      expect(rollToCount).toBeLessThan(expected + 2 * stderr);
     });
 
     it('works as a rule outcome', () => {
