@@ -595,9 +595,9 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 500
-      expect(trueCount).toBe(5070);
-      expect(falseCount).toBe(4930);
+      // both should be close to 5000 (50% of 10k)
+      expect(trueCount).toBe(5023);
+      expect(falseCount).toBe(4977);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -630,9 +630,9 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 100 (1%)
-      expect(trueCount).toBe(102);
-      expect(falseCount).toBe(9898);
+      // should be close to 100 (1% of 10k)
+      expect(trueCount).toBe(118);
+      expect(falseCount).toBe(9882);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -652,7 +652,7 @@ describe('evaluate', () => {
                     outcome: {
                       type: 'split',
                       base: ['user', 'name'],
-                      passPromille: 99_000, // pass 1%
+                      passPromille: 99_000, // pass 99%
                     },
                   },
                 ],
@@ -665,9 +665,9 @@ describe('evaluate', () => {
       const trueCount = results.filter((r) => r.value).length;
       const falseCount = results.filter((r) => !r.value).length;
 
-      // both should be close to 9900 (99%)
-      expect(trueCount).toBe(9891);
-      expect(falseCount).toBe(109);
+      // both should be close to 9900 (99% of 10k)
+      expect(trueCount).toBe(9903);
+      expect(falseCount).toBe(97);
     });
   });
 
@@ -2238,6 +2238,54 @@ describe('evaluate', () => {
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);
     });
+
+    it.each([
+      { weights: [30_000, 70_000] },
+      { weights: [1, 99] },
+      { weights: [10_000, 20_000, 30_000, 40_000] },
+      { weights: [1, 1, 1, 1] },
+    ])('assigns roughly proportional to weights $weights across many ids (statistical check)', ({
+      weights,
+    }) => {
+      const N = 20_000;
+      const variants = weights.map((_, i) => `v${i}`);
+      const counts = new Array(weights.length).fill(0) as number[];
+
+      for (let i = 0; i < N; i++) {
+        const result = evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: {
+                  type: 'split',
+                  base: ['user', 'id'],
+                  defaultVariant: 0,
+                  weights,
+                },
+              },
+            },
+            variants,
+            seed: 7,
+          } satisfies Packed.FlagDefinition,
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        }).value as string;
+        counts[variants.indexOf(result)]!++;
+      }
+
+      // Expected count per variant under its configured weight, with a
+      // binomial standard error; assignment is hash-based (deterministic),
+      // so this is not flaky, but confirms the actual split tracks the
+      // configured weight ratios rather than some other distribution.
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      weights.forEach((weight, index) => {
+        const p = weight / totalWeight;
+        const expected = N * p;
+        const stderr = Math.sqrt(N * p * (1 - p));
+        expect(counts[index]).toBeGreaterThan(expected - 4 * stderr);
+        expect(counts[index]).toBeLessThan(expected + 4 * stderr);
+      });
+    });
   });
 
   describe('rollouts', () => {
@@ -2444,6 +2492,40 @@ describe('evaluate', () => {
       expect(trueCount).toBe(1000);
     });
 
+    it.each([
+      1_000, 10_000, 25_000, 50_000, 75_000, 90_000, 99_000,
+    ])('assigns roughly %i/100000 of entities to rollToVariant across many ids (statistical check)', (promille) => {
+      const N = 20_000;
+      vi.setSystemTime(startTimestamp);
+      const rollout = makeRollout({
+        slots: [[promille, 100 * HOUR]],
+      });
+
+      let rollToCount = 0;
+      for (let i = 0; i < N; i++) {
+        const result = evaluate({
+          definition: {
+            environments: { production: { fallthrough: rollout } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          entities: { user: { id: `uid${i}` } },
+        });
+        if (result.value === true) rollToCount++;
+      }
+
+      // Expected count under the configured promille, with a binomial
+      // standard error; assignment is hash-based (deterministic), so this
+      // is not flaky, but confirms the actual split tracks the configured
+      // percentage rather than some other distribution.
+      const p = promille / 100_000;
+      const expected = N * p;
+      const stderr = Math.sqrt(N * p * (1 - p));
+      expect(rollToCount).toBeGreaterThan(expected - 2 * stderr);
+      expect(rollToCount).toBeLessThan(expected + 2 * stderr);
+    });
+
     it('works as a rule outcome', () => {
       vi.setSystemTime(startTimestamp + 12 * HOUR);
       expect(
@@ -2472,6 +2554,98 @@ describe('evaluate', () => {
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.ROLLOUT,
       });
+    });
+
+    describe('assigns identically to the equivalent split (no reassignment on type change)', () => {
+      const SEED = 7;
+      const VARIANTS = [false, true] as const;
+      const USER_COUNT = 1000;
+
+      // Evaluate a rollout pinned to `promille` (single slot active at t=0).
+      const rolloutValue = (
+        rollFromVariant: number,
+        rollToVariant: number,
+        promille: number,
+        uid: string,
+      ): unknown => {
+        vi.setSystemTime(startTimestamp);
+        return evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: makeRollout({
+                  rollFromVariant,
+                  rollToVariant,
+                  defaultVariant: rollFromVariant,
+                  slots: [[promille, 100 * HOUR]],
+                }),
+              },
+            },
+            seed: SEED,
+            variants: [...VARIANTS],
+          },
+          environment: 'production',
+          entities: { user: { id: uid } },
+        }).value;
+      };
+
+      // Evaluate the split that expresses the same instantaneous distribution:
+      // rollToVariant gets `promille`, rollFromVariant gets the remainder.
+      const splitValue = (
+        rollFromVariant: number,
+        rollToVariant: number,
+        promille: number,
+        uid: string,
+      ): unknown => {
+        const weights = [0, 0];
+        weights[rollFromVariant] = 100_000 - promille;
+        weights[rollToVariant] = promille;
+        return evaluate({
+          definition: {
+            environments: {
+              production: {
+                fallthrough: {
+                  type: 'split',
+                  base: ['user', 'id'],
+                  defaultVariant: rollFromVariant,
+                  weights,
+                },
+              },
+            },
+            seed: SEED,
+            variants: [...VARIANTS],
+          },
+          environment: 'production',
+          entities: { user: { id: uid } },
+        }).value;
+      };
+
+      // Both index orderings: rollTo after rollFrom, and rollTo before rollFrom.
+      const orderings = [
+        {
+          rollFromVariant: 0,
+          rollToVariant: 1,
+          label: 'rollTo index > rollFrom',
+        },
+        {
+          rollFromVariant: 1,
+          rollToVariant: 0,
+          label: 'rollTo index < rollFrom',
+        },
+      ];
+
+      for (const { rollFromVariant, rollToVariant, label } of orderings) {
+        for (const promille of [1_000, 30_000, 50_000, 70_000, 99_000]) {
+          it(`matches split at ${promille / 1_000}% (${label})`, () => {
+            for (let i = 0; i < USER_COUNT; i++) {
+              const uid = `uid${i}`;
+              expect(
+                rolloutValue(rollFromVariant, rollToVariant, promille, uid),
+              ).toBe(splitValue(rollFromVariant, rollToVariant, promille, uid));
+            }
+          });
+        }
+      }
     });
   });
 });
