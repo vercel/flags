@@ -2230,10 +2230,10 @@ describe('evaluate', () => {
       // these show how many people were assigned to each group,
       // an ideal distribution would assign 2500 to each group
       const expectedTotals = {
-        a: 2477,
-        b: 2602,
-        c: 2458,
-        d: 2463,
+        a: 2570,
+        b: 2477,
+        c: 2516,
+        d: 2437,
       };
       expect(getTotals([1, 1, 1, 1], 9)).toEqual(expectedTotals);
       expect(getTotals([1000, 1000, 1000, 1000], 9)).toEqual(expectedTotals);

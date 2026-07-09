@@ -13,24 +13,31 @@ type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
 
-/** uint32 max — domain of xxHash32 output, used for split/rollout thresholds */
-const UINT32_MAX = 4_294_967_295;
+/**
+ * Number of buckets that traffic-splitting hashes into.
+ *
+ * Splits, rollouts, and segment splits all fold the 32-bit hash into
+ * `[0, SPLIT_BUCKET_COUNT)` with a modulo and compare against integer
+ * thresholds (weights for splits, promille for rollouts and segments — promille
+ * is already expressed out of 100_000). Working in this integer space — rather
+ * than scaling floats over the full uint32 range — has two properties we rely
+ * on: every hash lands in a bucket (there is no unassigned top value that would
+ * fall through to a default), and a rollout at promille `p` is bucket-for-bucket
+ * identical to the equivalent split. That identity is what lets a flag switch
+ * between split and rollout without reassigning anyone.
+ */
+const SPLIT_BUCKET_COUNT = 100_000;
 
-// Per-object memoization caches keyed by the outcome / rhs objects from the
-// datafile. Using WeakMaps (instead of mutating the objects with symbol-keyed
-// props) keeps datafile objects pristine so they serialize cleanly across the
-// RSC server/client boundary. Entries are GC'd when the datafile is dropped.
-const scaledWeightsCache = new WeakMap<Packed.SplitOutcome, number[]>();
-const compiledRegexCache = new WeakMap<object, RegExp>();
-
-function getScaledWeights(outcome: Packed.SplitOutcome): number[] {
-  const cached = scaledWeightsCache.get(outcome);
-  if (cached) return cached;
-  const total = sum(outcome.weights);
-  const scaled = outcome.weights.map((w) => (w / total) * UINT32_MAX);
-  scaledWeightsCache.set(outcome, scaled);
-  return scaled;
+/** Folds the hash of `lhs` into a bucket in `[0, SPLIT_BUCKET_COUNT)`. */
+function splitBucket(lhs: string, seed: number): number {
+  return hashInput(lhs, seed) % SPLIT_BUCKET_COUNT;
 }
+
+// Per-object memoization cache keyed by the rhs regex objects from the datafile.
+// Using a WeakMap (instead of mutating the objects with symbol-keyed props)
+// keeps datafile objects pristine so they serialize cleanly across the RSC
+// server/client boundary. Entries are GC'd when the datafile is dropped.
+const compiledRegexCache = new WeakMap<object, RegExp>();
 
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
   const cached = compiledRegexCache.get(rhs);
@@ -348,14 +355,11 @@ function handleSegmentOutcome<T>(
       // exclude from segment if the lhs is not a string
       if (typeof lhs !== 'string') return false;
 
-      const maxValue = 100_000;
-
       // bypass hashing for common values and edges
       if (outcome.passPromille <= 0) return false;
-      if (outcome.passPromille >= maxValue) return true;
+      if (outcome.passPromille >= SPLIT_BUCKET_COUNT) return true;
 
-      const value = hashInput(lhs, params.definition.seed) % maxValue;
-      return value < outcome.passPromille;
+      return splitBucket(lhs, params.definition.seed) < outcome.passPromille;
     }
     default: {
       const { type } = outcome;
@@ -418,20 +422,28 @@ function handleOutcome<T>(
         };
       }
 
-      /**
-       * (xxHash32): turns the string into a number between 0 and 2^32-1 (max uint32 value)
-       * Since we know the range of the hash function, we don't use modulo here. If we change
-       * the hash function, or if the range changes, we should add a modulo here and/or adjust UINT32_MAX.
-       */
-      const value = hashInput(lhs, params.definition.seed);
-      const scaledWeights = getScaledWeights(outcome);
-      const variantIndex = findWeightedIndex(scaledWeights, value, UINT32_MAX);
-      const variant =
-        variantIndex === -1
-          ? defaultOutcome
-          : getVariant<T>(params.definition, variantIndex);
+      const bucket = splitBucket(lhs, params.definition.seed);
+      const total = sum(outcome.weights);
+
+      // Walk the weights in variant-index order and return the first variant
+      // whose cumulative weight covers the bucket. The comparison is
+      // cross-multiplied to stay in integer arithmetic (no floats, no rounding):
+      //   bucket / SPLIT_BUCKET_COUNT < cumulative / total
+      //   ⟺ bucket * total < cumulative * SPLIT_BUCKET_COUNT
+      let cumulative = 0;
+      for (let index = 0; index < outcome.weights.length; index++) {
+        cumulative += outcome.weights[index] as number;
+        if (bucket * total < cumulative * SPLIT_BUCKET_COUNT) {
+          return {
+            ...getVariant<T>(params.definition, index),
+            outcomeType: OutcomeType.SPLIT,
+          };
+        }
+      }
+
+      // Only reached when the weights sum to 0 (no bucket claims any traffic).
       return {
-        ...variant,
+        ...defaultOutcome,
         outcomeType: OutcomeType.SPLIT,
       };
     }
@@ -499,43 +511,30 @@ function handleOutcome<T>(
         };
       }
 
-      const value = hashInput(lhs, params.definition.seed);
+      const bucket = splitBucket(lhs, params.definition.seed);
 
-      // Lay the two rollout variants into the hash space using the same
-      // variant-index-ordered bucketing that splits use. A rollout at promille
-      // `p` is exactly the split { rollFromVariant: 100_000 - p,
-      // rollToVariant: p }, so a user is assigned the same variant whether the
-      // flag is expressed as a rollout or as the equivalent split — switching
-      // outcome type reassigns nobody.
-      //
-      // Since only two variants carry weight, the split's findWeightedIndex walk
-      // over a mostly-zero weights array collapses to two boundary comparisons,
-      // so we compute it inline without allocating any array. The lower-index
-      // variant occupies the low bucket [0, itsShare), matching the order in
-      // which findWeightedIndex accumulates. The remaining branches mirror
-      // findWeightedIndex's -1 result (→ defaultOutcome): the >= UINT32_MAX
-      // guard, and the floating-point sliver above both shares when they don't
-      // sum to exactly UINT32_MAX.
-      const rollToShare = (currentPromille / 100_000) * UINT32_MAX;
-      const rollFromShare =
-        ((100_000 - currentPromille) / 100_000) * UINT32_MAX;
-
-      const rollToIsLowerIndex =
-        outcome.rollToVariant < outcome.rollFromVariant;
-      const lowShare = rollToIsLowerIndex ? rollToShare : rollFromShare;
-      const lowVariant = rollToIsLowerIndex ? rollToVariant : rollFromVariant;
-      const highVariant = rollToIsLowerIndex ? rollFromVariant : rollToVariant;
-
-      if (value >= UINT32_MAX) {
-        return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+      // A rollout at promille `p` is exactly the split
+      // { rollFromVariant: SPLIT_BUCKET_COUNT - p, rollToVariant: p }, laid out
+      // with the same integer bucketing. So rollTo occupies the low buckets
+      // `[0, p)` when it is the lower-index variant (matching where the split
+      // would place it), otherwise rollFrom holds the low buckets and rollTo
+      // takes the top `[SPLIT_BUCKET_COUNT - p, SPLIT_BUCKET_COUNT)`. Because
+      // `p` is already expressed out of SPLIT_BUCKET_COUNT and the bucket space
+      // is exactly SPLIT_BUCKET_COUNT wide, every bucket is assigned and the
+      // boundary matches the split bucket-for-bucket — switching outcome type
+      // reassigns nobody.
+      if (outcome.rollToVariant < outcome.rollFromVariant) {
+        return {
+          ...(bucket < currentPromille ? rollToVariant : rollFromVariant),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
       }
-      if (value < lowShare) {
-        return { ...lowVariant, outcomeType: OutcomeType.ROLLOUT };
-      }
-      if (value < rollToShare + rollFromShare) {
-        return { ...highVariant, outcomeType: OutcomeType.ROLLOUT };
-      }
-      return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+      return {
+        ...(bucket < SPLIT_BUCKET_COUNT - currentPromille
+          ? rollFromVariant
+          : rollToVariant),
+        outcomeType: OutcomeType.ROLLOUT,
+      };
     }
     default: {
       const { type } = outcome;
@@ -668,28 +667,4 @@ export function bulkEvaluate<T = unknown>(
     results[key] = evaluate<T>(params);
   }
   return results;
-}
-
-/**
- * Find the weighted index that the given value falls into.
- *
- * Takes a set of weights that add up to maxValue, and returns the index
- * that corresponds to the given value.
- *
- * @returns index or -1
- */
-export function findWeightedIndex(
-  weights: number[],
-  value: number,
-  maxValue: number,
-): number {
-  if (value < 0 || value >= maxValue) return -1;
-
-  let sum = 0;
-  for (let i = 0; i < weights.length; i++) {
-    sum += weights[i] as number;
-    if (value < sum) return i;
-  }
-
-  return -1;
 }
