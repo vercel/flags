@@ -1,8 +1,8 @@
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { HomeLayout } from '@/components/geistdocs/home-layout';
 import { enableBannerFlag, rootFlags } from '@/flags';
 import { source } from '@/lib/geistdocs/source';
-import { ArrowRight } from 'lucide-react';
-import Link from 'next/link';
 
 export default async function Layout({
   children,

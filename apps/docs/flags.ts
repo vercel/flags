@@ -6,7 +6,7 @@ export const enableBannerFlag = flag({
   options: [false, true],
   decide({ cookies }) {
     const on = cookies.get(this.key)?.value;
-    return on !== "0"; // default on
+    return on !== '0'; // default on
   },
 });
 
@@ -16,7 +16,7 @@ export const enableDitheredHeroFlag = flag({
   options: [false, true],
   decide({ cookies }) {
     const on = cookies.get(this.key)?.value;
-    return on === "1"; // default off
+    return on === '1'; // default off
   },
 });
 
