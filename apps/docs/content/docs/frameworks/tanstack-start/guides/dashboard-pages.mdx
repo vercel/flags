@@ -1,0 +1,77 @@
+---
+title: Dashboard Pages
+description: Use feature flags on dynamic pages.
+---
+
+Dashboard pages are rendered at request time, and may require authenticated
+users.
+
+The example below shows how to use feature flags to show a feature to
+specific users on a dashboard page. They are flagged in based on a specific cookie.
+
+## Definition
+
+The example works by first defining a feature flag that reads from a cookie.
+
+```ts title="src/flags.ts"
+import { flag } from 'flags/tanstack-start';
+
+export const showNewDashboard = flag<boolean>({
+  key: 'showNewDashboard',
+  decide({ cookies }) {
+    return cookies.get('showNewDashboard')?.value === 'true';
+  },
+});
+```
+
+The example reads the value directly from the cookie. In a real
+dashboard you would likely read a signed JWT instead.
+
+## Usage
+
+Flags are evaluated on the server. Wrap the evaluation in a `createServerFn()`
+server function and call it from the route loader — this keeps the flag working
+during client-side navigation as well as on the initial server render.
+
+```tsx title="src/routes/dashboard.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { showNewDashboard } from '../flags';
+
+const getDashboardFlags = createServerFn().handler(async () => {
+  return { showNewDashboard: await showNewDashboard() };
+});
+
+export const Route = createFileRoute('/dashboard')({
+  loader: () => getDashboardFlags(),
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const { showNewDashboard } = Route.useLoaderData();
+
+  return (
+    <main>
+      <h1>Dashboard</h1>
+      {showNewDashboard ? (
+        <p>You are seeing the new dashboard.</p>
+      ) : (
+        <p>You are seeing the old dashboard.</p>
+      )}
+    </main>
+  );
+}
+```
+
+Inside the server function the flag is called with no arguments — the request is
+resolved automatically through TanStack Start's `getRequest()`. Since dashboard
+pages are typically dynamic anyhow, the async call to evaluate the feature flag
+fits right in.
+
+## Evaluation Context
+
+Feature flags used on dashboards will usually run in the Serverless
+Function Region, close to the database. This means it is acceptable for
+a feature flag's `decide` function to read the database
+when establishing the evaluation context. However, ideally, it would
+only read from the JWT as this leads to lower overall latency.

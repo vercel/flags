@@ -8,17 +8,17 @@ description: >
   Edge Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
   implementing precompute patterns for static pages, setting up `identify`/`dedupe`,
   integrating Flags Explorer/Toolbar,
-  working with flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
+  working with flags in Next.js (App Router, Pages Router, Middleware), SvelteKit, or TanStack Start,
   writing custom adapters, or encrypting/decrypting flag values.
   Triggers: feature flags, A/B testing, experimentation, flags SDK, flag adapters, precompute,
   Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add,
   vercel flags list, vercel flags enable, vercel flags disable,
-  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
+  `flags/next`, `flags/sveltekit`, `flags/tanstack-start`, `flags/react`, `@flags-sdk/*`.
 ---
 
 # Flags SDK
 
-The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and SvelteKit. It turns each feature flag into a callable function, works with any flag provider via adapters, and keeps pages static using the precompute pattern. Vercel Flags is the first-party provider, letting you manage flags from the Vercel dashboard or the `vercel flags` CLI.
+The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js, SvelteKit, and TanStack Start. It turns each feature flag into a callable function, works with any flag provider via adapters, and keeps pages static using the precompute pattern. Vercel Flags is the first-party provider, letting you manage flags from the Vercel dashboard or the `vercel flags` CLI.
 
 - Docs: https://flags-sdk.dev
 - Repo: https://github.com/vercel/flags
@@ -135,7 +135,7 @@ When using Vercel Flags, declare flags with `vercelAdapter` as shown in the [Age
 ### Basic flag
 
 ```ts
-import { flag } from 'flags/next'; // or 'flags/sveltekit'
+import { flag } from 'flags/next'; // or 'flags/sveltekit', 'flags/tanstack-start'
 
 export const showBanner = flag<boolean>({
   key: 'show-banner',
@@ -286,6 +286,26 @@ import * as flags from '$lib/flags';
 export const handle = createHandle({ secret: FLAGS_SECRET, flags });
 ```
 
+### TanStack Start
+
+There is no server hook — wire up a server route at `/.well-known/vercel/flags`:
+
+```ts
+// src/routes/[.]well-known/vercel/flags.ts
+import { createFileRoute } from '@tanstack/react-router';
+import {
+  createFlagsDiscoveryEndpoint,
+  getProviderData,
+} from 'flags/tanstack-start';
+import * as flags from '../../../flags';
+
+const handler = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+
+export const Route = createFileRoute('/.well-known/vercel/flags')({
+  server: { handlers: { GET: handler } },
+});
+```
+
 ## FLAGS_SECRET
 
 Required for precompute and Flags Explorer. Must be 32 random bytes, base64-encoded:
@@ -317,6 +337,7 @@ High-level flow:
 For full implementation details, see framework-specific references:
 - **Next.js**: See [references/nextjs.md](references/nextjs.md) — covers proxy middleware, precompute setup, ISR, generatePermutations, multiple groups
 - **SvelteKit**: See [references/sveltekit.md](references/sveltekit.md) — covers reroute hook, middleware, precompute setup, ISR, prerendering
+- **TanStack Start**: See [references/tanstack-start.md](references/tanstack-start.md) — covers server-function precompute, the `$code` route, generatePermutations, optional Routing Middleware
 
 ## Custom adapters
 

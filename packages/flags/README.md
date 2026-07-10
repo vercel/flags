@@ -2,9 +2,9 @@
 
 # Flags SDK
 
-The feature flags toolkit for Next.js and SvelteKit.
+The feature flags toolkit for Next.js, SvelteKit and TanStack Start.
 
-From the creators of Next.js, the Flags SDK is a free open-source library that gives you the tools you need to use feature flags in Next.js and SvelteKit applications.
+From the creators of Next.js, the Flags SDK is a free open-source library that gives you the tools you need to use feature flags in Next.js, SvelteKit and TanStack Start applications.
 
 - Works with any flag provider, custom setups or no flag provider at all
 - Compatible with App Router, Pages Router, and Routing Middleware
@@ -71,6 +71,56 @@ export default async function Page() {
 ```
 
 Feature Flags can also be called in Routing Middleware and API Routes.
+
+### TanStack Start
+
+Import `flag` from `flags/tanstack-start` and evaluate flags inside a route
+loader, server function, or server route — the request is resolved automatically:
+
+```ts
+// src/flags.ts
+import { flag } from "flags/tanstack-start";
+
+export const exampleFlag = flag<boolean>({
+  key: "example-flag",
+  decide: () => true,
+});
+```
+
+```tsx
+// src/routes/index.tsx
+import { createFileRoute } from "@tanstack/react-router";
+import { exampleFlag } from "../flags";
+
+export const Route = createFileRoute("/")({
+  loader: async () => ({ example: await exampleFlag() }),
+  component: Home,
+});
+
+function Home() {
+  const { example } = Route.useLoaderData();
+  return <div>{example ? "Flag is on" : "Flag is off"}</div>;
+}
+```
+
+You can expose the flags discovery endpoint for the Vercel Toolbar with a server
+route:
+
+```ts
+// src/routes/.well-known/vercel/flags.ts
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFlagsDiscoveryEndpoint,
+  getProviderData,
+} from "flags/tanstack-start";
+import * as flags from "../../../flags";
+
+const handler = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+
+export const Route = createFileRoute("/.well-known/vercel/flags/")({
+  server: { handlers: { GET: handler } },
+});
+```
 
 ## Adapters
 

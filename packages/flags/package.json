@@ -1,14 +1,15 @@
 {
   "name": "flags",
   "version": "4.2.0",
-  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
+  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js, SvelteKit and TanStack Start",
   "keywords": [
     "feature flags",
     "Next.js",
     "react",
     "toolbar",
     "overrides",
-    "SvelteKit"
+    "SvelteKit",
+    "TanStack Start"
   ],
   "author": "Dominik Ferber <dominik@vercel.com>",
   "homepage": "https://flags-sdk.dev",
@@ -43,6 +44,10 @@
       "svelte": "./dist/sveltekit.js",
       "import": "./dist/sveltekit.js",
       "require": "./dist/sveltekit.cjs"
+    },
+    "./tanstack-start": {
+      "import": "./dist/tanstack-start.js",
+      "require": "./dist/tanstack-start.cjs"
     }
   },
   "typesVersions": {
@@ -62,6 +67,10 @@
       "sveltekit": [
         "dist/sveltekit.d.ts",
         "dist/sveltekit.d.cts"
+      ],
+      "tanstack-start": [
+        "dist/tanstack-start.d.ts",
+        "dist/tanstack-start.d.cts"
       ]
     }
   },
@@ -98,6 +107,7 @@
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
     "@sveltejs/kit": "*",
+    "@tanstack/react-start": "*",
     "next": "*",
     "react": "*",
     "react-dom": "*"
@@ -107,6 +117,9 @@
       "optional": true
     },
     "@sveltejs/kit": {
+      "optional": true
+    },
+    "@tanstack/react-start": {
       "optional": true
     },
     "next": {

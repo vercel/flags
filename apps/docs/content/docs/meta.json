@@ -2,6 +2,7 @@
   "pages": [
     "frameworks/next",
     "frameworks/sveltekit",
+    "frameworks/tanstack-start",
     "principles",
     "providers",
     "api-reference"
