@@ -14,6 +14,7 @@ export { evaluate } from './evaluate';
 export type { CreateClientOptions } from './index.make';
 export {
   type BundledDefinitions,
+  type ClientConfig,
   type Datafile,
   type DatafileInput,
   type EvaluationParams,
