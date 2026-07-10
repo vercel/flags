@@ -1,5 +1,5 @@
 import type { JsonValue } from '..';
-import * as s from '../lib/serialization';
+import * as shared from '../shared/precompute';
 import { evaluate } from './evaluate';
 import type { Flag } from './types';
 
@@ -28,7 +28,7 @@ export async function precompute<T extends FlagsArray>(
  * @returns - A record where the keys are flag keys and the values are flag values.
  */
 export function combine(flags: FlagsArray, values: ValuesArray) {
-  return Object.fromEntries(flags.map((flag, i) => [flag.key, values[i]]));
+  return shared.combine(flags, values);
 }
 
 /**
@@ -52,8 +52,7 @@ export async function serialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
-  if (flags.length === 0) return '__no_flags__';
-  return s.serialize(combine(flags, values), flags, secret);
+  return shared.serialize(flags, values, secret);
 }
 
 /**
@@ -72,8 +71,7 @@ export async function deserialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
-  if (code === '__no_flags__') return {};
-  return s.deserialize(code, flags, secret);
+  return shared.deserialize(flags, code, secret);
 }
 
 /**
@@ -133,39 +131,18 @@ export async function getPrecomputed<T extends JsonValue>(
     const keys = Array.isArray(flagOrFlags)
       ? flagOrFlags.map((f) => f.key).join(', ')
       : (flagOrFlags as Flag<T, any>).key;
-    console.warn(
-      `flags: getPrecomputed was called with a code generated from an empty flags array. The flag(s) "${keys}" can not be resolved. Make sure to include them in the array passed to serialize/precompute.`,
-    );
+    shared.warnEmptyCode(keys);
   }
 
   const flagSet = await deserialize(precomputeFlags, code, secret);
 
   if (Array.isArray(flagOrFlags)) {
     // Handle case when an array of flags is passed
-    return flagOrFlags.map((flag) => {
-      if (!Object.hasOwn(flagSet, flag.key)) {
-        console.warn(
-          `flags: Tried to read precomputed value for flag "${flag.key}" which is not part of the precomputed flags. Make sure to include it in the array passed to serialize/precompute.`,
-        );
-      }
-      return flagSet[flag.key];
-    });
+    return flagOrFlags.map((flag) => shared.readFlagValue(flagSet, flag.key));
   } else {
     // Handle case when a single flag is passed
-    const key = (flagOrFlags as Flag<T, any>).key;
-    if (!Object.hasOwn(flagSet, key)) {
-      console.warn(
-        `flags: Tried to read precomputed value for flag "${key}" which is not part of the precomputed flags. Make sure to include it in the array passed to serialize/precompute.`,
-      );
-    }
-    return flagSet[key];
+    return shared.readFlagValue(flagSet, (flagOrFlags as Flag<T, any>).key);
   }
-}
-
-// see https://stackoverflow.com/a/44344803
-function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
-  const remainder = items.length > 1 ? cartesianIterator(items.slice(1)) : [[]];
-  for (const r of remainder) for (const h of items.at(0)!) yield [h, ...r];
 }
 
 /**
@@ -186,28 +163,5 @@ export async function generatePermutations(
     );
   }
 
-  if (flags.length === 0) return ['__no_flags__'];
-
-  const options = flags.map((flag) => {
-    // infer boolean permutations if you don't declare any options.
-    //
-    // to explicitly opt out you need to use "filter"
-    if (!flag.options) return [false, true];
-    return flag.options.map((option) => option.value);
-  });
-
-  const list: Record<string, JsonValue>[] = [];
-
-  for (const permutation of cartesianIterator(options)) {
-    const permObject = permutation.reduce<Record<string, JsonValue>>(
-      (acc, value, index) => {
-        acc[flags[index]!.key] = value;
-        return acc;
-      },
-      {},
-    );
-    if (!filter || filter(permObject)) list.push(permObject);
-  }
-
-  return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
+  return shared.generatePermutations(flags, filter, secret);
 }
