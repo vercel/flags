@@ -19,5 +19,3 @@ Support the native LaunchDarkly Marketplace integration.
     edgeConfigConnectionString: process.env.EDGE_CONFIG,
   });
   ```
-
-- `LAUNCHDARKLY_PROJECT_SLUG` / `projectSlug` is now optional. It is only used to deep-link flags to the LaunchDarkly dashboard. When it is not set, flag evaluation is unaffected, but `variation().origin` is now `undefined` instead of always being a function.

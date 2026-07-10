@@ -41,12 +41,7 @@ export function createLaunchDarklyAdapter({
   clientSideId,
   edgeConfigConnectionString,
 }: {
-  /**
-   * LaunchDarkly project slug. Only used to construct the `origin` URL that
-   * deep-links a flag to its LaunchDarkly dashboard page. When omitted, the
-   * adapter does not expose an `origin`, but flag evaluation is unaffected.
-   */
-  projectSlug?: string;
+  projectSlug: string;
   clientSideId: string;
   edgeConfigConnectionString: string;
 }): AdapterResponse {
@@ -85,9 +80,7 @@ export function createLaunchDarklyAdapter({
     options: AdapterOptions<ValueType> = {},
   ): Adapter<ValueType, LDContext> {
     return {
-      // Only expose `origin` when a project slug is available, otherwise the
-      // deep-link would be incorrect.
-      origin: projectSlug ? origin : undefined,
+      origin,
       async decide({ key, entities, headers }): Promise<ValueType> {
         if (!ldClient.initialized()) {
           if (!initPromise) initPromise = ldClient.waitForInitialization();
@@ -117,9 +110,7 @@ function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
     const edgeConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
-    // Optional: only used to build the dashboard deep-link (`origin`). The
-    // native Marketplace integration may not provide this.
-    const projectSlug = process.env.LAUNCHDARKLY_PROJECT_SLUG;
+    const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
 
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       projectSlug,

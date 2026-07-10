@@ -24,7 +24,6 @@ The default adapter uses the following environment variables to configure itself
 
 ```sh
 export LAUNCHDARKLY_CLIENT_SIDE_ID="612376f91b8f5713a58777a1"
-# Optional. Only used to deep-link flags to the LaunchDarkly dashboard.
 export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 # Provided by the LaunchDarkly Marketplace integration when Edge Config is
 # enabled for the collection.

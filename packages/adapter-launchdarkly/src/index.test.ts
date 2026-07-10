@@ -1,6 +1,6 @@
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { createLaunchDarklyAdapter, type LDContext, ldAdapter } from '.';
+import { type LDContext, ldAdapter } from '.';
 
 const ldClientMock = {
   waitForInitialization: vi.fn(),
@@ -66,16 +66,6 @@ describe('ldAdapter', () => {
 
         await expect(valuePromise).resolves.toEqual(true);
         expect(ldClientMock.variation).toHaveBeenCalled();
-      });
-
-      it('should not expose an origin when projectSlug is omitted', () => {
-        const adapter = createLaunchDarklyAdapter({
-          clientSideId: 'test-client-side-id',
-          edgeConfigConnectionString:
-            'https://edge-config.com/test-experimentation-config',
-        });
-
-        expect(adapter.variation().origin).toBeUndefined();
       });
     });
   });
