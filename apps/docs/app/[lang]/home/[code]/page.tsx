@@ -121,10 +121,11 @@ export default async function HomePage({
             </div>
             <div className="divide-y">
               <FlagToggle
-                value={ditheredHeroFlag}
-                flagKey={enableDitheredHeroFlag.key}
-                label={enableDitheredHeroFlag.key}
-                description={enableDitheredHeroFlag.description}
+                value={bannerFlag}
+                flagKey={enableBannerFlag.key}
+                label={enableBannerFlag.key}
+                description={enableBannerFlag.description}
+                scroll
               />
               <FlagSelect
                 value={heroTextFlag}
@@ -134,11 +135,10 @@ export default async function HomePage({
                 options={enableHeroTextFlag.options}
               />
               <FlagToggle
-                value={bannerFlag}
-                flagKey={enableBannerFlag.key}
-                label={enableBannerFlag.key}
-                description={enableBannerFlag.description}
-                scroll
+                value={ditheredHeroFlag}
+                flagKey={enableDitheredHeroFlag.key}
+                label={enableDitheredHeroFlag.key}
+                description={enableDitheredHeroFlag.description}
               />
             </div>
           </div>

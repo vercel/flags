@@ -89,9 +89,7 @@ export const FlagToggle = ({
         id={flagKey}
         checked={override === null ? value : override}
         onCheckedChange={(nextValue) => {
-          document.cookie = nextValue
-            ? `${flagKey}=1; max-age=${oneYearInSeconds}; path=/`
-            : `${flagKey}=; max-age=0; path=/`;
+          document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
           initSlowConnectionWarning();
@@ -150,7 +148,9 @@ export const FlagSelect = ({
           }}
         >
           <SelectTrigger id={flagKey} className="mt-1.5 w-full">
-            <SelectValue placeholder="Select an option" />
+            <SelectValue placeholder="Select an option">
+              {override === null ? value : override}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {options?.map((option) => (

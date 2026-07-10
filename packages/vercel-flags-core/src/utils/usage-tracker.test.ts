@@ -1,14 +1,71 @@
+import { waitUntil } from '@vercel/functions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Auth } from '../controller/auth';
 import { setRequestContext } from '../test-utils';
-import { type FlagsConfigReadEvent, UsageTracker } from './usage-tracker';
+import { ResolutionReason } from '../types';
+import {
+  EVALUATING_OIDC_TOKEN_HEADER,
+  FLUSH_REASON_HEADER,
+  type IngestOptions,
+} from './ingest';
+import { UsageTracker } from './usage-tracker';
+
+type SerializedConfigReadEvent = {
+  type: 'FLAGS_CONFIG_READ';
+  ts: number;
+  payload: {
+    deploymentId?: string;
+    region?: string;
+    invocationHost?: string;
+    vercelRequestId?: string;
+    cacheStatus?: string;
+    cacheAction?: string;
+    cacheIsBlocking?: boolean;
+    cacheIsFirstRead?: boolean;
+    duration?: number;
+    configUpdatedAt?: number;
+    configOrigin?: string;
+    mode?: string;
+    revision?: string;
+    environment?: string;
+  };
+};
+
+type SerializedEvaluationEvent = {
+  type: 'FLAG_EVALUATION';
+  ts: number;
+  payload: {
+    flagKey: string;
+    variant: string;
+    reason: ResolutionReason;
+    clientName?: string;
+    evaluationCount: number;
+    periodStartedAt: number;
+  };
+};
+
+const getVercelOidcTokenMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@vercel/oidc', () => ({
+  getVercelOidcToken: getVercelOidcTokenMock,
+}));
 
 // Mock @vercel/functions
 vi.mock('@vercel/functions', () => ({
   waitUntil: vi.fn(),
 }));
 
+const waitUntilMock = vi.mocked(waitUntil);
+
 const fetchMock = vi.fn<typeof fetch>();
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
 
 function jsonResponse(
   body: unknown,
@@ -30,13 +87,17 @@ let cleanupContext: (() => void) | undefined;
 beforeEach(() => {
   // Set up request context so trackRead doesn't skip (it's skipped when ctx is unavailable)
   cleanupContext = setRequestContext({ host: 'example.com' });
+  vi.spyOn(Math, 'random').mockReturnValue(0.5);
+  waitUntilMock.mockReset();
 });
 
 afterEach(() => {
   cleanupContext?.();
   cleanupContext = undefined;
   fetchMock.mockReset();
+  getVercelOidcTokenMock.mockReset();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -49,11 +110,12 @@ function createAuth(sdkKey = 'test-key'): Auth {
   };
 }
 
-function createTracker(sdkKey = 'test-key') {
+function createTracker(sdkKey = 'test-key', options?: Partial<IngestOptions>) {
   return new UsageTracker({
     auth: createAuth(sdkKey),
     host: 'https://example.com',
     fetch: fetchMock,
+    ...options,
   });
 }
 
@@ -85,7 +147,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -96,14 +158,30 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const events = getBody() as FlagsConfigReadEvent[];
+      const events = getBody() as SerializedConfigReadEvent[];
       expect(events).toHaveLength(1);
-      const event = events[0] as FlagsConfigReadEvent;
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.type).toBe('FLAGS_CONFIG_READ');
       expect(event.ts).toBeTypeOf('number');
+    });
+
+    it('should timestamp config read events when they are tracked', async () => {
+      vi.useFakeTimers();
+      const trackedAt = new Date('2026-01-01T00:00:00.000Z');
+      vi.setSystemTime(trackedAt);
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead();
+      vi.setSystemTime(new Date(trackedAt.getTime() + 10_000));
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedConfigReadEvent[];
+      expect(events[0]?.ts).toBe(trackedAt.getTime());
     });
 
     it('should include deployment ID and region from environment', async () => {
@@ -115,10 +193,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.deploymentId).toBe('dpl_123');
       expect(event.payload.region).toBe('iad1');
     });
@@ -137,7 +215,7 @@ describe('UsageTracker', () => {
         });
         tracker.trackRead();
       }
-      await tracker.flush();
+      await tracker.shutdown();
 
       const events = getBody() as Array<{ type: string }>;
       expect(events).toHaveLength(3);
@@ -153,9 +231,56 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+    });
+
+    it('should send evaluating OIDC header when SDK key auth is used', async () => {
+      getVercelOidcTokenMock.mockResolvedValue('oidc-token');
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker('my-secret-key');
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBe('oidc-token');
+    });
+
+    it('should omit evaluating OIDC header when OIDC is unavailable', async () => {
+      getVercelOidcTokenMock.mockRejectedValue(new Error('No OIDC'));
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker('my-secret-key');
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer my-secret-key');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
+    });
+
+    it('should not send evaluating OIDC header when OIDC is primary auth', async () => {
+      getVercelOidcTokenMock.mockResolvedValue('evaluating-oidc-token');
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = new UsageTracker({
+        auth: {
+          resolveToken: () => Promise.resolve('primary-oidc-token'),
+          resolveBundledDefinitionsLookup: () =>
+            Promise.resolve({ type: 'project-id', projectId: 'prj_123' }),
+        },
+        host: 'https://example.com',
+        fetch: fetchMock,
+      });
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders().Authorization).toBe('Bearer primary-oidc-token');
+      expect(getHeaders()[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
     });
 
     it('should send correct content-type header', async () => {
@@ -164,7 +289,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['Content-Type']).toBe('application/json');
     });
@@ -175,9 +300,20 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['User-Agent']).toMatch(/^VercelFlagsCore\//);
+    });
+
+    it('should send shutdown as the flush reason header for shutdown flushes', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead();
+      await tracker.shutdown();
+
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
     });
 
     it('should not send empty batches', async () => {
@@ -185,8 +321,8 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
 
-      // Flush without tracking anything
-      await tracker.flush();
+      // Shut down without tracking anything
+      await tracker.shutdown();
 
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -201,7 +337,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Should not throw, errors are logged via console.error
       expect(consoleSpy).toHaveBeenCalled();
@@ -217,7 +353,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Should not throw, errors are logged via console.error
       expect(consoleSpy).toHaveBeenCalled();
@@ -245,7 +381,7 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['x-vercel-debug-ingest']).toBe('1');
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -261,7 +397,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(getHeaders()['x-vercel-debug-ingest']).toBeUndefined();
     });
@@ -283,7 +419,7 @@ describe('UsageTracker', () => {
       });
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -293,7 +429,311 @@ describe('UsageTracker', () => {
     });
   });
 
-  describe('flush', () => {
+  describe('trackEvaluation', () => {
+    it('should aggregate matching evaluations into counted buckets', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_disabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        clientName: 'checkout',
+      });
+
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(2);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'FLAG_EVALUATION',
+          payload: expect.objectContaining({
+            flagKey: 'flag-a',
+            variant: 'var_enabled',
+            reason: ResolutionReason.FALLTHROUGH,
+            clientName: 'checkout',
+            evaluationCount: 2,
+            periodStartedAt: expect.any(Number),
+          }),
+        }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            flagKey: 'flag-a',
+            variant: 'var_disabled',
+            reason: ResolutionReason.FALLTHROUGH,
+            clientName: 'checkout',
+            evaluationCount: 1,
+            periodStartedAt: expect.any(Number),
+          }),
+        }),
+      );
+    });
+
+    it('should preserve evaluation timestamps and bucket periodStartedAt to the current minute', async () => {
+      vi.useFakeTimers();
+      const trackedAt = new Date('2026-01-01T00:00:15.123Z');
+      const bucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(trackedAt);
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      vi.setSystemTime(new Date(trackedAt.getTime() + 10_000));
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events[0]?.ts).toBe(trackedAt.getTime());
+      expect(events[0]?.payload.periodStartedAt).toBe(bucketTs);
+    });
+
+    it('should keep exact minute boundaries in the same bucket', async () => {
+      vi.useFakeTimers();
+      const trackedAt = new Date('2026-01-01T00:01:00.000Z');
+      vi.setSystemTime(trackedAt);
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events[0]?.ts).toBe(trackedAt.getTime());
+      expect(events[0]?.payload.periodStartedAt).toBe(trackedAt.getTime());
+    });
+
+    it('should aggregate matching evaluations in the same minute bucket', async () => {
+      vi.useFakeTimers();
+      const bucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(new Date('2026-01-01T00:00:15.000Z'));
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      vi.setSystemTime(new Date('2026-01-01T00:00:59.999Z'));
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      vi.setSystemTime(new Date('2026-01-01T00:01:10.000Z'));
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(1);
+      expect(events[0]?.ts).toBe(
+        new Date('2026-01-01T00:00:15.000Z').getTime(),
+      );
+      expect(events[0]?.payload.periodStartedAt).toBe(bucketTs);
+      expect(events[0]?.payload.evaluationCount).toBe(2);
+    });
+
+    it('should keep matching evaluations in different minute buckets separate', async () => {
+      vi.useFakeTimers();
+      const firstBucketTs = new Date('2026-01-01T00:00:00.000Z').getTime();
+      const secondBucketTs = new Date('2026-01-01T00:01:00.000Z').getTime();
+      vi.setSystemTime(new Date('2026-01-01T00:00:59.999Z'));
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      vi.setSystemTime(new Date('2026-01-01T00:01:00.001Z'));
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(2);
+      expect(events).toContainEqual({
+        type: 'FLAG_EVALUATION',
+        ts: new Date('2026-01-01T00:00:59.999Z').getTime(),
+        payload: {
+          flagKey: 'flag-a',
+          variant: 'var_enabled',
+          reason: ResolutionReason.FALLTHROUGH,
+          evaluationCount: 1,
+          periodStartedAt: firstBucketTs,
+        },
+      });
+      expect(events).toContainEqual({
+        type: 'FLAG_EVALUATION',
+        ts: new Date('2026-01-01T00:01:00.001Z').getTime(),
+        payload: {
+          flagKey: 'flag-a',
+          variant: 'var_enabled',
+          reason: ResolutionReason.FALLTHROUGH,
+          evaluationCount: 1,
+          periodStartedAt: secondBucketTs,
+        },
+      });
+    });
+
+    it('should send read and evaluation events in the same flush payload', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackRead({ configOrigin: 'in-memory' });
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getBody()).toEqual([
+        expect.objectContaining({ type: 'FLAGS_CONFIG_READ' }),
+        {
+          type: 'FLAG_EVALUATION',
+          ts: expect.any(Number),
+          payload: {
+            flagKey: 'flag-a',
+            variant: 'var_0',
+            reason: ResolutionReason.FALLTHROUGH,
+            evaluationCount: 1,
+            periodStartedAt: expect.any(Number),
+          },
+        },
+      ]);
+    });
+
+    it('should reset the idle flush timer when evaluations keep arriving', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:10.000Z'));
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events[0]?.payload.evaluationCount).toBe(2);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('idle_timeout');
+    });
+
+    it('should aggregate repeated evaluations of the same bucket into a single event', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      // Track the same bucket repeatedly.
+      for (let i = 0; i < 60; i++) {
+        tracker.trackEvaluation({
+          flagKey: 'flag-a',
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      // No flush fires before the idle window elapses.
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // The aggregated event still carries the full repeated count.
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(1);
+      expect(events[0]?.payload.evaluationCount).toBe(60);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
+    });
+
+    it('should track when request context is unavailable', async () => {
+      cleanupContext?.();
+      cleanupContext = undefined;
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getBody()).toEqual([
+        {
+          type: 'FLAG_EVALUATION',
+          ts: expect.any(Number),
+          payload: {
+            flagKey: 'flag-a',
+            variant: 'var_0',
+            reason: ResolutionReason.FALLTHROUGH,
+            evaluationCount: 1,
+            periodStartedAt: expect.any(Number),
+          },
+        },
+      ]);
+    });
+  });
+
+  describe('shutdown', () => {
     it('should trigger immediate flush of pending events', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
@@ -301,21 +741,107 @@ describe('UsageTracker', () => {
 
       tracker.trackRead();
 
-      // Flush immediately instead of waiting for timeout
-      await tracker.flush();
+      // Shut down immediately instead of waiting for timeout
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('should be safe to call flush multiple times', async () => {
+    it('should keep the waitUntil promise pending until the scheduled ingest completes', async () => {
+      vi.useFakeTimers();
+      const fetchDeferred = deferred<Response>();
+      fetchMock.mockImplementation(() => fetchDeferred.promise);
+
+      const tracker = createTracker();
+      tracker.trackRead();
+
+      // Trigger the scheduled flush via the idle window.
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(waitUntilMock).toHaveBeenCalledTimes(1);
+      const pending = waitUntilMock.mock.calls[0]![0] as Promise<void>;
+      let settled = false;
+      void pending.then(() => {
+        settled = true;
+      });
+
+      // Ingest has started but not resolved; the waitUntil promise must wait.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('idle_timeout');
+      expect(settled).toBe(false);
+
+      fetchDeferred.resolve(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      await pending;
+      expect(settled).toBe(true);
+    });
+
+    it('should drain a pending scheduled batch without double-sending', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      // Both events sit in a pending scheduled batch (idle timer running).
+      tracker.trackRead();
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      await tracker.shutdown();
+
+      // Exactly one ingest batch carrying both events; the trailing
+      // safety-net flush is a no-op (maps already cleared).
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getBody()).toHaveLength(2);
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('shutdown');
+    });
+
+    it('should send max_timeout as the flush reason header for max-window flushes', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_0',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+
+      for (let elapsed = 0; elapsed < 56000; elapsed += 4000) {
+        await vi.advanceTimersByTimeAsync(4000);
+        expect(fetchMock).not.toHaveBeenCalled();
+        tracker.trackEvaluation({
+          flagKey: 'flag-a',
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      await vi.advanceTimersByTimeAsync(4000);
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      expect(getHeaders()[FLUSH_REASON_HEADER]).toBe('max_timeout');
+    });
+
+    it('should be safe to call shutdown multiple times', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
       tracker.trackRead();
-      tracker.flush();
-      tracker.flush();
-      await tracker.flush();
+      await tracker.shutdown();
+      await tracker.shutdown();
+      await tracker.shutdown();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -336,7 +862,7 @@ describe('UsageTracker', () => {
       tracker.trackRead();
       tracker.trackRead();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // Only one event should be recorded due to deduplication
       const events = getBody() as Array<{ type: string }>;
@@ -356,10 +882,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.vercelRequestId).toBe('req_123');
       expect(event.payload.invocationHost).toBe('myapp.vercel.app');
 
@@ -391,8 +917,8 @@ describe('UsageTracker', () => {
       // Both trackers track with the same request context
       tracker1.trackRead();
       tracker2.trackRead();
-      await tracker1.flush();
-      await tracker2.flush();
+      await tracker1.shutdown();
+      await tracker2.shutdown();
 
       // Each tracker should have sent its own event
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -420,7 +946,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // 2 failed + 1 success = 3 total
       expect(requestCount).toBe(3);
@@ -442,7 +968,7 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // 2 failed + 1 success = 3 total
       expect(requestCount).toBe(3);
@@ -458,7 +984,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       // All 3 attempts fail; SDK logs an extra "Dropped" line
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -488,7 +1014,7 @@ describe('UsageTracker', () => {
 
       const tracker = createTracker();
       tracker.trackRead();
-      await tracker.flush();
+      await tracker.shutdown();
 
       const droppedLogs = consoleSpy.mock.calls.filter(
         ([msg]) => typeof msg === 'string' && msg.includes('Dropped'),
@@ -500,28 +1026,48 @@ describe('UsageTracker', () => {
   });
 
   describe('batch size limit', () => {
-    it('should trigger flush when batch size reaches 50', async () => {
+    it('should not trigger a flush based on batch size', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 
       const tracker = createTracker();
 
-      // Track 50 events with different request contexts to avoid deduplication
-      for (let i = 0; i < 50; i++) {
-        cleanupContext?.();
-        cleanupContext = setRequestContext({
-          host: 'example.com',
-          'x-vercel-id': `req-${i}`,
+      for (let i = 0; i < 2500; i++) {
+        tracker.trackEvaluation({
+          flagKey: `flag-${i}`,
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
         });
-        tracker.trackRead();
       }
 
-      // Should auto-flush at 50 events — wait for the scheduled flush
-      await vi.waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-      });
+      // Flushing is purely time-based; no count threshold fires.
+      expect(fetchMock).not.toHaveBeenCalled();
 
-      const events = getBody() as Array<{ type: string }>;
-      expect(events).toHaveLength(50);
+      await tracker.shutdown();
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('should split a flush of more than 2000 events into multiple POSTs', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      for (let i = 0; i < 2500; i++) {
+        tracker.trackEvaluation({
+          flagKey: `flag-${i}`,
+          variant: 'var_0',
+          reason: ResolutionReason.FALLTHROUGH,
+        });
+      }
+
+      await tracker.shutdown();
+
+      // Each POST stays at or below the 2000-event chunk size, and both
+      // chunks belong to the same flush (same flush reason header).
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(getBody(0)).toHaveLength(2000);
+      expect(getBody(1)).toHaveLength(500);
+      expect(getHeaders(0)[FLUSH_REASON_HEADER]).toBe('shutdown');
+      expect(getHeaders(1)[FLUSH_REASON_HEADER]).toBe('shutdown');
     });
   });
 
@@ -552,10 +1098,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('in-memory');
     });
 
@@ -565,10 +1111,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheStatus: 'HIT' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheStatus).toBe('HIT');
     });
 
@@ -578,10 +1124,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsFirstRead: true });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheIsFirstRead).toBe(true);
     });
 
@@ -591,10 +1137,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', cacheIsBlocking: true });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.cacheIsBlocking).toBe(true);
     });
 
@@ -604,10 +1150,10 @@ describe('UsageTracker', () => {
       const tracker = createTracker();
 
       tracker.trackRead({ configOrigin: 'in-memory', duration: 150 });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.duration).toBe(150);
     });
 
@@ -621,10 +1167,10 @@ describe('UsageTracker', () => {
         configOrigin: 'in-memory',
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configUpdatedAt).toBe(timestamp);
     });
 
@@ -642,10 +1188,10 @@ describe('UsageTracker', () => {
         duration: 200,
         configUpdatedAt: timestamp,
       });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('in-memory');
       expect(event.payload.cacheStatus).toBe('MISS');
       expect(event.payload.cacheIsFirstRead).toBe(true);
@@ -661,10 +1207,10 @@ describe('UsageTracker', () => {
 
       // Only pass configOrigin, omit others
       tracker.trackRead({ configOrigin: 'embedded' });
-      await tracker.flush();
+      await tracker.shutdown();
 
-      const events = getBody() as FlagsConfigReadEvent[];
-      const event = events[0] as FlagsConfigReadEvent;
+      const events = getBody() as SerializedConfigReadEvent[];
+      const event = events[0] as SerializedConfigReadEvent;
       expect(event.payload.configOrigin).toBe('embedded');
       expect(event.payload.cacheStatus).toBeUndefined();
       expect(event.payload.cacheIsFirstRead).toBeUndefined();

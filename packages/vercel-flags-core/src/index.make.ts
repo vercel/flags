@@ -54,6 +54,7 @@ export function make(
     const createClientOptions = optionsOnly
       ? sdkKeyOrConnectionStringOrOptions
       : options;
+
     const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
