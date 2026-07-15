@@ -2,7 +2,7 @@
 name: flags-sdk
 description: >
   Guide for feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when: declaring flags with `flag()`, using `vercelAdapter()` or `vercel flags` CLI
+  Use when: declaring flags with `flag()`, using `vercelAdapter` or `vercel flags` CLI
   (add, list, enable, disable, inspect, archive, rm, sdk-keys),
   setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
   Edge Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
@@ -54,9 +54,11 @@ import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
+
+> **Version note**: The SDK is published as `flags` (renamed from `@vercel/flags`; that old name still appears in changelog history). `flags` 4.2.0+ accepts the adapter factory by reference (`adapter: vercelAdapter`) and resolves it once per declaration. Older versions require calling it (`adapter: vercelAdapter()`). The called form still works on new versions, so prefer the shorthand unless you're targeting `flags` < 4.2.0.
 
 ## Agent workflow: Creating a new flag
 
@@ -83,20 +85,20 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
 
-   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, read and follow the `vercel-cli` skill. If it's not installed, run `npx skills add https://github.com/vercel/vercel --skill vercel-cli`.
+   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
    Before running `vercel flags add`, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
-3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter()` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
+3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
 
-4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter()`:
+4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter`:
    ```ts
    import { flag } from 'flags/next';
    import { vercelAdapter } from '@flags-sdk/vercel';
 
    export const myFlag = flag({
      key: 'my-flag',
-     adapter: vercelAdapter(),
+     adapter: vercelAdapter,
    });
    ```
 
@@ -128,7 +130,7 @@ For the full Vercel provider reference — user targeting, `vercel flags` CLI su
 
 ## Declaring flags
 
-When using Vercel Flags, declare flags with `vercelAdapter()` as shown in the [Agent workflow](#agent-workflow-creating-a-new-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
+When using Vercel Flags, declare flags with `vercelAdapter` as shown in the [Agent workflow](#agent-workflow-creating-a-new-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
 
 ### Basic flag
 
@@ -219,6 +221,40 @@ const identify = dedupe(({ cookies }) => {
 ```
 
 Note: `dedupe` is not available in Pages Router.
+
+## Bulk evaluation
+
+To evaluate **multiple** flags at once, call `evaluate()` (from `flags/next`) instead of awaiting flags one at a time or using `Promise.all()`. To evaluate a **single** flag, just call it: `await myFlag()`.
+
+```ts
+import { evaluate } from 'flags/next';
+import { flagA, flagB } from '../flags';
+
+// avoid: each await blocks the next, so the flags resolve sequentially
+const a = await flagA();
+const b = await flagB();
+
+// avoid: parallel, but each flag is evaluated in isolation
+const [a, b] = await Promise.all([flagA(), flagB()]);
+
+// prefer: shares work across the batch
+const [a, b] = await evaluate([flagA, flagB]);
+```
+
+`evaluate()` is faster than both approaches. Awaiting flags one at a time makes total latency the sum of every flag's evaluation instead of the slowest single flag, while `Promise.all()` runs them in parallel but evaluates each in isolation. `evaluate()` pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group in a single call, which reduces the number of parallel promises the runtime manages and leaves less room for the async work to be interrupted by other microtasks.
+
+It accepts either an **array** (positional results) or an **object** (keyed results):
+
+```ts
+const [a, b] = await evaluate([flagA, flagB]);
+const { a, b } = await evaluate({ a: flagA, b: flagB });
+```
+
+Outside App Router (Pages Router `getServerSideProps`/API routes, or routing middleware), pass the request as the second argument: `await evaluate([flagA, flagB], request)`.
+
+`evaluate()` always evaluates flags at request time. It is not for reading [precomputed](#precompute-pattern) (static) values — for those, use `getPrecomputed` (or call the flag with the code, `await myFlag(code, flagGroup)`).
+
+Adapters can opt into batching by implementing the optional `bulkDecide` hook. The Vercel adapter (`@flags-sdk/vercel`) implements it — roughly a 10x reduction in evaluation time when resolving hundreds of flags. See [references/providers.md — Custom Adapters](references/providers.md#custom-adapters) for implementing `bulkDecide`, and [references/api.md — `evaluate`](references/api.md#evaluate) for the full signature.
 
 ## Flags Explorer setup
 

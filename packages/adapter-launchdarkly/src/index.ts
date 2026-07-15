@@ -108,7 +108,7 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv('EDGE_CONFIG');
+    const edgeConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
     const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
 

@@ -6,37 +6,66 @@ import {
   OutcomeType,
   Packed,
   ResolutionReason,
+  type VariantId,
 } from './types';
 
 type PathArray = (string | number)[];
 
 const MAX_REGEX_INPUT_LENGTH = 10_000;
 
-/** uint32 max — domain of xxHash32 output, used for split/rollout thresholds */
-const UINT32_MAX = 4_294_967_295;
+/**
+ * Bucket space for all traffic splitting. `hashInput` (xxHash32) returns exactly
+ * `2**32` distinct values, so we use `2**32` as the space and compare the raw
+ * hash against boundaries in it — no modulo (which would bias low buckets), and
+ * the final variant's boundary is exactly `2**32` so nothing falls through.
+ */
+const HASH_SPACE = 2 ** 32;
 
-// Symbol-keyed caches attached to outcome / rhs objects on first evaluation.
-// Symbols are invisible to JSON.stringify, for..in, and Object.keys, so they
-// don't leak into serialized datafiles or surprise consumers.
-const SCALED_WEIGHTS = Symbol('@vercel/flags-core:scaledWeights');
-const COMPILED_REGEX = Symbol('@vercel/flags-core:compiledRegex');
+/** Denominator for promille values (rollout slots and segment `passPromille`). */
+const PROMILLE_SCALE = 100_000;
 
-function getScaledWeights(outcome: Packed.SplitOutcome): number[] {
-  const cached = (outcome as unknown as Record<symbol, number[]>)[
-    SCALED_WEIGHTS
-  ];
+/**
+ * Maps the fraction `numerator / denominator` to a cut point in `[0, HASH_SPACE]`;
+ * a hash is "below" the fraction iff `hash < boundaryFor(…)`. Splits, rollouts,
+ * and segments all cut with this one function, so a rollout at promille `p` is
+ * bit-for-bit identical to the split `{ rollFrom: PROMILLE_SCALE - p, rollTo: p }`
+ * — which is what lets a flag switch between split and rollout without reassigning
+ * anyone. `denominator === 0` yields `NaN`, so evaluation falls through to default.
+ */
+function boundaryFor(numerator: number, denominator: number): number {
+  return Math.floor((numerator / denominator) * HASH_SPACE);
+}
+
+// WeakMaps keyed by datafile objects, so those objects stay pristine (no
+// symbol-keyed props) and serialize cleanly across the RSC boundary; entries
+// are GC'd with the datafile. Split boundaries are static per outcome, so the
+// cumulative cut points are computed once and reused across evaluations.
+const splitBoundariesCache = new WeakMap<Packed.SplitOutcome, number[]>();
+const compiledRegexCache = new WeakMap<object, RegExp>();
+
+/**
+ * Cumulative hash boundaries for a split, one per variant in index order.
+ * Variant `i` is served for hashes in `[boundaries[i-1], boundaries[i])`.
+ */
+function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
+  const cached = splitBoundariesCache.get(outcome);
   if (cached) return cached;
   const total = sum(outcome.weights);
-  const scaled = outcome.weights.map((w) => (w / total) * UINT32_MAX);
-  (outcome as unknown as Record<symbol, number[]>)[SCALED_WEIGHTS] = scaled;
-  return scaled;
+  const boundaries: number[] = [];
+  let cumulative = 0;
+  for (const weight of outcome.weights) {
+    cumulative += weight;
+    boundaries.push(boundaryFor(cumulative, total));
+  }
+  splitBoundariesCache.set(outcome, boundaries);
+  return boundaries;
 }
 
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
-  const cached = (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX];
+  const cached = compiledRegexCache.get(rhs);
   if (cached) return cached;
   const compiled = new RegExp(rhs.pattern, rhs.flags);
-  (rhs as unknown as Record<symbol, RegExp>)[COMPILED_REGEX] = compiled;
+  compiledRegexCache.set(rhs, compiled);
   return compiled;
 }
 
@@ -348,14 +377,12 @@ function handleSegmentOutcome<T>(
       // exclude from segment if the lhs is not a string
       if (typeof lhs !== 'string') return false;
 
-      const maxValue = 100_000;
-
       // bypass hashing for common values and edges
       if (outcome.passPromille <= 0) return false;
-      if (outcome.passPromille >= maxValue) return true;
+      if (outcome.passPromille >= PROMILLE_SCALE) return true;
 
-      const value = hashInput(lhs, params.definition.seed) % maxValue;
-      return value < outcome.passPromille;
+      const bucket = hashInput(lhs, params.definition.seed);
+      return bucket < boundaryFor(outcome.passPromille, PROMILLE_SCALE);
     }
     default: {
       const { type } = outcome;
@@ -364,13 +391,27 @@ function handleSegmentOutcome<T>(
   }
 }
 
-function getVariant<T>(variants: unknown[], index: number): T {
+function getVariant<T>(
+  definition: Packed.FlagDefinition,
+  index: number,
+): { value: T; variantId: VariantId | null } {
+  const { variants, variantIds } = definition;
+
   if (index < 0 || index >= variants.length) {
     throw new Error(
       `@vercel/flags-core: Invalid variant index ${index}, variants length is ${variants.length}`,
     );
   }
-  return variants[index] as T;
+
+  let variantId: VariantId | null = null;
+  if (variantIds && index < variantIds.length) {
+    variantId = variantIds[index] ?? null;
+  }
+
+  return {
+    value: variants[index] as T,
+    variantId,
+  };
 }
 
 function handleOutcome<T>(
@@ -379,10 +420,12 @@ function handleOutcome<T>(
 ): {
   value: T;
   outcomeType: OutcomeType;
+  variantId: VariantId | null;
 } {
   if (typeof outcome === 'number') {
+    const variant = getVariant<T>(params.definition, outcome);
     return {
-      value: getVariant<T>(params.definition.variants, outcome),
+      ...variant,
       outcomeType: OutcomeType.VALUE,
     };
   }
@@ -390,54 +433,62 @@ function handleOutcome<T>(
     case 'split': {
       const lhs = access(outcome.base, params);
       const defaultOutcome = getVariant<T>(
-        params.definition.variants,
+        params.definition,
         outcome.defaultVariant,
       );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return { value: defaultOutcome, outcomeType: OutcomeType.SPLIT };
+        return {
+          ...defaultOutcome,
+          outcomeType: OutcomeType.SPLIT,
+        };
       }
 
-      /**
-       * (xxHash32): turns the string into a number between 0 and 2^32-1 (max uint32 value)
-       * Since we know the range of the hash function, we don't use modulo here. If we change
-       * the hash function, or if the range changes, we should add a modulo here and/or adjust UINT32_MAX.
-       */
-      const value = hashInput(lhs, params.definition.seed);
-      const scaledWeights = getScaledWeights(outcome);
-      const variantIndex = findWeightedIndex(scaledWeights, value, UINT32_MAX);
+      const bucket = hashInput(lhs, params.definition.seed);
+      const boundaries = getSplitBoundaries(outcome);
+
+      // Return the first variant whose cumulative boundary covers the bucket.
+      for (let index = 0; index < boundaries.length; index++) {
+        if (bucket < (boundaries[index] as number)) {
+          return {
+            ...getVariant<T>(params.definition, index),
+            outcomeType: OutcomeType.SPLIT,
+          };
+        }
+      }
+
+      // Only reached when the weights sum to 0 (every boundary is NaN).
       return {
-        value:
-          variantIndex === -1
-            ? defaultOutcome
-            : getVariant<T>(params.definition.variants, variantIndex),
+        ...defaultOutcome,
         outcomeType: OutcomeType.SPLIT,
       };
     }
     case 'rollout': {
       const lhs = access(outcome.base, params);
       const defaultOutcome = getVariant<T>(
-        params.definition.variants,
+        params.definition,
         outcome.defaultVariant,
       );
 
       // serve the default variant if the lhs is not a string
       if (typeof lhs !== 'string') {
-        return { value: defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
+        return { ...defaultOutcome, outcomeType: OutcomeType.ROLLOUT };
       }
 
       // Determine active slot based on elapsed time
       const now = Date.now();
       const elapsed = now - outcome.startTimestamp;
 
+      const rollFromVariant = getVariant<T>(
+        params.definition,
+        outcome.rollFromVariant,
+      );
+
       // Before rollout starts or no slots, serve rollFromVariant
       if (elapsed < 0 || outcome.slots.length === 0) {
         return {
-          value: getVariant<T>(
-            params.definition.variants,
-            outcome.rollFromVariant,
-          ),
+          ...rollFromVariant,
           outcomeType: OutcomeType.ROLLOUT,
         };
       }
@@ -457,39 +508,45 @@ function handleOutcome<T>(
           break;
         }
       }
-      if (exhausted) currentPromille = 100_000;
+      if (exhausted) currentPromille = PROMILLE_SCALE;
 
       // short-circuit common edges
       if (currentPromille <= 0) {
         return {
-          value: getVariant<T>(
-            params.definition.variants,
-            outcome.rollFromVariant,
-          ),
+          ...rollFromVariant,
           outcomeType: OutcomeType.ROLLOUT,
         };
       }
-      if (currentPromille >= 100_000) {
+      const rollToVariant = getVariant<T>(
+        params.definition,
+        outcome.rollToVariant,
+      );
+      if (currentPromille >= PROMILLE_SCALE) {
         return {
-          value: getVariant<T>(
-            params.definition.variants,
-            outcome.rollToVariant,
-          ),
+          ...rollToVariant,
           outcomeType: OutcomeType.ROLLOUT,
         };
       }
 
-      const value = hashInput(lhs, params.definition.seed);
-      const threshold = (currentPromille / 100_000) * UINT32_MAX;
+      const bucket = hashInput(lhs, params.definition.seed);
 
+      // Equivalent to the split { rollFrom: PROMILLE_SCALE - p, rollTo: p }: the
+      // lower-index variant takes the low buckets, matching where the split
+      // places it (see boundaryFor). So rollTo holds `[0, boundary(p))` when it
+      // has the lower index, otherwise rollFrom holds the low buckets.
+      if (outcome.rollToVariant < outcome.rollFromVariant) {
+        const rollToBoundary = boundaryFor(currentPromille, PROMILLE_SCALE);
+        return {
+          ...(bucket < rollToBoundary ? rollToVariant : rollFromVariant),
+          outcomeType: OutcomeType.ROLLOUT,
+        };
+      }
+      const rollFromBoundary = boundaryFor(
+        PROMILLE_SCALE - currentPromille,
+        PROMILLE_SCALE,
+      );
       return {
-        value:
-          value < threshold
-            ? getVariant<T>(params.definition.variants, outcome.rollToVariant)
-            : getVariant<T>(
-                params.definition.variants,
-                outcome.rollFromVariant,
-              ),
+        ...(bucket < rollFromBoundary ? rollFromVariant : rollToVariant),
         outcomeType: OutcomeType.ROLLOUT,
       };
     }
@@ -531,6 +588,7 @@ export function evaluate<T>(
       reason: ResolutionReason.ERROR,
       errorMessage: `Could not find envConfig for "${params.environment}"`,
       value: params.defaultValue,
+      variantId: null,
     };
   }
 
@@ -551,6 +609,7 @@ export function evaluate<T>(
         reason: ResolutionReason.ERROR,
         errorMessage: `Circular environment reuse detected: "${envConfig.reuse}"`,
         value: params.defaultValue,
+        variantId: null,
       };
     }
     visited.add(params.environment);
@@ -622,28 +681,4 @@ export function bulkEvaluate<T = unknown>(
     results[key] = evaluate<T>(params);
   }
   return results;
-}
-
-/**
- * Find the weighted index that the given value falls into.
- *
- * Takes a set of weights that add up to maxValue, and returns the index
- * that corresponds to the given value.
- *
- * @returns index or -1
- */
-export function findWeightedIndex(
-  weights: number[],
-  value: number,
-  maxValue: number,
-): number {
-  if (value < 0 || value >= maxValue) return -1;
-
-  let sum = 0;
-  for (let i = 0; i < weights.length; i++) {
-    sum += weights[i] as number;
-    if (value < sum) return i;
-  }
-
-  return -1;
 }

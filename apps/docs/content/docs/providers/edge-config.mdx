@@ -35,7 +35,7 @@ import { edgeConfigAdapter } from '@flags-sdk/edge-config';
 
 export const exampleFlag = flag({
   // Will load the `flags` key from Edge Config
-  adapter: edgeConfigAdapter(),
+  adapter: edgeConfigAdapter,
   // Will get the `example-flag` key from the `flags` object
   key: 'example-flag',
 });
@@ -54,7 +54,7 @@ Your Edge Config should be [managed on the dashboard](https://vercel.com/docs/st
 }
 ```
 
-## API Reference
+## API reference
 
 ### edgeConfigAdapter
 
@@ -65,7 +65,7 @@ and that it contains a `flags` object with each key corresponding to a flag you 
 import { edgeConfigAdapter } from '@flags-sdk/edge-config';
 
 export const exampleFlag = flag({
-  adapter: edgeConfigAdapter(),
+  adapter: edgeConfigAdapter,
   key: 'example-flag',
 });
 ```
@@ -92,12 +92,12 @@ const myEdgeConfigAdapter = createEdgeConfigAdapter({
 });
 
 export const exampleFlag = flag({
-  adapter: myEdgeConfigAdapter(),
+  adapter: myEdgeConfigAdapter,
   key: 'example-flag',
 });
 ```
 
-## Read More
+## Read more
 
 Read more about Edge Config, Flags SDK, and the Edge Config adapter.
 

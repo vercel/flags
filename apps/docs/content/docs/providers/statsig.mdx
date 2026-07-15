@@ -2,7 +2,7 @@
 title: 'Statsig'
 ---
 
-The [Statsig](https://statsig.com/) provider contains support for Statsig's feature management suite, including Feature Gates, Dynamic Config, Experiments, Autotune and Layers.
+The [Statsig](https://statsig.com/) provider contains support for Statsig's feature management suite, including Feature Gates, Dynamic Config, Experiments, Autotune, and Layers.
 
 Statsig helps you move faster with Feature Gates (Feature Flags) and Dynamic Configs. It also allows you to run A/B tests to validate your new features and understand their impact on your KPIs.
 
@@ -43,7 +43,7 @@ npm install @flags-sdk/statsig
 
 ---
 
-## Provider Instance
+## Provider instance
 
 Import the default adapter instance `statsigAdapter` from `@flags-sdk/statsig`:
 
@@ -80,7 +80,7 @@ The default statsig adapter configures itself based on the following environment
 
 ---
 
-## Identify Users
+## Identify users
 
 Statsig relies on a [Statsig User](https://docs.statsig.com/concepts/user) object to evaluate the flags and experiments for a given request.
 
@@ -340,7 +340,7 @@ When using the [precompute](/principles/precompute) pattern a static prerender w
 
 Each variant may only contain the state of feature flags, but no user specific information. Otherwise the prerender could not be shared between multiple users. This forces you to bootstrap the Statsig client differently than when using [dynamic pages](#dynamic-pages).
 
-The initial static page must depend on feature flag and experiment configuration values only, but may not contain any user specific information. This allows the page to be served statically from an Edge Network or CDN and allows the initial render to be correct.
+The initial static page must depend on feature flag and experiment configuration values only, but may not contain any user specific information. This allows the page to be served statically from the CDN and allows the initial render to be correct.
 
 The client running in the browser must bootstrap the Statsig client over the network because of this.
 
@@ -420,7 +420,7 @@ export const myDynamicPrice = flag<number, StatsigUser>({
 
 The adapter uses `statsig-node-lite`, which is a slimmed version of the Statsig Node.js SDK optimized for server side and Routing Middleware usage.
 
-### Exposure Logging
+### Exposure logging
 
 Because middleware and server components are evaluated when routes are prefetched, exposures are not logged by default. You can enable exposure logging by providing the `exposureLogging` option to the adapter functions.
 
@@ -474,7 +474,7 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 ```
 
 
-## Read More
+## Read more
 
 Read more about Statsig, Flags SDK, and the Statsig adapter.
 

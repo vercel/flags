@@ -181,7 +181,19 @@ Evaluate multiple flags, return encoded string.
 
 ### `evaluate`
 
-Evaluate multiple flags, return their values as array.
+Evaluate multiple flags in a single call. Prefer this over `Promise.all([flagA(), flagB()])` — it pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group through one `bulkDecide` call, reducing parallel promises and microtask overhead.
+
+| Parameter           | Type                                | Description                                                          |
+| ------------------- | ----------------------------------- | ------------------------------------------------------------------- |
+| `flags`             | `Flag[] \| Record<string, Flag>`    | Array (positional results) or object (keyed results) of flags       |
+| `request` (Optional)| `IncomingMessage \| Request`        | Required outside App Router (Pages Router or routing middleware)     |
+
+```ts
+import { evaluate } from 'flags/next';
+
+const [a, b] = await evaluate([flagA, flagB]); // positional
+const { a, b } = await evaluate({ a: flagA, b: flagB }); // keyed
+```
 
 ### `serialize`
 

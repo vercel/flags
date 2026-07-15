@@ -24,7 +24,7 @@ describe('ldAdapter', () => {
   describe('with a missing environment', () => {
     it('should throw an error', () => {
       expect(() => ldAdapter.variation()).toThrowError(
-        'LaunchDarkly Adapter: Missing EDGE_CONFIG environment variable',
+        'LaunchDarkly Adapter: Missing EXPERIMENTATION_CONFIG environment variable',
       );
     });
   });
@@ -33,7 +33,8 @@ describe('ldAdapter', () => {
     beforeAll(() => {
       process.env.LAUNCHDARKLY_PROJECT_SLUG = 'test-project';
       process.env.LAUNCHDARKLY_CLIENT_SIDE_ID = 'test-client-side-id';
-      process.env.EDGE_CONFIG = 'https://edge-config.com/test-edge-config';
+      process.env.EXPERIMENTATION_CONFIG =
+        'https://edge-config.com/test-experimentation-config';
     });
 
     it('should expose the ldClient', () => {

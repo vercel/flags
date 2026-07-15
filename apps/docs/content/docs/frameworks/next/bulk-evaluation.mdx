@@ -1,0 +1,116 @@
+---
+title: Bulk Evaluation
+description: Evaluate multiple feature flags at once with evaluate().
+---
+
+`evaluate` (from `flags/next`) resolves multiple feature flags in a single call.
+Use it instead of awaiting flags one at a time or resolving them with
+`Promise.all`, both of which add avoidable latency or overhead. To evaluate a
+**single** flag, keep calling it directly with `await myFlag()`.
+
+## Why not await flags one by one or with `Promise.all`?
+
+Awaiting each flag in turn blocks on every flag before starting the next one, so
+the flags resolve sequentially. Total latency becomes the sum of every flag's
+evaluation time instead of the slowest single flag.
+
+```ts title="example.ts"
+import { flagA, flagB } from "./flags";
+
+// avoid: each await blocks the next, so the flags resolve sequentially
+const a = await flagA();
+const b = await flagB();
+```
+
+`Promise.all` removes the sequential wait by starting every flag at once, but it
+evaluates each flag in isolation.
+
+```ts title="example.ts"
+import { flagA, flagB } from "./flags";
+
+// avoid: resolves in parallel, but can't share work across the flags
+const [a, b] = await Promise.all([flagA(), flagB()]);
+```
+
+Because each flag runs on its own, `Promise.all` can't reuse work across the
+batch. Every flag reads headers, cookies, and overrides again, and adapters
+can't resolve a group of flags through a single call. It also creates one
+promise per flag, with each flag spawning further internal promises as it
+evaluates, which adds microtask queue overhead and leaves more room for the work
+to be interrupted by other microtasks.
+
+## Use `evaluate` instead
+
+`evaluate` resolves a set of flags in a single call. It pre-reads headers,
+cookies, and overrides once for the whole batch and lets adapters resolve a
+group through one call, so it shares work across evaluations and reduces the
+number of parallel promises the runtime has to manage.
+
+```ts title="example.ts"
+import { evaluate } from "flags/next";
+import { flagA, flagB } from "./flags";
+
+// prefer: shares work across the batch
+const [a, b] = await evaluate([flagA, flagB]);
+```
+
+`evaluate` accepts either an **array** of flags, returning positional results,
+or an **object** whose values are flags, returning keyed results.
+
+```ts title="example.ts"
+// array form — positional results
+const [a, b] = await evaluate([flagA, flagB]);
+
+// object form — keyed results
+const { a, b } = await evaluate({ a: flagA, b: flagB });
+```
+
+## Evaluate outside the App Router
+
+Outside the App Router, in Pages Router (`getServerSideProps`, API routes) or in
+routing middleware, pass the request as the second argument so `evaluate` can
+read headers and cookies:
+
+```ts title="middleware.ts"
+const [a, b] = await evaluate([flagA, flagB], request);
+```
+
+## Evaluation context
+
+`evaluate` accepts only flags and an optional request. It does not take an
+evaluation context or entities argument. Each flag resolves its own
+[evaluation context](/frameworks/next/evaluation-context) from the `identify`
+function declared on the flag, and `evaluate` calls that `identify` for you,
+sharing the result across the batch.
+
+To control the context for a flag evaluated through `evaluate`, set it in that
+flag's `identify` function, which can read the request's headers and cookies and
+return whatever entities you need. Passing entities directly is only supported
+when calling a single flag with `await myFlag.run({ identify: entities })`,
+which bypasses `identify` and uses the entities you provide.
+
+## Evaluate vs. precomputed values
+
+`evaluate` always evaluates flags **dynamically** at request time. It calls each flag's adapter (or `decide`), the same as calling the flag directly does.
+
+It is **not** the way to read the values of [precomputed](/frameworks/next/precompute)
+flags. When flags were precomputed in the proxy and encoded into a `code`, read
+their values without re-evaluating using
+[`getPrecomputed`](/api-reference/frameworks/next#getprecomputed) (or by calling
+the flag with the code, `await myFlag(code, flagGroup)`).
+
+## Adapters can batch evaluation
+
+Aside from the Flags SDK itself getting faster, adapters can implement the
+optional [`bulkDecide`](/providers/custom-adapters#bulk-evaluation) hook. When an
+adapter implements it, `evaluate` calls `bulkDecide` once per group of flags that
+share an adapter and `identify` source, instead of calling `decide` per flag, so
+the underlying provider can share work across evaluations too.
+
+The [Vercel adapter](/providers/vercel) (`@flags-sdk/vercel`) implements
+`bulkDecide`, with roughly a 10x reduction in evaluation time when resolving
+hundreds of flags in parallel.
+
+<LearnMore href="/providers/custom-adapters#bulk-evaluation" icon="arrow">
+  Implement `bulkDecide` in a custom adapter
+</LearnMore>
