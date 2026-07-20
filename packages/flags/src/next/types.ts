@@ -14,6 +14,13 @@ export type PagesRouterRequest = IncomingMessage & {
 };
 
 /**
+ * The request shapes accepted by `flag(req)` and `evaluate(flags, req)` outside
+ * of App Router: a Pages Router `IncomingMessage`, or a `NextRequest` / Web
+ * `Request` (e.g. from routing middleware).
+ */
+export type FlagRequest = PagesRouterRequest | Request;
+
+/**
  * Metadata on a feature flag function
  */
 type FlagMeta<ValueType, EntitiesType> = {
@@ -75,7 +82,7 @@ type FlagMeta<ValueType, EntitiesType> = {
     identify:
       | FlagDeclaration<ValueType, EntitiesType>['identify']
       | EntitiesType;
-    request?: PagesRouterRequest;
+    request?: FlagRequest;
   }) => Promise<ValueType>;
 };
 
@@ -84,7 +91,7 @@ export type AppRouterFlag<ValueType, EntitiesType> =
 
 export type PagesRouterFlag<ValueType, EntitiesType> = {
   (): never;
-  (request: PagesRouterRequest): Promise<ValueType>;
+  (request: FlagRequest): Promise<ValueType>;
 } & FlagMeta<ValueType, EntitiesType>;
 
 export type PrecomputedFlag<ValueType, EntitiesType> = {

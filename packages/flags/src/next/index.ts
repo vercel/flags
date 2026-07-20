@@ -142,12 +142,14 @@ export function flag<
         }
       }
 
-      // check if we're using the flag in pages router
+      // check if we're being called with a request (Pages Router
+      // IncomingMessage, or a NextRequest / Web Request from routing
+      // middleware)
       //
       // ideally we'd check args[0] instanceof IncomingMessage, but that leads
       // to build time errors in the host application due to Edge Runtime,
-      // so we check for headers on the first arg instead, which indicates an
-      // IncomingMessage
+      // so we check for headers on the first arg instead, which indicates a
+      // request object
       if (args[0] && typeof args[0] === 'object' && 'headers' in args[0]) {
         const [request] = args as Parameters<
           PagesRouterFlag<ValueType, EntitiesType>
