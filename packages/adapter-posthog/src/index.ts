@@ -116,8 +116,12 @@ function getOrCreateDefaultAdapter() {
       postHogKey: assertEnv('NEXT_PUBLIC_POSTHOG_KEY'),
       postHogOptions: {
         host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
-        personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
-        featureFlagsPollingInterval: 10_000,
+        // `POSTHOG_PERSONAL_API_KEY` is only needed for provider data discovery
+        // (see `getProviderData`), which reads it independently of this client.
+        // Passing it here would enable local evaluation in `posthog-node`, which
+        // starts a per-process feature-flag poller. To use local evaluation,
+        // create the adapter explicitly with `createPostHogAdapter` and pass
+        // `personalApiKey`/`featureFlagsPollingInterval` in `postHogOptions`.
         // Presumption: Server IP is likely not a good proxy for user location
         disableGeoip: true,
       },
