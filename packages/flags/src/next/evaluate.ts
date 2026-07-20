@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import { isInternalNextError } from './is-internal-next-error';
 import { getOverrides } from './overrides';
-import type { Flag, PagesRouterRequest } from './types';
+import type { Flag, FlagRequest } from './types';
 
 // Internal markers stamped on the flag api by `flag()`. Read by `evaluate()`
 // to partition flags into adapter groups.
@@ -93,7 +93,11 @@ const identifyArgsMap = new WeakMap<
 /**
  * Transforms IncomingHttpHeaders to Headers
  */
-function transformToHeaders(incomingHeaders: IncomingHttpHeaders): Headers {
+function transformToHeaders(
+  incomingHeaders: IncomingHttpHeaders | Headers,
+): Headers {
+  if (incomingHeaders instanceof Headers) return incomingHeaders;
+
   const cached = transformMap.get(incomingHeaders);
   if (cached !== undefined) return cached;
 
@@ -319,9 +323,9 @@ type Run<ValueType, EntitiesType> = (options: {
     | FlagDeclaration<ValueType, EntitiesType>['identify']
     | EntitiesType;
   /**
-   * For Pages Router only
+   * For use outside App Router only, e.g. Pages Router or routing middleware
    */
-  request?: PagesRouterRequest;
+  request?: FlagRequest;
 }) => Promise<ValueType>;
 
 /**
@@ -344,7 +348,7 @@ export function getRun<ValueType, EntitiesType>(
     let overrides: Record<string, any> | null;
 
     if (options.request) {
-      // pages router
+      // pages router, or a NextRequest / Web Request (e.g. routing middleware)
       const headers = transformToHeaders(options.request.headers);
       readonlyHeaders = sealHeaders(headers);
       readonlyCookies = sealCookies(headers);
@@ -416,7 +420,7 @@ export function getRun<ValueType, EntitiesType>(
 // naked type parameter — hence the helper.
 type BulkValue<F> = F extends Flag<infer V, any> ? V : never;
 
-type EvaluateRequest = PagesRouterRequest | Request;
+type EvaluateRequest = FlagRequest;
 
 /**
  * Resolves a set of flags in a single call.

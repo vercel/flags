@@ -1243,6 +1243,19 @@ describe('evaluate', () => {
       expect(decideMock).toHaveBeenCalledTimes(1);
       socket.destroy();
     });
+
+    it('accepts a web Request (NextRequest) passed directly to flag(req)', async () => {
+      const decideMock = vi.fn(({ cookies }) => cookies.get('flag')?.value);
+      const a = flag<string | undefined>({ key: 'a', decide: decideMock });
+
+      mocks.headers.mockClear();
+      const webRequest = new Request('http://example.com/', {
+        headers: { cookie: 'flag=on' },
+      });
+
+      await expect(a(webRequest)).resolves.toEqual('on');
+      expect(mocks.headers).not.toHaveBeenCalled();
+    });
   });
 });
 
