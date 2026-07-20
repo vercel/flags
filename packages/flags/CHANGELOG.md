@@ -1,5 +1,13 @@
 # @vercel/flags
 
+## 4.2.1
+
+### Patch Changes
+
+- [#434](https://github.com/vercel/flags/pull/434) [`4d6eb10`](https://github.com/vercel/flags/commit/4d6eb10705ab5aa97baac2fc6f50b85a84c4368a) Thanks [@dferber90](https://github.com/dferber90)! - Allow passing a `NextRequest` / Web `Request` directly to `flag(req)` and `evaluate(flags, req)` outside App Router (e.g. in routing middleware).
+
+  Previously only a Pages Router `IncomingMessage`, or a manually-flattened headers object, worked when calling a flag directly — passing a `NextRequest` produced empty headers because it wasn't recognized as already having a `Headers` instance.
+
 ## 4.2.0
 
 ### Minor Changes
