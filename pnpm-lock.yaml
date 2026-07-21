@@ -652,9 +652,6 @@ importers:
 
   packages/adapter-posthog:
     dependencies:
-      '@vercel/edge-config':
-        specifier: ^1.4.3
-        version: 1.4.3(@opentelemetry/api@1.9.0)(next@16.2.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-fef12a01-20260413))(react@19.3.0-canary-fef12a01-20260413))
       posthog-node:
         specifier: 5.45.0
         version: 5.45.0
