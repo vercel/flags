@@ -140,7 +140,7 @@ describe('postHogAdapter', () => {
         );
 
         const result = await postHogAdapter().bulkDecide!({
-          flags: [{ key: 'a' }, { key: 'b.variant' }],
+          flags: [{ key: 'a' }, { key: 'b' }],
           entities,
           headers,
           cookies,
@@ -150,7 +150,7 @@ describe('postHogAdapter', () => {
         expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
           flagKeys: ['a', 'b'],
         });
-        expect(result).toEqual({ a: true, 'b.variant': 'variant' });
+        expect(result).toEqual({ a: true, b: 'variant' });
       });
 
       it('bulkDecide omits flags with no value', async () => {
@@ -207,7 +207,7 @@ describe('postHogAdapter', () => {
         );
 
         const result = await postHogAdapter.payload().bulkDecide!({
-          flags: [{ key: 'a.payload' }, { key: 'b.payload' }],
+          flags: [{ key: 'a' }, { key: 'b' }],
           entities,
           headers,
           cookies,
@@ -217,7 +217,7 @@ describe('postHogAdapter', () => {
         expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
           flagKeys: ['a', 'b'],
         });
-        expect(result).toEqual({ 'a.payload': { a: 1 } });
+        expect(result).toEqual({ a: { a: 1 } });
       });
     });
   });

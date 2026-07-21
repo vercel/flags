@@ -21,30 +21,26 @@ function createFlagAdapter(
     adapterId,
     async decide({ key, entities, defaultValue }) {
       const { distinctId } = parseEntities(entities);
-      const flagKey = trimKey(key);
       const snapshot = await client.evaluateFlags(distinctId, {
-        flagKeys: [flagKey],
+        flagKeys: [key],
       });
-      const value = read(snapshot, flagKey);
+      const value = read(snapshot, key);
       if (!isPresent(value)) {
         if (typeof defaultValue !== 'undefined') return defaultValue;
         throw new Error(
-          `PostHog Adapter found no ${noun} for ${flagKey} and no default value was provided.`,
+          `PostHog Adapter found no ${noun} for ${key} and no default value was provided.`,
         );
       }
       return value;
     },
     async bulkDecide({ flags, entities }) {
       const { distinctId } = parseEntities(entities);
-      // One PostHog flag can back multiple SDK flags (see `trimKey`), so
-      // dedupe the underlying keys before scoping the request.
-      const flagKeys = Array.from(
-        new Set(flags.map(({ key }) => trimKey(key))),
-      );
-      const snapshot = await client.evaluateFlags(distinctId, { flagKeys });
+      const snapshot = await client.evaluateFlags(distinctId, {
+        flagKeys: flags.map(({ key }) => key),
+      });
       const out: Record<string, unknown> = {};
       for (const { key } of flags) {
-        const value = read(snapshot, trimKey(key));
+        const value = read(snapshot, key);
         // Omit absent values so the SDK applies each flag's `defaultValue`.
         if (isPresent(value)) out[key] = value;
       }
@@ -110,13 +106,6 @@ function assertEnv(name: string): string {
     throw new Error(`PostHog Adapter: Missing ${name} environment variable`);
   }
   return value;
-}
-
-// Read until the first `.`
-// This supports defining multiple flags with the same key
-// Ex. with my-flag.is-enabled, my-flag.variant and my-flag.payload
-function trimKey(key: string): string {
-  return key.split('.')[0] as string;
 }
 
 let defaultPostHogAdapter: PostHogAdapter | undefined;
