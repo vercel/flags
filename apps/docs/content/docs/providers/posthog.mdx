@@ -109,15 +109,13 @@ export default async function Page() {
 
 ## Evaluation modes
 
-The adapter can evaluate flags in one of two modes. The mode is an explicit choice,
-not a side effect of any other credential.
+PostHog can evaluate flags remotely or locally.
 
 ### Remote evaluation (default)
 
-With only `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` set, each flag
-evaluation calls PostHog to resolve the value. There is no background polling, so
-PostHog request volume scales with your traffic. This is the recommended default for
-serverless deployments.
+PostHog makes a network request for every feature flag evaluation, and each request
+is billed separately. Having to make a network request for every flag evaluation
+also adds latency. If you provide user ids, PostHog will look up additional properties from its database.
 
 ### Local evaluation
 
@@ -128,11 +126,22 @@ Set a PostHog project secret key to opt in to local evaluation:
 POSTHOG_SECRET_KEY=phs_...
 ```
 
-In this mode `posthog-node` periodically polls flag definitions (roughly every 30s)
-and evaluates flags in-process, which lowers per-evaluation latency. Be aware that
-this polling runs **per warm server process** and counts against your PostHog feature
-flag request quota independently of how many users you have — on serverless platforms
-many warm instances can each run their own poller.
+In this mode, `posthog-node` periodically fetches your flag definitions in the
+background (every 30s by default) and evaluates flags in-process against those cached
+definitions, avoiding a network round trip on most checks after initialization. Because evaluation happens
+locally, you're responsible for providing every property the flag's release conditions
+depend on.
+
+Each background poll is billed as 10 flag requests, independent of how many checks it
+serves, so for a long-running process this is usually far cheaper than paying per
+check. But the poller runs per compute instance, so PostHog recommends against local
+evaluation in short-lived compute, where each invocation would otherwise
+start its own poller and multiply cost rather than amortize it. Use remote evaluation
+there instead. You can widen the polling interval to trade slower propagation of flag
+changes for lower polling cost.
+
+With [Fluid Compute](https://vercel.com/fluid) you may see latency and cost benefits from using local evaluation.
+It depends on your traffic patterns and load.
 
 You can also enable it explicitly with `createPostHogAdapter`:
 
@@ -188,3 +197,9 @@ export const GET = createFlagsDiscoveryEndpoint(() => getPostHogProviderData({
 >
   Learn more about the Flags Explorer
 </LearnMore>
+
+
+## Additional resources
+
+- [Cutting Costs](https://posthog.com/docs/feature-flags/cutting-costs)
+- [Local Evaluation](https://posthog.com/docs/feature-flags/local-evaluation)
