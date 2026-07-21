@@ -1,8 +1,4 @@
-import { LogoAiElements } from "@vercel/geistdocs/assets/logos/logo-ai-elements";
-import { LogoAiSdk } from "@vercel/geistdocs/assets/logos/logo-ai-sdk";
-import { LogoChatSdk } from "@vercel/geistdocs/assets/logos/logo-chat-sdk";
 import { LogoEve } from "@vercel/geistdocs/assets/logos/logo-eve";
-import { LogoWorkflowSdk } from "@vercel/geistdocs/assets/logos/logo-workflow-sdk";
 import {
   defineConfig,
   type GeistdocsNavbarOssProduct,
@@ -22,11 +18,24 @@ import {
 
 // geistdocs' default OSS products, minus Flags SDK (this site).
 const navbarOssProducts: GeistdocsNavbarOssProduct[] = [
-  { href: "https://eve.dev/docs", logo: <LogoEve height={12} /> },
-  { href: "https://ai-sdk.dev/", logo: <LogoAiSdk height={12} /> },
-  { href: "https://chat-sdk.dev/", logo: <LogoChatSdk height={20} /> },
-  { href: "https://workflow-sdk.dev/", logo: <LogoWorkflowSdk height={12} /> },
-  { href: "https://elements.ai-sdk.dev/", logo: <LogoAiElements height={12} /> },
+  {
+    description: "The framework for building agents",
+    featured: true,
+    href: "https://eve.dev/",
+    label: "eve",
+    logo: <LogoEve height={16} />,
+  },
+  { href: "https://nextjs.org/", label: "Next.js", section: "Frameworks" },
+  { href: "https://svelte.dev/", label: "Svelte", section: "Frameworks" },
+  { href: "https://nuxt.com/", label: "Nuxt", section: "Frameworks" },
+  { href: "https://nitro.build/", label: "Nitro", section: "Frameworks" },
+  { href: "https://ai-sdk.dev/", label: "AI SDK", section: "SDKs" },
+  { href: "https://chat-sdk.dev/", label: "Chat SDK", section: "SDKs" },
+  { href: "https://workflow-sdk.dev/", label: "Workflow SDK", section: "SDKs" },
+  { href: "https://turborepo.dev/", label: "Turborepo", section: "Other" },
+  { href: "https://ui.shadcn.com/", label: "Shadcn", section: "Other" },
+  { href: "https://swr.vercel.app/", label: "SWR", section: "Other" },
+  { href: "https://justbash.dev/", label: "just-bash", section: "Other" },
 ];
 
 export const config = defineConfig({

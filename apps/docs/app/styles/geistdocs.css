@@ -1,8 +1,9 @@
 @import "@vercel/geistdocs/styles.css";
 
+/* theme.css (imported by the package styles.css) already @sources the package
+   dist and streamdown; only @source app-local files here. */
 @source "../**/*.{ts,tsx,mdx}";
 @source "../../components/**/*.{ts,tsx}";
-@source "../../node_modules/@vercel/geistdocs/dist/**/*.js";
 
 @layer base {
   body {
