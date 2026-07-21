@@ -1,26 +1,50 @@
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type PostHogEntities, postHogAdapter } from '.';
+import {
+  type PostHogEntities,
+  postHogAdapter,
+  resetDefaultPostHogAdapter,
+} from '.';
+
+const snapshotMock = {
+  getFlag: vi.fn(),
+  getFlagPayload: vi.fn(),
+  isEnabled: vi.fn(),
+};
 
 const postHogClientMock = {
-  isFeatureEnabled: vi.fn(),
-  getFeatureFlag: vi.fn(),
-  getFeatureFlagPayload: vi.fn(),
-  getRemoteConfigPayload: vi.fn(),
+  evaluateFlags: vi.fn(() => snapshotMock),
 };
 
 vi.mock('posthog-node', () => ({
   PostHog: vi.fn(() => postHogClientMock),
 }));
 
+const headers = {} as ReadonlyHeaders;
+const cookies = {} as ReadonlyRequestCookies;
+const entities: PostHogEntities = { distinctId: 'user_1' };
+
+// `flag()` resolves an adapter with `typeof a === 'function' ? a() : a`, so
+// passing `postHogAdapter` (uninvoked) and `postHogAdapter()` (invoked) both
+// yield the same adapter. This mirrors that resolution without pulling in the
+// full `flags/next` runtime.
+function resolve(adapterOrFactory: unknown) {
+  return typeof adapterOrFactory === 'function'
+    ? (adapterOrFactory as () => any)()
+    : adapterOrFactory;
+}
+
 describe('postHogAdapter', () => {
-  it('isFeatureEnabled should be a function', () => {
-    expect(postHogAdapter.isFeatureEnabled).toBeInstanceOf(Function);
+  it('is a callable adapter factory', () => {
+    expect(postHogAdapter).toBeInstanceOf(Function);
+    expect(postHogAdapter.payload).toBeInstanceOf(Function);
   });
 
   describe('with a missing environment', () => {
     it('should throw an error', () => {
-      expect(() => postHogAdapter.isFeatureEnabled()).toThrowError(
+      delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
+      resetDefaultPostHogAdapter();
+      expect(() => postHogAdapter()).toThrowError(
         'PostHog Adapter: Missing NEXT_PUBLIC_POSTHOG_KEY environment variable',
       );
     });
@@ -30,64 +54,170 @@ describe('postHogAdapter', () => {
     beforeAll(() => {
       process.env.NEXT_PUBLIC_POSTHOG_KEY = 'test-posthog-key';
       process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://us.i.posthog.com';
+      resetDefaultPostHogAdapter();
     });
 
-    describe('isFeatureEnabled', () => {
-      it('should decide', async () => {
-        postHogClientMock.isFeatureEnabled.mockReturnValue(true);
+    afterEach(() => {
+      vi.clearAllMocks();
+    });
 
-        const valuePromise = postHogAdapter.isFeatureEnabled().decide({
+    it('is usable invoked or uninvoked (same underlying adapter)', () => {
+      const fromUninvoked = resolve(postHogAdapter);
+      const fromInvoked = resolve(postHogAdapter());
+      expect(fromUninvoked.adapterId).toBe(fromInvoked.adapterId);
+      expect(typeof fromUninvoked.decide).toBe('function');
+      expect(typeof fromUninvoked.bulkDecide).toBe('function');
+    });
+
+    it('gives the payload adapter a distinct adapterId', () => {
+      expect(resolve(postHogAdapter.payload).adapterId).not.toBe(
+        resolve(postHogAdapter).adapterId,
+      );
+    });
+
+    describe('value adapter', () => {
+      it('decides the flag value', async () => {
+        snapshotMock.getFlag.mockReturnValue('test_group_1');
+
+        const value = await postHogAdapter().decide({
           key: 'test-flag',
-          headers: {} as ReadonlyHeaders,
-          cookies: {} as ReadonlyRequestCookies,
-          entities: {} as PostHogEntities,
+          headers,
+          cookies,
+          entities,
           defaultValue: false,
         });
 
-        await expect(valuePromise).resolves.toEqual(true);
-        expect(postHogClientMock.isFeatureEnabled).toHaveBeenCalled();
+        expect(value).toEqual('test_group_1');
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
+          flagKeys: ['test-flag'],
+        });
       });
-    });
 
-    describe('featureValue', () => {
-      it('should decide', async () => {
-        postHogClientMock.getFeatureFlag.mockReturnValue('test_group_1');
+      it('falls back to defaultValue when the flag is missing', async () => {
+        snapshotMock.getFlag.mockReturnValue(undefined);
 
-        const valuePromise = postHogAdapter.featureFlagValue().decide({
-          key: 'test-flag',
-          headers: {} as ReadonlyHeaders,
-          cookies: {} as ReadonlyRequestCookies,
-          entities: {} as PostHogEntities,
+        const value = await postHogAdapter().decide({
+          key: 'missing',
+          headers,
+          cookies,
+          entities,
           defaultValue: false,
         });
 
-        await expect(valuePromise).resolves.toEqual('test_group_1');
-        expect(postHogClientMock.getFeatureFlag).toHaveBeenCalled();
+        expect(value).toBe(false);
+      });
+
+      it('returns false for a disabled flag (not the default)', async () => {
+        snapshotMock.getFlag.mockReturnValue(false);
+
+        const value = await postHogAdapter().decide({
+          key: 'disabled',
+          headers,
+          cookies,
+          entities,
+          defaultValue: true,
+        });
+
+        expect(value).toBe(false);
+      });
+
+      it('throws when the flag is missing and no default is set', async () => {
+        snapshotMock.getFlag.mockReturnValue(undefined);
+
+        await expect(
+          postHogAdapter().decide({
+            key: 'missing',
+            headers,
+            cookies,
+            entities,
+          }),
+        ).rejects.toThrow('PostHog Adapter found no value for missing');
+      });
+
+      it('bulkDecides the group in a single evaluateFlags call', async () => {
+        snapshotMock.getFlag.mockImplementation((key: string) =>
+          key === 'a' ? true : 'variant',
+        );
+
+        const result = await postHogAdapter().bulkDecide!({
+          flags: [{ key: 'a' }, { key: 'b.variant' }],
+          entities,
+          headers,
+          cookies,
+        });
+
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledTimes(1);
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
+          flagKeys: ['a', 'b'],
+        });
+        expect(result).toEqual({ a: true, 'b.variant': 'variant' });
+      });
+
+      it('bulkDecide omits flags with no value', async () => {
+        snapshotMock.getFlag.mockImplementation((key: string) =>
+          key === 'a' ? true : undefined,
+        );
+
+        const result = await postHogAdapter().bulkDecide!({
+          flags: [{ key: 'a' }, { key: 'b' }],
+          entities,
+          headers,
+          cookies,
+        });
+
+        expect(result).toEqual({ a: true });
       });
     });
 
-    describe('featurePayload', () => {
-      it('should decide', async () => {
-        postHogClientMock.getFeatureFlag.mockReturnValue('test_group_1');
-        postHogClientMock.getFeatureFlagPayload.mockReturnValue({
-          text: 'hello world',
+    describe('payload adapter', () => {
+      it('decides the flag payload', async () => {
+        snapshotMock.getFlagPayload.mockReturnValue({ text: 'hello world' });
+
+        const value = await postHogAdapter.payload().decide({
+          key: 'test-flag',
+          headers,
+          cookies,
+          entities,
+          defaultValue: {},
         });
 
-        const valuePromise = postHogAdapter
-          .featureFlagPayload<string>(
-            (payload) => (payload as { text: string }).text,
-          )
-          .decide({
-            key: 'test-flag',
-            headers: {} as ReadonlyHeaders,
-            cookies: {} as ReadonlyRequestCookies,
-            entities: {} as PostHogEntities,
-            defaultValue: 'default',
-          });
+        expect(value).toEqual({ text: 'hello world' });
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
+          flagKeys: ['test-flag'],
+        });
+      });
 
-        await expect(valuePromise).resolves.toEqual('hello world');
-        expect(postHogClientMock.getFeatureFlag).toHaveBeenCalled();
-        expect(postHogClientMock.getFeatureFlagPayload).toHaveBeenCalled();
+      it('falls back to defaultValue when there is no payload', async () => {
+        snapshotMock.getFlagPayload.mockReturnValue(undefined);
+
+        const value = await postHogAdapter.payload().decide({
+          key: 'missing',
+          headers,
+          cookies,
+          entities,
+          defaultValue: { fallback: true },
+        });
+
+        expect(value).toEqual({ fallback: true });
+      });
+
+      it('bulkDecides payloads in a single evaluateFlags call', async () => {
+        snapshotMock.getFlagPayload.mockImplementation((key: string) =>
+          key === 'a' ? { a: 1 } : undefined,
+        );
+
+        const result = await postHogAdapter.payload().bulkDecide!({
+          flags: [{ key: 'a.payload' }, { key: 'b.payload' }],
+          entities,
+          headers,
+          cookies,
+        });
+
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledTimes(1);
+        expect(postHogClientMock.evaluateFlags).toHaveBeenCalledWith('user_1', {
+          flagKeys: ['a', 'b'],
+        });
+        expect(result).toEqual({ 'a.payload': { a: 1 } });
       });
     });
   });
@@ -112,8 +242,8 @@ describe('default adapter evaluation mode', () => {
     vi.resetModules();
     const { PostHog } = await import('posthog-node');
     const { postHogAdapter: freshAdapter } = await import('.');
-    // Accessing a method constructs the underlying PostHog client synchronously.
-    freshAdapter.isFeatureEnabled();
+    // Invoking the adapter constructs the underlying PostHog client.
+    freshAdapter();
     return vi.mocked(PostHog).mock.calls.at(-1)?.[1] ?? {};
   }
 
