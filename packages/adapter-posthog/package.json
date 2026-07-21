@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@vercel/edge-config": "^1.4.3",
-    "posthog-node": "4.11.1"
+    "posthog-node": "5.45.0"
   },
   "devDependencies": {
     "@types/node": "22.14.0",
