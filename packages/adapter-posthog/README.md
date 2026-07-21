@@ -24,6 +24,21 @@ export const marketingGate = flag<boolean>({
 });
 ```
 
+## Evaluation modes
+
+The mode is an explicit choice, not a side effect of any other credential.
+
+- **Remote (default):** with only `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST`
+  set, each evaluation calls PostHog. No background polling; request volume scales
+  with traffic. Recommended for serverless.
+- **Local:** set `POSTHOG_SECRET_KEY` (`phs_...`) to opt in. `posthog-node` polls flag
+  definitions (~30s) and evaluates in-process for lower latency. Polling runs **per
+  warm server process** and counts against your PostHog feature flag request quota
+  regardless of user traffic.
+
+`POSTHOG_PERSONAL_API_KEY` is used only by the Flags Explorer (`getProviderData`) and
+does not enable local evaluation.
+
 ## Runtimes
 
 | Runtime      | Supported |

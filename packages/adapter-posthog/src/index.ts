@@ -112,12 +112,22 @@ function trimKey(key: string): string {
 let defaultPostHogAdapter: ReturnType<typeof createPostHogAdapter> | undefined;
 function getOrCreateDefaultAdapter() {
   if (!defaultPostHogAdapter) {
+    // Evaluation mode is an explicit choice, not a side effect of any other
+    // credential. Local evaluation is opt-in via POSTHOG_SECRET_KEY (a `phs_`
+    // project secret key). When it is set, posthog-node polls flag definitions
+    // and evaluates flags in-process; otherwise flags are evaluated remotely.
+    //
+    // Note: POSTHOG_PERSONAL_API_KEY is only used by getProviderData (Flags
+    // Explorer discovery) and is intentionally never passed to the runtime
+    // client, so it does not enable local-evaluation polling.
+    const secretKey = process.env.POSTHOG_SECRET_KEY;
+
     defaultPostHogAdapter = createPostHogAdapter({
       postHogKey: assertEnv('NEXT_PUBLIC_POSTHOG_KEY'),
       postHogOptions: {
         host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
-        personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
-        featureFlagsPollingInterval: 10_000,
+        secretKey,
+        enableLocalEvaluation: Boolean(secretKey),
         // Presumption: Server IP is likely not a good proxy for user location
         disableGeoip: true,
       },
