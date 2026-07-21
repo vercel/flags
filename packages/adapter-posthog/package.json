@@ -50,7 +50,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.4.3",
     "posthog-node": "5.45.0"
   },
   "devDependencies": {
