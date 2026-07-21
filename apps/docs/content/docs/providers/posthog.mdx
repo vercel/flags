@@ -19,21 +19,24 @@ import { flag } from "flags/next";
 import { postHogAdapter } from '@flags-sdk/posthog'
 import identify from "@/lib/identify";
 
-export const myFlag = flag({
-  key: "posthog-is-feature-enabled",
-  adapter: postHogAdapter.isFeatureEnabled(),
+// Reads the flag's evaluated value. Pass the adapter uninvoked
+// (`postHogAdapter`) or invoked (`postHogAdapter()`) — both work.
+export const myFlag = flag<boolean>({
+  key: "posthog-flag",
+  adapter: postHogAdapter,
   identify,
 });
 
-export const myFlagVariant = flag({
-  key: "posthog-feature-flag-value",
-  adapter: postHogAdapter.featureFlagValue(),
+export const myFlagVariant = flag<string>({
+  key: "posthog-multivariate-flag",
+  adapter: postHogAdapter,
   identify,
 });
 
+// Reads the flag's attached payload with `.payload`.
 export const myFlagPayload = flag({
-  key: "posthog-feature-flag-payload",
-  adapter: postHogAdapter.featureFlagPayload((v) => v),
+  key: "posthog-flag-with-payload",
+  adapter: postHogAdapter.payload,
   defaultValue: {},
   identify,
 });
@@ -76,24 +79,33 @@ const postHogAdapter = createPostHogAdapter({
 })
 ```
 
-You can define flags using the PostHog adapter's methods, which are:
+The `postHogAdapter` is a single callable adapter. You can pass it directly, or
+invoke it — both are equivalent:
 
-- `isFeatureEnabled`: Returns a boolean indicating whether a feature flag is enabled
-- `featureFlagValue`: Returns a boolean, or a `string` for multivariate flags
-- `featureFlagPayload`: Maps a PostHog flag's payload to a structured flag value
+- `postHogAdapter` (or `postHogAdapter()`): resolves the flag's evaluated value. For
+  a boolean flag this is a boolean; for a multivariate flag it is the variant `string`.
+  Type the flag (e.g. `flag<boolean>`) to get the value type you expect.
+- `postHogAdapter.payload` (or `postHogAdapter.payload()`): resolves the flag's
+  attached payload.
+
+The flag's `key` is used as the PostHog feature flag key as-is.
 
 ```ts title="app/flags.ts"
 import { flag } from 'flags/next'
 import { postHogAdapter } from '@flags-sdk/posthog'
 import { identify } from '@/lib/identify'
 
-export const exampleFlag = flag({
+export const exampleFlag = flag<boolean>({
   key: 'example-flag',
   defaultValue: false,
-  adapter: postHogAdapter.isFeatureEnabled(),
+  adapter: postHogAdapter,
   identify,
 })
 ```
+
+Flags backed by this adapter participate in [bulk evaluation](/frameworks/next/bulk-evaluation):
+`evaluate()` resolves flags that share an `identify` source through a single PostHog
+request.
 
 Then use it in your framework:
 
@@ -106,6 +118,63 @@ export default async function Page() {
   return <div>Example Flag: {String(exampleValue)}</div>;
 }
 ```
+
+## Evaluation modes
+
+PostHog can evaluate flags remotely or locally.
+
+### Remote evaluation (default)
+
+PostHog makes a network request for every feature flag evaluation, and each request
+is billed separately. Having to make a network request for every flag evaluation
+also adds latency. If you provide user ids, PostHog will look up additional properties from its database.
+
+### Local evaluation
+
+Set a PostHog project secret key to opt in to local evaluation:
+
+```bash title=".env.local"
+# Settings > Project > Feature flags secret key
+POSTHOG_SECRET_KEY=phs_...
+```
+
+In this mode, `posthog-node` periodically fetches your flag definitions in the
+background (every 30s by default) and evaluates flags in-process against those cached
+definitions, avoiding a network round trip on most checks after initialization. Because evaluation happens
+locally, you're responsible for providing every property the flag's release conditions
+depend on.
+
+Each background poll is billed as 10 flag requests, independent of how many checks it
+serves, so for a long-running process this is usually far cheaper than paying per
+check. But the poller runs per compute instance, so PostHog recommends against local
+evaluation in short-lived compute, where each invocation would otherwise
+start its own poller and multiply cost rather than amortize it. Use remote evaluation
+there instead. You can widen the polling interval to trade slower propagation of flag
+changes for lower polling cost.
+
+With [Fluid Compute](https://vercel.com/fluid) you may see latency and cost benefits from using local evaluation.
+It depends on your traffic patterns and load.
+
+You can also enable it explicitly with `createPostHogAdapter`:
+
+```ts title="flags.ts"
+import { createPostHogAdapter } from '@flags-sdk/posthog'
+
+const postHogAdapter = createPostHogAdapter({
+  postHogKey: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+  postHogOptions: {
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    secretKey: process.env.POSTHOG_SECRET_KEY,
+    enableLocalEvaluation: true,
+  },
+})
+```
+
+<Callout type="info">
+  `POSTHOG_PERSONAL_API_KEY` is used only by the Flags Explorer (`getProviderData`,
+  below) to discover flag definitions. It is never passed to the runtime client and
+  does **not** enable local evaluation.
+</Callout>
 
 ## Flags Explorer
 
@@ -140,3 +209,9 @@ export const GET = createFlagsDiscoveryEndpoint(() => getPostHogProviderData({
 >
   Learn more about the Flags Explorer
 </LearnMore>
+
+
+## Additional resources
+
+- [Cutting Costs](https://posthog.com/docs/feature-flags/cutting-costs)
+- [Local Evaluation](https://posthog.com/docs/feature-flags/local-evaluation)
