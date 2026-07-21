@@ -88,9 +88,7 @@ invoke it — both are equivalent:
 - `postHogAdapter.payload` (or `postHogAdapter.payload()`): resolves the flag's
   attached payload.
 
-One PostHog flag can back multiple SDK flags by using a suffix after a `.` in the
-key (for example `my-flag.enabled` and `my-flag.payload` both read the PostHog flag
-`my-flag`).
+The flag's `key` is used as the PostHog feature flag key as-is.
 
 ```ts title="app/flags.ts"
 import { flag } from 'flags/next'

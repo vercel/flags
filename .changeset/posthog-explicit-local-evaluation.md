@@ -44,6 +44,11 @@ the flag's evaluated value, typed per flag (`flag<boolean>` yields a boolean). T
 `isFeatureEnabled` boolean coercion of multivariate flags is gone — declare the flag as
 `boolean` to keep boolean semantics.
 
+A flag's `key` is now used as the PostHog feature flag key verbatim. The previous
+convention of trimming everything after the first `.` (so `my-flag.variant` read the
+PostHog flag `my-flag`) has been removed; use the exact PostHog flag key as your flag
+`key`.
+
 ## Migrated to `evaluateFlags` and added bulk evaluation
 
 Internally the adapter now uses `posthog-node`'s `evaluateFlags` instead of the
