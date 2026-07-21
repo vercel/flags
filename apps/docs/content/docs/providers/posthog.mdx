@@ -19,21 +19,24 @@ import { flag } from "flags/next";
 import { postHogAdapter } from '@flags-sdk/posthog'
 import identify from "@/lib/identify";
 
-export const myFlag = flag({
-  key: "posthog-is-feature-enabled",
-  adapter: postHogAdapter.isFeatureEnabled(),
+// Reads the flag's evaluated value. Pass the adapter uninvoked
+// (`postHogAdapter`) or invoked (`postHogAdapter()`) — both work.
+export const myFlag = flag<boolean>({
+  key: "posthog-flag",
+  adapter: postHogAdapter,
   identify,
 });
 
-export const myFlagVariant = flag({
-  key: "posthog-feature-flag-value",
-  adapter: postHogAdapter.featureFlagValue(),
+export const myFlagVariant = flag<string>({
+  key: "posthog-multivariate-flag",
+  adapter: postHogAdapter,
   identify,
 });
 
+// Reads the flag's attached payload with `.payload`.
 export const myFlagPayload = flag({
-  key: "posthog-feature-flag-payload",
-  adapter: postHogAdapter.featureFlagPayload((v) => v),
+  key: "posthog-flag-with-payload",
+  adapter: postHogAdapter.payload,
   defaultValue: {},
   identify,
 });
@@ -76,24 +79,35 @@ const postHogAdapter = createPostHogAdapter({
 })
 ```
 
-You can define flags using the PostHog adapter's methods, which are:
+The `postHogAdapter` is a single callable adapter. You can pass it directly, or
+invoke it — both are equivalent:
 
-- `isFeatureEnabled`: Returns a boolean indicating whether a feature flag is enabled
-- `featureFlagValue`: Returns a boolean, or a `string` for multivariate flags
-- `featureFlagPayload`: Maps a PostHog flag's payload to a structured flag value
+- `postHogAdapter` (or `postHogAdapter()`): resolves the flag's evaluated value. For
+  a boolean flag this is a boolean; for a multivariate flag it is the variant `string`.
+  Type the flag (e.g. `flag<boolean>`) to get the value type you expect.
+- `postHogAdapter.payload` (or `postHogAdapter.payload()`): resolves the flag's
+  attached payload.
+
+One PostHog flag can back multiple SDK flags by using a suffix after a `.` in the
+key (for example `my-flag.enabled` and `my-flag.payload` both read the PostHog flag
+`my-flag`).
 
 ```ts title="app/flags.ts"
 import { flag } from 'flags/next'
 import { postHogAdapter } from '@flags-sdk/posthog'
 import { identify } from '@/lib/identify'
 
-export const exampleFlag = flag({
+export const exampleFlag = flag<boolean>({
   key: 'example-flag',
   defaultValue: false,
-  adapter: postHogAdapter.isFeatureEnabled(),
+  adapter: postHogAdapter,
   identify,
 })
 ```
+
+Flags backed by this adapter participate in [bulk evaluation](/frameworks/next/bulk-evaluation):
+`evaluate()` resolves flags that share an `identify` source through a single PostHog
+request.
 
 Then use it in your framework:
 

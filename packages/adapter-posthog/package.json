@@ -21,6 +21,9 @@
   "author": "Aaron Morris <aaron.morris@vercel.com>",
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": "^20.20.0 || >=22.22.0"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
