@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
+import { isInternalNextError } from '../lib/is-internal-next-error';
 import { internalReportValue, reportValue } from '../lib/report-value';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
@@ -18,7 +19,6 @@ import type {
   FlagParamsType,
   ResolvedFlagDeclaration,
 } from '../types';
-import { isInternalNextError } from './is-internal-next-error';
 import { getOverrides } from './overrides';
 import type { Flag, FlagRequest } from './types';
 
