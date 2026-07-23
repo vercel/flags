@@ -56,9 +56,10 @@ export function trace<F extends (...args: any) => any>(
     /**
      * Returns `true` for errors that are control flow rather than failures of
      * the traced function (e.g. framework redirects). When it returns `true`,
-     * the span is not marked as errored and `attributesError` is not applied,
-     * but the error still propagates to the caller. Deciding what counts as
-     * control flow is left to the caller so this tracer stays framework-agnostic.
+     * the span is reported as successful (status Ok) and `attributesError` is
+     * not applied, but the error still propagates to the caller. Deciding what
+     * counts as control flow is left to the caller so this tracer stays
+     * framework-agnostic.
      */
     isIgnoredError?: (error: unknown) => boolean;
   } = {
@@ -68,7 +69,12 @@ export function trace<F extends (...args: any) => any>(
   // Records an error on the span unless the caller classifies it as control
   // flow. Shared by the async-rejection and synchronous-throw paths below.
   const recordError = (span: Span, error: unknown): void => {
-    if (options.isIgnoredError?.(error)) return;
+    if (options.isIgnoredError?.(error)) {
+      // Control-flow errors are not failures of the traced function, so the
+      // span itself was successful.
+      span.setStatus({ code: 1 }); // 1 = Ok
+      return;
+    }
 
     if (options.attributesError) {
       span.setAttributes(options.attributesError(error as Error));

@@ -57,7 +57,7 @@ describe('trace', () => {
     expect(span.end).toHaveBeenCalledOnce();
   });
 
-  it('does not mark the span as errored when isIgnoredError matches a rejection', async () => {
+  it('marks the span as successful when isIgnoredError matches a rejection', async () => {
     const span = createMockSpan();
     installMockTracer(span);
 
@@ -72,11 +72,12 @@ describe('trace', () => {
     await expect(traced()).rejects.toBe(ignored);
     await flushMicrotasks();
 
-    expect(span.setStatus).not.toHaveBeenCalled();
+    expect(span.setStatus).toHaveBeenCalledTimes(1);
+    expect(span.setStatus).toHaveBeenCalledWith({ code: 1 });
     expect(span.end).toHaveBeenCalledOnce();
   });
 
-  it('does not mark the span as errored when isIgnoredError matches a synchronous throw', () => {
+  it('marks the span as successful when isIgnoredError matches a synchronous throw', () => {
     const span = createMockSpan();
     installMockTracer(span);
 
@@ -93,7 +94,8 @@ describe('trace', () => {
     );
 
     expect(() => traced()).toThrow(ignored);
-    expect(span.setStatus).not.toHaveBeenCalled();
+    expect(span.setStatus).toHaveBeenCalledTimes(1);
+    expect(span.setStatus).toHaveBeenCalledWith({ code: 1 });
     expect(span.end).toHaveBeenCalledOnce();
   });
 
