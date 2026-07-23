@@ -57,49 +57,62 @@ describe('trace', () => {
     expect(span.end).toHaveBeenCalledOnce();
   });
 
-  it('does not mark the span as errored for internal Next.js errors', async () => {
+  it('does not mark the span as errored when isIgnoredError matches a rejection', async () => {
     const span = createMockSpan();
     installMockTracer(span);
 
-    // Mirrors the HangingPromiseRejectionError thrown when a prerender is
-    // aborted while the traced function awaits connection() or cookies().
-    const hangingPromiseRejection = Object.assign(
-      new Error(
-        'During prerendering, `connection()` rejects when the prerender is complete.',
-      ),
-      { digest: 'HANGING_PROMISE_REJECTION' },
-    );
-
-    const traced = trace(() => Promise.reject(hangingPromiseRejection), {
+    const ignored = new Error('control flow');
+    const traced = trace(() => Promise.reject(ignored), {
       name: 'test',
       isVerboseTrace: false,
+      isIgnoredError: (error) => error === ignored,
     });
 
     // Control flow is preserved: the rejection still propagates to the caller.
-    await expect(traced()).rejects.toBe(hangingPromiseRejection);
+    await expect(traced()).rejects.toBe(ignored);
     await flushMicrotasks();
 
     expect(span.setStatus).not.toHaveBeenCalled();
     expect(span.end).toHaveBeenCalledOnce();
   });
 
-  it('does not mark the span as errored for internal Next.js errors thrown synchronously', () => {
+  it('does not mark the span as errored when isIgnoredError matches a synchronous throw', () => {
     const span = createMockSpan();
     installMockTracer(span);
 
-    const redirectError = Object.assign(new Error('NEXT_REDIRECT'), {
-      digest: 'NEXT_REDIRECT;replace;/login;307;',
-    });
-
+    const ignored = new Error('control flow');
     const traced = trace(
       () => {
-        throw redirectError;
+        throw ignored;
       },
-      { name: 'test', isVerboseTrace: false },
+      {
+        name: 'test',
+        isVerboseTrace: false,
+        isIgnoredError: (error) => error === ignored,
+      },
     );
 
-    expect(() => traced()).toThrow(redirectError);
+    expect(() => traced()).toThrow(ignored);
     expect(span.setStatus).not.toHaveBeenCalled();
     expect(span.end).toHaveBeenCalledOnce();
+  });
+
+  it('does not apply attributesError for ignored errors', async () => {
+    const span = createMockSpan();
+    installMockTracer(span);
+
+    const ignored = new Error('control flow');
+    const attributesError = vi.fn(() => ({ 'error.kind': 'control-flow' }));
+    const traced = trace(() => Promise.reject(ignored), {
+      name: 'test',
+      isVerboseTrace: false,
+      isIgnoredError: () => true,
+      attributesError,
+    });
+
+    await expect(traced()).rejects.toBe(ignored);
+    await flushMicrotasks();
+
+    expect(attributesError).not.toHaveBeenCalled();
   });
 });

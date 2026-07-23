@@ -12,6 +12,7 @@ import type {
   ResolvedFlagDeclaration,
 } from '../types';
 import { BULK_IDENTIFY_REF, BULKABLE, getRun } from './evaluate';
+import { isInternalNextError } from './is-internal-next-error';
 import { getPrecomputed } from './precompute';
 import type { Flag, PagesRouterFlag, PrecomputedFlag } from './types';
 
@@ -163,6 +164,7 @@ export function flag<
     {
       name: 'flag',
       isVerboseTrace: false,
+      isIgnoredError: isInternalNextError,
       attributes: { key: definition.key },
     },
   ) as Flag<ValueType, EntitiesType>;
@@ -176,17 +178,20 @@ export function flag<
     ? trace(identify, {
         isVerboseTrace: false,
         name: 'identify',
+        isIgnoredError: isInternalNextError,
         attributes: { key: definition.key },
       })
     : identify;
   api.decide = trace(decide, {
     isVerboseTrace: false,
     name: 'decide',
+    isIgnoredError: isInternalNextError,
     attributes: { key: definition.key },
   });
   api.run = trace(run, {
     isVerboseTrace: false,
     name: 'run',
+    isIgnoredError: isInternalNextError,
     attributes: { key: definition.key },
   });
   api.adapter = adapter;
