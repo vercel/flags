@@ -6,8 +6,9 @@ export async function pprShellsProxy(request: NextRequest) {
   // precompute the flags
   const code = await precompute(coreFlags);
 
-  // rewrite the page with the code
+  // rewrite the page with the code. Precomputed pages are nested under a
+  // `precomputed` folder by convention.
   return NextResponse.rewrite(
-    new URL(`/examples/suspense-fallbacks/${code}`, request.url),
+    new URL(`/examples/suspense-fallbacks/precomputed/${code}`, request.url),
   );
 }

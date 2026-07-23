@@ -2,7 +2,7 @@ import { generatePermutations } from 'flags/next';
 import { cookies, headers } from 'next/headers';
 import Image from 'next/image';
 import { Suspense } from 'react';
-import { coreFlags, hasAuthCookieFlag } from '../flags';
+import { coreFlags, hasAuthCookieFlag } from '../../flags';
 
 // opt into on parital prerendering for this page, which is necessary while
 // it's experimental, see https://nextjs.org/learn/dashboard-app/partial-prerendering

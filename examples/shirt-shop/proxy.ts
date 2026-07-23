@@ -13,9 +13,10 @@ export async function proxy(request: NextRequest) {
   const cartId = await getCartId();
   const code = await precompute(productFlags);
 
-  // rewrites the request to the variant for this flag combination
+  // rewrites the request to the variant for this flag combination. The
+  // precomputed pages live under a `precomputed` folder by convention.
   const nextUrl = new URL(
-    `/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
+    `/precomputed/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
     request.url,
   );
 

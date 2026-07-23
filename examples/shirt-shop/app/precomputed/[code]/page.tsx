@@ -1,4 +1,4 @@
-import { AddToCart } from '@/app/[code]/add-to-cart';
+import { AddToCart } from '@/app/precomputed/[code]/add-to-cart';
 import { SummerSale } from '@/app/summer-sale';
 import { ImageGallery } from '@/components/image-gallery';
 import { Main } from '@/components/main';
