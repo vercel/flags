@@ -463,6 +463,7 @@ export function evaluate(
 const tracedEvaluate = trace(evaluateImpl, {
   name: 'evaluate',
   isVerboseTrace: false,
+  isIgnoredError: isInternalNextError,
   attributesSuccess: (result) => ({
     flagCount: Array.isArray(result)
       ? result.length
@@ -664,6 +665,7 @@ async function evaluateImpl(
             {
               name: 'batch',
               isVerboseTrace: false,
+              isIgnoredError: isInternalNextError,
               attributes: { adapterId: String(adapter.adapterId) },
               attributesSuccess: ({ uncached, undecided }) => {
                 const cachedCount = list.length - uncached.length;
