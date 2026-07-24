@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.2.2
+
+### Patch Changes
+
+- [#438](https://github.com/vercel/flags/pull/438) [`d23d9d2`](https://github.com/vercel/flags/commit/d23d9d2b7ab04bb72c8682c0811f20dd6699104f) Thanks [@eps1lon](https://github.com/eps1lon)! - Tracing no longer records Next.js control-flow errors as span errors. Redirects, notFound, and the rejected hanging promises of aborted prerenders (`HANGING_PROMISE_REJECTION`) are re-thrown for the framework to handle, but the flag evaluation span previously reported them via `span.setStatus({ code: 2, message })`, polluting traces with errors like "During prerendering, `connection()` rejects when the prerender is complete" on every aborted runtime prefetch. These spans are now reported as successful (status Ok), since the traced function completed as intended and the error is framework control flow, while genuine evaluation failures keep marking spans as errored.
+
 ## 4.2.1
 
 ### Patch Changes
