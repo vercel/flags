@@ -49,7 +49,7 @@
     "@types/node": "22.14.0",
     "gray-matter": "4.0.3",
     "husky": "9.0.10",
-    "lint-staged": "15.2.2",
+    "lint-staged": "^16.4.0",
     "next": "16.2.12",
     "playwright": "1.56.1",
     "publint": "0.3.14",
@@ -65,7 +65,8 @@
   "pnpm": {
     "overrides": {
       "postcss": "^8.5.22",
-      "path-to-regexp@6": "^6.3.0"
+      "esbuild": "^0.28.1",
+      "uuid": "^11.1.1"
     }
   }
 }
