@@ -2,7 +2,32 @@
 "@flags-sdk/posthog": major
 ---
 
-Make local vs. remote flag evaluation an explicit choice.
+Modernize the PostHog adapter. This release is breaking in four ways:
+
+- **Environment variables were renamed.** `NEXT_PUBLIC_POSTHOG_KEY` → `POSTHOG_PROJECT_API_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` → `POSTHOG_HOST`.
+- **Local vs. remote evaluation is now an explicit choice.** The default adapter evaluates remotely unless you set `POSTHOG_SECRET_KEY`.
+- **The three adapter methods collapsed into a single callable adapter.** `isFeatureEnabled()` / `featureFlagValue()` / `featureFlagPayload()` become `postHogAdapter` and `postHogAdapter.payload`.
+- **A flag's `key` is used as the PostHog flag key verbatim**, and Node.js `^20.20.0 || >=22.22.0` is now required.
+
+It also adds bulk evaluation support and drops `posthog-node`'s deprecation warnings.
+
+## Environment variables
+
+The adapter runs server-side only, so its credentials were never meant to be exposed
+to the browser. The `NEXT_PUBLIC_` prefixed variables are renamed accordingly, and the
+project API key variable now says which key it wants:
+
+```diff
+- NEXT_PUBLIC_POSTHOG_KEY=phc_...
+- NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
++ POSTHOG_PROJECT_API_KEY=phc_...
++ POSTHOG_HOST=https://us.i.posthog.com
+```
+
+`POSTHOG_HOST` is also what `getProviderData` derives the app host from, and
+`POSTHOG_PERSONAL_API_KEY` / `POSTHOG_PROJECT_ID` are unchanged.
+
+## Explicit local vs. remote evaluation
 
 Previously the default `postHogAdapter` passed `POSTHOG_PERSONAL_API_KEY` into the
 runtime `posthog-node` client, which enabled local evaluation and started a
