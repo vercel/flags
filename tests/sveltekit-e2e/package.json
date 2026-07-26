@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "flags": "workspace:*",
-    "@vercel/toolbar": "0.1.36"
+    "@vercel/toolbar": "0.2.7"
   },
   "devDependencies": {
     "@playwright/test": "1.58.1",
