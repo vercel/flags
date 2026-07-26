@@ -1,5 +1,5 @@
 import type { Adapter } from 'flags';
-import { PostHog } from 'posthog-node';
+import { PostHog, type PostHogOptions } from 'posthog-node';
 import type { JsonType, PostHogAdapter, PostHogEntities } from './types';
 
 export { getProviderData } from './provider';
@@ -53,8 +53,8 @@ export function createPostHogAdapter({
   postHogKey,
   postHogOptions,
 }: {
-  postHogKey: ConstructorParameters<typeof PostHog>[0];
-  postHogOptions: ConstructorParameters<typeof PostHog>[1];
+  postHogKey: string;
+  postHogOptions: PostHogOptions;
 }): PostHogAdapter {
   const client = new PostHog(postHogKey, postHogOptions);
 
@@ -130,9 +130,9 @@ function getOrCreateDefaultAdapter(): PostHogAdapter {
     const secretKey = process.env.POSTHOG_SECRET_KEY;
 
     defaultPostHogAdapter = createPostHogAdapter({
-      postHogKey: assertEnv('NEXT_PUBLIC_POSTHOG_KEY'),
+      postHogKey: assertEnv('POSTHOG_PROJECT_API_KEY'),
       postHogOptions: {
-        host: assertEnv('NEXT_PUBLIC_POSTHOG_HOST'),
+        host: assertEnv('POSTHOG_HOST'),
         secretKey,
         enableLocalEvaluation: Boolean(secretKey),
         // Presumption: Server IP is likely not a good proxy for user location

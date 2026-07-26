@@ -19,14 +19,11 @@ import { postHogAdapter } from "@flags-sdk/posthog";
 export const marketingGate = flag<boolean>({
   // The key in PostHog
   key: "my_posthog_flag_key_here",
-  // The PostHog feature to use (isFeatureEnabled, featureFlagValue, featureFlagPayload)
-  adapter: postHogAdapter.featureFlagValue(),
+  adapter: postHogAdapter,
 });
 ```
 
 ## Evaluation modes
-
-The mode is an explicit choice, not a side effect of any other credential.
 
 - **Remote (default):** with only `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST`
   set, each evaluation calls PostHog. No background polling; request volume scales
