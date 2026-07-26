@@ -8,6 +8,13 @@ catalog:
   '@types/react': ^19
   '@types/react-dom': ^19
 
+# apps/docs is a Next.js app that never loads Vite or Svelte, but its optional
+# peer chain (@vercel/analytics -> @sveltejs/kit -> @sveltejs/vite-plugin-svelte)
+# is resolved against the Vite 6 that fumadocs-mdx@14 pins there. Harmless.
+peerDependencyRules:
+  allowedVersions:
+    '@sveltejs/vite-plugin-svelte>vite': '6'
+
 minimumReleaseAge: 2880
 
 minimumReleaseAgeExclude:

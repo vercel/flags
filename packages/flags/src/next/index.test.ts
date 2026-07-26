@@ -1202,7 +1202,7 @@ describe('evaluate', () => {
       // bulkDecide receives the request's own headers (not a copy via
       // transformToHeaders) — verify by checking a header round-trips.
       const [callArgs] = bulkDecideMock.mock.calls;
-      expect(callArgs[0].headers.get('cookie')).toBe('foo=bar');
+      expect(callArgs?.[0].headers.get('cookie')).toBe('foo=bar');
     });
 
     it('array overload preserves order and skips next/headers', async () => {

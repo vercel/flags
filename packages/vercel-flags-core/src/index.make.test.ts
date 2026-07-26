@@ -4,17 +4,21 @@ import { make } from './index.make';
 
 // Mock the Controller to avoid real network calls
 vi.mock('./controller', () => ({
-  Controller: vi.fn().mockImplementation(({ auth }) => ({
-    auth,
-    read: vi.fn().mockResolvedValue({
-      projectId: 'test',
-      definitions: {},
-      segments: {},
-      environment: 'production',
-    }),
-    initialize: vi.fn().mockResolvedValue(undefined),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-  })),
+  // Controller is instantiated with `new`, so the implementation must be a
+  // function rather than an arrow — Vitest 4 throws "is not a constructor".
+  Controller: vi.fn().mockImplementation(function ({ auth }) {
+    return {
+      auth,
+      read: vi.fn().mockResolvedValue({
+        projectId: 'test',
+        definitions: {},
+        segments: {},
+        environment: 'production',
+      }),
+      initialize: vi.fn().mockResolvedValue(undefined),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 import { Controller } from './controller';
