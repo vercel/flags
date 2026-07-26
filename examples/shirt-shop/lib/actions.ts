@@ -10,8 +10,11 @@ import { getCartId } from './get-cart-id';
 const BACKEND_URL =
   process.env.BACKEND_URL || 'https://shirt-shop-api.labs.vercel.dev';
 
+const MAX_DELAY_MS = 5000;
+
 export async function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const clampedMs = Math.max(0, Math.min(ms, MAX_DELAY_MS));
+  return new Promise((resolve) => setTimeout(resolve, clampedMs));
 }
 
 export async function getCart(): Promise<Cart> {
