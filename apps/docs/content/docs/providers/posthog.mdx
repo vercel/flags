@@ -50,25 +50,37 @@ Install the required dependencies:
 pnpm i @flags-sdk/posthog
 ```
 
-Set up the required environment variables:
-
-```bash title=".env.local"
-# Settings > Project > Project API Key
-POSTHOG_PROJECT_API_KEY=phc_...
-# Determines the region your data lives in:
-# https://us.i.posthog.com or https://eu.i.posthog.com
-POSTHOG_HOST=https://us.i.posthog.com
-```
-
 ### Environment variables
 
-| Variable                   | Required                | Used by                     | Description                                                                                                                     |
-| -------------------------- | ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `POSTHOG_PROJECT_API_KEY`  | Yes                     | `postHogAdapter`            | Your project API key (`phc_...`). Settings > Project > Project API Key.                                                          |
-| `POSTHOG_HOST`             | Yes                     | `postHogAdapter`, Explorer  | The regional API host, e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com`.                                            |
-| `POSTHOG_SECRET_KEY`       | No                      | `postHogAdapter`            | Feature flags secret key (`phs_...`). Setting it opts the default adapter into [local evaluation](#local-evaluation).             |
-| `POSTHOG_PERSONAL_API_KEY` | For the Flags Explorer  | `getProviderData`           | Personal API key (`phx_...`). Settings > User > Personal API keys.                                                               |
-| `POSTHOG_PROJECT_ID`       | For the Flags Explorer  | `getProviderData`           | Your numeric project id, e.g. `521742`. Settings > Project > Project ID.                                                          |
+**Always required**, read by `postHogAdapter`:
+
+```bash title=".env.local"
+# The regional API host, which determines where your data lives
+# Settings > Project > Project API Key
+POSTHOG_HOST=https://us.i.posthog.com
+# or https://eu.i.posthog.com
+
+# Your project API key
+# Settings > Project > Project API Key
+POSTHOG_PROJECT_API_KEY=phc_...
+```
+
+**Optional**, opts `postHogAdapter` into [local evaluation](#local-evaluation), where
+flag definitions are polled in the background instead of evaluating each flag remotely:
+
+```bash title=".env.local"
+# Settings > Project > Feature flags secret key
+POSTHOG_SECRET_KEY=phs_...
+```
+
+**For the [Flags Explorer](#flags-explorer)**, read by `getProviderData` only:
+
+```bash title=".env.local"
+# Settings > User > Personal API keys
+POSTHOG_PERSONAL_API_KEY=phx_...
+# Settings > Project > Project ID
+POSTHOG_PROJECT_ID=521742
+```
 
 Import the PostHog adapter for Flags SDK, which reads `POSTHOG_PROJECT_API_KEY`, `POSTHOG_HOST` and `POSTHOG_SECRET_KEY` when it is first used:
 
@@ -156,15 +168,8 @@ also adds latency. If you provide user ids, PostHog will look up additional prop
 
 ### Local evaluation
 
-Set a PostHog project secret key to opt the default adapter into local evaluation:
-
-```bash title=".env.local"
-# Settings > Project > Feature flags secret key
-POSTHOG_SECRET_KEY=phs_...
-```
-
-This is the only thing that switches evaluation modes — the default adapter enables
-local evaluation exactly when `POSTHOG_SECRET_KEY` is present.
+Setting `POSTHOG_SECRET_KEY` (`phs_...`) is the only thing that switches evaluation
+modes — the default adapter enables local evaluation exactly when that key is present.
 
 In this mode, `posthog-node` periodically fetches your flag definitions in the
 background (every 30s by default) and evaluates flags in-process against those cached

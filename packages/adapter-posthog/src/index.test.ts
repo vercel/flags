@@ -46,18 +46,18 @@ describe('postHogAdapter', () => {
 
   describe('with a missing environment', () => {
     it('should throw an error', () => {
-      delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
+      delete process.env.POSTHOG_PROJECT_API_KEY;
       resetDefaultPostHogAdapter();
       expect(() => postHogAdapter()).toThrowError(
-        'PostHog Adapter: Missing NEXT_PUBLIC_POSTHOG_KEY environment variable',
+        'PostHog Adapter: Missing POSTHOG_PROJECT_API_KEY environment variable',
       );
     });
   });
 
   describe('with an environment', () => {
     beforeAll(() => {
-      process.env.NEXT_PUBLIC_POSTHOG_KEY = 'test-posthog-key';
-      process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://us.i.posthog.com';
+      process.env.POSTHOG_PROJECT_API_KEY = 'test-posthog-key';
+      process.env.POSTHOG_HOST = 'https://us.i.posthog.com';
       resetDefaultPostHogAdapter();
     });
 
@@ -231,8 +231,8 @@ describe('default adapter evaluation mode', () => {
   const OLD_ENV = process.env;
 
   beforeAll(() => {
-    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'test-posthog-key';
-    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://us.i.posthog.com';
+    process.env.POSTHOG_PROJECT_API_KEY = 'test-posthog-key';
+    process.env.POSTHOG_HOST = 'https://us.i.posthog.com';
   });
 
   afterEach(() => {

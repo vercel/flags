@@ -400,37 +400,46 @@ Package: `@flags-sdk/posthog`
 pnpm i @flags-sdk/posthog
 ```
 
-Env vars:
-- `NEXT_PUBLIC_POSTHOG_KEY`
-- `NEXT_PUBLIC_POSTHOG_HOST` (e.g. `https://us.i.posthog.com`)
+Env vars, always required:
+- `POSTHOG_HOST` (e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com`)
+- `POSTHOG_PROJECT_API_KEY` (`phc_...`)
+
+Optional, opts into local evaluation (background polling) instead of remote:
+- `POSTHOG_SECRET_KEY` (`phs_...`)
+
+For the Flags Explorer (`getProviderData` only):
+- `POSTHOG_PERSONAL_API_KEY` (`phx_...`)
+- `POSTHOG_PROJECT_ID` (e.g. `521742`)
 
 ### Methods
 
 ```ts
 import { postHogAdapter } from '@flags-sdk/posthog';
 
-// Boolean check
-export const myFlag = flag({
+// Value — boolean flag. Pass the adapter uninvoked or invoked, both work.
+export const myFlag = flag<boolean>({
   key: 'my-flag',
-  adapter: postHogAdapter.isFeatureEnabled(),
+  adapter: postHogAdapter,
   identify,
 });
 
-// Multivariate value
-export const myVariant = flag({
+// Value — multivariate flag resolves to the variant string
+export const myVariant = flag<string>({
   key: 'my-flag',
-  adapter: postHogAdapter.featureFlagValue(),
+  adapter: postHogAdapter,
   identify,
 });
 
 // Payload
 export const myPayload = flag({
   key: 'my-flag',
-  adapter: postHogAdapter.featureFlagPayload((v) => v),
+  adapter: postHogAdapter.payload,
   defaultValue: {},
   identify,
 });
 ```
+
+`identify` must return `{ distinctId }`.
 
 ### Flags Explorer
 
@@ -441,8 +450,8 @@ import { getProviderData as getPostHogProviderData } from '@flags-sdk/posthog';
 
 export const GET = createFlagsDiscoveryEndpoint(() =>
   getPostHogProviderData({
-    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
-    projectId: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_ID,
+    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
+    projectId: process.env.POSTHOG_PROJECT_ID!,
   }),
 );
 ```

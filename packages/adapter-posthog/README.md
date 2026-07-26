@@ -23,9 +23,36 @@ export const marketingGate = flag<boolean>({
 });
 ```
 
+## Environment variables
+
+Always required, read by `postHogAdapter`:
+
+```bash
+# Regional API host, determines where your data lives
+POSTHOG_HOST=https://us.i.posthog.com # or https://eu.i.posthog.com
+# Settings > Project > Project API Key
+POSTHOG_PROJECT_API_KEY=phc_...
+```
+
+Optional, opts `postHogAdapter` into local evaluation:
+
+```bash
+# Settings > Project > Feature flags secret key
+POSTHOG_SECRET_KEY=phs_...
+```
+
+For the Flags Explorer, read by `getProviderData` only:
+
+```bash
+# Settings > User > Personal API keys
+POSTHOG_PERSONAL_API_KEY=phx_...
+# Settings > Project > Project ID
+POSTHOG_PROJECT_ID=521742
+```
+
 ## Evaluation modes
 
-- **Remote (default):** with only `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST`
+- **Remote (default):** with only `POSTHOG_PROJECT_API_KEY` and `POSTHOG_HOST`
   set, each evaluation calls PostHog. No background polling; request volume scales
   with traffic. Recommended for serverless.
 - **Local:** set `POSTHOG_SECRET_KEY` (`phs_...`) to opt in. `posthog-node` polls flag
