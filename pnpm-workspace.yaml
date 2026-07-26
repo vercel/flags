@@ -12,6 +12,7 @@ minimumReleaseAge: 2880
 
 minimumReleaseAgeExclude:
   - 'flags'
+  - 'next'
+  - '@next/*'
   - '@flags-sdk/*'
   - '@vercel/*'
-
