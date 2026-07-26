@@ -9,7 +9,8 @@ Modernize the PostHog adapter. This release is breaking in four ways:
 - **The three adapter methods collapsed into a single callable adapter.** `isFeatureEnabled()` / `featureFlagValue()` / `featureFlagPayload()` become `postHogAdapter` and `postHogAdapter.payload`.
 - **A flag's `key` is used as the PostHog flag key verbatim**, and Node.js `^20.20.0 || >=22.22.0` is now required.
 
-It also adds bulk evaluation support and drops `posthog-node`'s deprecation warnings.
+It also upgrades `posthog-node` from v4.11.1 to v5.45.0, adds bulk evaluation support,
+and drops `posthog-node`'s deprecation warnings.
 
 ## Environment variables
 
@@ -74,9 +75,10 @@ convention of trimming everything after the first `.` (so `my-flag.variant` read
 PostHog flag `my-flag`) has been removed; use the exact PostHog flag key as your flag
 `key`.
 
-## Migrated to `evaluateFlags` and added bulk evaluation
+## Upgraded `posthog-node`, migrated to `evaluateFlags`, added bulk evaluation
 
-Internally the adapter now uses `posthog-node`'s `evaluateFlags` instead of the
+`posthog-node` is upgraded from v4.11.1 to v5.45.0. Internally the adapter now uses its
+`evaluateFlags` instead of the
 deprecated `isFeatureEnabled` / `getFeatureFlag` / `getFeatureFlagPayload` methods,
 removing their runtime deprecation warnings. The adapter also implements `bulkDecide`,
 so [`evaluate()`](https://flags-sdk.dev/frameworks/next/bulk-evaluation) resolves flags
