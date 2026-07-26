@@ -148,11 +148,18 @@ export const getAppHost = (apiHost?: string) => {
     throw new Error('NEXT_PUBLIC_POSTHOG_HOST is not set');
   }
 
-  if (host.includes('us.i.posthog.com')) {
+  let hostname: string;
+  try {
+    hostname = new URL(host).hostname;
+  } catch {
+    hostname = host;
+  }
+
+  if (hostname === 'us.i.posthog.com') {
     return 'https://us.posthog.com';
   }
 
-  if (host.includes('eu.i.posthog.com')) {
+  if (hostname === 'eu.i.posthog.com') {
     return 'https://eu.posthog.com';
   }
 
