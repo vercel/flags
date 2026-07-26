@@ -84,17 +84,17 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.2",
-    "@types/node": "20.11.17",
+    "@types/node": "22.14.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@sveltejs/kit": "2.53.4",
-    "@vitejs/plugin-react": "4.2.1",
+    "@vitejs/plugin-react": "6.0.4",
     "msw": "2.6.4",
     "next": "16.2.12",
     "tsup": "8.5.1",
     "typescript": "5.6.3",
-    "vite": "5.4.21",
-    "vitest": "1.6.1"
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
