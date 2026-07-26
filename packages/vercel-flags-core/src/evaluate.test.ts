@@ -1984,6 +1984,58 @@ describe('evaluate', () => {
     });
   });
 
+  it('returns a stable result for repeated global regex evaluation', () => {
+    const regex = {
+      type: 'regex' as const,
+      pattern: '^uid',
+      flags: 'g' as const,
+    };
+
+    const definition: Packed.FlagDefinition = {
+      seed: undefined,
+      environments: {
+        production: {
+          rules: [
+            {
+              conditions: [
+                [['user', 'id'], Comparator.REGEX, regex],
+              ],
+              outcome: 1,
+            },
+          ],
+          fallthrough: 0,
+        },
+      },
+      variants: [false, true],
+    };
+
+    const first = evaluate({
+      definition,
+      environment: 'production',
+      entities: { user: { id: 'uid1' } },
+    });
+
+    const second = evaluate({
+      definition,
+      environment: 'production',
+      entities: { user: { id: 'uid1' } },
+    });
+
+    expect(first).toEqual({
+      value: true,
+      variantId: null,
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.VALUE,
+    });
+
+    expect(second).toEqual({
+      value: true,
+      variantId: null,
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.VALUE,
+    });
+  });
+
   describe('regex input length limit', () => {
     it('should return false for REGEX when input exceeds MAX_REGEX_INPUT_LENGTH', () => {
       const longString = 'a'.repeat(10_001);
