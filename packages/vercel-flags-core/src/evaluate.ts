@@ -64,7 +64,7 @@ function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
   const cached = compiledRegexCache.get(rhs);
   if (cached) return cached;
-  const compiled = new RegExp(rhs.pattern, rhs.flags);
+  const compiled = new RegExp(rhs.pattern, rhs.flags.replace(/[gy]/, ''));
   compiledRegexCache.set(rhs, compiled);
   return compiled;
 }
