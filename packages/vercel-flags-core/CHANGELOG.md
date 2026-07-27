@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.7.1
+
+### Patch Changes
+
+- [#450](https://github.com/vercel/flags/pull/450) [`ceb1519`](https://github.com/vercel/flags/commit/ceb15198f73a973ac559648b8d978c23d23ef0c5) Thanks [@dferber90](https://github.com/dferber90)! - Strip the `g` and `y` flags from RegEx conditions to prevent cached `RegExp` instances from retaining `lastIndex` state.
+
 ## 1.7.0
 
 ### Minor Changes
