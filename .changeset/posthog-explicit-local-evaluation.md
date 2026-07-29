@@ -2,15 +2,20 @@
 "@flags-sdk/posthog": major
 ---
 
-Modernize the PostHog adapter. This release is breaking in four ways:
+Modernize the PostHog adapter. This release is breaking in five ways:
 
 - **Environment variables were renamed.** `NEXT_PUBLIC_POSTHOG_KEY` → `POSTHOG_PROJECT_API_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` → `POSTHOG_HOST`.
 - **Local vs. remote evaluation is now an explicit choice.** The default adapter evaluates remotely unless you set `POSTHOG_SECRET_KEY`.
 - **The three adapter methods collapsed into a single callable adapter.** `isFeatureEnabled()` / `featureFlagValue()` / `featureFlagPayload()` become `postHogAdapter` and `postHogAdapter.payload`.
-- **A flag's `key` is used as the PostHog flag key verbatim**, and Node.js `^20.20.0 || >=22.22.0` is now required.
+- **A flag's `key` is used as the PostHog flag key verbatim.** The old "read until the first `.`" convention is gone.
+- **The per-call `sendFeatureFlagEvents` option and the `featureFlagPayload` `getValue` mapper are removed.**
 
-It also upgrades `posthog-node` from v4.11.1 to v5.45.0, adds bulk evaluation support,
-and drops `posthog-node`'s deprecation warnings.
+It also upgrades `posthog-node` from v4.11.1 to v5.45.0 (which raises the required
+Node.js version), adds bulk evaluation support, drops `posthog-node`'s runtime
+deprecation warnings, and removes the unused `@vercel/edge-config` dependency.
+
+This release requires `flags@^4.2.0`, which is where the uninvoked-adapter shorthand
+and bulk evaluation landed.
 
 ## Environment variables
 
@@ -31,9 +36,11 @@ project API key variable now says which key it wants:
 ## Explicit local vs. remote evaluation
 
 Previously the default `postHogAdapter` passed `POSTHOG_PERSONAL_API_KEY` into the
-runtime `posthog-node` client, which enabled local evaluation and started a
-feature-flag poller in every warm server process. On serverless this could generate
-a large, traffic-independent volume of PostHog feature flag requests.
+runtime `posthog-node` client. When that variable was set, this enabled local
+evaluation and started a feature-flag poller in every warm server process — on
+serverless that could generate a large, traffic-independent volume of PostHog feature
+flag requests, as a side effect of a credential you may only have set for the Flags
+Explorer.
 
 The default adapter now evaluates flags remotely unless you opt in to local
 evaluation by setting `POSTHOG_SECRET_KEY` (a `phs_...` project secret key). When set,
@@ -65,10 +72,15 @@ flag({ key: 'my-flag', adapter: postHogAdapter }); // or postHogAdapter()
 flag({ key: 'my-flag', adapter: postHogAdapter.payload }); // or .payload()
 ```
 
-`isFeatureEnabled` and `featureFlagValue` merged into the value adapter: it returns
-the flag's evaluated value, typed per flag (`flag<boolean>` yields a boolean). The old
-`isFeatureEnabled` boolean coercion of multivariate flags is gone — declare the flag as
-`boolean` to keep boolean semantics.
+`isFeatureEnabled` and `featureFlagValue` merged into the value adapter, which returns
+whatever PostHog evaluated the flag to: a boolean for a boolean flag, the variant
+`string` for a multivariate flag. Type the flag (`flag<boolean>`, `flag<string>`) to
+describe the value you expect.
+
+Note that `isFeatureEnabled` used to coerce a multivariate flag's variant to `true`.
+Nothing coerces now, so a flag that previously read `true` via `isFeatureEnabled` will
+read e.g. `'variant-a'`. Declaring `flag<boolean>` only changes the TypeScript type —
+if you relied on the boolean, narrow the value in your own `decide` or at the call site.
 
 A flag's `key` is now used as the PostHog feature flag key verbatim. The previous
 convention of trimming everything after the first `.` (so `my-flag.variant` read the
@@ -78,11 +90,15 @@ PostHog flag `my-flag`) has been removed; use the exact PostHog flag key as your
 ## Upgraded `posthog-node`, migrated to `evaluateFlags`, added bulk evaluation
 
 `posthog-node` is upgraded from v4.11.1 to v5.45.0. Internally the adapter now uses its
-`evaluateFlags` instead of the
-deprecated `isFeatureEnabled` / `getFeatureFlag` / `getFeatureFlagPayload` methods,
-removing their runtime deprecation warnings. The adapter also implements `bulkDecide`,
-so [`evaluate()`](https://flags-sdk.dev/frameworks/next/bulk-evaluation) resolves flags
-that share an `identify` source through a single `/flags` request.
+`evaluateFlags` instead of the deprecated `isFeatureEnabled` / `getFeatureFlag` /
+`getFeatureFlagPayload` methods, removing the deprecation warnings those log at runtime.
+
+The adapter also implements `bulkDecide`, so
+[`evaluate()`](https://flags-sdk.dev/frameworks/next/bulk-evaluation) resolves flags
+that share an `identify` source through a single `evaluateFlags` call — one `/flags`
+request when evaluating remotely, one in-process evaluation when evaluating locally.
+Flag values and flag payloads are batched separately, so a flag and its payload still
+resolve through two calls.
 
 The per-call `sendFeatureFlagEvents` option and the `featureFlagPayload` `getValue`
 mapper are removed (neither has an `evaluateFlags` equivalent); map payloads in your
@@ -92,3 +108,8 @@ own flag code instead.
 
 `posthog-node@5.45.0` requires Node.js `^20.20.0 || >=22.22.0`, and this adapter now
 declares the same `engines` constraint.
+
+## Removed `@vercel/edge-config` dependency
+
+The adapter never used it. It is dropped from `dependencies` (and from the package
+keywords), so installs no longer pull it in.
