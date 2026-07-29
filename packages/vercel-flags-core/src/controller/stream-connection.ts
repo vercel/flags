@@ -52,6 +52,7 @@ export type StreamConfig = {
   host: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
+  environment?: string;
   /** Returns the current revision number to send as X-Revision header */
   revision?: () => number | undefined;
   resolveToken: () => Promise<string>;
@@ -128,6 +129,9 @@ export async function connectStream(
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
+        if (config.environment) {
+          headers['X-Vercel-Environment'] = config.environment;
+        }
         const vercelEnv = process.env.VERCEL_ENV;
         if (vercelEnv) {
           headers['X-Vercel-Env'] = vercelEnv;

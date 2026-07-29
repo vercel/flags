@@ -382,6 +382,7 @@ export class Controller implements ControllerInterface {
             host: this.options.host,
             auth: this.options.auth,
             fetch: this.options.fetch,
+            environment: this.options.environment,
           });
           this.data = tagData(fetched, 'fetched');
           result = this.data;
@@ -618,6 +619,7 @@ export class Controller implements ControllerInterface {
         host: this.options.host,
         auth: this.options.auth,
         fetch: this.options.fetch,
+        environment: this.options.environment,
       });
       return tagData(fetched, 'fetched');
     } catch {
@@ -659,6 +661,7 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
+          environment: this.options.environment,
         });
         this.data = tagData(fetched, 'fetched');
         this.transition('degraded');
@@ -724,6 +727,7 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
+          environment: this.options.environment,
         });
         this.data = tagData(fetched, 'fetched');
         this.transition('degraded');

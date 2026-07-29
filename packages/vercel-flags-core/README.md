@@ -24,6 +24,18 @@ const result = await client.evaluate<boolean>('show-new-feature', false, {
 });
 ```
 
+SDK keys normally select their environment automatically. To use a specific
+backend environment instead, pass the `environment` option:
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  environment: 'preview',
+});
+```
+
+When `environment` is omitted, the backend continues to derive it from the
+authentication token.
+
 ## OpenFeature
 
 An OpenFeature-compatible provider is available at `@vercel/flags-core/openfeature`:

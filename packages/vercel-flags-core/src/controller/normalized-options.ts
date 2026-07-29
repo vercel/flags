@@ -54,6 +54,12 @@ export type ControllerOptions = {
   fetch?: typeof globalThis.fetch;
 
   /**
+   * Environment to use for requests authenticated with an SDK key.
+   * When omitted, the environment is derived from the authentication token.
+   */
+  environment?: string;
+
+  /**
    * Custom client name included in evaluation telemetry.
    */
   clientName?: string;
@@ -73,6 +79,7 @@ export type NormalizedOptions = {
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   host: string;
+  environment: string | undefined;
   clientName: string | undefined;
   disableMetrics: boolean;
 };
@@ -124,6 +131,7 @@ export function normalizeOptions(
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     host: 'https://flags.vercel.com',
+    environment: options.environment,
     clientName: options.clientName,
     disableMetrics: options.disableMetrics ?? false,
   };

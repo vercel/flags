@@ -10,6 +10,7 @@ export type PollingSourceConfig = {
     intervalMs: number;
   };
   fetch: typeof globalThis.fetch;
+  environment?: string;
 };
 
 export type PollingSourceEvents = {

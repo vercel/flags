@@ -236,6 +236,146 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Environment option
+  // ---------------------------------------------------------------------------
+  describe('environment option', () => {
+    it('should send an explicit environment with every request path', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(Response.json(makeBundled()));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        environment: 'preview',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+      cleanupCtx();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        'https://flags.vercel.com/v1/datafile',
+        {
+          signal: expect.any(AbortSignal),
+          headers: {
+            ...datafileRequestHeaders,
+            'X-Vercel-Environment': 'preview',
+          },
+        },
+      );
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({
+          headers: {
+            ...ingestRequestHeaders,
+            'X-Vercel-Environment': 'preview',
+          },
+        }),
+      );
+
+      const streamingClient = createClient(sdkKey, {
+        environment: 'preview',
+        fetch: fetchMock,
+        polling: false,
+      });
+      const initPromise = streamingClient.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'preview',
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          signal: expect.any(AbortSignal),
+          headers: {
+            ...streamRequestHeaders,
+            'X-Vercel-Environment': 'preview',
+          },
+        },
+      );
+
+      await streamingClient.shutdown();
+      stream.close();
+
+      fetchMock.mockClear();
+      fetchMock.mockResolvedValue(Response.json(makeBundled()));
+
+      const pollingClient = createClient(sdkKey, {
+        environment: 'preview',
+        fetch: fetchMock,
+        stream: false,
+      });
+      await pollingClient.initialize();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          signal: expect.any(AbortSignal),
+          headers: {
+            ...datafileRequestHeaders,
+            'X-Vercel-Environment': 'preview',
+          },
+        },
+      );
+
+      await pollingClient.shutdown();
+    });
+
+    it('should omit the environment when it is not specified', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(Response.json(makeBundled()));
+        }
+        return Promise.resolve(new Response());
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        buildStep: true,
+      });
+      await client.evaluate('flagA');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          signal: expect.any(AbortSignal),
+          headers: datafileRequestHeaders,
+        },
+      );
+
+      await client.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Build step detection
   // ---------------------------------------------------------------------------
   describe('build step detection', () => {
