@@ -1,11 +1,11 @@
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { createClient, type GlobalConfigClient } from '@vercel/global-config';
 import type { Adapter } from 'flags';
 
 /**
  * An Edge Config adapter for the Flags SDK
  */
 export function createEdgeConfigAdapter(
-  connectionString: string | EdgeConfigClient,
+  connectionString: string | GlobalConfigClient,
   options?: {
     edgeConfigItemKey?: string;
     teamSlug?: string;
@@ -38,14 +38,14 @@ export function createEdgeConfigAdapter(
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!definitions) {
           throw new Error(
-            `@flags-sdk/edge-config: Edge Config item "${edgeConfigItemKey}" not found`,
+            `@flags-sdk/global-config: Edge Config item "${edgeConfigItemKey}" not found`,
           );
         }
 
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!(key in definitions)) {
           throw new Error(
-            `@flags-sdk/edge-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
+            `@flags-sdk/global-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
           );
         }
         return definitions[key] as ValueType;

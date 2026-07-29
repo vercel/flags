@@ -1,4 +1,4 @@
-# @flags-sdk/edge-config
+# @flags-sdk/global-config
 
 ## 0.2.0
 

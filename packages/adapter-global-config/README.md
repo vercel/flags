@@ -1,9 +1,9 @@
-# `@flags-sdk/edge-config`
+# `@flags-sdk/global-config`
 
 ## Installation
 
 ```bash
-npm install @flags-sdk/edge-config
+npm install @flags-sdk/global-config
 ```
 
 ## Usage
@@ -14,7 +14,7 @@ This adapter will connect to the Edge Config available under the `EDGE_CONFIG` e
 
 ```ts
 import { flag } from "flags/next";
-import { edgeConfigAdapter } from "@flags-sdk/edge-config";
+import { edgeConfigAdapter } from "@flags-sdk/global-config";
 
 export const exampleFlag = flag({
   key: "example-flag",
@@ -38,7 +38,7 @@ You can specify a custom adapter which connects to a different Edge Config, and 
 
 ```ts
 import { flag } from "flags/next";
-import { createEdgeConfigAdapter } from "@flags-sdk/edge-config";
+import { createEdgeConfigAdapter } from "@flags-sdk/global-config";
 
 const edgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG, {
   teamSlug: "your-team-slug",

@@ -16,10 +16,10 @@ export async function createEdgeConfigDataAdapter(options: {
   edgeConfigItemKey: string;
   edgeConfigConnectionString: string;
 }) {
-  // Edge Config adapter requires `@vercel/edge-config` and `statsig-node-vercel`
+  // Edge Config adapter requires `@vercel/global-config` and `statsig-node-vercel`
   // Since it is a peer dependency, we will import it dynamically
   const { EdgeConfigDataAdapter } = await import('statsig-node-vercel');
-  const { createClient } = await import('@vercel/edge-config');
+  const { createClient } = await import('@vercel/global-config');
   return new EdgeConfigDataAdapter({
     edgeConfigItemKey: options.edgeConfigItemKey,
     edgeConfigClient: createClient(options.edgeConfigConnectionString, {

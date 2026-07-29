@@ -3,7 +3,7 @@ import {
   type LDClient,
   type LDContext,
 } from '@launchdarkly/vercel-server-sdk';
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { createClient, type GlobalConfigClient } from '@vercel/global-config';
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
 
@@ -50,7 +50,7 @@ export function createLaunchDarklyAdapter({
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<unknown>>();
 
-  const patchedEdgeConfigClient: EdgeConfigClient = {
+  const patchedGlobalConfigClient: GlobalConfigClient = {
     ...edgeConfigClient,
     get: async <T>(key: string) => {
       const h = store.getStore();
@@ -70,7 +70,7 @@ export function createLaunchDarklyAdapter({
 
   let initPromise: Promise<unknown> | null = null;
 
-  const ldClient = init(clientSideId, patchedEdgeConfigClient);
+  const ldClient = init(clientSideId, patchedGlobalConfigClient);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;

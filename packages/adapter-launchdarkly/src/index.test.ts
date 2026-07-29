@@ -12,7 +12,7 @@ vi.mock('@launchdarkly/vercel-server-sdk', () => ({
   init: vi.fn(() => ldClientMock),
 }));
 
-vi.mock('@vercel/edge-config', () => ({
+vi.mock('@vercel/global-config', () => ({
   createClient: vi.fn(),
 }));
 

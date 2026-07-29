@@ -194,10 +194,10 @@ Full CLI reference: https://vercel.com/docs/cli/flags
 
 ## Edge Config
 
-Package: `@flags-sdk/edge-config`
+Package: `@flags-sdk/global-config`
 
 ```bash
-pnpm i @flags-sdk/edge-config
+pnpm i @flags-sdk/global-config
 ```
 
 Env: `EDGE_CONFIG="edge-config-connection-string"`
@@ -206,7 +206,7 @@ Env: `EDGE_CONFIG="edge-config-connection-string"`
 
 ```ts
 import { flag } from 'flags/next';
-import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+import { edgeConfigAdapter } from '@flags-sdk/global-config';
 
 export const exampleFlag = flag({
   adapter: edgeConfigAdapter,
@@ -228,7 +228,7 @@ Edge Config should contain:
 ### Custom configuration
 
 ```ts
-import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
+import { createEdgeConfigAdapter } from '@flags-sdk/global-config';
 
 const myAdapter = createEdgeConfigAdapter({
   connectionString: process.env.OTHER_EDGE_CONFIG,
@@ -505,7 +505,7 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
 Package: `@flags-sdk/hypertune`
 
 ```bash
-pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/edge-config
+pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/global-config
 ```
 
 Requires code generation: `npx hypertune`

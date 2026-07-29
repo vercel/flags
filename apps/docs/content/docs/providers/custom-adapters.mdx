@@ -27,7 +27,7 @@ Creating custom adapters is possible by creating an adapter factory:
 
 ```ts title="example-adapter.ts"
 import type { Adapter } from "flags";
-import { createClient, EdgeConfigClient } from "@vercel/edge-config";
+import { createClient, GlobalConfigClient } from "@vercel/global-config";
 
 /**
  * A factory function for your adapter

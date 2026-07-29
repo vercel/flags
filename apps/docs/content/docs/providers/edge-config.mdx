@@ -2,7 +2,7 @@
 title: 'Edge Config'
 ---
 
-The `@flags-sdk/edge-config` package provides a basic adapter for defining feature flags powered by [Vercel Edge Config](https://vercel.com/docs/storage/edge-config)
+The `@flags-sdk/global-config` package provides a basic adapter for defining feature flags powered by [Vercel Edge Config](https://vercel.com/docs/storage/edge-config)
 
 <LearnMore
   icon="arrow"
@@ -13,12 +13,12 @@ The `@flags-sdk/edge-config` package provides a basic adapter for defining featu
 
 ## Installation
 
-Follow the [Quickstart](/docs/getting-started/next), then add the [Edge Config adapter](https://github.com/vercel/flags/tree/main/packages/adapter-edge-config).
+Follow the [Quickstart](/docs/getting-started/next), then add the [Edge Config adapter](https://github.com/vercel/flags/tree/main/packages/adapter-global-config).
 
 Install desired dependencies
 
 ```sh
-pnpm i @flags-sdk/edge-config
+pnpm i @flags-sdk/global-config
 ```
 
 Set relevant variables
@@ -31,7 +31,7 @@ EDGE_CONFIG="edge-config-connection-string"
 
 ```ts title="flags.ts#next"
 import { flag } from 'flags/next';
-import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+import { edgeConfigAdapter } from '@flags-sdk/global-config';
 
 export const exampleFlag = flag({
   // Will load the `flags` key from Edge Config
@@ -62,7 +62,7 @@ The adapter assumes that there is an `EDGE_CONFIG` environment variable set with
 and that it contains a `flags` object with each key corresponding to a flag you define in code.
 
 ```ts title="flags.ts#next"
-import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+import { edgeConfigAdapter } from '@flags-sdk/global-config';
 
 export const exampleFlag = flag({
   adapter: edgeConfigAdapter,
@@ -76,12 +76,12 @@ To customize these options you can import and call `createEdgeConfigAdapter` man
 
 | Option key | Type | Description |
 | ----------- | -------- | ----------------------- |
-| `connectionString` | `string | EdgeConfigClient` | A [connection string](https://vercel.com/docs/storage/edge-config/using-edge-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/edge-config/edge-config-sdk#use-connection-strings) |
+| `connectionString` | `string | GlobalConfigClient` | A [connection string](https://vercel.com/docs/storage/edge-config/using-edge-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/edge-config/edge-config-sdk#use-connection-strings) |
 | `options.edgeConfigItemKey` | `string` | Defaults to `flags` |
 | `options.teamSlug` | `string` | The team slug used for your team in the Vercel dashboard, used to create links to your Edge Config |
 
 ```ts title="flags.ts#next"
-import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
+import { createEdgeConfigAdapter } from '@flags-sdk/global-config';
 
 const myEdgeConfigAdapter = createEdgeConfigAdapter({
   connectionString: process.env.OTHER_EDGE_CONFIG_CONNECTION_STRING,

@@ -1,4 +1,4 @@
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { createClient, type EdgeConfigClient } from '@vercel/global-config';
 import type { Adapter, ReadonlyHeaders } from 'flags';
 
 export type EdgeConfigFlags = {
@@ -21,7 +21,7 @@ export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
   // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
   if (!defaultEdgeConfigAdapter) {
     if (!process.env.EDGE_CONFIG) {
-      throw new Error('@flags-sdk/edge-config: Missing EDGE_CONFIG env var');
+      throw new Error('@flags-sdk/global-config: Missing EDGE_CONFIG env var');
     }
 
     defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
@@ -47,7 +47,7 @@ export function createEdgeConfigAdapter(
   },
 ) {
   if (!connectionString) {
-    throw new Error('@flags-sdk/edge-config: Missing connection string');
+    throw new Error('@flags-sdk/global-config: Missing connection string');
   }
   const edgeConfigClient =
     typeof connectionString === 'string'
@@ -91,14 +91,14 @@ export function createEdgeConfigAdapter(
       // if a defaultValue was provided this error will be caught and the defaultValue will be used
       if (!definitions) {
         throw new Error(
-          `@flags-sdk/edge-config: Edge Config item "${edgeConfigItemKey}" not found`,
+          `@flags-sdk/global-config: Edge Config item "${edgeConfigItemKey}" not found`,
         );
       }
 
       // if a defaultValue was provided this error will be caught and the defaultValue will be used
       if (!(key in definitions)) {
         throw new Error(
-          `@flags-sdk/edge-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
+          `@flags-sdk/global-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
         );
       }
       return definitions[key];
@@ -108,7 +108,7 @@ export function createEdgeConfigAdapter(
 
       if (!definitions) {
         throw new Error(
-          `@flags-sdk/edge-config: Edge Config item "${edgeConfigItemKey}" not found`,
+          `@flags-sdk/global-config: Edge Config item "${edgeConfigItemKey}" not found`,
         );
       }
 

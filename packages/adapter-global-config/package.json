@@ -1,7 +1,7 @@
 {
-  "name": "@flags-sdk/edge-config",
+  "name": "@flags-sdk/global-config",
   "version": "0.2.0",
-  "description": "A Flags SDK adapter for Edge Config",
+  "description": "A Flags SDK adapter for Global Config",
   "keywords": [
     "vercel",
     "flags",
@@ -44,7 +44,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.4.3"
+    "@vercel/global-config": "^1.5.0"
   },
   "devDependencies": {
     "@types/node": "22.14.0",

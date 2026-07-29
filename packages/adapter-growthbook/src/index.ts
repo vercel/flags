@@ -10,7 +10,7 @@ import {
   type TrackingCallbackWithUser,
   type UserContext,
 } from '@growthbook/growthbook';
-import { createClient } from '@vercel/edge-config';
+import { createClient } from '@vercel/global-config';
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
 

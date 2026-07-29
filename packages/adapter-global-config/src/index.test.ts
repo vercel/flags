@@ -1,4 +1,4 @@
-import type { EdgeConfigClient } from '@vercel/edge-config';
+import type { EdgeConfigClient } from '@vercel/global-config';
 import type { ReadonlyRequestCookies } from 'flags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -199,7 +199,7 @@ describe('edgeConfigAdapter', () => {
 
   it('default adapter should throw on usage when EDGE_CONFIG is not set', () => {
     expect(() => edgeConfigAdapter()).toThrowError(
-      '@flags-sdk/edge-config: Missing EDGE_CONFIG env var',
+      '@flags-sdk/global-config: Missing EDGE_CONFIG env var',
     );
   });
 

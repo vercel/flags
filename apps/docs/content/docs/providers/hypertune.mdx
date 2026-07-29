@@ -13,7 +13,7 @@ The `@flags-sdk/hypertune` package provides a managed [Hypertune](https://www.hy
 Install the required dependencies:
 
 ```bash
-pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/edge-config
+pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/global-config
 ```
 
 Set up Hypertune environment variables based on your framework and app structure:
@@ -109,7 +109,7 @@ EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_99999"
 
 ```ts title="flags.ts"
 import { VercelEdgeConfigInitDataProvider } from 'hypertune'
-import { createClient } from "@vercel/edge-config"
+import { createClient } from "@vercel/global-config"
 
 const hypertuneAdapter = createHypertuneAdapter<
   FlagValues,
