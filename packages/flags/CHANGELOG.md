@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.2.4
+
+### Patch Changes
+
+- [#454](https://github.com/vercel/flags/pull/454) [`dcb74ff`](https://github.com/vercel/flags/commit/dcb74ff9389f93f6d808c674c855ee2e805b4402) Thanks [@dferber90](https://github.com/dferber90)! - return cache-control: no-store from flags discovery endpoint
+
 ## 4.2.3
 
 ### Patch Changes

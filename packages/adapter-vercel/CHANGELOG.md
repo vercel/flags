@@ -1,5 +1,12 @@
 # @flags-sdk/vercel
 
+## 1.4.6
+
+### Patch Changes
+
+- Updated dependencies [[`ceb1519`](https://github.com/vercel/flags/commit/ceb15198f73a973ac559648b8d978c23d23ef0c5)]:
+  - @vercel/flags-core@1.7.1
+
 ## 1.4.5
 
 ### Patch Changes

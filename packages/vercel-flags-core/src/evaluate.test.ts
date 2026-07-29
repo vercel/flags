@@ -2057,6 +2057,56 @@ describe('evaluate', () => {
       });
     });
 
+    it('returns a stable result for repeated global regex evaluation', () => {
+      const regex = {
+        type: 'regex' as const,
+        pattern: '^uid',
+        flags: 'g' as const,
+      };
+
+      const definition: Packed.FlagDefinition = {
+        seed: undefined,
+        environments: {
+          production: {
+            rules: [
+              {
+                conditions: [[['user', 'id'], Comparator.REGEX, regex]],
+                outcome: 1,
+              },
+            ],
+            fallthrough: 0,
+          },
+        },
+        variants: [false, true],
+      };
+
+      const first = evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { id: 'uid1' } },
+      });
+
+      const second = evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { id: 'uid2' } },
+      });
+
+      expect(first).toEqual({
+        value: true,
+        variantId: null,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.VALUE,
+      });
+
+      expect(second).toEqual({
+        value: true,
+        variantId: null,
+        reason: ResolutionReason.RULE_MATCH,
+        outcomeType: OutcomeType.VALUE,
+      });
+    });
+
     it('should still match REGEX when input is within limit', () => {
       const okString = 'a'.repeat(10_000);
       expect(
