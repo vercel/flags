@@ -89,15 +89,15 @@ type ControllerOptions = {
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   buildStep?: boolean;  // Override build step auto-detection
-  environment?: string; // Explicit backend environment for SDK-key requests
+  environment?: string; // Environment attached to ingested evaluation metrics
   sources?: { stream?: StreamSource; polling?: PollingSource; bundled?: BundledSource };  // DI for testing
 };
 ```
 
-When `environment` is provided, every core backend request (`/v1/datafile`,
-`/v1/stream`, and `/v1/ingest`) sends it as `X-Vercel-Environment`. When it is
-omitted, the header is omitted so the backend continues deriving the environment
-from the authentication token.
+When `environment` is provided, evaluation metrics sent to `/v1/ingest` include
+it as `X-Vercel-Environment`. The option does not affect datafile or stream
+requests, or the environment used for flag evaluation. When it is omitted, the
+header is not sent.
 
 ### Data Source Priority (Fallback Chain)
 

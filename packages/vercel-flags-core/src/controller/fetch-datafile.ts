@@ -11,7 +11,6 @@ export async function fetchDatafile(options: {
   host: string;
   auth: Auth;
   fetch: typeof globalThis.fetch;
-  environment?: string;
   signal?: AbortSignal;
 }): Promise<BundledDefinitions> {
   const token = await options.auth.resolveToken();
@@ -37,9 +36,6 @@ export async function fetchDatafile(options: {
       headers: {
         Authorization: `Bearer ${token}`,
         'User-Agent': `VercelFlagsCore/${version}`,
-        ...(options.environment
-          ? { 'X-Vercel-Environment': options.environment }
-          : null),
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
           : null),

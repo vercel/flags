@@ -54,8 +54,8 @@ export type ControllerOptions = {
   fetch?: typeof globalThis.fetch;
 
   /**
-   * Environment to use for requests authenticated with an SDK key.
-   * When omitted, the environment is derived from the authentication token.
+   * Environment included with evaluation metrics sent to the ingest endpoint.
+   * When omitted, the environment header is not sent.
    */
   environment?: string;
 

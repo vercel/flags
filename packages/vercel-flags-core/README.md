@@ -24,8 +24,8 @@ const result = await client.evaluate<boolean>('show-new-feature', false, {
 });
 ```
 
-SDK keys normally select their environment automatically. To use a specific
-backend environment instead, pass the `environment` option:
+To associate evaluation metrics with an environment, pass the `environment`
+option:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
@@ -33,8 +33,9 @@ const client = createClient(process.env.FLAGS!, {
 });
 ```
 
-When `environment` is omitted, the backend continues to derive it from the
-authentication token.
+This option is sent only to the metrics ingestion endpoint. It does not select
+the environment used for flag evaluation. When omitted, the environment header
+is not sent.
 
 ## OpenFeature
 
