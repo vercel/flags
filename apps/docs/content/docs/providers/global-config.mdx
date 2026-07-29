@@ -2,7 +2,7 @@
 title: 'Global Config'
 ---
 
-The `@flags-sdk/global-config` package provides a basic adapter for defining feature flags powered by [Vercel Global Config](https://vercel.com/docs/storage/edge-config)
+The `@flags-sdk/global-config` package provides a basic adapter for defining feature flags powered by [Vercel Global Config](https://vercel.com/docs/storage/global-config)
 
 <LearnMore
   icon="arrow"
@@ -41,7 +41,7 @@ export const exampleFlag = flag({
 });
 ```
 
-Your Global Config should be [managed on the dashboard](https://vercel.com/docs/storage/edge-config/edge-config-dashboard) as follows:
+Your Global Config should be [managed on the dashboard](https://vercel.com/docs/storage/global-config/global-config-dashboard) as follows:
 
 ```json
 {
@@ -76,7 +76,7 @@ To customize these options you can import and call `createGlobalConfigAdapter` m
 
 | Option key | Type | Description |
 | ----------- | -------- | ----------------------- |
-| `connectionString` | `string | GlobalConfigClient` | A [connection string](https://vercel.com/docs/storage/edge-config/using-edge-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/edge-config/edge-config-sdk#use-connection-strings) |
+| `connectionString` | `string | GlobalConfigClient` | A [connection string](https://vercel.com/docs/storage/global-config/using-global-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/global-config/global-config-sdk#use-connection-strings) |
 | `options.globalConfigItemKey` | `string` | Defaults to `flags` |
 | `options.teamSlug` | `string` | The team slug used for your team in the Vercel dashboard, used to create links to your Global Config |
 
@@ -102,7 +102,7 @@ export const exampleFlag = flag({
 Read more about Global Config, Flags SDK, and the Global Config adapter.
 
 - [Concepts: Precompute](/principles/precompute)
-- [Global Config Docs](https://vercel.com/docs/storage/edge-config)
-- [Global Config SDK Reference](https://vercel.com/docs/storage/edge-config/edge-config-sdk)
+- [Global Config Docs](https://vercel.com/docs/storage/global-config)
+- [Global Config SDK Reference](https://vercel.com/docs/storage/global-config/global-config-sdk)
 - [Global Config Examples](https://vercel.com/templates/global-config)
-- [Global Config Limits and Pricing](https://vercel.com/docs/storage/edge-config/edge-config-limits)
+- [Global Config Limits and Pricing](https://vercel.com/docs/storage/global-config/global-config-limits)

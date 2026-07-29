@@ -176,7 +176,7 @@ If you have set a sticky bucket service, you may retrieve its instance here.
 
 ## Global Config
 
-The adapter can load feature configuration from [Vercel Global Config](https://vercel.com/docs/storage/edge-config) to lower the latency of feature flag evaluation.
+The adapter can load feature configuration from [Vercel Global Config](https://vercel.com/docs/storage/global-config) to lower the latency of feature flag evaluation.
 
 - Set `GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING` (or `EXPERIMENTATION_CONFIG` if installed through the Vercel Marketplace) in your environment. Optionally set `GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY` to override the default key name (defaults to your client key).
 - Or pass `globalConfig` directly to the adapter.
@@ -233,6 +233,6 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 
 - [GrowthBook Documentation](https://docs.growthbook.io/)
 - [GrowthBook JS SDK Reference](https://docs.growthbook.io/lib/js)
-- [Vercel Global Config](https://vercel.com/docs/storage/edge-config)
+- [Vercel Global Config](https://vercel.com/docs/storage/global-config)
 - [Flags Explorer](https://vercel.com/docs/flags/flags-explorer)
 - [Deploy the GrowthBook template](https://vercel.com/templates/next.js/growthbook-flags-sdk-example)
