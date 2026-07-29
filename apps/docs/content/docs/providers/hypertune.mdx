@@ -103,7 +103,7 @@ export const GET = createFlagsDiscoveryEndpoint(() => {
 If Hypertune is syncing to Vercel Global Config, you can configure that through environment variables or through the adapter.
 
 ```bash title=".env.local"
-EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_xyz?token=abc"
+EXPERIMENTATION_CONFIG="https://global-config.vercel.com/ecfg_xyz?token=abc"
 EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_99999"
 ```
 
@@ -119,7 +119,7 @@ const hypertuneAdapter = createHypertuneAdapter<
   createSourceOptions: {
     initDataProvider: new VercelGlobalConfigInitDataProvider({
       edgeConfigClient: createClient(
-        'https://edge-config.vercel.com/ecfg_xyz?token=abc'
+        'https://global-config.vercel.com/ecfg_xyz?token=abc'
       ),
       itemKey: 'hypertune_99999',
     }),

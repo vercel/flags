@@ -27,7 +27,7 @@ export LAUNCHDARKLY_CLIENT_SIDE_ID="612376f91b8f5713a58777a1"
 export LAUNCHDARKLY_PROJECT_SLUG="my-project"
 # Provided by the LaunchDarkly Marketplace integration when Global Config is
 # enabled for the collection.
-export EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
+export EXPERIMENTATION_CONFIG="https://global-config.vercel.com/ecfg_abdc1234?token=xxx-xxx-xxx"
 ```
 
 > **Using the legacy LaunchDarkly Vercel integration?** The default adapter reads

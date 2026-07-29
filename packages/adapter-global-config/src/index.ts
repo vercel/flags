@@ -87,7 +87,7 @@ export function createGlobalConfigAdapter(
   const adapter: Adapter<unknown, unknown> = {
     adapterId,
     origin: options?.teamSlug
-      ? `https://vercel.com/${options.teamSlug}/~/stores/edge-config/${globalConfigClient.connection.id}/items#item=${globalConfigItemKey}`
+      ? `https://vercel.com/${options.teamSlug}/~/stores/global-config/${globalConfigClient.connection.id}/items#item=${globalConfigItemKey}`
       : undefined,
     async decide({ key, headers }): Promise<unknown> {
       const definitions = await getDefinitions(headers);

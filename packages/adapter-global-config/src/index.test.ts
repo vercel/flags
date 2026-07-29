@@ -106,7 +106,7 @@ describe('createGlobalConfigAdapter', () => {
 
   it('should allow creating an adapter with a connection string', () => {
     const adapter = createGlobalConfigAdapter(
-      'https://edge-config.vercel.com/ecfg_xxx?token=yyy',
+      'https://global-config.vercel.com/ecfg_xxx?token=yyy',
     );
     expect(adapter).toBeDefined();
   });
@@ -205,7 +205,7 @@ describe('globalConfigAdapter', () => {
 
   it('should export a default adapter', () => {
     process.env.GLOBAL_CONFIG =
-      'https://edge-config.vercel.com/ecfg_xxx?token=yyy';
+      'https://global-config.vercel.com/ecfg_xxx?token=yyy';
     const adapter = globalConfigAdapter();
     expect(adapter).toBeDefined();
     delete process.env.GLOBAL_CONFIG;
