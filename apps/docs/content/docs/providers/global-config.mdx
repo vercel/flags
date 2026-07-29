@@ -1,0 +1,108 @@
+---
+title: 'Global Config'
+---
+
+The `@flags-sdk/global-config` package provides a basic adapter for defining feature flags powered by [Vercel Global Config](https://vercel.com/docs/storage/edge-config)
+
+<LearnMore
+  icon="arrow"
+  href="/providers"
+>
+  Learn more about Adapters
+</LearnMore>
+
+## Installation
+
+Follow the [Quickstart](/docs/getting-started/next), then add the [Global Config adapter](https://github.com/vercel/flags/tree/main/packages/adapter-global-config).
+
+Install desired dependencies
+
+```sh
+pnpm i @flags-sdk/global-config
+```
+
+Set relevant variables
+
+```sh title=".env.local"
+GLOBAL_CONFIG="global-config-connection-string"
+```
+
+## Usage
+
+```ts title="flags.ts#next"
+import { flag } from 'flags/next';
+import { globalConfigAdapter } from '@flags-sdk/global-config';
+
+export const exampleFlag = flag({
+  // Will load the `flags` key from Global Config
+  adapter: globalConfigAdapter,
+  // Will get the `example-flag` key from the `flags` object
+  key: 'example-flag',
+});
+```
+
+Your Global Config should be [managed on the dashboard](https://vercel.com/docs/storage/edge-config/edge-config-dashboard) as follows:
+
+```json
+{
+  // `flags` is the default used by the Global Config adapter
+  "flags": {
+    // Flags using the adapter should have their `key` defined here
+    "example-flag": true,
+    "another-example-flag": false,
+  }
+}
+```
+
+## API reference
+
+### globalConfigAdapter
+
+The adapter assumes that there is an `GLOBAL_CONFIG` environment variable set with a connection string,
+and that it contains a `flags` object with each key corresponding to a flag you define in code.
+
+```ts title="flags.ts#next"
+import { globalConfigAdapter } from '@flags-sdk/global-config';
+
+export const exampleFlag = flag({
+  adapter: globalConfigAdapter,
+  key: 'example-flag',
+});
+```
+
+### createGlobalConfigAdapter
+
+To customize these options you can import and call `createGlobalConfigAdapter` manually.
+
+| Option key | Type | Description |
+| ----------- | -------- | ----------------------- |
+| `connectionString` | `string | GlobalConfigClient` | A [connection string](https://vercel.com/docs/storage/edge-config/using-edge-config#using-a-connection-string) or a [client instance](https://vercel.com/docs/storage/edge-config/edge-config-sdk#use-connection-strings) |
+| `options.globalConfigItemKey` | `string` | Defaults to `flags` |
+| `options.teamSlug` | `string` | The team slug used for your team in the Vercel dashboard, used to create links to your Global Config |
+
+```ts title="flags.ts#next"
+import { createGlobalConfigAdapter } from '@flags-sdk/global-config';
+
+const myGlobalConfigAdapter = createGlobalConfigAdapter({
+  connectionString: process.env.OTHER_GLOBAL_CONFIG_CONNECTION_STRING,
+  options: {
+    globalConfigItemKey: 'other-flags-key',
+    teamSlug: 'my-vercel-team-slug',
+  },
+});
+
+export const exampleFlag = flag({
+  adapter: myGlobalConfigAdapter,
+  key: 'example-flag',
+});
+```
+
+## Read more
+
+Read more about Global Config, Flags SDK, and the Global Config adapter.
+
+- [Concepts: Precompute](/principles/precompute)
+- [Global Config Docs](https://vercel.com/docs/storage/edge-config)
+- [Global Config SDK Reference](https://vercel.com/docs/storage/edge-config/edge-config-sdk)
+- [Global Config Examples](https://vercel.com/templates/edge-config)
+- [Global Config Limits and Pricing](https://vercel.com/docs/storage/edge-config/edge-config-limits)

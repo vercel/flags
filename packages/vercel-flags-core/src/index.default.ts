@@ -21,7 +21,7 @@ export const {
    * A lazily-initialized default flags client.
    *
    * - relies on process.env.FLAGS
-   * - does not use process.env.EDGE_CONFIG
+   * - does not use process.env.GLOBAL_CONFIG
    */
   flagsClient,
   /**

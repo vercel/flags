@@ -84,7 +84,7 @@ NEXT_PUBLIC_HYPERTUNE_TOKEN="123="
 # For use with precompute, encrypted flag values, overrides, and the Flags Explorer
 FLAGS_SECRET="ReplaceThisWith32RandomBytesBase64UrlString"
 
-# Optional: automatically configure with a VercelEdgeConfigInitDataProvider
+# Optional: automatically configure with a VercelGlobalConfigInitDataProvider
 EXPERIMENTATION_CONFIG="ecfg_abc"
 EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_xyz"
 ```

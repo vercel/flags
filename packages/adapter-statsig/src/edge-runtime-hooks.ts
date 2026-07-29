@@ -9,20 +9,22 @@ export const isEdgeRuntime = (): boolean => {
 };
 
 /**
- * The Edge Config Data Adapter is an optional peer dependency that allows
- * the Statsig SDK to retrieve its data from Edge Config instead of over the network.
+ * The Global Config Data Adapter is an optional peer dependency that allows
+ * the Statsig SDK to retrieve its data from Global Config instead of over the network.
  */
-export async function createEdgeConfigDataAdapter(options: {
-  edgeConfigItemKey: string;
-  edgeConfigConnectionString: string;
+export async function createGlobalConfigDataAdapter(options: {
+  globalConfigItemKey: string;
+  globalConfigConnectionString: string;
 }) {
-  // Edge Config adapter requires `@vercel/global-config` and `statsig-node-vercel`
+  // Global Config adapter requires `@vercel/global-config` and `statsig-node-vercel`
   // Since it is a peer dependency, we will import it dynamically
-  const { EdgeConfigDataAdapter } = await import('statsig-node-vercel');
+  const { EdgeConfigDataAdapter: GlobalConfigDataAdapter } = await import(
+    'statsig-node-vercel'
+  );
   const { createClient } = await import('@vercel/global-config');
-  return new EdgeConfigDataAdapter({
-    edgeConfigItemKey: options.edgeConfigItemKey,
-    edgeConfigClient: createClient(options.edgeConfigConnectionString, {
+  return new GlobalConfigDataAdapter({
+    edgeConfigItemKey: options.globalConfigItemKey,
+    edgeConfigClient: createClient(options.globalConfigConnectionString, {
       // We disable the development cache as Statsig caches for 10 seconds internally,
       // and we want to avoid situations where Statsig tries to read the latest value,
       // but hits the development cache and then caches the outdated value for another 10 seconds,
@@ -46,7 +48,7 @@ export const createSyncingHandler = (
   //
   // This needs to be fixed in statsig-node-lite in the future.
   //
-  // Ideally the Statsig SDK would not sync at all and instead always read from Edge Config,
+  // Ideally the Statsig SDK would not sync at all and instead always read from Global Config,
   // this would provide two benefits:
   // - changes would propagate immediately instead of being cached for 5s or 10s
   // - the broken syncing due to issues in Date.now in Edge Runtime would be irrelevant

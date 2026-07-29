@@ -108,7 +108,7 @@ return {
 
 ## Example
 
-Below is an example of an Flags SDK adapter reading Edge Config.
+Below is an example of an Flags SDK adapter reading Global Config.
 
 <IframeBrowser
   src="snippets:/concepts/adapters"
@@ -141,27 +141,27 @@ initialize itself based on known environment variables.
 
 ```ts title="example-adapter.ts"
 // extend the adapter definition to expose a default adapter
-let defaultEdgeConfigAdapter:
-  | ReturnType<typeof createEdgeConfigAdapter>
+let defaultGlobalConfigAdapter:
+  | ReturnType<typeof createGlobalConfigAdapter>
   | undefined;
 
 /**
- * A default Vercel adapter for Edge Config
+ * A default Vercel adapter for Global Config
  *
  */
-export function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
+export function globalConfigAdapter<ValueType, EntitiesType>(): Adapter<
   ValueType,
   EntitiesType
 > {
   // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
-  if (!defaultEdgeConfigAdapter) {
-    if (!process.env.EDGE_CONFIG) {
-      throw new Error("Edge Config Adapter: Missing EDGE_CONFIG env var");
+  if (!defaultGlobalConfigAdapter) {
+    if (!process.env.GLOBAL_CONFIG) {
+      throw new Error("Global Config Adapter: Missing GLOBAL_CONFIG env var");
     }
 
-    defaultEdgeConfigAdapter = createEdgeConfigAdapter(process.env.EDGE_CONFIG);
+    defaultGlobalConfigAdapter = createGlobalConfigAdapter(process.env.GLOBAL_CONFIG);
   }
 
-  return defaultEdgeConfigAdapter<ValueType, EntitiesType>();
+  return defaultGlobalConfigAdapter<ValueType, EntitiesType>();
 }
 ```

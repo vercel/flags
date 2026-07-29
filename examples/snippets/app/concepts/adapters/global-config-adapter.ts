@@ -2,50 +2,50 @@ import { createClient, type GlobalConfigClient } from '@vercel/global-config';
 import type { Adapter } from 'flags';
 
 /**
- * An Edge Config adapter for the Flags SDK
+ * An Global Config adapter for the Flags SDK
  */
-export function createEdgeConfigAdapter(
+export function createGlobalConfigAdapter(
   connectionString: string | GlobalConfigClient,
   options?: {
-    edgeConfigItemKey?: string;
+    globalConfigItemKey?: string;
     teamSlug?: string;
   },
 ) {
   if (!connectionString) {
-    throw new Error('Edge Config Adapter: Missing connection string');
+    throw new Error('Global Config Adapter: Missing connection string');
   }
-  const edgeConfigClient =
+  const globalConfigClient =
     typeof connectionString === 'string'
       ? createClient(connectionString)
       : connectionString;
 
-  const edgeConfigItemKey = options?.edgeConfigItemKey ?? 'flags';
+  const globalConfigItemKey = options?.globalConfigItemKey ?? 'flags';
 
-  return function edgeConfigAdapter<ValueType, EntitiesType>(): Adapter<
+  return function globalConfigAdapter<ValueType, EntitiesType>(): Adapter<
     ValueType,
     EntitiesType
   > {
     return {
       origin: options?.teamSlug
-        ? `https://vercel.com/${options.teamSlug}/~/stores/edge-config/${edgeConfigClient.connection.id}/items#item=${edgeConfigItemKey}`
+        ? `https://vercel.com/${options.teamSlug}/~/stores/edge-config/${globalConfigClient.connection.id}/items#item=${globalConfigItemKey}`
         : undefined,
       async decide({ key }): Promise<ValueType> {
         const definitions =
-          await edgeConfigClient.get<Record<string, boolean>>(
-            edgeConfigItemKey,
+          await globalConfigClient.get<Record<string, boolean>>(
+            globalConfigItemKey,
           );
 
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!definitions) {
           throw new Error(
-            `@flags-sdk/global-config: Edge Config item "${edgeConfigItemKey}" not found`,
+            `@flags-sdk/global-config: Global Config item "${globalConfigItemKey}" not found`,
           );
         }
 
         // if a defaultValue was provided this error will be caught and the defaultValue will be used
         if (!(key in definitions)) {
           throw new Error(
-            `@flags-sdk/global-config: Flag "${key}" not found in Edge Config item "${edgeConfigItemKey}"`,
+            `@flags-sdk/global-config: Flag "${key}" not found in Global Config item "${globalConfigItemKey}"`,
           );
         }
         return definitions[key] as ValueType;

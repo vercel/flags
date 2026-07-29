@@ -2,7 +2,7 @@
 title: 'GrowthBook'
 ---
 
-The GrowthBook adapter integrates [GrowthBook](https://www.growthbook.io/) with the Flags SDK, enabling feature flagging, experimentation, and configuration management in your application. This adapter lets you evaluate feature flags and experiments, with support for server-side, client-side, and Edge Config bootstrapping.
+The GrowthBook adapter integrates [GrowthBook](https://www.growthbook.io/) with the Flags SDK, enabling feature flagging, experimentation, and configuration management in your application. This adapter lets you evaluate feature flags and experiments, with support for server-side, client-side, and Global Config bootstrapping.
 
 GrowthBook is an open-source feature flagging and experimentation platform that helps you safely roll out features, run A/B tests, and manage configuration at scale.
 
@@ -41,9 +41,9 @@ The default adapter considers the following environment variables:
 | `GROWTHBOOK_CLIENT_KEY`             | **Required.** GrowthBook SDK key                                                                      |
 | `GROWTHBOOK_API_HOST`               | Optional. Override the GrowthBook API endpoint                                                        |
 | `GROWTHBOOK_APP_ORIGIN`             | Optional. Override the GrowthBook app URL                                                             |
-| `GROWTHBOOK_EDGE_CONNECTION_STRING` | Optional. Edge Config connection string                                                               |
-| `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY`   | Optional. Edge Config item key (Defaults to your client key)                                          |
-| `EXPERIMENTATION_CONFIG`            | Optional. Used when installed through Vercel Marketplace (replaces GROWTHBOOK_EDGE_CONNECTION_STRING) |
+| `GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING` | Optional. Global Config connection string                                                               |
+| `GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY`   | Optional. Global Config item key (Defaults to your client key)                                          |
+| `EXPERIMENTATION_CONFIG`            | Optional. Used when installed through Vercel Marketplace (replaces GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING) |
 
 ### Create a custom adapter
 
@@ -56,9 +56,9 @@ const myGrowthBookAdapter = createGrowthbookAdapter({
   clientKey: process.env.GROWTHBOOK_CLIENT_KEY!,
   apiHost: process.env.GROWTHBOOK_API_HOST, // optional
   appOrigin: process.env.GROWTHBOOK_APP_ORIGIN, // optional
-  edgeConfig: {
-    connectionString: process.env.GROWTHBOOK_EDGE_CONNECTION_STRING!,
-    itemKey: process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY, // optional
+  globalConfig: {
+    connectionString: process.env.GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING!,
+    itemKey: process.env.GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY, // optional
   },
   trackingCallback: (experiment, result) => {
     // Custom exposure logging
@@ -174,21 +174,21 @@ You may access the underlying GrowthBook instance. Specifically, the GrowthBook 
 
 If you have set a sticky bucket service, you may retrieve its instance here.
 
-## Edge Config
+## Global Config
 
-The adapter can load feature configuration from [Vercel Edge Config](https://vercel.com/docs/storage/edge-config) to lower the latency of feature flag evaluation.
+The adapter can load feature configuration from [Vercel Global Config](https://vercel.com/docs/storage/edge-config) to lower the latency of feature flag evaluation.
 
-- Set `GROWTHBOOK_EDGE_CONNECTION_STRING` (or `EXPERIMENTATION_CONFIG` if installed through the Vercel Marketplace) in your environment. Optionally set `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` to override the default key name (defaults to your client key).
-- Or pass `edgeConfig` directly to the adapter.
+- Set `GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING` (or `EXPERIMENTATION_CONFIG` if installed through the Vercel Marketplace) in your environment. Optionally set `GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY` to override the default key name (defaults to your client key).
+- Or pass `globalConfig` directly to the adapter.
 
-If Edge Config is not set, the adapter will fetch configuration from GrowthBook's API.
+If Global Config is not set, the adapter will fetch configuration from GrowthBook's API.
 
 ### Configuring a SDK Webhook
 
-1. To automatically populate the Edge Config whenever your feature definitions change, create a GrowthBook [SDK Webhook](https://docs.growthbook.io/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for the Next.js integration.ts
+1. To automatically populate the Global Config whenever your feature definitions change, create a GrowthBook [SDK Webhook](https://docs.growthbook.io/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for the Next.js integration.ts
 
-2. Select "Vercel Edge Config" as the webhook type and fill out the following fields:
-- Vercel Edge Config ID (begins with `ecfg_`)
+2. Select "Vercel Global Config" as the webhook type and fill out the following fields:
+- Vercel Global Config ID (begins with `ecfg_`)
 - Team ID (optional)
 - Vercel API Token (see Vercel &rarr; Account Settings &rarr; Tokens)
 
@@ -200,7 +200,7 @@ Under the hood, the webhook is being configured with the following properties. I
   ```
 - **Method** is being set to `PATCH`
 - An **Authorization: Bearer token** header is being added with your Vercel API Token
-- The **Payload format** is being set to `Vercel Edge Config`
+- The **Payload format** is being set to `Vercel Global Config`
 
 ## Caveats and best practices
 
@@ -233,6 +233,6 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 
 - [GrowthBook Documentation](https://docs.growthbook.io/)
 - [GrowthBook JS SDK Reference](https://docs.growthbook.io/lib/js)
-- [Vercel Edge Config](https://vercel.com/docs/storage/edge-config)
+- [Vercel Global Config](https://vercel.com/docs/storage/edge-config)
 - [Flags Explorer](https://vercel.com/docs/flags/flags-explorer)
 - [Deploy the GrowthBook template](https://vercel.com/templates/next.js/growthbook-flags-sdk-example)

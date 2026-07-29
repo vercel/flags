@@ -33,7 +33,7 @@ const config: NextConfig = {
       // -----------------------------------------------------------------------
       '/docs/adapters/custom-adapters': '/providers/custom-adapters',
       '/docs/adapters/supported-providers': '/providers',
-      '/docs/api-reference/adapters/edge-config': '/providers/edge-config',
+      '/docs/api-reference/adapters/edge-config': '/providers/global-config',
       '/docs/api-reference/adapters/hypertune': '/providers/hypertune',
       '/docs/api-reference/adapters/launchdarkly': '/providers/launchdarkly',
       '/docs/api-reference/adapters/optimizely': '/providers/optimizely',
@@ -90,7 +90,7 @@ const config: NextConfig = {
       '/api-reference/provider/split': '/providers/split',
       '/api-reference/provider/optimizely': '/providers/optimizely',
       '/api-reference/provider/hypertune': '/providers/hypertune',
-      '/api-reference/provider/edge-config': '/providers/edge-config',
+      '/api-reference/provider/edge-config': '/providers/global-config',
       '/docs/concepts/flags': '/principles/flags-as-code',
       '/docs/concepts/flags.ts': '/principles/flags-as-code',
       '/docs/frameworks/next/overview': '/frameworks/next',

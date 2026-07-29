@@ -18,7 +18,7 @@ export const dashboardFlag = flag<boolean, Entities>({
   description: 'Flag used on the Dashboard Pages example',
   decide({ entities }) {
     if (!entities?.user) return false;
-    // Allowed users could be loaded from Edge Config or elsewhere
+    // Allowed users could be loaded from Global Config or elsewhere
     const allowedUsers = ['user1'];
 
     return allowedUsers.includes(entities.user.id);

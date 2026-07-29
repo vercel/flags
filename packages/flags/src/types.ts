@@ -26,9 +26,9 @@ export type Origin =
       projectId: string;
     }
   | {
-      provider: 'edge-config';
-      edgeConfigId: string;
-      edgeConfigItemKey?: string;
+      provider: 'global-config';
+      globalConfigId: string;
+      globalConfigItemKey?: string;
       teamSlug: string;
     }
   | Record<string, unknown>;

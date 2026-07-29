@@ -3,7 +3,7 @@
 ## Table of Contents
 
 - [Vercel](#vercel)
-- [Edge Config](#edge-config)
+- [Global Config](#global-config)
 - [Statsig](#statsig)
 - [LaunchDarkly](#launchdarkly)
 - [PostHog](#posthog)
@@ -192,7 +192,7 @@ Full CLI reference: https://vercel.com/docs/cli/flags
 
 ---
 
-## Edge Config
+## Global Config
 
 Package: `@flags-sdk/global-config`
 
@@ -200,21 +200,21 @@ Package: `@flags-sdk/global-config`
 pnpm i @flags-sdk/global-config
 ```
 
-Env: `EDGE_CONFIG="edge-config-connection-string"`
+Env: `GLOBAL_CONFIG="global-config-connection-string"`
 
 ### Usage
 
 ```ts
 import { flag } from 'flags/next';
-import { edgeConfigAdapter } from '@flags-sdk/global-config';
+import { globalConfigAdapter } from '@flags-sdk/global-config';
 
 export const exampleFlag = flag({
-  adapter: edgeConfigAdapter,
+  adapter: globalConfigAdapter,
   key: 'example-flag',
 });
 ```
 
-Edge Config should contain:
+Global Config should contain:
 
 ```json
 {
@@ -228,12 +228,12 @@ Edge Config should contain:
 ### Custom configuration
 
 ```ts
-import { createEdgeConfigAdapter } from '@flags-sdk/global-config';
+import { createGlobalConfigAdapter } from '@flags-sdk/global-config';
 
-const myAdapter = createEdgeConfigAdapter({
-  connectionString: process.env.OTHER_EDGE_CONFIG,
+const myAdapter = createGlobalConfigAdapter({
+  connectionString: process.env.OTHER_GLOBAL_CONFIG,
   options: {
-    edgeConfigItemKey: 'other-flags-key',
+    globalConfigItemKey: 'other-flags-key',
     teamSlug: 'my-team',
   },
 });
@@ -252,7 +252,7 @@ pnpm i @flags-sdk/statsig
 Env vars:
 - `STATSIG_SERVER_API_KEY` (required)
 - `STATSIG_PROJECT_ID` (optional)
-- `EXPERIMENTATION_CONFIG` (optional, Edge Config)
+- `EXPERIMENTATION_CONFIG` (optional, Global Config)
 - `EXPERIMENTATION_CONFIG_ITEM_KEY` (optional)
 
 ### Methods
@@ -356,7 +356,7 @@ pnpm i @flags-sdk/launchdarkly
 Env vars:
 - `LAUNCHDARKLY_CLIENT_SIDE_ID` (required)
 - `LAUNCHDARKLY_PROJECT_SLUG` (required)
-- `EDGE_CONFIG` (required)
+- `GLOBAL_CONFIG` (required)
 
 ### Usage
 
@@ -484,7 +484,7 @@ export const myFlag = flag({
 });
 ```
 
-### Edge Config
+### Global Config
 
 Set `GROWTHBOOK_EDGE_CONNECTION_STRING` or `EXPERIMENTATION_CONFIG` (Vercel Marketplace).
 

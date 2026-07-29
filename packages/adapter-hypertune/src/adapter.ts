@@ -7,7 +7,7 @@ import type {
 } from 'flags';
 import {
   type CreateOptions,
-  VercelEdgeConfigInitDataProvider,
+  VercelEdgeConfigInitDataProvider as VercelGlobalConfigInitDataProvider,
 } from 'hypertune';
 
 type FlagDefinition = {
@@ -99,7 +99,7 @@ export const createHypertuneAdapter = <
       const initDataProvider =
         process.env.EXPERIMENTATION_CONFIG &&
         process.env.EXPERIMENTATION_CONFIG_ITEM_KEY
-          ? new VercelEdgeConfigInitDataProvider({
+          ? new VercelGlobalConfigInitDataProvider({
               edgeConfigClient: createClient(
                 process.env.EXPERIMENTATION_CONFIG,
               ),

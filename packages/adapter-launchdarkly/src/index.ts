@@ -39,19 +39,19 @@ function assertEnv(name: string): string {
 export function createLaunchDarklyAdapter({
   projectSlug,
   clientSideId,
-  edgeConfigConnectionString,
+  globalConfigConnectionString,
 }: {
   projectSlug: string;
   clientSideId: string;
-  edgeConfigConnectionString: string;
+  globalConfigConnectionString: string;
 }): AdapterResponse {
-  const edgeConfigClient = createClient(edgeConfigConnectionString);
+  const globalConfigClient = createClient(globalConfigConnectionString);
 
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<unknown>>();
 
   const patchedGlobalConfigClient: GlobalConfigClient = {
-    ...edgeConfigClient,
+    ...globalConfigClient,
     get: async <T>(key: string) => {
       const h = store.getStore();
       if (h) {
@@ -61,7 +61,7 @@ export function createLaunchDarklyAdapter({
         }
       }
 
-      const promise = edgeConfigClient.get<T>(key);
+      const promise = globalConfigClient.get<T>(key);
       if (h) cache.set(h, promise);
 
       return promise;
@@ -108,14 +108,14 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
+    const globalConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
     const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
 
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       projectSlug,
       clientSideId,
-      edgeConfigConnectionString,
+      globalConfigConnectionString,
     });
   }
 

@@ -49,10 +49,10 @@ import { createLaunchDarklyAdapter } from '@flags-sdk/launchdarkly';
 const customLdAdapter = createLaunchDarklyAdapter({
   projectSlug: process.env.LAUNCHDARKLY_PROJECT_SLUG,
   clientSideId: process.env.LAUNCHDARKLY_CLIENT_SIDE_ID,
-  // Legacy integrations that provide the connection string as `EDGE_CONFIG`
+  // Legacy integrations that provide the connection string as `GLOBAL_CONFIG`
   // can pass it explicitly here.
-  edgeConfigConnectionString:
-    process.env.EXPERIMENTATION_CONFIG ?? process.env.EDGE_CONFIG,
+  globalConfigConnectionString:
+    process.env.EXPERIMENTATION_CONFIG ?? process.env.GLOBAL_CONFIG,
 });
 ```
 
@@ -60,17 +60,17 @@ const customLdAdapter = createLaunchDarklyAdapter({
 | ---------------------------- | ---------| ------------------------------------------------------------------ |
 | `projectSlug`                | `string` | LaunchDarkly project slug                                          |
 | `clientSideId`               | `string` | LaunchDarkly client-side ID                                        |
-| `edgeConfigConnectionString` | `string` | Edge Config connection string                                      |
+| `globalConfigConnectionString` | `string` | Global Config connection string                                      |
 
 The default LaunchDarkly adapter configures itself based on the following environment variables:
 
 - `LAUNCHDARKLY_CLIENT_SIDE_ID` _(required)_ → `clientSideId`
 - `LAUNCHDARKLY_PROJECT_SLUG` _(required)_ → `projectSlug`
-- `EXPERIMENTATION_CONFIG` _(required)_ → `edgeConfigConnectionString`
+- `EXPERIMENTATION_CONFIG` _(required)_ → `globalConfigConnectionString`
 
-The native LaunchDarkly [Marketplace integration](https://vercel.com/marketplace/launchdarkly) exposes the Edge Config connection string as `EXPERIMENTATION_CONFIG` when Edge Config is enabled for the collection.
+The native LaunchDarkly [Marketplace integration](https://vercel.com/marketplace/launchdarkly) exposes the Global Config connection string as `EXPERIMENTATION_CONFIG` when Global Config is enabled for the collection.
 
-If you use the legacy LaunchDarkly Vercel integration, which provides the connection string as `EDGE_CONFIG`, set `EXPERIMENTATION_CONFIG` to the same value, or use `createLaunchDarklyAdapter` to pass `edgeConfigConnectionString` explicitly.
+If you use the legacy LaunchDarkly Vercel integration, which provides the connection string as `GLOBAL_CONFIG`, set `EXPERIMENTATION_CONFIG` to the same value, or use `createLaunchDarklyAdapter` to pass `globalConfigConnectionString` explicitly.
 
 
 ---
@@ -144,13 +144,13 @@ ldAdapter.ldClient;
 
 ---
 
-## Edge Config
+## Global Config
 
-The LaunchDarkly adapter loads the configuration from [Edge Config](https://vercel.com/storage/edge-config).
+The LaunchDarkly adapter loads the configuration from [Global Config](https://vercel.com/storage/edge-config).
 
-Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
+Global Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
-The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Edge Config when the required environment variables are set. It reads the connection string from `EXPERIMENTATION_CONFIG` (provided by the native Marketplace integration).
+The default LaunchDarkly adapter, exported as `ldAdapter`, will automatically connect to Global Config when the required environment variables are set. It reads the connection string from `EXPERIMENTATION_CONFIG` (provided by the native Marketplace integration).
 
 ---
 
@@ -172,7 +172,7 @@ await ldAdapter.ldClient.waitForInitialization();
 
 ### LaunchDarkly Vercel SDK
 
-The adapter uses the [LaunchDarkly Vercel SDK](https://launchdarkly.com/docs/sdk/edge/vercel) (`@launchdarkly/vercel-server-sdk`) internally, which is designed for usage with Edge Config.
+The adapter uses the [LaunchDarkly Vercel SDK](https://launchdarkly.com/docs/sdk/edge/vercel) (`@launchdarkly/vercel-server-sdk`) internally, which is designed for usage with Global Config.
 
 
 ---
