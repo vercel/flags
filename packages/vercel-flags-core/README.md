@@ -24,18 +24,17 @@ const result = await client.evaluate<boolean>('show-new-feature', false, {
 });
 ```
 
-To associate evaluation metrics with an environment, pass the `environment`
-option:
+To associate evaluation metrics with an environment, pass the
+`metricEnvironment` option:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
-  environment: 'preview',
+  metricEnvironment: 'preview',
 });
 ```
 
 This option is sent only to the metrics ingestion endpoint. It does not select
-the environment used for flag evaluation. When omitted, the environment header
-is not sent.
+the environment used for flag evaluation.
 
 ## OpenFeature
 

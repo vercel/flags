@@ -55,9 +55,9 @@ export type ControllerOptions = {
 
   /**
    * Environment included with evaluation metrics sent to the ingest endpoint.
-   * When omitted, the environment header is not sent.
+   * This does not select the environment used for flag evaluation.
    */
-  environment?: string;
+  metricEnvironment?: string;
 
   /**
    * Custom client name included in evaluation telemetry.
@@ -79,7 +79,7 @@ export type NormalizedOptions = {
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   host: string;
-  environment: string | undefined;
+  metricEnvironment: string | undefined;
   clientName: string | undefined;
   disableMetrics: boolean;
 };
@@ -131,7 +131,7 @@ export function normalizeOptions(
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     host: 'https://flags.vercel.com',
-    environment: options.environment,
+    metricEnvironment: options.metricEnvironment,
     clientName: options.clientName,
     disableMetrics: options.disableMetrics ?? false,
   };

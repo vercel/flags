@@ -31,7 +31,7 @@ export interface IngestOptions {
   auth: Auth;
   host: string;
   fetch: typeof fetch;
-  environment?: string;
+  metricEnvironment?: string;
 }
 
 async function getEvaluatingOidcToken(auth: Auth): Promise<string | undefined> {
@@ -56,11 +56,11 @@ async function getIngestHeaders(
     Authorization: `Bearer ${token}`,
     'User-Agent': `VercelFlagsCore/${version}`,
     [FLUSH_REASON_HEADER]: flushReason,
-    ...(options.environment
-      ? { 'X-Vercel-Environment': options.environment }
-      : null),
-    ...(process.env.VERCEL_ENV
-      ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+    ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
+      ? {
+          'X-Vercel-Env':
+            options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
+        }
       : null),
     ...(evaluatingOidcToken
       ? { [EVALUATING_OIDC_TOKEN_HEADER]: evaluatingOidcToken }

@@ -89,15 +89,14 @@ type ControllerOptions = {
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   buildStep?: boolean;  // Override build step auto-detection
-  environment?: string; // Environment attached to ingested evaluation metrics
+  metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   sources?: { stream?: StreamSource; polling?: PollingSource; bundled?: BundledSource };  // DI for testing
 };
 ```
 
-When `environment` is provided, evaluation metrics sent to `/v1/ingest` include
-it as `X-Vercel-Environment`. The option does not affect datafile or stream
-requests, or the environment used for flag evaluation. When it is omitted, the
-header is not sent.
+When `metricEnvironment` is provided, evaluation metrics sent to `/v1/ingest`
+include it as `X-Vercel-Env`. The option does not affect datafile, polling, or
+stream requests, or the environment used for flag evaluation.
 
 ### Data Source Priority (Fallback Chain)
 

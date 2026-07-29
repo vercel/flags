@@ -236,14 +236,14 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Environment option
+  // Metric environment option
   // ---------------------------------------------------------------------------
-  describe('environment option', () => {
+  describe('metricEnvironment option', () => {
     it('should include the environment with evaluation metrics', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       const client = createClient(sdkKey, {
         datafile: makeBundled(),
-        environment: 'preview',
+        metricEnvironment: 'preview',
         fetch: fetchMock,
         stream: false,
         polling: false,
@@ -259,13 +259,13 @@ describe('Controller (black-box)', () => {
         expect.objectContaining({
           headers: {
             ...ingestRequestHeaders,
-            'X-Vercel-Environment': 'preview',
+            'X-Vercel-Env': 'preview',
           },
         }),
       );
     });
 
-    it('should omit the environment from evaluation metrics when unspecified', async () => {
+    it('should use the deployment environment for evaluation metrics when unspecified', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       const client = createClient(sdkKey, {
         datafile: makeBundled(),
