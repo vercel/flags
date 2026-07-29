@@ -31,6 +31,7 @@ export function createFlagsDiscoveryEndpoint(
       headers: {
         'x-flags-sdk-version': version,
         'content-type': 'application/json',
+        'cache-control': 'no-store',
       },
     });
   };
