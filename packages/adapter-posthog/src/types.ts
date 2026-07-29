@@ -14,19 +14,15 @@ interface PostHogEntities {
   distinctId: string;
 }
 
-type PostHogAdapter = {
-  isFeatureEnabled: (options?: {
-    sendFeatureFlagEvents?: boolean;
-  }) => Adapter<boolean, PostHogEntities>;
-  featureFlagValue: (options?: {
-    sendFeatureFlagEvents?: boolean;
-  }) => Adapter<string | boolean, PostHogEntities>;
-  featureFlagPayload: <T>(
-    getValue: (payload: JsonType) => T,
-    options?: {
-      sendFeatureFlagEvents?: boolean;
-    },
-  ) => Adapter<T, PostHogEntities>;
+/**
+ * A PostHog adapter for the Flags SDK.
+ *
+ * Call it (or pass it uninvoked, e.g. `adapter: postHogAdapter`) to read a
+ * flag's evaluated value. Use `.payload` to read the flag's attached payload
+ * instead. Both forms participate in bulk evaluation via `evaluate()`.
+ */
+type PostHogAdapter = (<ValueType>() => Adapter<ValueType, PostHogEntities>) & {
+  payload: <ValueType>() => Adapter<ValueType, PostHogEntities>;
 };
 
 export type { Adapter, PostHogEntities, PostHogAdapter, JsonType };

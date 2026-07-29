@@ -42,7 +42,7 @@ export async function getProviderData(options: {
     } catch {
       hints.push({
         key: 'posthog/missing-app-host',
-        text: 'Missing NEXT_PUBLIC_POSTHOG_HOST environment variable',
+        text: 'Missing POSTHOG_HOST environment variable',
       });
     }
   }
@@ -142,10 +142,10 @@ export async function getProviderData(options: {
 }
 
 export const getAppHost = (apiHost?: string) => {
-  const host = apiHost ?? process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  const host = apiHost ?? process.env.POSTHOG_HOST;
 
   if (!host) {
-    throw new Error('NEXT_PUBLIC_POSTHOG_HOST is not set');
+    throw new Error('POSTHOG_HOST is not set');
   }
 
   let hostname: string;
