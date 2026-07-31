@@ -34,14 +34,10 @@ export const HighlightedCode = async ({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Grow the block to fill the grid cell so both columns share a height;
-          *:mb-0 drops CodeBlock's own bottom margin. These snippets render
-          without a language icon, so hide the (empty) header icon slot to keep
-          the filename flush with the header padding. */}
       <div className="*:mb-0 *:h-full flex-1 [&_[data-slot=card-header]>div:first-child]:hidden">
         {rendered}
       </div>
-      <span className="mt-2 block text-xs text-gray-800">{caption}</span>
+      <span className="mt-2 block text-copy-14 text-gray-900">{caption}</span>
     </div>
   );
 };
