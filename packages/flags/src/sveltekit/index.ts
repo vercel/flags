@@ -3,7 +3,6 @@ import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
-  json,
   type RequestEvent,
   type RequestHandler,
 } from '@sveltejs/kit';
@@ -22,6 +21,7 @@ import {
   verifyAccess,
   version,
 } from '..';
+import { computeEtag } from '../lib/compute-etag';
 import { normalizeOptions } from '../lib/normalize-options';
 import {
   HeadersAdapter,
@@ -360,8 +360,24 @@ async function handleWellKnownFlagsRoute(
   );
   if (!access) return new Response(null, { status: 401 });
   const providerData = getProviderData(flags);
-  return Response.json(providerData, {
-    headers: { 'x-flags-sdk-version': version },
+  const body = JSON.stringify(providerData);
+  const etag = computeEtag(body);
+
+  // We handle conditional requests ourselves, rather than relying on an
+  // upstream cache to generate the 304, so we can guarantee
+  // x-flags-sdk-version is always present, even on a 304 response.
+  const headers: Record<string, string> = {
+    'x-flags-sdk-version': version,
+    'cache-control': 'no-cache',
+    etag,
+  };
+
+  if (event.request.headers.get('if-none-match') === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+
+  return new Response(body, {
+    headers: { ...headers, 'content-type': 'application/json' },
   });
 }
 
@@ -455,7 +471,25 @@ export function createFlagsDiscoveryEndpoint(
     if (!access) error(401);
 
     const apiData = await getApiData(event);
-    return json(apiData, { headers: { 'x-flags-sdk-version': version } });
+    const body = JSON.stringify(apiData);
+    const etag = computeEtag(body);
+
+    // We handle conditional requests ourselves, rather than relying on an
+    // upstream cache to generate the 304, so we can guarantee
+    // x-flags-sdk-version is always present, even on a 304 response.
+    const headers: Record<string, string> = {
+      'x-flags-sdk-version': version,
+      'cache-control': 'no-cache',
+      etag,
+    };
+
+    if (event.request.headers.get('if-none-match') === etag) {
+      return new Response(null, { status: 304, headers });
+    }
+
+    return new Response(body, {
+      headers: { ...headers, 'content-type': 'application/json' },
+    });
   };
 
   return requestHandler;
