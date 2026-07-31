@@ -9,7 +9,6 @@ import {
 } from '@vercel/geistdocs/components/command-prompt';
 import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
-import { ArrowRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -194,11 +193,13 @@ export default async function HomePage({
                 flags.
               </p>
             </div>
-            <Button variant="outline" className="shrink-0" asChild>
-              <Link href="/frameworks/next">
-                Read the Docs
-                <ArrowRight />
-              </Link>
+            <Button
+              variant="outline"
+              size="lg"
+              className="shrink-0 rounded-full"
+              asChild
+            >
+              <Link href="/frameworks/next">Read the Docs</Link>
             </Button>
           </div>
           <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
@@ -230,7 +231,7 @@ export default async function HomePage({
         {/* CTA */}
         <section className="flex flex-col gap-4 py-10 md:flex-row md:items-center md:justify-between">
           <h2 className="text-heading-20 sm:text-heading-24 md:text-heading-32 lg:text-heading-40">
-            Deploy your first flag today.
+            Deploy your first flag today
           </h2>
           {/* Stack until the section itself goes side-by-side at md, and keep
               the buttons on the heading's left edge while stacked. */}
