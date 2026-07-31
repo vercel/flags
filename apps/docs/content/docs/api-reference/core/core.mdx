@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   const providerData: ProviderData = /* ... */
 
   return NextResponse.json<ApiData>(providerData, {
-    headers: { 'x-flags-sdk-version': version },
+    headers: {
+      'x-flags-sdk-version': version,
+      'cache-control': 'no-store',
+    },
   });
 }
 ```
