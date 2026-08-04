@@ -32,7 +32,7 @@ const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
           <Navbar config={config} />
           {children}
           {shouldInjectToolbar && <VercelToolbar />}
-          <Footer config={config} />
+          <Footer />
         </GeistdocsProvider>
       </body>
     </html>
