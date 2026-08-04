@@ -20,15 +20,16 @@ export function globalConfigAdapter<ValueType, EntitiesType>(): Adapter<
 > {
   // Initialized lazily to avoid warning when it is not actually used and env vars are missing.
   if (!defaultGlobalConfigAdapter) {
-    if (!process.env.GLOBAL_CONFIG) {
+    // Fall back to EDGE_CONFIG if GLOBAL_CONFIG does not exist to ensure backwards compatibility.
+    const env = process.env.GLOBAL_CONFIG || process.env.EDGE_CONFIG;
+
+    if (!env) {
       throw new Error(
         '@flags-sdk/global-config: Missing GLOBAL_CONFIG env var',
       );
     }
 
-    defaultGlobalConfigAdapter = createGlobalConfigAdapter(
-      process.env.GLOBAL_CONFIG,
-    );
+    defaultGlobalConfigAdapter = createGlobalConfigAdapter(env);
   }
 
   return defaultGlobalConfigAdapter<ValueType, EntitiesType>();
