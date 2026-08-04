@@ -57,13 +57,20 @@ export function createStatsigAdapter(options: {
     connectionString: string;
     itemKey: string;
   };
+  /** @deprecated Use `globalConfig` instead. */
+  edgeConfig?: {
+    connectionString: string;
+    itemKey: string;
+  };
 }): AdapterResponse {
+  const globalConfig = options.globalConfig ?? options.edgeConfig;
+
   const initializeStatsig = async (): Promise<void> => {
     let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
-    if (options.globalConfig) {
+    if (globalConfig) {
       dataAdapter = await createGlobalConfigDataAdapter({
-        globalConfigItemKey: options.globalConfig.itemKey,
-        globalConfigConnectionString: options.globalConfig.connectionString,
+        globalConfigItemKey: globalConfig.itemKey,
+        globalConfigConnectionString: globalConfig.connectionString,
       });
     }
 
@@ -101,7 +108,7 @@ export function createStatsigAdapter(options: {
     return user != null && typeof user === 'object';
   };
 
-  const minSyncDelayMs = options.globalConfig ? 1_000 : 5_000;
+  const minSyncDelayMs = globalConfig ? 1_000 : 5_000;
   const syncHandler = createSyncingHandler(minSyncDelayMs);
 
   async function predecide(user?: StatsigUser): Promise<StatsigUser> {

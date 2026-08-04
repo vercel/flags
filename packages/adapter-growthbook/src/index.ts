@@ -64,9 +64,13 @@ export function createGrowthbookAdapter(options: {
   stickyBucketService?: StickyBucketService;
   /** Provide Global Config details to use the optional Global Config adapter */
   globalConfig?: GlobalConfig;
+  /** @deprecated Use `globalConfig` instead. */
+  edgeConfig?: GlobalConfig;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
   let stickyBucketService = options.stickyBucketService;
+
+  const globalConfig = options.globalConfig ?? options.edgeConfig;
 
   const growthbook = new GrowthBookClient({
     clientKey: options.clientKey,
@@ -74,10 +78,10 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  const globalConfigClient = options.globalConfig
-    ? createClient(options.globalConfig.connectionString)
+  const globalConfigClient = globalConfig
+    ? createClient(globalConfig.connectionString)
     : null;
-  const globalConfigKey = options.globalConfig?.itemKey || options.clientKey;
+  const globalConfigKey = globalConfig?.itemKey || options.clientKey;
 
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<FeatureApiResponse | null>>();
@@ -156,7 +160,7 @@ export function createGrowthbookAdapter(options: {
   };
 
   const refresh = async (): Promise<void> => {
-    if (options.globalConfig) {
+    if (globalConfig) {
       const payload = await getGlobalConfigPayload();
       if (payload && payload !== growthbook.getPayload()) {
         await growthbook.setPayload(payload);
@@ -250,8 +254,10 @@ export function resetDefaultGrowthbookAdapter() {
  * - `GROWTHBOOK_API_HOST` - Override the SDK API endpoint for self-hosted users
  * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
  * - `GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING` - Global Config connection string
+ * - `GROWTHBOOK_EDGE_CONNECTION_STRING` - deprecated fallback for GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING
  * - `EXPERIMENTATION_CONFIG` - fallback for GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING
  * - `GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY` - Override the item key for Global Config (defaults to GROWTHBOOK_CLIENT_KEY)
+ * - `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` - deprecated fallback for GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY
  */
 export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
@@ -265,8 +271,11 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
   const connectionString =
     process.env.GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING ||
+    process.env.GROWTHBOOK_EDGE_CONNECTION_STRING ||
     process.env.EXPERIMENTATION_CONFIG;
-  const itemKey = process.env.GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY;
+  const itemKey =
+    process.env.GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY ||
+    process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY;
 
   let globalConfig: GlobalConfig | undefined;
   if (connectionString) {
