@@ -8,7 +8,7 @@ import Statsig, {
   type StatsigUser,
 } from 'statsig-node-lite';
 import {
-  createEdgeConfigDataAdapter,
+  createGlobalConfigDataAdapter,
   createSyncingHandler,
 } from './edge-runtime-hooks';
 
@@ -52,18 +52,18 @@ export function createStatsigAdapter(options: {
   statsigOptions?: StatsigOptions;
   /** Provide the project ID to allow links to the Statsig console in the Vercel Toolbar */
   statsigProjectId?: string;
-  /** Provide Edge Config details to use the optional Edge Config adapter */
-  edgeConfig?: {
+  /** Provide Global Config details to use the optional Global Config adapter */
+  globalConfig?: {
     connectionString: string;
     itemKey: string;
   };
 }): AdapterResponse {
   const initializeStatsig = async (): Promise<void> => {
     let dataAdapter: StatsigOptions['dataAdapter'] | undefined;
-    if (options.edgeConfig) {
-      dataAdapter = await createEdgeConfigDataAdapter({
-        edgeConfigItemKey: options.edgeConfig.itemKey,
-        edgeConfigConnectionString: options.edgeConfig.connectionString,
+    if (options.globalConfig) {
+      dataAdapter = await createGlobalConfigDataAdapter({
+        globalConfigItemKey: options.globalConfig.itemKey,
+        globalConfigConnectionString: options.globalConfig.connectionString,
       });
     }
 
@@ -101,7 +101,7 @@ export function createStatsigAdapter(options: {
     return user != null && typeof user === 'object';
   };
 
-  const minSyncDelayMs = options.edgeConfig ? 1_000 : 5_000;
+  const minSyncDelayMs = options.globalConfig ? 1_000 : 5_000;
   const syncHandler = createSyncingHandler(minSyncDelayMs);
 
   async function predecide(user?: StatsigUser): Promise<StatsigUser> {
@@ -258,8 +258,8 @@ export function resetDefaultStatsigAdapter() {
  *
  * Optional:
  * - `STATSIG_PROJECT_ID` - Statsig project ID to enable link in Vercel's Flags Explorer
- * - `EXPERIMENTATION_CONFIG` - Vercel Edge Config connection string
- * - `EXPERIMENTATION_CONFIG_ITEM_KEY` - Vercel Edge Config item key where data is stored
+ * - `EXPERIMENTATION_CONFIG` - Vercel Global Config connection string
+ * - `EXPERIMENTATION_CONFIG_ITEM_KEY` - Vercel Global Config item key where data is stored
  */
 export function createDefaultStatsigAdapter(): AdapterResponse {
   if (defaultStatsigAdapter) {
@@ -267,9 +267,9 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   }
   const statsigServerApiKey = process.env.STATSIG_SERVER_API_KEY as string;
   const statsigProjectId = process.env.STATSIG_PROJECT_ID;
-  const edgeConfig = process.env.EXPERIMENTATION_CONFIG;
-  const edgeConfigItemKey = process.env.EXPERIMENTATION_CONFIG_ITEM_KEY;
-  if (!(edgeConfig && edgeConfigItemKey)) {
+  const globalConfig = process.env.EXPERIMENTATION_CONFIG;
+  const globalConfigItemKey = process.env.EXPERIMENTATION_CONFIG_ITEM_KEY;
+  if (!(globalConfig && globalConfigItemKey)) {
     defaultStatsigAdapter = createStatsigAdapter({
       statsigServerApiKey,
       statsigProjectId,
@@ -277,9 +277,9 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
   } else {
     defaultStatsigAdapter = createStatsigAdapter({
       statsigServerApiKey,
-      edgeConfig: {
-        connectionString: edgeConfig,
-        itemKey: edgeConfigItemKey,
+      globalConfig: {
+        connectionString: globalConfig,
+        itemKey: globalConfigItemKey,
       },
       statsigProjectId,
     });

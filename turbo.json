@@ -15,7 +15,7 @@
     "build": {
       "dependsOn": ["^build"],
       "env": [
-        "EDGE_CONFIG",
+        "GLOBAL_CONFIG",
         "FLAGS_SECRET",
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
         "LAUNCHDARKLY_PROJECT_SLUG",

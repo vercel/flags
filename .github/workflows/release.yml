@@ -81,7 +81,7 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          GLOBAL_CONFIG: ${{ secrets.GLOBAL_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
           FLAGS: ${{ secrets.FLAGS }}
           HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}
@@ -123,7 +123,7 @@ jobs:
       - name: Build
         run: pnpm turbo build --filter='./packages/*'
         env:
-          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          GLOBAL_CONFIG: ${{ secrets.GLOBAL_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
           FLAGS: ${{ secrets.FLAGS }}
           HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}

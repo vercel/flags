@@ -10,7 +10,7 @@ import {
   type TrackingCallbackWithUser,
   type UserContext,
 } from '@growthbook/growthbook';
-import { createClient } from '@vercel/edge-config';
+import { createClient } from '@vercel/global-config';
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
 
@@ -28,7 +28,7 @@ export {
   type StickyAssignmentsDocument,
 };
 
-type EdgeConfig = {
+type GlobalConfig = {
   connectionString: string;
   /** Defaults to `options.clientKey` **/
   itemKey?: string;
@@ -62,8 +62,8 @@ export function createGrowthbookAdapter(options: {
   initOptions?: InitOptions;
   /** Optional StickyBucketService (reduces variation hopping, required for Bandits) **/
   stickyBucketService?: StickyBucketService;
-  /** Provide Edge Config details to use the optional Edge Config adapter */
-  edgeConfig?: EdgeConfig;
+  /** Provide Global Config details to use the optional Global Config adapter */
+  globalConfig?: GlobalConfig;
 }): AdapterResponse {
   let trackingCallback = options.trackingCallback;
   let stickyBucketService = options.stickyBucketService;
@@ -74,62 +74,63 @@ export function createGrowthbookAdapter(options: {
     ...(options.clientOptions || {}),
   });
 
-  const edgeConfigClient = options.edgeConfig
-    ? createClient(options.edgeConfig.connectionString)
+  const globalConfigClient = options.globalConfig
+    ? createClient(options.globalConfig.connectionString)
     : null;
-  const edgeConfigKey = options.edgeConfig?.itemKey || options.clientKey;
+  const globalConfigKey = options.globalConfig?.itemKey || options.clientKey;
 
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<FeatureApiResponse | null>>();
 
-  const getEdgePayload = async (): Promise<FeatureApiResponse | null> => {
-    if (!edgeConfigClient) return null;
+  const getGlobalConfigPayload =
+    async (): Promise<FeatureApiResponse | null> => {
+      if (!globalConfigClient) return null;
 
-    // Only do this once per request using AsyncLocalStorage
-    const currentRequest = store.getStore();
-    if (currentRequest) {
-      const cached = cache.get(currentRequest);
-      if (cached) {
-        return cached;
-      }
-    }
-
-    // Fetch from Edge Config
-    const payloadPromise = edgeConfigClient
-      .get<FeatureApiResponse | string>(edgeConfigKey)
-      .then((payload) => {
-        if (!payload) {
-          console.error('No payload found in edge config');
-          return null;
-        } else if (typeof payload === 'string') {
-          // Older GrowthBook integrations use WebHooks directly to store
-          // data in Edge Config, but they store the data as a string.
-          //
-          // We need to parse the string to JSON before passing it to GrowthBook.
-          //
-          // https://docs.growthbook.io/app/webhooks/sdk-webhooks#vercel-edge-config
-          // https://github.com/vercel/flags/issues/209
-          try {
-            return JSON.parse(payload) as FeatureApiResponse;
-          } catch {
-            console.error('Invalid payload format');
-            return null;
-          }
-        } else {
-          return payload;
+      // Only do this once per request using AsyncLocalStorage
+      const currentRequest = store.getStore();
+      if (currentRequest) {
+        const cached = cache.get(currentRequest);
+        if (cached) {
+          return cached;
         }
-      })
-      .catch((e) => {
-        console.error('Error fetching edge config', e);
-        return null;
-      });
+      }
 
-    if (currentRequest) cache.set(currentRequest, payloadPromise);
-    return payloadPromise;
-  };
+      // Fetch from Global Config
+      const payloadPromise = globalConfigClient
+        .get<FeatureApiResponse | string>(globalConfigKey)
+        .then((payload) => {
+          if (!payload) {
+            console.error('No payload found in global config');
+            return null;
+          } else if (typeof payload === 'string') {
+            // Older GrowthBook integrations use WebHooks directly to store
+            // data in Global Config, but they store the data as a string.
+            //
+            // We need to parse the string to JSON before passing it to GrowthBook.
+            //
+            // https://docs.growthbook.io/app/webhooks/sdk-webhooks#vercel-edge-config
+            // https://github.com/vercel/flags/issues/209
+            try {
+              return JSON.parse(payload) as FeatureApiResponse;
+            } catch {
+              console.error('Invalid payload format');
+              return null;
+            }
+          } else {
+            return payload;
+          }
+        })
+        .catch((e) => {
+          console.error('Error fetching global config', e);
+          return null;
+        });
+
+      if (currentRequest) cache.set(currentRequest, payloadPromise);
+      return payloadPromise;
+    };
 
   const initializeGrowthBook = async (): Promise<void> => {
-    const payload = await getEdgePayload();
+    const payload = await getGlobalConfigPayload();
     await growthbook.init({
       streaming: false,
       payload: payload ?? undefined,
@@ -155,8 +156,8 @@ export function createGrowthbookAdapter(options: {
   };
 
   const refresh = async (): Promise<void> => {
-    if (options.edgeConfig) {
-      const payload = await getEdgePayload();
+    if (options.globalConfig) {
+      const payload = await getGlobalConfigPayload();
       if (payload && payload !== growthbook.getPayload()) {
         await growthbook.setPayload(payload);
       }
@@ -248,9 +249,9 @@ export function resetDefaultGrowthbookAdapter() {
  * Optional:
  * - `GROWTHBOOK_API_HOST` - Override the SDK API endpoint for self-hosted users
  * - `GROWTHBOOK_APP_ORIGIN` - Override the application URL for self-hosted users
- * - `GROWTHBOOK_EDGE_CONNECTION_STRING` - Edge Config connection string
- * - `EXPERIMENTATION_CONFIG` - fallback for GROWTHBOOK_EDGE_CONNECTION_STRING
- * - `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` - Override the item key for Edge Config (defaults to GROWTHBOOK_CLIENT_KEY)
+ * - `GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING` - Global Config connection string
+ * - `EXPERIMENTATION_CONFIG` - fallback for GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING
+ * - `GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY` - Override the item key for Global Config (defaults to GROWTHBOOK_CLIENT_KEY)
  */
 export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   if (defaultGrowthbookAdapter) {
@@ -263,13 +264,13 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
   const apiHost = process.env.GROWTHBOOK_API_HOST;
   const appOrigin = process.env.GROWTHBOOK_APP_ORIGIN;
   const connectionString =
-    process.env.GROWTHBOOK_EDGE_CONNECTION_STRING ||
+    process.env.GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING ||
     process.env.EXPERIMENTATION_CONFIG;
-  const itemKey = process.env.GROWTHBOOK_EDGE_CONFIG_ITEM_KEY;
+  const itemKey = process.env.GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY;
 
-  let edgeConfig: EdgeConfig | undefined;
+  let globalConfig: GlobalConfig | undefined;
   if (connectionString) {
-    edgeConfig = {
+    globalConfig = {
       connectionString,
       itemKey,
     };
@@ -279,7 +280,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
     clientKey,
     apiHost,
     appOrigin,
-    edgeConfig,
+    globalConfig,
   });
 
   return defaultGrowthbookAdapter;

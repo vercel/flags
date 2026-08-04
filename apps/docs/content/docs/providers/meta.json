@@ -11,7 +11,7 @@
     "statsig",
     "hypertune",
     "growthbook",
-    "edge-config",
+    "global-config",
     "---Adapters---",
     "launchdarkly",
     "reflag",

@@ -9,7 +9,7 @@ title: 'OpenFeature'
 </CopyPrompt>
 
 
-_If there is a native Flags SDK adapter for your provider, we recommend using that instead. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Edge Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters)_
+_If there is a native Flags SDK adapter for your provider, we recommend using that instead. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Global Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters)_
 
 The `@flags-sdk/openfeature` package provides an [adapter](#provider-instance) for loading flags from OpenFeature.
 
@@ -199,13 +199,13 @@ await openFeatureAdapter.client();
 
 ---
 
-## Edge Config
+## Global Config
 
-The OpenFeature adapter does not integrate with Edge Config directly.
+The OpenFeature adapter does not integrate with Global Config directly.
 
-We recommend using a native Flags SDK adapter for your provider instead of using the OpenFeature adapter. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Edge Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters).
+We recommend using a native Flags SDK adapter for your provider instead of using the OpenFeature adapter. Native Flags SDK adapters finely tune the SDK for your flag provider, optionally integrate with Global Config and Flags Explorer, and are configured for Edge Runtime compatibility where possible. See [available adapters](/docs/adapters/supported-providers#adapters).
 
-If no native Flags SDK adapter is available, your OpenFeature provider might still allow you to configure Edge Config integration.
+If no native Flags SDK adapter is available, your OpenFeature provider might still allow you to configure Global Config integration.
 
 ---
 

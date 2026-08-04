@@ -13,7 +13,7 @@ The `@flags-sdk/hypertune` package provides a managed [Hypertune](https://www.hy
 Install the required dependencies:
 
 ```bash
-pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/edge-config
+pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/global-config
 ```
 
 Set up Hypertune environment variables based on your framework and app structure:
@@ -98,18 +98,18 @@ export const GET = createFlagsDiscoveryEndpoint(() => {
   Learn more about the Flags Explorer
 </LearnMore>
 
-## How to configure Edge Config
+## How to configure Global Config
 
-If Hypertune is syncing to Vercel Edge Config, you can configure that through environment variables or through the adapter.
+If Hypertune is syncing to Vercel Global Config, you can configure that through environment variables or through the adapter.
 
 ```bash title=".env.local"
-EXPERIMENTATION_CONFIG="https://edge-config.vercel.com/ecfg_xyz?token=abc"
+EXPERIMENTATION_CONFIG="https://global-config.vercel.com/ecfg_xyz?token=abc"
 EXPERIMENTATION_CONFIG_ITEM_KEY="hypertune_99999"
 ```
 
 ```ts title="flags.ts"
-import { VercelEdgeConfigInitDataProvider } from 'hypertune'
-import { createClient } from "@vercel/edge-config"
+import { VercelEdgeConfigInitDataProvider as VercelGlobalConfigInitDataProvider } from 'hypertune'
+import { createClient } from "@vercel/global-config"
 
 const hypertuneAdapter = createHypertuneAdapter<
   FlagValues,
@@ -117,9 +117,9 @@ const hypertuneAdapter = createHypertuneAdapter<
 >({
   // ... previous initialization code
   createSourceOptions: {
-    initDataProvider: new VercelEdgeConfigInitDataProvider({
+    initDataProvider: new VercelGlobalConfigInitDataProvider({
       edgeConfigClient: createClient(
-        'https://edge-config.vercel.com/ecfg_xyz?token=abc'
+        'https://global-config.vercel.com/ecfg_xyz?token=abc'
       ),
       itemKey: 'hypertune_99999',
     }),
@@ -130,6 +130,6 @@ const hypertuneAdapter = createHypertuneAdapter<
 ## More resources
 
 - [Hypertune Documentation](https://docs.hypertune.com/)
-- [Vercel Edge Config](https://vercel.com/docs/edge-config)
+- [Vercel Global Config](https://vercel.com/docs/global-config)
 - [Flags Explorer](https://vercel.com/docs/flags/flags-explorer)
 - [Hypertune OpenFeature Provider](/providers/openfeature/hypertune)
