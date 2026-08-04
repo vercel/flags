@@ -40,12 +40,22 @@ export function createLaunchDarklyAdapter({
   projectSlug,
   clientSideId,
   globalConfigConnectionString,
+  edgeConfigConnectionString,
 }: {
   projectSlug: string;
   clientSideId: string;
-  globalConfigConnectionString: string;
+  globalConfigConnectionString?: string;
+  /** @deprecated Use `globalConfigConnectionString` instead. */
+  edgeConfigConnectionString?: string;
 }): AdapterResponse {
-  const globalConfigClient = createClient(globalConfigConnectionString);
+  const connectionString =
+    globalConfigConnectionString ?? edgeConfigConnectionString;
+  if (!connectionString) {
+    throw new Error(
+      'LaunchDarkly Adapter: Missing globalConfigConnectionString',
+    );
+  }
+  const globalConfigClient = createClient(connectionString);
 
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<unknown>>();
