@@ -260,8 +260,8 @@ importers:
         specifier: 1.2.1
         version: 1.2.1
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(3524d3730989e44dd8751dbb901f98bf)
@@ -327,8 +327,8 @@ importers:
         specifier: 1.1.4
         version: 1.1.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(e7aae08e340f7dd52d9ab2f16f5decad)
@@ -468,8 +468,8 @@ importers:
   packages/adapter-global-config:
     dependencies:
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -502,8 +502,8 @@ importers:
         specifier: ^1.5.2
         version: 1.6.0
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -533,8 +533,8 @@ importers:
   packages/adapter-hypertune:
     dependencies:
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
       hypertune:
         specifier: 2.8.3
         version: 2.8.3
@@ -570,8 +570,8 @@ importers:
         specifier: ^1.3.34
         version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -750,8 +750,8 @@ importers:
         specifier: ^1.5.2
         version: 1.6.0
       '@vercel/global-config':
-        specifier: ^1.5.0
-        version: 1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        specifier: ^1.5.1
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
       statsig-node-lite:
         specifier: ^0.5.2
         version: 0.5.2
@@ -5396,8 +5396,11 @@ packages:
       react-dom: ^19.2.3
       tailwindcss: ^4.1.17
 
-  '@vercel/global-config@1.5.0':
-    resolution: {integrity: sha512-YxyyzkIjlD7kHSlPpYOQun81Y1o3JUU19snytzFSex/l6h6t5kEg9UsWoG7F5BIT1aBcCmTGUtP5LpkeSN+b8w==}
+  '@vercel/global-config-fs@0.1.0':
+    resolution: {integrity: sha512-xxMUwf96H/qKTA4Az+uh3xlVWkwnN3z400P5gex0uUsU8pe99njopYVyKVoUTfu8gN9xbHqaigWaIBr1+lufMg==}
+
+  '@vercel/global-config@1.5.1':
+    resolution: {integrity: sha512-PUJaoyMGuSLdKnBgYIqeH1i6U3G+5noLvvJLqI8IPP5+P0b2Q5EcBBraFRh6ctNY/yTpb40klyLYyE3X0OPmKQ==}
     engines: {node: '>=14.6'}
     peerDependencies:
       '@opentelemetry/api': ^1.7.0
@@ -14266,23 +14269,25 @@ snapshots:
       - vite
       - waku
 
-  '@vercel/global-config@1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
+  '@vercel/global-config-fs@0.1.0': {}
+
+  '@vercel/global-config@1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1))':
     dependencies:
-      '@vercel/edge-config-fs': 0.1.0
+      '@vercel/global-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.0.0-rc.1(react@19.0.0-rc.1))(react@19.0.0-rc.1)
 
-  '@vercel/global-config@1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
+  '@vercel/global-config@1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
     dependencies:
-      '@vercel/edge-config-fs': 0.1.0
+      '@vercel/global-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
-  '@vercel/global-config@1.5.0(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))':
+  '@vercel/global-config@1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))':
     dependencies:
-      '@vercel/edge-config-fs': 0.1.0
+      '@vercel/global-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
