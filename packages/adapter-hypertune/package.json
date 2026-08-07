@@ -45,7 +45,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/global-config": "^1.5.0",
+    "@vercel/global-config": "^1.5.1",
     "hypertune": "2.8.3"
   },
   "devDependencies": {

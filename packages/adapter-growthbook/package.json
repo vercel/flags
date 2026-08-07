@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "@growthbook/growthbook": "^1.5.1",
-    "@vercel/global-config": "^1.5.0",
+    "@vercel/global-config": "^1.5.1",
     "@vercel/functions": "^1.5.2"
   },
   "devDependencies": {
