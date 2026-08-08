@@ -41,6 +41,25 @@ export const showSummerSale = flag<boolean>({
 });
 ```
 
+#### Dynamic rendering
+
+You do not need to call [`connection()`](https://nextjs.org/docs/app/api-reference/functions/connection) before evaluating a flag.
+
+Every App Router evaluation awaits `headers()` and `cookies()` before calling `decide`, and those are Request-time APIs, so awaiting a flag already excludes the caller from the prerender. This holds no matter what `decide` does — a value coming from a provider, from `Math.random()`, or from a constant is treated the same way, because the SDK reads the request before `decide` runs. It also holds for repeated evaluations within a request, which are served from a per-request cache keyed by the request itself.
+
+```tsx title="app/page.tsx"
+import { exampleFlag } from '../flags';
+
+export default async function Page() {
+  // no `await connection()` needed, the flag reads the request for you
+  const example = await exampleFlag();
+
+  return <div>{example ? 'Flag is on' : 'Flag is off'}</div>;
+}
+```
+
+Reading a [precomputed](/principles/precompute) value is the deliberate exception. `exampleFlag(code, precomputedFlags)` decodes the value from the signed code instead of reading the request, which is what keeps pages rendering precomputed flags prerenderable.
+
 
 ### `createFlagsDiscoveryEndpoint`
 

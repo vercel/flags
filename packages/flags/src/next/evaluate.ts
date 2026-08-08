@@ -222,6 +222,12 @@ function shouldReportValue(definition: FlagInfo<any>): boolean {
  * → cache write → reportValue. Override and cache writes write to the same
  * `evaluationCache` either path uses, so a subsequent `flagFn()` in the same
  * request hits cache regardless of which path populated it.
+ *
+ * Note on dynamic rendering: the per-request cache is keyed by the sealed
+ * headers object, so reaching a cache hit requires having read `headers()`
+ * (App Router) or having been handed a request. A cache read can therefore
+ * never be the thing that keeps a render static, and needs no separate
+ * `connection()` call of its own.
  */
 async function applyResult<ValueType>(args: {
   definition: FlagInfo<ValueType>;
@@ -331,6 +337,19 @@ type Run<ValueType, EntitiesType> = (options: {
 /**
  * Builds the runtime function used by a single flag. Handles Pages Router,
  * App Router, and reuse of pre-read data when called from inside `evaluate()`.
+ *
+ * Dynamic rendering: every branch below reaches request-scoped data before it
+ * decides, either through `next/headers` or through a request handed in by the
+ * caller. `headers()` and `cookies()` are Request-time APIs, so awaiting them
+ * already excludes the caller from the prerender — exactly what an explicit
+ * `await connection()` would do. Adding `connection()` on top would mean
+ * importing `next/server` (which `flags/next` deliberately avoids at the top
+ * level so it keeps working in Pages Router) and awaiting one more promise per
+ * evaluation, with no change in behavior.
+ *
+ * See https://nextjs.org/docs/app/api-reference/functions/connection: the
+ * function "is only necessary when dynamic rendering is required and common
+ * Request-time APIs are not used".
  */
 export function getRun<ValueType, EntitiesType>(
   definition: ResolvedFlagDeclaration<ValueType, EntitiesType>,
@@ -349,6 +368,11 @@ export function getRun<ValueType, EntitiesType>(
 
     if (options.request) {
       // pages router, or a NextRequest / Web Request (e.g. routing middleware)
+      //
+      // No `connection()` here: the caller already holds a request, so the
+      // surrounding context is request-scoped by definition, and `connection()`
+      // is an App Router API that has no meaning in Pages Router or routing
+      // middleware.
       const headers = transformToHeaders(options.request.headers);
       readonlyHeaders = sealHeaders(headers);
       readonlyCookies = sealCookies(headers);
@@ -357,6 +381,9 @@ export function getRun<ValueType, EntitiesType>(
       overrides = await readOverrides(readonlyCookies);
     } else if (bulkData) {
       // app router — evaluate() mode, everything pre-read
+      //
+      // `evaluate()` performed the request-time read (or was handed a request)
+      // before entering the store, so this branch inherits its dynamic opt-in.
       readonlyHeaders = bulkData.headers;
       readonlyCookies = bulkData.cookies;
       dedupeCacheKey = bulkData.dedupeCacheKey;
@@ -373,6 +400,8 @@ export function getRun<ValueType, EntitiesType>(
       if (!headersModule) headersModule = await headersModulePromise;
       const { headers, cookies } = headersModule;
 
+      // Awaiting these two Request-time APIs is what opts the caller out of
+      // the prerender, so no explicit `await connection()` is needed here.
       const [headersStore, cookiesStore] = await Promise.all([
         headers(),
         cookies(),
@@ -478,7 +507,8 @@ async function evaluateImpl(
   // Skip the `next/headers` read when there's nothing to evaluate. This also
   // lets `precompute([])` return `__no_flags__` outside a request scope (e.g.
   // during static generation), which is the documented behavior of an empty
-  // precompute group.
+  // precompute group. For the same reason this must not call `connection()`:
+  // an empty batch reads nothing from the request and must stay prerenderable.
   if (
     Array.isArray(flags) ? flags.length === 0 : Object.keys(flags).length === 0
   ) {
@@ -507,6 +537,9 @@ async function evaluateImpl(
     if (!headersModule) headersModule = await headersModulePromise;
     const { headers, cookies } = headersModule;
 
+    // One request-time read for the whole batch. As in `getRun`, awaiting
+    // these Request-time APIs opts the caller out of the prerender, so an
+    // extra `await connection()` here would only add a promise per batch.
     const [headersStore, cookiesStore] = await Promise.all([
       headers(),
       cookies(),

@@ -19,4 +19,18 @@ export const cookieFlag = flag<string>({
   options: ['no cookie'],
 });
 
+/**
+ * Deliberately does not read `headers` or `cookies`, and resolves to a
+ * different value on every evaluation.
+ *
+ * A page rendering this flag may therefore never be served from the prerender.
+ * The SDK is what guarantees that: it awaits `headers()` and `cookies()`
+ * before calling `decide`, which is why no `await connection()` is needed in
+ * user land.
+ */
+export const requestScopedFlag = flag<string>({
+  key: 'request-scoped',
+  decide: () => Math.random().toString(36).slice(2),
+});
+
 export const precomputedFlags = [exampleFlag, hostFlag, cookieFlag];

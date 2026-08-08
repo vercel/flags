@@ -93,6 +93,13 @@ export default async function Page() {
 }
 ```
 
+Do not add `await connection()` before evaluating a flag. Every App Router
+evaluation awaits `headers()` and `cookies()` before calling `decide`, so
+awaiting a flag already excludes the caller from the prerender. Reading a
+precomputed value (`exampleFlag(code, precomputedFlags)`) is the exception: it
+decodes the value from the code rather than reading the request, which is what
+keeps precomputed pages prerenderable.
+
 ## Pages Router
 
 Pass `req` to the flag in `getServerSideProps`:

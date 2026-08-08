@@ -126,6 +126,13 @@ export function flag<
       setSpanAttribute('method', 'decided');
 
       // the flag was precomputed, works for both App Router and Pages Router
+      //
+      // This branch reads nothing from the request — the value is decoded from
+      // the signed code the caller passes in. It must therefore stay free of
+      // Request-time APIs and of `await connection()`, as keeping the page
+      // prerenderable is the entire point of the precompute pattern. See
+      // `tests/next-16/app/app-router-precomputed`, whose page Next.js reports
+      // as prerendered in the build output.
       if (typeof args[0] === 'string' && Array.isArray(args[1])) {
         const [precomputedCode, precomputedGroup, secret] = args as Parameters<
           PrecomputedFlag<ValueType, EntitiesType>
@@ -159,6 +166,10 @@ export function flag<
       }
 
       // the flag is being used in app router
+      //
+      // `run` awaits `headers()` and `cookies()` here, which is what makes the
+      // caller dynamic. No `await connection()` is needed on top of that — see
+      // the note on `getRun` in `./evaluate.ts`.
       return run({ identify, request: undefined });
     },
     {
