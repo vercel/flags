@@ -45,7 +45,7 @@ importers:
         version: 16.4.0
       next:
         specifier: 16.2.12
-        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
+        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)
       playwright:
         specifier: 1.56.1
         version: 1.56.1
@@ -54,7 +54,7 @@ importers:
         version: 0.3.14
       react:
         specifier: canary
-        version: 19.3.0-canary-96fcba90-20260728
+        version: 19.3.0-canary-ec61f187-20260806
       turbo:
         specifier: 2.10.6
         version: 2.10.6
@@ -71,8 +71,8 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.56.7(@typescript-eslint/types@8.46.1))
       '@vercel/geistdocs':
-        specifier: 1.19.4
-        version: 1.19.4(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@vercel/functions@3.4.3)(micromark-util-types@2.0.2)(micromark@4.0.2)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+        specifier: 1.19.6
+        version: 1.19.6(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@vercel/functions@3.4.3)(micromark-util-types@2.0.2)(micromark@4.0.2)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       '@vercel/speed-insights':
         specifier: ^1.3.1
         version: 1.3.1(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.56.7(@typescript-eslint/types@8.46.1))
@@ -469,7 +469,7 @@ importers:
     dependencies:
       '@vercel/global-config':
         specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -503,7 +503,7 @@ importers:
         version: 1.6.0
       '@vercel/global-config':
         specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -534,7 +534,7 @@ importers:
     dependencies:
       '@vercel/global-config':
         specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
       hypertune:
         specifier: 2.8.3
         version: 2.8.3
@@ -568,10 +568,10 @@ importers:
     dependencies:
       '@launchdarkly/vercel-server-sdk':
         specifier: ^1.3.34
-        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.3.34(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
       '@vercel/global-config':
         specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -751,13 +751,13 @@ importers:
         version: 1.6.0
       '@vercel/global-config':
         specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
       statsig-node-lite:
         specifier: ^0.5.2
         version: 0.5.2
       statsig-node-vercel:
         specifier: ^0.7.0
-        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)))
+        version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)))
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -801,7 +801,7 @@ importers:
         version: 2.6.4(@types/node@22.14.0)(typescript@5.6.3)
       next:
         specifier: 16.2.12
-        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
+        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.22)(typescript@5.6.3)(yaml@2.9.0)
@@ -914,7 +914,7 @@ importers:
         version: 22.14.0
       next:
         specifier: ^16.2.12
-        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
+        version: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.22)(typescript@5.6.3)(yaml@2.9.0)
@@ -5387,8 +5387,8 @@ packages:
       '@aws-sdk/credential-provider-web-identity':
         optional: true
 
-  '@vercel/geistdocs@1.19.4':
-    resolution: {integrity: sha512-aV6K8VAgFeqGTxjyE6EmlwX7FoSoDFBSDpvwtL252eiqecWbJqwUp6xd3Qam0YIEg2ipdNpho7BmJ1etEPffvA==}
+  '@vercel/geistdocs@1.19.6':
+    resolution: {integrity: sha512-R5e5OTnXWTZzYUhuqc0PiLNKmN1FGPeFnin+zzbB83Ca3iGLv9AeZoYKTaf34buwkjpQP/qvKslB3byBy2ct3g==}
     hasBin: true
     peerDependencies:
       next: ^16.2.11
@@ -5980,6 +5980,7 @@ packages:
 
   crypto-js@4.2.0:
     resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
+    deprecated: Active development of CryptoJS has been discontinued. This library is no longer maintained.
 
   cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -8605,8 +8606,8 @@ packages:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
 
-  react@19.3.0-canary-96fcba90-20260728:
-    resolution: {integrity: sha512-c+uM1FmBEGKPZi9SqyUdH5jYonraRXV3dngqJfJzGUOwpoLIzKu9asV/vc9GqBUVWzguIdYIuMXNkqzszTwrFg==}
+  react@19.3.0-canary-ec61f187-20260806:
+    resolution: {integrity: sha512-a9Tg9Zw1Wod2gY4atprt3eaCmKuSMysCtMw8J/Ul7JD7TzPOG8r/bEvOsgth5si8fBiaTDsn4w0cigPDeRIswA==}
     engines: {node: '>=0.10.0'}
 
   read-cache@1.0.0:
@@ -10502,10 +10503,10 @@ snapshots:
       '@launchdarkly/js-sdk-common': 2.19.0
       semver: 7.5.4
 
-  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))':
+  '@launchdarkly/vercel-server-sdk@1.3.34(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))':
     dependencies:
       '@launchdarkly/js-server-sdk-common-edge': 2.6.9
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
       crypto-js: 4.2.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -14187,12 +14188,12 @@ snapshots:
 
   '@vercel/edge-config-fs@0.1.0': {}
 
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))':
+  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))':
     dependencies:
       '@vercel/edge-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
+      next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)
 
   '@vercel/edge@1.2.1': {}
 
@@ -14202,7 +14203,7 @@ snapshots:
     dependencies:
       '@vercel/oidc': 3.2.0
 
-  '@vercel/geistdocs@1.19.4(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@vercel/functions@3.4.3)(micromark-util-types@2.0.2)(micromark@4.0.2)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))':
+  '@vercel/geistdocs@1.19.6(@sveltejs/kit@2.70.1(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@vercel/functions@3.4.3)(micromark-util-types@2.0.2)(micromark@4.0.2)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@ai-sdk/react': 3.0.208(react@19.2.4)(zod@4.3.6)
       '@clack/prompts': 0.11.0
@@ -14285,12 +14286,12 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
-  '@vercel/global-config@1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))':
+  '@vercel/global-config@1.5.1(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))':
     dependencies:
       '@vercel/global-config-fs': 0.1.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728)
+      next: 16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806)
 
   '@vercel/microfrontends@2.4.0(2703fe56f3fdc60e9aff457d6c92bf11)':
     dependencies:
@@ -17749,16 +17750,16 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728):
+  next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806):
     dependencies:
       '@next/env': 16.2.12
       '@swc/helpers': 0.5.15
       baseline-browser-mapping: 2.10.0
       caniuse-lite: 1.0.30001777
       postcss: 8.5.22
-      react: 19.3.0-canary-96fcba90-20260728
-      react-dom: 19.2.4(react@19.3.0-canary-96fcba90-20260728)
-      styled-jsx: 5.1.6(react@19.3.0-canary-96fcba90-20260728)
+      react: 19.3.0-canary-ec61f187-20260806
+      react-dom: 19.2.4(react@19.3.0-canary-ec61f187-20260806)
+      styled-jsx: 5.1.6(react@19.3.0-canary-ec61f187-20260806)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.2.12
       '@next/swc-darwin-x64': 16.2.12
@@ -18275,9 +18276,9 @@ snapshots:
       react: 19.2.4
       scheduler: 0.27.0
 
-  react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728):
+  react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806):
     dependencies:
-      react: 19.3.0-canary-96fcba90-20260728
+      react: 19.3.0-canary-ec61f187-20260806
       scheduler: 0.27.0
 
   react-is@16.13.1: {}
@@ -18381,7 +18382,7 @@ snapshots:
 
   react@19.2.4: {}
 
-  react@19.3.0-canary-96fcba90-20260728: {}
+  react@19.3.0-canary-ec61f187-20260806: {}
 
   read-cache@1.0.0:
     dependencies:
@@ -18924,9 +18925,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))):
+  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))):
     dependencies:
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-96fcba90-20260728))(react@19.3.0-canary-96fcba90-20260728))
+      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.2.12(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(react-dom@19.2.4(react@19.3.0-canary-ec61f187-20260806))(react@19.3.0-canary-ec61f187-20260806))
       statsig-node-lite: 0.4.4
     transitivePeerDependencies:
       - encoding
@@ -19089,10 +19090,10 @@ snapshots:
       client-only: 0.0.1
       react: 19.2.0
 
-  styled-jsx@5.1.6(react@19.3.0-canary-96fcba90-20260728):
+  styled-jsx@5.1.6(react@19.3.0-canary-ec61f187-20260806):
     dependencies:
       client-only: 0.0.1
-      react: 19.3.0-canary-96fcba90-20260728
+      react: 19.3.0-canary-ec61f187-20260806
 
   stylis@4.3.6: {}
 
