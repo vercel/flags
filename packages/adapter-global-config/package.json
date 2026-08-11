@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/global-config",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A Flags SDK adapter for Global Config",
   "keywords": [
     "vercel",

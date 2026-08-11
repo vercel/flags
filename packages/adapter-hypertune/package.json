@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/hypertune",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A HyperTune adapter for the Flags SDK",
   "keywords": [
     "hypertune",
