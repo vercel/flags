@@ -64,9 +64,17 @@
   },
   "pnpm": {
     "overrides": {
-      "postcss": "^8.5.22",
+      "postcss": "^8.5.23",
       "esbuild": "^0.28.1",
-      "uuid": "^11.1.1"
+      "uuid": "^11.1.1",
+      "brace-expansion@>=4": "^5.0.9",
+      "dompurify": "^3.4.13",
+      "fast-uri": "^3.1.5",
+      "js-yaml@3": "^3.15.1",
+      "js-yaml@4": "^4.3.1",
+      "mermaid": "^11.16.1",
+      "nanoid@>=4": "^5.1.16",
+      "@sveltejs/kit": "^2.70.2"
     }
   }
 }
