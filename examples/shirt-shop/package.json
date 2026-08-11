@@ -24,7 +24,7 @@
     "flags": "workspace:*",
     "js-xxhash": "4.0.0",
     "motion": "12.12.1",
-    "nanoid": "5.1.2",
+    "nanoid": "5.1.16",
     "next": "16.2.12",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
