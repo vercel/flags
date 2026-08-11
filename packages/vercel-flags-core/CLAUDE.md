@@ -266,6 +266,16 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - On flush failure, events are re-queued for retry with a max queue size of 500 events (oldest events are dropped when exceeded)
 - `flush()` directly flushes queued events even when no scheduled flush is pending, ensuring events are not lost during `shutdown()`
 
+### Client Config from Datafile
+
+The datafile payload may carry an optional top-level `config` field (`ClientConfig` in `types.ts`) sent by the flags server, e.g. `{ "config": { "disableMetrics": true } }`. Since all sources (stream, poll, bundled, provided, one-time fetch) emit raw `DatafileInput`, the config flows through every source automatically.
+
+- The Controller reads the config from the latest known data (`this.data.config`) — a runtime update (e.g. a stream message) takes effect immediately for subsequent tracking
+- `config.disableMetrics: true` suppresses ALL usage metrics: `trackRead` and `trackEvaluation` are gated in the Controller, and the `UsageTracker` additionally consults an `isDisabled` predicate before recording and before flushing (pending events are dropped instead of sent, so flushes never hit the network)
+- `Controller.shutdown()` flushes the tracker before resetting `this.data` so the final flush still sees the latest config
+- Absent `config` (or absent `disableMetrics`) means metrics are enabled — behavior unchanged
+- Distinct from the local `disableMetrics` constructor option, which only disables evaluation metrics for that client instance
+
 ### Client Management
 
 - Each client gets unique incrementing ID

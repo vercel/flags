@@ -16,6 +16,22 @@ export type PollingOptions = {
   initTimeoutMs: number;
 };
 
+/**
+ * Client configuration delivered by the flags server as part of the datafile.
+ *
+ * All fields are optional; an absent `config` (or absent field) means the
+ * default behavior applies. This shape is extensible — future client
+ * configuration options will be added here.
+ */
+export type ClientConfig = {
+  /**
+   * When true, the client must not ingest any usage metrics
+   * (no read or evaluation events are recorded or sent).
+   * @default false
+   */
+  disableMetrics?: boolean;
+};
+
 /** Input type for creating a datafile (without metrics) */
 export type DatafileInput = Packed.Data & {
   /**
@@ -32,6 +48,11 @@ export type DatafileInput = Packed.Data & {
   configUpdatedAt?: number | string;
   /** Version number of the data */
   revision?: number;
+  /**
+   * Optional client configuration sent by the flags server.
+   * Absent means all defaults (e.g. metrics enabled).
+   */
+  config?: ClientConfig;
 };
 
 /** Datafile with metrics attached (returned by the client) */
