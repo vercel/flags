@@ -236,6 +236,57 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Metric environment option
+  // ---------------------------------------------------------------------------
+  describe('metricEnvironment option', () => {
+    it('should include the environment with evaluation metrics', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        metricEnvironment: 'preview',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+      cleanupCtx();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({
+          headers: {
+            ...ingestRequestHeaders,
+            'X-Vercel-Env': 'preview',
+          },
+        }),
+      );
+    });
+
+    it('should use the deployment environment for evaluation metrics when unspecified', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+      cleanupCtx();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({ headers: ingestRequestHeaders }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Build step detection
   // ---------------------------------------------------------------------------
   describe('build step detection', () => {
