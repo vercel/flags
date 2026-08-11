@@ -143,7 +143,7 @@ export type Decide<ValueType, EntitiesType> = (
      * flag decided together agrees on "now" — use this instead of calling
      * `Date.now()` directly for time-based decisions.
      */
-    now: number;
+    now?: number;
   },
 ) => Promise<ValueType> | ValueType;
 
@@ -185,7 +185,7 @@ export interface Adapter<ValueType, EntitiesType> {
      * flag decided together agrees on "now" — use this instead of calling
      * `Date.now()` directly for time-based decisions.
      */
-    now: number;
+    now?: number;
   }) => Promise<ValueType> | ValueType;
   /**
    * Optional batch hook used by `evaluate()` to resolve many flags that
@@ -210,7 +210,7 @@ export interface Adapter<ValueType, EntitiesType> {
      * flag decided together agrees on "now" — use this instead of calling
      * `Date.now()` directly for time-based decisions.
      */
-    now: number;
+    now?: number;
   }) => Promise<Record<string, ValueType>> | Record<string, ValueType>;
 }
 
