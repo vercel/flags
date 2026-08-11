@@ -138,6 +138,12 @@ export type GenerousOption<T> = boolean extends T
 export type Decide<ValueType, EntitiesType> = (
   params: FlagParamsType & {
     entities?: EntitiesType;
+    /**
+     * The current time (epoch ms), locked once per request/batch so every
+     * flag decided together agrees on "now" — use this instead of calling
+     * `Date.now()` directly for time-based decisions.
+     */
+    now: number;
   },
 ) => Promise<ValueType> | ValueType;
 
@@ -174,6 +180,12 @@ export interface Adapter<ValueType, EntitiesType> {
     // output positions only. Keeping it covariant lets `Adapter<boolean>` and
     // `Flag<boolean>` remain assignable to `Adapter<unknown>` / `Flag<unknown>`.
     defaultValue?: unknown;
+    /**
+     * The current time (epoch ms), locked once per request/batch so every
+     * flag decided together agrees on "now" — use this instead of calling
+     * `Date.now()` directly for time-based decisions.
+     */
+    now: number;
   }) => Promise<ValueType> | ValueType;
   /**
    * Optional batch hook used by `evaluate()` to resolve many flags that
@@ -193,6 +205,12 @@ export interface Adapter<ValueType, EntitiesType> {
     entities?: EntitiesType;
     headers: ReadonlyHeaders;
     cookies: ReadonlyRequestCookies;
+    /**
+     * The current time (epoch ms), locked once per request/batch so every
+     * flag decided together agrees on "now" — use this instead of calling
+     * `Date.now()` directly for time-based decisions.
+     */
+    now: number;
   }) => Promise<Record<string, ValueType>> | Record<string, ValueType>;
 }
 

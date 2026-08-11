@@ -62,6 +62,7 @@ describe('ldAdapter', () => {
           cookies: {} as ReadonlyRequestCookies,
           entities: {} as LDContext,
           defaultValue: false,
+          now: 1700000000000,
         });
 
         await expect(valuePromise).resolves.toEqual(true);

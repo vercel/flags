@@ -9,6 +9,7 @@ import type {
   BundledDefinitions,
   ControllerInterface,
   Datafile,
+  EvaluationOptions,
   EvaluationResult,
   Metrics,
   Packed,
@@ -68,6 +69,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
   flagKey: string,
   defaultValue?: T,
   entities?: E,
+  options?: EvaluationOptions,
 ): Promise<EvaluationResult<T>> {
   const controller = getInstance(id).controller as EvaluationTrackingController;
 
@@ -137,6 +139,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     environment: datafile.environment,
     entities: entities ?? {},
     segments: datafile.segments,
+    now: options?.now ?? evalStartTime,
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 
@@ -174,6 +177,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   id: number,
   flags: BulkEvaluateInput<T>[],
   entities?: E,
+  options?: EvaluationOptions,
 ): Promise<Record<string, EvaluationResult<T>>> {
   const controller = getInstance(id).controller as EvaluationTrackingController;
 
@@ -249,6 +253,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
     entities: (entities ?? {}) as Record<string, unknown>,
     environment: datafile.environment,
     segments: datafile.segments,
+    now: options?.now ?? evalStartTime,
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 

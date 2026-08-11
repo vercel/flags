@@ -37,6 +37,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getBooleanValue).toHaveBeenCalledWith(
@@ -65,6 +66,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getStringValue).toHaveBeenCalledWith(
@@ -93,6 +95,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getNumberValue).toHaveBeenCalledWith(
@@ -121,6 +124,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getObjectValue).toHaveBeenCalledWith(
@@ -158,6 +162,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getBooleanValue).toHaveBeenCalledWith(
@@ -186,6 +191,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getStringValue).toHaveBeenCalledWith(
@@ -214,6 +220,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getNumberValue).toHaveBeenCalledWith(
@@ -242,6 +249,7 @@ describe('OpenFeature Adapter', () => {
           entities,
           headers: mockHeaders as ReadonlyHeaders,
           cookies: mockCookies as ReadonlyRequestCookies,
+          now: 1700000000000,
         });
 
         expect(mockClient.getObjectValue).toHaveBeenCalledWith(

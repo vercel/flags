@@ -56,6 +56,7 @@ describe('createGlobalConfigAdapter', () => {
         entities: {},
         headers,
         cookies: {} as ReadonlyRequestCookies,
+        now: 1700000000000,
       });
 
       expect(result).toEqual({ 'flag-a': true, 'flag-b': false });
@@ -74,6 +75,7 @@ describe('createGlobalConfigAdapter', () => {
         entities: {},
         headers,
         cookies: {} as ReadonlyRequestCookies,
+        now: 1700000000000,
       });
 
       expect(result).toEqual({ 'flag-a': true });
@@ -91,6 +93,7 @@ describe('createGlobalConfigAdapter', () => {
         entities: {},
         headers,
         cookies: {} as ReadonlyRequestCookies,
+        now: 1700000000000,
       });
 
       await adapter().bulkDecide!({
@@ -98,6 +101,7 @@ describe('createGlobalConfigAdapter', () => {
         entities: {},
         headers,
         cookies: {} as ReadonlyRequestCookies,
+        now: 1700000000000,
       });
 
       expect(fakeGlobalConfigClient.get).toHaveBeenCalledOnce();
@@ -122,6 +126,7 @@ describe('createGlobalConfigAdapter', () => {
         entities: {},
         headers: new Headers(),
         cookies: {} as ReadonlyRequestCookies,
+        now: 1700000000000,
       }),
     ).resolves.toEqual(true);
     expect(fakeGlobalConfigClient.get).toHaveBeenCalledWith('flags');
@@ -143,6 +148,7 @@ describe('createGlobalConfigAdapter', () => {
           entities: {},
           headers,
           cookies: {} as ReadonlyRequestCookies,
+          now: 1700000000000,
         }),
       ).resolves.toEqual(true);
 
@@ -154,6 +160,7 @@ describe('createGlobalConfigAdapter', () => {
           entities: {},
           headers,
           cookies: {} as ReadonlyRequestCookies,
+          now: 1700000000000,
         }),
       ).resolves.toEqual(true);
       expect(fakeGlobalConfigClient.get).toHaveBeenCalledWith('flags');
@@ -172,6 +179,7 @@ describe('createGlobalConfigAdapter', () => {
           entities: {},
           headers: new Headers(),
           cookies: {} as ReadonlyRequestCookies,
+          now: 1700000000000,
         }),
       ).resolves.toEqual(true);
 
@@ -183,6 +191,7 @@ describe('createGlobalConfigAdapter', () => {
           entities: {},
           headers: new Headers(),
           cookies: {} as ReadonlyRequestCookies,
+          now: 1700000000000,
         }),
       ).resolves.toEqual(true);
 

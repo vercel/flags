@@ -151,6 +151,7 @@ describe('createVercelAdapter', () => {
         entities: { user: { id: 'u1' } } as any,
         headers: undefined as any,
         cookies: undefined as any,
+        now: 1700000000000,
       });
 
       expect(bulkEvaluateMock).toHaveBeenCalledTimes(1);
@@ -160,6 +161,7 @@ describe('createVercelAdapter', () => {
           { key: 'b', defaultValue: undefined },
         ],
         { user: { id: 'u1' } },
+        { now: 1700000000000 },
       );
       expect(result).toEqual({ a: 'x', b: 'y' });
     });
@@ -178,6 +180,7 @@ describe('createVercelAdapter', () => {
         flags: [{ key: 'a' }, { key: 'b' }],
         headers: undefined as any,
         cookies: undefined as any,
+        now: 1700000000000,
       });
       expect(result).toEqual({ a: 'ok' });
       expect('b' in result).toBe(false);

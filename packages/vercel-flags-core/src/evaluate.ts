@@ -220,9 +220,12 @@ function matchConditions<T>(
       return rawRhs && matchSegmentCondition(cmpKey, rawRhs, params);
     }
 
-    const lhs = ignoreCase
-      ? lower(access(lhsAccessor, params))
-      : access(lhsAccessor, params);
+    // "now" is the locked current time, not an entity attribute
+    const rawLhs =
+      lhsAccessor === Packed.AccessorType.NOW
+        ? params.now
+        : access(lhsAccessor, params);
+    const lhs = ignoreCase ? lower(rawLhs) : rawLhs;
     const rhs = ignoreCase ? lower(rawRhs) : rawRhs;
 
     try {
@@ -477,8 +480,7 @@ function handleOutcome<T>(
       }
 
       // Determine active slot based on elapsed time
-      const now = Date.now();
-      const elapsed = now - outcome.startTimestamp;
+      const elapsed = params.now - outcome.startTimestamp;
 
       const rollFromVariant = getVariant<T>(
         params.definition,
@@ -663,12 +665,14 @@ export function bulkEvaluate<T = unknown>(
     entities?: Record<string, unknown>;
     environment: string;
     segments?: EvaluationParams<T>['segments'];
+    now: number;
   },
 ): Record<string, EvaluationResult<T>> {
   const params: EvaluationParams<T> = {
     entities: shared.entities,
     environment: shared.environment,
     segments: shared.segments,
+    now: shared.now,
     definition: undefined as unknown as Packed.FlagDefinition,
     defaultValue: undefined,
   };

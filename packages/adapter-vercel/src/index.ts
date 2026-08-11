@@ -40,11 +40,12 @@ export function createVercelAdapter(
     adapterId,
     origin: flagsClient.origin,
     config: { reportValue: false },
-    async decide({ key, entities }) {
+    async decide({ key, entities, now }) {
       const evaluationResult = await flagsClient.evaluate<unknown, unknown>(
         key,
         undefined,
         entities,
+        { now },
       );
 
       if (evaluationResult.value === undefined) {
@@ -61,7 +62,7 @@ export function createVercelAdapter(
       // when there was an error but the defaultValue was set
       return evaluationResult.value;
     },
-    async bulkDecide({ flags, entities }) {
+    async bulkDecide({ flags, entities, now }) {
       // `flags` is typed `{ key: string; defaultValue?: unknown }[]` on
       // `Adapter.bulkDecide` (to keep `ValueType` covariant). The client
       // here narrows it back to `ValueType`; `defaultValue` is shuttled
@@ -69,6 +70,7 @@ export function createVercelAdapter(
       const results = await flagsClient.bulkEvaluate<unknown, unknown>(
         flags as { key: string; defaultValue?: unknown }[],
         entities,
+        { now },
       );
       const out: Record<string, unknown> = {};
       for (const key in results) {

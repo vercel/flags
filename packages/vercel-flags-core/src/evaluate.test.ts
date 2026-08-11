@@ -19,6 +19,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: {},
       }),
     ).toEqual({
@@ -37,6 +38,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: {},
       }),
     ).toEqual({
@@ -57,6 +59,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'this-env-does-not-exist-and-will-cause-an-error',
+          now: Date.now(),
           entities: {},
         }),
       ).toEqual({
@@ -87,6 +90,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: { user: { name: 'Joe' } },
       }),
     ).toEqual({
@@ -115,6 +119,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: { user: {} },
       }),
     ).toEqual({
@@ -141,6 +146,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: {},
       }),
     ).toEqual({
@@ -169,6 +175,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities: { user: { name: 'Joe' } },
       }),
     ).toEqual({
@@ -187,6 +194,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
       }),
     ).toEqual({
       value: false,
@@ -204,6 +212,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'preview',
+        now: Date.now(),
       }),
     ).toEqual({
       value: true,
@@ -232,6 +241,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'preview',
+        now: Date.now(),
         entities: { user: { name: 'Joe' } },
         segments: {
           segment1: {
@@ -263,6 +273,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'preview',
+        now: Date.now(),
         entities: { user: { name: 'Joe' } },
         segments: {},
       }),
@@ -288,6 +299,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
         }),
       ).toEqual({
@@ -333,6 +345,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -358,6 +371,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: { rules: [], include: {}, exclude: {} },
@@ -376,6 +390,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -399,6 +414,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Jim' } },
           segments: {
             segment1: {
@@ -424,6 +440,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: {
@@ -444,6 +461,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: {
@@ -468,6 +486,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Jim' } },
           segments: {
             segment1: {
@@ -493,6 +512,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: {
@@ -514,6 +534,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -541,6 +562,7 @@ describe('evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -573,6 +595,7 @@ describe('evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {
@@ -608,6 +631,7 @@ describe('evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {
@@ -643,6 +667,7 @@ describe('evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {
@@ -1971,6 +1996,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
+        now: Date.now(),
         entities,
         segments,
       }),
@@ -2011,6 +2037,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: longString } },
         }),
       ).toEqual({
@@ -2047,6 +2074,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: longString } },
         }),
       ).toEqual({
@@ -2083,12 +2111,14 @@ describe('evaluate', () => {
       const first = evaluate({
         definition,
         environment: 'production',
+        now: Date.now(),
         entities: { user: { id: 'uid1' } },
       });
 
       const second = evaluate({
         definition,
         environment: 'production',
+        now: Date.now(),
         entities: { user: { id: 'uid2' } },
       });
 
@@ -2133,6 +2163,7 @@ describe('evaluate', () => {
             variants: [false, true],
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: okString } },
         }),
       ).toEqual({
@@ -2240,6 +2271,7 @@ describe('evaluate', () => {
             variants,
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities,
         }),
       ).toEqual({
@@ -2270,6 +2302,7 @@ describe('evaluate', () => {
               seed,
             } satisfies Packed.FlagDefinition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { id: `uid${i}` } },
           }).value as 'a' | 'b' | 'c' | 'd';
           totals[result]++;
@@ -2318,6 +2351,7 @@ describe('evaluate', () => {
             seed: 7,
           } satisfies Packed.FlagDefinition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: `uid${i}` } },
         }).value as string;
         counts[variants.indexOf(result)]!++;
@@ -2376,6 +2410,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
         }),
       ).toEqual({
@@ -2396,6 +2431,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
         }),
       ).toEqual({
@@ -2416,6 +2452,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
         }),
       ).toEqual({
@@ -2436,6 +2473,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: {},
         }),
       ).toEqual({
@@ -2459,6 +2497,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: `uid${i}` } },
         });
         if (result.value === true) trueCount++;
@@ -2489,6 +2528,7 @@ describe('evaluate', () => {
               variants: [false, true],
             },
             environment: 'production',
+            now: Date.now(),
             entities: { user: { id: uid } },
           });
           if (evalResult.value === true) result.add(uid);
@@ -2533,6 +2573,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: `uid${i}` } },
         });
         if (result.value === true) trueCount++;
@@ -2560,6 +2601,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: `uid${i}` } },
         });
         if (result.value === true) rollToCount++;
@@ -2596,6 +2638,7 @@ describe('evaluate', () => {
             variants: [false, true],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1', plan: 'pro' } },
         }),
       ).toEqual({
@@ -2635,6 +2678,7 @@ describe('evaluate', () => {
             variants: [...VARIANTS],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: uid } },
         }).value;
       };
@@ -2666,6 +2710,7 @@ describe('evaluate', () => {
             variants: [...VARIANTS],
           },
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: uid } },
         }).value;
       };
@@ -2734,6 +2779,7 @@ describe('bulkEvaluate', () => {
         },
         {
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
         },
       ),
@@ -2770,7 +2816,7 @@ describe('bulkEvaluate', () => {
         a: { definition, defaultValue: true },
         b: { definition, defaultValue: false },
       },
-      { environment: 'this-env-does-not-exist', entities: {} },
+      { environment: 'this-env-does-not-exist', entities: {}, now: Date.now() },
     );
 
     expect(results.a).toEqual({
@@ -2810,6 +2856,7 @@ describe('bulkEvaluate', () => {
       },
       {
         environment: 'production',
+        now: Date.now(),
         entities: { user: { name: 'Joe' } },
         segments: {
           segment1: {
@@ -2835,6 +2882,8 @@ describe('bulkEvaluate', () => {
   });
 
   it('returns an empty object when no flags are provided', () => {
-    expect(bulkEvaluate({}, { environment: 'production' })).toEqual({});
+    expect(
+      bulkEvaluate({}, { environment: 'production', now: Date.now() }),
+    ).toEqual({});
   });
 });

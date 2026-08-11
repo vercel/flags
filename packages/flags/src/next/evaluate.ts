@@ -180,6 +180,12 @@ interface BulkStoreData {
   cookies: ReadonlyRequestCookies;
   dedupeCacheKey: Headers | IncomingHttpHeaders;
   overrides: Record<string, any> | null;
+  /**
+   * The current time (epoch ms), locked once for the whole `evaluate()`
+   * batch so every flag in it — bulk-grouped or standalone — agrees on
+   * "now", regardless of how long evaluation takes.
+   */
+  now: number;
 }
 
 const bulkStore = new AsyncLocalStorage<BulkStoreData>();
@@ -344,6 +350,10 @@ export function getRun<ValueType, EntitiesType>(
 
     // Check if running inside evaluate() — reuse pre-read headers/cookies/overrides
     const bulkData = bulkStore.getStore();
+    // Reuse the batch's locked time when running inside evaluate(); a
+    // standalone flag() call has nothing to stay consistent with, so it
+    // reads a fresh value.
+    const now = bulkData ? bulkData.now : Date.now();
 
     let overrides: Record<string, any> | null;
 
@@ -409,6 +419,7 @@ export function getRun<ValueType, EntitiesType>(
           headers: readonlyHeaders,
           cookies: readonlyCookies,
           entities,
+          now,
         }),
     });
   };
@@ -520,11 +531,16 @@ async function evaluateImpl(
   // Read overrides once
   const overrides = await readOverrides(readonlyCookies);
 
+  // Lock "now" once for the whole batch so every flag agrees on the current
+  // time, regardless of how long evaluation takes.
+  const now = Date.now();
+
   const storeData: BulkStoreData = {
     headers: readonlyHeaders,
     cookies: readonlyCookies,
     dedupeCacheKey,
     overrides,
+    now,
   };
 
   return bulkStore.run(storeData, async () => {
@@ -629,6 +645,7 @@ async function evaluateImpl(
                     entities,
                     headers: readonlyHeaders,
                     cookies: readonlyCookies,
+                    now,
                   });
                 } catch (err) {
                   bulkError = err;

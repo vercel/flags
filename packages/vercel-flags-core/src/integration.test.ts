@@ -136,6 +136,7 @@ describe('integration evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: {
@@ -160,6 +161,7 @@ describe('integration evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Jim' } },
           segments: {
             segment1: {
@@ -185,6 +187,7 @@ describe('integration evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { id: 'uid1' } },
           segments: {
             segment1: {
@@ -206,6 +209,7 @@ describe('integration evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -233,6 +237,7 @@ describe('integration evaluate', () => {
         evaluate({
           definition,
           environment: 'production',
+          now: Date.now(),
           entities: { user: { name: 'Joe' } },
           segments: {
             segment1: {
@@ -265,6 +270,7 @@ describe('integration evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {
@@ -300,6 +306,7 @@ describe('integration evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {
@@ -335,6 +342,7 @@ describe('integration evaluate', () => {
           evaluate({
             definition,
             environment: 'production',
+            now: Date.now(),
             entities: { user: { name: `name${i}` } },
             segments: {
               segment1: {

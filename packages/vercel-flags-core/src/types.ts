@@ -123,6 +123,16 @@ export type BulkEvaluateInput<T = Value> = {
   defaultValue?: T;
 };
 
+export type EvaluationOptions = {
+  /**
+   * The current time (epoch ms) to use for time-based conditions and
+   * rollouts. Defaults to `Date.now()`. Callers evaluating several flags
+   * together (e.g. a request-scoped batch) should pass the same `now` to
+   * every call so they all agree on "now".
+   */
+  now?: number;
+};
+
 /**
  * A client for Vercel Flags
  */
@@ -149,6 +159,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     flagKey: string,
     defaultValue?: T,
     entities?: E,
+    options?: EvaluationOptions,
   ) => Promise<EvaluationResult<T>>;
   /**
    * Evaluate multiple feature flags against the same entities in a single call.
@@ -165,6 +176,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
   bulkEvaluate: <T = Value, E = Entities>(
     flags: BulkEvaluateInput<T>[],
     entities?: E,
+    options?: EvaluationOptions,
   ) => Promise<Record<string, EvaluationResult<T>>>;
   /**
    * Retrieve the latest datafile during startup, and set up subscriptions if needed.
@@ -192,6 +204,12 @@ export type EvaluationParams<T> = {
   segments?: Record<SegmentId, Packed.Segment>;
   definition: Packed.FlagDefinition;
   defaultValue?: T;
+  /**
+   * The current time (epoch ms), locked once per evaluation/batch by the
+   * caller so all conditions and rollout calculations within it agree on
+   * "now", regardless of how long evaluation takes.
+   */
+  now: number;
 };
 
 // Copied from the OpenFeature ErrorCode and commented out unused types
@@ -483,6 +501,7 @@ export namespace Original {
   export enum AccessorType {
     SEGMENT = 'segment',
     ENTITY = 'entity',
+    NOW = 'now',
   }
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
@@ -569,6 +588,11 @@ export namespace Original {
     attribute: string;
   };
   export type SegmentAccessor = { type: AccessorType.SEGMENT };
+  /**
+   * References the current time (epoch ms), as locked for the duration of
+   * this evaluation. Packs to the `'now'` literal in `Packed.LHS`.
+   */
+  export type NowAccessor = { type: AccessorType.NOW };
 
   export type List = {
     // backwards compatibility, we should only use "list" going forward
@@ -577,7 +601,7 @@ export namespace Original {
     id?: never;
   };
 
-  export type LHS = SegmentAccessor | EntityAccessor;
+  export type LHS = SegmentAccessor | EntityAccessor | NowAccessor;
   export type RHS =
     | string
     | number
@@ -707,6 +731,7 @@ export namespace Packed {
   export enum AccessorType {
     SEGMENT = 'segment',
     ENTITY = 'entity',
+    NOW = 'now',
   }
 
   export type SplitOutcome = {
@@ -784,14 +809,18 @@ export namespace Packed {
 
   export type Outcome = VariantIndex | SplitOutcome | RolloutOutcome;
 
-  // an array means it's an entity, the string "segment" means a segment
+  // an array means it's an entity, the string "segment" means a segment,
+  // the string "now" means the current time (epoch ms) as locked for this
+  // evaluation, letting conditions compare "now" against a UI-authored
+  // timestamp with the existing GT/GTE/LT/LTE comparators.
   export type EntityAccessor = (string | number)[];
   export type SegmentAccessor = 'segment';
+  export type NowAccessor = 'now';
 
   /**
    * An array means an entity
    */
-  export type LHS = EntityAccessor | SegmentAccessor;
+  export type LHS = EntityAccessor | SegmentAccessor | NowAccessor;
 
   /**
    * undefined when the rhs is not used by the comparator

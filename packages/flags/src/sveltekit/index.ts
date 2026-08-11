@@ -223,6 +223,7 @@ export function flag<
       headers,
       cookies,
       entities,
+      now: store.now,
     });
     store.usedFlags[definition.key] = valuePromise as Promise<JsonValue>;
 
@@ -264,6 +265,11 @@ interface AsyncLocalContext {
   params: Record<string, string>;
   usedFlags: Record<string, Promise<JsonValue>>;
   identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
+  /**
+   * The current time (epoch ms), locked once per request so every flag
+   * evaluated for it agrees on "now".
+   */
+  now: number;
 }
 
 function createContext(
@@ -277,6 +283,7 @@ function createContext(
     params: params ?? {},
     usedFlags: {},
     identifiers: new Map(),
+    now: Date.now(),
   };
 }
 
