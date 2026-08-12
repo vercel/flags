@@ -701,6 +701,7 @@ describe('evaluate', () => {
     condition: Packed.Condition;
     entities: Record<string, unknown> | undefined;
     segments?: Record<string, Packed.Segment>;
+    now?: number;
     result: boolean;
   }>([
     // EQ (string)
@@ -1507,6 +1508,111 @@ describe('evaluate', () => {
       result: false,
     },
 
+    // BEFORE / AFTER with epoch ms (entity or now)
+    {
+      name: `${Comparator.BEFORE} epoch lhs vs ISO rhs match`,
+      condition: [
+        ['user', 'createdAt'],
+        Comparator.BEFORE,
+        '2000-01-01T00:00:00.000Z',
+      ],
+      entities: { user: { createdAt: Date.parse('1970-01-01T00:00:00.000Z') } },
+      result: true,
+    },
+    {
+      name: `${Comparator.AFTER} epoch lhs vs epoch rhs match`,
+      condition: [
+        ['user', 'createdAt'],
+        Comparator.AFTER,
+        Date.parse('1970-01-01T00:00:00.000Z'),
+      ],
+      entities: { user: { createdAt: Date.parse('2000-01-01T00:00:00.000Z') } },
+      result: true,
+    },
+    {
+      name: `${Comparator.BEFORE} invalid date string miss`,
+      condition: [['user', 'createdAt'], Comparator.BEFORE, 'not-a-date'],
+      entities: { user: { createdAt: '2000-01-01T00:00:00.000Z' } },
+      result: false,
+    },
+
+    // now accessor
+    {
+      name: `now ${Comparator.BEFORE} ISO match`,
+      condition: ['now', Comparator.BEFORE, '2000-01-01T00:00:00.000Z'],
+      entities: {},
+      now: Date.parse('1970-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.BEFORE} ISO miss`,
+      condition: ['now', Comparator.BEFORE, '1970-01-01T00:00:00.000Z'],
+      entities: {},
+      now: Date.parse('2000-01-01T00:00:00.000Z'),
+      result: false,
+    },
+    {
+      name: `now ${Comparator.AFTER} ISO match`,
+      condition: ['now', Comparator.AFTER, '1970-01-01T00:00:00.000Z'],
+      entities: {},
+      now: Date.parse('2000-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.AFTER} ISO miss`,
+      condition: ['now', Comparator.AFTER, '2000-01-01T00:00:00.000Z'],
+      entities: {},
+      now: Date.parse('1970-01-01T00:00:00.000Z'),
+      result: false,
+    },
+    {
+      name: `now ${Comparator.BEFORE} epoch rhs match`,
+      condition: [
+        'now',
+        Comparator.BEFORE,
+        Date.parse('2000-01-01T00:00:00.000Z'),
+      ],
+      entities: {},
+      now: Date.parse('1970-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.AFTER} epoch rhs match`,
+      condition: [
+        'now',
+        Comparator.AFTER,
+        Date.parse('1970-01-01T00:00:00.000Z'),
+      ],
+      entities: {},
+      now: Date.parse('2000-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.LT} epoch match`,
+      condition: ['now', Comparator.LT, Date.parse('2000-01-01T00:00:00.000Z')],
+      entities: {},
+      now: Date.parse('1970-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.GTE} epoch match`,
+      condition: [
+        'now',
+        Comparator.GTE,
+        Date.parse('2000-01-01T00:00:00.000Z'),
+      ],
+      entities: {},
+      now: Date.parse('2000-01-01T00:00:00.000Z'),
+      result: true,
+    },
+    {
+      name: `now ${Comparator.LT} ISO rhs does not coerce`,
+      condition: ['now', Comparator.LT, '2000-01-01T00:00:00.000Z'],
+      entities: {},
+      now: Date.parse('1970-01-01T00:00:00.000Z'),
+      result: false,
+    },
+
     // ---- Case-insensitive via string shorthand: 'i' ----
 
     // EQ 'i'
@@ -1981,6 +2087,7 @@ describe('evaluate', () => {
     condition,
     entities,
     segments,
+    now,
     result,
   }) => {
     expect(
@@ -1996,7 +2103,7 @@ describe('evaluate', () => {
           variants: [false, true],
         } satisfies Packed.FlagDefinition,
         environment: 'production',
-        now: Date.now(),
+        now: now ?? Date.now(),
         entities,
         segments,
       }),
@@ -2411,6 +2518,29 @@ describe('evaluate', () => {
           },
           environment: 'production',
           now: Date.now(),
+          entities: { user: { id: 'uid1' } },
+        }),
+      ).toEqual({
+        value: false,
+        variantId: null,
+        reason: ResolutionReason.FALLTHROUGH,
+        outcomeType: OutcomeType.ROLLOUT,
+      });
+    });
+
+    it('uses params.now instead of the wall clock', () => {
+      // Wall clock is after the rollout finishes (100%), but params.now is
+      // before start — evaluation must follow the locked now.
+      vi.setSystemTime(startTimestamp + 100 * HOUR);
+      expect(
+        evaluate({
+          definition: {
+            environments: { production: { fallthrough: makeRollout() } },
+            seed: 7,
+            variants: [false, true],
+          },
+          environment: 'production',
+          now: startTimestamp - 1,
           entities: { user: { id: 'uid1' } },
         }),
       ).toEqual({
@@ -2879,6 +3009,63 @@ describe('bulkEvaluate', () => {
     };
     expect(results.a).toEqual(expected);
     expect(results.b).toEqual(expected);
+  });
+
+  it('shares a locked now across flags with date conditions', () => {
+    const boundary = Date.parse('2000-01-01T00:00:00.000Z');
+    const beforeFlag: Packed.FlagDefinition = {
+      environments: {
+        production: {
+          rules: [
+            {
+              conditions: [['now', Comparator.BEFORE, boundary]],
+              outcome: 1,
+            },
+          ],
+          fallthrough: 0,
+        },
+      },
+      variants: [false, true],
+    };
+    const afterFlag: Packed.FlagDefinition = {
+      environments: {
+        production: {
+          rules: [
+            {
+              conditions: [['now', Comparator.AFTER, boundary]],
+              outcome: 1,
+            },
+          ],
+          fallthrough: 0,
+        },
+      },
+      variants: [false, true],
+    };
+
+    const results = bulkEvaluate(
+      {
+        before: { definition: beforeFlag },
+        after: { definition: afterFlag },
+      },
+      {
+        environment: 'production',
+        now: Date.parse('1999-12-31T00:00:00.000Z'),
+        entities: {},
+      },
+    );
+
+    expect(results.before).toEqual({
+      value: true,
+      variantId: null,
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.VALUE,
+    });
+    expect(results.after).toEqual({
+      value: false,
+      variantId: null,
+      reason: ResolutionReason.FALLTHROUGH,
+      outcomeType: OutcomeType.VALUE,
+    });
   });
 
   it('returns an empty object when no flags are provided', () => {

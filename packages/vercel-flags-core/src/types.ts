@@ -473,15 +473,15 @@ export enum Comparator {
    */
   NOT_REGEX = '!regex',
   /**
-   * lhs must be date string
-   * rhs must be date string
+   * lhs/rhs must be a date string or epoch milliseconds (number).
+   * Used with entity date attributes or the `now` accessor.
    *
    * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#date_time_string_format
    */
   BEFORE = 'before',
   /**
-   * lhs must be date string
-   * rhs must be date string
+   * lhs/rhs must be a date string or epoch milliseconds (number).
+   * Used with entity date attributes or the `now` accessor.
    *
    * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#date_time_string_format
    */
@@ -811,8 +811,8 @@ export namespace Packed {
 
   // an array means it's an entity, the string "segment" means a segment,
   // the string "now" means the current time (epoch ms) as locked for this
-  // evaluation, letting conditions compare "now" against a UI-authored
-  // timestamp with the existing GT/GTE/LT/LTE comparators.
+  // evaluation. Prefer BEFORE/AFTER (ISO string or epoch ms RHS); GT/GTE/LT/LTE
+  // also work when the RHS is epoch milliseconds.
   export type EntityAccessor = (string | number)[];
   export type SegmentAccessor = 'segment';
   export type NowAccessor = 'now';

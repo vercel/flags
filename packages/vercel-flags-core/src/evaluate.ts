@@ -112,6 +112,19 @@ function isArray(input: unknown): input is unknown[] {
   return Array.isArray(input);
 }
 
+/**
+ * Normalize a date-like value to epoch milliseconds.
+ * Accepts finite numbers (epoch ms) and parseable date strings.
+ */
+function toEpochMs(value: unknown): number | null {
+  if (isNumber(value) && Number.isFinite(value)) return value;
+  if (isString(value)) {
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  return null;
+}
+
 function lower<T>(input: T): T {
   if (typeof input === 'string') return input.toLowerCase() as T;
   if (Array.isArray(input)) return input.map(lower) as T;
@@ -337,18 +350,17 @@ function matchConditions<T>(
           }
           return false;
         case Comparator.BEFORE: {
-          if (!isString(lhs) || !isString(rhs)) return false;
-          const a = new Date(lhs);
-          const b = new Date(rhs);
-          // if any date fails to parse getTime will return NaN, which will cause
-          // comparisons to fail.
-          return a.getTime() < b.getTime();
+          const a = toEpochMs(lhs);
+          const b = toEpochMs(rhs);
+          // Unparseable values (including NaN from bad date strings) do not match.
+          if (a === null || b === null) return false;
+          return a < b;
         }
         case Comparator.AFTER: {
-          if (!isString(lhs) || !isString(rhs)) return false;
-          const a = new Date(lhs);
-          const b = new Date(rhs);
-          return a.getTime() > b.getTime();
+          const a = toEpochMs(lhs);
+          const b = toEpochMs(rhs);
+          if (a === null || b === null) return false;
+          return a > b;
         }
         default: {
           const _x: never = cmpKey; // exhaustive check
