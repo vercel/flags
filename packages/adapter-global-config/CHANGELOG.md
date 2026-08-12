@@ -1,5 +1,11 @@
 # @flags-sdk/global-config
 
+## 0.3.1
+
+### Patch Changes
+
+- [#464](https://github.com/vercel/flags/pull/464) [`8913cf1`](https://github.com/vercel/flags/commit/8913cf157808eda595c9c0ed5f21e5c70a5f03ca) Thanks [@AndyBitz](https://github.com/AndyBitz)! - Upgrade `@vercel/global-config` from `1.5.0` to `1.5.1`
+
 ## 0.3.0
 
 ### Minor Changes
