@@ -189,6 +189,88 @@ describe('flag on app router', () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
+  it('locks now across standalone flag() calls in the same request', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2000-01-01T00:00:00.000Z'));
+    const t0 = Date.parse('2000-01-01T00:00:00.000Z');
+
+    const seen: number[] = [];
+    const a = flag<number>({
+      key: 'now-a',
+      decide: ({ now }) => {
+        seen.push(now!);
+        return now!;
+      },
+    });
+    const b = flag<number>({
+      key: 'now-b',
+      decide: ({ now }) => {
+        seen.push(now!);
+        return now!;
+      },
+    });
+
+    const headers = new Headers();
+    mocks.headers.mockReturnValueOnce(headers);
+    mocks.headers.mockReturnValueOnce(headers);
+
+    await expect(a()).resolves.toEqual(t0);
+    vi.setSystemTime(new Date('2000-01-01T00:00:01.000Z'));
+    await expect(b()).resolves.toEqual(t0);
+    expect(seen).toEqual([t0, t0]);
+
+    // Different request identity gets a fresh lock at the advanced wall clock.
+    const t1 = Date.parse('2000-01-01T00:00:01.000Z');
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(a()).resolves.toEqual(t1);
+    expect(seen).toEqual([t0, t0, t1]);
+
+    vi.useRealTimers();
+  });
+
+  it('shares locked now between flag() and evaluate() in either order', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2000-01-01T00:00:00.000Z'));
+    const t0 = Date.parse('2000-01-01T00:00:00.000Z');
+
+    const seen: number[] = [];
+    const make = (key: string) =>
+      flag<string>({
+        key,
+        decide: ({ now }) => {
+          seen.push(now!);
+          return key;
+        },
+      });
+
+    // flag() first, then evaluate() after wall clock advances
+    const a = make('now-share-a');
+    const b = make('now-share-b');
+    const headers1 = new Headers();
+    mocks.headers.mockReturnValueOnce(headers1);
+    mocks.headers.mockReturnValueOnce(headers1);
+    await a();
+    vi.setSystemTime(new Date('2000-01-01T00:00:01.000Z'));
+    await evaluate({ b });
+    expect(seen).toEqual([t0, t0]);
+
+    // evaluate() first, then flag() after wall clock advances further
+    seen.length = 0;
+    vi.setSystemTime(new Date('2000-01-01T00:00:02.000Z'));
+    const t2 = Date.parse('2000-01-01T00:00:02.000Z');
+    const c = make('now-share-c');
+    const d = make('now-share-d');
+    const headers2 = new Headers();
+    mocks.headers.mockReturnValueOnce(headers2);
+    mocks.headers.mockReturnValueOnce(headers2);
+    await evaluate({ c });
+    vi.setSystemTime(new Date('2000-01-01T00:00:03.000Z'));
+    await d();
+    expect(seen).toEqual([t2, t2]);
+
+    vi.useRealTimers();
+  });
+
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
     const f = flag<boolean>({ key: 'first-flag', decide });
@@ -1242,6 +1324,43 @@ describe('evaluate', () => {
       expect(bulkDecideMock).toHaveBeenCalledTimes(1);
       expect(decideMock).toHaveBeenCalledTimes(1);
       socket.destroy();
+    });
+
+    it('locks now across evaluate(req) and flag(req) in the same request', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2000-01-01T00:00:00.000Z'));
+      const t0 = Date.parse('2000-01-01T00:00:00.000Z');
+
+      const seen: number[] = [];
+      const a = flag<string>({
+        key: 'now-pages-a',
+        decide: ({ now }) => {
+          seen.push(now!);
+          return 'a';
+        },
+      });
+      const b = flag<string>({
+        key: 'now-pages-b',
+        decide: ({ now }) => {
+          seen.push(now!);
+          return 'b';
+        },
+      });
+
+      const [request, socket] = createRequest();
+      await expect(evaluate({ a }, request)).resolves.toEqual({ a: 'a' });
+      vi.setSystemTime(new Date('2000-01-01T00:00:01.000Z'));
+      await expect(b(request)).resolves.toEqual('b');
+      expect(seen).toEqual([t0, t0]);
+
+      // A different request object gets a fresh lock.
+      const [request2, socket2] = createRequest();
+      await expect(a(request2)).resolves.toEqual('a');
+      expect(seen).toEqual([t0, t0, Date.parse('2000-01-01T00:00:01.000Z')]);
+
+      socket.destroy();
+      socket2.destroy();
+      vi.useRealTimers();
     });
 
     it('accepts a web Request (NextRequest) passed directly to flag(req)', async () => {

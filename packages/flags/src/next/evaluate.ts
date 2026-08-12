@@ -181,14 +181,31 @@ interface BulkStoreData {
   dedupeCacheKey: Headers | IncomingHttpHeaders;
   overrides: Record<string, any> | null;
   /**
-   * The current time (epoch ms), locked once for the whole `evaluate()`
-   * batch so every flag in it — bulk-grouped or standalone — agrees on
-   * "now", regardless of how long evaluation takes.
+   * The current time (epoch ms) for this `evaluate()` batch. Seeded from
+   * `nowByRequest` so standalone `flag()` calls in the same request agree.
    */
   now: number;
 }
 
 const bulkStore = new AsyncLocalStorage<BulkStoreData>();
+
+/**
+ * Locks evaluation time once per request, keyed by the same object
+ * `identifyArgsMap` uses (`headers()` store or `request.headers`).
+ * Get-or-set only — never overwrite an existing lock.
+ */
+const nowByRequest = new WeakMap<Headers | IncomingHttpHeaders, number>();
+
+function getRequestNow(
+  key: Headers | IncomingHttpHeaders,
+  preferred?: number,
+): number {
+  const existing = nowByRequest.get(key);
+  if (existing !== undefined) return existing;
+  const now = preferred ?? Date.now();
+  nowByRequest.set(key, now);
+  return now;
+}
 
 let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
 let headersModule: typeof import('next/headers') | undefined;
@@ -350,10 +367,6 @@ export function getRun<ValueType, EntitiesType>(
 
     // Check if running inside evaluate() — reuse pre-read headers/cookies/overrides
     const bulkData = bulkStore.getStore();
-    // Reuse the batch's locked time when running inside evaluate(); a
-    // standalone flag() call has nothing to stay consistent with, so it
-    // reads a fresh value.
-    const now = bulkData ? bulkData.now : Date.now();
 
     let overrides: Record<string, any> | null;
 
@@ -393,6 +406,11 @@ export function getRun<ValueType, EntitiesType>(
 
       overrides = await readOverrides(readonlyCookies);
     }
+
+    // Lock after the request key is known. Prefer the evaluate() batch's
+    // now when present, but never overwrite a lock already set by an
+    // earlier flag() in this request.
+    const now = getRequestNow(dedupeCacheKey, bulkData?.now);
 
     // the flag is being used in app router
     // skip microtask if identify does not exist
@@ -531,9 +549,9 @@ async function evaluateImpl(
   // Read overrides once
   const overrides = await readOverrides(readonlyCookies);
 
-  // Lock "now" once for the whole batch so every flag agrees on the current
-  // time, regardless of how long evaluation takes.
-  const now = Date.now();
+  // Lock "now" for this request (shared with standalone flag() calls that
+  // use the same dedupeCacheKey). Get-or-set so a prior flag() wins.
+  const now = getRequestNow(dedupeCacheKey);
 
   const storeData: BulkStoreData = {
     headers: readonlyHeaders,
