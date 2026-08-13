@@ -3,7 +3,6 @@ import { MobileDocsBar } from "@vercel/geistdocs/mobile-docs-bar";
 import { createDocsPage } from "@vercel/geistdocs/pages/docs";
 import { getMDXComponents } from "@/components/geistdocs/mdx-components";
 import { IframeBrowser } from "@/components/custom/iframe-browser";
-import { InstallSkill } from "@/components/custom/install-skill";
 import { LearnMore } from "@/components/custom/learn-more";
 import { ProviderList } from "@/components/custom/provider-list";
 import { config } from "@/lib/geistdocs/config";
@@ -16,7 +15,6 @@ const docsPage = createDocsPage({
     getMDXComponents({
       a: link,
       IframeBrowser,
-      InstallSkill,
       LearnMore,
       ProviderList,
       ThemeAwareImage,
