@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/openfeature",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "OpenFeature provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
