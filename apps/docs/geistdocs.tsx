@@ -34,6 +34,7 @@ export const suggestions = [
   "What frameworks are supported by Flags SDK?",
   "Which providers are supported by Flags SDK?",
   "How do I precompute flags?",
+  "How do I install the Flags SDK agent skill?",
 ];
 
 export const title = "Flags SDK Documentation";
@@ -45,7 +46,7 @@ export const agent = {
   product: {
     name: "Flags SDK",
     description:
-      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.",
+      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit. Install the agent skill with `npx skills add vercel/flags@flags-sdk` for AI coding assistants.",
     category: "Feature Flags",
     audience: ["Application developers", "Framework teams"],
     useCases: [
@@ -59,6 +60,11 @@ export const agent = {
       label: "Flags SDK source",
       href: `https://github.com/${github.owner}/${github.repo}`,
       description: "Source repository for Flags SDK",
+    },
+    {
+      label: "Flags SDK agent skill",
+      href: "https://flags-sdk.dev/docs/agent-skill",
+      description: "Install with npx skills add vercel/flags@flags-sdk",
     },
   ],
 } satisfies GeistdocsAgentReadinessConfig;
