@@ -4,10 +4,11 @@ import { INSTALL_SKILL_COMMAND } from '@/lib/agent-skill';
 
 export function InstallSkill() {
   return (
-    <Callout title="Agent skill" type="info">
-      Using an AI coding assistant? Install the Flags SDK skill with{' '}
-      <code>{INSTALL_SKILL_COMMAND}</code> so it follows the recommended
-      workflows. <Link href="/docs/agent-skill">Learn more</Link>.
+    <Callout title="Flags SDK agent skill" type="info">
+      Install the Flags SDK agent skill with{' '}
+      <code>{INSTALL_SKILL_COMMAND}</code> so your AI coding assistant follows
+      the recommended workflows.{' '}
+      <Link href="/docs/agent-skill">See the agent skill guide</Link>.
     </Callout>
   );
 }

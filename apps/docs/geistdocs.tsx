@@ -46,7 +46,7 @@ export const agent = {
   product: {
     name: "Flags SDK",
     description:
-      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit. Install the agent skill with `npx skills add vercel/flags@flags-sdk` for AI coding assistants.",
+      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.",
     category: "Feature Flags",
     audience: ["Application developers", "Framework teams"],
     useCases: [

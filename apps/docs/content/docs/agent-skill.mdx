@@ -1,11 +1,11 @@
 ---
-title: Agent Skill
+title: Install the Flags SDK agent skill
 description: Install the Flags SDK agent skill so AI coding assistants follow the recommended workflows.
 ---
 
 The Flags SDK ships an [agent skill](https://skills.sh/) that teaches AI coding assistants how to declare flags, wire adapters, use the `vercel flags` CLI, and apply patterns like precompute.
 
-## Install
+## How to install
 
 ```sh title="Terminal"
 npx skills add vercel/flags@flags-sdk
@@ -13,11 +13,11 @@ npx skills add vercel/flags@flags-sdk
 
 Works with Cursor, Claude Code, Codex, and other assistants that support the skills standard.
 
-## What it covers
+## What the skill covers
 
 - Declaring typed flags with `flag()` in Next.js and SvelteKit
 - Connecting providers through adapters (Vercel Flags, Statsig, LaunchDarkly, and others)
 - Managing Vercel Flags with the `vercel flags` CLI
 - Precompute, identify/dedupe, and Flags Explorer setup
 
-Once installed, ask your assistant to add a feature flag or connect a provider — it will follow the skill's workflow instead of guessing from general docs.
+After install, ask your assistant to add a feature flag or connect a provider. The skill steers the assistant through the Flags SDK workflow.
