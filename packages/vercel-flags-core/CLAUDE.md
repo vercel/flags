@@ -273,6 +273,12 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - Supports multiple simultaneous clients
 - Necessary as we can't pass functions to `'use cache'` wrappers
 
+### Restart After Shutdown
+
+`shutdown()` calls `unwireSourceEvents()`, so the source event handlers are no longer subscribed once it returns. `wireSourceEvents()` therefore runs at the start of both `tryInitializeStream()` and `tryInitializePolling()` — the only two places that start a source — so a client that is initialized again after a shutdown applies the data its new connection delivers. Without that, the stream reconnects but every datafile it sends is silently ignored.
+
+Re-wiring is safe to repeat: the handlers are stable instance properties and `TypedEmitter` keeps them in a `Set`, so a handler can not be registered twice.
+
 ### configUpdatedAt Guard
 
 The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
