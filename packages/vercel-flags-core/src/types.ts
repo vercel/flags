@@ -605,8 +605,6 @@ export namespace Original {
     base: EntityAccessor;
     /** Distribution keyed by flag variant ID. */
     weights: Record<VariantId, number>;
-    /** Experiment variant ID keyed by flag variant ID. */
-    variantIds: Record<VariantId, string>;
     /** Flag variant used when the base attribute does not exist. */
     defaultVariantId: VariantId;
     /** Seed used to keep experiment assignment stable and independent. */
@@ -852,8 +850,6 @@ export namespace Packed {
     base: EntityAccessor;
     /** Distribution indexed by the corresponding flag variant. */
     weights: number[];
-    /** Experiment variant IDs indexed by the corresponding flag variant. */
-    variantIds: (string | null)[];
     /** Flag variant used when the base attribute does not exist. */
     defaultVariant: VariantIndex;
     /** Seed used to keep experiment assignment stable and independent. */

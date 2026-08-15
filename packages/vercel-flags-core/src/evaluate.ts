@@ -479,19 +479,19 @@ function handleOutcome<T>(
         experiment,
         experiment.seed,
       );
-      const experimentVariantId = experiment.variantIds[index];
-      if (typeof experimentVariantId !== 'string') {
+      const variant = getVariant<T>(params.definition, index);
+      if (typeof variant.variantId !== 'string') {
         throw new Error(
-          `@vercel/flags-core: Experiment variant ID not found at index ${index} for experiment "${experiment.id}"`,
+          `@vercel/flags-core: Flag variant ID not found at index ${index} for experiment "${experiment.id}"`,
         );
       }
 
       return {
-        ...getVariant<T>(params.definition, index),
+        ...variant,
         outcomeType: OutcomeType.EXPERIMENT,
         experiment: {
           id: experiment.id,
-          variantId: experimentVariantId,
+          variantId: variant.variantId,
           base: experiment.base,
           rampId: experiment.rampId,
           rampPercentage: experiment.rampPercentage,

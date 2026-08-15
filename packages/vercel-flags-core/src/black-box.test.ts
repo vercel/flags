@@ -3699,11 +3699,11 @@ describe('Controller (black-box)', () => {
           },
         },
         variants: ['control-a', 'treatment-a'],
+        variantIds: ['control-a', 'treatment-a'],
         experiment: {
           id: 'exp_a',
           base: ['user', 'key'],
           weights: [0, 1],
-          variantIds: ['exp-a-control', 'exp-a-treatment'],
           defaultVariant: 0,
           seed: 101,
           rampId: 'ramp_a',
@@ -3717,11 +3717,11 @@ describe('Controller (black-box)', () => {
           },
         },
         variants: ['control-b', 'treatment-b'],
+        variantIds: ['control-b', 'treatment-b'],
         experiment: {
           id: 'exp_b',
           base: ['session', 'key'],
           weights: [1, 0],
-          variantIds: ['exp-b-control', 'exp-b-treatment'],
           defaultVariant: 0,
           seed: 202,
         },
@@ -3751,7 +3751,7 @@ describe('Controller (black-box)', () => {
         outcomeType: 'experiment',
         experiment: {
           id: 'exp_a',
-          variantId: 'exp-a-treatment',
+          variantId: 'treatment-a',
           base: ['user', 'key'],
           rampId: 'ramp_a',
           rampPercentage: 50,
@@ -3763,7 +3763,7 @@ describe('Controller (black-box)', () => {
           {
             flagKey: 'flagA',
             experimentId: 'exp_a',
-            variantId: 'exp-a-treatment',
+            variantId: 'treatment-a',
             base: ['user', 'key'],
             rampId: 'ramp_a',
             rampPercentage: 50,
@@ -3814,7 +3814,7 @@ describe('Controller (black-box)', () => {
           {
             flagKey: 'flagA',
             experimentId: 'exp_a',
-            variantId: 'exp-a-treatment',
+            variantId: 'treatment-a',
             base: ['user', 'key'],
             rampId: 'ramp_a',
             rampPercentage: 50,
@@ -3822,7 +3822,7 @@ describe('Controller (black-box)', () => {
           {
             flagKey: 'flagB',
             experimentId: 'exp_b',
-            variantId: 'exp-b-control',
+            variantId: 'control-b',
             base: ['session', 'key'],
           },
         ],

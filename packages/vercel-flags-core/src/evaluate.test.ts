@@ -2719,7 +2719,6 @@ describe('experiment outcomes', () => {
       id: 'exp_checkout',
       base: ['user', 'key'],
       weights: [0, 1],
-      variantIds: ['exp-control', 'exp-treatment'],
       defaultVariant: 0,
       seed: 123,
       rampId: 'ramp_1',
@@ -2741,7 +2740,7 @@ describe('experiment outcomes', () => {
       outcomeType: OutcomeType.EXPERIMENT,
       experiment: {
         id: 'exp_checkout',
-        variantId: 'exp-treatment',
+        variantId: 'flag-treatment',
         base: ['user', 'key'],
         rampId: 'ramp_1',
         rampPercentage: 25,
@@ -2763,7 +2762,7 @@ describe('experiment outcomes', () => {
       outcomeType: OutcomeType.EXPERIMENT,
       experiment: {
         id: 'exp_checkout',
-        variantId: 'exp-control',
+        variantId: 'flag-control',
         base: ['user', 'key'],
         rampId: 'ramp_1',
         rampPercentage: 25,
