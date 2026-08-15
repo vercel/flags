@@ -20,6 +20,34 @@ type AdapterResponse<ClientType> = {
     options?: FlagEvaluationOptions,
   ) => Adapter<ValueType, EvaluationContext>;
   client: ClientType;
+  /**
+   * Reverts the adapter to its uninitialized state, so the next flag
+   * evaluation initializes it again. Any in-flight initialization is awaited
+   * first, so the client it produces is handed to `onClose` rather than
+   * leaked. Calling this repeatedly without an intervening evaluation does
+   * nothing further.
+   *
+   * @see https://openfeature.dev/specification/sections/providers#25-shutdown
+   */
+  close: () => Promise<void>;
+};
+
+export type OpenFeatureAdapterOptions = {
+  /**
+   * Called by `close()` with the initialized client, to dispose of whatever
+   * the adapter's `init` function set up.
+   *
+   * The adapter can not do this on your behalf: an OpenFeature client can not
+   * be closed on its own, and shutting down providers means closing them on
+   * the global `OpenFeature` API, which affects providers this adapter never
+   * registered.
+   *
+   * @example
+   * ```
+   * createOpenFeatureAdapter(init, { onClose: () => OpenFeature.close() });
+   * ```
+   */
+  onClose?: (client: Client) => void | Promise<void>;
 };
 
 /**
@@ -51,7 +79,10 @@ function isFatalError(error: unknown): boolean {
  * });
  * ```
  */
-export function createOpenFeatureAdapter(init: Client): AdapterResponse<Client>;
+export function createOpenFeatureAdapter(
+  init: Client,
+  options?: OpenFeatureAdapterOptions,
+): AdapterResponse<Client>;
 
 /**
  * Creates an async OpenFeature adapter.
@@ -65,14 +96,20 @@ export function createOpenFeatureAdapter(init: Client): AdapterResponse<Client>;
  */
 export function createOpenFeatureAdapter(
   init: () => Promise<Client>,
+  options?: OpenFeatureAdapterOptions,
 ): AdapterResponse<() => Promise<Client>>;
 export function createOpenFeatureAdapter(
   init: Client | (() => Promise<Client>),
+  adapterOptions?: OpenFeatureAdapterOptions,
 ): AdapterResponse<Client | (() => Promise<Client>)> {
   let client: Client | null = typeof init === 'function' ? null : init;
 
   let clientPromise: Promise<Client> | null = null;
+  let closePromise: Promise<void> | null = null;
   function initialize(): Client | Promise<Client> {
+    // A shutdown in progress is about to discard the current client, so wait
+    // for it to finish and initialize from scratch afterwards.
+    if (closePromise) return closePromise.then(initialize);
     if (client) return client;
     if (clientPromise) return clientPromise;
 
@@ -95,6 +132,30 @@ export function createOpenFeatureAdapter(
     );
     clientPromise = attempt;
     return attempt;
+  }
+
+  function close(): Promise<void> {
+    if (closePromise) return closePromise;
+
+    const pendingClient = clientPromise ?? client;
+    if (!pendingClient) return Promise.resolve();
+
+    closePromise = (async () => {
+      // Awaiting the in-flight attempt lets its client be disposed instead of
+      // leaked. A failed attempt produced nothing to dispose.
+      const initializedClient = await Promise.resolve(pendingClient).catch(
+        () => null,
+      );
+
+      client = null;
+      clientPromise = null;
+
+      if (initializedClient) await adapterOptions?.onClose?.(initializedClient);
+    })().finally(() => {
+      closePromise = null;
+    });
+
+    return closePromise;
   }
 
   function booleanValue(
@@ -170,6 +231,7 @@ export function createOpenFeatureAdapter(
     stringValue,
     numberValue,
     objectValue,
+    close,
     client:
       typeof init === 'function'
         ? async () => {
