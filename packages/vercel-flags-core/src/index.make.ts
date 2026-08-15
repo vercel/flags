@@ -5,20 +5,26 @@
 import { Controller, type ControllerOptions } from './controller';
 import { Authentication } from './controller/auth';
 import type { createCreateRawClient } from './create-raw-client';
-import type { FlagsClient } from './types';
+import type { FlagsClient, ReportExposures } from './types';
 
 /**
  * Options for createClient
  */
-export type CreateClientOptions = Omit<ControllerOptions, 'auth'>;
+export type CreateClientOptions<Entity = Record<string, unknown>> = Omit<
+  ControllerOptions,
+  'auth'
+> & {
+  /** Reports experiment exposures produced by evaluation calls. */
+  reportExposures?: ReportExposures<Entity>;
+};
 
 type CreateClient = {
   <Entities = Record<string, unknown>>(
-    options: CreateClientOptions,
+    options: CreateClientOptions<Entities>,
   ): FlagsClient<Entities>;
   <Entities = Record<string, unknown>>(
     sdkKeyOrConnectionString?: string,
-    options?: CreateClientOptions,
+    options?: CreateClientOptions<Entities>,
   ): FlagsClient<Entities>;
 };
 
@@ -35,15 +41,15 @@ export function make(
   // - data source must specify the environment & projectId as sdkKey has that info
   // - "reuse" functionality relies on the data source having the data for all envs
   function createClient<Entities = Record<string, unknown>>(
-    options: CreateClientOptions,
+    options: CreateClientOptions<Entities>,
   ): FlagsClient<Entities>;
   function createClient<Entities = Record<string, unknown>>(
     sdkKeyOrConnectionString?: string,
-    options?: CreateClientOptions,
+    options?: CreateClientOptions<Entities>,
   ): FlagsClient<Entities>;
   function createClient<Entities = Record<string, unknown>>(
-    sdkKeyOrConnectionStringOrOptions?: string | CreateClientOptions,
-    options?: CreateClientOptions,
+    sdkKeyOrConnectionStringOrOptions?: string | CreateClientOptions<Entities>,
+    options?: CreateClientOptions<Entities>,
   ): FlagsClient<Entities> {
     const optionsOnly =
       typeof sdkKeyOrConnectionStringOrOptions === 'object' &&
@@ -55,13 +61,15 @@ export function make(
       ? sdkKeyOrConnectionStringOrOptions
       : options;
 
+    const { reportExposures, ...controllerOptions } = createClientOptions ?? {};
     const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
-    const controller = new Controller({ auth, ...createClientOptions });
+    const controller = new Controller({ auth, ...controllerOptions });
     return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey: auth.sdkKey },
+      ...(reportExposures ? { reportExposures } : {}),
     });
   }
 

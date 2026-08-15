@@ -3,6 +3,7 @@ import {
   Comparator,
   type EvaluationParams,
   type EvaluationResult,
+  type ExperimentAssignment,
   OutcomeType,
   Packed,
   ResolutionReason,
@@ -40,14 +41,14 @@ function boundaryFor(numerator: number, denominator: number): number {
 // symbol-keyed props) and serialize cleanly across the RSC boundary; entries
 // are GC'd with the datafile. Split boundaries are static per outcome, so the
 // cumulative cut points are computed once and reused across evaluations.
-const splitBoundariesCache = new WeakMap<Packed.SplitOutcome, number[]>();
+const splitBoundariesCache = new WeakMap<object, number[]>();
 const compiledRegexCache = new WeakMap<object, RegExp>();
 
 /**
  * Cumulative hash boundaries for a split, one per variant in index order.
  * Variant `i` is served for hashes in `[boundaries[i-1], boundaries[i])`.
  */
-function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
+function getSplitBoundaries(outcome: { weights: number[] }): number[] {
   const cached = splitBoundariesCache.get(outcome);
   if (cached) return cached;
   const total = sum(outcome.weights);
@@ -414,6 +415,31 @@ function getVariant<T>(
   };
 }
 
+type WeightedAssignment = {
+  base: Packed.EntityAccessor;
+  weights: number[];
+  defaultVariant: Packed.VariantIndex;
+};
+
+function getWeightedVariantIndex<T>(
+  params: EvaluationParams<T>,
+  assignment: WeightedAssignment,
+  seed: number | undefined,
+): Packed.VariantIndex {
+  const lhs = access(assignment.base, params);
+
+  if (typeof lhs !== 'string') return assignment.defaultVariant;
+
+  const bucket = hashInput(lhs, seed);
+  const boundaries = getSplitBoundaries(assignment);
+  for (let index = 0; index < boundaries.length; index++) {
+    if (bucket < (boundaries[index] as number)) return index;
+  }
+
+  // Only reached when the weights sum to 0 (every boundary is NaN).
+  return assignment.defaultVariant;
+}
+
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
@@ -421,6 +447,7 @@ function handleOutcome<T>(
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
+  experiment?: ExperimentAssignment;
 } {
   if (typeof outcome === 'number') {
     const variant = getVariant<T>(params.definition, outcome);
@@ -431,37 +458,46 @@ function handleOutcome<T>(
   }
   switch (outcome.type) {
     case 'split': {
-      const lhs = access(outcome.base, params);
-      const defaultOutcome = getVariant<T>(
-        params.definition,
-        outcome.defaultVariant,
+      const index = getWeightedVariantIndex(
+        params,
+        outcome,
+        params.definition.seed,
       );
-
-      // serve the default variant if the lhs is not a string
-      if (typeof lhs !== 'string') {
-        return {
-          ...defaultOutcome,
-          outcomeType: OutcomeType.SPLIT,
-        };
-      }
-
-      const bucket = hashInput(lhs, params.definition.seed);
-      const boundaries = getSplitBoundaries(outcome);
-
-      // Return the first variant whose cumulative boundary covers the bucket.
-      for (let index = 0; index < boundaries.length; index++) {
-        if (bucket < (boundaries[index] as number)) {
-          return {
-            ...getVariant<T>(params.definition, index),
-            outcomeType: OutcomeType.SPLIT,
-          };
-        }
-      }
-
-      // Only reached when the weights sum to 0 (every boundary is NaN).
       return {
-        ...defaultOutcome,
+        ...getVariant<T>(params.definition, index),
         outcomeType: OutcomeType.SPLIT,
+      };
+    }
+    case 'experiment': {
+      const experiment = params.definition.experiments?.[outcome.experiment];
+      if (!experiment) {
+        throw new Error(
+          `@vercel/flags-core: Experiment index ${outcome.experiment} not found`,
+        );
+      }
+
+      const index = getWeightedVariantIndex(
+        params,
+        experiment,
+        experiment.seed,
+      );
+      const experimentVariantId = experiment.variantIds[index];
+      if (typeof experimentVariantId !== 'string') {
+        throw new Error(
+          `@vercel/flags-core: Experiment variant ID not found at index ${index} for experiment "${experiment.id}"`,
+        );
+      }
+
+      return {
+        ...getVariant<T>(params.definition, index),
+        outcomeType: OutcomeType.EXPERIMENT,
+        experiment: {
+          id: experiment.id,
+          variantId: experimentVariantId,
+          base: experiment.base,
+          rampId: experiment.rampId,
+          rampPercentage: experiment.rampPercentage,
+        },
       };
     }
     case 'rollout': {

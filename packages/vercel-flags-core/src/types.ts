@@ -123,6 +123,51 @@ export type BulkEvaluateInput<T = Value> = {
   defaultValue?: T;
 };
 
+/** Options that control side effects of an evaluation call. */
+export type EvaluationOptions = {
+  /**
+   * Whether experiment exposures should be reported for this evaluation.
+   * @default true
+   */
+  exposureLogging?: boolean;
+};
+
+/** Information about the experiment assignment that produced a flag value. */
+export type ExperimentAssignment = {
+  /** Experiment identifier. */
+  id: string;
+  /** Identifier of the selected experiment variant. */
+  variantId: string;
+  /** Entity path on which the experiment assignment is based. */
+  base: Packed.EntityAccessor;
+  /** Identifier of the ramp active for this assignment. */
+  rampId?: string;
+  /** Percentage of eligible units included in the ramp, from 0 through 100. */
+  rampPercentage?: number;
+};
+
+/** An experiment exposure passed to a client's exposure reporter. */
+export type Exposure = {
+  /** Flag whose evaluation produced the exposure. */
+  flagKey: FlagKey;
+  /** Experiment identifier. */
+  experimentId: string;
+  /** Identifier of the selected experiment variant. */
+  variantId: string;
+  /** Entity path on which the experiment assignment is based. */
+  base: Packed.EntityAccessor;
+  /** Identifier of the ramp active for this assignment. */
+  rampId?: string;
+  /** Percentage of eligible units included in the ramp, from 0 through 100. */
+  rampPercentage?: number;
+};
+
+/** Reports experiment exposures produced by one evaluation call. */
+export type ReportExposures<Entity = Record<string, unknown>> = (
+  exposures: readonly Exposure[],
+  entity: Readonly<Entity>,
+) => void | Promise<void>;
+
 /**
  * A client for Vercel Flags
  */
@@ -143,12 +188,14 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    * @param flagKey
    * @param defaultValue
    * @param entities
+   * @param options Evaluation side-effect options.
    * @returns
    */
   evaluate: <T = Value, E = Entities>(
     flagKey: string,
     defaultValue?: T,
     entities?: E,
+    options?: EvaluationOptions,
   ) => Promise<EvaluationResult<T>>;
   /**
    * Evaluate multiple feature flags against the same entities in a single call.
@@ -160,11 +207,13 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    *
    * @param flags Array of `{ key, defaultValue? }` entries to evaluate.
    * @param entities Shared entities used for every flag in the bulk call.
+   * @param options Evaluation side-effect options.
    * @returns Object mapping each key to its EvaluationResult.
    */
   bulkEvaluate: <T = Value, E = Entities>(
     flags: BulkEvaluateInput<T>[],
     entities?: E,
+    options?: EvaluationOptions,
   ) => Promise<Record<string, EvaluationResult<T>>>;
   /**
    * Retrieve the latest datafile during startup, and set up subscriptions if needed.
@@ -250,6 +299,8 @@ export type EvaluationResult<T> =
        * The variant we want to report for o11y
        */
       variantId: VariantId | null;
+      /** Experiment assignment when an experiment outcome produced the value. */
+      experiment?: ExperimentAssignment;
       /**
        * Indicates why the flag evaluated to a certain value
        */
@@ -264,6 +315,7 @@ export type EvaluationResult<T> =
       errorMessage: string;
       errorCode?: ErrorCode;
       outcomeType?: never;
+      experiment?: never;
       /**
        * The variant we want to report for o11y
        */
@@ -307,6 +359,8 @@ export enum OutcomeType {
   SPLIT = 'split',
   /** When the outcome type was a progressive rollout */
   ROLLOUT = 'rollout',
+  /** When the outcome type was an experiment assignment */
+  EXPERIMENT = 'experiment',
 }
 
 /**
@@ -540,7 +594,29 @@ export namespace Original {
          * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
          */
         slots: { promille: number; durationMs: number }[];
+      }
+    | {
+        type: 'experiment';
+        /** Identifier of the experiment in `FlagDefinition.experiments`. */
+        experimentId: string;
       };
+
+  export type ExperimentDefinition = {
+    id: string;
+    /** Based on which entity attribute traffic should be assigned. */
+    base: EntityAccessor;
+    /** Distribution keyed by flag variant ID. */
+    weights: Record<VariantId, number>;
+    /** Experiment variant ID keyed by flag variant ID. */
+    variantIds: Record<VariantId, string>;
+    /** Flag variant used when the base attribute does not exist. */
+    defaultVariantId: VariantId;
+    /** Seed used to keep experiment assignment stable and independent. */
+    seed: number;
+    rampId?: string;
+    /** Percentage from 0 through 100. */
+    rampPercentage?: number;
+  };
 
   export type SegmentAllOutcome = {
     type: 'all';
@@ -669,6 +745,8 @@ export namespace Original {
 
   export type FlagDefinition = {
     variants: FlagVariant[];
+    /** Experiment definitions keyed by experiment ID. */
+    experiments?: Record<string, ExperimentDefinition>;
     environments: Record<EnvironmentKey, EnvironmentConfig>;
 
     /**
@@ -696,6 +774,7 @@ export namespace Packed {
    * Idenitifies a variant based on its index in the variants array.
    */
   export type VariantIndex = number;
+  export type ExperimentIndex = number;
 
   export type Data = {
     /** map of flag keys to definitions */
@@ -764,6 +843,32 @@ export namespace Packed {
     slots: [number, number][];
   };
 
+  /** An outcome which delegates assignment to a flag-level experiment. */
+  export type ExperimentOutcome = {
+    type: 'experiment';
+    /** Index into `FlagDefinition.experiments`. */
+    experiment: ExperimentIndex;
+  };
+
+  export type ExperimentDefinition = {
+    /** Experiment identifier. */
+    id: string;
+    /** Entity path used for deterministic assignment. */
+    base: EntityAccessor;
+    /** Distribution indexed by the corresponding flag variant. */
+    weights: number[];
+    /** Experiment variant IDs indexed by the corresponding flag variant. */
+    variantIds: (string | null)[];
+    /** Flag variant used when the base attribute does not exist. */
+    defaultVariant: VariantIndex;
+    /** Seed used to keep experiment assignment stable and independent. */
+    seed: number;
+    /** Identifier of the ramp active for this experiment. */
+    rampId?: string;
+    /** Percentage of eligible units included in the ramp, from 0 through 100. */
+    rampPercentage?: number;
+  };
+
   export type SegmentAllOutcome = 1;
 
   export type SegmentSplitOutcome = {
@@ -782,7 +887,11 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type Outcome = VariantIndex | SplitOutcome | RolloutOutcome;
+  export type Outcome =
+    | VariantIndex
+    | SplitOutcome
+    | RolloutOutcome
+    | ExperimentOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];
@@ -891,6 +1000,8 @@ export namespace Packed {
     variantIds?: string[];
     /**  variants, packed down to just their values */
     variants: Value[];
+    /** Experiment definitions referenced by experiment outcomes. */
+    experiments?: ExperimentDefinition[];
     /**  environments */
     environments: Record<EnvironmentKey, EnvironmentConfig>;
     /**

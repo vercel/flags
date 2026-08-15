@@ -11,16 +11,21 @@ export {
   FallbackNotFoundError,
 } from './errors';
 export { evaluate } from './evaluate';
+export { defaultReportExposures } from './exposure-reporting';
 export type { CreateClientOptions } from './index.make';
 export {
   type BundledDefinitions,
   type Datafile,
   type DatafileInput,
+  type EvaluationOptions,
   type EvaluationParams,
   type EvaluationResult,
+  type ExperimentAssignment,
+  type Exposure,
   type FlagsClient,
   type Packed,
   type PollingOptions,
+  type ReportExposures,
   ResolutionReason as Reason,
   type StreamOptions,
   type Value,

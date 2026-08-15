@@ -10,12 +10,16 @@ import {
   type ControllerInstance,
   controllerInstanceMap,
 } from './controller-fns';
+import { defaultReportExposures } from './exposure-reporting';
 import type {
   BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
+  EvaluationOptions,
   EvaluationResult,
+  Exposure,
   FlagsClient,
+  ReportExposures,
   Value,
 } from './types';
 
@@ -46,9 +50,11 @@ export function createCreateRawClient(fns: {
   return function createRawClient<Entities = Record<string, unknown>>({
     controller,
     origin,
+    reportExposures,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey?: string };
+    reportExposures?: ReportExposures<Entities>;
   }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
@@ -56,6 +62,43 @@ export function createCreateRawClient(fns: {
       initialized: false,
       initPromise: null,
     });
+
+    const exposureReporter =
+      reportExposures ?? (defaultReportExposures as ReportExposures<Entities>);
+
+    async function report(
+      exposures: readonly Exposure[],
+      entity: Readonly<Entities>,
+    ): Promise<void> {
+      if (exposures.length === 0) return;
+      try {
+        await exposureReporter(exposures, entity);
+      } catch (error) {
+        console.error(
+          '@vercel/flags-core: Failed to report experiment exposures',
+          error,
+        );
+      }
+    }
+
+    function getExposure<T>(
+      flagKey: string,
+      result: EvaluationResult<T>,
+    ): Exposure | null {
+      if (!result.experiment) return null;
+      return {
+        flagKey,
+        experimentId: result.experiment.id,
+        variantId: result.experiment.variantId,
+        base: result.experiment.base,
+        ...(result.experiment.rampId === undefined
+          ? {}
+          : { rampId: result.experiment.rampId }),
+        ...(result.experiment.rampPercentage === undefined
+          ? {}
+          : { rampPercentage: result.experiment.rampPercentage }),
+      };
+    }
 
     const api = {
       origin,
@@ -99,6 +142,7 @@ export function createCreateRawClient(fns: {
         flagKey: string,
         defaultValue?: T,
         entities?: E,
+        options?: EvaluationOptions,
       ): Promise<EvaluationResult<T>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -109,11 +153,25 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.evaluate<T, E>(id, flagKey, defaultValue, entities);
+        const entity = entities ?? ({} as E);
+        const result = await fns.evaluate<T, E>(
+          id,
+          flagKey,
+          defaultValue,
+          entity,
+        );
+        if (options?.exposureLogging !== false) {
+          const exposure = getExposure(flagKey, result);
+          if (exposure) {
+            await report([exposure], entity as unknown as Readonly<Entities>);
+          }
+        }
+        return result;
       },
       bulkEvaluate: async <T = Value, E = Entities>(
         flags: BulkEvaluateInput<T>[],
         entities?: E,
+        options?: EvaluationOptions,
       ): Promise<Record<string, EvaluationResult<T>>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -124,7 +182,22 @@ export function createCreateRawClient(fns: {
             // chain (last known value → datafile → bundled → defaultValue → throw)
           }
         }
-        return fns.bulkEvaluate<T, E>(id, flags, entities);
+        const entity = entities ?? ({} as E);
+        const results = await fns.bulkEvaluate<T, E>(id, flags, entity);
+        if (options?.exposureLogging !== false) {
+          const exposures: Exposure[] = [];
+          const seen = new Set<string>();
+          for (const flag of flags) {
+            if (seen.has(flag.key)) continue;
+            seen.add(flag.key);
+            const result = results[flag.key];
+            if (!result) continue;
+            const exposure = getExposure(flag.key, result);
+            if (exposure) exposures.push(exposure);
+          }
+          await report(exposures, entity as unknown as Readonly<Entities>);
+        }
+        return results;
       },
     };
     return api;

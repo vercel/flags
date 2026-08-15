@@ -2700,6 +2700,97 @@ describe('evaluate', () => {
   });
 });
 
+describe('experiment outcomes', () => {
+  const definition = {
+    environments: {
+      production: {
+        rules: [
+          {
+            conditions: [[['user', 'country'], Comparator.EQ, 'DE']],
+            outcome: { type: 'experiment', experiment: 0 },
+          },
+        ],
+        fallthrough: 0,
+      },
+    },
+    variants: ['control', 'treatment'],
+    variantIds: ['flag-control', 'flag-treatment'],
+    experiments: [
+      {
+        id: 'exp_checkout',
+        base: ['user', 'key'],
+        weights: [0, 1],
+        variantIds: ['exp-control', 'exp-treatment'],
+        defaultVariant: 0,
+        seed: 123,
+        rampId: 'ramp_1',
+        rampPercentage: 25,
+      },
+    ],
+  } satisfies Packed.FlagDefinition;
+
+  it('evaluates an experiment referenced by a rule', () => {
+    expect(
+      evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { key: 'user_123', country: 'DE' } },
+      }),
+    ).toEqual({
+      value: 'treatment',
+      variantId: 'flag-treatment',
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.EXPERIMENT,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'exp-treatment',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 25,
+      },
+    });
+  });
+
+  it('uses the experiment default variant when its base is missing', () => {
+    expect(
+      evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { country: 'DE' } },
+      }),
+    ).toEqual({
+      value: 'control',
+      variantId: 'flag-control',
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.EXPERIMENT,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'exp-control',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 25,
+      },
+    });
+  });
+
+  it('throws for an invalid experiment reference', () => {
+    expect(() =>
+      evaluate({
+        definition: {
+          environments: {
+            production: {
+              fallthrough: { type: 'experiment', experiment: 1 },
+            },
+          },
+          variants: [false],
+        },
+        environment: 'production',
+        entities: {},
+      }),
+    ).toThrow('@vercel/flags-core: Experiment index 1 not found');
+  });
+});
+
 describe('bulkEvaluate', () => {
   it('evaluates multiple flags against shared entities, segments, and environment', () => {
     const activeDef: Packed.FlagDefinition = {

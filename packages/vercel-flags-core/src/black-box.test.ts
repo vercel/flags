@@ -3688,6 +3688,201 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Experiment exposure reporting
+  // ---------------------------------------------------------------------------
+  describe('experiment exposure reporting', () => {
+    const definitions: BundledDefinitions['definitions'] = {
+      flagA: {
+        environments: {
+          production: {
+            fallthrough: { type: 'experiment', experiment: 0 },
+          },
+        },
+        variants: ['control-a', 'treatment-a'],
+        experiments: [
+          {
+            id: 'exp_a',
+            base: ['user', 'key'],
+            weights: [0, 1],
+            variantIds: ['exp-a-control', 'exp-a-treatment'],
+            defaultVariant: 0,
+            seed: 101,
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+          },
+        ],
+      },
+      flagB: {
+        environments: {
+          production: {
+            fallthrough: { type: 'experiment', experiment: 0 },
+          },
+        },
+        variants: ['control-b', 'treatment-b'],
+        experiments: [
+          {
+            id: 'exp_b',
+            base: ['session', 'key'],
+            weights: [1, 0],
+            variantIds: ['exp-b-control', 'exp-b-treatment'],
+            defaultVariant: 0,
+            seed: 202,
+          },
+        ],
+      },
+    };
+
+    const entity = {
+      user: { key: 'user_123' },
+      session: { key: 'session_123' },
+    };
+
+    it('reports one exposure with the exact evaluation entity', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result).toMatchObject({
+        value: 'treatment-a',
+        outcomeType: 'experiment',
+        experiment: {
+          id: 'exp_a',
+          variantId: 'exp-a-treatment',
+          base: ['user', 'key'],
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+        },
+      });
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'exp-a-treatment',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a single evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity, {
+        exposureLogging: false,
+      });
+
+      expect(result.experiment?.id).toBe('exp_a');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('reports all bulk exposures in one callback', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures,
+      });
+
+      await client.bulkEvaluate([{ key: 'flagA' }, { key: 'flagB' }], entity);
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'exp-a-treatment',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+          },
+          {
+            flagKey: 'flagB',
+            experimentId: 'exp_b',
+            variantId: 'exp-b-control',
+            base: ['session', 'key'],
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a bulk evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures,
+      });
+
+      const results = await client.bulkEvaluate(
+        [{ key: 'flagA' }, { key: 'flagB' }],
+        entity,
+        { exposureLogging: false },
+      );
+
+      expect(results.flagA?.experiment?.id).toBe('exp_a');
+      expect(results.flagB?.experiment?.id).toBe('exp_b');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('does not fail evaluation when the exposure reporter fails', async () => {
+      const error = new Error('analytics unavailable');
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures: () => Promise.reject(error),
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result.value).toBe('treatment-a');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Failed to report experiment exposures',
+        error,
+      );
+      await client.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Usage tracking
   // ---------------------------------------------------------------------------
   describe('usage tracking', () => {
