@@ -597,8 +597,6 @@ export namespace Original {
       }
     | {
         type: 'experiment';
-        /** Identifier of the experiment in `FlagDefinition.experiments`. */
-        experimentId: string;
       };
 
   export type ExperimentDefinition = {
@@ -745,8 +743,8 @@ export namespace Original {
 
   export type FlagDefinition = {
     variants: FlagVariant[];
-    /** Experiment definitions keyed by experiment ID. */
-    experiments?: Record<string, ExperimentDefinition>;
+    /** Experiment linked to this flag. */
+    experiment?: ExperimentDefinition;
     environments: Record<EnvironmentKey, EnvironmentConfig>;
 
     /**
@@ -774,7 +772,6 @@ export namespace Packed {
    * Idenitifies a variant based on its index in the variants array.
    */
   export type VariantIndex = number;
-  export type ExperimentIndex = number;
 
   export type Data = {
     /** map of flag keys to definitions */
@@ -846,8 +843,6 @@ export namespace Packed {
   /** An outcome which delegates assignment to a flag-level experiment. */
   export type ExperimentOutcome = {
     type: 'experiment';
-    /** Index into `FlagDefinition.experiments`. */
-    experiment: ExperimentIndex;
   };
 
   export type ExperimentDefinition = {
@@ -1000,8 +995,8 @@ export namespace Packed {
     variantIds?: string[];
     /**  variants, packed down to just their values */
     variants: Value[];
-    /** Experiment definitions referenced by experiment outcomes. */
-    experiments?: ExperimentDefinition[];
+    /** Experiment linked to this flag. */
+    experiment?: ExperimentDefinition;
     /**  environments */
     environments: Record<EnvironmentKey, EnvironmentConfig>;
     /**

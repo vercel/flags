@@ -3695,40 +3695,36 @@ describe('Controller (black-box)', () => {
       flagA: {
         environments: {
           production: {
-            fallthrough: { type: 'experiment', experiment: 0 },
+            fallthrough: { type: 'experiment' },
           },
         },
         variants: ['control-a', 'treatment-a'],
-        experiments: [
-          {
-            id: 'exp_a',
-            base: ['user', 'key'],
-            weights: [0, 1],
-            variantIds: ['exp-a-control', 'exp-a-treatment'],
-            defaultVariant: 0,
-            seed: 101,
-            rampId: 'ramp_a',
-            rampPercentage: 50,
-          },
-        ],
+        experiment: {
+          id: 'exp_a',
+          base: ['user', 'key'],
+          weights: [0, 1],
+          variantIds: ['exp-a-control', 'exp-a-treatment'],
+          defaultVariant: 0,
+          seed: 101,
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+        },
       },
       flagB: {
         environments: {
           production: {
-            fallthrough: { type: 'experiment', experiment: 0 },
+            fallthrough: { type: 'experiment' },
           },
         },
         variants: ['control-b', 'treatment-b'],
-        experiments: [
-          {
-            id: 'exp_b',
-            base: ['session', 'key'],
-            weights: [1, 0],
-            variantIds: ['exp-b-control', 'exp-b-treatment'],
-            defaultVariant: 0,
-            seed: 202,
-          },
-        ],
+        experiment: {
+          id: 'exp_b',
+          base: ['session', 'key'],
+          weights: [1, 0],
+          variantIds: ['exp-b-control', 'exp-b-treatment'],
+          defaultVariant: 0,
+          seed: 202,
+        },
       },
     };
 

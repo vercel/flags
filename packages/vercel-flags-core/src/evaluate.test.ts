@@ -2707,7 +2707,7 @@ describe('experiment outcomes', () => {
         rules: [
           {
             conditions: [[['user', 'country'], Comparator.EQ, 'DE']],
-            outcome: { type: 'experiment', experiment: 0 },
+            outcome: { type: 'experiment' },
           },
         ],
         fallthrough: 0,
@@ -2715,18 +2715,16 @@ describe('experiment outcomes', () => {
     },
     variants: ['control', 'treatment'],
     variantIds: ['flag-control', 'flag-treatment'],
-    experiments: [
-      {
-        id: 'exp_checkout',
-        base: ['user', 'key'],
-        weights: [0, 1],
-        variantIds: ['exp-control', 'exp-treatment'],
-        defaultVariant: 0,
-        seed: 123,
-        rampId: 'ramp_1',
-        rampPercentage: 25,
-      },
-    ],
+    experiment: {
+      id: 'exp_checkout',
+      base: ['user', 'key'],
+      weights: [0, 1],
+      variantIds: ['exp-control', 'exp-treatment'],
+      defaultVariant: 0,
+      seed: 123,
+      rampId: 'ramp_1',
+      rampPercentage: 25,
+    },
   } satisfies Packed.FlagDefinition;
 
   it('evaluates an experiment referenced by a rule', () => {
@@ -2779,7 +2777,7 @@ describe('experiment outcomes', () => {
         definition: {
           environments: {
             production: {
-              fallthrough: { type: 'experiment', experiment: 1 },
+              fallthrough: { type: 'experiment' },
             },
           },
           variants: [false],
@@ -2787,7 +2785,7 @@ describe('experiment outcomes', () => {
         environment: 'production',
         entities: {},
       }),
-    ).toThrow('@vercel/flags-core: Experiment index 1 not found');
+    ).toThrow('@vercel/flags-core: Experiment not found');
   });
 });
 

@@ -469,11 +469,9 @@ function handleOutcome<T>(
       };
     }
     case 'experiment': {
-      const experiment = params.definition.experiments?.[outcome.experiment];
+      const experiment = params.definition.experiment;
       if (!experiment) {
-        throw new Error(
-          `@vercel/flags-core: Experiment index ${outcome.experiment} not found`,
-        );
+        throw new Error('@vercel/flags-core: Experiment not found');
       }
 
       const index = getWeightedVariantIndex(
