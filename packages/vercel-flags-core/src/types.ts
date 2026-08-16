@@ -607,8 +607,6 @@ export namespace Original {
     weights: Record<VariantId, number>;
     /** Flag variant used when the base attribute does not exist. */
     defaultVariantId: VariantId;
-    /** Seed used to keep experiment assignment stable and independent. */
-    seed: number;
     rampId?: string;
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
@@ -852,8 +850,6 @@ export namespace Packed {
     weights: number[];
     /** Flag variant used when the base attribute does not exist. */
     defaultVariant: VariantIndex;
-    /** Seed used to keep experiment assignment stable and independent. */
-    seed: number;
     /** Identifier of the ramp active for this experiment. */
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */

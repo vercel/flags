@@ -477,7 +477,7 @@ function handleOutcome<T>(
       const index = getWeightedVariantIndex(
         params,
         experiment,
-        experiment.seed,
+        params.definition.seed,
       );
       const variant = getVariant<T>(params.definition, index);
       if (typeof variant.variantId !== 'string') {

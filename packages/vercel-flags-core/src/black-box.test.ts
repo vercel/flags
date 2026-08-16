@@ -3700,12 +3700,12 @@ describe('Controller (black-box)', () => {
         },
         variants: ['control-a', 'treatment-a'],
         variantIds: ['control-a', 'treatment-a'],
+        seed: 101,
         experiment: {
           id: 'exp_a',
           base: ['user', 'key'],
           weights: [0, 1],
           defaultVariant: 0,
-          seed: 101,
           rampId: 'ramp_a',
           rampPercentage: 50,
         },
@@ -3718,12 +3718,12 @@ describe('Controller (black-box)', () => {
         },
         variants: ['control-b', 'treatment-b'],
         variantIds: ['control-b', 'treatment-b'],
+        seed: 202,
         experiment: {
           id: 'exp_b',
           base: ['session', 'key'],
           weights: [1, 0],
           defaultVariant: 0,
-          seed: 202,
         },
       },
     };

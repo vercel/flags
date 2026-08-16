@@ -2715,12 +2715,12 @@ describe('experiment outcomes', () => {
     },
     variants: ['control', 'treatment'],
     variantIds: ['flag-control', 'flag-treatment'],
+    seed: 123,
     experiment: {
       id: 'exp_checkout',
       base: ['user', 'key'],
       weights: [0, 1],
       defaultVariant: 0,
-      seed: 123,
       rampId: 'ramp_1',
       rampPercentage: 25,
     },
