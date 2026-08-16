@@ -510,7 +510,6 @@ function handleOutcome<T>(
           id: experiment.id,
           variantId: variant.variantId,
           base: experiment.base,
-          exposureLogging: experiment.exposureLogging,
           rampId: experiment.rampId,
           rampPercentage: experiment.rampPercentage,
         },

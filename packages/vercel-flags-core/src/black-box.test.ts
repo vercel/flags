@@ -3706,7 +3706,6 @@ describe('Controller (black-box)', () => {
           base: ['user', 'key'],
           weights: [0, 1],
           defaultVariant: 0,
-          exposureLogging: true,
           rampId: 'ramp_a',
           rampPercentage: 50,
         },
@@ -3725,7 +3724,6 @@ describe('Controller (black-box)', () => {
           base: ['session', 'key'],
           weights: [1, 0],
           defaultVariant: 0,
-          exposureLogging: true,
         },
       },
     };
@@ -3755,7 +3753,6 @@ describe('Controller (black-box)', () => {
           id: 'exp_a',
           variantId: 'treatment-a',
           base: ['user', 'key'],
-          exposureLogging: true,
           rampId: 'ramp_a',
           rampPercentage: 50,
         },
@@ -3794,34 +3791,6 @@ describe('Controller (black-box)', () => {
       });
 
       expect(result.experiment?.id).toBe('exp_a');
-      expect(reportExposures).not.toHaveBeenCalled();
-      await client.shutdown();
-    });
-
-    it('does not report exposures when the experiment lifecycle disables them', async () => {
-      const reportExposures = vi.fn();
-      const client = createClient<typeof entity>(sdkKey, {
-        fetch: fetchMock,
-        stream: false,
-        polling: false,
-        buildStep: true,
-        datafile: makeBundled({
-          definitions: {
-            flagA: {
-              ...definitions.flagA!,
-              experiment: {
-                ...definitions.flagA!.experiment!,
-                exposureLogging: false,
-              },
-            },
-          },
-        }),
-        reportExposures,
-      });
-
-      const result = await client.evaluate('flagA', undefined, entity);
-
-      expect(result.experiment?.exposureLogging).toBe(false);
       expect(reportExposures).not.toHaveBeenCalled();
       await client.shutdown();
     });

@@ -140,8 +140,6 @@ export type ExperimentAssignment = {
   variantId: string;
   /** Entity path on which the experiment assignment is based. */
   base: Packed.EntityAccessor;
-  /** Whether this assignment can produce an exposure report. */
-  exposureLogging: boolean;
   /** Identifier of the ramp active for this assignment. */
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
@@ -609,8 +607,6 @@ export namespace Original {
     weights: Record<VariantId, number>;
     /** Flag variant used when the base attribute does not exist. */
     defaultVariantId: VariantId;
-    /** Whether evaluations assigned by this experiment report exposures. */
-    exposureLogging: boolean;
     rampId?: string;
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
@@ -854,8 +850,6 @@ export namespace Packed {
     weights: number[];
     /** Flag variant used when the base attribute does not exist. */
     defaultVariant: VariantIndex;
-    /** Whether evaluations assigned by this experiment report exposures. */
-    exposureLogging: boolean;
     /** Identifier of the ramp active for this experiment. */
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
