@@ -474,6 +474,23 @@ function handleOutcome<T>(
         throw new Error('@vercel/flags-core: Experiment not found');
       }
 
+      const unitValue = access(experiment.base, params);
+      if (typeof unitValue !== 'string') {
+        return {
+          ...getVariant<T>(params.definition, experiment.defaultVariant),
+          outcomeType: OutcomeType.EXPERIMENT,
+        };
+      }
+
+      const rampPercentage = experiment.rampPercentage ?? 100;
+      const rampSeed = ((params.definition.seed ?? 0) ^ 0x9e3779b9) >>> 0;
+      if (hashInput(unitValue, rampSeed) >= boundaryFor(rampPercentage, 100)) {
+        return {
+          ...getVariant<T>(params.definition, experiment.defaultVariant),
+          outcomeType: OutcomeType.EXPERIMENT,
+        };
+      }
+
       const index = getWeightedVariantIndex(
         params,
         experiment,
@@ -493,6 +510,7 @@ function handleOutcome<T>(
           id: experiment.id,
           variantId: variant.variantId,
           base: experiment.base,
+          exposureLogging: experiment.exposureLogging,
           rampId: experiment.rampId,
           rampPercentage: experiment.rampPercentage,
         },

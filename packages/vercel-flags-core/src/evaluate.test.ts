@@ -2721,8 +2721,9 @@ describe('experiment outcomes', () => {
       base: ['user', 'key'],
       weights: [0, 1],
       defaultVariant: 0,
+      exposureLogging: true,
       rampId: 'ramp_1',
-      rampPercentage: 25,
+      rampPercentage: 100,
     },
   } satisfies Packed.FlagDefinition;
 
@@ -2742,8 +2743,9 @@ describe('experiment outcomes', () => {
         id: 'exp_checkout',
         variantId: 'flag-treatment',
         base: ['user', 'key'],
+        exposureLogging: true,
         rampId: 'ramp_1',
-        rampPercentage: 25,
+        rampPercentage: 100,
       },
     });
   });
@@ -2760,13 +2762,24 @@ describe('experiment outcomes', () => {
       variantId: 'flag-control',
       reason: ResolutionReason.RULE_MATCH,
       outcomeType: OutcomeType.EXPERIMENT,
-      experiment: {
-        id: 'exp_checkout',
-        variantId: 'flag-control',
-        base: ['user', 'key'],
-        rampId: 'ramp_1',
-        rampPercentage: 25,
-      },
+    });
+  });
+
+  it('uses control without an assignment outside the experiment ramp', () => {
+    expect(
+      evaluate({
+        definition: {
+          ...definition,
+          experiment: { ...definition.experiment, rampPercentage: 0 },
+        },
+        environment: 'production',
+        entities: { user: { key: 'user_123', country: 'DE' } },
+      }),
+    ).toEqual({
+      value: 'control',
+      variantId: 'flag-control',
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.EXPERIMENT,
     });
   });
 

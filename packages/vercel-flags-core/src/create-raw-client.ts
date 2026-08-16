@@ -85,7 +85,7 @@ export function createCreateRawClient(fns: {
       flagKey: string,
       result: EvaluationResult<T>,
     ): Exposure | null {
-      if (!result.experiment) return null;
+      if (!result.experiment?.exposureLogging) return null;
       return {
         flagKey,
         experimentId: result.experiment.id,
