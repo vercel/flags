@@ -44,8 +44,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
-    "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "2.31.0",
+    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/cli": "3.0.0",
     "@types/node": "22.14.0",
     "gray-matter": "4.0.3",
     "husky": "9.0.10",
@@ -60,7 +60,7 @@
   },
   "packageManager": "pnpm@10.19.0",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": "^22.11 || ^24 || >=26"
   },
   "pnpm": {
     "overrides": {

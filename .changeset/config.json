@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@3/schema.json",
+  "$schema": "https://unpkg.com/@changesets/config@4/schema.json",
   "changelog": ["@changesets/changelog-github", { "repo": "vercel/flags" }],
   "commit": false,
   "fixed": [],
@@ -7,19 +7,8 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
-    "onlyUpdatePeerDependentsWhenOutOfRange": true
-  },
-  "ignore": [
-    "playground",
-    "shirt-shop",
-    "svelte-example",
-    "next-15",
-    "next-16",
-    "sveltekit-e2e",
-    "snippets",
-    "docs"
-  ],
+  "format": false,
+  "ignore": [],
   "snapshot": {
     "useCalculatedVersion": true
   }
