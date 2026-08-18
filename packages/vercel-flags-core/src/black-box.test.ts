@@ -33,6 +33,8 @@ const fetchMock = vi.fn<typeof fetch>();
  * Returns a controller object that lets you gradually push messages
  * and a `response` promise suitable for use with a fetch mock.
  */
+type MockStream = ReturnType<typeof createMockStream>;
+
 function createMockStream() {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -3599,6 +3601,259 @@ describe('Controller (black-box)', () => {
       expect(resultB2.value).toBe('b-value');
 
       await clientB.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Restart after shutdown
+  // ---------------------------------------------------------------------------
+  describe('restart after shutdown', () => {
+    /** Builds a flagA datafile whose single environment resolves to `value`. */
+    function makeFlagA(revision: number, value: boolean): BundledDefinitions {
+      return makeBundled({
+        revision,
+        configUpdatedAt: revision,
+        definitions: {
+          flagA: {
+            environments: { production: value ? 1 : 0 },
+            variants: [false, true],
+          },
+        },
+      });
+    }
+
+    it('should apply stream data after initialize, shutdown, initialize', async () => {
+      const streams = [createMockStream(), createMockStream()];
+      let streamIndex = 0;
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          const stream = streams[streamIndex++];
+          if (!stream) {
+            return Promise.reject(
+              new Error(`Unexpected stream connection #${streamIndex}`),
+            );
+          }
+          return stream.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const [firstStream, secondStream] = streams as [MockStream, MockStream];
+      const client = createClient(sdkKey, { fetch: fetchMock, polling: false });
+
+      const firstInit = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      firstStream.push({ type: 'datafile', data: makeFlagA(1, true) });
+      await firstInit;
+
+      expect((await client.evaluate('flagA', false)).value).toBe(true);
+
+      await client.shutdown();
+
+      // The second connection must be wired up again, so its datafile applies.
+      const secondInit = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      secondStream.push({ type: 'datafile', data: makeFlagA(2, false) });
+      await secondInit;
+
+      const result = await client.evaluate('flagA', true);
+      expect(result.value).toBe(false);
+      expect(result.reason).not.toBe('error');
+      expect(result.metrics?.source).toBe('in-memory');
+      expect(result.metrics?.connectionState).toBe('connected');
+      expect(streamIndex).toBe(2);
+
+      firstStream.close();
+      secondStream.close();
+      await client.shutdown();
+    });
+
+    it('should apply poll data after initialize, shutdown, initialize', async () => {
+      let revision = 1;
+      const datafileCalls: string[] = [];
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          datafileCalls.push(url);
+          return Promise.resolve(
+            new Response(
+              JSON.stringify(makeFlagA(revision, revision % 2 === 1)),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
+          );
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, { fetch: fetchMock, stream: false });
+
+      await client.initialize();
+      expect((await client.evaluate('flagA', false)).value).toBe(true);
+
+      await client.shutdown();
+
+      revision = 2;
+      await client.initialize();
+
+      const result = await client.evaluate('flagA', true);
+      expect(result.value).toBe(false);
+      expect(result.reason).not.toBe('error');
+      expect(result.metrics?.source).toBe('in-memory');
+      expect(datafileCalls).toHaveLength(2);
+
+      await client.shutdown();
+    });
+
+    it('should subscribe poll handlers only once across a restart', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      let failPoll = false;
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          if (failPoll) return Promise.reject(new Error('poll boom'));
+          return Promise.resolve(
+            new Response(JSON.stringify(makeFlagA(1, true)), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 3000 },
+      });
+
+      await client.initialize();
+      await client.shutdown();
+      await client.initialize();
+
+      // A single failing interval poll must be reported exactly once. A second
+      // subscription of the same handler would log it twice.
+      failPoll = true;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Poll failed:',
+        expect.objectContaining({ message: 'poll boom' }),
+      );
+
+      await client.shutdown();
+    });
+
+    it('should keep working across repeated restarts', async () => {
+      const streams = [
+        createMockStream(),
+        createMockStream(),
+        createMockStream(),
+      ];
+      let streamIndex = 0;
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          const stream = streams[streamIndex++];
+          if (!stream) {
+            return Promise.reject(
+              new Error(`Unexpected stream connection #${streamIndex}`),
+            );
+          }
+          return stream.response;
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, { fetch: fetchMock, polling: false });
+
+      for (const [round, stream] of streams.entries()) {
+        const initPromise = client.initialize();
+        await vi.advanceTimersByTimeAsync(0);
+        stream.push({
+          type: 'datafile',
+          data: makeFlagA(round + 1, round % 2 === 0),
+        });
+        await initPromise;
+
+        const result = await client.evaluate('flagA', false);
+        expect(result.value).toBe(round % 2 === 0);
+
+        await client.shutdown();
+      }
+
+      expect(streamIndex).toBe(3);
+      for (const stream of streams) stream.close();
+    });
+
+    it('should subscribe handlers once when a source starts twice without a shutdown', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.mocked(readBundledDefinitions).mockRejectedValue(
+        new Error('no bundled definitions'),
+      );
+
+      let failPoll = true;
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          if (failPoll) return Promise.reject(new Error('poll boom'));
+          return Promise.resolve(
+            new Response(JSON.stringify(makeFlagA(1, true)), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const pollErrorCount = () =>
+        errorSpy.mock.calls.filter(
+          (call) => call[0] === '@vercel/flags-core: Poll failed:',
+        ).length;
+
+      // Metrics are disabled so the assertions below see only poll errors and
+      // no usage batch outlives the test.
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        disableMetrics: true,
+      });
+
+      // First source start: the poll fails and no fallback data exists, so
+      // initialization rejects without ever caching data.
+      await expect(client.initialize()).rejects.toThrow(
+        'no bundled definitions',
+      );
+      expect(pollErrorCount()).toBe(1);
+
+      // Second source start, with no shutdown in between: evaluating without
+      // cached data runs the fallback chain, which polls again.
+      failPoll = false;
+      expect((await client.evaluate('flagA', false)).value).toBe(true);
+
+      // One failing interval poll must still be reported exactly once. A
+      // second subscription of the same handler would report it twice.
+      failPoll = true;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(pollErrorCount()).toBe(2);
+      expect(errorSpy).toHaveBeenCalledTimes(2);
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      await client.shutdown();
     });
   });
 
