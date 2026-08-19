@@ -88,7 +88,7 @@ export const FlagToggle = ({
       <Switch
         id={flagKey}
         checked={override === null ? value : override}
-        onCheckedChange={(nextValue) => {
+        onCheckedChange={(nextValue: boolean) => {
           document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
@@ -138,7 +138,7 @@ export const FlagSelect = ({
 
         <Select
           value={override === null ? value : override}
-          onValueChange={(nextValue) => {
+          onValueChange={(nextValue: string) => {
             document.cookie = `${flagKey}=${encodeURIComponent(nextValue)}; max-age=${oneYearInSeconds}; path=/`;
             sessionStorage.setItem('toast', message(flagKey));
             setOverride(nextValue);
