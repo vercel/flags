@@ -3,6 +3,8 @@ import type { JsonValue } from '..';
 import type { FlagOption } from '../types';
 import { memoizeOne } from './async-memoize-one';
 
+const SECRET_BYTE_LENGTH = 32;
+
 // 252 max options length allows storing index  0 to 251,
 // so 252 is the first SPECIAL_INTEGER
 export const MAX_OPTION_LENGTH = 252;
@@ -15,9 +17,21 @@ enum SPECIAL_INTEGERS {
   UNLISTED_VALUE = 255,
 }
 
+function getSecretKey(secret: string): Uint8Array {
+  const encodedSecret = base64url.decode(secret);
+
+  if (encodedSecret.length !== SECRET_BYTE_LENGTH) {
+    throw new Error(
+      'flags: Invalid secret, it must be a 256-bit key (32 bytes)',
+    );
+  }
+
+  return encodedSecret;
+}
+
 const memoizedVerify = memoizeOne(
   (code: string, secret: string) =>
-    compactVerify(code, base64url.decode(secret), {
+    compactVerify(code, getSecretKey(secret), {
       algorithms: ['HS256'],
     }),
   (a, b) => a[0] === b[0] && a[1] === b[1], // only first two args matter
@@ -28,7 +42,7 @@ const memoizedSign = memoizeOne(
   (uint8Array: Uint8Array, secret) =>
     new CompactSign(uint8Array)
       .setProtectedHeader({ alg: 'HS256' })
-      .sign(base64url.decode(secret)),
+      .sign(getSecretKey(secret)),
   (a, b) =>
     // matchedIndices array must be equal
     a[0].length === b[0].length &&
