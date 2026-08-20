@@ -3695,7 +3695,12 @@ describe('Controller (black-box)', () => {
       flagA: {
         environments: {
           production: {
-            fallthrough: { type: 'experiment' },
+            fallthrough: {
+              type: 'split',
+              base: ['user', 'key'],
+              weights: [0, 1],
+              defaultVariant: 0,
+            },
           },
         },
         variants: ['control-a', 'treatment-a'],
@@ -3704,8 +3709,6 @@ describe('Controller (black-box)', () => {
         experiment: {
           id: 'exp_a',
           base: ['user', 'key'],
-          weights: [0, 1],
-          defaultVariant: 0,
           rampId: 'ramp_a',
           rampPercentage: 50,
         },
@@ -3713,7 +3716,7 @@ describe('Controller (black-box)', () => {
       flagB: {
         environments: {
           production: {
-            fallthrough: { type: 'experiment' },
+            fallthrough: 0,
           },
         },
         variants: ['control-b', 'treatment-b'],
@@ -3722,8 +3725,6 @@ describe('Controller (black-box)', () => {
         experiment: {
           id: 'exp_b',
           base: ['session', 'key'],
-          weights: [1, 0],
-          defaultVariant: 0,
         },
       },
     };
@@ -3748,7 +3749,7 @@ describe('Controller (black-box)', () => {
 
       expect(result).toMatchObject({
         value: 'treatment-a',
-        outcomeType: 'experiment',
+        outcomeType: 'split',
         experiment: {
           id: 'exp_a',
           variantId: 'treatment-a',

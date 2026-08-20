@@ -26,8 +26,10 @@ const result = await client.evaluate<boolean>('show-new-feature', false, {
 
 ## Experiment exposures
 
-Experiment-backed flag evaluations report exposures automatically. Provide a
-custom reporter to send them to your analytics system:
+Flags linked to an experiment report exposures automatically, regardless of
+whether the evaluated value came from a fixed variant, target, split, rollout,
+or fallthrough. Provide a custom reporter to send them to your analytics
+system:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {

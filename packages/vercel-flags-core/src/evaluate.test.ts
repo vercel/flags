@@ -2700,14 +2700,19 @@ describe('evaluate', () => {
   });
 });
 
-describe('experiment outcomes', () => {
+describe('experiment metadata', () => {
   const definition = {
     environments: {
       production: {
         rules: [
           {
             conditions: [[['user', 'country'], Comparator.EQ, 'DE']],
-            outcome: { type: 'experiment' },
+            outcome: {
+              type: 'split',
+              base: ['user', 'key'],
+              weights: [0, 1],
+              defaultVariant: 0,
+            },
           },
         ],
         fallthrough: 0,
@@ -2719,14 +2724,12 @@ describe('experiment outcomes', () => {
     experiment: {
       id: 'exp_checkout',
       base: ['user', 'key'],
-      weights: [0, 1],
-      defaultVariant: 0,
       rampId: 'ramp_1',
       rampPercentage: 100,
     },
   } satisfies Packed.FlagDefinition;
 
-  it('evaluates an experiment referenced by a rule', () => {
+  it('adds experiment metadata to a split outcome', () => {
     expect(
       evaluate({
         definition,
@@ -2737,7 +2740,7 @@ describe('experiment outcomes', () => {
       value: 'treatment',
       variantId: 'flag-treatment',
       reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.EXPERIMENT,
+      outcomeType: OutcomeType.SPLIT,
       experiment: {
         id: 'exp_checkout',
         variantId: 'flag-treatment',
@@ -2748,7 +2751,7 @@ describe('experiment outcomes', () => {
     });
   });
 
-  it('uses the experiment default variant when its base is missing', () => {
+  it('adds experiment metadata when a split uses its default variant', () => {
     expect(
       evaluate({
         definition,
@@ -2759,43 +2762,37 @@ describe('experiment outcomes', () => {
       value: 'control',
       variantId: 'flag-control',
       reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.EXPERIMENT,
+      outcomeType: OutcomeType.SPLIT,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'flag-control',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 100,
+      },
     });
   });
 
-  it('uses control without an assignment outside the experiment ramp', () => {
+  it('adds experiment metadata to a non-split outcome', () => {
     expect(
       evaluate({
-        definition: {
-          ...definition,
-          experiment: { ...definition.experiment, rampPercentage: 0 },
-        },
+        definition,
         environment: 'production',
-        entities: { user: { key: 'user_123', country: 'DE' } },
+        entities: { user: { key: 'user_123', country: 'US' } },
       }),
     ).toEqual({
       value: 'control',
       variantId: 'flag-control',
-      reason: ResolutionReason.RULE_MATCH,
-      outcomeType: OutcomeType.EXPERIMENT,
+      reason: ResolutionReason.FALLTHROUGH,
+      outcomeType: OutcomeType.VALUE,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'flag-control',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 100,
+      },
     });
-  });
-
-  it('throws for an invalid experiment reference', () => {
-    expect(() =>
-      evaluate({
-        definition: {
-          environments: {
-            production: {
-              fallthrough: { type: 'experiment' },
-            },
-          },
-          variants: [false],
-        },
-        environment: 'production',
-        entities: {},
-      }),
-    ).toThrow('@vercel/flags-core: Experiment not found');
   });
 });
 

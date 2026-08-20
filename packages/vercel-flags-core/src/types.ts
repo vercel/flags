@@ -132,7 +132,7 @@ export type EvaluationOptions = {
   exposureLogging?: boolean;
 };
 
-/** Information about the experiment assignment that produced a flag value. */
+/** Information about the experiment linked to an evaluated flag value. */
 export type ExperimentAssignment = {
   /** Experiment identifier. */
   id: string;
@@ -299,7 +299,7 @@ export type EvaluationResult<T> =
        * The variant we want to report for o11y
        */
       variantId: VariantId | null;
-      /** Experiment assignment when an experiment outcome produced the value. */
+      /** Experiment metadata when the flag is linked to an experiment. */
       experiment?: ExperimentAssignment;
       /**
        * Indicates why the flag evaluated to a certain value
@@ -359,8 +359,6 @@ export enum OutcomeType {
   SPLIT = 'split',
   /** When the outcome type was a progressive rollout */
   ROLLOUT = 'rollout',
-  /** When the outcome type was an experiment assignment */
-  EXPERIMENT = 'experiment',
 }
 
 /**
@@ -594,14 +592,11 @@ export namespace Original {
          * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
          */
         slots: { promille: number; durationMs: number }[];
-      }
-    | {
-        type: 'experiment';
       };
 
   export type ExperimentDefinition = {
     id: string;
-    /** Based on which entity attribute traffic should be assigned. */
+    /** Entity attribute used as the experiment unit. */
     base: EntityAccessor;
     /** Distribution keyed by flag variant ID. */
     weights: Record<VariantId, number>;
@@ -836,20 +831,11 @@ export namespace Packed {
     slots: [number, number][];
   };
 
-  /** An outcome which delegates assignment to a flag-level experiment. */
-  export type ExperimentOutcome = {
-    type: 'experiment';
-  };
-
   export type ExperimentDefinition = {
     /** Experiment identifier. */
     id: string;
-    /** Entity path used for deterministic assignment. */
+    /** Entity path used as the experiment unit. */
     base: EntityAccessor;
-    /** Distribution indexed by the corresponding flag variant. */
-    weights: number[];
-    /** Flag variant used when the base attribute does not exist. */
-    defaultVariant: VariantIndex;
     /** Identifier of the ramp active for this experiment. */
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
@@ -874,11 +860,7 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type Outcome =
-    | VariantIndex
-    | SplitOutcome
-    | RolloutOutcome
-    | ExperimentOutcome;
+  export type Outcome = VariantIndex | SplitOutcome | RolloutOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];

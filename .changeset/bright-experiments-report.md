@@ -2,4 +2,4 @@
 '@vercel/flags-core': minor
 ---
 
-Add experiment outcomes, exposure reporting, and per-evaluation exposure logging controls.
+Add flag-level experiment exposure reporting and per-evaluation exposure logging controls.

@@ -440,14 +440,13 @@ function getWeightedVariantIndex<T>(
   return assignment.defaultVariant;
 }
 
-function handleOutcome<T>(
+function resolveOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
 ): {
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
-  experiment?: ExperimentAssignment;
 } {
   if (typeof outcome === 'number') {
     const variant = getVariant<T>(params.definition, outcome);
@@ -466,53 +465,6 @@ function handleOutcome<T>(
       return {
         ...getVariant<T>(params.definition, index),
         outcomeType: OutcomeType.SPLIT,
-      };
-    }
-    case 'experiment': {
-      const experiment = params.definition.experiment;
-      if (!experiment) {
-        throw new Error('@vercel/flags-core: Experiment not found');
-      }
-
-      const unitValue = access(experiment.base, params);
-      if (typeof unitValue !== 'string') {
-        return {
-          ...getVariant<T>(params.definition, experiment.defaultVariant),
-          outcomeType: OutcomeType.EXPERIMENT,
-        };
-      }
-
-      const rampPercentage = experiment.rampPercentage ?? 100;
-      const rampSeed = ((params.definition.seed ?? 0) ^ 0x9e3779b9) >>> 0;
-      if (hashInput(unitValue, rampSeed) >= boundaryFor(rampPercentage, 100)) {
-        return {
-          ...getVariant<T>(params.definition, experiment.defaultVariant),
-          outcomeType: OutcomeType.EXPERIMENT,
-        };
-      }
-
-      const index = getWeightedVariantIndex(
-        params,
-        experiment,
-        params.definition.seed,
-      );
-      const variant = getVariant<T>(params.definition, index);
-      if (typeof variant.variantId !== 'string') {
-        throw new Error(
-          `@vercel/flags-core: Flag variant ID not found at index ${index} for experiment "${experiment.id}"`,
-        );
-      }
-
-      return {
-        ...variant,
-        outcomeType: OutcomeType.EXPERIMENT,
-        experiment: {
-          id: experiment.id,
-          variantId: variant.variantId,
-          base: experiment.base,
-          rampId: experiment.rampId,
-          rampPercentage: experiment.rampPercentage,
-        },
       };
     }
     case 'rollout': {
@@ -606,6 +558,31 @@ function handleOutcome<T>(
       exhaustivenessCheck(type);
     }
   }
+}
+
+function handleOutcome<T>(
+  params: EvaluationParams<T>,
+  outcome: Packed.Outcome,
+): {
+  value: T;
+  outcomeType: OutcomeType;
+  variantId: VariantId | null;
+  experiment?: ExperimentAssignment;
+} {
+  const result = resolveOutcome(params, outcome);
+  const experiment = params.definition.experiment;
+  if (!experiment || result.variantId === null) return result;
+
+  return {
+    ...result,
+    experiment: {
+      id: experiment.id,
+      variantId: result.variantId,
+      base: experiment.base,
+      rampId: experiment.rampId,
+      rampPercentage: experiment.rampPercentage,
+    },
+  };
 }
 
 /**
