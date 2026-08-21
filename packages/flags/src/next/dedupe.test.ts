@@ -260,8 +260,15 @@ describe('dedupe', () => {
       const headersMock = await getHeadersMock();
       headersMock.mockReturnValue(same);
 
+      // Each deduped() call does its own `await import('next/headers')`. Only
+      // the first of several *concurrent* dynamic imports of a mocked module
+      // receives the mock (vitest-dev/vitest#7040), so let each import settle
+      // before starting the next call. The calls still overlap while `promise`
+      // is pending, which is what this test is about.
       const result1Promise = deduped();
+      await vitest.dynamicImportSettled();
       const result2Promise = deduped();
+      await vitest.dynamicImportSettled();
       resolvePromise(1);
       await expect(deduped()).resolves.toBe(1);
 
@@ -286,8 +293,12 @@ describe('dedupe', () => {
       const same = new Headers();
       headersMock.mockReturnValue(same);
 
+      // See the note above about vitest-dev/vitest#7040 — the dynamic import
+      // inside each deduped() call must settle before the next call starts.
       const result1Promise = expect(deduped()).rejects.toBe('artificial error');
+      await vitest.dynamicImportSettled();
       const result2Promise = expect(deduped()).rejects.toBe('artificial error');
+      await vitest.dynamicImportSettled();
 
       rejectPromise('artificial error');
 

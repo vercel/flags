@@ -1,26 +1,16 @@
-import type { NextRequest } from "next/server";
-import { getLLMText, source } from "@/lib/geistdocs/source";
-import { translations } from "@/geistdocs";
+import { createLlmsRoute } from "@vercel/geistdocs/routes/llms";
+import { config } from "@/lib/geistdocs/config";
+import { geistdocsSource } from "@/lib/geistdocs/source";
 
-export const revalidate = false;
+const llmsRoute = createLlmsRoute({
+  source: geistdocsSource,
+});
 
 export const dynamicParams = false;
-export const generateStaticParams = async () => {
-  const langs = Object.keys(translations);
+export const generateStaticParams = () => {
+  const langs = Object.keys(config.translations ?? {});
   return langs.map((lang) => ({ lang }));
 };
 
-export const GET = async (
-  _req: NextRequest,
-  { params }: RouteContext<"/[lang]/llms.txt">
-) => {
-  const { lang } = await params;
-  const scan = source.getPages(lang).map(getLLMText);
-  const scanned = await Promise.all(scan);
-
-  return new Response(scanned.join("\n\n"), {
-    headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
-    },
-  });
-};
+export const GET = llmsRoute.GET;
+export const revalidate = false;

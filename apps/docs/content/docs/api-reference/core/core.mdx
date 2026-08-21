@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   const providerData: ProviderData = /* ... */
 
   return NextResponse.json<ApiData>(providerData, {
-    headers: { 'x-flags-sdk-version': version },
+    headers: {
+      'x-flags-sdk-version': version,
+      'cache-control': 'no-store',
+    },
   });
 }
 ```
@@ -99,7 +102,7 @@ import { reportValue } from 'flags';
 reportValue('summer-sale', true);
 ```
 
-### Encryption and Decryption Functions
+### Encryption and decryption functions
 
 The flags package provides multiple purpose-specific encryption and decryption functions for different types of flag data. These functions add purpose claims to prevent misuse between different data types.
 

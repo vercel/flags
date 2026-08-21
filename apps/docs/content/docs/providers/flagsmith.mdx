@@ -66,7 +66,7 @@ export const showBanner = flag<boolean>({
 });
 ```
 
-### Type Coercion Behavior
+### Type coercion behavior
 
 - **Without `coerce`**: Returns the raw value from Flagsmith (empty/null/undefined values return default)
 - **`coerce: "string"`**: Converts any value to string (returns default for null/undefined/NaN)
@@ -77,19 +77,19 @@ export const showBanner = flag<boolean>({
   - Falls back to the flag's enabled state for other values
   - Returns default when flag is disabled
 
-## Default Adapter
+## Default adapter
 
-The default flagsmith adapter is export as `flagsmithAdapter`.
+The default flagsmith adapter is exported as `flagsmithAdapter`.
 
 ```ts
 import { flagsmithAdapter } from "@flags-sdk/flagsmith"
 ```
 
-This adapter automatically configures itself based on the following Environment variables:
+This adapter automatically configures itself based on the following environment variables:
 
 - `FLAGSMITH_ENVIRONMENT_ID` (required): Your Flagsmith environment ID
 
-## Custom Adapter
+## Custom adapter
 
 Create a custom adapter by using the `createFlagsmithAdapter` function:
 
@@ -119,7 +119,7 @@ export const showBanner = flag<boolean, EntitiesType>({
 });
 ```
 
-## Flags Discovery Endpoint
+## Flags discovery endpoint
 
 To enable the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer), create a discovery endpoint at `app/.well-known/vercel/flags/route.ts`:
 
@@ -137,7 +137,7 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 
 This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer.
 
-## Environment Variables
+## Environment variables
 
 - `FLAGSMITH_ENVIRONMENT_ID` (required): Your Flagsmith environment ID
-- `FLAGSMITH_PROJECT_ID` (optional): Required for the Flags Discovery Endpoint
+- `FLAGSMITH_PROJECT_ID` (optional): Required for the Flags discovery endpoint

@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import type { JsonValue } from '..';
-import type { FlagDeclaration, FlagOption } from '../types';
+import type { Adapter, FlagDeclaration, FlagOption } from '../types';
 
 type NextApiRequestCookies = Partial<{
   [key: string]: string;
@@ -12,6 +12,13 @@ type NextApiRequestCookies = Partial<{
 export type PagesRouterRequest = IncomingMessage & {
   cookies: NextApiRequestCookies;
 };
+
+/**
+ * The request shapes accepted by `flag(req)` and `evaluate(flags, req)` outside
+ * of App Router: a Pages Router `IncomingMessage`, or a `NextRequest` / Web
+ * `Request` (e.g. from routing middleware).
+ */
+export type FlagRequest = PagesRouterRequest | Request;
 
 /**
  * Metadata on a feature flag function
@@ -57,8 +64,11 @@ type FlagMeta<ValueType, EntitiesType> = {
    * The adapter used to evaluate this flag, if any. Exposed so `evaluate()`
    * can group flags that share an `adapterId` and call `adapter.bulkDecide`
    * once per group.
+   *
+   * Always a resolved adapter instance — if a factory was passed to `flag()`
+   * it has already been called.
    */
-  adapter?: FlagDeclaration<ValueType, EntitiesType>['adapter'];
+  adapter?: Adapter<ValueType, EntitiesType>;
   /**
    * Flag-level configuration (e.g. `reportValue`).
    */
@@ -72,7 +82,7 @@ type FlagMeta<ValueType, EntitiesType> = {
     identify:
       | FlagDeclaration<ValueType, EntitiesType>['identify']
       | EntitiesType;
-    request?: PagesRouterRequest;
+    request?: FlagRequest;
   }) => Promise<ValueType>;
 };
 
@@ -81,7 +91,7 @@ export type AppRouterFlag<ValueType, EntitiesType> =
 
 export type PagesRouterFlag<ValueType, EntitiesType> = {
   (): never;
-  (request: PagesRouterRequest): Promise<ValueType>;
+  (request: FlagRequest): Promise<ValueType>;
 } & FlagMeta<ValueType, EntitiesType>;
 
 export type PrecomputedFlag<ValueType, EntitiesType> = {

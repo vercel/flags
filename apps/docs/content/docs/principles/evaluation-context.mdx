@@ -62,13 +62,13 @@ export const exampleFlag = flag<boolean, Entities>({
 });
 ```
 
-## Headers and Cookies
+## Headers and cookies
 
 The `identify` function is called with `headers`{" "}
 and `cookies` arguments, which is useful when dealing with
 anonymous or authenticated users.
 
-The arguments are normalized to a common format so the same flag to be
+The arguments are normalized to a common format so the same flag can be
 used in Routing Middleware, App Router, and Pages Router without having to
 worry about the differences in how `headers` and{" "}
 `cookies` are represented there.
@@ -95,7 +95,7 @@ The `dedupe` function is a helper to prevent duplicate work.
 Any function wrapped in `dedupe` will only ever run once for
 the same request within the same runtime and given the same arguments.
 
-This helper is extremly useful in combination with the{" "}
+This helper is useful in combination with the{" "}
 `identify` function, as it allows the identification to only
 happen once per request. This is useful in preventing overhead when
 passing the same `identify` function to multiple feature
@@ -117,10 +117,10 @@ determine the evaluation context, it is possible to provide a custom
 evaluation context.
 
 ```tsx
-// pass a custom evaluation context from the call side
+// pass a custom evaluation context from the call site
 await exampleFlag.run({ identify: { user: { id: 'user1' } } });
 
-// pass a custom evaluation context function from the call side
+// pass a custom evaluation context function from the call site
 await exampleFlag.run({ identify: () => ({ user: { id: 'user1' } }) });
 ```
 

@@ -23,6 +23,22 @@ type AdapterResponse<ClientType> = {
 };
 
 /**
+ * Whether the provider signalled that it can never become ready, e.g. due to
+ * bad credentials or invalid configuration. Retrying such an initialization is
+ * pointless, so the failure is cached instead.
+ *
+ * @see https://openfeature.dev/specification/sections/providers#24-initialization
+ */
+function isFatalError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === 'PROVIDER_FATAL'
+  );
+}
+
+/**
  * Creates a sync OpenFeature adapter.
  * @param init Client
  * @example
@@ -55,13 +71,30 @@ export function createOpenFeatureAdapter(
 ): AdapterResponse<Client | (() => Promise<Client>)> {
   let client: Client | null = typeof init === 'function' ? null : init;
 
-  let clientPromise: Promise<Client>;
-  async function initialize() {
+  let clientPromise: Promise<Client> | null = null;
+  function initialize(): Client | Promise<Client> {
     if (client) return client;
     if (clientPromise) return clientPromise;
-    clientPromise = typeof init === 'function' ? init() : Promise.resolve(init);
-    client = await clientPromise;
-    return clientPromise;
+
+    const attempt = (
+      typeof init === 'function' ? init() : Promise.resolve(init)
+    ).then(
+      (resolvedClient) => {
+        client = resolvedClient;
+        return resolvedClient;
+      },
+      (error: unknown) => {
+        // Initialization failed. Unless the provider declared the failure
+        // fatal, forget the rejected promise so the next evaluation retries
+        // instead of replaying this error for the rest of the process' life.
+        if (clientPromise === attempt && !isFatalError(error)) {
+          clientPromise = null;
+        }
+        throw error;
+      },
+    );
+    clientPromise = attempt;
+    return attempt;
   }
 
   function booleanValue(
@@ -69,7 +102,7 @@ export function createOpenFeatureAdapter(
   ): Adapter<boolean, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<boolean> {
-        await initialize();
+        const client = await initialize();
         if (!client) return defaultValue as boolean;
         return client.getBooleanValue(
           key,
@@ -86,7 +119,7 @@ export function createOpenFeatureAdapter(
   ): Adapter<string, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<string> {
-        await initialize();
+        const client = await initialize();
         if (!client) return defaultValue as string;
         return client.getStringValue(
           key,
@@ -103,7 +136,7 @@ export function createOpenFeatureAdapter(
   ): Adapter<number, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<number> {
-        await initialize();
+        const client = await initialize();
         if (!client) return defaultValue as number;
         return client.getNumberValue(
           key,
@@ -120,7 +153,7 @@ export function createOpenFeatureAdapter(
   ): Adapter<ValueType, EvaluationContext> {
     return {
       async decide({ key, entities, defaultValue }): Promise<ValueType> {
-        await initialize();
+        const client = await initialize();
         if (!client) return defaultValue as ValueType;
         return client.getObjectValue(
           key,
@@ -140,7 +173,7 @@ export function createOpenFeatureAdapter(
     client:
       typeof init === 'function'
         ? async () => {
-            await initialize();
+            const client = await initialize();
             if (!client)
               throw new Error(
                 '@flags-sdk/openfeature: OpenFeature client failed to initialize',

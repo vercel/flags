@@ -16,7 +16,7 @@ import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 
@@ -33,7 +33,7 @@ const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
   key: 'example-flag',
-  adapter: vercelAdapter(),
+  adapter: vercelAdapter,
 });
 ```
 

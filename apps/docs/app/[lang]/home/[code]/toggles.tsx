@@ -1,5 +1,6 @@
 'use client';
 import { track } from '@vercel/analytics';
+import { Switch } from '@vercel/geistdocs/components/switch';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 
 const oneYearInSeconds = 31_536_000;
 
@@ -82,16 +82,14 @@ export const FlagToggle = ({
           {label}
         </Label>
         {description ? (
-          <span className="text-muted-foreground text-sm">{description}</span>
+          <span className="text-gray-900 text-sm">{description}</span>
         ) : null}
       </div>
       <Switch
         id={flagKey}
         checked={override === null ? value : override}
         onCheckedChange={(nextValue) => {
-          document.cookie = nextValue
-            ? `${flagKey}=1; max-age=${oneYearInSeconds}; path=/`
-            : `${flagKey}=; max-age=0; path=/`;
+          document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
           initSlowConnectionWarning();
@@ -135,7 +133,7 @@ export const FlagSelect = ({
           {label}
         </Label>
         {description ? (
-          <span className="text-muted-foreground text-sm">{description}</span>
+          <span className="text-gray-900 text-sm">{description}</span>
         ) : null}
 
         <Select
@@ -150,7 +148,9 @@ export const FlagSelect = ({
           }}
         >
           <SelectTrigger id={flagKey} className="mt-1.5 w-full">
-            <SelectValue placeholder="Select an option" />
+            <SelectValue placeholder="Select an option">
+              {override === null ? value : override}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {options?.map((option) => (

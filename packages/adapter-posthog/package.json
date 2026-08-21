@@ -1,12 +1,11 @@
 {
   "name": "@flags-sdk/posthog",
-  "version": "0.2.2",
+  "version": "1.0.1",
   "description": "PostHog adapter for the Flags SDK",
   "keywords": [
     "flags-sdk",
     "posthog",
     "vercel",
-    "edge config",
     "feature flags",
     "flags"
   ],
@@ -22,6 +21,9 @@
   "author": "Aaron Morris <aaron.morris@vercel.com>",
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": "^20.20.0 || >=22.22.0"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -50,8 +52,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.4.3",
-    "posthog-node": "4.11.1"
+    "posthog-node": "5.45.0"
   },
   "devDependencies": {
     "@types/node": "22.14.0",
@@ -60,7 +61,7 @@
     "rimraf": "6.1.2",
     "tsup": "8.5.1",
     "typescript": "5.8.2",
-    "vite": "6.4.1",
-    "vitest": "1.6.1"
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
   }
 }

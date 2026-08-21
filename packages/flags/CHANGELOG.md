@@ -1,5 +1,69 @@
 # @vercel/flags
 
+## 4.3.0
+
+### Minor Changes
+
+- [#452](https://github.com/vercel/flags/pull/452) [`58e1f5b`](https://github.com/vercel/flags/commit/58e1f5bcdf0dd3ef44ce689681882792b31851c4) Thanks [@luismeyer](https://github.com/luismeyer)! - Replace `@vercel/edge-config` with `@vercel/global-config`.
+
+  Rename the Edge Config adapter package to `@flags-sdk/global-config` and rename repository-owned Edge Config files, exports, types, options, variables, and environment variables to Global Config.
+
+  The previous Edge Config names remain available as deprecated aliases, and the previous environment variables are still honored as fallbacks, so existing code keeps working without changes.
+
+## 4.2.4
+
+### Patch Changes
+
+- [#454](https://github.com/vercel/flags/pull/454) [`dcb74ff`](https://github.com/vercel/flags/commit/dcb74ff9389f93f6d808c674c855ee2e805b4402) Thanks [@dferber90](https://github.com/dferber90)! - return cache-control: no-store from flags discovery endpoint
+
+## 4.2.3
+
+### Patch Changes
+
+- [#442](https://github.com/vercel/flags/pull/442) [`622d56e`](https://github.com/vercel/flags/commit/622d56e608f091a8fbfbda0ee076ea3dcf808e52) Thanks [@dferber90](https://github.com/dferber90)! - Remove `@sveltejs/kit` from peer dependencies. It was declared as an optional peer with a `"*"` range, which caused npm to auto-install the newest `@sveltejs/kit` and drag in its transitive `@sveltejs/vite-plugin-svelte` → `vite` peer chain. In non-SvelteKit projects already on Vite 7 (via Vitest, Storybook, etc.) this produced a hard `ERESOLVE` error requiring `npm install --force`. SvelteKit consumers always have `@sveltejs/kit` installed as the framework, so the `flags/sveltekit` entrypoint continues to resolve it from their own tree.
+
+## 4.2.2
+
+### Patch Changes
+
+- [#438](https://github.com/vercel/flags/pull/438) [`d23d9d2`](https://github.com/vercel/flags/commit/d23d9d2b7ab04bb72c8682c0811f20dd6699104f) Thanks [@eps1lon](https://github.com/eps1lon)! - Tracing no longer records Next.js control-flow errors as span errors. Redirects, notFound, and the rejected hanging promises of aborted prerenders (`HANGING_PROMISE_REJECTION`) are re-thrown for the framework to handle, but the flag evaluation span previously reported them via `span.setStatus({ code: 2, message })`, polluting traces with errors like "During prerendering, `connection()` rejects when the prerender is complete" on every aborted runtime prefetch. These spans are now reported as successful (status Ok), since the traced function completed as intended and the error is framework control flow, while genuine evaluation failures keep marking spans as errored.
+
+## 4.2.1
+
+### Patch Changes
+
+- [#434](https://github.com/vercel/flags/pull/434) [`4d6eb10`](https://github.com/vercel/flags/commit/4d6eb10705ab5aa97baac2fc6f50b85a84c4368a) Thanks [@dferber90](https://github.com/dferber90)! - Allow passing a `NextRequest` / Web `Request` directly to `flag(req)` and `evaluate(flags, req)` outside App Router (e.g. in routing middleware).
+
+  Previously only a Pages Router `IncomingMessage`, or a manually-flattened headers object, worked when calling a flag directly — passing a `NextRequest` produced empty headers because it wasn't recognized as already having a `Headers` instance.
+
+## 4.2.0
+
+### Minor Changes
+
+- [#402](https://github.com/vercel/flags/pull/402) [`2cb0b49`](https://github.com/vercel/flags/commit/2cb0b49698019779859181f7825b0956bf7e629a) Thanks [@dferber90](https://github.com/dferber90)! - Allow passing an adapter factory directly to `flag()`
+
+  You can now pass an adapter factory by reference instead of calling it:
+
+  ```ts
+  import { vercelAdapter } from "@flags-sdk/vercel";
+
+  // before (still supported)
+  flag({ key: "example", adapter: vercelAdapter() });
+
+  // now also works
+  flag({ key: "example", adapter: vercelAdapter });
+  ```
+
+  `flag()` resolves the factory once per declaration. Passing an already-constructed
+  adapter instance continues to work unchanged. Applies to both the Next.js and
+  SvelteKit entrypoints.
+
+## 4.1.1
+
+### Patch Changes
+
+- [#399](https://github.com/vercel/flags/pull/399) [`50725a8`](https://github.com/vercel/flags/commit/50725a8dcfaca7b31d89c45c70e3e087366649da) Thanks [@dferber90](https://github.com/dferber90)! - Recognize hanging promise rejection as internal Next.js error
+
 ## 4.1.0
 
 ### Minor Changes

@@ -1,5 +1,46 @@
 # @flags-sdk/vercel
 
+## 1.4.6
+
+### Patch Changes
+
+- Updated dependencies [[`ceb1519`](https://github.com/vercel/flags/commit/ceb15198f73a973ac559648b8d978c23d23ef0c5)]:
+  - @vercel/flags-core@1.7.1
+
+## 1.4.5
+
+### Patch Changes
+
+- Updated dependencies [[`50b1aa4`](https://github.com/vercel/flags/commit/50b1aa4f9614b8e78f76cc9e3ae539e58a46fa7e)]:
+  - @vercel/flags-core@1.7.0
+
+## 1.4.4
+
+### Patch Changes
+
+- Updated dependencies [[`9dff590`](https://github.com/vercel/flags/commit/9dff590bd5628bd93098637c2e9b3d1a043e4d4b)]:
+  - @vercel/flags-core@1.6.0
+
+## 1.4.3
+
+### Patch Changes
+
+- Updated dependencies [[`f60c99d`](https://github.com/vercel/flags/commit/f60c99d70741e5e8e5af0a069deaf34a3129a27e)]:
+  - @vercel/flags-core@1.5.2
+
+## 1.4.2
+
+### Patch Changes
+
+- [#402](https://github.com/vercel/flags/pull/402) [`2cb0b49`](https://github.com/vercel/flags/commit/2cb0b49698019779859181f7825b0956bf7e629a) Thanks [@dferber90](https://github.com/dferber90)! - Calling `vercelAdapter()` multiple times now returns the same adapter instance instead of creating a new one each time, which improves performance and memory usage.
+
+## 1.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`b0150af`](https://github.com/vercel/flags/commit/b0150af9c8190f0db0efc25409fab89769cab6a7)]:
+  - @vercel/flags-core@1.5.1
+
 ## 1.4.0
 
 ### Minor Changes

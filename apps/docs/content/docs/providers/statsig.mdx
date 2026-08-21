@@ -2,7 +2,7 @@
 title: 'Statsig'
 ---
 
-The [Statsig](https://statsig.com/) provider contains support for Statsig's feature management suite, including Feature Gates, Dynamic Config, Experiments, Autotune and Layers.
+The [Statsig](https://statsig.com/) provider contains support for Statsig's feature management suite, including Feature Gates, Dynamic Config, Experiments, Autotune, and Layers.
 
 Statsig helps you move faster with Feature Gates (Feature Flags) and Dynamic Configs. It also allows you to run A/B tests to validate your new features and understand their impact on your KPIs.
 
@@ -43,7 +43,7 @@ npm install @flags-sdk/statsig
 
 ---
 
-## Provider Instance
+## Provider instance
 
 Import the default adapter instance `statsigAdapter` from `@flags-sdk/statsig`:
 
@@ -66,21 +66,21 @@ const statsigAdapter = createStatsigAdapter({
 | `statsigServerApiKey`         | `string`         | Statsig server secret key                                          |
 | `statsigOptions`              | `StatsigOptions` | Statsig initialization options                                     |
 | `statsigProjectId`            | `string`         | Statsig project ID                                                 |
-| `edgeConfig`                  | `object`         | Edge Config details for use with Statsig's Edge Config integration |
-| `edgeConfig.connectionString` | `string`         | Edge Config connection string                                      |
-| `edgeConfig.itemKey`          | `string`         | Key under which the Statsig configuration is stored in Edge Config |
+| `globalConfig`                  | `object`         | Global Config details for use with Statsig's Global Config integration |
+| `globalConfig.connectionString` | `string`         | Global Config connection string                                      |
+| `globalConfig.itemKey`          | `string`         | Key under which the Statsig configuration is stored in Global Config |
 
 The default statsig adapter configures itself based on the following environment variables:
 
 - `STATSIG_SERVER_API_KEY` _(required)_ → `statsigServerApiKey`
 - `STATSIG_PROJECT_ID` _(optional)_ → `statsigProjectId`
-- `EXPERIMENTATION_CONFIG` _(optional)_ → `edgeConfig.connectionString`
-- `EXPERIMENTATION_CONFIG_ITEM_KEY` _(optional)_ → `edgeConfig.itemKey`
+- `EXPERIMENTATION_CONFIG` _(optional)_ → `globalConfig.connectionString`
+- `EXPERIMENTATION_CONFIG_ITEM_KEY` _(optional)_ → `globalConfig.itemKey`
 
 
 ---
 
-## Identify Users
+## Identify users
 
 Statsig relies on a [Statsig User](https://docs.statsig.com/concepts/user) object to evaluate the flags and experiments for a given request.
 
@@ -340,7 +340,7 @@ When using the [precompute](/principles/precompute) pattern a static prerender w
 
 Each variant may only contain the state of feature flags, but no user specific information. Otherwise the prerender could not be shared between multiple users. This forces you to bootstrap the Statsig client differently than when using [dynamic pages](#dynamic-pages).
 
-The initial static page must depend on feature flag and experiment configuration values only, but may not contain any user specific information. This allows the page to be served statically from an Edge Network or CDN and allows the initial render to be correct.
+The initial static page must depend on feature flag and experiment configuration values only, but may not contain any user specific information. This allows the page to be served statically from the CDN and allows the initial render to be correct.
 
 The client running in the browser must bootstrap the Statsig client over the network because of this.
 
@@ -354,13 +354,13 @@ Read more about initialization strategies in the [Statsig Docs](https://docs.sta
 
 ---
 
-## Edge Config
+## Global Config
 
-The Statsig adapter can either load the experiment configuration over the network or bootstrap from [Edge Config](https://vercel.com/storage/edge-config).
+The Statsig adapter can either load the experiment configuration over the network or bootstrap from [Global Config](https://vercel.com/storage/global-config).
 
-Using [Edge Config](https://vercel.com/docs/storage/edge-config) is optional but recommended for the best latency. Edge Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
+Using [Global Config](https://vercel.com/docs/storage/global-config) is optional but recommended for the best latency. Global Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
-The default Statsig adapter, exported as `statsigAdapter`, will automatically connect to Edge Config if the `EXPERIMENTATION_CONFIG` and `EXPERIMENTATION_CONFIG_ITEM_KEY` environment variables are set. If you are using the [Statsig integration on Vercel marketplace](https://vercel.com/marketplace/statsig) these environment variables will be provided automatically, and the default Statsig adapter will read from Edge Config automatically.
+The default Statsig adapter, exported as `statsigAdapter`, will automatically connect to Global Config if the `EXPERIMENTATION_CONFIG` and `EXPERIMENTATION_CONFIG_ITEM_KEY` environment variables are set. If you are using the [Statsig integration on Vercel marketplace](https://vercel.com/marketplace/statsig) these environment variables will be provided automatically, and the default Statsig adapter will read from Global Config automatically.
 
 ---
 
@@ -420,7 +420,7 @@ export const myDynamicPrice = flag<number, StatsigUser>({
 
 The adapter uses `statsig-node-lite`, which is a slimmed version of the Statsig Node.js SDK optimized for server side and Routing Middleware usage.
 
-### Exposure Logging
+### Exposure logging
 
 Because middleware and server components are evaluated when routes are prefetched, exposures are not logged by default. You can enable exposure logging by providing the `exposureLogging` option to the adapter functions.
 
@@ -474,7 +474,7 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 ```
 
 
-## Read More
+## Read more
 
 Read more about Statsig, Flags SDK, and the Statsig adapter.
 

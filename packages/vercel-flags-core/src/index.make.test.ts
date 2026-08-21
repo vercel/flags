@@ -4,17 +4,21 @@ import { make } from './index.make';
 
 // Mock the Controller to avoid real network calls
 vi.mock('./controller', () => ({
-  Controller: vi.fn().mockImplementation(({ auth }) => ({
-    auth,
-    read: vi.fn().mockResolvedValue({
-      projectId: 'test',
-      definitions: {},
-      segments: {},
-      environment: 'production',
-    }),
-    initialize: vi.fn().mockResolvedValue(undefined),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-  })),
+  // Controller is instantiated with `new`, so the implementation must be a
+  // function rather than an arrow — Vitest 4 throws "is not a constructor".
+  Controller: vi.fn().mockImplementation(function ({ auth }) {
+    return {
+      auth,
+      read: vi.fn().mockResolvedValue({
+        projectId: 'test',
+        definitions: {},
+        segments: {},
+        environment: 'production',
+      }),
+      initialize: vi.fn().mockResolvedValue(undefined),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 import { Controller } from './controller';
@@ -79,6 +83,39 @@ describe('make', () => {
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_client_conn_key' }),
+      });
+      expect(client).toBeDefined();
+    });
+
+    it('should create an OIDC-authenticated client with options as the first argument', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+
+      const client = createClient({ stream: false, polling: false });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: undefined }),
+        stream: false,
+        polling: false,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: undefined },
+      });
+      expect(client).toBeDefined();
+    });
+
+    it('should pass clientName to the controller', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+
+      const client = createClient('vf_server_test_key', {
+        clientName: 'checkout',
+      });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        clientName: 'checkout',
       });
       expect(client).toBeDefined();
     });

@@ -31,7 +31,7 @@ export const GET = async (
   for (const page of source.getPages(lang)) {
     feed.addItem({
       id: page.url,
-      title: page.data.title,
+      title: page.data.title ?? page.url,
       description: page.data.description,
       link: `${baseUrl}${page.url}`,
       date: new Date(),

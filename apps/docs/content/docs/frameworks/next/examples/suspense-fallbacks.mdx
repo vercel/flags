@@ -1,11 +1,11 @@
 ---
 title: Suspense Fallbacks
-description: How to use feature flags with Suspense fallbacks to server variants of a Partial Prerendered shell.
+description: How to use feature flags with Suspense fallbacks to serve variants of a Partial Prerendered shell.
 ---
 
 import Link from 'next/link';
 
-This example shows how create and switch between multiple variants of a
+This example shows how to create and switch between multiple variants of a
 Partial Prerendering shell by combining Suspense fallbacks with
 precomputed feature flags.
 
@@ -34,10 +34,10 @@ function Example() {
 
 In this example the `hasAuthCookieFlag` flag checks whether
 the user has an authentication cookie without actually authenticating
-the user yet. Authentiating the user and fetching their profile
+the user yet. Authenticating the user and fetching their profile
 information is left to the `Dashboard` component.
 
-Checking the existance of an authentication allows the application to
+Checking the existence of an authentication cookie allows the application to
 know whether the user is likely to be signed in or definitely signed
 out. It can then use this information to either show the _Sign in_{" "}
 button or render the skeleton of the authenticated state while that
@@ -56,7 +56,7 @@ Marketing pages frequently need to either show a _Dashboard_ button
 or _Sign in_ and _Sign up_ buttons depending on whether the
 user is authenticated. The approach outlined here allows serving the
 marketing pages statically without blocking the response on the auth
-state. Partial Prerendering the streams the auth state once it is
+state. Partial Prerendering then streams the auth state once it is
 resolved as part of the same response.
 
 ## Example
@@ -73,8 +73,8 @@ again without any layout shift.
 
 ## Bypassing Proxy altogether
 
-The approach outlined above is already extremely performant. It is
-possible to further improve latency by avoiding the need to invoke Routing
+The approach outlined above is already performant. You can further
+improve latency by avoiding the need to invoke Routing
 Functions.
 
 Using the `rewrites` in `next.config.js` allows

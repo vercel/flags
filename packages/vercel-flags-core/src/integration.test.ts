@@ -151,6 +151,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -173,6 +174,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -193,6 +195,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -221,6 +224,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: true,
+        variantId: null,
         reason: ResolutionReason.RULE_MATCH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -247,6 +251,7 @@ describe('integration evaluate', () => {
         }),
       ).toEqual({
         value: false,
+        variantId: null,
         reason: ResolutionReason.FALLTHROUGH,
         outcomeType: OutcomeType.VALUE,
       });
@@ -283,8 +288,8 @@ describe('integration evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 500
-      expect(trueCount).toBe(5070);
-      expect(falseCount).toBe(4930);
+      expect(trueCount).toBe(5023);
+      expect(falseCount).toBe(4977);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -318,8 +323,8 @@ describe('integration evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 100 (1%)
-      expect(trueCount).toBe(102);
-      expect(falseCount).toBe(9898);
+      expect(trueCount).toBe(118);
+      expect(falseCount).toBe(9882);
     });
 
     it('should split roughly equally on a 50/50 split', () => {
@@ -353,8 +358,8 @@ describe('integration evaluate', () => {
       const falseCount = results.filter((r) => !r.value).length;
 
       // both should be close to 9900 (99%)
-      expect(trueCount).toBe(9891);
-      expect(falseCount).toBe(109);
+      expect(trueCount).toBe(9903);
+      expect(falseCount).toBe(97);
     });
   });
 });

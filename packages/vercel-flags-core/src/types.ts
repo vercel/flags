@@ -247,6 +247,10 @@ export type EvaluationResult<T> =
        */
       outcomeType?: OutcomeType;
       /**
+       * The variant we want to report for o11y
+       */
+      variantId: VariantId | null;
+      /**
        * Indicates why the flag evaluated to a certain value
        */
       reason: Exclude<ResolutionReason, ResolutionReason.ERROR>;
@@ -260,6 +264,10 @@ export type EvaluationResult<T> =
       errorMessage: string;
       errorCode?: ErrorCode;
       outcomeType?: never;
+      /**
+       * The variant we want to report for o11y
+       */
+      variantId: VariantId | null;
       /**
        * In cases of errors this is the defaultValue if one was provided
        */

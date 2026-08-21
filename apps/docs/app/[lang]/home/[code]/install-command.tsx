@@ -1,7 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import {
   CommandPromptContent,
   CommandPromptCopy,
@@ -12,7 +10,8 @@ import {
   CommandPromptTrigger,
   CommandPromptTriggerDivider,
   CommandPromptViewport,
-} from '@/components/ui/command-prompt';
+} from '@vercel/geistdocs/components/command-prompt';
+import { useState } from 'react';
 
 const COMMAND_FOR_HUMANS = 'npm install flags';
 const COMMAND_FOR_AGENTS = 'npx skills add vercel/flags@flags-sdk';
@@ -26,9 +25,12 @@ interface InstallCommandProps {
 }
 
 export const InstallCommand = ({ value, flagKey }: InstallCommandProps) => {
-  const router = useRouter();
-  // Optimistic override so the tab updates instantly; the server render of the
-  // matching prebuilt `[code]` takes over on refresh.
+  // The optimistic override drives the UI instantly and the cookie persists the
+  // choice for the next load (the server reads it and renders the matching
+  // prebuilt `[code]`). We intentionally do NOT call router.refresh() here:
+  // this flag's only consumer is this switcher, so a refresh changes nothing
+  // visible, but it remounts the subtree mid-toggle and kills the command-line
+  // width animation.
   const [override, setOverride] = useState<Audience | null>(null);
   const current = override ?? value;
 
@@ -40,7 +42,6 @@ export const InstallCommand = ({ value, flagKey }: InstallCommandProps) => {
         if (nextValue === current) return;
         document.cookie = `${flagKey}=${nextValue}; max-age=${oneYearInSeconds}; path=/`;
         setOverride(nextValue);
-        router.refresh();
       }}
       value={current}
     >

@@ -1,5 +1,54 @@
 # @vercel/flags-core
 
+## 1.7.1
+
+### Patch Changes
+
+- [#450](https://github.com/vercel/flags/pull/450) [`ceb1519`](https://github.com/vercel/flags/commit/ceb15198f73a973ac559648b8d978c23d23ef0c5) Thanks [@dferber90](https://github.com/dferber90)! - Strip the `g` and `y` flags from RegEx conditions to prevent cached `RegExp` instances from retaining `lastIndex` state.
+
+## 1.7.0
+
+### Minor Changes
+
+- [#427](https://github.com/vercel/flags/pull/427) [`50b1aa4`](https://github.com/vercel/flags/commit/50b1aa4f9614b8e78f76cc9e3ae539e58a46fa7e) Thanks [@dferber90](https://github.com/dferber90)! - Align rollout, split, and segment split user assignment onto a single hash bucketing scheme.
+
+  Previously splits and rollouts bucketed users with opposite conventions, so switching a flag between a split and a rollout (or locking in a rollout as a split) could reassign users even when the effective distribution was unchanged. All three now derive their cut points from one shared boundary function over the full hash space, so a rollout at a given percentage is identical to the equivalent split.
+
+  Split assignments are effectively unchanged. Rollouts and segment splits are re-bucketed once with this release; after that, converting a flag between outcome types never reassigns anyone.
+
+## 1.6.0
+
+### Minor Changes
+
+- [#401](https://github.com/vercel/flags/pull/401) [`9dff590`](https://github.com/vercel/flags/commit/9dff590bd5628bd93098637c2e9b3d1a043e4d4b) Thanks [@luismeyer](https://github.com/luismeyer)! - Add aggregated flag evaluation telemetry and a `clientName` option for the Vercel Flags client.
+
+## 1.5.2
+
+### Patch Changes
+
+- [#416](https://github.com/vercel/flags/pull/416) [`f60c99d`](https://github.com/vercel/flags/commit/f60c99d70741e5e8e5af0a069deaf34a3129a27e) Thanks [@dferber90](https://github.com/dferber90)! - Fix datafile serialization across the RSC server/client boundary.
+
+  Evaluation memoized scaled split weights and compiled regexes by attaching
+  symbol-keyed properties directly onto objects inside the datafile. While
+  symbols are invisible to `JSON.stringify`, React Server Components serialization
+  walks objects directly and chokes on these (notably the non-serializable
+  `RegExp`), so datafiles could no longer be passed from server to client
+  components. Memoization now uses module-level `WeakMap`s keyed by the
+  outcome/rhs objects, leaving datafile objects pristine while keeping identical
+  caching semantics and lifetime.
+
+## 1.5.1
+
+### Patch Changes
+
+- [#395](https://github.com/vercel/flags/pull/395) [`b0150af`](https://github.com/vercel/flags/commit/b0150af9c8190f0db0efc25409fab89769cab6a7) Thanks [@lucleray](https://github.com/lucleray)! - Reduce log noise from stream reconnects.
+
+  Retryable stream errors are no longer logged on every failed attempt; the
+  underlying error is now surfaced only once retries are exhausted (via the
+  existing "Max retry count exceeded" log). The stream/polling initialization
+  timeout warnings were also reworded to make clear the client keeps connecting
+  in the background while serving fallback values.
+
 ## 1.5.0
 
 ### Minor Changes

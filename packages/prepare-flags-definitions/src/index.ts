@@ -6,6 +6,15 @@ import { version as PACKAGE_VERSION } from '../package.json';
 const FLAGS_HOST = 'https://flags.vercel.com';
 const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 
+/** Number of retry attempts for transient datafile fetch failures. */
+const FETCH_MAX_RETRIES = 3;
+/** Base delay in milliseconds used for exponential backoff between retries. */
+const FETCH_RETRY_BASE_DELAY_MS = 200;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 type BundledDefinitions = Record<string, unknown>;
 
 export interface Output {
@@ -112,11 +121,21 @@ function generateMap(lines: string[], entries: MapEntry[]): void {
   lines.push('}');
 }
 
+/**
+ * Determines whether an HTTP status is worth retrying. Transient server-side
+ * failures (5xx) and rate limiting (429) are retryable; other 4xx responses
+ * indicate a client error that won't be fixed by retrying.
+ */
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 async function fetchDatafile(
   token: string,
   env: Record<string, string | undefined>,
   fetchFn: typeof globalThis.fetch,
   userAgentSuffix?: string,
+  output?: Output,
 ): Promise<BundledDefinitions | undefined> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
@@ -142,19 +161,51 @@ async function fetchDatafile(
     headers['x-vercel-region'] = env.VERCEL_REGION;
   }
 
-  const res = await fetchFn(`${FLAGS_HOST}/v1/datafile`, { headers });
+  let lastError: unknown;
 
-  if (!res.ok) {
+  for (let attempt = 0; attempt <= FETCH_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 200ms, 400ms, 800ms, ...
+      const delay = FETCH_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
+      output?.debug(
+        `vercel-flags: retrying datafile fetch for ${obfuscate(token)} (attempt ${attempt}/${FETCH_MAX_RETRIES}) after ${delay}ms`,
+      );
+      await wait(delay);
+    }
+
+    let res: Response;
+    try {
+      res = await fetchFn(`${FLAGS_HOST}/v1/datafile`, { headers });
+    } catch (error) {
+      // Network-level failure (DNS, connection reset, etc.) — retryable.
+      lastError = error;
+      continue;
+    }
+
+    if (res.ok) {
+      return res.json() as Promise<BundledDefinitions>;
+    }
+
     if (res.status === 404) {
       return undefined;
     }
 
-    throw new Error(
+    const error = new Error(
       `Failed to fetch flag definitions for ${obfuscate(token)}: ${res.status} ${res.statusText}`,
     );
+
+    if (!isRetryableStatus(res.status)) {
+      throw error;
+    }
+
+    lastError = error;
   }
 
-  return res.json() as Promise<BundledDefinitions>;
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(
+        `Failed to fetch flag definitions for ${obfuscate(token)} after ${FETCH_MAX_RETRIES} retries`,
+      );
 }
 
 /**
@@ -298,6 +349,7 @@ export async function prepareFlagsDefinitions(options: {
         env,
         fetchFn,
         userAgentSuffix,
+        output,
       );
       if (!definitions) {
         return;

@@ -12,7 +12,7 @@ user-facing URL shown in the browser stays the same, while different
 content is served for different visitors. As the underlying{" "}
 
 `variant-on` and `variant-off` pages are static, the CDN
-or Edge Network can serve these at the edge.
+can serve these at the edge.
 
 ```tsx title="proxy.ts#next"
 import { type NextRequest, NextResponse } from 'next/server';
@@ -42,7 +42,7 @@ export async function proxy(request: NextRequest) {
 
 ## Advanced examples
 
-Using feature flags in Proxy as shown in this example is very
-basic. This approach does not scale well when you have are using
+Using feature flags in Proxy as shown in this example covers the
+basics. This approach does not scale well when you are using
 multiple feature flags on the same page or when you are using the same
 feature flag on multiple pages. We recommend using [precompute](/principles/precompute) for more advanced use cases, which solves these challenges.

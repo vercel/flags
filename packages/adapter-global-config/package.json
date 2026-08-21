@@ -1,0 +1,61 @@
+{
+  "name": "@flags-sdk/global-config",
+  "version": "0.3.1",
+  "description": "A Flags SDK adapter for Global Config",
+  "keywords": [
+    "vercel",
+    "flags",
+    "vercel flags",
+    "feature flags",
+    "flags sdk"
+  ],
+  "license": "MIT",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "check": "biome check",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/global-config": "^1.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "flags": "workspace:*",
+    "rimraf": "6.1.2",
+    "tsup": "8.5.1",
+    "typescript": "5.6.3",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

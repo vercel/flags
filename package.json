@@ -44,22 +44,38 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
-    "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "2.31.0",
-    "@types/node": "22.9.0",
+    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/cli": "3.0.0",
+    "@types/node": "22.14.0",
     "gray-matter": "4.0.3",
     "husky": "9.0.10",
-    "lint-staged": "15.2.2",
-    "next": "^16.1.6",
+    "lint-staged": "^16.4.0",
+    "next": "16.2.12",
     "playwright": "1.56.1",
     "publint": "0.3.14",
     "react": "canary",
-    "turbo": "2.8.15",
+    "turbo": "2.10.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "8.46.1"
   },
   "packageManager": "pnpm@10.19.0",
   "engines": {
-    "node": ">=18"
+    "node": "^22.11 || ^24 || >=26"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.23",
+      "esbuild": "^0.28.1",
+      "uuid": "^11.1.1",
+      "brace-expansion@>=4": "^5.0.9",
+      "dompurify": "^3.4.13",
+      "fast-uri": "^3.1.5",
+      "js-yaml@3": "^3.15.1",
+      "js-yaml@4": "^4.3.1",
+      "mermaid": "^11.16.1",
+      "nanoid@3": "^3.3.18",
+      "nanoid@>=4": "^5.1.16",
+      "@sveltejs/kit": "^2.70.2"
+    }
   }
 }
