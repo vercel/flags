@@ -191,7 +191,16 @@ describe('flag on app router', () => {
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const f = flag<boolean>({ key: 'first-flag', decide });
+    const reportOverride = vi.fn();
+    const entities = { user: { id: 'user_1' } };
+    const f = flag<boolean, typeof entities>({
+      key: 'first-flag',
+      identify: () => entities,
+      adapter: {
+        decide,
+        reportOverride,
+      },
+    });
 
     // first request using the flag twice
     const headersOfFirstRequest = new Headers();
@@ -207,6 +216,11 @@ describe('flag on app router', () => {
     await expect(f()).resolves.toEqual(true);
     expect(cookieMock).toHaveBeenCalledWith('vercel-flag-overrides');
     expect(decide).not.toHaveBeenCalled();
+    expect(reportOverride).toHaveBeenCalledWith({
+      key: 'first-flag',
+      value: true,
+      entities,
+    });
   });
 
   it('does not crash when override reporting hook is not a function', async () => {
@@ -879,6 +893,7 @@ describe('evaluate', () => {
     bulkDecide?: Adapter<V, any>['bulkDecide'];
     decide?: Adapter<V, any>['decide'];
     identify?: Adapter<V, any>['identify'];
+    reportOverride?: Adapter<V, any>['reportOverride'];
     omitAdapterId?: boolean;
     omitBulkDecide?: boolean;
   }) {
@@ -892,6 +907,7 @@ describe('evaluate', () => {
           throw new Error('decide should not be called in bulk path');
         }),
       identify: opts?.identify,
+      reportOverride: opts?.reportOverride,
       ...(opts?.omitBulkDecide ? {} : { bulkDecide: opts?.bulkDecide }),
     });
   }
@@ -1084,7 +1100,13 @@ describe('evaluate', () => {
 
   it('lets overrides win over bulkDecide results', async () => {
     const bulkDecideMock = vi.fn().mockResolvedValue({ a: 'bulk-value' });
-    const adapter = makeBulkAdapter<boolean>({ bulkDecide: bulkDecideMock });
+    const reportOverride = vi.fn();
+    const entities = { user: { id: 'user_1' } };
+    const adapter = makeBulkAdapter<boolean>({
+      bulkDecide: bulkDecideMock,
+      identify: () => entities,
+      reportOverride,
+    });
 
     const a = flag<boolean>({ key: 'a', adapter: adapter() });
 
@@ -1099,6 +1121,11 @@ describe('evaluate', () => {
 
     await expect(evaluate({ a })).resolves.toEqual({ a: true });
     expect(bulkDecideMock).not.toHaveBeenCalled();
+    expect(reportOverride).toHaveBeenCalledWith({
+      key: 'a',
+      value: true,
+      entities,
+    });
   });
 
   it('omits overridden flags from bulkDecide input', async () => {

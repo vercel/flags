@@ -132,6 +132,15 @@ export type EvaluationOptions = {
   exposureLogging?: boolean;
 };
 
+export type ExperimentAssignmentReason =
+  | 'experiment'
+  | 'not-enrolled'
+  | 'targeted'
+  | 'split'
+  | 'variant'
+  | 'rollout'
+  | 'override';
+
 /** Information about the experiment linked to an evaluated flag value. */
 export type ExperimentAssignment = {
   /** Experiment identifier. */
@@ -144,6 +153,8 @@ export type ExperimentAssignment = {
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** How this evaluation received its value. */
+  assignmentReason: ExperimentAssignmentReason;
 };
 
 /** An experiment exposure passed to a client's exposure reporter. */
@@ -153,13 +164,15 @@ export type Exposure = {
   /** Experiment identifier. */
   experimentId: string;
   /** Identifier of the selected experiment variant. */
-  variantId: string;
+  variantId: string | null;
   /** Entity path on which the experiment assignment is based. */
   base: Packed.EntityAccessor;
   /** Identifier of the ramp active for this assignment. */
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** How this evaluation received its value. */
+  assignmentReason: ExperimentAssignmentReason;
 };
 
 /** Reports experiment exposures produced by one evaluation call. */
@@ -215,6 +228,12 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     entities?: E,
     options?: EvaluationOptions,
   ) => Promise<Record<string, EvaluationResult<T>>>;
+  /** Report a Flags SDK override without evaluating the provider value. */
+  reportOverride: <T = Value, E = Entities>(
+    flagKey: string,
+    value: T,
+    entities?: E,
+  ) => Promise<void>;
   /**
    * Retrieve the latest datafile during startup, and set up subscriptions if needed.
    */
@@ -359,6 +378,8 @@ export enum OutcomeType {
   SPLIT = 'split',
   /** When the outcome type was a progressive rollout */
   ROLLOUT = 'rollout',
+  /** When the experiment assignment mechanism produced the value */
+  EXPERIMENT = 'experiment',
 }
 
 /**
@@ -592,6 +613,9 @@ export namespace Original {
          * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
          */
         slots: { promille: number; durationMs: number }[];
+      }
+    | {
+        type: 'experiment';
       };
 
   export type ExperimentDefinition = {
@@ -602,6 +626,8 @@ export namespace Original {
     weights: Record<VariantId, number>;
     /** Flag variant used when the base attribute does not exist. */
     defaultVariantId: VariantId;
+    /** Stable seed used only for experiment enrollment. */
+    enrollmentSeed: number;
     rampId?: string;
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
@@ -836,6 +862,12 @@ export namespace Packed {
     id: string;
     /** Entity path used as the experiment unit. */
     base: EntityAccessor;
+    /** Distribution indexed by the corresponding flag variant. */
+    weights: number[];
+    /** Flag variant used when the experiment base is unavailable. */
+    defaultVariant: VariantIndex;
+    /** Stable seed used only for experiment enrollment. */
+    enrollmentSeed: number;
     /** Identifier of the ramp active for this experiment. */
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
@@ -860,7 +892,13 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type Outcome = VariantIndex | SplitOutcome | RolloutOutcome;
+  export type ExperimentOutcome = { type: 'experiment' };
+
+  export type Outcome =
+    | VariantIndex
+    | SplitOutcome
+    | RolloutOutcome
+    | ExperimentOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];

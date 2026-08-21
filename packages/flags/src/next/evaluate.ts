@@ -197,7 +197,7 @@ type FlagInfo<ValueType> = {
   key: string;
   defaultValue?: ValueType;
   config?: { reportValue?: boolean };
-  adapter?: { config?: { reportValue?: boolean } };
+  adapter?: Pick<Adapter<ValueType, any>, 'config' | 'reportOverride'>;
 };
 
 function hasOverride(
@@ -227,10 +227,18 @@ async function applyResult<ValueType>(args: {
   definition: FlagInfo<ValueType>;
   readonlyHeaders: ReadonlyHeaders;
   entitiesKey: string;
+  entities?: unknown;
   overrides: Record<string, any> | null;
   produce: () => ValueType | PromiseLike<ValueType>;
 }): Promise<ValueType> {
-  const { definition, readonlyHeaders, entitiesKey, overrides, produce } = args;
+  const {
+    definition,
+    readonlyHeaders,
+    entitiesKey,
+    entities,
+    overrides,
+    produce,
+  } = args;
 
   const cachedValue = getCachedValuePromise(
     readonlyHeaders,
@@ -254,6 +262,15 @@ async function applyResult<ValueType>(args: {
     internalReportValue(definition.key, decision, {
       reason: 'override',
     });
+    try {
+      await definition.adapter?.reportOverride?.({
+        key: definition.key,
+        value: decision,
+        entities,
+      });
+    } catch (error) {
+      console.error('flags: Failed to report flag override', error);
+    }
     return decision;
   }
 
@@ -401,6 +418,7 @@ export function getRun<ValueType, EntitiesType>(
       definition,
       readonlyHeaders,
       entitiesKey,
+      entities,
       overrides,
       produce: () =>
         decide({
@@ -641,6 +659,7 @@ async function evaluateImpl(
                     definition: flagFn,
                     readonlyHeaders,
                     entitiesKey,
+                    entities,
                     overrides,
                     produce: () => {
                       if (bulkError) throw bulkError;

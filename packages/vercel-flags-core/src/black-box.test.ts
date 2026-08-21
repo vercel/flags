@@ -3696,10 +3696,7 @@ describe('Controller (black-box)', () => {
         environments: {
           production: {
             fallthrough: {
-              type: 'split',
-              base: ['user', 'key'],
-              weights: [0, 1],
-              defaultVariant: 0,
+              type: 'experiment',
             },
           },
         },
@@ -3709,6 +3706,9 @@ describe('Controller (black-box)', () => {
         experiment: {
           id: 'exp_a',
           base: ['user', 'key'],
+          weights: [0, 1],
+          defaultVariant: 0,
+          enrollmentSeed: 101,
           rampId: 'ramp_a',
           rampPercentage: 50,
         },
@@ -3716,7 +3716,7 @@ describe('Controller (black-box)', () => {
       flagB: {
         environments: {
           production: {
-            fallthrough: 0,
+            fallthrough: { type: 'experiment' },
           },
         },
         variants: ['control-b', 'treatment-b'],
@@ -3725,6 +3725,9 @@ describe('Controller (black-box)', () => {
         experiment: {
           id: 'exp_b',
           base: ['session', 'key'],
+          weights: [1, 0],
+          defaultVariant: 0,
+          enrollmentSeed: 202,
         },
       },
     };
@@ -3749,13 +3752,14 @@ describe('Controller (black-box)', () => {
 
       expect(result).toMatchObject({
         value: 'treatment-a',
-        outcomeType: 'split',
+        outcomeType: 'experiment',
         experiment: {
           id: 'exp_a',
           variantId: 'treatment-a',
           base: ['user', 'key'],
           rampId: 'ramp_a',
           rampPercentage: 50,
+          assignmentReason: 'experiment',
         },
       });
       expect(reportExposures).toHaveBeenCalledOnce();
@@ -3768,6 +3772,39 @@ describe('Controller (black-box)', () => {
             base: ['user', 'key'],
             rampId: 'ramp_a',
             rampPercentage: 50,
+            assignmentReason: 'experiment',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('reports cookie overrides without evaluating the flag', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        reportExposures,
+      });
+
+      await client.reportOverride('flagA', 'treatment-a', entity);
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'override',
           },
         ],
         entity,
@@ -3819,12 +3856,14 @@ describe('Controller (black-box)', () => {
             base: ['user', 'key'],
             rampId: 'ramp_a',
             rampPercentage: 50,
+            assignmentReason: 'experiment',
           },
           {
             flagKey: 'flagB',
             experimentId: 'exp_b',
             variantId: 'control-b',
             base: ['session', 'key'],
+            assignmentReason: 'experiment',
           },
         ],
         entity,

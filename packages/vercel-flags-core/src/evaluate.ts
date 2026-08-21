@@ -4,6 +4,7 @@ import {
   type EvaluationParams,
   type EvaluationResult,
   type ExperimentAssignment,
+  type ExperimentAssignmentReason,
   OutcomeType,
   Packed,
   ResolutionReason,
@@ -440,6 +441,40 @@ function getWeightedVariantIndex<T>(
   return assignment.defaultVariant;
 }
 
+function experimentAssignment(
+  experiment: Packed.ExperimentDefinition,
+  variantId: VariantId | null,
+  assignmentReason: ExperimentAssignmentReason,
+): ExperimentAssignment | undefined {
+  if (variantId === null) return undefined;
+  return {
+    id: experiment.id,
+    variantId,
+    base: experiment.base,
+    rampId: experiment.rampId,
+    rampPercentage: experiment.rampPercentage,
+    assignmentReason,
+  };
+}
+
+function outcomeAssignmentReason(
+  outcome: Packed.Outcome,
+): ExperimentAssignmentReason {
+  if (typeof outcome === 'number') return 'variant';
+  switch (outcome.type) {
+    case 'experiment':
+      return 'experiment';
+    case 'split':
+      return 'split';
+    case 'rollout':
+      return 'rollout';
+    default: {
+      const { type } = outcome;
+      return exhaustivenessCheck(type);
+    }
+  }
+}
+
 function resolveOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
@@ -447,6 +482,7 @@ function resolveOutcome<T>(
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
+  experiment?: ExperimentAssignment;
 } {
   if (typeof outcome === 'number') {
     const variant = getVariant<T>(params.definition, outcome);
@@ -466,6 +502,49 @@ function resolveOutcome<T>(
         ...getVariant<T>(params.definition, index),
         outcomeType: OutcomeType.SPLIT,
       };
+    }
+    case 'experiment': {
+      const experiment = params.definition.experiment;
+      if (!experiment) {
+        throw new Error('@vercel/flags-core: Experiment not found');
+      }
+
+      const unitValue = access(experiment.base, params);
+      const defaultVariant = getVariant<T>(
+        params.definition,
+        experiment.defaultVariant,
+      );
+      const assignment = (
+        variant: typeof defaultVariant,
+        assignmentReason: ExperimentAssignmentReason,
+      ) => ({
+        ...variant,
+        outcomeType: OutcomeType.EXPERIMENT,
+        experiment: experimentAssignment(
+          experiment,
+          variant.variantId,
+          assignmentReason,
+        ),
+      });
+
+      if (typeof unitValue !== 'string') {
+        return assignment(defaultVariant, 'not-enrolled');
+      }
+
+      const rampPercentage = experiment.rampPercentage ?? 100;
+      const enrolled =
+        rampPercentage >= 100 ||
+        (rampPercentage > 0 &&
+          hashInput(unitValue, experiment.enrollmentSeed) <
+            boundaryFor(rampPercentage, 100));
+      if (!enrolled) return assignment(defaultVariant, 'not-enrolled');
+
+      const index = getWeightedVariantIndex(
+        params,
+        experiment,
+        params.definition.seed,
+      );
+      return assignment(getVariant<T>(params.definition, index), 'experiment');
     }
     case 'rollout': {
       const lhs = access(outcome.base, params);
@@ -563,6 +642,7 @@ function resolveOutcome<T>(
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
+  assignmentReason?: ExperimentAssignmentReason,
 ): {
   value: T;
   outcomeType: OutcomeType;
@@ -571,17 +651,15 @@ function handleOutcome<T>(
 } {
   const result = resolveOutcome(params, outcome);
   const experiment = params.definition.experiment;
-  if (!experiment || result.variantId === null) return result;
+  if (!experiment || result.experiment) return result;
 
   return {
     ...result,
-    experiment: {
-      id: experiment.id,
-      variantId: result.variantId,
-      base: experiment.base,
-      rampId: experiment.rampId,
-      rampPercentage: experiment.rampPercentage,
-    },
+    experiment: experimentAssignment(
+      experiment,
+      result.variantId,
+      assignmentReason ?? outcomeAssignmentReason(outcome),
+    ),
   };
 }
 
@@ -651,7 +729,7 @@ export function evaluate<T>(
     );
 
     if (matchedIndex > -1) {
-      return Object.assign(handleOutcome<T>(params, matchedIndex), {
+      return Object.assign(handleOutcome<T>(params, matchedIndex, 'targeted'), {
         reason: ResolutionReason.TARGET_MATCH as const,
       }) satisfies EvaluationResult<T>;
     }

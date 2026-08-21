@@ -19,6 +19,7 @@ import type {
   EvaluationResult,
   Exposure,
   FlagsClient,
+  Packed,
   ReportExposures,
   Value,
 } from './types';
@@ -97,6 +98,7 @@ export function createCreateRawClient(fns: {
         ...(result.experiment.rampPercentage === undefined
           ? {}
           : { rampPercentage: result.experiment.rampPercentage }),
+        assignmentReason: result.experiment.assignmentReason,
       };
     }
 
@@ -198,6 +200,53 @@ export function createCreateRawClient(fns: {
           await report(exposures, entity as unknown as Readonly<Entities>);
         }
         return results;
+      },
+      reportOverride: async <T = Value, E = Entities>(
+        flagKey: string,
+        value: T,
+        entities?: E,
+      ): Promise<void> => {
+        try {
+          const instance = controllerInstanceMap.get(id);
+          if (!instance?.initialized) await api.initialize();
+          const datafile = await fns.getDatafile(id);
+          const definition = datafile.definitions[
+            flagKey
+          ] as Packed.FlagDefinition;
+          const experiment = definition?.experiment;
+          if (!experiment) return;
+
+          const serializedValue = JSON.stringify(value);
+          const variantIndex = definition.variants.findIndex(
+            (variant) =>
+              Object.is(variant, value) ||
+              JSON.stringify(variant) === serializedValue,
+          );
+          const variantId =
+            variantIndex < 0
+              ? null
+              : (definition.variantIds?.[variantIndex] ?? null);
+          const entity = entities ?? ({} as E);
+          await report(
+            [
+              {
+                flagKey,
+                experimentId: experiment.id,
+                variantId,
+                base: experiment.base,
+                rampId: experiment.rampId,
+                rampPercentage: experiment.rampPercentage,
+                assignmentReason: 'override',
+              },
+            ],
+            entity as unknown as Readonly<Entities>,
+          );
+        } catch (error) {
+          console.error(
+            '@vercel/flags-core: Failed to report experiment override',
+            error,
+          );
+        }
       },
     };
     return api;

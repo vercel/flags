@@ -1,5 +1,7 @@
 ---
 '@vercel/flags-core': minor
+'@flags-sdk/vercel': minor
+'flags': minor
 ---
 
-Add flag-level experiment exposure reporting and per-evaluation exposure logging controls.
+Add randomized experiment enrollment, assignment reasons for every experiment-managed flag outcome, cookie override exposure reporting, and per-evaluation exposure logging controls.

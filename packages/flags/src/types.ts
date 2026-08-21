@@ -165,6 +165,12 @@ export interface Adapter<ValueType, EntitiesType> {
    * an `adapterId` are never batched.
    */
   adapterId?: string | symbol;
+  /** Observe a value supplied by the Flags SDK override cookie. */
+  reportOverride?: (params: {
+    key: string;
+    value: unknown;
+    entities?: EntitiesType;
+  }) => void | Promise<void>;
   decide: (params: {
     key: string;
     entities?: EntitiesType;

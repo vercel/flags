@@ -104,6 +104,28 @@ describe('createVercelAdapter', () => {
     } satisfies Origin);
   });
 
+  it('forwards override observations to the flags client', async () => {
+    const reportOverride = vi.fn();
+    const fakeClient = {
+      origin: { provider: 'vercel', sdkKey: 'vf_x' },
+      reportOverride,
+    } as unknown as typeof flagsClient;
+    const adapter = createVercelAdapter(fakeClient)();
+    const entities = { user: { key: 'user_1' } };
+
+    await adapter.reportOverride?.({
+      key: 'checkout',
+      value: 'treatment',
+      entities,
+    });
+
+    expect(reportOverride).toHaveBeenCalledWith(
+      'checkout',
+      'treatment',
+      entities,
+    );
+  });
+
   it('has correct types', () => {
     const adapter = createVercelAdapter(flagsClient);
     type SampleValue = boolean;

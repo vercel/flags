@@ -7,6 +7,7 @@ type WebAnalyticsExposure = {
   unitValue: string;
   rampId?: string;
   rampPercentage?: number;
+  assignmentReason: Exposure['assignmentReason'];
 };
 
 const FAKE_DEVICE_ID = 'fake-device-id';
@@ -66,13 +67,14 @@ function mapExposure(
 
   return {
     experimentId: exposure.experimentId,
-    variantId: exposure.variantId,
+    variantId: exposure.variantId ?? 'override',
     unitKey,
     unitValue,
     ...(exposure.rampId === undefined ? {} : { rampId: exposure.rampId }),
     ...(exposure.rampPercentage === undefined
       ? {}
       : { rampPercentage: exposure.rampPercentage }),
+    assignmentReason: exposure.assignmentReason,
   };
 }
 
