@@ -5,8 +5,8 @@ description: Using the Flags SDK in SvelteKit
 
 [SvelteKit](https://svelte.dev/docs/kit/introduction) is a framework for building web applications with [Svelte](https://svelte.dev/). The Flags SDK supports SvelteKit out of the box.
 
-<CopyPrompt text="Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.">
-  Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.
+<CopyPrompt text="Install the Flags SDK agent skill with `npx skills add vercel/flags@flags-sdk` if it is not already installed. Then add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.">
+  Install the Flags SDK agent skill with `npx skills add vercel/flags@flags-sdk` if it is not already installed. Then add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.
 </CopyPrompt>
 
 A minimal feature flag declaration for SvelteKit looks like this:
@@ -29,6 +29,8 @@ Install the Vercel CLI using the following command:
 ```sh title="Terminal"
 npm i -g vercel@latest
 ```
+
+> **Flags SDK agent skill:** Install with `npx skills add vercel/flags@flags-sdk` so your AI coding assistant follows the recommended workflows. See the [agent skill guide](/docs/agent-skill).
 
 ## Set up SvelteKit application
 
@@ -115,12 +117,6 @@ npm i -g vercel@latest
 
    ```sh
    npm i flags
-   ```
-
-   If you use an AI coding assistant, we recommend installing the Flags SDK agent skill:
-
-   ```sh
-   npx skills add vercel/flags --skill flags-sdk
    ```
 
 2. Create your first feature flag by importing the `flag` method from `flags/sveltekit`:
