@@ -191,13 +191,20 @@ describe('flag on app router', () => {
 
   it('respects overrides', async () => {
     const decide = vi.fn(() => false);
-    const reportOverride = vi.fn();
+    const calls: string[] = [];
+    const initialize = vi.fn(async () => {
+      calls.push('initialize');
+    });
+    const reportOverride = vi.fn(async () => {
+      calls.push('reportOverride');
+    });
     const entities = { user: { id: 'user_1' } };
     const f = flag<boolean, typeof entities>({
       key: 'first-flag',
       identify: () => entities,
       adapter: {
         decide,
+        initialize,
         reportOverride,
       },
     });
@@ -216,11 +223,13 @@ describe('flag on app router', () => {
     await expect(f()).resolves.toEqual(true);
     expect(cookieMock).toHaveBeenCalledWith('vercel-flag-overrides');
     expect(decide).not.toHaveBeenCalled();
+    expect(initialize).toHaveBeenCalledOnce();
     expect(reportOverride).toHaveBeenCalledWith({
       key: 'first-flag',
       value: true,
       entities,
     });
+    expect(calls).toEqual(['initialize', 'reportOverride']);
   });
 
   it('does not crash when override reporting hook is not a function', async () => {

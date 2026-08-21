@@ -40,6 +40,27 @@ const evaluationCache = new WeakMap<
   Map</* flagKey */ string, Map</* entitiesKey */ string, any>>
 >();
 
+const adapterInitializationCache = new WeakMap<object, Promise<void>>();
+
+async function ensureAdapterInitialized(
+  adapter: Pick<Adapter<unknown, unknown>, 'initialize'>,
+): Promise<void> {
+  if (!adapter.initialize) return;
+
+  let initialization = adapterInitializationCache.get(adapter);
+  if (!initialization) {
+    initialization = adapter.initialize();
+    adapterInitializationCache.set(adapter, initialization);
+  }
+
+  try {
+    await initialization;
+  } catch (error) {
+    adapterInitializationCache.delete(adapter);
+    throw error;
+  }
+}
+
 function getCachedValuePromise(
   /**
    * supports Headers for App Router and IncomingHttpHeaders for Pages Router
@@ -197,7 +218,10 @@ type FlagInfo<ValueType> = {
   key: string;
   defaultValue?: ValueType;
   config?: { reportValue?: boolean };
-  adapter?: Pick<Adapter<ValueType, any>, 'config' | 'reportOverride'>;
+  adapter?: Pick<
+    Adapter<ValueType, any>,
+    'config' | 'initialize' | 'reportOverride'
+  >;
 };
 
 function hasOverride(
@@ -263,11 +287,15 @@ async function applyResult<ValueType>(args: {
       reason: 'override',
     });
     try {
-      await definition.adapter?.reportOverride?.({
-        key: definition.key,
-        value: decision,
-        entities,
-      });
+      const adapter = definition.adapter;
+      if (adapter?.reportOverride) {
+        await ensureAdapterInitialized(adapter);
+        await adapter.reportOverride({
+          key: definition.key,
+          value: decision,
+          entities,
+        });
+      }
     } catch (error) {
       console.error('flags: Failed to report flag override', error);
     }
