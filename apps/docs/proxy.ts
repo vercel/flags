@@ -8,7 +8,9 @@ import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 const proxy = createProxy({
   config: geistdocsConfig,
   trackMarkdownRequest: trackMdRequest,
-  before: async ({ defaultLanguage, request }) => {
+  // Runs after Geistdocs markdown negotiation so agents and
+  // `Accept: text/markdown` requests to `/` still receive `/agents.md`.
+  after: async ({ defaultLanguage, request }) => {
     if (request.nextUrl.pathname !== "/") {
       return null;
     }
