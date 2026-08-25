@@ -90,7 +90,7 @@
     "@sveltejs/kit": "2.70.1",
     "@vitejs/plugin-react": "6.0.4",
     "msw": "2.6.4",
-    "next": "16.2.12",
+    "next": "16.3.1",
     "tsup": "8.5.1",
     "typescript": "5.6.3",
     "vite": "8.1.5",
