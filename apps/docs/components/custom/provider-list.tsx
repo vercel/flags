@@ -155,7 +155,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
             key={provider.key}
             data-replacement={provider.name}
           >
-            <Link href={provider.href} className="no-underline">
+            <Link href={provider.href} prefetch={true} className="no-underline">
               <div className="dark:bg-neutral-950 not-prose hover:shadow-neutral-800/5 relative rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-lg">
                 <span className="text-neutral-800 dark:text-neutral-100 text-lg font-semibold leading-tight tracking-tight">
                   {provider.name}

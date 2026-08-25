@@ -7,6 +7,36 @@
 
 @layer base {
   body {
-    @apply bg-background-200;
+    @apply bg-background-200 text-gray-1000;
   }
+}
+
+/* Align docs content with navbar on mobile */
+/*
+ * On mobile the sticky MobileDocsBar abuts the navbar via a negative top
+ * margin, which would otherwise overlap and clip the page breadcrumb rendered
+ * above it. Hide the breadcrumb on mobile so the bar sits flush under the
+ * navbar; it stays visible on desktop, where the bar is hidden.
+ */
+@container (max-width: 960px) {
+  #nd-page {
+    @apply px-6;
+  }
+
+  #nd-page > .text-gray-900:first-child {
+    @apply hidden;
+  }
+}
+
+/* TOC and footer links use gray-1000 */
+#nd-toc {
+  @apply text-gray-1000 md:pl-6;
+}
+
+#nd-toc a {
+  @apply text-gray-900 hover:text-gray-1000;
+}
+
+#nd-toc a[data-active="true"] {
+  @apply text-gray-1000;
 }
