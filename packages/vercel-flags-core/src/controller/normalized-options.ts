@@ -60,6 +60,7 @@ export type ControllerOptions = {
 
   /**
    * Environment included with evaluation metrics sent to the ingest endpoint.
+   * Falls back to the `VERCEL_ENV` environment variable when not set.
    * This does not select the environment used for flag evaluation.
    */
   metricEnvironment?: MetricEnvironment;
