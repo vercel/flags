@@ -1,3 +1,5 @@
+export type MetricEnvironment = 'development' | 'preview' | 'production';
+
 /**
  * Options for stream connection behavior
  */
