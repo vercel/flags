@@ -1,6 +1,7 @@
 import { getVercelOidcToken } from '@vercel/oidc';
 import { version } from '../../package.json';
 import type { Auth } from '../controller/auth';
+import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
 import type { FlushReason } from './scheduler';
 import type { IngestEvent, UsageEvent } from './usage/events';
@@ -31,7 +32,7 @@ export interface IngestOptions {
   auth: Auth;
   host: string;
   fetch: typeof fetch;
-  metricEnvironment?: string;
+  metricEnvironment?: MetricEnvironment;
 }
 
 async function getEvaluatingOidcToken(auth: Auth): Promise<string | undefined> {
