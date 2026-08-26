@@ -1,5 +1,21 @@
 # @flags-sdk/launchdarkly
 
+## 1.1.1
+
+### Patch Changes
+
+- [#464](https://github.com/vercel/flags/pull/464) [`8913cf1`](https://github.com/vercel/flags/commit/8913cf157808eda595c9c0ed5f21e5c70a5f03ca) Thanks [@AndyBitz](https://github.com/AndyBitz)! - Upgrade `@vercel/global-config` from `1.5.0` to `1.5.1`
+
+## 1.1.0
+
+### Minor Changes
+
+- [#452](https://github.com/vercel/flags/pull/452) [`58e1f5b`](https://github.com/vercel/flags/commit/58e1f5bcdf0dd3ef44ce689681882792b31851c4) Thanks [@luismeyer](https://github.com/luismeyer)! - Replace `@vercel/edge-config` with `@vercel/global-config`.
+
+  Rename the Edge Config adapter package to `@flags-sdk/global-config` and rename repository-owned Edge Config files, exports, types, options, variables, and environment variables to Global Config.
+
+  The previous Edge Config names remain available as deprecated aliases, and the previous environment variables are still honored as fallbacks, so existing code keeps working without changes.
+
 ## 1.0.0
 
 ### Major Changes

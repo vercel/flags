@@ -23,9 +23,10 @@ name: Release
 #   Repository: vercel/flags
 #   Workflow:   release.yml
 #
-# `commitMode: github-api` on changesets/action makes the release commit go
-# through the GitHub REST API so it's auto-signed by GitHub — no GPG keys
-# or bypass exceptions for commit-signature rules.
+# changesets/action pushes the release commit and the tags through the GitHub
+# REST API, so GitHub signs them automatically — no GPG keys or bypass
+# exceptions for commit-signature rules. This is the default behavior since
+# changesets/action v2. Set `push-with-git-cli: true` to use the Git CLI again.
 #
 # See https://docs.npmjs.com/trusted-publishers for details.
 
@@ -72,16 +73,14 @@ jobs:
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
-        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
+        uses: changesets/action@198f833dd7d863100ea6e28967bc9a9fdefadb0a # v2.1.0
         with:
           # This expects you to have a script called release which does a build for your packages and calls changeset publish
-          publish: pnpm release
-          version: pnpm version-packages
-          commitMode: github-api
+          publish-script: pnpm release
+          version-script: pnpm version-packages
         env:
           NPM_CONFIG_PROVENANCE: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          GLOBAL_CONFIG: ${{ secrets.GLOBAL_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
           FLAGS: ${{ secrets.FLAGS }}
           HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}
@@ -115,6 +114,10 @@ jobs:
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
+      # Changesets v3 exits with code 1 if it finds no unreleased changesets.
+      # A snapshot needs a minimum of one changeset on the branch, so this step
+      # correctly stops the job. Look for "No unreleased changesets found" in
+      # the log if this step fails.
       - name: Version Packages
         run: pnpm changeset version --snapshot ${SHORT_SHA}
         env:
@@ -123,7 +126,7 @@ jobs:
       - name: Build
         run: pnpm turbo build --filter='./packages/*'
         env:
-          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
+          GLOBAL_CONFIG: ${{ secrets.GLOBAL_CONFIG }}
           FLAGS_SECRET: ${{ secrets.FLAGS_SECRET }}
           FLAGS: ${{ secrets.FLAGS }}
           HAPPYKIT_API_TOKEN: ${{ secrets.HAPPYKIT_API_TOKEN }}

@@ -26,6 +26,13 @@ export type Origin =
       projectId: string;
     }
   | {
+      provider: 'global-config';
+      globalConfigId: string;
+      globalConfigItemKey?: string;
+      teamSlug: string;
+    }
+  | {
+      /** @deprecated Use `global-config` instead. */
       provider: 'edge-config';
       edgeConfigId: string;
       edgeConfigItemKey?: string;

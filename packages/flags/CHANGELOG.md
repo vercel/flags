@@ -1,5 +1,21 @@
 # @vercel/flags
 
+## 4.3.0
+
+### Minor Changes
+
+- [#452](https://github.com/vercel/flags/pull/452) [`58e1f5b`](https://github.com/vercel/flags/commit/58e1f5bcdf0dd3ef44ce689681882792b31851c4) Thanks [@luismeyer](https://github.com/luismeyer)! - Replace `@vercel/edge-config` with `@vercel/global-config`.
+
+  Rename the Edge Config adapter package to `@flags-sdk/global-config` and rename repository-owned Edge Config files, exports, types, options, variables, and environment variables to Global Config.
+
+  The previous Edge Config names remain available as deprecated aliases, and the previous environment variables are still honored as fallbacks, so existing code keeps working without changes.
+
+## 4.2.4
+
+### Patch Changes
+
+- [#454](https://github.com/vercel/flags/pull/454) [`dcb74ff`](https://github.com/vercel/flags/commit/dcb74ff9389f93f6d808c674c855ee2e805b4402) Thanks [@dferber90](https://github.com/dferber90)! - return cache-control: no-store from flags discovery endpoint
+
 ## 4.2.3
 
 ### Patch Changes

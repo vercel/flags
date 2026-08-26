@@ -46,7 +46,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { marketingFlags } from './flags';
 import { getOrGenerateVisitorId } from './get-or-generate-visitor-id';
 
-export async function marketingMiddleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // assign a cookie to the visitor
   const visitorId = await getOrGenerateVisitorId(
     request.cookies,
@@ -117,17 +117,14 @@ function and both will see the exact same id, even when no cookie was
 present initially.
 
 ```tsx title="flags.tsx#next"
+import type { Identify } from 'flags';
+import { dedupe, flag } from 'flags/next';
+
 // identify who is requesting the page
-const identify = dedupe(
-  async ({
-    cookies,
-  }: {
-    cookies: ReadonlyRequestCookies;
-  }): Promise<Entities> => {
-    const visitorId = await getOrGenerateVisitorId(cookies);
-    return { visitor: visitorId ? { id: visitorId } : undefined };
-  },
-);
+const identify: Identify<Entities> = dedupe(async ({ cookies, headers }) => {
+  const visitorId = await getOrGenerateVisitorId(cookies, headers);
+  return { visitor: visitorId ? { id: visitorId } : undefined };
+});
 
 export const marketingAbTest = flag<boolean, Entities>({
   key: 'marketing-ab-test-flag',

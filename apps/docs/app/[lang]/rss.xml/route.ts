@@ -1,40 +1,41 @@
+import { getPublicPath } from "@vercel/geistdocs/config";
 import { Feed } from "feed";
+import { cacheLife } from "next/cache";
 import type { NextRequest } from "next/server";
 import { title } from "@/geistdocs";
+import { config } from "@/lib/geistdocs/config";
+import { absoluteUrl } from "@/lib/geistdocs/site-url";
 import { source } from "@/lib/geistdocs/source";
-import { translations } from "@/geistdocs";
 
-const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-const baseUrl = `${protocol}://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
+const sitePath = getPublicPath("/", config.basePath);
+const siteUrl = absoluteUrl(sitePath);
 
-export const revalidate = false;
+// biome-ignore lint/suspicious/useAwait: Next.js requires cached functions to be async.
+const getFeed = async (lang: string) => {
+  "use cache";
+  cacheLife("max");
 
-export const dynamicParams = false;
-export const generateStaticParams = async () => {
-  const langs = Object.keys(translations);
-  return langs.map((lang) => ({ lang }));
-};
-
-export const GET = async (
-  _req: NextRequest,
-  { params }: RouteContext<"/[lang]/rss.xml">
-) => {
-  const { lang } = await params;
   const feed = new Feed({
     title,
-    id: baseUrl,
-    link: baseUrl,
+    id: siteUrl,
+    link: siteUrl,
     language: lang,
     copyright: `All rights reserved ${new Date().getFullYear()}, Vercel`,
   });
 
   for (const page of source.getPages(lang)) {
+    const data = page.data as {
+      description?: string;
+      lastModified?: Date;
+      title?: string;
+    };
+
     feed.addItem({
       id: page.url,
-      title: page.data.title ?? page.url,
-      description: page.data.description,
-      link: `${baseUrl}${page.url}`,
-      date: new Date(),
+      title: data.title ?? page.url,
+      description: data.description,
+      link: absoluteUrl(getPublicPath(page.url, config.basePath)),
+      date: new Date(data.lastModified ?? new Date()),
       author: [
         {
           name: "Vercel",
@@ -43,7 +44,15 @@ export const GET = async (
     });
   }
 
-  const rss = feed.rss2();
+  return feed.rss2();
+};
+
+export const GET = async (
+  _req: NextRequest,
+  { params }: RouteContext<"/[lang]/rss.xml">
+) => {
+  const { lang } = await params;
+  const rss = await getFeed(lang);
 
   return new Response(rss, {
     headers: {

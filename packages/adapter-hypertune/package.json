@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/hypertune",
-  "version": "0.3.2",
+  "version": "0.3.4",
   "description": "A HyperTune adapter for the Flags SDK",
   "keywords": [
     "hypertune",
@@ -45,7 +45,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.4.3",
+    "@vercel/global-config": "^1.5.1",
     "hypertune": "2.8.3"
   },
   "devDependencies": {

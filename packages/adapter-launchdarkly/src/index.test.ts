@@ -12,7 +12,7 @@ vi.mock('@launchdarkly/vercel-server-sdk', () => ({
   init: vi.fn(() => ldClientMock),
 }));
 
-vi.mock('@vercel/edge-config', () => ({
+vi.mock('@vercel/global-config', () => ({
   createClient: vi.fn(),
 }));
 
@@ -34,7 +34,7 @@ describe('ldAdapter', () => {
       process.env.LAUNCHDARKLY_PROJECT_SLUG = 'test-project';
       process.env.LAUNCHDARKLY_CLIENT_SIDE_ID = 'test-client-side-id';
       process.env.EXPERIMENTATION_CONFIG =
-        'https://edge-config.com/test-experimentation-config';
+        'https://global-config.com/test-experimentation-config';
     });
 
     it('should expose the ldClient', () => {

@@ -259,6 +259,65 @@ describe('OpenFeature Adapter', () => {
       await expect(adapter.client()).resolves.toBe(mockClient);
     });
 
+    it('should retry initialization after a failed attempt', async () => {
+      const initFn = vi
+        .fn<() => Promise<Client>>()
+        .mockRejectedValueOnce(new Error('transient connect failure'))
+        .mockResolvedValue(mockClient);
+      const adapter = createOpenFeatureAdapter(initFn);
+      const boolean = adapter.booleanValue();
+      const decideOptions = {
+        key: 'test-flag',
+        defaultValue: false,
+        entities: {},
+        headers: mockHeaders as ReadonlyHeaders,
+        cookies: mockCookies as ReadonlyRequestCookies,
+      };
+
+      await expect(boolean.decide(decideOptions)).rejects.toThrow(
+        'transient connect failure',
+      );
+
+      vi.mocked(mockClient.getBooleanValue).mockResolvedValue(true);
+      await expect(boolean.decide(decideOptions)).resolves.toBe(true);
+      expect(initFn).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not retry initialization after a fatal error', async () => {
+      const fatalError = Object.assign(new Error('invalid credentials'), {
+        code: 'PROVIDER_FATAL',
+      });
+      const initFn = vi
+        .fn<() => Promise<Client>>()
+        .mockRejectedValue(fatalError);
+      const adapter = createOpenFeatureAdapter(initFn);
+
+      await expect(adapter.client()).rejects.toThrow('invalid credentials');
+      await expect(adapter.client()).rejects.toThrow('invalid credentials');
+      expect(initFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should share a single failed attempt across concurrent callers', async () => {
+      const delay = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+      const initFn = vi.fn<() => Promise<Client>>(async () => {
+        await delay(5);
+        throw new Error('transient connect failure');
+      });
+      const adapter = createOpenFeatureAdapter(initFn);
+
+      const results = await Promise.allSettled([
+        adapter.client(),
+        adapter.client(),
+      ]);
+
+      expect(results.map((result) => result.status)).toEqual([
+        'rejected',
+        'rejected',
+      ]);
+      expect(initFn).toHaveBeenCalledTimes(1);
+    });
+
     it('should only initialize the client once', async () => {
       const delay = (ms: number) =>
         new Promise((resolve) => setTimeout(resolve, ms));

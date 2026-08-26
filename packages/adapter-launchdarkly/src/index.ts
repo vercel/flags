@@ -3,7 +3,7 @@ import {
   type LDClient,
   type LDContext,
 } from '@launchdarkly/vercel-server-sdk';
-import { createClient, type EdgeConfigClient } from '@vercel/edge-config';
+import { createClient, type GlobalConfigClient } from '@vercel/global-config';
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Adapter } from 'flags';
 
@@ -39,19 +39,29 @@ function assertEnv(name: string): string {
 export function createLaunchDarklyAdapter({
   projectSlug,
   clientSideId,
+  globalConfigConnectionString,
   edgeConfigConnectionString,
 }: {
   projectSlug: string;
   clientSideId: string;
-  edgeConfigConnectionString: string;
+  globalConfigConnectionString?: string;
+  /** @deprecated Use `globalConfigConnectionString` instead. */
+  edgeConfigConnectionString?: string;
 }): AdapterResponse {
-  const edgeConfigClient = createClient(edgeConfigConnectionString);
+  const connectionString =
+    globalConfigConnectionString ?? edgeConfigConnectionString;
+  if (!connectionString) {
+    throw new Error(
+      'LaunchDarkly Adapter: Missing globalConfigConnectionString',
+    );
+  }
+  const globalConfigClient = createClient(connectionString);
 
   const store = new AsyncLocalStorage<WeakKey>();
   const cache = new WeakMap<WeakKey, Promise<unknown>>();
 
-  const patchedEdgeConfigClient: EdgeConfigClient = {
-    ...edgeConfigClient,
+  const patchedGlobalConfigClient: GlobalConfigClient = {
+    ...globalConfigClient,
     get: async <T>(key: string) => {
       const h = store.getStore();
       if (h) {
@@ -61,7 +71,7 @@ export function createLaunchDarklyAdapter({
         }
       }
 
-      const promise = edgeConfigClient.get<T>(key);
+      const promise = globalConfigClient.get<T>(key);
       if (h) cache.set(h, promise);
 
       return promise;
@@ -70,7 +80,7 @@ export function createLaunchDarklyAdapter({
 
   let initPromise: Promise<unknown> | null = null;
 
-  const ldClient = init(clientSideId, patchedEdgeConfigClient);
+  const ldClient = init(clientSideId, patchedGlobalConfigClient);
 
   function origin(key: string) {
     return `https://app.launchdarkly.com/projects/${projectSlug}/flags/${key}/`;
@@ -108,14 +118,14 @@ export function createLaunchDarklyAdapter({
 
 function getOrCreateDeaultAdapter() {
   if (!defaultLaunchDarklyAdapter) {
-    const edgeConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
+    const globalConfigConnectionString = assertEnv('EXPERIMENTATION_CONFIG');
     const clientSideId = assertEnv('LAUNCHDARKLY_CLIENT_SIDE_ID');
     const projectSlug = assertEnv('LAUNCHDARKLY_PROJECT_SLUG');
 
     defaultLaunchDarklyAdapter = createLaunchDarklyAdapter({
       projectSlug,
       clientSideId,
-      edgeConfigConnectionString,
+      globalConfigConnectionString,
     });
   }
 

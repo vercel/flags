@@ -44,7 +44,7 @@ const providers: Provider[] = [
     name: 'Vercel',
     href: '/providers/vercel',
     logo: VercelLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer'],
+    badges: ['Adapter', 'Global Config', 'Flags Explorer'],
     glowColor: '#000000',
     skipInvert: true,
   },
@@ -53,7 +53,7 @@ const providers: Provider[] = [
     name: 'Statsig',
     href: '/providers/statsig',
     logo: StatsigLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer', 'Marketplace'],
+    badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#1b63d2',
   },
   {
@@ -61,7 +61,7 @@ const providers: Provider[] = [
     name: 'Hypertune',
     href: '/providers/hypertune',
     logo: HypertuneLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer', 'Marketplace'],
+    badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#000000',
   },
   {
@@ -69,7 +69,7 @@ const providers: Provider[] = [
     name: 'LaunchDarkly',
     href: '/providers/launchdarkly',
     logo: LaunchDarklyLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer'],
+    badges: ['Adapter', 'Global Config', 'Flags Explorer'],
     glowColor: '#7084ff',
   },
   {
@@ -77,7 +77,7 @@ const providers: Provider[] = [
     name: 'GrowthBook',
     href: '/providers/growthbook',
     logo: GrowthbookLogo,
-    badges: ['Adapter', 'Edge Config', 'Flags Explorer', 'Marketplace'],
+    badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#7B51FB',
   },
   {
@@ -127,7 +127,7 @@ const providers: Provider[] = [
   //   name: 'Split',
   //   href: '/providers/split',
   //   logo: SplitLogo,
-  //   badges: ['Edge Config', 'Flags Explorer'],
+  //   badges: ['Global Config', 'Flags Explorer'],
   //   glowColor: '#ff00d2',
   // },
 ];
@@ -155,7 +155,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
             key={provider.key}
             data-replacement={provider.name}
           >
-            <Link href={provider.href} className="no-underline">
+            <Link href={provider.href} prefetch={true} className="no-underline">
               <div className="dark:bg-neutral-950 not-prose hover:shadow-neutral-800/5 relative rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-lg">
                 <span className="text-neutral-800 dark:text-neutral-100 text-lg font-semibold leading-tight tracking-tight">
                   {provider.name}

@@ -75,6 +75,7 @@ export function LearnMore({
   return (
     <Link
       href={href}
+      prefetch={true}
       className="text-base font-normal no-underline"
       target={target}
     >

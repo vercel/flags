@@ -1,24 +1,26 @@
 import "../global.css";
+import "@/lib/geistdocs/site-url-warning";
 import { Footer } from "@vercel/geistdocs/footer";
 import { Navbar } from "@vercel/geistdocs/navbar";
 import { VercelToolbar } from "@vercel/toolbar/next";
+import type { Metadata } from "next";
 import { GeistdocsProvider } from "@/components/geistdocs/provider";
 import { config } from "@/lib/geistdocs/config";
 import { mono, sans } from "@/lib/geistdocs/fonts";
+import { i18n } from "@/lib/geistdocs/i18n";
+import { getRootLang } from "@/lib/geistdocs/root-params";
+import { isSiteUrlConfigured, siteUrl } from "@/lib/geistdocs/site-url";
 import { cn } from "@/lib/utils";
-import type { Metadata } from "next";
+
+export const generateStaticParams = () =>
+  i18n.languages.map((lang) => ({ lang }));
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://flags-sdk.dev"),
+  metadataBase: isSiteUrlConfigured ? siteUrl : undefined,
 };
 
-export const generateStaticParams = async () => {
-  const langs = Object.keys(config.translations ?? {});
-  return langs.map((lang) => ({ lang }));
-};
-
-const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
-  const { lang } = await params;
+const Layout = async ({ children }: LayoutProps<"/[lang]">) => {
+  const lang = await getRootLang();
   const shouldInjectToolbar = process.env.NODE_ENV === "development";
 
   return (
@@ -32,7 +34,7 @@ const Layout = async ({ children, params }: LayoutProps<"/[lang]">) => {
           <Navbar config={config} />
           {children}
           {shouldInjectToolbar && <VercelToolbar />}
-          <Footer config={config} />
+          <Footer />
         </GeistdocsProvider>
       </body>
     </html>

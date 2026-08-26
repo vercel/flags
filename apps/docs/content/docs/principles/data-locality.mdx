@@ -51,17 +51,17 @@ applications need to pay the latency cost of bootstrapping feature flags
 more frequently. Having multiple websocket connections to the same flag
 provider also increases load on the provider.
 
-## Vercel Edge Config
+## Vercel Global Config
 
-Vercel offers a solution called Edge Config to this problem. It is
-specifically designed for storing feature flag definitions. Edge Config
+Vercel offers a solution called Global Config to this problem. It is
+specifically designed for storing feature flag definitions. Global Config
 can be read in under 1ms at p90 and under 15ms at p95, including the
 network latency from your Serverless Function or Routing Middleware.
 
 To put this into perspective, [according to this benchmark](https://github.com/dvassallo/s3-benchmark), an AWS S3 bucket does not even send the first byte by the time an Edge
 Config is fully read.
 
-Using Edge Config is optional, but highly recommended, when using the
+Using Global Config is optional, but highly recommended, when using the
 Flags SDK.
 
 ## Evaluating on the server
@@ -79,7 +79,7 @@ request to establish the evaluation context.
 To evaluate feature flags at the edge, you need the definition and the
 evaluation context available at the edge.
 
-Using Edge Config allows storing definitions at the Edge as shown in the
+Using Global Config allows storing definitions at the Edge as shown in the
 previous section. This means you can use feature flags in Routing
 Functions at ultra low latency.
 

@@ -361,7 +361,10 @@ async function handleWellKnownFlagsRoute(
   if (!access) return new Response(null, { status: 401 });
   const providerData = getProviderData(flags);
   return Response.json(providerData, {
-    headers: { 'x-flags-sdk-version': version },
+    headers: {
+      'x-flags-sdk-version': version,
+      'cache-control': 'no-store',
+    },
   });
 }
 

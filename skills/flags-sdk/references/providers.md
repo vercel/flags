@@ -3,7 +3,7 @@
 ## Table of Contents
 
 - [Vercel](#vercel)
-- [Edge Config](#edge-config)
+- [Global Config](#global-config)
 - [Statsig](#statsig)
 - [LaunchDarkly](#launchdarkly)
 - [PostHog](#posthog)
@@ -192,29 +192,29 @@ Full CLI reference: https://vercel.com/docs/cli/flags
 
 ---
 
-## Edge Config
+## Global Config
 
-Package: `@flags-sdk/edge-config`
+Package: `@flags-sdk/global-config`
 
 ```bash
-pnpm i @flags-sdk/edge-config
+pnpm i @flags-sdk/global-config
 ```
 
-Env: `EDGE_CONFIG="edge-config-connection-string"`
+Env: `GLOBAL_CONFIG="global-config-connection-string"`
 
 ### Usage
 
 ```ts
 import { flag } from 'flags/next';
-import { edgeConfigAdapter } from '@flags-sdk/edge-config';
+import { globalConfigAdapter } from '@flags-sdk/global-config';
 
 export const exampleFlag = flag({
-  adapter: edgeConfigAdapter,
+  adapter: globalConfigAdapter,
   key: 'example-flag',
 });
 ```
 
-Edge Config should contain:
+Global Config should contain:
 
 ```json
 {
@@ -228,12 +228,12 @@ Edge Config should contain:
 ### Custom configuration
 
 ```ts
-import { createEdgeConfigAdapter } from '@flags-sdk/edge-config';
+import { createGlobalConfigAdapter } from '@flags-sdk/global-config';
 
-const myAdapter = createEdgeConfigAdapter({
-  connectionString: process.env.OTHER_EDGE_CONFIG,
+const myAdapter = createGlobalConfigAdapter({
+  connectionString: process.env.OTHER_GLOBAL_CONFIG,
   options: {
-    edgeConfigItemKey: 'other-flags-key',
+    globalConfigItemKey: 'other-flags-key',
     teamSlug: 'my-team',
   },
 });
@@ -252,7 +252,7 @@ pnpm i @flags-sdk/statsig
 Env vars:
 - `STATSIG_SERVER_API_KEY` (required)
 - `STATSIG_PROJECT_ID` (optional)
-- `EXPERIMENTATION_CONFIG` (optional, Edge Config)
+- `EXPERIMENTATION_CONFIG` (optional, Global Config)
 - `EXPERIMENTATION_CONFIG_ITEM_KEY` (optional)
 
 ### Methods
@@ -356,7 +356,7 @@ pnpm i @flags-sdk/launchdarkly
 Env vars:
 - `LAUNCHDARKLY_CLIENT_SIDE_ID` (required)
 - `LAUNCHDARKLY_PROJECT_SLUG` (required)
-- `EDGE_CONFIG` (required)
+- `GLOBAL_CONFIG` (required)
 
 ### Usage
 
@@ -400,37 +400,46 @@ Package: `@flags-sdk/posthog`
 pnpm i @flags-sdk/posthog
 ```
 
-Env vars:
-- `NEXT_PUBLIC_POSTHOG_KEY`
-- `NEXT_PUBLIC_POSTHOG_HOST` (e.g. `https://us.i.posthog.com`)
+Env vars, always required:
+- `POSTHOG_HOST` (e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com`)
+- `POSTHOG_PROJECT_API_KEY` (`phc_...`)
+
+Optional, opts into local evaluation (background polling) instead of remote:
+- `POSTHOG_SECRET_KEY` (`phs_...`)
+
+For the Flags Explorer (`getProviderData` only):
+- `POSTHOG_PERSONAL_API_KEY` (`phx_...`)
+- `POSTHOG_PROJECT_ID` (e.g. `521742`)
 
 ### Methods
 
 ```ts
 import { postHogAdapter } from '@flags-sdk/posthog';
 
-// Boolean check
-export const myFlag = flag({
+// Value — boolean flag. Pass the adapter uninvoked or invoked, both work.
+export const myFlag = flag<boolean>({
   key: 'my-flag',
-  adapter: postHogAdapter.isFeatureEnabled(),
+  adapter: postHogAdapter,
   identify,
 });
 
-// Multivariate value
-export const myVariant = flag({
+// Value — multivariate flag resolves to the variant string
+export const myVariant = flag<string>({
   key: 'my-flag',
-  adapter: postHogAdapter.featureFlagValue(),
+  adapter: postHogAdapter,
   identify,
 });
 
 // Payload
 export const myPayload = flag({
   key: 'my-flag',
-  adapter: postHogAdapter.featureFlagPayload((v) => v),
+  adapter: postHogAdapter.payload,
   defaultValue: {},
   identify,
 });
 ```
+
+`identify` must return `{ distinctId }`.
 
 ### Flags Explorer
 
@@ -441,8 +450,8 @@ import { getProviderData as getPostHogProviderData } from '@flags-sdk/posthog';
 
 export const GET = createFlagsDiscoveryEndpoint(() =>
   getPostHogProviderData({
-    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
-    projectId: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_ID,
+    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
+    projectId: process.env.POSTHOG_PROJECT_ID!,
   }),
 );
 ```
@@ -475,7 +484,7 @@ export const myFlag = flag({
 });
 ```
 
-### Edge Config
+### Global Config
 
 Set `GROWTHBOOK_EDGE_CONNECTION_STRING` or `EXPERIMENTATION_CONFIG` (Vercel Marketplace).
 
@@ -496,7 +505,7 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
 Package: `@flags-sdk/hypertune`
 
 ```bash
-pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/edge-config
+pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/global-config
 ```
 
 Requires code generation: `npx hypertune`
