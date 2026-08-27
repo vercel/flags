@@ -12,9 +12,10 @@ import {
   CommandPromptViewport,
 } from '@vercel/geistdocs/components/command-prompt';
 import { useState } from 'react';
+import { INSTALL_SKILL_COMMAND } from '@/lib/agent-skill';
 
 const COMMAND_FOR_HUMANS = 'npm install flags';
-const COMMAND_FOR_AGENTS = 'npx skills add vercel/flags@flags-sdk';
+const COMMAND_FOR_AGENTS = INSTALL_SKILL_COMMAND;
 const oneYearInSeconds = 31_536_000;
 
 type Audience = 'humans' | 'agents';

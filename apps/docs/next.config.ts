@@ -183,6 +183,11 @@ const config: NextConfig = {
         destination: "/docs/api-reference/:path*",
         permanent: true,
       },
+      {
+        source: "/agent-skill",
+        destination: "/docs/agent-skill",
+        permanent: true,
+      },
     ];
   },
 };
