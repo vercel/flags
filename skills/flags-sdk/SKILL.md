@@ -3,14 +3,19 @@ name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding the first flag, wiring `vercelAdapter` /
-  FLAGS env vars, using the `vercel flags` CLI (add, list, enable, disable, inspect, archive,
-  rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
-  GrowthBook, Hypertune, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
-  integrating Flags Explorer/Toolbar, implementing precompute, `identify`/`dedupe`, or evaluating
-  flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit.
-  Triggers: set up feature flags, install Flags SDK, add a feature flag, A/B testing, experimentation,
-  feature gates, flag overrides, Vercel Flags, vercel flags add/list/enable/disable,
-  Flags Explorer, `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
+  FLAGS env vars, declaring flags with `flag()`, using the `vercel flags` CLI
+  (add, list, enable, disable, inspect, archive, rm, sdk-keys),
+  setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
+  Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
+  implementing precompute patterns for static pages, setting up `identify`/`dedupe`,
+  integrating Flags Explorer/Toolbar,
+  working with flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
+  writing custom adapters, or encrypting/decrypting flag values.
+  Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags,
+  A/B testing, experimentation, flags SDK, flag adapters, precompute,
+  Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add,
+  vercel flags list, vercel flags enable, vercel flags disable,
+  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
 # Set up and use the Flags SDK
@@ -20,7 +25,7 @@ The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and S
 - Docs: https://flags-sdk.dev
 - Repo: https://github.com/vercel/flags
 
-When the user asks to install, configure, or set up feature flags, follow [Set up the SDK](#set-up-the-sdk). When they ask to create or add a flag, follow [Create a flag](#create-a-flag). Do not leave CLI steps as "next steps" for the user — execute them yourself.
+When the user asks to install, configure, or set up feature flags, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `FLAGS` is missing). When they ask to create or add a flag, follow [Create a flag](#create-a-flag). Do not leave CLI steps as "next steps" for the user — execute them yourself.
 
 ## Core concepts
 
@@ -61,7 +66,7 @@ export const exampleFlag = flag({
 
 ## Set up the SDK
 
-One-time project setup. Run this when the Flags SDK is not installed yet, or when Toolbar / Flags Explorer are missing. Skip any step that is already done.
+One-time project setup. Run this when the Flags SDK is not installed yet, or when Toolbar / Flags Explorer / `FLAGS` env are missing. Skip any step that is already done.
 
 ### Before you start
 
@@ -70,8 +75,10 @@ Check the project state to adapt commands and decide which steps you can skip:
 - Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
 - Is `flags` in `package.json`? → Skip install (step 1)
 - Does `.vercel/` directory exist? → Project is linked, skip `vercel link` in step 2
-- Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 3)
-- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 4
+- Does `.env.local` contain `FLAGS=`? → Env vars already pulled, skip step 3
+- Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 4)
+- Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Skip creating it (step 5)
+- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 6
 
 ### Steps
 
@@ -85,15 +92,17 @@ Check the project state to adapt commands and decide which steps you can skip:
 
    Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link`.
 
-3. **Set up the Vercel Toolbar** (if not already present):
+3. **Pull environment variables**: If `.env.local` lacks `FLAGS=`, run `vercel env pull`. Required for `vercelAdapter` when flags already exist on Vercel (fresh clone / configure). If no flags exist on Vercel yet, skip — vars are written when you create a flag (see [Create a flag](#create-a-flag)). For manual `FLAGS_SECRET` generation, see [FLAGS_SECRET](#flags_secret).
+
+4. **Set up the Vercel Toolbar** (if not already present):
    - Run `pnpm i @vercel/toolbar`
    - Wrap `next.config.ts` with the toolbar plugin
    - Render `<VercelToolbar />` in the root layout
    See [references/nextjs.md — Toolbar Setup](references/nextjs.md#toolbar-setup) for the full code.
 
-4. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup).
+5. **Ensure `flags.ts` exists**: If missing, create `flags.ts` (or `lib/flags.ts` / `src/flags.ts` to match the project) as an empty module. Flags Explorer imports this file — create it before the discovery route.
 
-`FLAGS` and `FLAGS_SECRET` are written when you create a flag on Vercel. After the first flag, run `vercel env pull` (see [Create a flag](#create-a-flag)). For manual `FLAGS_SECRET` generation, see [FLAGS_SECRET](#flags_secret).
+6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup). Do this only after `flags.ts` exists.
 
 ## Create a flag
 
@@ -101,7 +110,7 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 
 ### Before you start
 
-- Complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, Toolbar, or Flags Explorer are missing. Skip steps that are already done.
+- Complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, `FLAGS` env, Toolbar, `flags.ts`, or Flags Explorer are missing. Skip steps that are already done.
 - Does `.env.local` contain `FLAGS=`? → Env vars already pulled; still re-pull after creating a new flag if evaluation fails.
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch.
 
@@ -110,8 +119,6 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed, then continue.
 
 2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
-
-   Before running `vercel flags add`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
 
 3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
 
