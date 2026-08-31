@@ -2,19 +2,15 @@
 name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when installing or configuring the SDK, adding the first flag, wiring `vercelAdapter` /
-  FLAGS env vars, declaring flags with `flag()`, using the `vercel flags` CLI
-  (add, list, enable, disable, inspect, archive, rm, sdk-keys),
-  setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune,
-  Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom adapters),
-  implementing precompute patterns for static pages, setting up `identify`/`dedupe`,
-  integrating Flags Explorer/Toolbar,
-  working with flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit,
-  writing custom adapters, or encrypting/decrypting flag values.
+  Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
+  declaring flags with `flag()`, using `vercel flags` CLI (add, list, enable, disable, inspect,
+  archive, rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
+  GrowthBook, Hypertune, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
+  precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, custom adapters,
+  or encrypting/decrypting flag values.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags,
-  A/B testing, experimentation, flags SDK, flag adapters, precompute,
-  Flags Explorer, feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add,
-  vercel flags list, vercel flags enable, vercel flags disable,
+  A/B testing, experimentation, flags SDK, flag adapters, precompute, Flags Explorer,
+  feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add/list/enable/disable,
   `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
