@@ -31,7 +31,7 @@ pnpm i flags @flags-sdk/vercel
 
 Before running any `vercel flags` command, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
-1. Create a flag in the Vercel dashboard or via CLI: `vercel flags add <flag-key> --kind boolean --description "<description>"`
+1. Create a flag in the Vercel dashboard or via CLI: `vercel flags create <flag-key> --kind boolean --description "<description>"`
 2. Pull env vars: you **must** run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags.
 3. Declare the flag:
 
@@ -121,7 +121,7 @@ Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.
 | Subcommand   | Description                                           |
 | ------------ | ----------------------------------------------------- |
 | `list`       | List all flags in the project                         |
-| `add`        | Create a new flag                                     |
+| `create`     | Create a new flag (`add` is an alias)                 |
 | `inspect`    | Show details, status, and targeting rules of a flag   |
 | `enable`     | Enable a boolean flag for a specific environment      |
 | `disable`    | Disable a boolean flag for a specific environment     |
@@ -133,7 +133,7 @@ Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.
 
 ```bash
 # Create a boolean flag with a description
-vercel flags add my-feature --kind boolean --description "New onboarding flow"
+vercel flags create my-feature --kind boolean --description "New onboarding flow"
 
 # Enable in development first
 vercel flags enable my-feature --environment development
