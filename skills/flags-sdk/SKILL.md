@@ -3,13 +3,13 @@ name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding the first flag, wiring `vercelAdapter` /
-  FLAGS env vars, using the `vercel flags` CLI (create, list, enable, disable, inspect, archive,
+  FLAGS env vars, using the `vercel flags` CLI (add, list, enable, disable, inspect, archive,
   rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
   GrowthBook, Hypertune, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   integrating Flags Explorer/Toolbar, implementing precompute, `identify`/`dedupe`, or evaluating
   flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, A/B testing, experimentation,
-  feature gates, flag overrides, Vercel Flags, vercel flags create/list/enable/disable,
+  feature gates, flag overrides, Vercel Flags, vercel flags add/list/enable/disable,
   Flags Explorer, `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
@@ -109,9 +109,9 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed, then continue.
 
-2. **Register the flag with Vercel**: Run `vercel flags create <flag-key> --kind boolean --description "<description>"`.
+2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
 
-   Before running `vercel flags create`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
+   Before running `vercel flags add`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
 
 3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
 
