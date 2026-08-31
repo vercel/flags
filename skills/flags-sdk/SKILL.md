@@ -13,7 +13,7 @@ description: >
   Flags Explorer, `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
-# Set up the Flags SDK
+# Set up and use the Flags SDK
 
 The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and SvelteKit. It turns each feature flag into a callable function, works with any flag provider via adapters, and keeps pages static using the precompute pattern. Vercel Flags is the first-party provider, letting you manage flags from the Vercel dashboard or the `vercel flags` CLI.
 
