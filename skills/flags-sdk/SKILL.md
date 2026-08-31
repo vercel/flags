@@ -88,7 +88,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
    Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link`.
 
-3. **Pull environment variables**: If `.env.local` lacks `FLAGS=`, run `vercel env pull`. Required for `vercelAdapter` when flags already exist on Vercel (fresh clone / configure). If no flags exist on Vercel yet, skip — vars are written when you create a flag (see [Create a flag](#create-a-flag)). For manual `FLAGS_SECRET` generation, see [FLAGS_SECRET](#flags_secret).
+3. **Pull environment variables**: If `.env.local` lacks `FLAGS=`, run `vercel env pull`. Required for `vercelAdapter` when flags already exist on Vercel (fresh clone / configure). If no flags exist on Vercel yet, skip — `FLAGS` is written when you create a flag (see [Create a flag](#create-a-flag)). Setup-only still needs `FLAGS_SECRET` for Flags Explorer / overrides — generate it per [FLAGS_SECRET](#flags_secret) if missing after pull.
 
 4. **Set up the Vercel Toolbar** (if not already present):
    - Run `pnpm i @vercel/toolbar`
@@ -96,9 +96,9 @@ Check the project state to adapt commands and decide which steps you can skip:
    - Render `<VercelToolbar />` in the root layout
    See [references/nextjs.md — Toolbar Setup](references/nextjs.md#toolbar-setup) for the full code.
 
-5. **Ensure `flags.ts` exists**: If missing, create `flags.ts` (or `lib/flags.ts` / `src/flags.ts` to match the project) as an empty module. Flags Explorer imports this file — create it before the discovery route.
+5. **Ensure `flags.ts` exists**: If missing, create `flags.ts` (or `lib/flags.ts` / `src/flags.ts` to match the project) with `export {}` so TypeScript treats it as a module. Flags Explorer imports this file — create it before the discovery route.
 
-6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup). Do this only after `flags.ts` exists.
+6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup). Do this only after `flags.ts` exists. Point the import at the real flags file path (the snippet assumes root `flags.ts`).
 
 ## Create a flag
 
@@ -283,7 +283,7 @@ Adapters can opt into batching by implementing the optional `bulkDecide` hook. T
 // app/.well-known/vercel/flags/route.ts
 import { createFlagsDiscoveryEndpoint } from 'flags/next';
 import { getProviderData } from '@flags-sdk/vercel';
-import * as flags from '../../../../flags';
+import * as flags from '../../../../flags'; // adjust if flags live under lib/ or src/
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
   return getProviderData(flags);
