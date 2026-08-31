@@ -1,6 +1,7 @@
 import { getVercelOidcToken } from '@vercel/oidc';
 import { version } from '../../package.json';
 import type { Auth } from '../controller/auth';
+import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
 import type { FlushReason } from './scheduler';
 import type { IngestEvent, UsageEvent } from './usage/events';
@@ -31,6 +32,7 @@ export interface IngestOptions {
   auth: Auth;
   host: string;
   fetch: typeof fetch;
+  metricEnvironment?: MetricEnvironment;
 }
 
 async function getEvaluatingOidcToken(auth: Auth): Promise<string | undefined> {
@@ -55,8 +57,11 @@ async function getIngestHeaders(
     Authorization: `Bearer ${token}`,
     'User-Agent': `VercelFlagsCore/${version}`,
     [FLUSH_REASON_HEADER]: flushReason,
-    ...(process.env.VERCEL_ENV
-      ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+    ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
+      ? {
+          'X-Vercel-Env':
+            options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
+        }
       : null),
     ...(evaluatingOidcToken
       ? { [EVALUATING_OIDC_TOKEN_HEADER]: evaluatingOidcToken }

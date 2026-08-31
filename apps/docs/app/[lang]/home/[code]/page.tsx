@@ -7,6 +7,7 @@ import {
   CommandPromptSurface,
   CommandPromptViewport,
 } from '@vercel/geistdocs/components/command-prompt';
+import type { GeistdocsAgentReadinessConfig } from '@vercel/geistdocs/config';
 import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
@@ -18,6 +19,8 @@ import {
   installAudienceFlag,
   rootFlags,
 } from '@/flags';
+import { config } from '@/lib/geistdocs/config';
+import { getLocalizedPath } from '@/lib/geistdocs/public-path';
 import HeroImage from './components/hero-image';
 import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
@@ -63,14 +66,34 @@ export default async function Page() {
   return <div>Flag {example ? "on" : "off"}</div>;
 }`;
 
-export const dynamicParams = false; // all combinations are known upfront here
+// All flag combinations are known upfront and generated statically.
 export async function generateStaticParams() {
   const codes = await generatePermutations(rootFlags);
   return codes.map((code) => ({ code }));
 }
 
-export const metadata: Metadata = {
-  alternates: { canonical: 'https://flags-sdk.dev' },
+export const generateMetadata = async ({
+  params,
+}: PageProps<'/[lang]/home/[code]'>): Promise<Metadata> => {
+  const { lang } = await params;
+  const agentConfig = config.agent as GeistdocsAgentReadinessConfig | undefined;
+
+  return {
+    alternates: {
+      ...(config.siteUrl
+        ? {
+            canonical: getLocalizedPath(lang, '/'),
+            ...(agentConfig && agentConfig.enabled !== false
+              ? {
+                  types: {
+                    'text/markdown': getLocalizedPath(lang, '/agents.md'),
+                  },
+                }
+              : {}),
+          }
+        : {}),
+    },
+  };
 };
 
 export default async function HomePage({
@@ -199,7 +222,9 @@ export default async function HomePage({
               className="shrink-0 rounded-full"
               asChild
             >
-              <Link href="/frameworks/next">Read the Docs</Link>
+              <Link href="/frameworks/next" prefetch={true}>
+                Read the Docs
+              </Link>
             </Button>
           </div>
           <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
@@ -237,7 +262,9 @@ export default async function HomePage({
               the buttons on the heading's left edge while stacked. */}
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
             <Button size="lg" asChild className="rounded-full">
-              <Link href="/frameworks/next">Get Started</Link>
+              <Link href="/frameworks/next" prefetch={true}>
+                Get Started
+              </Link>
             </Button>
             {/* Root is `w-full items-center` by default, which would centre the
                 pill against the left-aligned heading while stacked. */}

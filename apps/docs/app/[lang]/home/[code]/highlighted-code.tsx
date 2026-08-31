@@ -1,6 +1,7 @@
 import { CodeBlock } from '@vercel/geistdocs/components/code-block';
 import { geistShikiTheme } from '@vercel/geistdocs/shiki-theme';
 import { highlight } from 'fumadocs-core/highlight';
+import { cacheLife } from 'next/cache';
 import type { ComponentProps } from 'react';
 import type { BundledLanguage } from 'shiki';
 
@@ -17,6 +18,11 @@ export const HighlightedCode = async ({
   filename,
   caption,
 }: HighlightedCodeProps) => {
+  // Shiki reads Date.now() internally, so Cache Components requires the
+  // highlight to be cached rather than re-run during prerendering.
+  'use cache';
+  cacheLife('max');
+
   // Highlight with the same theme the docs use and render through the
   // geistdocs CodeBlock so the home page blocks match the documentation.
   const rendered = await highlight(code, {
