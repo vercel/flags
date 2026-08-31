@@ -4,7 +4,7 @@ description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding the first flag, wiring `vercelAdapter` /
   FLAGS env vars, using the `vercel flags` CLI (create, list, enable, disable, inspect, archive,
-  rm, sdk-keys, rules), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
+  rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
   GrowthBook, Hypertune, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   integrating Flags Explorer/Toolbar, implementing precompute, `identify`/`dedupe`, or evaluating
   flags in Next.js (App Router, Pages Router, Middleware) or SvelteKit.
@@ -193,8 +193,6 @@ export const dashboardFlag = flag<boolean, Entities>({
   },
 });
 ```
-
-Timestamp entity attributes are numbers. Pass epoch milliseconds in `identify()` / evaluation context (for example `Date.now()` or a stable `Date.parse(...)` value).
 
 ### Flag with another adapter
 

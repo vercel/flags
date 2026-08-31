@@ -129,9 +129,6 @@ Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.
 | `archive`    | Archive a flag (required before deleting)              |
 | `rm`         | Delete an archived flag                               |
 | `sdk-keys`   | Manage SDK keys (subcommands: `ls`, `add`, `rm`)      |
-| `rules`      | Manage targeting rules (`ls`, `add`, `update`, `move`, `rm`) |
-
-Timestamp attributes are numbers: pass epoch milliseconds in `identify()` / evaluation context. Flag rules accept ISO 8601 date/time or epoch ms, for example `vercel flags rules add my-feature -e production --condition user.signupAt:after:2026-04-16T09:00:00Z --variant on`.
 
 #### Create and toggle a flag
 
