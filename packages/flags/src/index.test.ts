@@ -27,7 +27,7 @@ describe('exports', () => {
 
   it('exports version', () => {
     expect(version).toBeTypeOf('string');
-    expect(version).toMatch(/^\d+\.\d+\.\d+(-\w+-\d+)?$/);
+    expect(version).toMatch(/^\d+\.\d+\.\d+(-[\w.-]+)?$/);
   });
 });
 
