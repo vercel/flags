@@ -26,8 +26,18 @@ export class UsageTracker {
   private readEvents: FlagsConfigReadEvent[] = [];
   private evaluationEvents = new Map<string, FlagsEvaluationEvent>();
 
-  constructor(options: IngestOptions) {
+  private isDisabled: () => boolean;
+
+  /**
+   * @param options ingest endpoint options
+   * @param isDisabled predicate consulted before recording and before sending
+   *   events. While it returns true no events are accumulated, and pending
+   *   events are dropped instead of sent (flushes never hit the network).
+   *   Used for server-driven client config (`config.disableMetrics`).
+   */
+  constructor(options: IngestOptions, isDisabled: () => boolean = () => false) {
     this.options = options;
+    this.isDisabled = isDisabled;
     this.scheduler = new Scheduler((reason) => this.flushEvents(reason));
   }
 
@@ -49,6 +59,8 @@ export class UsageTracker {
    */
   trackRead(options?: TrackReadOptions): void {
     try {
+      if (this.isDisabled()) return;
+
       const { ctx, headers } = getRequestContext();
 
       // Skip if request context can't be inferred
@@ -72,6 +84,8 @@ export class UsageTracker {
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
     try {
+      if (this.isDisabled()) return;
+
       const bucketedOptions = {
         ...options,
         bucketTs: minuteBucketTs(),
@@ -103,6 +117,15 @@ export class UsageTracker {
    * Send all events to the ingest service
    */
   private async flushEvents(flushReason: FlushReason) {
+    // When metrics are disabled (e.g. the server sent
+    // `config.disableMetrics: true`), drop any pending events instead of
+    // sending them so flushes never hit the network.
+    if (this.isDisabled()) {
+      this.readEvents = [];
+      this.evaluationEvents.clear();
+      return;
+    }
+
     const events = [...this.readEvents, ...this.evaluationEvents.values()];
     if (events.length === 0) return;
 
