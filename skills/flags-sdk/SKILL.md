@@ -5,7 +5,7 @@ description: >
   Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
   declaring flags with `flag()`, using `vercel flags` CLI (add, list, enable, disable, inspect,
   archive, rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
-  GrowthBook, Hypertune, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
+  GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, custom adapters,
   or encrypting/decrypting flag values.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags,
@@ -384,5 +384,5 @@ Detailed framework and provider guides are in separate files to keep context lea
 
 - **[references/nextjs.md](references/nextjs.md)**: Next.js quickstart, toolbar, App Router, Pages Router, middleware/proxy, precompute, dedupe, dashboard pages, marketing pages, suspense fallbacks
 - **[references/sveltekit.md](references/sveltekit.md)**: SvelteKit quickstart, toolbar, hooks setup, precompute with reroute + middleware, dashboard pages, marketing pages
-- **[references/providers.md](references/providers.md)**: All provider adapters — Vercel, Global Config, Statsig, LaunchDarkly, PostHog, GrowthBook, Hypertune, Flagsmith, Reflag, Split, Optimizely, OpenFeature, and custom adapters
+- **[references/providers.md](references/providers.md)**: All provider adapters — Vercel, Global Config, Statsig, LaunchDarkly, PostHog, GrowthBook, Flagsmith, Reflag, Split, Optimizely, OpenFeature, and custom adapters
 - **[references/api.md](references/api.md)**: Full API reference for `flags`, `flags/react`, `flags/next`, and `flags/sveltekit`

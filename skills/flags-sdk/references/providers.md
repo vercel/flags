@@ -8,7 +8,6 @@
 - [LaunchDarkly](#launchdarkly)
 - [PostHog](#posthog)
 - [GrowthBook](#growthbook)
-- [Hypertune](#hypertune)
 - [Flagsmith](#flagsmith)
 - [Reflag](#reflag)
 - [OpenFeature](#openfeature)
@@ -496,32 +495,6 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
     console.log('Experiment', experiment.key, 'Variation', result.key);
   });
 });
-```
-
----
-
-## Hypertune
-
-Package: `@flags-sdk/hypertune`
-
-```bash
-pnpm i hypertune flags server-only @flags-sdk/hypertune @vercel/global-config
-```
-
-Requires code generation: `npx hypertune`
-
-```ts
-import { createHypertuneAdapter } from '@flags-sdk/hypertune';
-import { createSource, flagFallbacks, vercelFlagDefinitions, type Context, type FlagValues } from './generated/hypertune';
-
-const hypertuneAdapter = createHypertuneAdapter<FlagValues, Context>({
-  createSource,
-  flagFallbacks,
-  flagDefinitions: vercelFlagDefinitions,
-  identify,
-});
-
-export const exampleFlag = flag(hypertuneAdapter.declarations.exampleFlag);
 ```
 
 ---
