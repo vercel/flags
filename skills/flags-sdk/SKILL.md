@@ -3,14 +3,14 @@ name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
-  declaring flags with `flag()`, using `vercel flags` CLI (add, list, enable, disable, inspect,
+  declaring flags with `flag()`, using `vercel flags` CLI (create, list, enable, disable, inspect,
   archive, rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
   GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, custom adapters,
   or encrypting/decrypting flag values.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags,
   A/B testing, experimentation, flags SDK, flag adapters, precompute, Flags Explorer,
-  feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags add/list/enable/disable,
+  feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags create/list/enable/disable,
   `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
@@ -114,7 +114,9 @@ When a user asks you to create or add a feature flag, follow these steps in orde
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed, then continue.
 
-2. **Register the flag with Vercel**: Run `vercel flags add <flag-key> --kind boolean --description "<description>"`.
+2. **Register the flag with Vercel**: Run `vercel flags create <flag-key> --kind boolean --description "<description>"`.
+
+   Before running `vercel flags create`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
 
 3. **Pull environment variables**: Run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags. This step is **mandatory** after creating a flag.
 
