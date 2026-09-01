@@ -121,7 +121,7 @@ Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.
 | Subcommand   | Description                                           |
 | ------------ | ----------------------------------------------------- |
 | `list`       | List all flags in the project                         |
-| `create`     | Create a new flag (`add` is an alias)                 |
+| `create`     | Create a new flag                                     |
 | `inspect`    | Show details, status, and targeting rules of a flag   |
 | `enable`     | Enable a boolean flag for a specific environment      |
 | `disable`    | Disable a boolean flag for a specific environment     |
