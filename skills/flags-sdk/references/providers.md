@@ -32,7 +32,7 @@ pnpm i flags @flags-sdk/vercel
 Before running any `vercel flags` command, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
 
 1. Create a flag in the Vercel dashboard or via CLI: `vercel flags create <flag-key> --kind boolean --description "<description>"`
-2. Pull env vars: you **must** run `vercel env pull` to write `FLAGS` and `FLAGS_SECRET` to `.env.local`. Without these environment variables, `vercelAdapter` will not be able to evaluate flags.
+2. Pull env vars: run `vercel env pull` to write the Vercel OIDC token and the Development `FLAGS_SECRET` to `.env.local`. `vercelAdapter` uses the OIDC token locally; deployments receive it automatically. See [Authentication](#how-the-cli-connects-to-the-sdk) for SDK keys.
 3. Declare the flag:
 
 ```ts
@@ -103,7 +103,7 @@ If the app also uses `@vercel/flags-core` directly, create the client once and p
 import { createClient } from '@vercel/flags-core';
 import { createVercelAdapter } from '@flags-sdk/vercel';
 
-const vercelFlagsClient = createClient(process.env.FLAGS);
+const vercelFlagsClient = createClient(); // OIDC by default; pass an SDK key for manual auth
 const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
