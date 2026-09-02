@@ -146,13 +146,13 @@ Use this flow when the flag was created in the dashboard or by someone else, for
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
 2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
-3. **Pull environment variables**: If `.env.local` lacks `FLAGS=`, run `vercel env pull`.
+3. **Pull environment variables**: If `.env.local` is missing, run `vercel env pull`. It holds the credentials `vercelAdapter` uses locally.
 4. **Declare the flag**: Add it to `flags.ts` with `vercelAdapter`. Map the `inspect` output:
    - `key`: the flag key exactly as printed
    - kind → type parameter: `boolean` → `flag<boolean>`, `string` → `flag<string>`, `number` → `flag<number>`, `json` → `flag<YourType>`
    - `description`: copy from `inspect`
-   - `defaultValue`: pick the variant that is safe when evaluation fails (usually what production serves today)
-   - `options`: only when you use precompute; mirror the variants
+   - `defaultValue`: the value to serve when the flag is archived or evaluation fails (usually what production serves today)
+   - `options`: optional; mirror the variants when you use precompute or want them listed in Flags Explorer
    - `identify`: add or reuse one when the flag has targeting, using the entity attributes configured in the dashboard (see [Flag with evaluation context](#flag-with-evaluation-context))
    ```ts
    export const welcomeMessage = flag<string>({
