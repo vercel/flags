@@ -116,7 +116,7 @@ Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.
 
 > **Prerequisite**: The Vercel CLI must be installed (`pnpm i -g vercel`) and the project must be linked (`vercel link` — check for a `.vercel` directory). For authentication or linking issues, follow the `vercel-cli` skill if available; otherwise suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install).
 
-For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, see the `vercel-cli` skill.
+For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, follow the `vercel-cli` skill (do not duplicate that content here).
 
 #### Lifecycle and safety (Flags SDK)
 

@@ -146,7 +146,7 @@ Vercel Flags is Vercel's feature flags platform. You create and manage flags fro
 
 To install the SDK, follow [Set up the SDK](#set-up-the-sdk). To create a flag end-to-end, follow [Create a flag](#create-a-flag).
 
-For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel). Run `vercel flags --help` for the current CLI reference.
+For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel). For current CLI syntax, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, use the `vercel-cli` skill (suggest `npx skills add vercel/vercel@vercel-cli` if missing; do not auto-install).
 
 ## Declaring flags
 
