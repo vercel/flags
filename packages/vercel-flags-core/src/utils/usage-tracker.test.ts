@@ -1220,3 +1220,104 @@ describe('UsageTracker', () => {
     });
   });
 });
+
+describe('runtime ingest transport', () => {
+  const FLAGS_CONTEXT_SYMBOL = Symbol.for('@vercel/flags-context');
+
+  type RuntimeIngestPayload = {
+    headers: Record<string, string>;
+    body: { type: string; ts: number; payload: object }[];
+  };
+
+  let ingestMock: ReturnType<
+    typeof vi.fn<(p: RuntimeIngestPayload) => boolean>
+  >;
+
+  beforeEach(() => {
+    ingestMock = vi.fn<(p: RuntimeIngestPayload) => boolean>();
+    Object.defineProperty(globalThis, FLAGS_CONTEXT_SYMBOL, {
+      value: { ingest: ingestMock },
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<symbol, unknown>)[FLAGS_CONTEXT_SYMBOL];
+  });
+
+  it('delivers events through the runtime without fetch or waitUntil', async () => {
+    ingestMock.mockReturnValue(true);
+
+    const tracker = createTracker();
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    await vi.waitFor(() => expect(ingestMock).toHaveBeenCalledTimes(1));
+
+    const { headers, body } = ingestMock.mock.calls[0]![0];
+    expect(headers.Authorization).toBe('Bearer test-key');
+    expect(headers[FLUSH_REASON_HEADER]).toBe('immediate');
+    expect(body).toHaveLength(1);
+    expect(body[0]!.type).toBe('FLAG_EVALUATION');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(waitUntilMock).not.toHaveBeenCalled();
+  });
+
+  it('delivers each event separately', async () => {
+    ingestMock.mockReturnValue(true);
+
+    const tracker = createTracker();
+    tracker.trackRead();
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    await vi.waitFor(() => expect(ingestMock).toHaveBeenCalledTimes(2));
+    const types = ingestMock.mock.calls.flatMap((call) =>
+      call[0].body.map((event) => event.type),
+    );
+    expect(types).toEqual(
+      expect.arrayContaining(['FLAGS_CONFIG_READ', 'FLAG_EVALUATION']),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to fetch for events the runtime does not accept', async () => {
+    ingestMock.mockReturnValue(false);
+    fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+    const tracker = createTracker();
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const events = getBody() as SerializedEvaluationEvent[];
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe('FLAG_EVALUATION');
+  });
+
+  it('uses the scheduler when the runtime does not provide a transport', async () => {
+    delete (globalThis as Record<symbol, unknown>)[FLAGS_CONTEXT_SYMBOL];
+    fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+    const tracker = createTracker();
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    expect(waitUntilMock).toHaveBeenCalledTimes(1);
+    await tracker.shutdown();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
