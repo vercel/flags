@@ -133,7 +133,7 @@ For the current subcommand list and options, run `vercel flags --help` or `verce
 
 - **Promote**: development → preview → production. Deploy the code that reads the flag before you enable it in production. A flag that exists on Vercel but is not declared in code is harmless.
 - **Serve vs define**: `enable` / `disable` work on boolean flags only. `set` changes the served variant for any kind. `update` adds, removes, or renames variants and does not change what is served. After `update`, sync `options` in code if the declaration has them.
-- **Do not replace targeting by accident**: `inspect` shows what each environment serves. Read it before `set` / `enable` / `disable` in an environment that has a split, rollout, or rules, because these commands set one variant for the whole environment.
+- **`set` pauses targeting**: `set` / `enable` / `disable` serve one variant to the whole environment and mark targeting inactive; the split, rollout, or rules stay stored. `use-targeting` resumes them. Run `inspect` first so you know what the environment serves today.
 - **Confirm a change**: `inspect` for the served state, `versions` for history, `evaluations` for live traffic per variant. A production change is not visible in local development.
 - **Archive before delete**: `rm` requires an archived flag. Before you archive, search the code for `key: '<flag>'` and remove or default the declaration. Prefer archive over delete; `unarchive` exists, `rm` is final.
 - **Agent runs**: `archive`, `unarchive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
