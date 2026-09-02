@@ -4,13 +4,15 @@ description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
   declaring flags with `flag()`, using `vercel flags` CLI (create, list, enable, disable, inspect,
-  archive, rm, sdk-keys), setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
+  archive, rm, sdk-keys, set, split, rollout, segments, update, open, prepare, override),
+  setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog,
   GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, custom adapters,
   or encrypting/decrypting flag values.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags,
   A/B testing, experimentation, flags SDK, flag adapters, precompute, Flags Explorer,
   feature gates, flag overrides, Vercel Flags, vercel flags CLI, vercel flags create/list/enable/disable,
+  vercel flags set/split/rollout/segments/update/open/prepare/override,
   `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
@@ -147,7 +149,7 @@ Vercel Flags is Vercel's feature flags platform. You create and manage flags fro
 
 To install the SDK, follow [Set up the SDK](#set-up-the-sdk). To create a flag end-to-end, follow [Create a flag](#create-a-flag).
 
-For the full Vercel provider reference — user targeting, `vercel flags` CLI subcommands, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel).
+For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel). Run `vercel flags --help` for the current CLI reference.
 
 ## Declaring flags
 

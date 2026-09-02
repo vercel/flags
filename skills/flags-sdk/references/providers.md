@@ -114,80 +114,24 @@ export const exampleFlag = flag({
 
 Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project.
 
-> **Prerequisite**: The Vercel CLI must be installed (`pnpm i -g vercel`) and the project must be linked (`vercel link` — check for a `.vercel` directory). For authentication issues, read and follow the `vercel-cli` skill.
+> **Prerequisite**: The Vercel CLI must be installed (`pnpm i -g vercel`) and the project must be linked (`vercel link` — check for a `.vercel` directory). For authentication or linking issues, follow the `vercel-cli` skill if available; otherwise suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install).
 
-#### Subcommands
+For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. Do not rely on skill tables for CLI syntax — `--help` is the source of truth. For CLI-wide contracts and playbooks, see the `vercel-cli` skill.
 
-| Subcommand   | Description                                           |
-| ------------ | ----------------------------------------------------- |
-| `list`       | List all flags in the project                         |
-| `create`     | Create a new flag                                     |
-| `inspect`    | Show details, status, and targeting rules of a flag   |
-| `enable`     | Enable a boolean flag for a specific environment      |
-| `disable`    | Disable a boolean flag for a specific environment     |
-| `archive`    | Archive a flag (required before deleting)              |
-| `rm`         | Delete an archived flag                               |
-| `sdk-keys`   | Manage SDK keys (subcommands: `ls`, `add`, `rm`)      |
+#### Lifecycle and safety (Flags SDK)
 
-#### Create and toggle a flag
+Keep these judgments in the skill; they are not covered by `--help`:
 
-```bash
-# Create a boolean flag with a description
-vercel flags create my-feature --kind boolean --description "New onboarding flow"
+- **Link first**: Always confirm `.vercel/` (or run `vercel link`) before any `vercel flags` command.
+- **Create → pull env**: After creating a flag, run `vercel env pull` so `FLAGS` / `FLAGS_SECRET` land in `.env.local`. Without them, `vercelAdapter` cannot evaluate.
+- **Key match**: The CLI flag key must match the `key` passed to `flag()`.
+- **Promote carefully**: Prefer development → preview → production. Do not enable in production until the code path that reads the flag is deployed.
+- **Boolean vs other kinds**: `enable` / `disable` apply to boolean flags. For other kinds, use `set` (see `--help` for options).
+- **Archive before delete**: Archive first; only `rm` when nothing still references the flag. Prefer archive over delete until you are sure.
+- **SDK keys**: `FLAGS` holds an SDK key. Manage keys with `vercel flags sdk-keys` (see `--help`).
+- **Rollouts / splits / segments / overrides**: Use the matching CLI subcommands when needed; confirm syntax with `--help` and escalate beyond the CLI (dashboard / support) when targeting rules are unclear.
 
-# Enable in development first
-vercel flags enable my-feature --environment development
-
-# Promote to production
-vercel flags enable my-feature --environment production
-
-# Disable in production
-vercel flags disable my-feature --environment production
-
-# Change string variant in production
-vercel flags set my-feature -e production --variant my-variant
-```
-
-`enable` and `disable` only work with boolean flags. For changing the state of other flag types, use the `set` command. Use the vercel-cli skill for full reference.
-
-
-#### Inspect and list flags
-
-```bash
-# Show details of a specific flag (status, environments, targeting rules)
-vercel flags inspect my-feature
-
-# List all flags in the project
-vercel flags list
-```
-
-#### Archive and delete a flag
-
-A flag must be archived before it can be deleted:
-
-```bash
-vercel flags archive my-feature
-vercel flags rm my-feature
-```
-
-#### Manage SDK keys
-
-SDK keys connect your application to Vercel Flags. The `FLAGS` environment variable contains an SDK key.
-
-```bash
-# List SDK keys for the project
-vercel flags sdk-keys ls
-
-# Create a new SDK key
-vercel flags sdk-keys add
-
-# Remove an SDK key
-vercel flags sdk-keys rm <sdk-key-id>
-```
-
-These examples cover common flag operations. For the full `vercel flags` reference and other Vercel CLI commands, see the `vercel-cli` skill. If it isn't installed, suggest the user install it with `npx skills add vercel/vercel@vercel-cli`.
-
-Full CLI reference: https://vercel.com/docs/cli/flags
+Docs: https://vercel.com/docs/cli/flags
 
 ---
 
