@@ -2935,6 +2935,616 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Routed config version (x-vercel-edge-config-versions)
+  // ---------------------------------------------------------------------------
+  describe('routed config version', () => {
+    /** Request context carrying the routed config versions header. */
+    function setRoutedVersions(value: string): () => void {
+      return setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': value,
+      });
+    }
+
+    /** Serves a stream that connects but never sends a message. */
+    function serveSilentStream(): void {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          const body = new ReadableStream<Uint8Array>({ start() {} });
+          return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+    }
+
+    /** Reads the payloads of the last ingest request. */
+    function lastIngestPayloads(): Record<string, unknown>[] {
+      const body = fetchMock.mock.lastCall?.[1]?.body as string;
+      return (JSON.parse(body) as { payload: Record<string, unknown> }[]).map(
+        ({ payload }) => payload,
+      );
+    }
+
+    /** Flag definition serving variant index `variant`. */
+    function servingVariant(variant: 0 | 1) {
+      return {
+        flagA: {
+          environments: { production: variant },
+          variants: [false, true],
+        },
+      };
+    }
+
+    it('should initialize immediately when the loaded data covers the routed version', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('ecfg_abc=9999;flags_prj_123=2000');
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      // Flush microtasks without reaching the 3s stream init timeout.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      await initPromise;
+
+      // No fallback warning — nothing timed out.
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      // The stream is connecting in the background, with the local revision.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: { ...streamRequestHeaders, 'X-Revision': '1' },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      // The connection is not confirmed yet, so it must not be reported.
+      const before = await client.evaluate('flagA');
+      expect(before.value).toBe(true);
+      expect(before.metrics?.source).toBe('in-memory');
+      expect(before.metrics?.cacheStatus).toBe('STALE');
+      expect(before.metrics?.connectionState).toBe('disconnected');
+      expect(before.metrics?.mode).toBe('offline');
+
+      // Once the stream confirms the revision, the client reports connected.
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      const after = await client.evaluate('flagA');
+      expect(after.metrics?.connectionState).toBe('connected');
+      expect(after.metrics?.mode).toBe('streaming');
+
+      warnSpy.mockRestore();
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should initialize immediately when the loaded data equals the routed version', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      await initPromise;
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should initialize immediately from bundled definitions', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled({ configUpdatedAt: 2000 }),
+      });
+      const cleanupCtx = setRoutedVersions('flags_prj_123=1999');
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      await initPromise;
+
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+      expect(result.metrics?.source).toBe('embedded');
+      expect(result.metrics?.connectionState).toBe('disconnected');
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should initialize immediately in polling mode and keep polling in the background', async () => {
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+
+      let resolveFirstPoll: (response: Response) => void = () => {};
+      const firstPoll = new Promise<Response>((resolve) => {
+        resolveFirstPoll = resolve;
+      });
+      const polled = makeBundled({
+        configUpdatedAt: 3000,
+        definitions: servingVariant(0),
+      });
+
+      let pollCount = 0;
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          pollCount++;
+          return pollCount === 1
+            ? firstPoll
+            : Promise.resolve(Response.json(polled));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 3000 },
+        datafile: makeBundled({
+          configUpdatedAt: 2000,
+          definitions: servingVariant(1),
+        }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      await initPromise;
+
+      // A poll was started but has not answered yet — the local data is served
+      // and no connection is claimed.
+      expect(pollCount).toBe(1);
+      const before = await client.evaluate('flagA');
+      expect(before.value).toBe(true);
+      expect(before.metrics?.connectionState).toBe('disconnected');
+
+      // The background poll updates the data once it answers.
+      resolveFirstPoll(Response.json(polled));
+      await vi.advanceTimersByTimeAsync(0);
+      const after = await client.evaluate('flagA');
+      expect(after.value).toBe(false);
+
+      // The interval keeps refreshing.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(pollCount).toBe(2);
+
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not replace immediately initialized data with equal or older data', async () => {
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({
+          configUpdatedAt: 2000,
+          definitions: servingVariant(1),
+        }),
+      });
+
+      await client.initialize();
+
+      // Equal configUpdatedAt — must not replace the loaded data.
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 2000,
+          definitions: servingVariant(0),
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await client.evaluate('flagA')).value).toBe(true);
+
+      // Older configUpdatedAt — must not replace the loaded data either.
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 1999,
+          definitions: servingVariant(0),
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await client.evaluate('flagA')).value).toBe(true);
+
+      // Newer data is applied.
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({
+          configUpdatedAt: 2001,
+          definitions: servingVariant(0),
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await client.evaluate('flagA')).value).toBe(false);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it.each([
+      ['the header is empty', ''],
+      ['the project has no entry', 'ecfg_abc=1000;flags_prj_999=1000'],
+      [
+        'the entry key only overlaps',
+        'flags_prj_1234=1000;xflags_prj_123=1000',
+      ],
+      ['the version is malformed', 'flags_prj_123=later'],
+      ['the version is negative', 'flags_prj_123=-1'],
+      ['the version is fractional', 'flags_prj_123=1000.5'],
+      ['the version is unsafe', 'flags_prj_123=9007199254740993'],
+      ['the entry is duplicated', 'flags_prj_123=2000;flags_prj_123=2000'],
+    ])('should keep waiting for the stream when %s', async (_label, headerValue) => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions(headerValue);
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+      expect(settled).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should keep waiting for the stream when the routed version is newer', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2001');
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+      expect(settled).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should keep waiting for the stream without a request context', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+      expect(settled).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+    });
+
+    it('should keep waiting for the stream when the loaded data has no project id', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('flags_prj_123=1000;flags_=1000');
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000, projectId: '' }),
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+      expect(settled).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should keep waiting for the stream when the loaded data has no configUpdatedAt', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('flags_prj_123=1000');
+      serveSilentStream();
+
+      const datafile = makeBundled();
+      delete (datafile as Record<string, unknown>).configUpdatedAt;
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile,
+      });
+
+      let settled = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+      expect(settled).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      warnSpy.mockRestore();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should report the immediate outcome without ids or header values', async () => {
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      await client.initialize();
+      await client.evaluate('flagA');
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        {
+          body: JSON.stringify([
+            {
+              type: 'FLAGS_CONFIG_READ',
+              ts: date.getTime(),
+              payload: {
+                invocationHost: 'example.com',
+                configOrigin: 'in-memory',
+                cacheStatus: 'HIT',
+                cacheAction: 'NONE',
+                cacheIsFirstRead: true,
+                cacheIsBlocking: false,
+                duration: 0,
+                configUpdatedAt: 2000,
+                mode: 'offline',
+                revision: '1',
+                configRoutedInit: 'immediate',
+                environment: 'production',
+              },
+            },
+            {
+              type: 'FLAG_EVALUATION',
+              ts: date.getTime(),
+              payload: {
+                flagKey: 'flagA',
+                variant: undefined,
+                reason: 'paused',
+                evaluationCount: 1,
+                periodStartedAt: minuteBucketTs(date.getTime()),
+              },
+            },
+          ]),
+          headers: ingestRequestHeaders,
+          method: 'POST',
+        },
+      );
+
+      // Neither the project id nor the header value is ever ingested.
+      const body = fetchMock.mock.lastCall?.[1]?.body as string;
+      expect(body).not.toContain('prj_123');
+      expect(body).not.toContain('flags_prj_123=2000');
+
+      cleanupCtx();
+    });
+
+    it.each([
+      ['behind', 'flags_prj_123=2001'],
+      ['invalid', 'flags_prj_123=later'],
+      ['duplicate', 'flags_prj_123=2000;flags_prj_123=2000'],
+    ])('should report the %s outcome', async (outcome, headerValue) => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions(headerValue);
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+
+      await client.evaluate('flagA');
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+      warnSpy.mockRestore();
+      await client.shutdown();
+
+      expect(lastIngestPayloads()[0]).toMatchObject({
+        configRoutedInit: outcome,
+      });
+
+      cleanupCtx();
+    });
+
+    it('should report the unknown-local outcome', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+      serveSilentStream();
+
+      const datafile = makeBundled();
+      delete (datafile as Record<string, unknown>).configUpdatedAt;
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile,
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+
+      await client.evaluate('flagA');
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+      warnSpy.mockRestore();
+      await client.shutdown();
+
+      expect(lastIngestPayloads()[0]).toMatchObject({
+        configRoutedInit: 'unknown-local',
+      });
+
+      cleanupCtx();
+    });
+
+    it('should not report an outcome when no routed version applies', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      serveSilentStream();
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 2000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(3000);
+      await initPromise;
+
+      await client.evaluate('flagA');
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+      warnSpy.mockRestore();
+      await client.shutdown();
+
+      expect(lastIngestPayloads()[0]).not.toHaveProperty('configRoutedInit');
+
+      cleanupCtx();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Evaluate behavior
   // ---------------------------------------------------------------------------
   describe('evaluate behavior', () => {

@@ -1,3 +1,4 @@
+import type { RoutedInitOutcome } from '../../controller/routed-init';
 import type { UsageEvent } from './events';
 
 export interface TrackReadOptions {
@@ -19,6 +20,12 @@ export interface TrackReadOptions {
   mode?: 'poll' | 'stream' | 'build' | 'offline';
   /** Revision of the config */
   revision?: number;
+  /**
+   * Outcome of comparing the loaded config against the version this request
+   * was routed to, as decided during initialization. Omitted when no routed
+   * version applied. Low cardinality — never contains ids or header values.
+   */
+  configRoutedInit?: RoutedInitOutcome;
 }
 
 export class FlagsConfigReadEvent implements UsageEvent {
@@ -39,6 +46,7 @@ export class FlagsConfigReadEvent implements UsageEvent {
     mode?: 'poll' | 'stream' | 'build' | 'offline';
     revision?: string;
     environment?: string;
+    configRoutedInit?: RoutedInitOutcome;
   };
 
   constructor(
@@ -80,6 +88,9 @@ export class FlagsConfigReadEvent implements UsageEvent {
       }
       if (options.revision !== undefined) {
         this.payload.revision = String(options.revision);
+      }
+      if (options.configRoutedInit !== undefined) {
+        this.payload.configRoutedInit = options.configRoutedInit;
       }
     }
 

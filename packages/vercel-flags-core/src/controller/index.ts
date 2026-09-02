@@ -17,6 +17,7 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
+import { decideRoutedInit, type RoutedInitOutcome } from './routed-init';
 import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
@@ -119,6 +120,10 @@ export class Controller implements ControllerInterface {
 
   // Suppresses usage tracking when the SDK key is unauthorized
   private unauthorized = false;
+
+  // Outcome of the routed config version check performed during
+  // initialization. Metrics only — undefined when no routed version applied.
+  private routedInitOutcome: RoutedInitOutcome | undefined;
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
@@ -267,13 +272,25 @@ export class Controller implements ControllerInterface {
     // If we already have data (from provided datafile or bundled definitions),
     // start updates. Both streaming and polling wait for initial data before
     // being considered initialized, so we know we have fresh data.
+    // Exception: when the config version this request was routed to is already
+    // covered by the local data, waiting cannot yield anything newer, so
+    // initialization completes right away and updates continue in the
+    // background.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
+        if (this.canInitializeFromLocalData()) {
+          this.startStreamInBackground();
+          return;
+        }
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
         this.transition('initializing:polling');
+        if (this.canInitializeFromLocalData()) {
+          this.startPollingInBackground();
+          return;
+        }
         await this.tryInitializePolling();
       } else {
         this.transition('degraded');
@@ -447,6 +464,66 @@ export class Controller implements ControllerInterface {
     }
 
     return this.resolveDataWithFallbacks();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Routed config version
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Checks whether the already loaded data covers the config version this
+   * request was routed to, in which case initialization does not have to wait
+   * for a stream confirmation or a first poll.
+   *
+   * Records the low cardinality outcome for metrics as a side effect.
+   */
+  private canInitializeFromLocalData(): boolean {
+    if (!this.data) return false;
+
+    const decision = decideRoutedInit({
+      projectId: this.data.projectId,
+      configUpdatedAt: this.data.configUpdatedAt,
+    });
+    this.routedInitOutcome = decision.outcome;
+
+    return decision.immediate;
+  }
+
+  /**
+   * Starts streaming without waiting for the first message.
+   *
+   * The state stays `initializing:stream` until the connection is actually
+   * established, so reads keep reporting `disconnected` until the stream
+   * emits `connected`.
+   */
+  private startStreamInBackground(): void {
+    try {
+      void this.streamSource.start().catch((error) => {
+        // The connection reports itself through events; only remember an
+        // invalid SDK key so usage tracking stays suppressed.
+        if (
+          error instanceof UnauthorizedError ||
+          (error instanceof Error && error.message.includes('401'))
+        ) {
+          this.unauthorized = true;
+        }
+      });
+    } catch {
+      // Starting the stream failed outright. Initialization still succeeds,
+      // like it does when the awaited start fails, because the loaded data is
+      // known to cover this request.
+    }
+  }
+
+  /**
+   * Starts polling without waiting for the first response.
+   *
+   * The interval is started first so that the immediate poll is covered by the
+   * source's abort signal and can be cancelled by `stop()`.
+   */
+  private startPollingInBackground(): void {
+    this.pollingSource.startInterval();
+    void this.pollingSource.poll();
   }
 
   // ---------------------------------------------------------------------------
@@ -813,6 +890,9 @@ export class Controller implements ControllerInterface {
     }
     if (isFirstRead) {
       trackOptions.cacheIsFirstRead = true;
+    }
+    if (this.routedInitOutcome !== undefined) {
+      trackOptions.configRoutedInit = this.routedInitOutcome;
     }
     this.usageTracker.trackRead(trackOptions);
   }
