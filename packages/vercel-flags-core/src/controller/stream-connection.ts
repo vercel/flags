@@ -54,6 +54,26 @@ export type StreamConfig = {
   fetch?: typeof globalThis.fetch;
   /** Returns the current revision number to send as X-Revision header */
   revision?: () => number | undefined;
+  /**
+   * Returns the `configUpdatedAt` of the data currently held in memory, sent
+   * as the X-Config-Updated-At header.
+   */
+  configUpdatedAt?: () => number | undefined;
+  /**
+   * Returns the minimum `configUpdatedAt` this connection must be served with,
+   * sent as the X-Config-Min-Updated-At header. Read per connection attempt so
+   * reconnects pick up a raised requirement.
+   */
+  minUpdatedAt?: () => number | undefined;
+  /**
+   * Decides whether a `datafile` or `primed` message may resolve the init
+   * promise. Called after the message has been handed to the callbacks, so it
+   * can inspect the state they produced.
+   *
+   * Return false to keep waiting for a message that satisfies the caller's
+   * freshness requirement. Defaults to accepting the first message.
+   */
+  canResolveInit?: () => boolean;
   resolveToken: () => Promise<string>;
 };
 
@@ -132,9 +152,19 @@ export async function connectStream(
         if (vercelEnv) {
           headers['X-Vercel-Env'] = vercelEnv;
         }
+        // X-Revision is kept alongside the X-Config-*-Updated-At headers for
+        // the duration of the server-side migration.
         const revision = config.revision?.();
         if (revision !== undefined) {
           headers['X-Revision'] = String(revision);
+        }
+        const configUpdatedAt = config.configUpdatedAt?.();
+        if (configUpdatedAt !== undefined) {
+          headers['X-Config-Updated-At'] = String(configUpdatedAt);
+        }
+        const minUpdatedAt = config.minUpdatedAt?.();
+        if (minUpdatedAt !== undefined) {
+          headers['X-Config-Min-Updated-At'] = String(minUpdatedAt);
         }
         const response = await fetchFn(`${host}/v1/stream`, {
           headers,
@@ -198,7 +228,12 @@ export async function connectStream(
               if (message.type === 'datafile') {
                 onDatafile(message.data);
                 retryCount = 0;
-                if (!initialDataReceived) {
+                // The message may leave us below the caller's minimum required
+                // freshness, in which case it must not resolve init.
+                if (
+                  !initialDataReceived &&
+                  (config.canResolveInit?.() ?? true)
+                ) {
                   initialDataReceived = true;
                   resolveInit!();
                 }
@@ -211,7 +246,10 @@ export async function connectStream(
               if (message.type === 'primed') {
                 onPrimed?.(message);
                 retryCount = 0;
-                if (!initialDataReceived) {
+                if (
+                  !initialDataReceived &&
+                  (config.canResolveInit?.() ?? true)
+                ) {
                   initialDataReceived = true;
                   resolveInit!();
                 }

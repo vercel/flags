@@ -14,16 +14,31 @@ export type StreamSourceEvents = {
  * Manages a streaming connection to the flags service.
  * Wraps connectStream() and emits typed events.
  */
+/**
+ * Per-connection state read from the Controller. Each getter is invoked on
+ * every connection attempt so reconnects reflect the latest state.
+ */
+export type StreamSourceHooks = {
+  /** Current revision, sent as X-Revision. */
+  revision: () => number | undefined;
+  /** Current `configUpdatedAt`, sent as X-Config-Updated-At. */
+  configUpdatedAt?: () => number | undefined;
+  /** Minimum required `configUpdatedAt`, sent as X-Config-Min-Updated-At. */
+  minUpdatedAt?: () => number | undefined;
+  /** Whether the state after a message is fresh enough to resolve init. */
+  canResolveInit?: () => boolean;
+};
+
 export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   private options: NormalizedOptions;
-  private revision: () => number | undefined;
+  private hooks: StreamSourceHooks;
   private abortController: AbortController | undefined;
   private promise: Promise<void> | undefined;
 
-  constructor(options: NormalizedOptions, revision: () => number | undefined) {
+  constructor(options: NormalizedOptions, hooks: StreamSourceHooks) {
     super();
     this.options = options;
-    this.revision = revision;
+    this.hooks = hooks;
   }
 
   /**
@@ -58,7 +73,10 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           resolveToken: () => this.options.auth.resolveToken(),
           abortController,
           fetch: this.options.fetch,
-          revision: this.revision,
+          revision: this.hooks.revision,
+          configUpdatedAt: this.hooks.configUpdatedAt,
+          minUpdatedAt: this.hooks.minUpdatedAt,
+          canResolveInit: this.hooks.canResolveInit,
         },
         {
           onDatafile: (newData) => {

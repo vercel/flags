@@ -851,6 +851,7 @@ describe('Controller (black-box)', () => {
           headers: {
             ...streamRequestHeaders,
             'X-Revision': '1',
+            'X-Config-Updated-At': '1',
           },
           signal: expect.any(AbortSignal),
         },
@@ -862,7 +863,11 @@ describe('Controller (black-box)', () => {
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/stream',
         {
-          headers: { ...streamRequestHeaders, 'X-Revision': '1' },
+          headers: {
+            ...streamRequestHeaders,
+            'X-Revision': '1',
+            'X-Config-Updated-At': '1',
+          },
           signal: expect.any(AbortSignal),
         },
       );
@@ -2928,6 +2933,559 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true); // variant 1 = newer
+
+      stream.close();
+      await client.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Minimum config freshness (x-vercel-edge-config-versions)
+  // ---------------------------------------------------------------------------
+  describe('minimum config freshness', () => {
+    /** Request context advertising a flags config version for `prj_123`. */
+    function advertise(version: number | string) {
+      return setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': `ecfg_other=1;flags_prj_123=${version}`,
+      });
+    }
+
+    function callsTo(path: string) {
+      return fetchMock.mock.calls.filter((call) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0]!.toString();
+        return url.includes(path);
+      });
+    }
+
+    function headersOf(call: Parameters<typeof fetch>) {
+      return call[1]!.headers as Record<string, string>;
+    }
+
+    /** Responds to /v1/stream with `stream`, /v1/datafile with `datafile`. */
+    function mockNetwork(options: {
+      stream?: { response: Promise<Response> };
+      datafile?: () => Promise<Response>;
+    }) {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream') && options.stream) {
+          return options.stream.response;
+        }
+        if (url.includes('/v1/datafile') && options.datafile) {
+          return options.datafile();
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+    }
+
+    it('should forward the requirement and current configUpdatedAt on the stream', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = advertise(2000);
+      mockNetwork({ stream });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000, revision: 7 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 2000 }),
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      const streamCalls = callsTo('/v1/stream');
+      expect(streamCalls).toHaveLength(1);
+      expect(headersOf(streamCalls[0]!)).toEqual({
+        ...streamRequestHeaders,
+        'X-Revision': '7',
+        'X-Config-Updated-At': '1000',
+        'X-Config-Min-Updated-At': '2000',
+      });
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not send the requirement when the header advertises another project', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': 'flags_prj_other=2000',
+      });
+      mockNetwork({ stream });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000, revision: 7 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 7,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      const headers = headersOf(callsTo('/v1/stream')[0]!);
+      expect(headers['X-Config-Min-Updated-At']).toBeUndefined();
+      expect(headers['X-Config-Updated-At']).toBe('1000');
+
+      // Nothing was below a minimum, so the read is a plain HIT.
+      const datafile = await client.getDatafile();
+      expect(datafile.metrics.cacheStatus).toBe('HIT');
+      expect(callsTo('/v1/datafile')).toHaveLength(0);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not resolve initialization as fresh when primed below the minimum', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = advertise(2000);
+      mockNetwork({ stream });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      let initResolved = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        initResolved = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+
+      // The server confirmed our (stale) revision, which cannot satisfy the
+      // advertised minimum — initialization must keep waiting.
+      expect(initResolved).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      await initPromise;
+      expect(initResolved).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
+
+      // Existing data is preserved and reported as stale, not fresh.
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(1000);
+      expect(datafile.metrics.cacheStatus).toBe('STALE');
+      expect(datafile.metrics.source).toBe('in-memory');
+
+      // The stream request already carried the requirement, so no extra
+      // datafile fetch is made for it.
+      expect(callsTo('/v1/datafile')).toHaveLength(0);
+
+      stream.close();
+      await client.shutdown();
+      warnSpy.mockRestore();
+      cleanupCtx();
+    });
+
+    it('should resolve initialization as fresh once a message meets the minimum', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = advertise(2000);
+      mockNetwork({ stream });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      let initResolved = false;
+      const initPromise = Promise.resolve(client.initialize()).then(() => {
+        initResolved = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(0);
+      // First message is still below the minimum.
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 1500 }),
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(initResolved).toBe(false);
+
+      // Second message satisfies it.
+      stream.push({
+        type: 'datafile',
+        data: makeBundled({ configUpdatedAt: 2000 }),
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+      expect(initResolved).toBe(true);
+
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(2000);
+      expect(datafile.metrics.cacheStatus).toBe('HIT');
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should trigger one deduplicated refresh when a warm request advertises newer config', async () => {
+      const stream = createMockStream();
+      let cleanupCtx = setRequestContext({ host: 'example.com' });
+      mockNetwork({
+        stream,
+        datafile: () =>
+          Promise.resolve(
+            Response.json(makeBundled({ configUpdatedAt: 5000, revision: 9 })),
+          ),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      // Cold request: no version advertised, stream primes our revision.
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      expect(
+        headersOf(callsTo('/v1/stream')[0]!)['X-Config-Min-Updated-At'],
+      ).toBeUndefined();
+      expect(callsTo('/v1/datafile')).toHaveLength(0);
+
+      // Warm request #1: the Edge Network now advertises newer config.
+      cleanupCtx();
+      cleanupCtx = advertise(4000);
+
+      const staleResult = await client.evaluate('flagA');
+      // The refresh runs in the background — this read still serves the data
+      // already in memory, reported as stale.
+      expect(staleResult.metrics?.cacheStatus).toBe('STALE');
+
+      await vi.advanceTimersByTimeAsync(0);
+
+      const datafileCalls = callsTo('/v1/datafile');
+      expect(datafileCalls).toHaveLength(1);
+      expect(headersOf(datafileCalls[0]!)).toEqual({
+        ...datafileRequestHeaders,
+        'X-Config-Min-Updated-At': '4000',
+      });
+
+      // Warm request #2: same requirement, already satisfied — no extra work.
+      const freshResult = await client.evaluate('flagA');
+      expect(freshResult.metrics?.cacheStatus).toBe('HIT');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      // Warm request #3: repeating the header again changes nothing.
+      cleanupCtx();
+      cleanupCtx = advertise(4000);
+      await client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not refresh again for a repeated requirement the server cannot satisfy', async () => {
+      const stream = createMockStream();
+      let cleanupCtx = setRequestContext({ host: 'example.com' });
+      mockNetwork({
+        stream,
+        // Server is behind: it never returns data meeting the minimum.
+        datafile: () =>
+          Promise.resolve(
+            Response.json(makeBundled({ configUpdatedAt: 1200 })),
+          ),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      cleanupCtx();
+      cleanupCtx = advertise(4000);
+      await client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      // Still below the minimum, so still stale — but no repeated fetches.
+      for (let i = 0; i < 3; i++) {
+        const result = await client.evaluate('flagA');
+        expect(result.metrics?.cacheStatus).toBe('STALE');
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should keep serving stale data when the refresh fails', async () => {
+      const stream = createMockStream();
+      let cleanupCtx = setRequestContext({ host: 'example.com' });
+      mockNetwork({
+        stream,
+        datafile: () => Promise.reject(new Error('network down')),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      cleanupCtx();
+      cleanupCtx = advertise(4000);
+
+      const result = await client.evaluate('flagA');
+      expect(result.reason).toBe('paused');
+      expect(result.value).toBe(true);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      // Stale-if-error: the last known data is still served and reported stale.
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(1000);
+      expect(datafile.metrics.cacheStatus).toBe('STALE');
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not let a later older header downgrade the requirement', async () => {
+      const stream = createMockStream();
+      let cleanupCtx = setRequestContext({ host: 'example.com' });
+      mockNetwork({
+        stream,
+        datafile: () =>
+          Promise.resolve(
+            Response.json(makeBundled({ configUpdatedAt: 1800 })),
+          ),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      // Warm request raises the requirement to 4000; the refresh only gets 1800.
+      cleanupCtx();
+      cleanupCtx = advertise(4000);
+      await client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      // A later request advertising an older version must not lower the
+      // requirement: 1800 still does not satisfy 4000, so this stays stale.
+      cleanupCtx();
+      cleanupCtx = advertise(1500);
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(1800);
+      expect(datafile.metrics.cacheStatus).toBe('STALE');
+
+      // ...and causes no additional work.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(callsTo('/v1/datafile')).toHaveLength(1);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should forward the requirement on polls', async () => {
+      const cleanupCtx = advertise(2000);
+      mockNetwork({
+        datafile: () =>
+          Promise.resolve(
+            Response.json(makeBundled({ configUpdatedAt: 2000 })),
+          ),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      await client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const datafileCalls = callsTo('/v1/datafile');
+      expect(datafileCalls).toHaveLength(1);
+      expect(headersOf(datafileCalls[0]!)).toEqual({
+        ...datafileRequestHeaders,
+        'X-Config-Min-Updated-At': '2000',
+      });
+
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(2000);
+
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should ignore a malformed header value', async () => {
+      const stream = createMockStream();
+      const cleanupCtx = setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': 'flags_prj_123=nil',
+      });
+      mockNetwork({ stream });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      const headers = headersOf(callsTo('/v1/stream')[0]!);
+      expect(headers['X-Config-Min-Updated-At']).toBeUndefined();
+
+      const datafile = await client.getDatafile();
+      expect(datafile.metrics.cacheStatus).toBe('HIT');
+      expect(callsTo('/v1/datafile')).toHaveLength(0);
+
+      stream.close();
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should not read the header during build steps', async () => {
+      const cleanupCtx = advertise(9000);
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled({ configUpdatedAt: 1000 }),
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        buildStep: true,
+      });
+
+      const datafile = await client.getDatafile();
+      expect(datafile.configUpdatedAt).toBe(1000);
+      expect(datafile.metrics.cacheStatus).toBe('MISS');
+      expect(datafile.metrics.mode).toBe('build');
+
+      // No network calls at all — build behavior is unchanged.
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await client.shutdown();
+      cleanupCtx();
+    });
+
+    it('should be inert without a request context', async () => {
+      const stream = createMockStream();
+      mockNetwork({ stream });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+        datafile: makeBundled({ configUpdatedAt: 1000, revision: 7 }),
+      });
+
+      const initPromise = client.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      stream.push({
+        type: 'primed',
+        revision: 7,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      expect(headersOf(callsTo('/v1/stream')[0]!)).toEqual({
+        ...streamRequestHeaders,
+        'X-Revision': '7',
+        'X-Config-Updated-At': '1000',
+      });
+
+      const datafile = await client.getDatafile();
+      expect(datafile.metrics.cacheStatus).toBe('HIT');
+      expect(callsTo('/v1/datafile')).toHaveLength(0);
 
       stream.close();
       await client.shutdown();

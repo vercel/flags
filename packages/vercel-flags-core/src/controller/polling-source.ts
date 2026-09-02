@@ -23,12 +23,22 @@ export type PollingSourceEvents = {
  */
 export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   private config: PollingSourceConfig;
+  private minUpdatedAt: () => number | undefined;
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private abortController: AbortController | undefined;
 
-  constructor(config: PollingSourceConfig) {
+  constructor(
+    config: PollingSourceConfig,
+    /**
+     * Returns the minimum `configUpdatedAt` a poll response must satisfy, sent
+     * as `X-Config-Min-Updated-At`. Read per request so later polls pick up a
+     * raised requirement.
+     */
+    minUpdatedAt: () => number | undefined = () => undefined,
+  ) {
     super();
     this.config = config;
+    this.minUpdatedAt = minUpdatedAt;
   }
 
   /**
@@ -42,6 +52,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
       const data = await fetchDatafile({
         ...this.config,
         signal: this.abortController?.signal,
+        minUpdatedAt: this.minUpdatedAt(),
       });
       this.emit('data', data);
     } catch (error) {

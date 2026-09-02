@@ -1001,6 +1001,242 @@ describe('connectStream', () => {
     });
   });
 
+  describe('X-Config-Updated-At / X-Config-Min-Updated-At headers', () => {
+    beforeEach(() => {
+      fetchMock.mockImplementation(() => ndjsonResponse([datafileMsg()]));
+    });
+
+    it('should send both config headers alongside X-Revision', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+          revision: () => 42,
+          configUpdatedAt: () => 1726434395818,
+          minUpdatedAt: () => 1726434400000,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['X-Revision']).toBe('42');
+      expect(headers['X-Config-Updated-At']).toBe('1726434395818');
+      expect(headers['X-Config-Min-Updated-At']).toBe('1726434400000');
+      abortController.abort();
+    });
+
+    it('should omit the config headers when the getters return undefined', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+          revision: () => 42,
+          configUpdatedAt: () => undefined,
+          minUpdatedAt: () => undefined,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['X-Revision']).toBe('42');
+      expect(headers['X-Config-Updated-At']).toBeUndefined();
+      expect(headers['X-Config-Min-Updated-At']).toBeUndefined();
+      abortController.abort();
+    });
+
+    it('should omit the config headers when the getters are not provided', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['X-Config-Updated-At']).toBeUndefined();
+      expect(headers['X-Config-Min-Updated-At']).toBeUndefined();
+      abortController.abort();
+    });
+
+    it('should re-read the config getters on each reconnect', async () => {
+      vi.useFakeTimers();
+      let requestCount = 0;
+      let currentUpdatedAt = 100;
+      let minUpdatedAt = 100;
+
+      fetchMock.mockImplementation(() => {
+        requestCount++;
+        return ndjsonResponse([datafileMsg()], { keepOpen: requestCount >= 2 });
+      });
+
+      const abortController = new AbortController();
+
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+          configUpdatedAt: () => currentUpdatedAt,
+          minUpdatedAt: () => minUpdatedAt,
+        },
+        {
+          onDatafile: () => {
+            // Simulate a warm request raising the requirement mid-connection.
+            currentUpdatedAt = 200;
+            minUpdatedAt = 300;
+          },
+        },
+      );
+
+      const h0 = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+      expect(h0['X-Config-Updated-At']).toBe('100');
+      expect(h0['X-Config-Min-Updated-At']).toBe('100');
+
+      // Advance past reconnection backoff
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(0);
+
+      const h1 = fetchMock.mock.calls[1]![1]!.headers as Record<string, string>;
+      expect(h1['X-Config-Updated-At']).toBe('200');
+      expect(h1['X-Config-Min-Updated-At']).toBe('300');
+
+      abortController.abort();
+      vi.useRealTimers();
+    });
+  });
+
+  describe('canResolveInit', () => {
+    it('should not resolve init for a datafile message that is rejected', async () => {
+      const first = { projectId: 'test', definitions: {}, configUpdatedAt: 1 };
+      const second = { projectId: 'test', definitions: {}, configUpdatedAt: 9 };
+
+      // Delivered in separate chunks so init could resolve after either one.
+      fetchMock.mockImplementation(() =>
+        streamResponse(
+          createNdjsonStream(
+            [
+              { type: 'datafile', data: first },
+              { type: 'datafile', data: second },
+            ],
+            { delayMs: 5, keepOpen: true },
+          ),
+        ),
+      );
+
+      const abortController = new AbortController();
+      const received: unknown[] = [];
+      let messagesWhenResolved = -1;
+
+      const initPromise = connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+          // Only data at or beyond configUpdatedAt 9 may resolve init.
+          canResolveInit: () => {
+            const last = received[received.length - 1] as
+              | { configUpdatedAt: number }
+              | undefined;
+            return last !== undefined && last.configUpdatedAt >= 9;
+          },
+        },
+        { onDatafile: (data) => received.push(data) },
+      );
+      void initPromise.then(() => {
+        messagesWhenResolved = received.length;
+      });
+
+      await initPromise;
+
+      // Both messages were delivered, but only the second resolved init.
+      expect(received).toEqual([first, second]);
+      expect(messagesWhenResolved).toBe(2);
+
+      abortController.abort();
+    });
+
+    it('should not resolve init for a primed message that is rejected', async () => {
+      fetchMock.mockImplementation(() =>
+        ndjsonResponse(
+          [
+            {
+              type: 'primed',
+              revision: 1,
+              projectId: 'prj_test',
+              environment: 'production',
+            },
+          ],
+          { keepOpen: true },
+        ),
+      );
+
+      const abortController = new AbortController();
+      const onPrimed = vi.fn();
+      let resolved = false;
+
+      let signalPrimed: () => void;
+      const primedDelivered = new Promise<void>((resolve) => {
+        signalPrimed = resolve;
+      });
+
+      void connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+          canResolveInit: () => false,
+        },
+        {
+          onDatafile: vi.fn(),
+          onPrimed: (message) => {
+            onPrimed(message);
+            signalPrimed();
+          },
+        },
+      ).then(
+        () => {
+          resolved = true;
+        },
+        () => {
+          // aborted below — expected
+        },
+      );
+
+      await primedDelivered;
+      // Flush microtasks so a resolved init promise would have settled.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // The primed message was delivered but did not resolve init.
+      expect(onPrimed).toHaveBeenCalledTimes(1);
+      expect(resolved).toBe(false);
+
+      abortController.abort();
+    });
+  });
+
   describe('primed message', () => {
     it('should resolve init promise when primed message is received', async () => {
       const primedMsg = {

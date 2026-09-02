@@ -5,6 +5,7 @@ import type {
   DatafileInput,
   Metrics,
 } from '../types';
+import { readFlagsConfigVersion } from '../utils/edge-config-versions';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
@@ -117,6 +118,28 @@ export class Controller implements ControllerInterface {
   private buildDataPromise: Promise<TaggedData> | null = null;
   private buildReadTracked = false;
 
+  // Minimum configUpdatedAt the Edge Network advertises for this project, read
+  // from the request context of every initialize/read call. Monotonic: a later
+  // request carrying an older value never lowers it.
+  //
+  // Only this number is retained. The request context object and its headers
+  // are never stored, so a module-scoped controller cannot keep a request
+  // alive across invocations.
+  private minUpdatedAt: number | undefined;
+
+  // Highest minimum already forwarded on a source request (stream connect,
+  // poll, or one-time fetch). That request is responsible for delivering data
+  // which satisfies it, so no extra refresh is needed for it.
+  private requestedMinUpdatedAt: number | undefined;
+
+  // Highest minimum a refresh has already been attempted for, so a repeated
+  // requirement never causes redundant work.
+  private refreshedMinUpdatedAt: number | undefined;
+
+  // Minimum targeted by the refresh currently in flight, if any.
+  private refreshTarget: number | undefined;
+  private refreshAbortController: AbortController | undefined;
+
   // Suppresses usage tracking when the SDK key is unauthorized
   private unauthorized = false;
 
@@ -124,12 +147,17 @@ export class Controller implements ControllerInterface {
     this.options = normalizeOptions(options);
 
     // Create source modules
-    this.streamSource = new StreamSource(
-      this.options,
-      () => this.data?.revision,
-    );
+    this.streamSource = new StreamSource(this.options, {
+      revision: () => this.data?.revision,
+      configUpdatedAt: () => parseConfigUpdatedAt(this.data?.configUpdatedAt),
+      minUpdatedAt: this.minUpdatedAtForRequest,
+      canResolveInit: () => !this.isBelowMinUpdatedAt,
+    });
 
-    this.pollingSource = new PollingSource(this.options);
+    this.pollingSource = new PollingSource(
+      this.options,
+      this.minUpdatedAtForRequest,
+    );
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -213,6 +241,159 @@ export class Controller implements ControllerInterface {
     return this.state === 'streaming';
   }
 
+  // ---------------------------------------------------------------------------
+  // Minimum freshness requirement
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Re-reads the flag configuration version the Edge Network advertises for
+   * this project and raises the minimum freshness requirement accordingly.
+   *
+   * Controllers are module-scoped and outlive individual requests, so this runs
+   * on every initialize()/read()/getDatafile() call rather than once at
+   * construction. The requirement only ever moves forward: a later warm request
+   * carrying an older header cannot downgrade it.
+   *
+   * No-op during build steps and wherever no request context is available, so
+   * build and non-Vercel behavior is unchanged.
+   */
+  private syncMinUpdatedAt(): void {
+    if (this.options.buildStep) return;
+
+    const projectId = this.data?.projectId ?? this.options.datafile?.projectId;
+    if (!projectId) return;
+
+    const advertised = readFlagsConfigVersion(projectId);
+    if (advertised === undefined) return;
+
+    if (this.minUpdatedAt === undefined || advertised > this.minUpdatedAt) {
+      this.minUpdatedAt = advertised;
+    }
+  }
+
+  /**
+   * Returns the current requirement for an outgoing request and records that it
+   * is being forwarded, so `scheduleRefresh()` knows the request in question is
+   * already responsible for satisfying it.
+   */
+  private minUpdatedAtForRequest = (): number | undefined => {
+    const required = this.minUpdatedAt;
+    if (
+      required !== undefined &&
+      (this.requestedMinUpdatedAt === undefined ||
+        required > this.requestedMinUpdatedAt)
+    ) {
+      this.requestedMinUpdatedAt = required;
+    }
+    return required;
+  };
+
+  /**
+   * Whether the data currently held in memory is known to be older than the
+   * minimum the Edge Network advertises. Data without a `configUpdatedAt`
+   * cannot be proven fresh, so it counts as below the minimum.
+   */
+  private get isBelowMinUpdatedAt(): boolean {
+    if (this.minUpdatedAt === undefined) return false;
+    if (!this.data) return true;
+
+    const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
+    return currentTs === undefined || currentTs < this.minUpdatedAt;
+  }
+
+  /**
+   * Cache status for the data currently held in memory. Data that is below the
+   * advertised minimum is reported as STALE even while connected, so a response
+   * that did not meet the minimum never looks fresh.
+   */
+  private get cacheStatusForCurrentData(): Metrics['cacheStatus'] {
+    return this.isConnected && !this.isBelowMinUpdatedAt ? 'HIT' : 'STALE';
+  }
+
+  /**
+   * Starts a single background refresh when the in-memory data is older than
+   * the advertised minimum.
+   *
+   * Deduplicated per controller and target: a given requirement triggers at
+   * most one refresh, whether it is observed once or on every warm request,
+   * and a lower requirement seen later never triggers another. A requirement
+   * already forwarded on a stream connection or poll is left to that request.
+   *
+   * The refresh runs in the background — callers keep serving the data they
+   * already have, which read() reports as STALE.
+   */
+  private scheduleRefresh(): void {
+    if (this.options.buildStep) return;
+    if (this.state === 'shutdown') return;
+
+    const target = this.minUpdatedAt;
+    if (target === undefined) return;
+
+    // Without data there is nothing to refresh: initialization applies the
+    // requirement to the stream/poll request instead.
+    if (!this.data) return;
+    if (!this.isBelowMinUpdatedAt) return;
+
+    // Already forwarded on a source request, which owns delivering data that
+    // satisfies it.
+    if (
+      this.requestedMinUpdatedAt !== undefined &&
+      this.requestedMinUpdatedAt >= target
+    ) {
+      return;
+    }
+
+    // Already attempted, or already covered by a refresh in flight.
+    if (
+      this.refreshedMinUpdatedAt !== undefined &&
+      this.refreshedMinUpdatedAt >= target
+    ) {
+      return;
+    }
+    if (this.refreshTarget !== undefined && this.refreshTarget >= target) {
+      return;
+    }
+
+    this.refreshTarget = target;
+    void this.refresh(target);
+  }
+
+  /**
+   * Fetches a datafile that satisfies `target`. Best effort: on failure the
+   * existing data keeps being served, preserving the stale fallback.
+   */
+  private async refresh(target: number): Promise<void> {
+    const abortController = new AbortController();
+    this.refreshAbortController = abortController;
+
+    try {
+      const fetched = await fetchDatafile({
+        host: this.options.host,
+        auth: this.options.auth,
+        fetch: this.options.fetch,
+        signal: abortController.signal,
+        minUpdatedAt: target,
+      });
+
+      if (this.state !== 'shutdown' && this.isNewerData(fetched)) {
+        this.data = tagData(fetched, 'fetched');
+      }
+    } catch {
+      // Keep the existing data — the refresh is best effort.
+    } finally {
+      this.refreshedMinUpdatedAt =
+        this.refreshedMinUpdatedAt === undefined
+          ? target
+          : Math.max(this.refreshedMinUpdatedAt, target);
+      if (this.refreshTarget === target) {
+        this.refreshTarget = undefined;
+      }
+      if (this.refreshAbortController === abortController) {
+        this.refreshAbortController = undefined;
+      }
+    }
+  }
+
   private get mode(): Metrics['mode'] {
     if (this.options.buildStep) return 'build';
     switch (this.state) {
@@ -245,6 +426,20 @@ export class Controller implements ControllerInterface {
       return;
     }
 
+    try {
+      await this.initializeAtRuntime();
+    } finally {
+      // Initialization could not reach the advertised minimum: start the single
+      // deduplicated refresh now instead of waiting for the next read.
+      this.scheduleRefresh();
+    }
+  }
+
+  private async initializeAtRuntime(): Promise<void> {
+    // Pick up the requirement advertised for this request before opening any
+    // connection, so it can be forwarded on the very first attempt.
+    this.syncMinUpdatedAt();
+
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
     if (!this.data && this.options.datafile) {
       this.data = tagData(this.options.datafile, 'provided');
@@ -262,6 +457,9 @@ export class Controller implements ControllerInterface {
       } catch {
         // Bundled definitions not available — proceed without revision
       }
+
+      // Bundled definitions may be the first thing to reveal the project id.
+      this.syncMinUpdatedAt();
     }
 
     // If we already have data (from provided datafile or bundled definitions),
@@ -311,6 +509,11 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
+    // Re-read per request: a warm request may advertise a newer configuration
+    // than the one this long-lived controller holds.
+    this.syncMinUpdatedAt();
+    this.scheduleRefresh();
+
     const [result, cacheStatus] = await this.resolveData();
 
     const readMs = Date.now() - startTime;
@@ -344,6 +547,8 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.refreshAbortController?.abort();
+    this.refreshAbortController = undefined;
     this.data = this.options.datafile
       ? tagData(this.options.datafile, 'provided')
       : undefined;
@@ -360,13 +565,18 @@ export class Controller implements ControllerInterface {
     const startTime = Date.now();
     this.isFirstGetData = false;
 
+    // Re-read per request: a warm request may advertise a newer configuration
+    // than the one this long-lived controller holds.
+    this.syncMinUpdatedAt();
+    this.scheduleRefresh();
+
     let result: TaggedData;
     let cacheStatus: Metrics['cacheStatus'];
 
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (this.data) {
-      cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+      cacheStatus = this.cacheStatusForCurrentData;
       result = this.data;
     } else {
       // No in-memory data — try bundled, then one-time fetch
@@ -382,6 +592,7 @@ export class Controller implements ControllerInterface {
             host: this.options.host,
             auth: this.options.auth,
             fetch: this.options.fetch,
+            minUpdatedAt: this.minUpdatedAtForRequest(),
           });
           this.data = tagData(fetched, 'fetched');
           result = this.data;
@@ -442,8 +653,7 @@ export class Controller implements ControllerInterface {
     }
 
     if (this.data) {
-      const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      return [this.data, cacheStatus];
+      return [this.data, this.cacheStatusForCurrentData];
     }
 
     return this.resolveDataWithFallbacks();
@@ -523,11 +733,7 @@ export class Controller implements ControllerInterface {
     if (this.options.polling.initTimeoutMs <= 0) {
       try {
         await pollPromise;
-        if (this.data) {
-          this.pollingSource.startInterval();
-          return true;
-        }
-        return false;
+        return this.completePollingInit();
       } catch {
         return false;
       }
@@ -553,15 +759,24 @@ export class Controller implements ControllerInterface {
         return false;
       }
 
-      if (this.data) {
-        this.pollingSource.startInterval();
-        return true;
-      }
-      return false;
+      return this.completePollingInit();
     } catch {
       clearTimeout(timeoutId!);
       return false;
     }
+  }
+
+  /**
+   * Starts the polling interval once the first poll produced data.
+   *
+   * Reports success only when that data meets the advertised minimum: a
+   * response below the minimum keeps polling running in the background but
+   * must not resolve initialization as fresh.
+   */
+  private completePollingInit(): boolean {
+    if (!this.data) return false;
+    this.pollingSource.startInterval();
+    return !this.isBelowMinUpdatedAt;
   }
 
   // ---------------------------------------------------------------------------
@@ -659,6 +874,7 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
+          minUpdatedAt: this.minUpdatedAtForRequest(),
         });
         this.data = tagData(fetched, 'fetched');
         this.transition('degraded');
@@ -724,6 +940,7 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
+          minUpdatedAt: this.minUpdatedAtForRequest(),
         });
         this.data = tagData(fetched, 'fetched');
         this.transition('degraded');

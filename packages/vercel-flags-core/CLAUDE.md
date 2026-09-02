@@ -31,6 +31,8 @@ src/
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
 │   ├── sleep.ts
+│   ├── request-context.ts
+│   ├── edge-config-versions.ts  # x-vercel-edge-config-versions parsing
 │   └── read-bundled-definitions.ts
 └── lib/
     └── report-value.ts   # Flag evaluation reporting to Vercel request context
@@ -232,6 +234,8 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Uses fetch with streaming body (NDJSON format)
 - Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
+- Also sends `X-Config-Updated-At` (the `configUpdatedAt` currently held in memory) and, when a minimum is required, `X-Config-Min-Updated-At` — see "Minimum Config Freshness". All three getters are re-read per connection attempt, so reconnects reflect the latest state
+- `canResolveInit` lets the owner reject a `datafile`/`primed` message for init purposes: the message is still delivered to the callbacks, but the init promise keeps waiting for one that satisfies the freshness requirement
 - The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
@@ -250,6 +254,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Stops automatically when stream reconnects
 - `PollingSource` passes its abort signal to `fetchDatafile`, so calling `stop()` aborts in-flight HTTP requests
 - `fetchDatafile` accepts an optional `signal` parameter; when provided, it aborts the internal fetch controller when the external signal fires
+- `fetchDatafile` accepts an optional `minUpdatedAt` parameter, sent as `X-Config-Min-Updated-At` — see "Minimum Config Freshness"
 
 ### Data Origin Tagging
 
@@ -281,6 +286,46 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 ### configUpdatedAt Guard
 
 The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+
+### Minimum Config Freshness
+
+The Vercel Edge Network attaches `x-vercel-edge-config-versions` to incoming
+requests: semicolon-separated `<id>=<updatedAt>` pairs, where the entry keyed
+`flags_<projectId>` is the last known update timestamp of that project's flag
+configuration (see `utils/edge-config-versions.ts`). When it is newer than the
+data held in memory, the Controller treats it as a minimum the next response
+must satisfy:
+
+- `X-Config-Min-Updated-At` is forwarded on datafile fetches (poll, one-time
+  fetch, refresh) and on stream connections
+- A response below the minimum **does not resolve initialization as fresh** —
+  `canResolveInit` withholds the stream init promise and `completePollingInit`
+  reports failure, so `initialize()` keeps waiting up to `initTimeoutMs` and
+  then falls back to the existing data
+- Data below the minimum is reported with `cacheStatus: 'STALE'` even while the
+  stream is connected
+
+Because controllers are module-scoped and outlive individual requests, the
+header is re-read on every `initialize()`, `read()`, and `getDatafile()` call.
+Only the resulting timestamp is retained — never the request context or its
+headers.
+
+The requirement is monotonic and deduplicated:
+
+- A later request advertising an older version never lowers it
+- A raised requirement triggers at most **one** background refresh per
+  controller per target (`refreshedMinUpdatedAt`), so repeating the same header
+  on every warm request causes no extra work
+- A requirement already forwarded on a stream connection or poll
+  (`requestedMinUpdatedAt`) is left to that request instead of also spawning a
+  refresh
+- The refresh never blocks the caller and is best effort: on failure the
+  existing data keeps being served and reported as stale
+
+No-op during build steps and wherever no request context is available, so build
+and non-Vercel behavior is unchanged. The header is only emitted for
+deployments where the Edge Network enables it, so the feature is inert until
+both that and the server-side support (EXP-3414) are in place.
 
 ### Evaluation Reporting
 

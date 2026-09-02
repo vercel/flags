@@ -12,6 +12,12 @@ export async function fetchDatafile(options: {
   auth: Auth;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
+  /**
+   * Minimum `configUpdatedAt` the response must satisfy, forwarded as
+   * `X-Config-Min-Updated-At`. Set when the Edge Network advertises a newer
+   * configuration than the one held in memory.
+   */
+  minUpdatedAt?: number;
 }): Promise<BundledDefinitions> {
   const token = await options.auth.resolveToken();
 
@@ -38,6 +44,9 @@ export async function fetchDatafile(options: {
         'User-Agent': `VercelFlagsCore/${version}`,
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+          : null),
+        ...(options.minUpdatedAt !== undefined
+          ? { 'X-Config-Min-Updated-At': String(options.minUpdatedAt) }
           : null),
       },
       signal: controller.signal,
