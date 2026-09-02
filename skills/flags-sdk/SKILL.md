@@ -4,8 +4,8 @@ description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a new or existing flag, wiring `vercelAdapter` /
   FLAGS env vars, declaring flags with `flag()`, using the `vercel flags` CLI (create, inspect, list,
-  enable, disable, set, update, split, rollout, rules, segments, targeting, evaluations, versions,
-  archive, sdk-keys, override, prepare), setting up providers/adapters (Vercel, Statsig, LaunchDarkly,
+  enable, disable, set, update, split, rollout, rules, segments, use-targeting, targeting, evaluations,
+  versions, open, archive, unarchive, rm, sdk-keys, override, prepare), setting up providers/adapters (Vercel, Statsig, LaunchDarkly,
   PostHog, GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
   precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, or encrypting flag values.
   Triggers: feature flags, feature gates, A/B testing, experimentation, gradual rollout, traffic split,
@@ -162,7 +162,7 @@ Use this flow when the flag was created in the dashboard or by someone else, for
      adapter: vercelAdapter,
    });
    ```
-5. **Use the flag** as in [Create a flag](#create-a-flag) step 5, then run the type-check and lint.
+5. **Use the flag** as in [Create a flag](#create-a-flag) step 5.
 
 ## Vercel Flags
 
