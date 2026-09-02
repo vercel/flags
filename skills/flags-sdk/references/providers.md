@@ -68,6 +68,8 @@ export const exampleFlag = flag<boolean, Entities>({
 });
 ```
 
+The entities and attributes you can target are configured under Flags → Entities in the dashboard. The object `identify` returns must use the same names: the example above allows `--by user.id` / `--by team.id` in `vercel flags split`, `rollout`, and `rules add`, and the matching conditions in dashboard rules. See [How the CLI connects to the SDK](#how-the-cli-connects-to-the-sdk).
+
 ### Flags Explorer
 
 ```ts
@@ -114,18 +116,27 @@ export const exampleFlag = flag({
 
 Manage Vercel Flags from the terminal. Install, link, and `vercel env pull` requirements are in [Setup](#setup) above.
 
-The CLI has more subcommands than this skill names. For the current list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, follow the `vercel-cli` skill.
+For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts (linking, `--non-interactive`, `--yes`, parsing stdout) follow the `vercel-cli` skill. This section covers only what `--help` cannot tell you.
+
+#### How the CLI connects to the SDK
+
+- **Key**: the flag slug you pass to the CLI is the `key` in `flag()`. They must match exactly.
+- **Kind → type**: `inspect <key>` prints the kind and variants. `boolean` → `flag<boolean>()`, `string` → `flag<string>()`, `number` → `flag<number>()`, `json` → `flag<YourType>()`.
+- **Variants → `options`**: with `vercelAdapter` the variants on Vercel are the source of truth. Add `options` to the declaration only when you use precompute (it enumerates permutations from `options`); then keep them equal to the variants `inspect` shows.
+- **Missing definition**: when the key does not exist on Vercel (typo, deleted flag, wrong `FLAGS` key), `vercelAdapter` throws at request time unless the declaration has a `defaultValue`. Give production flags a `defaultValue`.
+- **Targeting attributes**: `split`, `rollout`, and `rules add` take `--by <entity>.<attribute>` (and `--condition <entity>.<attribute>:<op>:<value>`). The path must be an entity attribute configured under Flags → Entities in the dashboard, and it must exist on the object the flag's `identify()` returns. For the `identify` in [User targeting](#user-targeting) that is `--by user.id`. When the attribute is missing at runtime, the flag serves `--default-variant` (or the environment fallthrough) and nothing is bucketed. No error is raised, so verify with `evaluations`.
+- **SDK keys**: `FLAGS` holds one SDK key (`vf_server_*` or `vf_client_*`). Each key is scoped to one environment. Creating the first flag provisions `FLAGS` and `FLAGS_SECRET` on the project; `vercel env pull` writes the development values, so local runs read the development environment. Extra keys: `vercel flags sdk-keys`.
+- **Overrides**: `vercel flags override <key>=<value>` creates the same encrypted token the Toolbar writes to the `vercel-flag-overrides` cookie. It reads `FLAGS_SECRET` from the environment or `.env.local`, so the token only works on deployments that use that same secret (see [FLAGS_SECRET](../SKILL.md#flags_secret)). Overrides bypass `decide` and the adapter.
+- **Build fallbacks**: `vercel flags prepare` runs `@vercel/prepare-flags-definitions`. It fetches definitions for every `vf_*` key it finds in the environment and `.env*` files and writes them to `node_modules/@vercel/flags-definitions`, so `@vercel/flags-core` can evaluate before the first network fetch. Run it in the build step, after the SDK keys are available.
 
 #### Lifecycle and safety
 
-`--help` does not cover these:
-
-- **Key match**: The CLI flag key must match the `key` passed to `flag()`.
-- **Promote carefully**: Prefer development → preview → production. Do not enable in production until the code path that reads the flag is deployed.
-- **Serve vs define**: `enable` / `disable` apply to boolean flags. For other kinds, use `set` to change the served variant. Use `update` to add, remove, or rename variants; it does not change what is served.
-- **Archive before delete**: Archive first; only `rm` when nothing still references the flag. Prefer archive over delete until you are sure.
-- **SDK keys**: `FLAGS` holds an SDK key. Manage keys with `vercel flags sdk-keys` (see `--help`).
-- **Rollouts / splits / segments / overrides**: Use the matching CLI subcommands when needed; confirm syntax with `--help` and escalate beyond the CLI (dashboard / support) when targeting rules are unclear.
+- **Promote**: development → preview → production. Deploy the code that reads the flag before you enable it in production. A flag that exists on Vercel but is not declared in code is harmless.
+- **Serve vs define**: `enable` / `disable` work on boolean flags only. `set` changes the served variant for any kind. `update` adds, removes, or renames variants and does not change what is served. After `update`, sync `options` in code if the declaration has them.
+- **Do not replace targeting by accident**: `inspect` shows what each environment serves. Read it before `set` / `enable` / `disable` in an environment that has a split, rollout, or rules, because these commands set one variant for the whole environment.
+- **Confirm a change**: `inspect` for the served state, `versions` for history, `evaluations` for live traffic per variant. A production change is not visible in local development.
+- **Archive before delete**: `rm` requires an archived flag. Before you archive, search the code for `key: '<flag>'` and remove or default the declaration. Prefer archive over delete; `unarchive` exists, `rm` is final.
+- **Agent runs**: `archive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
 
 Docs: https://vercel.com/docs/cli/flags
 

@@ -2,15 +2,15 @@
 name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
-  declaring flags with `flag()`, using the `vercel flags` CLI (create, enable, disable, set, inspect,
-  archive, sdk-keys, and more — run `vercel flags --help`), setting up providers/adapters (Vercel,
-  Statsig, LaunchDarkly, PostHog, GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag,
-  Optimizely, or custom), precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or
-  SvelteKit, custom adapters, or encrypting/decrypting flag values.
-  Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags, A/B testing,
-  experimentation, flags SDK, flag adapters, precompute, Flags Explorer, feature gates, flag overrides,
-  Vercel Flags, vercel flags CLI, `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
+  Use when installing or configuring the SDK, adding a new or existing flag, wiring `vercelAdapter` /
+  FLAGS env vars, declaring flags with `flag()`, using the `vercel flags` CLI (create, inspect, list,
+  enable, disable, set, update, split, rollout, rules, segments, targeting, evaluations, versions,
+  archive, sdk-keys, override, prepare), setting up providers/adapters (Vercel, Statsig, LaunchDarkly,
+  PostHog, GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
+  precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, or encrypting flag values.
+  Triggers: feature flags, feature gates, A/B testing, experimentation, gradual rollout, traffic split,
+  targeting rules, flag overrides, precompute, Flags Explorer, Vercel Flags, vercel flags CLI,
+  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
 ---
 
 # Set up and use the Flags SDK
@@ -101,7 +101,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 ## Create a flag
 
-When a user asks you to create or add a feature flag, follow these steps in order.
+When a user asks you to create or add a feature flag that does not exist on Vercel yet, follow these steps in order. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
 
 ### Before you start
 
@@ -140,15 +140,39 @@ When a user asks you to create or add a feature flag, follow these steps in orde
    }
    ```
 
+## Add a flag that already exists on Vercel
+
+Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key.
+
+1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
+2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
+3. **Pull environment variables**: If `.env.local` lacks `FLAGS=`, run `vercel env pull`.
+4. **Declare the flag**: Add it to `flags.ts` with `vercelAdapter`. Map the `inspect` output:
+   - `key`: the flag key exactly as printed
+   - kind → type parameter: `boolean` → `flag<boolean>`, `string` → `flag<string>`, `number` → `flag<number>`, `json` → `flag<YourType>`
+   - `description`: copy from `inspect`
+   - `defaultValue`: pick the variant that is safe when evaluation fails (usually what production serves today)
+   - `options`: only when you use precompute; mirror the variants
+   - `identify`: add or reuse one when the flag has targeting, using the entity attributes configured in the dashboard (see [Flag with evaluation context](#flag-with-evaluation-context))
+   ```ts
+   export const welcomeMessage = flag<string>({
+     key: 'welcome-message',
+     description: 'Copy shown on the landing page',
+     defaultValue: 'control',
+     adapter: vercelAdapter,
+   });
+   ```
+5. **Use the flag** as in [Create a flag](#create-a-flag) step 5, then run the type-check and lint.
+
 ## Vercel Flags
 
 Vercel Flags is Vercel's feature flags platform. You create and manage flags from the Vercel dashboard or the `vercel flags` CLI, then connect them to your code with the `@flags-sdk/vercel` adapter. When you create a flag in Vercel, the `FLAGS` and `FLAGS_SECRET` environment variables are configured automatically.
 
-To install the SDK, follow [Set up the SDK](#set-up-the-sdk). To create a flag end-to-end, follow [Create a flag](#create-a-flag).
+To install the SDK, follow [Set up the SDK](#set-up-the-sdk). To create a flag end-to-end, follow [Create a flag](#create-a-flag). For a flag that already exists on Vercel, follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel).
 
-For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel).
+For the full Vercel provider reference — user targeting, how the CLI maps to the SDK (keys, kinds, targeting attributes, SDK keys, overrides, `prepare`), lifecycle and safety, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel).
 
-The `vercel flags` CLI has more subcommands than this skill names. For current syntax, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, use the `vercel-cli` skill.
+For the current `vercel flags` subcommands and options (targeting, splits, rollouts, rules, segments, evaluations, versions, and more), run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts (linking, non-interactive mode, output parsing), use the `vercel-cli` skill.
 
 ## Declaring flags
 
@@ -199,6 +223,8 @@ export const dashboardFlag = flag<boolean, Entities>({
   },
 });
 ```
+
+With `vercelAdapter`, the entity and attribute names in the returned object (`user.id` here) are what dashboard rules and `vercel flags split|rollout|rules --by` target. They must match the entities configured in the dashboard. See [references/providers.md — User targeting](references/providers.md#user-targeting).
 
 ### Flag with another adapter
 
