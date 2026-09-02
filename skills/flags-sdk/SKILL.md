@@ -3,11 +3,11 @@ name: flags-sdk
 description: >
   Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a flag, wiring `vercelAdapter` / FLAGS env vars,
-  declaring flags with `flag()`, using `vercel flags` CLI (create, list, enable, disable, inspect,
-  archive, rm, sdk-keys, set, split, rollout, segments, update, open, prepare, override),
-  setting up providers/adapters (Vercel, Statsig, LaunchDarkly, PostHog, GrowthBook, Global Config,
-  OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom), precompute, `identify`/`dedupe`,
-  Flags Explorer/Toolbar, Next.js or SvelteKit, custom adapters, or encrypting/decrypting flag values.
+  declaring flags with `flag()`, using the `vercel flags` CLI (create, enable, disable, set, inspect,
+  archive, sdk-keys, and more — run `vercel flags --help`), setting up providers/adapters (Vercel,
+  Statsig, LaunchDarkly, PostHog, GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag,
+  Optimizely, or custom), precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or
+  SvelteKit, custom adapters, or encrypting/decrypting flag values.
   Triggers: set up feature flags, install Flags SDK, add a feature flag, feature flags, A/B testing,
   experimentation, flags SDK, flag adapters, precompute, Flags Explorer, feature gates, flag overrides,
   Vercel Flags, vercel flags CLI, `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
@@ -146,7 +146,9 @@ Vercel Flags is Vercel's feature flags platform. You create and manage flags fro
 
 To install the SDK, follow [Set up the SDK](#set-up-the-sdk). To create a flag end-to-end, follow [Create a flag](#create-a-flag).
 
-For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel). For current CLI syntax, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, use the `vercel-cli` skill (suggest `npx skills add vercel/vercel@vercel-cli` if missing; do not auto-install).
+For the full Vercel provider reference — user targeting, `vercel flags` lifecycle guidance, custom adapter configuration, and Flags Explorer setup — see [references/providers.md](references/providers.md#vercel).
+
+The `vercel flags` CLI has more subcommands than this skill names. For current syntax, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, use the `vercel-cli` skill.
 
 ## Declaring flags
 

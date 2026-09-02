@@ -112,21 +112,17 @@ export const exampleFlag = flag({
 
 ### `vercel flags` CLI
 
-Manage Vercel Flags from the terminal. Requires the [Vercel CLI](https://vercel.com/docs/cli) and a linked project.
+Manage Vercel Flags from the terminal. Install, link, and `vercel env pull` requirements are in [Setup](#setup) above.
 
-> **Prerequisite**: The Vercel CLI must be installed (`pnpm i -g vercel`) and the project must be linked (`vercel link` — check for a `.vercel` directory). For authentication or linking issues, follow the `vercel-cli` skill if available; otherwise suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install).
+The CLI has more subcommands than this skill names. For the current list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, follow the `vercel-cli` skill.
 
-For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts and playbooks, follow the `vercel-cli` skill (do not duplicate that content here).
+#### Lifecycle and safety
 
-#### Lifecycle and safety (Flags SDK)
+`--help` does not cover these:
 
-Keep these judgments in the skill; they are not covered by `--help`:
-
-- **Link first**: Always confirm `.vercel/` (or run `vercel link`) before any `vercel flags` command.
-- **Create → pull env**: After creating a flag, run `vercel env pull` so `FLAGS` / `FLAGS_SECRET` land in `.env.local`. Without them, `vercelAdapter` cannot evaluate.
 - **Key match**: The CLI flag key must match the `key` passed to `flag()`.
 - **Promote carefully**: Prefer development → preview → production. Do not enable in production until the code path that reads the flag is deployed.
-- **Boolean vs other kinds**: `enable` / `disable` apply to boolean flags. For other kinds, use `set` (see `--help` for options).
+- **Serve vs define**: `enable` / `disable` apply to boolean flags. For other kinds, use `set` to change the served variant. Use `update` to add, remove, or rename variants; it does not change what is served.
 - **Archive before delete**: Archive first; only `rm` when nothing still references the flag. Prefer archive over delete until you are sure.
 - **SDK keys**: `FLAGS` holds an SDK key. Manage keys with `vercel flags sdk-keys` (see `--help`).
 - **Rollouts / splits / segments / overrides**: Use the matching CLI subcommands when needed; confirm syntax with `--help` and escalate beyond the CLI (dashboard / support) when targeting rules are unclear.
