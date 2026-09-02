@@ -103,7 +103,7 @@ If the app also uses `@vercel/flags-core` directly, create the client once and p
 import { createClient } from '@vercel/flags-core';
 import { createVercelAdapter } from '@flags-sdk/vercel';
 
-const vercelFlagsClient = createClient(); // OIDC by default; pass an SDK key for manual auth
+const vercelFlagsClient = createClient(); // Vercel OIDC token, on deployments and after `vercel env pull`
 const vercelAdapter = createVercelAdapter(vercelFlagsClient);
 
 export const exampleFlag = flag({
@@ -111,6 +111,8 @@ export const exampleFlag = flag({
   adapter: vercelAdapter,
 });
 ```
+
+Outside Vercel, pass the SDK key: `createClient(process.env.FLAGS)`. Unlike `vercelAdapter()`, `createClient()` does not read `FLAGS` on its own.
 
 ### `vercel flags` CLI
 
