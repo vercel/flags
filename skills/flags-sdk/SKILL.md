@@ -87,7 +87,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
    Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link`.
 
-3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, run `vercel env pull`. `vercelAdapter` authenticates with the project's Vercel OIDC token; deployments receive it automatically, local development needs the pull ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)). SDK keys (`FLAGS`) are only for apps outside Vercel, custom environments, or flags of another project ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Flags Explorer / overrides need `FLAGS_SECRET`; Vercel creates one per environment when Vercel Flags is activated for the project. Generate it per [FLAGS_SECRET](#flags_secret) if it is still missing after the pull.
+3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
 
 4. **Set up the Vercel Toolbar** (if not already present):
    - Run `pnpm i @vercel/toolbar`
@@ -99,6 +99,16 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup). Do this only after `flags.ts` exists. Point the import at the real flags file path (the snippet assumes root `flags.ts`).
 
+## Pull environment variables
+
+`vercel env pull` writes the Development credentials to `.env.local`: the Vercel OIDC token that `vercelAdapter` uses locally (deployments receive it automatically, [Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)) and the Development `FLAGS_SECRET` for Flags Explorer and overrides. Run it when:
+
+- `.env.local` lacks `VERCEL_OIDC_TOKEN=` (or a `FLAGS=` SDK key)
+- you created the project's first flag; activating Vercel Flags creates a `FLAGS_SECRET` per environment
+- local evaluation fails with an authentication error; the SDK refreshes an expired token through the linked project, re-pulling is the fallback
+
+SDK keys (`FLAGS`) are only for apps outside Vercel, custom environments, or flags of another project ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). If `FLAGS_SECRET` is still missing after the pull, generate it per [FLAGS_SECRET](#flags_secret).
+
 ## Create a flag
 
 When a user asks you to create or add a feature flag that does not exist on Vercel yet, follow these steps in order. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
@@ -106,7 +116,7 @@ When a user asks you to create or add a feature flag that does not exist on Verc
 ### Before you start
 
 - Complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, `.env.local`, Toolbar, `flags.ts`, or Flags Explorer are missing. Skip steps that are already done.
-- Does `.env.local` contain `VERCEL_OIDC_TOKEN=`? → Env vars already pulled; re-run `vercel env pull` if local evaluation fails with an authentication error (the token expires).
+- Does `.env.local` contain `VERCEL_OIDC_TOKEN=`? → Env vars already pulled; see [Pull environment variables](#pull-environment-variables) if local evaluation fails with an authentication error.
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch.
 
 ### Steps
@@ -117,7 +127,7 @@ When a user asks you to create or add a feature flag that does not exist on Verc
 
    Before running `vercel flags create`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
 
-3. **Pull environment variables**: If this is the project's first flag, run `vercel env pull` again. Activating Vercel Flags creates a `FLAGS_SECRET` per environment, and local development needs the OIDC token in `.env.local` to evaluate flags.
+3. **Pull environment variables**: If this is the project's first flag, follow [Pull environment variables](#pull-environment-variables) again; activation created the `FLAGS_SECRET`.
 
 4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter`:
    ```ts
@@ -146,7 +156,7 @@ Use this flow when the flag was created in the dashboard or by someone else, for
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
 2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
-3. **Pull environment variables**: If `.env.local` is missing, run `vercel env pull`. It holds the credentials `vercelAdapter` uses locally.
+3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
 4. **Declare the flag**: Add it to `flags.ts` with `vercelAdapter`. Map the `inspect` output:
    - `key`: the flag key exactly as printed
    - kind → type parameter: `boolean` → `flag<boolean>`, `string` → `flag<string>`, `number` → `flag<number>`, `json` → `flag<YourType>`
