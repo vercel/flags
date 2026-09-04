@@ -123,11 +123,11 @@ describe('createVercelAdapter', () => {
       entities,
     });
 
-    expect(reportOverride).toHaveBeenCalledWith(
-      'checkout',
-      'treatment',
+    expect(reportOverride).toHaveBeenCalledWith({
+      key: 'checkout',
+      value: 'treatment',
       entities,
-    );
+    });
   });
 
   it('does not expose override reporting when the flags client does not support it', () => {

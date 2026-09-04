@@ -214,20 +214,22 @@ export function createCreateRawClient(fns: {
         }
         return results;
       },
-      experimental_reportOverride: async <T = Value, E = Entities>(
-        flagKey: string,
-        value: T,
-        entities?: E,
-      ): Promise<void> => {
+      experimental_reportOverride: async <T = Value, E = Entities>({
+        key,
+        value,
+        entities,
+      }: {
+        key: string;
+        value: T;
+        entities?: E;
+      }): Promise<void> => {
         if (!experimental_reportExposures) return;
 
         try {
           const instance = controllerInstanceMap.get(id);
           if (!instance?.initialized) await api.initialize();
           const datafile = await fns.getDatafile(id);
-          const definition = datafile.definitions[
-            flagKey
-          ] as Packed.FlagDefinition;
+          const definition = datafile.definitions[key] as Packed.FlagDefinition;
           const experiment = definition?.experiment;
           if (!experiment) return;
 
@@ -242,7 +244,7 @@ export function createCreateRawClient(fns: {
           report(
             [
               {
-                flagKey,
+                flagKey: key,
                 experimentId: experiment.id,
                 variantId,
                 base: experiment.base,
