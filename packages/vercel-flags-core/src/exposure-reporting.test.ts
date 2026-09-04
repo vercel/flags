@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultReportExposures } from './exposure-reporting';
+import { experimental_defaultReportExposures } from './exposure-reporting';
 
-describe('defaultReportExposures', () => {
+describe('experimental_defaultReportExposures', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -9,7 +9,7 @@ describe('defaultReportExposures', () => {
   it('maps known and custom entity bases to Web Analytics units', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    defaultReportExposures(
+    experimental_defaultReportExposures(
       [
         {
           flagKey: 'checkout',
@@ -100,7 +100,7 @@ describe('defaultReportExposures', () => {
   it('does not track an exposure whose entity value cannot be resolved', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    defaultReportExposures(
+    experimental_defaultReportExposures(
       [
         {
           flagKey: 'checkout',

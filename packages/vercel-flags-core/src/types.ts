@@ -126,15 +126,15 @@ export type BulkEvaluateInput<T = Value> = {
 };
 
 /** Options that control side effects of an evaluation call. */
-export type EvaluationOptions = {
+export type experimental_EvaluationOptions = {
   /**
    * Whether experiment exposures should be reported for this evaluation.
    * @default true
    */
-  exposureLogging?: boolean;
+  experimental_exposureLogging?: boolean;
 };
 
-export type ExperimentAssignmentReason =
+export type experimental_ExperimentAssignmentReason =
   | 'experiment'
   | 'not-enrolled'
   | 'targeted'
@@ -144,7 +144,7 @@ export type ExperimentAssignmentReason =
   | 'override';
 
 /** Information about the experiment linked to an evaluated flag value. */
-export type ExperimentAssignment = {
+export type experimental_ExperimentAssignment = {
   /** Experiment identifier. */
   id: string;
   /** Identifier of the selected experiment variant. */
@@ -156,11 +156,11 @@ export type ExperimentAssignment = {
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
   /** How this evaluation received its value. */
-  assignmentReason: ExperimentAssignmentReason;
+  assignmentReason: experimental_ExperimentAssignmentReason;
 };
 
 /** An experiment exposure passed to a client's exposure reporter. */
-export type Exposure = {
+export type experimental_Exposure = {
   /** Flag whose evaluation produced the exposure. */
   flagKey: FlagKey;
   /** Experiment identifier. */
@@ -174,12 +174,12 @@ export type Exposure = {
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
   /** How this evaluation received its value. */
-  assignmentReason: ExperimentAssignmentReason;
+  assignmentReason: experimental_ExperimentAssignmentReason;
 };
 
 /** Reports experiment exposures produced by one evaluation call. */
-export type ReportExposures<Entity = Record<string, unknown>> = (
-  exposures: readonly Exposure[],
+export type experimental_ReportExposures<Entity = Record<string, unknown>> = (
+  exposures: readonly experimental_Exposure[],
   entity: Readonly<Entity>,
 ) => void | Promise<void>;
 
@@ -210,7 +210,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     flagKey: string,
     defaultValue?: T,
     entities?: E,
-    options?: EvaluationOptions,
+    options?: experimental_EvaluationOptions,
   ) => Promise<EvaluationResult<T>>;
   /**
    * Evaluate multiple feature flags against the same entities in a single call.
@@ -228,10 +228,15 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
   bulkEvaluate: <T = Value, E = Entities>(
     flags: BulkEvaluateInput<T>[],
     entities?: E,
-    options?: EvaluationOptions,
+    options?: experimental_EvaluationOptions,
   ) => Promise<Record<string, EvaluationResult<T>>>;
-  /** Report a Flags SDK override without evaluating the provider value. */
-  reportOverride: <T = Value, E = Entities>(
+  /**
+   * Report a Flags SDK override without evaluating the provider value.
+   *
+   * @remarks This API is not supported for general use yet. Do not use it
+   * unless Vercel has explicitly enabled it for you.
+   */
+  experimental_reportOverride: <T = Value, E = Entities>(
     flagKey: string,
     value: T,
     entities?: E,
@@ -321,7 +326,7 @@ export type EvaluationResult<T> =
        */
       variantId: VariantId | null;
       /** Experiment metadata when the flag is linked to an experiment. */
-      experiment?: ExperimentAssignment;
+      experiment?: experimental_ExperimentAssignment;
       /**
        * Indicates why the flag evaluated to a certain value
        */
@@ -620,7 +625,7 @@ export namespace Original {
         type: 'experiment';
       };
 
-  export type ExperimentDefinition = {
+  export type experimental_ExperimentDefinition = {
     id: string;
     /** Entity attribute used as the experiment unit. */
     base: EntityAccessor;
@@ -763,7 +768,7 @@ export namespace Original {
   export type FlagDefinition = {
     variants: FlagVariant[];
     /** Experiment linked to this flag. */
-    experiment?: ExperimentDefinition;
+    experiment?: experimental_ExperimentDefinition;
     environments: Record<EnvironmentKey, EnvironmentConfig>;
 
     /**
@@ -859,7 +864,7 @@ export namespace Packed {
     slots: [number, number][];
   };
 
-  export type ExperimentDefinition = {
+  export type experimental_ExperimentDefinition = {
     /** Experiment identifier. */
     id: string;
     /** Entity path used as the experiment unit. */
@@ -894,13 +899,13 @@ export namespace Packed {
 
   export type SegmentOutcome = SegmentAllOutcome | SegmentSplitOutcome;
 
-  export type ExperimentOutcome = { type: 'experiment' };
+  export type experimental_ExperimentOutcome = { type: 'experiment' };
 
   export type Outcome =
     | VariantIndex
     | SplitOutcome
     | RolloutOutcome
-    | ExperimentOutcome;
+    | experimental_ExperimentOutcome;
 
   // an array means it's an entity, the string "segment" means a segment
   export type EntityAccessor = (string | number)[];
@@ -1010,7 +1015,7 @@ export namespace Packed {
     /**  variants, packed down to just their values */
     variants: Value[];
     /** Experiment linked to this flag. */
-    experiment?: ExperimentDefinition;
+    experiment?: experimental_ExperimentDefinition;
     /**  environments */
     environments: Record<EnvironmentKey, EnvironmentConfig>;
     /**

@@ -3,8 +3,8 @@ import {
   Comparator,
   type EvaluationParams,
   type EvaluationResult,
-  type ExperimentAssignment,
-  type ExperimentAssignmentReason,
+  type experimental_ExperimentAssignment,
+  type experimental_ExperimentAssignmentReason,
   OutcomeType,
   Packed,
   ResolutionReason,
@@ -442,10 +442,10 @@ function getWeightedVariantIndex<T>(
 }
 
 function experimentAssignment(
-  experiment: Packed.ExperimentDefinition,
+  experiment: Packed.experimental_ExperimentDefinition,
   variantId: VariantId | null,
-  assignmentReason: ExperimentAssignmentReason,
-): ExperimentAssignment | undefined {
+  assignmentReason: experimental_ExperimentAssignmentReason,
+): experimental_ExperimentAssignment | undefined {
   if (variantId === null) return undefined;
   return {
     id: experiment.id,
@@ -459,7 +459,7 @@ function experimentAssignment(
 
 function outcomeAssignmentReason(
   outcome: Packed.Outcome,
-): ExperimentAssignmentReason {
+): experimental_ExperimentAssignmentReason {
   if (typeof outcome === 'number') return 'variant';
   switch (outcome.type) {
     case 'experiment':
@@ -482,7 +482,7 @@ function resolveOutcome<T>(
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
-  experiment?: ExperimentAssignment;
+  experiment?: experimental_ExperimentAssignment;
 } {
   if (typeof outcome === 'number') {
     const variant = getVariant<T>(params.definition, outcome);
@@ -516,7 +516,7 @@ function resolveOutcome<T>(
       );
       const assignment = (
         variant: typeof defaultVariant,
-        assignmentReason: ExperimentAssignmentReason,
+        assignmentReason: experimental_ExperimentAssignmentReason,
       ) => ({
         ...variant,
         outcomeType: OutcomeType.EXPERIMENT,
@@ -642,12 +642,12 @@ function resolveOutcome<T>(
 function handleOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
-  assignmentReason?: ExperimentAssignmentReason,
+  assignmentReason?: experimental_ExperimentAssignmentReason,
 ): {
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
-  experiment?: ExperimentAssignment;
+  experiment?: experimental_ExperimentAssignment;
 } {
   const result = resolveOutcome(params, outcome);
   const experiment = params.definition.experiment;

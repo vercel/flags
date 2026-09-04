@@ -1,4 +1,8 @@
-import type { Exposure, Packed, ReportExposures } from './types';
+import type {
+  experimental_Exposure,
+  experimental_ReportExposures,
+  Packed,
+} from './types';
 
 type WebAnalyticsExposure = {
   experimentId: string;
@@ -7,7 +11,7 @@ type WebAnalyticsExposure = {
   unitValue: string;
   rampId?: string;
   rampPercentage?: number;
-  assignmentReason: Exposure['assignmentReason'];
+  assignmentReason: experimental_Exposure['assignmentReason'];
 };
 
 const FAKE_DEVICE_ID = 'fake-device-id';
@@ -38,7 +42,7 @@ function flattenBase(base: Packed.EntityAccessor): string {
 }
 
 function mapExposure(
-  exposure: Exposure,
+  exposure: experimental_Exposure,
   entity: Readonly<Record<string, unknown>>,
 ): WebAnalyticsExposure | null {
   let unitKey: WebAnalyticsExposure['unitKey'];
@@ -90,7 +94,7 @@ function trackExposure(exposure: WebAnalyticsExposure): void {
  * Vercel Web Analytics exposure format and calls a temporary console-backed
  * `trackExposure` implementation.
  */
-export const defaultReportExposures: ReportExposures<
+export const experimental_defaultReportExposures: experimental_ReportExposures<
   Record<string, unknown>
 > = (exposures, entity) => {
   for (const exposure of exposures) {

@@ -120,14 +120,14 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
-    it('should pass reportExposures to the raw client, not the controller', () => {
+    it('should pass experimental_reportExposures to the raw client, not the controller', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);
       const reportExposures = vi.fn();
 
       createClient('vf_server_test_key', {
         stream: false,
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
       expect(Controller).toHaveBeenCalledWith({
@@ -137,7 +137,7 @@ describe('make', () => {
       expect(createRawClient).toHaveBeenCalledWith({
         controller: expect.any(Object),
         origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
     });
 

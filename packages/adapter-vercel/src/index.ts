@@ -40,8 +40,8 @@ export function createVercelAdapter(
     adapterId,
     origin: flagsClient.origin,
     config: { reportValue: false },
-    async reportOverride({ key, value, entities }) {
-      await flagsClient.reportOverride(key, value, entities);
+    async experimental_reportOverride({ key, value, entities }) {
+      await flagsClient.experimental_reportOverride(key, value, entities);
     },
     async decide({ key, entities }) {
       const evaluationResult = await flagsClient.evaluate<unknown, unknown>(

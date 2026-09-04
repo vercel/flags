@@ -33,7 +33,7 @@ system:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
-  reportExposures: async (exposures, entity) => {
+  experimental_reportExposures: async (exposures, entity) => {
     await analytics.reportExposures(exposures, entity);
   },
 });
@@ -52,7 +52,7 @@ const result = await client.evaluate(
   'show-new-feature',
   false,
   { user: { key: 'user-123' } },
-  { exposureLogging: false },
+  { experimental_exposureLogging: false },
 );
 ```
 
@@ -62,7 +62,7 @@ The same option is supported by `bulkEvaluate()`:
 await client.bulkEvaluate(
   [{ key: 'show-new-feature', defaultValue: false }],
   { user: { key: 'user-123' } },
-  { exposureLogging: false },
+  { experimental_exposureLogging: false },
 );
 ```
 

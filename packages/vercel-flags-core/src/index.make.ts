@@ -5,7 +5,7 @@
 import { Controller, type ControllerOptions } from './controller';
 import { Authentication } from './controller/auth';
 import type { createCreateRawClient } from './create-raw-client';
-import type { FlagsClient, ReportExposures } from './types';
+import type { experimental_ReportExposures, FlagsClient } from './types';
 
 /**
  * Options for createClient
@@ -14,8 +14,13 @@ export type CreateClientOptions<Entity = Record<string, unknown>> = Omit<
   ControllerOptions,
   'auth'
 > & {
-  /** Reports experiment exposures produced by evaluation calls. */
-  reportExposures?: ReportExposures<Entity>;
+  /**
+   * Reports experiment exposures produced by evaluation calls.
+   *
+   * @remarks This API is not supported for general use yet. Do not use it
+   * unless Vercel has explicitly enabled it for you.
+   */
+  experimental_reportExposures?: experimental_ReportExposures<Entity>;
 };
 
 type CreateClient = {
@@ -61,7 +66,8 @@ export function make(
       ? sdkKeyOrConnectionStringOrOptions
       : options;
 
-    const { reportExposures, ...controllerOptions } = createClientOptions ?? {};
+    const { experimental_reportExposures, ...controllerOptions } =
+      createClientOptions ?? {};
     const auth = new Authentication(sdkKeyOrConnectionString);
 
     // sdk key contains the environment
@@ -69,7 +75,7 @@ export function make(
     return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey: auth.sdkKey },
-      ...(reportExposures ? { reportExposures } : {}),
+      ...(experimental_reportExposures ? { experimental_reportExposures } : {}),
     });
   }
 

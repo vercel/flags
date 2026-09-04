@@ -3800,7 +3800,7 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
       const result = await client.evaluate('flagA', undefined, entity);
@@ -3844,10 +3844,10 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
-      await client.reportOverride('flagA', 'treatment-a', entity);
+      await client.experimental_reportOverride('flagA', 'treatment-a', entity);
 
       expect(reportExposures).toHaveBeenCalledOnce();
       expect(reportExposures).toHaveBeenCalledWith(
@@ -3876,11 +3876,11 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
       const result = await client.evaluate('flagA', undefined, entity, {
-        exposureLogging: false,
+        experimental_exposureLogging: false,
       });
 
       expect(result.experiment?.id).toBe('exp_a');
@@ -3896,7 +3896,7 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
       await client.bulkEvaluate([{ key: 'flagA' }, { key: 'flagB' }], entity);
@@ -3935,13 +3935,13 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures,
+        experimental_reportExposures: reportExposures,
       });
 
       const results = await client.bulkEvaluate(
         [{ key: 'flagA' }, { key: 'flagB' }],
         entity,
-        { exposureLogging: false },
+        { experimental_exposureLogging: false },
       );
 
       expect(results.flagA?.experiment?.id).toBe('exp_a');
@@ -3959,7 +3959,7 @@ describe('Controller (black-box)', () => {
         polling: false,
         buildStep: true,
         datafile: makeBundled({ definitions }),
-        reportExposures: () => Promise.reject(error),
+        experimental_reportExposures: () => Promise.reject(error),
       });
 
       const result = await client.evaluate('flagA', undefined, entity);

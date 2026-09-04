@@ -10,17 +10,17 @@ import {
   type ControllerInstance,
   controllerInstanceMap,
 } from './controller-fns';
-import { defaultReportExposures } from './exposure-reporting';
+import { experimental_defaultReportExposures } from './exposure-reporting';
 import type {
   BulkEvaluateInput,
   BundledDefinitions,
   ControllerInterface,
-  EvaluationOptions,
   EvaluationResult,
-  Exposure,
+  experimental_EvaluationOptions,
+  experimental_Exposure,
+  experimental_ReportExposures,
   FlagsClient,
   Packed,
-  ReportExposures,
   Value,
 } from './types';
 
@@ -51,11 +51,11 @@ export function createCreateRawClient(fns: {
   return function createRawClient<Entities = Record<string, unknown>>({
     controller,
     origin,
-    reportExposures,
+    experimental_reportExposures,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey?: string };
-    reportExposures?: ReportExposures<Entities>;
+    experimental_reportExposures?: experimental_ReportExposures<Entities>;
   }): FlagsClient<Entities> {
     const id = idCount++;
     controllerInstanceMap.set(id, {
@@ -65,10 +65,11 @@ export function createCreateRawClient(fns: {
     });
 
     const exposureReporter =
-      reportExposures ?? (defaultReportExposures as ReportExposures<Entities>);
+      experimental_reportExposures ??
+      (experimental_defaultReportExposures as experimental_ReportExposures<Entities>);
 
     async function report(
-      exposures: readonly Exposure[],
+      exposures: readonly experimental_Exposure[],
       entity: Readonly<Entities>,
     ): Promise<void> {
       if (exposures.length === 0) return;
@@ -85,7 +86,7 @@ export function createCreateRawClient(fns: {
     function getExposure<T>(
       flagKey: string,
       result: EvaluationResult<T>,
-    ): Exposure | null {
+    ): experimental_Exposure | null {
       if (!result.experiment) return null;
       return {
         flagKey,
@@ -144,7 +145,7 @@ export function createCreateRawClient(fns: {
         flagKey: string,
         defaultValue?: T,
         entities?: E,
-        options?: EvaluationOptions,
+        options?: experimental_EvaluationOptions,
       ): Promise<EvaluationResult<T>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -162,7 +163,7 @@ export function createCreateRawClient(fns: {
           defaultValue,
           entity,
         );
-        if (options?.exposureLogging !== false) {
+        if (options?.experimental_exposureLogging !== false) {
           const exposure = getExposure(flagKey, result);
           if (exposure) {
             await report([exposure], entity as unknown as Readonly<Entities>);
@@ -173,7 +174,7 @@ export function createCreateRawClient(fns: {
       bulkEvaluate: async <T = Value, E = Entities>(
         flags: BulkEvaluateInput<T>[],
         entities?: E,
-        options?: EvaluationOptions,
+        options?: experimental_EvaluationOptions,
       ): Promise<Record<string, EvaluationResult<T>>> => {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
@@ -186,8 +187,8 @@ export function createCreateRawClient(fns: {
         }
         const entity = entities ?? ({} as E);
         const results = await fns.bulkEvaluate<T, E>(id, flags, entity);
-        if (options?.exposureLogging !== false) {
-          const exposures: Exposure[] = [];
+        if (options?.experimental_exposureLogging !== false) {
+          const exposures: experimental_Exposure[] = [];
           const seen = new Set<string>();
           for (const flag of flags) {
             if (seen.has(flag.key)) continue;
@@ -201,7 +202,7 @@ export function createCreateRawClient(fns: {
         }
         return results;
       },
-      reportOverride: async <T = Value, E = Entities>(
+      experimental_reportOverride: async <T = Value, E = Entities>(
         flagKey: string,
         value: T,
         entities?: E,

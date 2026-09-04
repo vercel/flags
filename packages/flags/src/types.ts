@@ -165,8 +165,13 @@ export interface Adapter<ValueType, EntitiesType> {
    * an `adapterId` are never batched.
    */
   adapterId?: string | symbol;
-  /** Observe a value supplied by the Flags SDK override cookie. */
-  reportOverride?: (params: {
+  /**
+   * Observe a value supplied by the Flags SDK override cookie.
+   *
+   * @remarks This API is not supported for general use yet. Do not use it
+   * unless Vercel has explicitly enabled it for you.
+   */
+  experimental_reportOverride?: (params: {
     key: string;
     value: unknown;
     entities?: EntitiesType;

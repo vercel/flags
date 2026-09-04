@@ -205,7 +205,7 @@ describe('flag on app router', () => {
       adapter: {
         decide,
         initialize,
-        reportOverride,
+        experimental_reportOverride: reportOverride,
       },
     });
 
@@ -902,7 +902,10 @@ describe('evaluate', () => {
     bulkDecide?: Adapter<V, any>['bulkDecide'];
     decide?: Adapter<V, any>['decide'];
     identify?: Adapter<V, any>['identify'];
-    reportOverride?: Adapter<V, any>['reportOverride'];
+    experimental_reportOverride?: Adapter<
+      V,
+      any
+    >['experimental_reportOverride'];
     omitAdapterId?: boolean;
     omitBulkDecide?: boolean;
   }) {
@@ -916,7 +919,7 @@ describe('evaluate', () => {
           throw new Error('decide should not be called in bulk path');
         }),
       identify: opts?.identify,
-      reportOverride: opts?.reportOverride,
+      experimental_reportOverride: opts?.experimental_reportOverride,
       ...(opts?.omitBulkDecide ? {} : { bulkDecide: opts?.bulkDecide }),
     });
   }
@@ -1114,7 +1117,7 @@ describe('evaluate', () => {
     const adapter = makeBulkAdapter<boolean>({
       bulkDecide: bulkDecideMock,
       identify: () => entities,
-      reportOverride,
+      experimental_reportOverride: reportOverride,
     });
 
     const a = flag<boolean>({ key: 'a', adapter: adapter() });

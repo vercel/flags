@@ -108,12 +108,12 @@ describe('createVercelAdapter', () => {
     const reportOverride = vi.fn();
     const fakeClient = {
       origin: { provider: 'vercel', sdkKey: 'vf_x' },
-      reportOverride,
+      experimental_reportOverride: reportOverride,
     } as unknown as typeof flagsClient;
     const adapter = createVercelAdapter(fakeClient)();
     const entities = { user: { key: 'user_1' } };
 
-    await adapter.reportOverride?.({
+    await adapter.experimental_reportOverride?.({
       key: 'checkout',
       value: 'treatment',
       entities,

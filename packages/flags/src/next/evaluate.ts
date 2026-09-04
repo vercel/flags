@@ -220,7 +220,7 @@ type FlagInfo<ValueType> = {
   config?: { reportValue?: boolean };
   adapter?: Pick<
     Adapter<ValueType, any>,
-    'config' | 'initialize' | 'reportOverride'
+    'config' | 'initialize' | 'experimental_reportOverride'
   >;
 };
 
@@ -288,9 +288,9 @@ async function applyResult<ValueType>(args: {
     });
     try {
       const adapter = definition.adapter;
-      if (adapter?.reportOverride) {
+      if (adapter?.experimental_reportOverride) {
         await ensureAdapterInitialized(adapter);
-        await adapter.reportOverride({
+        await adapter.experimental_reportOverride({
           key: definition.key,
           value: decision,
           entities,
