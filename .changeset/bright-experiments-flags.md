@@ -1,5 +1,5 @@
 ---
-'flags': minor
+'flags': patch
 ---
 
 Add the `experimental_reportOverride` adapter hook for observing values set by

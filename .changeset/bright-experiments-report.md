@@ -1,5 +1,5 @@
 ---
-'@vercel/flags-core': minor
+'@vercel/flags-core': patch
 ---
 
 Add APIs for reporting flag exposures and override values.

@@ -1,5 +1,5 @@
 ---
-'@flags-sdk/vercel': minor
+'@flags-sdk/vercel': patch
 ---
 
 Implement the `experimental_reportOverride` adapter hook to forward override
