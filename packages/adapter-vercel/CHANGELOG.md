@@ -1,5 +1,18 @@
 # @flags-sdk/vercel
 
+## 1.4.8
+
+### Patch Changes
+
+- [#486](https://github.com/vercel/flags/pull/486) [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823) Thanks [@dferber90](https://github.com/dferber90)! - Implement the `experimental_reportOverride` adapter hook to forward override
+  values to the underlying Vercel Flags client.
+  
+  This API is not supported for general use yet. Do not use it unless Vercel has
+  explicitly enabled it for you.
+- Updated dependencies [[`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823), [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823)]:
+  - flags@4.3.1
+  - @vercel/flags-core@1.8.1
+
 ## 1.4.7
 
 ### Patch Changes
