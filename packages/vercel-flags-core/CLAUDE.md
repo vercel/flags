@@ -24,6 +24,7 @@ src/
 │   ├── fetch-datafile.ts     # HTTP datafile fetch
 │   ├── tagged-data.ts        # Data origin tagging types/helpers
 │   ├── normalized-options.ts # Option normalization
+│   ├── routed-init.ts        # Routed config version comparison
 │   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
 ├── test-utils.ts         # Shared test helpers
@@ -31,6 +32,8 @@ src/
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
 │   ├── sleep.ts
+│   ├── edge-config-versions.ts     # x-vercel-edge-config-versions parser
+│   ├── request-context.ts          # Vercel request context access
 │   └── read-bundled-definitions.ts
 └── lib/
     └── report-value.ts   # Flag evaluation reporting to Vercel request context
@@ -119,7 +122,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 Key behaviors:
 - Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
-- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
+- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout — unless the routed config version shows the existing data is already current (see [Routed Config Version](#routed-config-version))
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
@@ -188,6 +191,7 @@ pnpm test:integration
 `initialize()` waits for fresh data before resolving, even when bundled data or a provided datafile is available:
 - **Streaming**: waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs`
 - **Polling**: waits for the first poll response up to `initTimeoutMs`
+- **Exception**: it resolves immediately when the `x-vercel-edge-config-versions` request context header shows the local data already covers the routed version (see [Routed Config Version](#routed-config-version)). Tests that rely on the timeout must not set that header for the datafile's `projectId`.
 
 This means:
 
@@ -277,6 +281,35 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - Stored in `controllerInstanceMap` in `controller-fns.ts`
 - Supports multiple simultaneous clients
 - Necessary as we can't pass functions to `'use cache'` wrappers
+
+### Routed Config Version
+
+Vercel attaches an `x-vercel-edge-config-versions` request header describing
+which config version the request was routed to. It is a semicolon-separated map
+of store name to version (a millisecond timestamp), e.g.
+`flags_prj_123=1758000000000;ecfg_abc=1757000000000`.
+
+After local data is loaded (provided datafile or bundled definitions) but
+before awaiting the stream or first poll, the Controller compares that version
+against the local `configUpdatedAt`:
+
+- The header is read from the **existing** Vercel request context
+  (`utils/request-context.ts`) — no extra header is requested and no config id
+  is involved
+- The map key is derived from the loaded data as `flags_${projectId}`; only an
+  exact key match counts (`utils/edge-config-versions.ts`)
+- When the local `configUpdatedAt` is **>=** the routed version, `initialize()`
+  resolves immediately and the stream/poll keeps running in the background
+- The state stays `initializing:*` until the source actually connects, so reads
+  never report `connected` before a connection exists
+- Everything else preserves the previous behavior (wait up to `initTimeoutMs`):
+  no request context, no project id, no exact entry, a malformed or unsafe
+  version (non-integer, negative, beyond `Number.MAX_SAFE_INTEGER`), a
+  duplicated key, or local data without a usable `configUpdatedAt`
+- The outcome is attached to `FLAGS_CONFIG_READ` events as `configRoutedInit`
+  (`immediate`, `behind`, `invalid`, `duplicate`, `unknown-local`) — a low
+  cardinality enum that never contains ids or header values, and is omitted when
+  no routed version applied
 
 ### configUpdatedAt Guard
 
