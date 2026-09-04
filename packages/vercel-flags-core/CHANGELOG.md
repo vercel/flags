@@ -1,5 +1,25 @@
 # @vercel/flags-core
 
+## 1.8.1
+
+### Patch Changes
+
+- [#486](https://github.com/vercel/flags/pull/486) [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823) Thanks [@dferber90](https://github.com/dferber90)! - Add APIs for reporting flag exposures and override values.
+  
+  - The `experimental_reportExposures` client option for supplying an exposure
+    reporter.
+  - The `experimental_reportOverride` client method for reporting values set by
+    the Flags SDK override cookie.
+  - The `experimental_exposureLogging` option on `evaluate()` and
+    `bulkEvaluate()` for disabling exposure reporting for an individual call.
+  - Experiment assignment metadata on `EvaluationResult.experiment`.
+  - The `experimental_EvaluationOptions`,
+    `experimental_ExperimentAssignment`, `experimental_Exposure`, and
+    `experimental_ReportExposures` types.
+  
+  These APIs are not supported for general use yet. Do not use them unless
+  Vercel has explicitly enabled them for you.
+
 ## 1.8.0
 
 ### Minor Changes

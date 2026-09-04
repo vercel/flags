@@ -1,5 +1,15 @@
 # @vercel/flags
 
+## 4.3.1
+
+### Patch Changes
+
+- [#486](https://github.com/vercel/flags/pull/486) [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823) Thanks [@dferber90](https://github.com/dferber90)! - Add the `experimental_reportOverride` adapter hook for observing values set by
+  the Flags SDK override cookie.
+  
+  This API is not supported for general use yet. Do not use it unless Vercel has
+  explicitly enabled it for you.
+
 ## 4.3.0
 
 ### Minor Changes
