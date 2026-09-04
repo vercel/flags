@@ -1,4 +1,5 @@
 import { waitUntil } from '@vercel/functions';
+import { dequal } from 'dequal/lite';
 import type {
   bulkEvaluate,
   evaluate,
@@ -168,7 +169,10 @@ export function createCreateRawClient(fns: {
           defaultValue,
           entity,
         );
-        if (options?.experimental_exposureLogging !== false) {
+        if (
+          experimental_reportExposures &&
+          options?.experimental_exposureLogging !== false
+        ) {
           const exposure = getExposure(flagKey, result);
           if (exposure) {
             report([exposure], entity as unknown as Readonly<Entities>);
@@ -192,7 +196,10 @@ export function createCreateRawClient(fns: {
         }
         const entity = entities ?? ({} as E);
         const results = await fns.bulkEvaluate<T, E>(id, flags, entity);
-        if (options?.experimental_exposureLogging !== false) {
+        if (
+          experimental_reportExposures &&
+          options?.experimental_exposureLogging !== false
+        ) {
           const exposures: experimental_Exposure[] = [];
           const seen = new Set<string>();
           for (const flag of flags) {
@@ -212,6 +219,8 @@ export function createCreateRawClient(fns: {
         value: T,
         entities?: E,
       ): Promise<void> => {
+        if (!experimental_reportExposures) return;
+
         try {
           const instance = controllerInstanceMap.get(id);
           if (!instance?.initialized) await api.initialize();
@@ -222,11 +231,8 @@ export function createCreateRawClient(fns: {
           const experiment = definition?.experiment;
           if (!experiment) return;
 
-          const serializedValue = JSON.stringify(value);
-          const variantIndex = definition.variants.findIndex(
-            (variant) =>
-              Object.is(variant, value) ||
-              JSON.stringify(variant) === serializedValue,
+          const variantIndex = definition.variants.findIndex((variant) =>
+            dequal(variant, value),
           );
           const variantId =
             variantIndex < 0

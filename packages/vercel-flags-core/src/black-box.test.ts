@@ -3893,6 +3893,53 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('does not initialize override reporting without a reporter', async () => {
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.experimental_reportOverride('flagA', true, entity);
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('matches object override values regardless of key order', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({
+          definitions: {
+            flagA: {
+              ...definitions.flagA!,
+              variants: [
+                { enabled: true, theme: { color: 'blue', contrast: 'high' } },
+              ],
+              variantIds: ['treatment-a'],
+            },
+          },
+        }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride(
+        'flagA',
+        { theme: { contrast: 'high', color: 'blue' }, enabled: true },
+        entity,
+      );
+
+      expect(reportExposures).toHaveBeenCalledWith(
+        [expect.objectContaining({ variantId: 'treatment-a' })],
+        entity,
+      );
+      await client.shutdown();
+    });
+
     it('can disable exposure logging for a single evaluation', async () => {
       const reportExposures = vi.fn();
       const client = createClient<typeof entity>(sdkKey, {
