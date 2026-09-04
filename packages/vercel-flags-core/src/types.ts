@@ -236,7 +236,7 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    * @remarks This API is not supported for general use yet. Do not use it
    * unless Vercel has explicitly enabled it for you.
    */
-  experimental_reportOverride: <T = Value, E = Entities>(
+  experimental_reportOverride?: <T = Value, E = Entities>(
     flagKey: string,
     value: T,
     entities?: E,

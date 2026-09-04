@@ -3872,7 +3872,7 @@ describe('Controller (black-box)', () => {
         experimental_reportExposures: reportExposures,
       });
 
-      await client.experimental_reportOverride('flagA', 'treatment-a', entity);
+      await client.experimental_reportOverride!('flagA', 'treatment-a', entity);
 
       expect(reportExposures).toHaveBeenCalledOnce();
       expect(reportExposures).toHaveBeenCalledWith(
@@ -3900,7 +3900,7 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await client.experimental_reportOverride('flagA', true, entity);
+      await client.experimental_reportOverride!('flagA', true, entity);
 
       expect(fetchMock).not.toHaveBeenCalled();
       await client.shutdown();
@@ -3927,7 +3927,7 @@ describe('Controller (black-box)', () => {
         experimental_reportExposures: reportExposures,
       });
 
-      await client.experimental_reportOverride(
+      await client.experimental_reportOverride!(
         'flagA',
         { theme: { contrast: 'high', color: 'blue' }, enabled: true },
         entity,

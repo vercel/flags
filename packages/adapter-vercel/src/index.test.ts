@@ -1,4 +1,8 @@
-import { flagsClient, resetDefaultFlagsClient } from '@vercel/flags-core';
+import {
+  type FlagsClient,
+  flagsClient,
+  resetDefaultFlagsClient,
+} from '@vercel/flags-core';
 import type { Adapter, Origin, ProviderData } from 'flags';
 import { flag } from 'flags/next';
 import { HttpResponse, http } from 'msw';
@@ -124,6 +128,15 @@ describe('createVercelAdapter', () => {
       'treatment',
       entities,
     );
+  });
+
+  it('does not expose override reporting when the flags client does not support it', () => {
+    const fakeClient: FlagsClient = { ...flagsClient };
+    delete fakeClient.experimental_reportOverride;
+
+    const adapter = createVercelAdapter(fakeClient)();
+
+    expect(adapter.experimental_reportOverride).toBeUndefined();
   });
 
   it('has correct types', () => {

@@ -35,14 +35,21 @@ export function createVercelAdapter(
   // letting `evaluate()` group flags from multiple `vercelAdapter()` calls
   // into a single `bulkDecide` invocation.
   const adapterId = Symbol('vercelAdapter');
+  const reportOverride = flagsClient.experimental_reportOverride;
+  const experimental_reportOverride: Adapter<
+    unknown,
+    unknown
+  >['experimental_reportOverride'] = reportOverride
+    ? async ({ key, value, entities }) => {
+        await reportOverride(key, value, entities);
+      }
+    : undefined;
 
   const adapter: Adapter<unknown, unknown> = {
     adapterId,
     origin: flagsClient.origin,
     config: { reportValue: false },
-    async experimental_reportOverride({ key, value, entities }) {
-      await flagsClient.experimental_reportOverride(key, value, entities);
-    },
+    experimental_reportOverride,
     async decide({ key, entities }) {
       const evaluationResult = await flagsClient.evaluate<unknown, unknown>(
         key,
