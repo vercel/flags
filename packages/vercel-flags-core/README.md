@@ -24,6 +24,8 @@ const result = await client.evaluate<boolean>('show-new-feature', false, {
 });
 ```
 
+## Evaluation Metrics
+
 To associate evaluation metrics with an environment, pass the
 `metricEnvironment` option:
 

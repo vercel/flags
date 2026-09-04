@@ -3743,6 +3743,320 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Experiment exposure reporting
+  // ---------------------------------------------------------------------------
+  describe('experiment exposure reporting', () => {
+    const definitions: BundledDefinitions['definitions'] = {
+      flagA: {
+        environments: {
+          production: {
+            fallthrough: {
+              type: 'experiment',
+            },
+          },
+        },
+        variants: ['control-a', 'treatment-a'],
+        variantIds: ['control-a', 'treatment-a'],
+        seed: 101,
+        experiment: {
+          id: 'exp_a',
+          base: ['user', 'key'],
+          weights: [0, 1],
+          defaultVariant: 0,
+          enrollmentSeed: 101,
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+        },
+      },
+      flagB: {
+        environments: {
+          production: {
+            fallthrough: { type: 'experiment' },
+          },
+        },
+        variants: ['control-b', 'treatment-b'],
+        variantIds: ['control-b', 'treatment-b'],
+        seed: 202,
+        experiment: {
+          id: 'exp_b',
+          base: ['session', 'key'],
+          weights: [1, 0],
+          defaultVariant: 0,
+          enrollmentSeed: 202,
+        },
+      },
+    };
+
+    const entity = {
+      user: { key: 'user_123' },
+      session: { key: 'session_123' },
+    };
+
+    it('reports one exposure with the exact evaluation entity', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result).toMatchObject({
+        value: 'treatment-a',
+        outcomeType: 'experiment',
+        experiment: {
+          id: 'exp_a',
+          variantId: 'treatment-a',
+          base: ['user', 'key'],
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+          assignmentReason: 'experiment',
+        },
+      });
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'experiment',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('does not block evaluation while reporting an exposure', async () => {
+      let finishReporting: () => void = () => {};
+      const reporting = new Promise<void>((resolve) => {
+        finishReporting = resolve;
+      });
+      const reportExposures = vi.fn(() => reporting);
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await expect(
+        client.evaluate('flagA', undefined, entity),
+      ).resolves.toMatchObject({ value: 'treatment-a' });
+      expect(reportExposures).toHaveBeenCalledOnce();
+
+      finishReporting();
+      await reporting;
+      await client.shutdown();
+    });
+
+    it('reports cookie overrides without evaluating the flag', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: 'treatment-a',
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'override',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('does not initialize override reporting without a reporter', async () => {
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: true,
+        entities: entity,
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('matches object override values regardless of key order', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({
+          definitions: {
+            flagA: {
+              ...definitions.flagA!,
+              variants: [
+                { enabled: true, theme: { color: 'blue', contrast: 'high' } },
+              ],
+              variantIds: ['treatment-a'],
+            },
+          },
+        }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: {
+          theme: { contrast: 'high', color: 'blue' },
+          enabled: true,
+        },
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledWith(
+        [expect.objectContaining({ variantId: 'treatment-a' })],
+        entity,
+      );
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a single evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity, {
+        experimental_exposureLogging: false,
+      });
+
+      expect(result.experiment?.id).toBe('exp_a');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('reports all bulk exposures in one callback', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.bulkEvaluate([{ key: 'flagA' }, { key: 'flagB' }], entity);
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'experiment',
+          },
+          {
+            flagKey: 'flagB',
+            experimentId: 'exp_b',
+            variantId: 'control-b',
+            base: ['session', 'key'],
+            assignmentReason: 'experiment',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a bulk evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const results = await client.bulkEvaluate(
+        [{ key: 'flagA' }, { key: 'flagB' }],
+        entity,
+        { experimental_exposureLogging: false },
+      );
+
+      expect(results.flagA?.experiment?.id).toBe('exp_a');
+      expect(results.flagB?.experiment?.id).toBe('exp_b');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('does not fail evaluation when the exposure reporter fails', async () => {
+      const error = new Error('analytics unavailable');
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: () => Promise.reject(error),
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result.value).toBe('treatment-a');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Failed to report experiment exposures',
+        error,
+      );
+      await client.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Usage tracking
   // ---------------------------------------------------------------------------
   describe('usage tracking', () => {

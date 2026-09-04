@@ -120,6 +120,27 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
+    it('should pass experimental_reportExposures to the raw client, not the controller', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+      const reportExposures = vi.fn();
+
+      createClient('vf_server_test_key', {
+        stream: false,
+        experimental_reportExposures: reportExposures,
+      });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        stream: false,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        experimental_reportExposures: reportExposures,
+      });
+    });
+
     it('should throw for empty SDK key', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient);

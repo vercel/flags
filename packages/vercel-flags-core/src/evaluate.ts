@@ -3,6 +3,8 @@ import {
   Comparator,
   type EvaluationParams,
   type EvaluationResult,
+  type experimental_ExperimentAssignment,
+  type experimental_ExperimentAssignmentReason,
   OutcomeType,
   Packed,
   ResolutionReason,
@@ -40,14 +42,14 @@ function boundaryFor(numerator: number, denominator: number): number {
 // symbol-keyed props) and serialize cleanly across the RSC boundary; entries
 // are GC'd with the datafile. Split boundaries are static per outcome, so the
 // cumulative cut points are computed once and reused across evaluations.
-const splitBoundariesCache = new WeakMap<Packed.SplitOutcome, number[]>();
+const splitBoundariesCache = new WeakMap<object, number[]>();
 const compiledRegexCache = new WeakMap<object, RegExp>();
 
 /**
  * Cumulative hash boundaries for a split, one per variant in index order.
  * Variant `i` is served for hashes in `[boundaries[i-1], boundaries[i])`.
  */
-function getSplitBoundaries(outcome: Packed.SplitOutcome): number[] {
+function getSplitBoundaries(outcome: { weights: number[] }): number[] {
   const cached = splitBoundariesCache.get(outcome);
   if (cached) return cached;
   const total = sum(outcome.weights);
@@ -414,13 +416,73 @@ function getVariant<T>(
   };
 }
 
-function handleOutcome<T>(
+type WeightedAssignment = {
+  base: Packed.EntityAccessor;
+  weights: number[];
+  defaultVariant: Packed.VariantIndex;
+};
+
+function getWeightedVariantIndex<T>(
+  params: EvaluationParams<T>,
+  assignment: WeightedAssignment,
+  seed: number | undefined,
+): Packed.VariantIndex {
+  const lhs = access(assignment.base, params);
+
+  if (typeof lhs !== 'string') return assignment.defaultVariant;
+
+  const bucket = hashInput(lhs, seed);
+  const boundaries = getSplitBoundaries(assignment);
+  for (let index = 0; index < boundaries.length; index++) {
+    if (bucket < (boundaries[index] as number)) return index;
+  }
+
+  // Only reached when the weights sum to 0 (every boundary is NaN).
+  return assignment.defaultVariant;
+}
+
+function experimentAssignment(
+  experiment: Packed.experimental_ExperimentDefinition,
+  variantId: VariantId | null,
+  assignmentReason: experimental_ExperimentAssignmentReason,
+): experimental_ExperimentAssignment | undefined {
+  if (variantId === null) return undefined;
+  return {
+    id: experiment.id,
+    variantId,
+    base: experiment.base,
+    rampId: experiment.rampId,
+    rampPercentage: experiment.rampPercentage,
+    assignmentReason,
+  };
+}
+
+function outcomeAssignmentReason(
+  outcome: Packed.Outcome,
+): experimental_ExperimentAssignmentReason {
+  if (typeof outcome === 'number') return 'variant';
+  switch (outcome.type) {
+    case 'experiment':
+      return 'experiment';
+    case 'split':
+      return 'split';
+    case 'rollout':
+      return 'rollout';
+    default: {
+      const { type } = outcome;
+      return exhaustivenessCheck(type);
+    }
+  }
+}
+
+function resolveOutcome<T>(
   params: EvaluationParams<T>,
   outcome: Packed.Outcome,
 ): {
   value: T;
   outcomeType: OutcomeType;
   variantId: VariantId | null;
+  experiment?: experimental_ExperimentAssignment;
 } {
   if (typeof outcome === 'number') {
     const variant = getVariant<T>(params.definition, outcome);
@@ -431,38 +493,58 @@ function handleOutcome<T>(
   }
   switch (outcome.type) {
     case 'split': {
-      const lhs = access(outcome.base, params);
-      const defaultOutcome = getVariant<T>(
-        params.definition,
-        outcome.defaultVariant,
+      const index = getWeightedVariantIndex(
+        params,
+        outcome,
+        params.definition.seed,
       );
-
-      // serve the default variant if the lhs is not a string
-      if (typeof lhs !== 'string') {
-        return {
-          ...defaultOutcome,
-          outcomeType: OutcomeType.SPLIT,
-        };
-      }
-
-      const bucket = hashInput(lhs, params.definition.seed);
-      const boundaries = getSplitBoundaries(outcome);
-
-      // Return the first variant whose cumulative boundary covers the bucket.
-      for (let index = 0; index < boundaries.length; index++) {
-        if (bucket < (boundaries[index] as number)) {
-          return {
-            ...getVariant<T>(params.definition, index),
-            outcomeType: OutcomeType.SPLIT,
-          };
-        }
-      }
-
-      // Only reached when the weights sum to 0 (every boundary is NaN).
       return {
-        ...defaultOutcome,
+        ...getVariant<T>(params.definition, index),
         outcomeType: OutcomeType.SPLIT,
       };
+    }
+    case 'experiment': {
+      const experiment = params.definition.experiment;
+      if (!experiment) {
+        throw new Error('@vercel/flags-core: Experiment not found');
+      }
+
+      const unitValue = access(experiment.base, params);
+      const defaultVariant = getVariant<T>(
+        params.definition,
+        experiment.defaultVariant,
+      );
+      const assignment = (
+        variant: typeof defaultVariant,
+        assignmentReason: experimental_ExperimentAssignmentReason,
+      ) => ({
+        ...variant,
+        outcomeType: OutcomeType.EXPERIMENT,
+        experiment: experimentAssignment(
+          experiment,
+          variant.variantId,
+          assignmentReason,
+        ),
+      });
+
+      if (typeof unitValue !== 'string') {
+        return assignment(defaultVariant, 'not-enrolled');
+      }
+
+      const rampPercentage = experiment.rampPercentage ?? 100;
+      const enrolled =
+        rampPercentage >= 100 ||
+        (rampPercentage > 0 &&
+          hashInput(unitValue, experiment.enrollmentSeed) <
+            boundaryFor(rampPercentage, 100));
+      if (!enrolled) return assignment(defaultVariant, 'not-enrolled');
+
+      const index = getWeightedVariantIndex(
+        params,
+        experiment,
+        params.definition.seed,
+      );
+      return assignment(getVariant<T>(params.definition, index), 'experiment');
     }
     case 'rollout': {
       const lhs = access(outcome.base, params);
@@ -557,6 +639,30 @@ function handleOutcome<T>(
   }
 }
 
+function handleOutcome<T>(
+  params: EvaluationParams<T>,
+  outcome: Packed.Outcome,
+  assignmentReason?: experimental_ExperimentAssignmentReason,
+): {
+  value: T;
+  outcomeType: OutcomeType;
+  variantId: VariantId | null;
+  experiment?: experimental_ExperimentAssignment;
+} {
+  const result = resolveOutcome(params, outcome);
+  const experiment = params.definition.experiment;
+  if (!experiment || result.experiment) return result;
+
+  return {
+    ...result,
+    experiment: experimentAssignment(
+      experiment,
+      result.variantId,
+      assignmentReason ?? outcomeAssignmentReason(outcome),
+    ),
+  };
+}
+
 /**
  * Evaluates a single feature flag.
  *
@@ -623,7 +729,7 @@ export function evaluate<T>(
     );
 
     if (matchedIndex > -1) {
-      return Object.assign(handleOutcome<T>(params, matchedIndex), {
+      return Object.assign(handleOutcome<T>(params, matchedIndex, 'targeted'), {
         reason: ResolutionReason.TARGET_MATCH as const,
       }) satisfies EvaluationResult<T>;
     }
