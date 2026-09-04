@@ -3836,6 +3836,31 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('does not block evaluation while reporting an exposure', async () => {
+      let finishReporting: () => void = () => {};
+      const reporting = new Promise<void>((resolve) => {
+        finishReporting = resolve;
+      });
+      const reportExposures = vi.fn(() => reporting);
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await expect(
+        client.evaluate('flagA', undefined, entity),
+      ).resolves.toMatchObject({ value: 'treatment-a' });
+      expect(reportExposures).toHaveBeenCalledOnce();
+
+      finishReporting();
+      await reporting;
+      await client.shutdown();
+    });
+
     it('reports cookie overrides without evaluating the flag', async () => {
       const reportExposures = vi.fn();
       const client = createClient<typeof entity>(sdkKey, {

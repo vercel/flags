@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions';
 import type {
   bulkEvaluate,
   evaluate,
@@ -63,18 +64,27 @@ export function createCreateRawClient(fns: {
       initPromise: null,
     });
 
-    async function report(
+    function report(
       exposures: readonly experimental_Exposure[],
       entity: Readonly<Entities>,
-    ): Promise<void> {
+    ): void {
       if (!experimental_reportExposures || exposures.length === 0) return;
+
+      const pending = (async () => {
+        try {
+          await experimental_reportExposures(exposures, entity);
+        } catch (error) {
+          console.error(
+            '@vercel/flags-core: Failed to report experiment exposures',
+            error,
+          );
+        }
+      })();
+
       try {
-        await experimental_reportExposures(exposures, entity);
-      } catch (error) {
-        console.error(
-          '@vercel/flags-core: Failed to report experiment exposures',
-          error,
-        );
+        waitUntil(pending);
+      } catch {
+        // waitUntil is best-effort; the reporter can still finish on its own.
       }
     }
 
@@ -161,7 +171,7 @@ export function createCreateRawClient(fns: {
         if (options?.experimental_exposureLogging !== false) {
           const exposure = getExposure(flagKey, result);
           if (exposure) {
-            await report([exposure], entity as unknown as Readonly<Entities>);
+            report([exposure], entity as unknown as Readonly<Entities>);
           }
         }
         return result;
@@ -193,7 +203,7 @@ export function createCreateRawClient(fns: {
             const exposure = getExposure(flag.key, result);
             if (exposure) exposures.push(exposure);
           }
-          await report(exposures, entity as unknown as Readonly<Entities>);
+          report(exposures, entity as unknown as Readonly<Entities>);
         }
         return results;
       },
@@ -223,7 +233,7 @@ export function createCreateRawClient(fns: {
               ? null
               : (definition.variantIds?.[variantIndex] ?? null);
           const entity = entities ?? ({} as E);
-          await report(
+          report(
             [
               {
                 flagKey,
