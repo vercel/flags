@@ -10,7 +10,6 @@ import {
   type ControllerInstance,
   controllerInstanceMap,
 } from './controller-fns';
-import { experimental_defaultReportExposures } from './exposure-reporting';
 import type {
   BulkEvaluateInput,
   BundledDefinitions,
@@ -64,17 +63,13 @@ export function createCreateRawClient(fns: {
       initPromise: null,
     });
 
-    const exposureReporter =
-      experimental_reportExposures ??
-      (experimental_defaultReportExposures as experimental_ReportExposures<Entities>);
-
     async function report(
       exposures: readonly experimental_Exposure[],
       entity: Readonly<Entities>,
     ): Promise<void> {
-      if (exposures.length === 0) return;
+      if (!experimental_reportExposures || exposures.length === 0) return;
       try {
-        await exposureReporter(exposures, entity);
+        await experimental_reportExposures(exposures, entity);
       } catch (error) {
         console.error(
           '@vercel/flags-core: Failed to report experiment exposures',

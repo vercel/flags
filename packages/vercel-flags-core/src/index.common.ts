@@ -11,7 +11,6 @@ export {
   FallbackNotFoundError,
 } from './errors';
 export { evaluate } from './evaluate';
-export { experimental_defaultReportExposures } from './exposure-reporting';
 export type { CreateClientOptions } from './index.make';
 export {
   type BundledDefinitions,

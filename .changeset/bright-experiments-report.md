@@ -11,9 +11,9 @@ Add APIs for reporting flag exposures and override values.
 - The `experimental_exposureLogging` option on `evaluate()` and
   `bulkEvaluate()` for disabling exposure reporting for an individual call.
 - Experiment assignment metadata on `EvaluationResult.experiment`.
-- The `experimental_defaultReportExposures` export and the
-  `experimental_EvaluationOptions`, `experimental_ExperimentAssignment`,
-  `experimental_Exposure`, and `experimental_ReportExposures` types.
+- The `experimental_EvaluationOptions`,
+  `experimental_ExperimentAssignment`, `experimental_Exposure`, and
+  `experimental_ReportExposures` types.
 
 These APIs are not supported for general use yet. Do not use them unless
 Vercel has explicitly enabled them for you.
