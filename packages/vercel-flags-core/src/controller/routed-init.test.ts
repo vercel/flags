@@ -4,7 +4,6 @@ import { decideRoutedInit } from './routed-init';
 
 const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
 
-/** Sets the routed config versions header on a fake request context. */
 function setRoutedVersions(value: string): () => void {
   return setRequestContext({
     host: 'example.com',
@@ -88,6 +87,58 @@ describe('decideRoutedInit', () => {
       expect(
         decideRoutedInit({ projectId: 'prj_123', configUpdatedAt: 2000 }),
       ).toEqual({ immediate: false, outcome: undefined });
+    });
+  });
+
+  describe('header selection', () => {
+    it.each([
+      ['flags_prj_123=1000', true, 'immediate'],
+      ['flags_prj_123=3000', false, 'behind'],
+      ['flags_prj_123=later', false, 'invalid'],
+    ])('should use the fallback when the primary is absent (%s)', (value, immediate, outcome) => {
+      const cleanup = setRequestContext({
+        host: 'example.com',
+        'edge-config-versions': value,
+      });
+
+      expect(
+        decideRoutedInit({ projectId: 'prj_123', configUpdatedAt: 2000 }),
+      ).toEqual({ immediate, outcome });
+
+      cleanup();
+    });
+
+    it.each([
+      ['flags_prj_123=1000', 'flags_prj_123=3000', true, 'immediate'],
+      ['flags_prj_123=3000', 'flags_prj_123=1000', false, 'behind'],
+      ['flags_prj_123=later', 'flags_prj_123=1000', false, 'invalid'],
+      [
+        'flags_prj_123=9007199254740993',
+        'flags_prj_123=1000',
+        false,
+        'invalid',
+      ],
+      [
+        'flags_prj_123=1000;flags_prj_123=1000',
+        'flags_prj_123=1000',
+        false,
+        'duplicate',
+      ],
+      ['flags_prj_999=1000', 'flags_prj_123=1000', false, undefined],
+      ['flags_prj_123', 'flags_prj_123=1000', false, undefined],
+      ['', 'flags_prj_123=1000', false, undefined],
+    ])('should honor a present primary header (%s) over fallback (%s)', (primary, fallback, immediate, outcome) => {
+      const cleanup = setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': primary,
+        'edge-config-versions': fallback,
+      });
+
+      expect(
+        decideRoutedInit({ projectId: 'prj_123', configUpdatedAt: 2000 }),
+      ).toEqual({ immediate, outcome });
+
+      cleanup();
     });
   });
 

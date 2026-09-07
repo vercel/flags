@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EDGE_CONFIG_VERSIONS_HEADER,
+  FALLBACK_VERSION_HEADER,
   flagsConfigVersionKey,
   parseConfigVersion,
   selectConfigVersion,
-} from './edge-config-versions';
+  VERSION_HEADER,
+} from './version-header';
 
-describe('EDGE_CONFIG_VERSIONS_HEADER', () => {
-  it('should be the lower cased request header name', () => {
-    expect(EDGE_CONFIG_VERSIONS_HEADER).toBe('x-vercel-edge-config-versions');
+describe('version headers', () => {
+  it('should use the lower cased request header names', () => {
+    expect(VERSION_HEADER).toBe('x-vercel-edge-config-versions');
+    expect(FALLBACK_VERSION_HEADER).toBe('edge-config-versions');
   });
 });
 

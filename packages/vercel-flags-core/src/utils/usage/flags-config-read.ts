@@ -20,11 +20,7 @@ export interface TrackReadOptions {
   mode?: 'poll' | 'stream' | 'build' | 'offline';
   /** Revision of the config */
   revision?: number;
-  /**
-   * Outcome of comparing the loaded config against the version this request
-   * was routed to, as decided during initialization. Omitted when no routed
-   * version applied. Low cardinality — never contains ids or header values.
-   */
+  /** Init comparison outcome; omitted when no routed version applies. */
   configRoutedInit?: RoutedInitOutcome;
 }
 

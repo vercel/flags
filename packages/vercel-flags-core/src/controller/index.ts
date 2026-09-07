@@ -121,8 +121,6 @@ export class Controller implements ControllerInterface {
   // Suppresses usage tracking when the SDK key is unauthorized
   private unauthorized = false;
 
-  // Outcome of the routed config version check performed during
-  // initialization. Metrics only — undefined when no routed version applied.
   private routedInitOutcome: RoutedInitOutcome | undefined;
 
   constructor(options: ControllerOptions) {
@@ -272,10 +270,7 @@ export class Controller implements ControllerInterface {
     // If we already have data (from provided datafile or bundled definitions),
     // start updates. Both streaming and polling wait for initial data before
     // being considered initialized, so we know we have fresh data.
-    // Exception: when the config version this request was routed to is already
-    // covered by the local data, waiting cannot yield anything newer, so
-    // initialization completes right away and updates continue in the
-    // background.
+    // Skip the wait if local data already covers the routed version.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
       if (this.options.stream.enabled) {
@@ -470,13 +465,6 @@ export class Controller implements ControllerInterface {
   // Routed config version
   // ---------------------------------------------------------------------------
 
-  /**
-   * Checks whether the already loaded data covers the config version this
-   * request was routed to, in which case initialization does not have to wait
-   * for a stream confirmation or a first poll.
-   *
-   * Records the low cardinality outcome for metrics as a side effect.
-   */
   private canInitializeFromLocalData(): boolean {
     if (!this.data) return false;
 
@@ -489,18 +477,11 @@ export class Controller implements ControllerInterface {
     return decision.immediate;
   }
 
-  /**
-   * Starts streaming without waiting for the first message.
-   *
-   * The state stays `initializing:stream` until the connection is actually
-   * established, so reads keep reporting `disconnected` until the stream
-   * emits `connected`.
-   */
+  // Keep the initializing state until the stream emits connected.
   private startStreamInBackground(): void {
     try {
       void this.streamSource.start().catch((error) => {
-        // The connection reports itself through events; only remember an
-        // invalid SDK key so usage tracking stays suppressed.
+        // Source events handle connection state; suppress usage for invalid keys.
         if (
           error instanceof UnauthorizedError ||
           (error instanceof Error && error.message.includes('401'))
@@ -509,18 +490,11 @@ export class Controller implements ControllerInterface {
         }
       });
     } catch {
-      // Starting the stream failed outright. Initialization still succeeds,
-      // like it does when the awaited start fails, because the loaded data is
-      // known to cover this request.
+      // Local data covers this request even if starting the stream fails.
     }
   }
 
-  /**
-   * Starts polling without waiting for the first response.
-   *
-   * The interval is started first so that the immediate poll is covered by the
-   * source's abort signal and can be cancelled by `stop()`.
-   */
+  // Start the interval first so stop() can abort the immediate poll.
   private startPollingInBackground(): void {
     this.pollingSource.startInterval();
     void this.pollingSource.poll();

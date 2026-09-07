@@ -2935,18 +2935,19 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Routed config version (x-vercel-edge-config-versions)
+  // Routed config version
   // ---------------------------------------------------------------------------
   describe('routed config version', () => {
-    /** Request context carrying the routed config versions header. */
-    function setRoutedVersions(value: string): () => void {
+    function setRoutedVersions(
+      value: string,
+      header = 'x-vercel-edge-config-versions',
+    ): () => void {
       return setRequestContext({
         host: 'example.com',
-        'x-vercel-edge-config-versions': value,
+        [header]: value,
       });
     }
 
-    /** Serves a stream that connects but never sends a message. */
     function serveSilentStream(): void {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
@@ -2959,7 +2960,6 @@ describe('Controller (black-box)', () => {
       });
     }
 
-    /** Reads the payloads of the last ingest request. */
     function lastIngestPayloads(): Record<string, unknown>[] {
       const body = fetchMock.mock.lastCall?.[1]?.body as string;
       return (JSON.parse(body) as { payload: Record<string, unknown> }[]).map(
@@ -2967,7 +2967,6 @@ describe('Controller (black-box)', () => {
       );
     }
 
-    /** Flag definition serving variant index `variant`. */
     function servingVariant(variant: 0 | 1) {
       return {
         flagA: {
@@ -2977,9 +2976,15 @@ describe('Controller (black-box)', () => {
       };
     }
 
-    it('should initialize immediately when the loaded data covers the routed version', async () => {
+    it.each([
+      'x-vercel-edge-config-versions',
+      'edge-config-versions',
+    ])('should initialize immediately when the loaded data covers the routed version from %s', async (header) => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const cleanupCtx = setRoutedVersions('ecfg_abc=9999;flags_prj_123=2000');
+      const cleanupCtx = setRoutedVersions(
+        'ecfg_abc=9999;flags_prj_123=2000',
+        header,
+      );
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -3004,10 +3009,8 @@ describe('Controller (black-box)', () => {
       expect(settled).toBe(true);
       await initPromise;
 
-      // No fallback warning — nothing timed out.
       expect(warnSpy).not.toHaveBeenCalled();
 
-      // The stream is connecting in the background, with the local revision.
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/stream',
@@ -3025,7 +3028,6 @@ describe('Controller (black-box)', () => {
       expect(before.metrics?.connectionState).toBe('disconnected');
       expect(before.metrics?.mode).toBe('offline');
 
-      // Once the stream confirms the revision, the client reports connected.
       stream.push({
         type: 'primed',
         revision: 1,
@@ -3146,20 +3148,16 @@ describe('Controller (black-box)', () => {
       expect(settled).toBe(true);
       await initPromise;
 
-      // A poll was started but has not answered yet — the local data is served
-      // and no connection is claimed.
       expect(pollCount).toBe(1);
       const before = await client.evaluate('flagA');
       expect(before.value).toBe(true);
       expect(before.metrics?.connectionState).toBe('disconnected');
 
-      // The background poll updates the data once it answers.
       resolveFirstPoll(Response.json(polled));
       await vi.advanceTimersByTimeAsync(0);
       const after = await client.evaluate('flagA');
       expect(after.value).toBe(false);
 
-      // The interval keeps refreshing.
       await vi.advanceTimersByTimeAsync(30_000);
       expect(pollCount).toBe(2);
 
@@ -3189,7 +3187,6 @@ describe('Controller (black-box)', () => {
 
       await client.initialize();
 
-      // Equal configUpdatedAt — must not replace the loaded data.
       stream.push({
         type: 'datafile',
         data: makeBundled({
@@ -3200,7 +3197,6 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect((await client.evaluate('flagA')).value).toBe(true);
 
-      // Older configUpdatedAt — must not replace the loaded data either.
       stream.push({
         type: 'datafile',
         data: makeBundled({
@@ -3211,7 +3207,6 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect((await client.evaluate('flagA')).value).toBe(true);
 
-      // Newer data is applied.
       stream.push({
         type: 'datafile',
         data: makeBundled({
@@ -3239,9 +3234,33 @@ describe('Controller (black-box)', () => {
       ['the version is fractional', 'flags_prj_123=1000.5'],
       ['the version is unsafe', 'flags_prj_123=9007199254740993'],
       ['the entry is duplicated', 'flags_prj_123=2000;flags_prj_123=2000'],
-    ])('should keep waiting for the stream when %s', async (_label, headerValue) => {
+      [
+        'the primary is empty despite a valid fallback',
+        '',
+        'flags_prj_123=1000',
+      ],
+      [
+        'the primary has no project entry despite a valid fallback',
+        'flags_prj_999=1000',
+        'flags_prj_123=1000',
+      ],
+      [
+        'the primary is invalid despite a valid fallback',
+        'flags_prj_123=later',
+        'flags_prj_123=1000',
+      ],
+      [
+        'the primary is newer despite an older fallback',
+        'flags_prj_123=3000',
+        'flags_prj_123=1000',
+      ],
+    ])('should keep waiting for the stream when %s', async (_label, headerValue, fallback?: string) => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const cleanupCtx = setRoutedVersions(headerValue);
+      const cleanupCtx = setRequestContext({
+        host: 'example.com',
+        'x-vercel-edge-config-versions': headerValue,
+        ...(fallback === undefined ? {} : { 'edge-config-versions': fallback }),
+      });
       serveSilentStream();
 
       const client = createClient(sdkKey, {
@@ -3443,7 +3462,6 @@ describe('Controller (black-box)', () => {
         },
       );
 
-      // Neither the project id nor the header value is ever ingested.
       const body = fetchMock.mock.lastCall?.[1]?.body as string;
       expect(body).not.toContain('prj_123');
       expect(body).not.toContain('flags_prj_123=2000');

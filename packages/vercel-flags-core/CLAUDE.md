@@ -32,7 +32,7 @@ src/
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
 │   ├── sleep.ts
-│   ├── edge-config-versions.ts     # x-vercel-edge-config-versions parser
+│   ├── version-header.ts           # Routed version header parser
 │   ├── request-context.ts          # Vercel request context access
 │   └── read-bundled-definitions.ts
 └── lib/
@@ -191,7 +191,7 @@ pnpm test:integration
 `initialize()` waits for fresh data before resolving, even when bundled data or a provided datafile is available:
 - **Streaming**: waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs`
 - **Polling**: waits for the first poll response up to `initTimeoutMs`
-- **Exception**: it resolves immediately when the `x-vercel-edge-config-versions` request context header shows the local data already covers the routed version (see [Routed Config Version](#routed-config-version)). Tests that rely on the timeout must not set that header for the datafile's `projectId`.
+- **Exception**: it resolves immediately when a version header shows local data covers the routed version (see [Routed Config Version](#routed-config-version)). Timeout tests must not set either header for the datafile's `projectId`.
 
 This means:
 
@@ -284,32 +284,21 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 ### Routed Config Version
 
-Vercel attaches an `x-vercel-edge-config-versions` request header describing
-which config version the request was routed to. It is a semicolon-separated map
-of store name to version (a millisecond timestamp), e.g.
-`flags_prj_123=1758000000000;ecfg_abc=1757000000000`.
+The Controller reads `x-vercel-edge-config-versions` from the request context,
+falling back to `edge-config-versions` only when the primary header is absent.
+A present primary remains authoritative even if empty, invalid, or missing the
+project entry. Both headers use a semicolon-separated map of store names to
+millisecond timestamps, e.g. `flags_prj_123=1758000000000`.
 
-After local data is loaded (provided datafile or bundled definitions) but
-before awaiting the stream or first poll, the Controller compares that version
-against the local `configUpdatedAt`:
-
-- The header is read from the **existing** Vercel request context
-  (`utils/request-context.ts`) — no extra header is requested and no config id
-  is involved
-- The map key is derived from the loaded data as `flags_${projectId}`; only an
-  exact key match counts (`utils/edge-config-versions.ts`)
-- When the local `configUpdatedAt` is **>=** the routed version, `initialize()`
-  resolves immediately and the stream/poll keeps running in the background
-- The state stays `initializing:*` until the source actually connects, so reads
-  never report `connected` before a connection exists
-- Everything else preserves the previous behavior (wait up to `initTimeoutMs`):
-  no request context, no project id, no exact entry, a malformed or unsafe
-  version (non-integer, negative, beyond `Number.MAX_SAFE_INTEGER`), a
-  duplicated key, or local data without a usable `configUpdatedAt`
-- The outcome is attached to `FLAGS_CONFIG_READ` events as `configRoutedInit`
-  (`immediate`, `behind`, `invalid`, `duplicate`, `unknown-local`) — a low
-  cardinality enum that never contains ids or header values, and is omitted when
-  no routed version applied
+- `utils/version-header.ts` selects the exact `flags_${projectId}` entry.
+- If local `configUpdatedAt` is **>=** the routed version, `initialize()` resolves
+  immediately while stream/poll updates continue in the background. The state
+  stays `initializing:*` until the source connects.
+- Missing context, project id, or entry; invalid or duplicate versions; and
+  unusable local timestamps preserve the existing initialization wait.
+- `FLAGS_CONFIG_READ.configRoutedInit` records `immediate`, `behind`, `invalid`,
+  `duplicate`, or `unknown-local`, without ids or header values. It is omitted
+  when no routed version applies.
 
 ### configUpdatedAt Guard
 

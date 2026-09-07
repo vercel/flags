@@ -1,48 +1,23 @@
-/**
- * Decides whether locally available flag definitions are already current for
- * the request being served, based on the config version the request was
- * routed to (see `utils/edge-config-versions.ts`).
- *
- * When they are, the controller can finish initialization right away instead
- * of waiting for a stream confirmation or a first poll, while updates keep
- * arriving in the background.
- */
-
+import { getRequestContext } from '../utils/request-context';
 import {
-  EDGE_CONFIG_VERSIONS_HEADER,
+  FALLBACK_VERSION_HEADER,
   flagsConfigVersionKey,
   parseConfigVersion,
   selectConfigVersion,
-} from '../utils/edge-config-versions';
-import { getRequestContext } from '../utils/request-context';
+  VERSION_HEADER,
+} from '../utils/version-header';
 
-/**
- * Low cardinality outcome of the routed config version check.
- *
- * Only describes the comparison — never carries project ids, store names or
- * header values. `undefined` (no outcome) is used whenever no routed version
- * applies to this project, which is the case for every request that is not
- * routed through a config version.
- */
+/** Low-cardinality metric outcome; never includes ids or header values. */
 export type RoutedInitOutcome =
-  /** Local definitions are at or ahead of the routed version. */
   | 'immediate'
-  /** The routed version is newer than the local definitions. */
   | 'behind'
-  /** The routed version is malformed or outside the safe integer range. */
   | 'invalid'
-  /** The routed key is present more than once. */
   | 'duplicate'
-  /** The local definitions carry no usable `configUpdatedAt`. */
   | 'unknown-local';
 
 export type RoutedInitDecision = {
-  /**
-   * True only when the local definitions are provably current for this
-   * request. False keeps the existing initialization behavior.
-   */
   immediate: boolean;
-  /** Outcome for metrics; `undefined` when no routed version applies. */
+  /** Omitted when no routed version applies to this project. */
   outcome: RoutedInitOutcome | undefined;
 };
 
@@ -51,11 +26,6 @@ const NO_DECISION: RoutedInitDecision = {
   outcome: undefined,
 };
 
-/**
- * Parses a datafile `configUpdatedAt` into a timestamp that can be compared
- * against a routed config version. Numbers and numeric strings are accepted;
- * missing, malformed and unsafe values are rejected.
- */
 function parseLocalTimestamp(value: unknown): number | undefined {
   if (typeof value === 'number') {
     return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
@@ -66,14 +36,7 @@ function parseLocalTimestamp(value: unknown): number | undefined {
   return undefined;
 }
 
-/**
- * Compares the locally loaded definitions against the config version this
- * request was routed to.
- *
- * Returns no decision — preserving the existing initialization behavior — when
- * there is no request context, no project id, or no exact entry for this
- * project in the header.
- */
+/** Skips the init wait only when local definitions cover the routed version. */
 export function decideRoutedInit(data: {
   projectId: unknown;
   configUpdatedAt: unknown;
@@ -85,8 +48,9 @@ export function decideRoutedInit(data: {
     const { ctx, headers } = getRequestContext();
     if (!ctx || !headers) return NO_DECISION;
 
+    // A present primary header is authoritative, even if its entry is unusable.
     const routed = selectConfigVersion(
-      headers[EDGE_CONFIG_VERSIONS_HEADER],
+      headers[VERSION_HEADER] ?? headers[FALLBACK_VERSION_HEADER],
       flagsConfigVersionKey(projectId),
     );
 
