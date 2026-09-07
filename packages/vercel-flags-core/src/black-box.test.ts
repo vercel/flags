@@ -3046,9 +3046,13 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should initialize immediately when the loaded data equals the routed version', async () => {
+    it.each([
+      'flags_prj_123=2000',
+      'flags_prj_123=2000;flags_prj_123=2000',
+      'flags_prj_123=later;flags_prj_123=2000;flags_prj_123=3000',
+    ])('should initialize immediately when local data equals the first valid match (%s)', async (header) => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+      const cleanupCtx = setRoutedVersions(header);
       serveSilentStream();
 
       const client = createClient(sdkKey, {
@@ -3233,7 +3237,14 @@ describe('Controller (black-box)', () => {
       ['the version is negative', 'flags_prj_123=-1'],
       ['the version is fractional', 'flags_prj_123=1000.5'],
       ['the version is unsafe', 'flags_prj_123=9007199254740993'],
-      ['the entry is duplicated', 'flags_prj_123=2000;flags_prj_123=2000'],
+      [
+        'all matching entries are invalid',
+        'flags_prj_123=later;flags_prj_123=-1',
+      ],
+      [
+        'the first valid match is newer',
+        'flags_prj_123=later;flags_prj_123=3000;flags_prj_123=1000',
+      ],
       [
         'the primary is empty despite a valid fallback',
         '',
@@ -3472,7 +3483,8 @@ describe('Controller (black-box)', () => {
     it.each([
       ['behind', 'flags_prj_123=2001'],
       ['invalid', 'flags_prj_123=later'],
-      ['duplicate', 'flags_prj_123=2000;flags_prj_123=2000'],
+      ['behind', 'flags_prj_123=later;flags_prj_123=3000;flags_prj_123=1000'],
+      ['invalid', 'flags_prj_123=later;flags_prj_123=-1'],
     ])('should report the %s outcome', async (outcome, headerValue) => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const cleanupCtx = setRoutedVersions(headerValue);

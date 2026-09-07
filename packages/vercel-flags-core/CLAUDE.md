@@ -290,14 +290,14 @@ A present primary remains authoritative even if empty, invalid, or missing the
 project entry. Both headers use a semicolon-separated map of store names to
 millisecond timestamps, e.g. `flags_prj_123=1758000000000`.
 
-- `utils/version-header.ts` selects the exact `flags_${projectId}` entry.
+- `utils/version-header.ts` selects the first valid exact `flags_${projectId}` entry, skipping invalid matches.
 - If local `configUpdatedAt` is **>=** the routed version, `initialize()` resolves
   immediately while stream/poll updates continue in the background. The state
   stays `initializing:*` until the source connects.
-- Missing context, project id, or entry; invalid or duplicate versions; and
-  unusable local timestamps preserve the existing initialization wait.
+- Missing context, project id, or valid entry, and unusable local timestamps
+  preserve the existing initialization wait.
 - `FLAGS_CONFIG_READ.configRoutedInit` records `immediate`, `behind`, `invalid`,
-  `duplicate`, or `unknown-local`, without ids or header values. It is omitted
+  or `unknown-local`, without ids or header values. It is omitted
   when no routed version applies.
 
 ### configUpdatedAt Guard

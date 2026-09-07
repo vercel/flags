@@ -121,8 +121,8 @@ describe('decideRoutedInit', () => {
       [
         'flags_prj_123=1000;flags_prj_123=1000',
         'flags_prj_123=1000',
-        false,
-        'duplicate',
+        true,
+        'immediate',
       ],
       ['flags_prj_999=1000', 'flags_prj_123=1000', false, undefined],
       ['flags_prj_123', 'flags_prj_123=1000', false, undefined],
@@ -214,14 +214,25 @@ describe('decideRoutedInit', () => {
       cleanup();
     });
 
-    it('should wait when the routed entry is duplicated', () => {
-      const cleanup = setRoutedVersions(
-        'flags_prj_123=1000;flags_prj_123=1000',
-      );
+    it.each([
+      ['flags_prj_123=1000;flags_prj_123=1000', true, 'immediate'],
+      [
+        'flags_prj_123=later;flags_prj_123=1000;flags_prj_123=3000',
+        true,
+        'immediate',
+      ],
+      [
+        'flags_prj_123=later;flags_prj_123=3000;flags_prj_123=1000',
+        false,
+        'behind',
+      ],
+      ['flags_prj_123=later;flags_prj_123=-1', false, 'invalid'],
+    ])('should use the first valid match when entries repeat (%s)', (header, immediate, outcome) => {
+      const cleanup = setRoutedVersions(header);
 
       expect(
         decideRoutedInit({ projectId: 'prj_123', configUpdatedAt: 2000 }),
-      ).toEqual({ immediate: false, outcome: 'duplicate' });
+      ).toEqual({ immediate, outcome });
 
       cleanup();
     });

@@ -4,8 +4,7 @@ export const FALLBACK_VERSION_HEADER = 'edge-config-versions';
 export type ConfigVersionLookup =
   | { status: 'found'; version: number }
   | { status: 'not-found' }
-  | { status: 'invalid' }
-  | { status: 'duplicate' };
+  | { status: 'invalid' };
 
 const DIGITS = /^\d+$/;
 
@@ -20,7 +19,7 @@ export function parseConfigVersion(value: string): number | undefined {
   return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
-/** Selects an exact key from a semicolon-separated map; duplicates are ambiguous. */
+/** Selects the first valid exact-key match from a semicolon-separated map. */
 export function selectConfigVersion(
   headerValue: string | undefined,
   key: string,
@@ -34,15 +33,11 @@ export function selectConfigVersion(
     if (separatorIndex === -1) continue;
     if (segment.slice(0, separatorIndex).trim() !== key) continue;
 
-    if (match) return { status: 'duplicate' };
-
     const version = parseConfigVersion(
       segment.slice(separatorIndex + 1).trim(),
     );
-    match =
-      version === undefined
-        ? { status: 'invalid' }
-        : { status: 'found', version };
+    if (version !== undefined) return { status: 'found', version };
+    match = { status: 'invalid' };
   }
 
   return match ?? { status: 'not-found' };

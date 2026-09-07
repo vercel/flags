@@ -133,24 +133,29 @@ describe('selectConfigVersion', () => {
     });
   });
 
-  it('should report duplicate entries instead of picking one', () => {
-    expect(selectConfigVersion('flags_prj_123=1;flags_prj_123=2', key)).toEqual(
-      { status: 'duplicate' },
-    );
+  it.each([
+    ['flags_prj_123=1;flags_prj_123=2', 1],
+    ['flags_prj_123=2;flags_prj_123=1', 2],
+    ['flags_prj_123=1;flags_prj_123=1', 1],
+    ['flags_prj_123=nope;flags_prj_123=2', 2],
+    ['flags_prj_123=2;flags_prj_123=nope', 2],
+    [
+      'flags_prj_123=;flags_prj_123=-1;flags_prj_123=9007199254740993;flags_prj_123=0;flags_prj_123=2',
+      0,
+    ],
+  ])('should select the first valid match in %s', (header, version) => {
+    expect(selectConfigVersion(header, key)).toEqual({
+      status: 'found',
+      version,
+    });
   });
 
-  it('should report duplicates even when the versions are equal', () => {
-    expect(selectConfigVersion('flags_prj_123=1;flags_prj_123=1', key)).toEqual(
-      { status: 'duplicate' },
-    );
-  });
-
-  it('should report duplicates even when one entry is malformed', () => {
+  it('should report invalid when all matching entries are invalid', () => {
     expect(
-      selectConfigVersion('flags_prj_123=nope;flags_prj_123=2', key),
-    ).toEqual({ status: 'duplicate' });
-    expect(
-      selectConfigVersion('flags_prj_123=2;flags_prj_123=nope', key),
-    ).toEqual({ status: 'duplicate' });
+      selectConfigVersion(
+        'flags_prj_123=nope;flags_prj_999=2;flags_prj_123=-1',
+        key,
+      ),
+    ).toEqual({ status: 'invalid' });
   });
 });

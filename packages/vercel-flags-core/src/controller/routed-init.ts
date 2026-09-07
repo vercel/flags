@@ -12,7 +12,6 @@ export type RoutedInitOutcome =
   | 'immediate'
   | 'behind'
   | 'invalid'
-  | 'duplicate'
   | 'unknown-local';
 
 export type RoutedInitDecision = {
@@ -59,8 +58,6 @@ export function decideRoutedInit(data: {
         return NO_DECISION;
       case 'invalid':
         return { immediate: false, outcome: 'invalid' };
-      case 'duplicate':
-        return { immediate: false, outcome: 'duplicate' };
       case 'found':
         break;
     }
