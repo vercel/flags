@@ -888,6 +888,29 @@ describe('connectStream', () => {
     });
   });
 
+  describe('Accept-Encoding header', () => {
+    it('should request gzip so brotli-incapable streaming decoders (Bun) still receive the first message', async () => {
+      fetchMock.mockImplementation(() => ndjsonResponse([datafileMsg()]));
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Accept-Encoding']).toBe('gzip');
+      abortController.abort();
+    });
+  });
+
   describe('X-Revision header', () => {
     beforeEach(() => {
       fetchMock.mockImplementation(() => ndjsonResponse([datafileMsg()]));

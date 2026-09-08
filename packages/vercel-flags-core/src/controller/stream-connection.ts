@@ -127,6 +127,13 @@ export async function connectStream(
           Authorization: `Bearer ${token}`,
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
+          // The stream is long-lived NDJSON; the server flushes the compressor
+          // after every message. Some runtimes (Bun) advertise `br` by default
+          // but do not surface partially decoded brotli output until the
+          // response ends, so the first datafile never arrives and init times
+          // out. gzip streams correctly everywhere, so request it explicitly.
+          // See https://github.com/oven-sh/bun/issues/41439
+          'Accept-Encoding': 'gzip',
         };
         const vercelEnv = process.env.VERCEL_ENV;
         if (vercelEnv) {
