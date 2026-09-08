@@ -71,6 +71,32 @@ async function getIngestHeaders(
   };
 }
 
+/**
+ * Headers for the runtime-provided ingest transport. The runtime attributes
+ * the caller itself, so OIDC tokens are omitted; only an SDK key is included
+ * when configured.
+ */
+function getRuntimeIngestHeaders(
+  options: IngestOptions,
+  flushReason: FlushReason,
+): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(options.auth.sdkKey
+      ? { Authorization: `Bearer ${options.auth.sdkKey}` }
+      : null),
+    'User-Agent': `VercelFlagsCore/${version}`,
+    [FLUSH_REASON_HEADER]: flushReason,
+    ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
+      ? {
+          'X-Vercel-Env':
+            options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
+        }
+      : null),
+    ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+  };
+}
+
 export async function sendIngestEvents(
   options: IngestOptions,
   events: UsageEvent[],
@@ -81,7 +107,7 @@ export async function sendIngestEvents(
 
   const runtimeIngest = getRuntimeIngest();
   if (runtimeIngest) {
-    const headers = await getIngestHeaders(options, flushReason);
+    const headers = getRuntimeIngestHeaders(options, flushReason);
     // Events the runtime does not accept fall through to the HTTP transport.
     eventsToSend = eventsToSend.filter(
       (event) => !runtimeIngest({ headers, body: [event] }),

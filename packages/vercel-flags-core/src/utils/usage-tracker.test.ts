@@ -1260,11 +1260,43 @@ describe('runtime ingest transport', () => {
     const { headers, body } = ingestMock.mock.calls[0]![0];
     expect(headers.Authorization).toBe('Bearer test-key');
     expect(headers[FLUSH_REASON_HEADER]).toBe('immediate');
+    expect(headers[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
     expect(body).toHaveLength(1);
     expect(body[0]!.type).toBe('FLAG_EVALUATION');
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(waitUntilMock).not.toHaveBeenCalled();
+    expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('omits the authorization header without an SDK key', async () => {
+    ingestMock.mockReturnValue(true);
+
+    const resolveToken = vi.fn();
+    const tracker = new UsageTracker({
+      auth: {
+        sdkKey: undefined,
+        resolveToken,
+        resolveBundledDefinitionsLookup: () =>
+          Promise.resolve({ type: 'project-id' as const, projectId: 'prj_1' }),
+      },
+      host: 'https://example.com',
+      fetch: fetchMock,
+    });
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    await vi.waitFor(() => expect(ingestMock).toHaveBeenCalledTimes(1));
+
+    const { headers } = ingestMock.mock.calls[0]![0];
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers[EVALUATING_OIDC_TOKEN_HEADER]).toBeUndefined();
+    expect(resolveToken).not.toHaveBeenCalled();
+    expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('delivers each event separately', async () => {
