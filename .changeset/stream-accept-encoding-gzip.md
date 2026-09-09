@@ -2,6 +2,6 @@
 '@vercel/flags-core': patch
 ---
 
-Request `Accept-Encoding: gzip` on the `/v1/stream` connection.
+Request an uncompressed `/v1/stream` body when running on Bun.
 
-The stream is long-lived NDJSON and the server flushes the compressor after every message. Runtimes such as Bun advertise `br` by default but do not surface partially decoded brotli output until the response ends, so the initial datafile never arrived and every flag fell back to its default after the init timeout. gzip streams correctly on Node, Bun, and browsers.
+Bun's `fetch` negotiates brotli or gzip by default, but its streaming decoder withholds small decoded output until more compressed input arrives. The stream's first datafile is followed by silence until the next ping, so on Bun the initial datafile never surfaced, init timed out, and every flag fell back to its default. Sending `Accept-Encoding: identity` on Bun avoids the decoder entirely; other runtimes are unchanged.

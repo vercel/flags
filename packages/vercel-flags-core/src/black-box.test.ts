@@ -91,7 +91,6 @@ const streamRequestHeaders = Object.freeze({
   Authorization: 'Bearer vf_server_fake',
   'User-Agent': `VercelFlagsCore/${version}`,
   'X-Retry-Attempt': '0',
-  'Accept-Encoding': 'gzip',
   'X-Vercel-Env': 'production',
 });
 

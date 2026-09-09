@@ -1,5 +1,6 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
+import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
 
 export type PrimedMessage = {
@@ -127,14 +128,17 @@ export async function connectStream(
           Authorization: `Bearer ${token}`,
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
-          // The stream is long-lived NDJSON; the server flushes the compressor
-          // after every message. Some runtimes (Bun) advertise `br` by default
-          // but do not surface partially decoded brotli output until the
-          // response ends, so the first datafile never arrives and init times
-          // out. gzip streams correctly everywhere, so request it explicitly.
-          // See https://github.com/oven-sh/bun/issues/41439
-          'Accept-Encoding': 'gzip',
         };
+        // The stream is long-lived NDJSON; the server flushes the compressor
+        // after every message. Bun's fetch negotiates br/gzip by default but
+        // its streaming decoder withholds small decoded output until more
+        // compressed input arrives, so a small first datafile never surfaces
+        // and init times out. Request an uncompressed body on Bun; the stream
+        // carries one datafile plus tiny pings, so compression gains little.
+        // See https://github.com/oven-sh/bun/issues/41439
+        if (isBun()) {
+          headers['Accept-Encoding'] = 'identity';
+        }
         const vercelEnv = process.env.VERCEL_ENV;
         if (vercelEnv) {
           headers['X-Vercel-Env'] = vercelEnv;
