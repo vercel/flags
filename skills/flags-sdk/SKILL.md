@@ -59,6 +59,14 @@ export const exampleFlag = flag({
 
 > **Version note**: The SDK is published as `flags` (renamed from `@vercel/flags`; that old name still appears in changelog history). `flags` 4.2.0+ accepts the adapter factory by reference (`adapter: vercelAdapter`) and resolves it once per declaration. Older versions require calling it (`adapter: vercelAdapter()`). The called form still works on new versions, so prefer the shorthand unless you're targeting `flags` < 4.2.0.
 
+## CLI-only flag management
+
+Managing remote flags with `vercel flags` requires an authenticated CLI, but not SDK packages, Toolbar, Flags Explorer, or `.env.local`. For requests that only inspect or change remote flags, skip app setup and code changes.
+
+Use `--project <name-or-id>` and `--scope <team>` to select the target without a local link. If relying on a link, run `vercel project inspect --non-interactive` from the intended directory and confirm its owner and project; a `.vercel/` directory alone does not prove the target. Stop on a mismatch rather than silently relinking.
+
+CLI authentication is separate from the app's OIDC or SDK key. Pull local credentials only when the app needs local SDK evaluation, not to prepare a CLI flag command.
+
 ## Set up the SDK
 
 One-time project setup. Run this when the Flags SDK is not installed yet, or when Toolbar / Flags Explorer / `.env.local` are missing. Skip any step that is already done.
@@ -69,7 +77,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 - Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
 - Is `flags` in `package.json`? → Skip install (step 1)
-- Does `.vercel/` directory exist? → Project is linked, skip `vercel link` in step 2
+- Is the intended project already linked? → Verify its owner and project with `vercel project inspect --non-interactive`; directory existence alone is insufficient.
 - Does `.env.local` contain `VERCEL_OIDC_TOKEN=` (or a `FLAGS=` SDK key)? → Env vars already pulled, skip step 3
 - Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 4)
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Skip creating it (step 5)
@@ -82,10 +90,10 @@ Check the project state to adapt commands and decide which steps you can skip:
    pnpm i flags @flags-sdk/vercel
    ```
 
-2. **Link the project to Vercel** (required for `vercel flags` and env vars):
+2. **Resolve the Vercel project**:
    > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
-   Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link`.
+   For CLI flag commands, use explicit project/team arguments as described in [CLI-only flag management](#cli-only-flag-management). For local SDK development that needs a link, verify the existing target before creating or changing the link.
 
 3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
 
@@ -111,7 +119,7 @@ SDK keys (`FLAGS`) are only for apps outside Vercel, custom environments, or fla
 
 ## Create a flag
 
-When a user asks you to create or add a feature flag that does not exist on Vercel yet, follow these steps in order. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
+When a user asks you to create and integrate a feature flag that does not exist on Vercel yet, follow these steps in order. For a CLI-only creation request, follow [CLI-only flag management](#cli-only-flag-management) and the registration step below; skip app setup and code changes. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
 
 ### Before you start
 
@@ -125,7 +133,7 @@ When a user asks you to create or add a feature flag that does not exist on Verc
 
 2. **Register the flag with Vercel**: Run `vercel flags create <flag-key> --kind boolean --description "<description>"`.
 
-   Before running `vercel flags create`, verify the project is linked (`.vercel` directory). If missing, run `vercel link` first.
+   Select the intended project with `--project <name-or-id> --scope <team>`, or verify the existing local link as described in [CLI-only flag management](#cli-only-flag-management).
 
 3. **Pull environment variables**: If this is the project's first flag, follow [Pull environment variables](#pull-environment-variables) again; activation created the `FLAGS_SECRET`.
 
@@ -152,7 +160,7 @@ When a user asks you to create or add a feature flag that does not exist on Verc
 
 ## Add a flag that already exists on Vercel
 
-Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key.
+Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key. If the user only asks to inspect the flag, follow [CLI-only flag management](#cli-only-flag-management) and read the definition; skip SDK setup and source edits.
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
 2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
