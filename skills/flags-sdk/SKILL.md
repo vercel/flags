@@ -20,7 +20,7 @@ The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and S
 - Docs: https://flags-sdk.dev
 - Repo: https://github.com/vercel/flags
 
-When the user asks to install, configure, or set up feature flags, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `.env.local` is missing). When they ask to create or add a flag, follow [Create a flag](#create-a-flag). When they only ask to inspect or change remote flags, follow [CLI-only flag management](#cli-only-flag-management). Do not leave CLI steps as "next steps" for the user — execute them yourself.
+When the user asks to install, configure, or set up feature flags, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `.env.local` is missing). When they ask to create or add a flag, follow [Create a flag](#create-a-flag). A request is CLI-only when the user asks to inspect or change a remote flag and asks for no code change; then follow [CLI-only flag management](#cli-only-flag-management). Inside an app repository, default to the full flow. Do not leave CLI steps as "next steps" for the user — execute them yourself.
 
 ## Core concepts
 
@@ -59,14 +59,6 @@ export const exampleFlag = flag({
 
 > **Version note**: The SDK is published as `flags` (renamed from `@vercel/flags`; that old name still appears in changelog history). `flags` 4.2.0+ accepts the adapter factory by reference (`adapter: vercelAdapter`) and resolves it once per declaration. Older versions require calling it (`adapter: vercelAdapter()`). The called form still works on new versions, so prefer the shorthand unless you're targeting `flags` < 4.2.0.
 
-## CLI-only flag management
-
-Managing remote flags with `vercel flags` requires an authenticated CLI, but not SDK packages, Toolbar, Flags Explorer, or `.env.local`. For requests that only inspect or change remote flags, skip app setup and code changes.
-
-Use `--project <name-or-id>` and `--scope <team>` to select the target without a local link. If the CLI rejects `--project`, upgrade it first (`pnpm i -g vercel`). If relying on a link, run `vercel project inspect --non-interactive` from the intended directory and confirm its owner and project; a `.vercel/` directory alone does not prove the target. Stop on a mismatch rather than silently relinking.
-
-CLI authentication is separate from the app's OIDC or SDK key. Pull local credentials only when the app needs local SDK evaluation, not to prepare a CLI flag command.
-
 ## Set up the SDK
 
 One-time project setup. Run this when the Flags SDK is not installed yet, or when Toolbar / Flags Explorer / `.env.local` are missing. Skip any step that is already done.
@@ -77,7 +69,7 @@ Check the project state to adapt commands and decide which steps you can skip:
 
 - Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
 - Is `flags` in `package.json`? → Skip install (step 1)
-- Does `vercel project inspect --non-interactive` report the intended owner and project? → Project is linked, skip `vercel link` in step 2. A `.vercel/` directory alone does not prove a link.
+- Is the project linked? → Verify as described in [Project targeting](#project-targeting), then skip `vercel link` in step 2
 - Does `.env.local` contain `VERCEL_OIDC_TOKEN=` (or a `FLAGS=` SDK key)? → Env vars already pulled, skip step 3
 - Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 4)
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Skip creating it (step 5)
@@ -91,9 +83,9 @@ Check the project state to adapt commands and decide which steps you can skip:
    ```
 
 2. **Link the project to Vercel** (required for `vercel env pull` and local OIDC token refresh):
-   > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
-   Run `vercel project inspect --non-interactive`. If it reports `link_required`, run `vercel link`. If it reports a different owner or project than intended, stop and ask the user instead of relinking. `vercel flags` commands do not need the link when you pass `--project` and `--scope`; see [CLI-only flag management](#cli-only-flag-management).
+   Verify the link as described in [Project targeting](#project-targeting). If the project is not linked, run `vercel link`.
 
 3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
 
@@ -119,11 +111,11 @@ SDK keys (`FLAGS`) are only for apps outside Vercel, custom environments, or fla
 
 ## Create a flag
 
-When a user asks you to create and integrate a feature flag that does not exist on Vercel yet, follow these steps in order. For a CLI-only creation request, follow [CLI-only flag management](#cli-only-flag-management) and the registration step below; skip app setup and code changes. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
+When a user asks you to create or add a feature flag that does not exist on Vercel yet, follow these steps in order. For a [CLI-only request](#cli-only-flag-management), run step 2 only. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
 
 ### Before you start
 
-- For app integration, complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, `.env.local`, Toolbar, `flags.ts`, or Flags Explorer are missing. Skip steps that are already done. For a CLI-only request, skip this checklist and go to step 2.
+- Complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, `.env.local`, Toolbar, `flags.ts`, or Flags Explorer are missing. Skip steps that are already done.
 - Does `.env.local` contain `VERCEL_OIDC_TOKEN=`? → Env vars already pulled; see [Pull environment variables](#pull-environment-variables) if local evaluation fails with an authentication error.
 - Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch.
 
@@ -133,7 +125,7 @@ When a user asks you to create and integrate a feature flag that does not exist 
 
 2. **Register the flag with Vercel**: Run `vercel flags create <flag-key> --kind boolean --description "<description>"`.
 
-   Select the intended project with `--project <name-or-id> --scope <team>`, or verify the existing local link as described in [CLI-only flag management](#cli-only-flag-management).
+   Target the project as described in [Project targeting](#project-targeting).
 
 3. **Pull environment variables**: If this is the project's first flag, follow [Pull environment variables](#pull-environment-variables) again; activation created the `FLAGS_SECRET`.
 
@@ -160,7 +152,7 @@ When a user asks you to create and integrate a feature flag that does not exist 
 
 ## Add a flag that already exists on Vercel
 
-Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key. If the user only asks to inspect the flag, follow [CLI-only flag management](#cli-only-flag-management) and read the definition; skip SDK setup and source edits.
+Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key. For a [CLI-only request](#cli-only-flag-management), run step 2 only.
 
 1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
 2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
@@ -181,6 +173,16 @@ Use this flow when the flag was created in the dashboard or by someone else, for
    });
    ```
 5. **Use the flag** as in [Create a flag](#create-a-flag) step 5.
+
+## CLI-only flag management
+
+Managing remote flags with `vercel flags` requires an authenticated CLI, but not SDK packages, Toolbar, Flags Explorer, or `.env.local`. For a CLI-only request, skip app setup and code changes.
+
+CLI authentication is separate from the app's OIDC or SDK key. Pull local credentials only when the app needs local SDK evaluation, not to prepare a CLI flag command.
+
+### Project targeting
+
+Use `--project <name-or-id>` and `--scope <team>` to select the target without a local link. If the CLI rejects `--project`, upgrade it first (`pnpm i -g vercel`). Without these options the commands use the linked project: run `vercel project inspect --non-interactive` and check the reported owner and project name; a `.vercel/` directory alone does not prove a link. If it reports `link_required`, the project is not linked. If the user named a project or team and the output differs, stop and ask instead of relinking.
 
 ## Vercel Flags
 
