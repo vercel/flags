@@ -29,7 +29,9 @@ pnpm i flags @flags-sdk/vercel
 
 > **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
-For CLI-only flag management, use `--project <name-or-id> --scope <team>` without a local link. If relying on a link, verify the owner and project with `vercel project inspect --non-interactive`; a `.vercel/` directory alone is insufficient. SDK packages and local app credentials are not prerequisites for these commands; see [CLI-only flag management](../SKILL.md#cli-only-flag-management). The following steps integrate a flag into an app.
+For CLI-only flag management, use `--project <name-or-id> --scope <team>` without a local link. If relying on a link, verify the owner and project with `vercel project inspect --non-interactive`; a `.vercel/` directory alone is insufficient. SDK packages and local app credentials are not prerequisites for these commands; see [CLI-only flag management](../SKILL.md#cli-only-flag-management).
+
+The following steps integrate a flag into an app. They need a linked project for `vercel env pull`: if `vercel project inspect --non-interactive` reports `link_required`, run `vercel link` first.
 
 1. Create a flag in the Vercel dashboard or via CLI: `vercel flags create <flag-key> --kind boolean --description "<description>"`
 2. Pull env vars: run `vercel env pull` to write the Vercel OIDC token and the Development `FLAGS_SECRET` to `.env.local` ([Pull environment variables](../SKILL.md#pull-environment-variables)). See [Authentication](#how-the-cli-connects-to-the-sdk) for SDK keys.
