@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isBun } from '../utils/runtime';
 import { connectStream } from './stream-connection';
+
+vi.mock('../utils/runtime', () => ({ isBun: vi.fn(() => false) }));
 
 const HOST = 'https://flags.vercel.com';
 const fetchMock = vi.fn<typeof fetch>();
@@ -7,6 +10,7 @@ const fetchMock = vi.fn<typeof fetch>();
 beforeEach(() => {
   vi.clearAllMocks();
   fetchMock.mockReset();
+  vi.mocked(isBun).mockReturnValue(false);
 });
 
 function createNdjsonStream(
@@ -884,6 +888,53 @@ describe('connectStream', () => {
       expect(onDatafile).toHaveBeenNthCalledWith(1, data1);
       expect(onDatafile).toHaveBeenNthCalledWith(2, data2);
 
+      abortController.abort();
+    });
+  });
+
+  describe('Accept-Encoding header', () => {
+    beforeEach(() => {
+      fetchMock.mockImplementation(() => ndjsonResponse([datafileMsg()]));
+    });
+
+    it('should request an uncompressed body on Bun, whose streaming decoder withholds small first messages', async () => {
+      vi.mocked(isBun).mockReturnValue(true);
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Accept-Encoding']).toBe('identity');
+      abortController.abort();
+    });
+
+    it('should leave content negotiation to the runtime when not on Bun', async () => {
+      const abortController = new AbortController();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn() },
+      );
+
+      const headers = fetchMock.mock.calls[0]![1]!.headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Accept-Encoding']).toBeUndefined();
       abortController.abort();
     });
   });
