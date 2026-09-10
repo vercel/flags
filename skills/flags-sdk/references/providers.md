@@ -27,9 +27,9 @@ pnpm i flags @flags-sdk/vercel
 
 ### Setup
 
-> **Prerequisite**: The `vercel flags` commands require the Vercel CLI to be installed and authenticated. If the Vercel CLI is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
-Before running any `vercel flags` command, verify the project is linked to Vercel. Check for a `.vercel` directory in the project root. If it doesn't exist, run `vercel link` first.
+The following steps integrate a flag into an app and need a linked project for `vercel env pull`; verify the link as described in [Project targeting](../SKILL.md#project-targeting). To only inspect or change remote flags, follow [CLI-only flag management](../SKILL.md#cli-only-flag-management) instead.
 
 1. Create a flag in the Vercel dashboard or via CLI: `vercel flags create <flag-key> --kind boolean --description "<description>"`
 2. Pull env vars: run `vercel env pull` to write the Vercel OIDC token and the Development `FLAGS_SECRET` to `.env.local` ([Pull environment variables](../SKILL.md#pull-environment-variables)). See [Authentication](#how-the-cli-connects-to-the-sdk) for SDK keys.
@@ -116,7 +116,7 @@ Outside Vercel, pass the SDK key: `createClient(process.env.FLAGS)`. Unlike `ver
 
 ### `vercel flags` CLI
 
-Manage Vercel Flags from the terminal. Install, link, and `vercel env pull` requirements are in [Setup](#setup) above.
+Manage Vercel Flags from the terminal with an authenticated CLI and a targeted project ([Project targeting](../SKILL.md#project-targeting)). SDK installation and `vercel env pull` are app-development steps, not CLI prerequisites (see [Setup](#setup)).
 
 For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts (linking, `--non-interactive`, `--yes`, parsing stdout) follow the `vercel-cli` skill. This section covers only what `--help` cannot tell you.
 
