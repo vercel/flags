@@ -1,3 +1,4 @@
+import type { WaitUntil } from '../types';
 import { type IngestOptions, sendIngestEvents } from './ingest';
 import { getRequestContext } from './request-context';
 import { type FlushReason, Scheduler } from './scheduler';
@@ -26,9 +27,12 @@ export class UsageTracker {
   private readEvents: FlagsConfigReadEvent[] = [];
   private evaluationEvents = new Map<string, FlagsEvaluationEvent>();
 
-  constructor(options: IngestOptions) {
+  constructor(options: IngestOptions & { waitUntil: WaitUntil }) {
     this.options = options;
-    this.scheduler = new Scheduler((reason) => this.flushEvents(reason));
+    this.scheduler = new Scheduler(
+      (reason) => this.flushEvents(reason),
+      options.waitUntil,
+    );
   }
 
   /**

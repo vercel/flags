@@ -10,6 +10,7 @@
  * We do not need to repeat the JSDoc on the next-js export.
  */
 
+import { waitUntil } from '@vercel/functions';
 import * as fns from './controller-fns';
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
@@ -32,4 +33,4 @@ export const {
    * Create a flags client using an SDK key, connection string, or Vercel OIDC.
    */
   createClient,
-} = make(createCreateRawClient(fns));
+} = make(createCreateRawClient(fns), { waitUntil });
