@@ -196,9 +196,11 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     sdkKey?: string;
   };
   /**
-   * Evaluate a feature flag
+   * Evaluate a feature flag.
    *
-   * Requires initialize() to have been called and awaited first.
+   * Initializes the client automatically on first use. Initialization failures
+   * are caught so evaluation can try its fallback sources and defaultValue.
+   * With request-scoped Vercel OIDC, call this inside a request handler.
    *
    * @param flagKey
    * @param defaultValue
@@ -218,7 +220,9 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
    * Avoids the per-flag overhead of separate `evaluate()` invocations (in particular,
    * the parallel promises and repeated datafile reads they would entail).
    *
-   * Requires initialize() to have been called and awaited first.
+   * Initializes the client automatically on first use. Initialization failures
+   * are caught so evaluation can try its fallback sources and default values.
+   * With request-scoped Vercel OIDC, call this inside a request handler.
    *
    * @param flags Array of `{ key, defaultValue? }` entries to evaluate.
    * @param entities Shared entities used for every flag in the bulk call.
@@ -242,7 +246,13 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
     entities?: E;
   }) => Promise<void>;
   /**
-   * Retrieve the latest datafile during startup, and set up subscriptions if needed.
+   * Load flag definitions and set up subscriptions if needed.
+   *
+   * Optional: evaluate() and bulkEvaluate() initialize automatically. This method
+   * rejects if initialization fails, while evaluation can still try fallbacks.
+   * With request-scoped Vercel OIDC, call this inside a request handler, not at
+   * module scope. Creating the client at module scope is safe; starting and
+   * caching an initialization promise there can run before a token is available.
    */
   initialize(): void | Promise<void>;
   /**
