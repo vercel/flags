@@ -28,4 +28,5 @@ export {
   ResolutionReason as Reason,
   type StreamOptions,
   type Value,
+  type WaitUntil,
 } from './types';

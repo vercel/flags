@@ -6,6 +6,7 @@ import { make } from './index.make';
 vi.mock('./controller', () => ({
   // Controller is instantiated with `new`, so the implementation must be a
   // function rather than an arrow — Vitest 4 throws "is not a constructor".
+  // biome-ignore lint/complexity/useArrowFunction: the mock must be constructible
   Controller: vi.fn().mockImplementation(function ({ auth }) {
     return {
       auth,
@@ -118,6 +119,63 @@ describe('make', () => {
         clientName: 'checkout',
       });
       expect(client).toBeDefined();
+    });
+
+    it('should pass a custom waitUntil to the controller and raw client', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient);
+      const waitUntil = vi.fn();
+
+      createClient('vf_server_test_key', { waitUntil });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil,
+      });
+    });
+
+    it('should use the default waitUntil for the controller and raw client', () => {
+      const createRawClient = createMockCreateRawClient();
+      const waitUntil = vi.fn();
+      const { createClient } = make(createRawClient, { waitUntil });
+
+      createClient('vf_server_test_key');
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil,
+      });
+    });
+
+    it('should prefer a custom waitUntil over the default', () => {
+      const createRawClient = createMockCreateRawClient();
+      const defaultWaitUntil = vi.fn();
+      const customWaitUntil = vi.fn();
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
+
+      createClient('vf_server_test_key', { waitUntil: customWaitUntil });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil: customWaitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil: customWaitUntil,
+      });
     });
 
     it('should pass experimental_reportExposures to the raw client, not the controller', () => {

@@ -59,6 +59,28 @@ const client = createClient(process.env.FLAGS!, {
 This option is sent only to the metrics ingestion endpoint. It does not select
 the environment used for flag evaluation.
 
+### Custom `waitUntil`
+
+By default, the client uses `waitUntil` from `@vercel/functions` to keep
+background work alive after a response. When Next.js selects the `next-js`
+conditional export, the client uses `after` from `next/server` instead. You can
+still pass a custom platform-specific implementation to `createClient`:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+const client = createClient(process.env.FLAGS!, {
+  waitUntil: (promise) => platformContext.waitUntil(promise),
+});
+```
+
+Evaluation does not wait for usage or exposure reporting. On platforms with a
+request lifecycle, pass its `waitUntil` implementation so that background work
+can finish after the response. In long-lived or self-hosted processes, call and
+await `client.shutdown()` during graceful shutdown to drain pending work.
+
+Abrupt process termination and permanent network failures cannot guarantee
+delivery. Use a durable queue when reporting must survive those failures.
+
 ## OpenFeature
 
 An OpenFeature-compatible provider is available at `@vercel/flags-core/openfeature`:

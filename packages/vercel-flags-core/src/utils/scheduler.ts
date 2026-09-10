@@ -1,4 +1,5 @@
 import { waitUntil } from '@vercel/functions';
+import type { WaitUntil } from '../types';
 import { getJitteredWaitMs } from './backoff';
 
 const IDLE_FLUSH_WAIT_MS = 5000;
@@ -27,6 +28,7 @@ export class Scheduler {
 
   constructor(
     private readonly onFlush: (reason: FlushReason) => void | Promise<void>,
+    private readonly scheduleTask: WaitUntil = waitUntil,
   ) {}
 
   scheduleFlush(): void {
@@ -45,7 +47,7 @@ export class Scheduler {
       })();
 
       try {
-        waitUntil(this.pending);
+        this.scheduleTask(this.pending);
       } catch {
         // waitUntil is best-effort; falling through leaves a floating promise
       }

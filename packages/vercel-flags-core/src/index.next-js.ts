@@ -11,6 +11,7 @@
  */
 
 import { cacheLife } from 'next/cache';
+import { after } from 'next/server';
 import * as fns from './controller-fns';
 import { createCreateRawClient } from './create-raw-client';
 import { make } from './index.make';
@@ -70,4 +71,5 @@ export * from './index.common';
 // no JSDoc needed here since editors will use the one if index.default.ts
 export const { flagsClient, resetDefaultFlagsClient, createClient } = make(
   createCreateRawClient(cachedFns),
+  { waitUntil: after },
 );

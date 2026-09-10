@@ -5,7 +5,11 @@
 import { Controller, type ControllerOptions } from './controller';
 import { Authentication } from './controller/auth';
 import type { createCreateRawClient } from './create-raw-client';
-import type { experimental_ReportExposures, FlagsClient } from './types';
+import type {
+  experimental_ReportExposures,
+  FlagsClient,
+  WaitUntil,
+} from './types';
 
 /**
  * Options for createClient
@@ -35,6 +39,7 @@ type CreateClient = {
 
 export function make(
   createRawClient: ReturnType<typeof createCreateRawClient>,
+  defaults?: { waitUntil?: WaitUntil },
 ): {
   flagsClient: FlagsClient;
   resetDefaultFlagsClient: () => void;
@@ -69,12 +74,18 @@ export function make(
     const { experimental_reportExposures, ...controllerOptions } =
       createClientOptions ?? {};
     const auth = new Authentication(sdkKeyOrConnectionString);
+    const waitUntil = controllerOptions.waitUntil ?? defaults?.waitUntil;
 
     // sdk key contains the environment
-    const controller = new Controller({ auth, ...controllerOptions });
+    const controller = new Controller({
+      auth,
+      ...controllerOptions,
+      ...(waitUntil ? { waitUntil } : {}),
+    });
     return createRawClient<Entities>({
       controller,
       origin: { provider: 'vercel', sdkKey: auth.sdkKey },
+      ...(waitUntil ? { waitUntil } : {}),
       ...(experimental_reportExposures ? { experimental_reportExposures } : {}),
     });
   }
