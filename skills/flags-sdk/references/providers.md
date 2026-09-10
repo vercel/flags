@@ -114,6 +114,25 @@ export const exampleFlag = flag({
 
 Outside Vercel, pass the SDK key: `createClient(process.env.FLAGS)`. Unlike `vercelAdapter()`, `createClient()` does not read `FLAGS` on its own.
 
+### Core client in other frameworks (for example, Express)
+
+For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly. Create a shared client at module scope, but call `evaluate()` or `bulkEvaluate()` inside a request handler. Both initialize the client automatically; do not add a module-scope `client.initialize()` call or cache its promise for handlers to await.
+
+```ts
+// src/flags.ts
+import { createClient } from '@vercel/flags-core';
+
+const client = createClient();
+
+// Call from a request handler, not during module loading.
+export async function getVersion(): Promise<number> {
+  const result = await client.evaluate<number>('version', 0);
+  return result.value;
+}
+```
+
+With Vercel OIDC, the token can come from request context and may not exist during module loading. Even embedded definitions require OIDC to select the entry by the token's `project_id`. Local `.env.local` credentials can hide this timing problem. Explicit initialization is optional and must wait until authentication is available; awaiting an already-started initialization promise later does not move it into request context. See the [core client README](https://github.com/vercel/flags/tree/main/packages/vercel-flags-core#initialization-and-request-scoped-oidc).
+
 ### `vercel flags` CLI
 
 Manage Vercel Flags from the terminal with an authenticated CLI and a targeted project ([Project targeting](../SKILL.md#project-targeting)). SDK installation and `vercel env pull` are app-development steps, not CLI prerequisites (see [Setup](#setup)).
