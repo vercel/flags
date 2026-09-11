@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions';
+import { waitUntil as defaultWaitUntil } from '@vercel/functions';
 import { dequal } from 'dequal/lite';
 import type {
   bulkEvaluate,
@@ -23,6 +23,7 @@ import type {
   FlagsClient,
   Packed,
   Value,
+  WaitUntil,
 } from './types';
 
 let idCount = 0;
@@ -53,12 +54,15 @@ export function createCreateRawClient(fns: {
     controller,
     origin,
     experimental_reportExposures,
+    waitUntil = defaultWaitUntil,
   }: {
     controller: ControllerInterface;
     origin?: { provider: string; sdkKey?: string };
     experimental_reportExposures?: experimental_ReportExposures<Entities>;
+    waitUntil?: WaitUntil;
   }): FlagsClient<Entities> {
     const id = idCount++;
+    const pendingExposureReports = new Set<Promise<void>>();
     controllerInstanceMap.set(id, {
       controller,
       initialized: false,
@@ -81,6 +85,8 @@ export function createCreateRawClient(fns: {
           );
         }
       })();
+      pendingExposureReports.add(pending);
+      void pending.finally(() => pendingExposureReports.delete(pending));
 
       try {
         waitUntil(pending);
@@ -131,6 +137,9 @@ export function createCreateRawClient(fns: {
       },
       shutdown: async () => {
         await fns.shutdown(id);
+        while (pendingExposureReports.size > 0) {
+          await Promise.all(pendingExposureReports);
+        }
         controllerInstanceMap.delete(id);
       },
       getDatafile: async () => {
