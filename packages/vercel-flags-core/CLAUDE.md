@@ -24,6 +24,7 @@ src/
 │   ├── fetch-datafile.ts     # HTTP datafile fetch
 │   ├── tagged-data.ts        # Data origin tagging types/helpers
 │   ├── normalized-options.ts # Option normalization
+│   ├── routed-init.ts        # Routed config version comparison
 │   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
 ├── test-utils.ts         # Shared test helpers
@@ -31,6 +32,8 @@ src/
 │   ├── usage-tracker.ts
 │   ├── sdk-keys.ts
 │   ├── sleep.ts
+│   ├── version-header.ts           # Routed version header parser
+│   ├── request-context.ts          # Vercel request context access
 │   └── read-bundled-definitions.ts
 └── lib/
     └── report-value.ts   # Flag evaluation reporting to Vercel request context
@@ -119,7 +122,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 Key behaviors:
 - Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
-- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
+- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout — unless the routed config version shows the existing data is already current (see [Routed Config Version](#routed-config-version))
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
@@ -188,6 +191,7 @@ pnpm test:integration
 `initialize()` waits for fresh data before resolving, even when bundled data or a provided datafile is available:
 - **Streaming**: waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs`
 - **Polling**: waits for the first poll response up to `initTimeoutMs`
+- **Exception**: it resolves immediately when a version header shows local data covers the routed version (see [Routed Config Version](#routed-config-version)). Timeout tests must not set either header for the datafile's `projectId`.
 
 This means:
 
@@ -277,6 +281,24 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - Stored in `controllerInstanceMap` in `controller-fns.ts`
 - Supports multiple simultaneous clients
 - Necessary as we can't pass functions to `'use cache'` wrappers
+
+### Routed Config Version
+
+The Controller reads `x-vercel-edge-config-versions` from the request context,
+falling back to `edge-config-versions` only when the primary header is absent.
+A present primary remains authoritative even if empty, invalid, or missing the
+project entry. Both headers use a semicolon-separated map of store names to
+millisecond timestamps, e.g. `flags_prj_123=1758000000000`.
+
+- `utils/version-header.ts` selects the first valid exact `flags_${projectId}` entry, skipping invalid matches.
+- If local `configUpdatedAt` is **>=** the routed version, `initialize()` resolves
+  immediately while stream/poll updates continue in the background. The state
+  stays `initializing:*` until the source connects.
+- Missing context, project id, or valid entry, and unusable local timestamps
+  preserve the existing initialization wait.
+- `FLAGS_CONFIG_READ.configRoutedInit` records `immediate`, `behind`, `invalid`,
+  or `unknown-local`, without ids or header values. It is omitted
+  when no routed version applies.
 
 ### configUpdatedAt Guard
 

@@ -17,6 +17,7 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
+import { decideRoutedInit, type RoutedInitOutcome } from './routed-init';
 import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
@@ -119,6 +120,8 @@ export class Controller implements ControllerInterface {
 
   // Suppresses usage tracking when the SDK key is unauthorized
   private unauthorized = false;
+
+  private routedInitOutcome: RoutedInitOutcome | undefined;
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
@@ -267,13 +270,22 @@ export class Controller implements ControllerInterface {
     // If we already have data (from provided datafile or bundled definitions),
     // start updates. Both streaming and polling wait for initial data before
     // being considered initialized, so we know we have fresh data.
+    // Skip the wait if local data already covers the routed version.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
+        if (this.canInitializeFromLocalData()) {
+          this.startStreamInBackground();
+          return;
+        }
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
         this.transition('initializing:polling');
+        if (this.canInitializeFromLocalData()) {
+          this.startPollingInBackground();
+          return;
+        }
         await this.tryInitializePolling();
       } else {
         this.transition('degraded');
@@ -447,6 +459,45 @@ export class Controller implements ControllerInterface {
     }
 
     return this.resolveDataWithFallbacks();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Routed config version
+  // ---------------------------------------------------------------------------
+
+  private canInitializeFromLocalData(): boolean {
+    if (!this.data) return false;
+
+    const decision = decideRoutedInit({
+      projectId: this.data.projectId,
+      configUpdatedAt: this.data.configUpdatedAt,
+    });
+    this.routedInitOutcome = decision.outcome;
+
+    return decision.immediate;
+  }
+
+  // Keep the initializing state until the stream emits connected.
+  private startStreamInBackground(): void {
+    try {
+      void this.streamSource.start().catch((error) => {
+        // Source events handle connection state; suppress usage for invalid keys.
+        if (
+          error instanceof UnauthorizedError ||
+          (error instanceof Error && error.message.includes('401'))
+        ) {
+          this.unauthorized = true;
+        }
+      });
+    } catch {
+      // Local data covers this request even if starting the stream fails.
+    }
+  }
+
+  // Start the interval first so stop() can abort the immediate poll.
+  private startPollingInBackground(): void {
+    this.pollingSource.startInterval();
+    void this.pollingSource.poll();
   }
 
   // ---------------------------------------------------------------------------
@@ -813,6 +864,9 @@ export class Controller implements ControllerInterface {
     }
     if (isFirstRead) {
       trackOptions.cacheIsFirstRead = true;
+    }
+    if (this.routedInitOutcome !== undefined) {
+      trackOptions.configRoutedInit = this.routedInitOutcome;
     }
     this.usageTracker.trackRead(trackOptions);
   }
