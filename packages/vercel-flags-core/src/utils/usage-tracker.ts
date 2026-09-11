@@ -1,5 +1,6 @@
 import { type IngestOptions, sendIngestEvents } from './ingest';
 import { getRequestContext } from './request-context';
+import { getRuntimeIngest } from './runtime-ingest';
 import { type FlushReason, Scheduler } from './scheduler';
 import {
   FlagsConfigReadEvent,
@@ -60,7 +61,7 @@ export class UsageTracker {
 
       this.readEvents.push(new FlagsConfigReadEvent(headers, options));
 
-      this.scheduler.scheduleFlush();
+      this.requestFlush();
     } catch (error) {
       // trackRead should never throw, but log the error
       console.error('@vercel/flags-core: Failed to record event:', error);
@@ -90,12 +91,26 @@ export class UsageTracker {
       }
 
       // always schedule to reset the timer
-      this.scheduler.scheduleFlush();
+      this.requestFlush();
     } catch (error) {
       console.error(
         '@vercel/flags-core: Failed to record evaluation event:',
         error,
       );
+    }
+  }
+
+  /**
+   * Flushes immediately when the runtime provides an ingest transport,
+   * otherwise falls back to the time-based scheduler.
+   */
+  private requestFlush(): void {
+    if (getRuntimeIngest()) {
+      void this.flushEvents('immediate').catch((error) => {
+        console.error('@vercel/flags-core: Failed to flush events:', error);
+      });
+    } else {
+      this.scheduler.scheduleFlush();
     }
   }
 

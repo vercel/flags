@@ -5,7 +5,11 @@ const IDLE_FLUSH_WAIT_MS = 5000;
 const IDLE_FLUSH_JITTER_RATIO = 0.2;
 const MAX_FLUSH_WAIT_MS = 60000;
 
-export type FlushReason = 'idle_timeout' | 'max_timeout' | 'shutdown';
+export type FlushReason =
+  | 'idle_timeout'
+  | 'max_timeout'
+  | 'shutdown'
+  | 'immediate';
 
 /**
  * Schedule helper that flushes when any of the following occur:
