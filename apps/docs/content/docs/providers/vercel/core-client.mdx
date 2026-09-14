@@ -97,7 +97,7 @@ The pull command writes a Vercel OIDC token to `.env.local`. A local runner that
 
 ## Configure background work
 
-The client reports usage in the background. If you configure `experimental_reportExposures`, it also reports experiment exposures in the background. The client uses a `waitUntil` function to keep this work alive after the response is sent.
+The client reports usage in the background. It uses a `waitUntil` function to keep this work alive after the response is sent.
 
 The default depends on your runtime:
 
@@ -118,7 +118,7 @@ export function createFlagsClient(waitUntil: WaitUntil) {
 
 Pass the platform's lifecycle function when you create the client. The function must accept a `Promise<unknown>` and keep the process or request alive until that promise settles. An explicit `waitUntil` option takes precedence over the runtime default.
 
-Background reporting does not block flag evaluation. In a long-lived process, call `shutdown()` during graceful shutdown. It flushes usage data and closes active connections. If you configure `experimental_reportExposures`, it also waits for pending exposure reports:
+Background reporting does not block flag evaluation. In a long-lived process, call `shutdown()` during graceful shutdown. It flushes usage data and closes active connections:
 
 ```ts
 process.on('SIGTERM', async () => {
