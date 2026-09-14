@@ -1,0 +1,161 @@
+---
+title: '@vercel/flags-core'
+description: 'Use the low-level Vercel Flags client with request-scoped OIDC authentication and custom background task scheduling.'
+---
+
+`@vercel/flags-core` is the low-level evaluation client for Vercel Flags. Use it when your framework does not have a Flags SDK integration, when you need direct control over the client lifecycle, or when you use the OpenFeature standard.
+
+For Next.js and SvelteKit applications, prefer the Flags SDK with the [Vercel adapter](/providers/vercel). It integrates Vercel Flags with flag declarations, overrides, and provider metadata.
+
+## Installation
+
+Install the core client:
+
+```bash
+pnpm i @vercel/flags-core
+```
+
+## Create a client
+
+Create one shared client at module scope. On Vercel, calling `createClient()` without an SDK key uses the deployment's OpenID Connect (OIDC) token:
+
+```ts title="src/flags.ts"
+import { createClient } from '@vercel/flags-core';
+
+export const flagsClient = createClient();
+```
+
+Evaluate flags inside a request handler. `evaluate()` and `bulkEvaluate()` initialize the client automatically on first use:
+
+```ts title="src/server.ts"
+import express from 'express';
+import { flagsClient } from './flags';
+
+const app = express();
+
+app.get('/api/feature', async (_request, response) => {
+  const result = await flagsClient.evaluate<boolean>(
+    'show-new-feature',
+    false,
+  );
+
+  response.json({ enabled: result.value });
+});
+
+export default app;
+```
+
+Outside Vercel, pass an SDK key explicitly:
+
+```ts
+const flagsClient = createClient(process.env.FLAGS);
+```
+
+## Use request-scoped OIDC
+
+On Vercel, the OIDC token can come from the current request context through the `x-vercel-oidc-token` header. The token is not guaranteed to exist while modules load.
+
+Creating a client at module scope is safe because the client initializes lazily. Do not call `initialize()` at module scope when you use OIDC:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+
+const flagsClient = createClient();
+
+// Do not start initialization here. A request-scoped OIDC token might not
+// be available yet.
+const initialization = flagsClient.initialize();
+```
+
+Awaiting a module-scoped initialization promise inside a request handler does not move the initialization into that request's context. If initialization fails, each handler that awaits the same promise also fails before evaluation can use its fallback behavior.
+
+Instead, call `evaluate()` or `bulkEvaluate()` in the request handler. If you need to handle initialization errors yourself, call `initialize()` in the handler before evaluation:
+
+```ts
+export async function handleRequest(): Promise<Response> {
+  await flagsClient.initialize();
+
+  const result = await flagsClient.evaluate<boolean>(
+    'show-new-feature',
+    false,
+  );
+
+  return Response.json({ enabled: result.value });
+}
+```
+
+This requirement also applies when your build embeds flag definitions. An OIDC-authenticated client uses the token's `project_id` claim to select the correct embedded definitions. Importing `@vercel/flags-definitions` does not remove the need to resolve the token at request time.
+
+For local development, link the project and pull its environment variables:
+
+```bash
+vercel link
+vercel env pull
+```
+
+The pull command writes a Vercel OIDC token to `.env.local`. A local runner that loads this file can make module-scope initialization appear to work. A deployment can still require request-scoped authentication, so keep evaluation and explicit initialization inside the request handler.
+
+## Configure background work
+
+The client reports usage and experiment exposures in the background. It uses a `waitUntil` function to keep this work alive after the response is sent.
+
+The default depends on your runtime:
+
+| Runtime | Default |
+| --- | --- |
+| Next.js | [`after`](https://nextjs.org/docs/app/api-reference/functions/after) from `next/server` |
+| Other runtimes | `waitUntil` from `@vercel/functions` |
+
+You do not need to configure `waitUntil` for these runtimes. For another platform or runtime, pass a compatible function to `createClient`:
+
+```ts
+import { createClient } from '@vercel/flags-core';
+
+const flagsClient = createClient(process.env.FLAGS, {
+  waitUntil(promise) {
+    backgroundTasks.register(promise);
+  },
+});
+```
+
+The function must accept a `Promise<unknown>` and keep the process or request alive until that promise settles. An explicit `waitUntil` option takes precedence over the runtime default.
+
+Background reporting does not block flag evaluation. In a long-lived process, call `shutdown()` during graceful shutdown. It flushes usage data, closes active connections, and waits for pending exposure reports:
+
+```ts
+process.on('SIGTERM', async () => {
+  await flagsClient.shutdown();
+  process.exit(0);
+});
+```
+
+## Configure evaluation metrics
+
+Use `metricEnvironment` to attach an environment to evaluation metrics:
+
+```ts
+const flagsClient = createClient(process.env.FLAGS, {
+  metricEnvironment: 'preview',
+});
+```
+
+This option affects only the metrics sent to the ingestion endpoint. It does not select the environment used for flag evaluation.
+
+## Use OpenFeature
+
+The package includes an OpenFeature-compatible provider at `@vercel/flags-core/openfeature`:
+
+```ts
+import { OpenFeature } from '@openfeature/server-sdk';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+await OpenFeature.setProviderAndWait(new VercelProvider());
+
+const flagsClient = OpenFeature.getClient();
+```
+
+## Next steps
+
+- [Configure the Vercel adapter](/providers/vercel)
+- [Learn about evaluation context](/principles/evaluation-context)
+- [Review server-side and client-side evaluation](/principles/server-side-vs-client-side)
