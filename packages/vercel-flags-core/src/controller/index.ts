@@ -11,6 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
+import { HeaderSource } from './header-source';
 import {
   type ControllerOptions,
   type NormalizedOptions,
@@ -57,6 +58,7 @@ type State =
   | 'initializing:fallback'
   | 'streaming'
   | 'polling'
+  | 'vercel'
   | 'degraded'
   | 'build:loading'
   | 'build:ready'
@@ -85,6 +87,11 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
+ * **Runtime - vercel mode** (request context has matching x-vercel-flags-config-versions header)
+ * - Uses the header value to determine if the current data is fresh
+ * - Revalidates in the background if the header value is within 10 seconds of the current configUpdatedAt
+ * - Blocking fetch if header is newer than current configUpdatedAt
+ *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
  * - Read fallback: in-memory value → constructor datafile → bundled → one-time fetch → throw
@@ -108,6 +115,7 @@ export class Controller implements ControllerInterface {
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
+  private headerSource: HeaderSource;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -135,6 +143,8 @@ export class Controller implements ControllerInterface {
       auth: this.options.auth,
       readBundledDefinitions,
     });
+
+    this.headerSource = new HeaderSource(this.options);
 
     // Wire source events to state machine
     this.wireSourceEvents();
@@ -178,6 +188,11 @@ export class Controller implements ControllerInterface {
   private onPollError = (error: Error) => {
     console.error('@vercel/flags-core: Poll failed:', error);
   };
+  private onFetchedData = (data: DatafileInput) => {
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'fetched');
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -188,8 +203,11 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
+
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
+
+    this.headerSource.on('data', this.onFetchedData);
   }
 
   private unwireSourceEvents(): void {
@@ -197,8 +215,11 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
+
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
+
+    this.headerSource.off('data', this.onFetchedData);
   }
 
   // ---------------------------------------------------------------------------
@@ -220,6 +241,8 @@ export class Controller implements ControllerInterface {
         return 'streaming';
       case 'polling':
         return 'polling';
+      case 'vercel':
+        return 'vercel';
       default:
         return 'offline';
     }
@@ -269,7 +292,9 @@ export class Controller implements ControllerInterface {
     // being considered initialized, so we know we have fresh data.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
-      if (this.options.stream.enabled) {
+      if (this.headerSource.isAvailable(this.data.projectId)) {
+        this.transition('vercel');
+      } else if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
@@ -442,6 +467,14 @@ export class Controller implements ControllerInterface {
     }
 
     if (this.data) {
+      if (this.mode === 'vercel') {
+        const data = await this.headerSource.read(this.data);
+
+        if (data) {
+          return data;
+        }
+      }
+
       const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
       return [this.data, cacheStatus];
     }

@@ -16,7 +16,7 @@ export interface TrackReadOptions {
   /** Timestamp when the config was last updated */
   configUpdatedAt?: number;
   /** The mode the SDK is operating in */
-  mode?: 'poll' | 'stream' | 'build' | 'offline';
+  mode?: 'poll' | 'stream' | 'build' | 'vercel' | 'offline';
   /** Revision of the config */
   revision?: number;
 }
