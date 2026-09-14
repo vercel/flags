@@ -17,7 +17,13 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
-import { decideRoutedInit, type RoutedInitOutcome } from './routed-init';
+import { type PushVersionRead, PushVersionSource } from './push-version-source';
+import {
+  decideRoutedInit,
+  getRoutedConfigVersion,
+  hasRoutedConfigVersion,
+  type RoutedInitOutcome,
+} from './routed-init';
 import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
@@ -58,6 +64,7 @@ type State =
   | 'initializing:fallback'
   | 'streaming'
   | 'polling'
+  | 'pushVersion'
   | 'degraded'
   | 'build:loading'
   | 'build:ready'
@@ -122,6 +129,8 @@ export class Controller implements ControllerInterface {
   private unauthorized = false;
 
   private routedInitOutcome: RoutedInitOutcome | undefined;
+  private pushVersionSource: PushVersionSource;
+  private legacyInitialization: Promise<void> | undefined;
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
@@ -133,6 +142,13 @@ export class Controller implements ControllerInterface {
     );
 
     this.pollingSource = new PollingSource(this.options);
+    this.pushVersionSource = new PushVersionSource(
+      this.options,
+      () => this.data,
+      (data) => {
+        this.data = tagData(data, 'fetched');
+      },
+    );
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -152,7 +168,11 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
+    if (
+      this.state !== 'pushVersion' &&
+      this.state !== 'shutdown' &&
+      this.isNewerData(data)
+    ) {
       this.data = tagData(data, 'stream');
     }
   };
@@ -174,7 +194,11 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
+    if (
+      this.state !== 'pushVersion' &&
+      this.state !== 'shutdown' &&
+      this.isNewerData(data)
+    ) {
       this.data = tagData(data, 'poll');
     }
   };
@@ -216,6 +240,10 @@ export class Controller implements ControllerInterface {
     return this.state === 'streaming';
   }
 
+  private get usesLegacySources(): boolean {
+    return this.state !== 'pushVersion' && this.state !== 'shutdown';
+  }
+
   private get mode(): Metrics['mode'] {
     if (this.options.buildStep) return 'build';
     switch (this.state) {
@@ -223,6 +251,8 @@ export class Controller implements ControllerInterface {
         return 'streaming';
       case 'polling':
         return 'polling';
+      case 'pushVersion':
+        return 'pushVersion';
       default:
         return 'offline';
     }
@@ -241,6 +271,10 @@ export class Controller implements ControllerInterface {
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
+    if (this.state === 'shutdown') {
+      this.wireSourceEvents();
+      this.transition('idle');
+    }
     if (this.options.buildStep) {
       this.transition('build:loading');
       await this.initializeForBuildStep();
@@ -267,25 +301,52 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    // If we already have data (from provided datafile or bundled definitions),
-    // start updates. Both streaming and polling wait for initial data before
-    // being considered initialized, so we know we have fresh data.
-    // Skip the wait if local data already covers the routed version.
-    // For no-updates (offline), return immediately since we already have usable data.
+    // Without a bundle, an SDK key does not tell us its project. Discover it
+    // with an authenticated datafile read, never by choosing an arbitrary
+    // project from the header. Headerless clients retain their original init.
+    if (
+      !this.data &&
+      (this.options.stream.enabled || this.options.polling.enabled) &&
+      hasRoutedConfigVersion()
+    ) {
+      try {
+        const fetched = await fetchDatafile(this.options);
+        if (this.state === 'shutdown') return;
+        if (!this.data) this.data = tagData(fetched, 'fetched');
+      } catch {
+        // Discovery failed; retain the original source/fallback chain.
+      }
+    }
+
+    this.routedInitOutcome = this.data
+      ? decideRoutedInit({
+          projectId: this.data.projectId,
+          configUpdatedAt: this.data.configUpdatedAt,
+        }).outcome
+      : undefined;
+    if (await this.resolvePushVersion()) return;
+    await this.initializeLegacy();
+  }
+
+  private initializeLegacy(): Promise<void> {
+    if (!this.legacyInitialization) {
+      const promise = this.initializeLegacySources().finally(() => {
+        if (this.legacyInitialization === promise)
+          this.legacyInitialization = undefined;
+      });
+      this.legacyInitialization = promise;
+    }
+    return this.legacyInitialization;
+  }
+
+  private async initializeLegacySources(): Promise<void> {
+    // Keep the original lifecycle whenever no usable routed version applies.
     if (this.data) {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
-        if (this.canInitializeFromLocalData()) {
-          this.startStreamInBackground();
-          return;
-        }
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
         this.transition('initializing:polling');
-        if (this.canInitializeFromLocalData()) {
-          this.startPollingInBackground();
-          return;
-        }
         await this.tryInitializePolling();
       } else {
         this.transition('degraded');
@@ -297,6 +358,7 @@ export class Controller implements ControllerInterface {
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
       const streamSuccess = await this.tryInitializeStream();
+      if (!this.usesLegacySources) return;
       if (streamSuccess) {
         this.transition('streaming');
         return;
@@ -304,6 +366,7 @@ export class Controller implements ControllerInterface {
     } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
+      if (!this.usesLegacySources) return;
       if (pollingSuccess) {
         this.transition('polling');
         return;
@@ -323,11 +386,17 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveData();
+    const [result, cacheStatus, pushVersionRead] = await this.resolveData();
 
     const readMs = Date.now() - startTime;
     const source = originToMetricsSource(result._origin);
-    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
+    this.trackRead(
+      startTime,
+      cacheHadDefinitions,
+      isFirstRead,
+      source,
+      pushVersionRead,
+    );
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -344,7 +413,7 @@ export class Controller implements ControllerInterface {
         connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
-        mode: this.mode,
+        mode: pushVersionRead?.mode ?? this.mode,
       },
     } satisfies Datafile;
   }
@@ -354,6 +423,8 @@ export class Controller implements ControllerInterface {
    */
   async shutdown(): Promise<void> {
     this.unwireSourceEvents();
+    this.pushVersionSource.stop();
+    this.legacyInitialization = undefined;
     this.streamSource.stop();
     this.pollingSource.stop();
     this.data = this.options.datafile
@@ -407,6 +478,16 @@ export class Controller implements ControllerInterface {
       }
     }
 
+    // getDatafile() can be used without initialize(); load local data first,
+    // then apply the same per-request version policy as evaluation reads.
+    const pushVersionRead = await this.resolvePushVersion();
+    if (pushVersionRead) {
+      [result, cacheStatus] = pushVersionRead;
+    } else if (this.data && result !== this.data) {
+      // Restoring legacy updates may have replaced data while we were waiting.
+      result = this.data;
+      cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+    }
     const source = originToMetricsSource(result._origin);
 
     if (this.dataViewSource !== result) {
@@ -424,7 +505,7 @@ export class Controller implements ControllerInterface {
         connectionState: this.isConnected
           ? ('connected' as const)
           : ('disconnected' as const),
-        mode: this.mode,
+        mode: pushVersionRead?.[2].mode ?? this.mode,
       },
     } satisfies Datafile;
   }
@@ -448,10 +529,15 @@ export class Controller implements ControllerInterface {
    * Runtime with cache: return cached data
    * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
    */
-  private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
+  private async resolveData(): Promise<
+    [TaggedData, Metrics['cacheStatus'], PushVersionRead[2]?]
+  > {
     if (this.options.buildStep) {
       return this.resolveDataForBuildStep();
     }
+
+    const pushVersionRead = await this.resolvePushVersion();
+    if (pushVersionRead) return pushVersionRead;
 
     if (this.data) {
       const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
@@ -465,39 +551,30 @@ export class Controller implements ControllerInterface {
   // Routed config version
   // ---------------------------------------------------------------------------
 
-  private canInitializeFromLocalData(): boolean {
-    if (!this.data) return false;
-
-    const decision = decideRoutedInit({
-      projectId: this.data.projectId,
-      configUpdatedAt: this.data.configUpdatedAt,
-    });
-    this.routedInitOutcome = decision.outcome;
-
-    return decision.immediate;
-  }
-
-  // Keep the initializing state until the stream emits connected.
-  private startStreamInBackground(): void {
-    try {
-      void this.streamSource.start().catch((error) => {
-        // Source events handle connection state; suppress usage for invalid keys.
-        if (
-          error instanceof UnauthorizedError ||
-          (error instanceof Error && error.message.includes('401'))
-        ) {
-          this.unauthorized = true;
-        }
-      });
-    } catch {
-      // Local data covers this request even if starting the stream fails.
+  private async resolvePushVersion(): Promise<PushVersionRead | undefined> {
+    // A header must never turn explicit offline/build usage into online usage.
+    if (
+      this.options.buildStep ||
+      (!this.options.stream.enabled && !this.options.polling.enabled)
+    )
+      return;
+    const version = getRoutedConfigVersion(this.data?.projectId);
+    if (version !== undefined) {
+      if (this.state !== 'pushVersion') {
+        this.transition('pushVersion');
+        this.streamSource.stop();
+        this.pollingSource.stop();
+        this.legacyInitialization = undefined;
+      }
+      return this.pushVersionSource.read(version);
     }
-  }
-
-  // Start the interval first so stop() can abort the immediate poll.
-  private startPollingInBackground(): void {
-    this.pollingSource.startInterval();
-    void this.pollingSource.poll();
+    if (this.state === 'pushVersion') {
+      this.pushVersionSource.stop();
+      this.routedInitOutcome = undefined;
+      await this.initializeLegacy();
+    } else if (this.legacyInitialization) {
+      await this.legacyInitialization;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -574,6 +651,7 @@ export class Controller implements ControllerInterface {
     if (this.options.polling.initTimeoutMs <= 0) {
       try {
         await pollPromise;
+        if (!this.usesLegacySources) return false;
         if (this.data) {
           this.pollingSource.startInterval();
           return true;
@@ -596,6 +674,7 @@ export class Controller implements ControllerInterface {
     try {
       const result = await Promise.race([pollPromise, timeoutPromise]);
       clearTimeout(timeoutId!);
+      if (!this.usesLegacySources) return false;
 
       if (result === 'timeout') {
         console.warn(
@@ -831,6 +910,7 @@ export class Controller implements ControllerInterface {
     cacheHadDefinitions: boolean,
     isFirstRead: boolean,
     source: Metrics['source'],
+    pushVersionRead?: PushVersionRead[2],
   ): void {
     if (this.unauthorized) return;
     if (this.options.buildStep && this.buildReadTracked) return;
@@ -868,7 +948,7 @@ export class Controller implements ControllerInterface {
     if (this.routedInitOutcome !== undefined) {
       trackOptions.configRoutedInit = this.routedInitOutcome;
     }
-    this.usageTracker.trackRead(trackOptions);
+    this.usageTracker.trackRead({ ...trackOptions, ...pushVersionRead });
   }
 
   /**

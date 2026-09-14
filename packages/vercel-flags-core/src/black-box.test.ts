@@ -3011,34 +3011,14 @@ describe('Controller (black-box)', () => {
 
       expect(warnSpy).not.toHaveBeenCalled();
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://flags.vercel.com/v1/stream',
-        {
-          headers: { ...streamRequestHeaders, 'X-Revision': '1' },
-          signal: expect.any(AbortSignal),
-        },
-      );
-
-      // The connection is not confirmed yet, so it must not be reported.
-      const before = await client.evaluate('flagA');
-      expect(before.value).toBe(true);
-      expect(before.metrics?.source).toBe('in-memory');
-      expect(before.metrics?.cacheStatus).toBe('STALE');
-      expect(before.metrics?.connectionState).toBe('disconnected');
-      expect(before.metrics?.mode).toBe('offline');
-
-      stream.push({
-        type: 'primed',
-        revision: 1,
-        projectId: 'prj_123',
-        environment: 'production',
-      });
-      await vi.advanceTimersByTimeAsync(0);
-
-      const after = await client.evaluate('flagA');
-      expect(after.metrics?.connectionState).toBe('connected');
-      expect(after.metrics?.mode).toBe('streaming');
+      expect(fetchMock).not.toHaveBeenCalled();
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+      expect(result.metrics?.source).toBe('in-memory');
+      expect(result.metrics?.cacheStatus).toBe('HIT');
+      expect(result.metrics?.connectionState).toBe('disconnected');
+      expect(result.metrics?.mode).toBe('pushVersion');
+      expect(fetchMock).not.toHaveBeenCalled();
 
       warnSpy.mockRestore();
       stream.close();
@@ -3109,7 +3089,7 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should initialize immediately in polling mode and keep polling in the background', async () => {
+    it('should replace polling with a background fetch only when the header advances', async () => {
       const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
 
       let resolveFirstPoll: (response: Response) => void = () => {};
@@ -3152,10 +3132,14 @@ describe('Controller (black-box)', () => {
       expect(settled).toBe(true);
       await initPromise;
 
-      expect(pollCount).toBe(1);
+      expect(pollCount).toBe(0);
+      setRoutedVersions('flags_prj_123=3000');
       const before = await client.evaluate('flagA');
       expect(before.value).toBe(true);
       expect(before.metrics?.connectionState).toBe('disconnected');
+      expect(before.metrics?.mode).toBe('pushVersion');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pollCount).toBe(1);
 
       resolveFirstPoll(Response.json(polled));
       await vi.advanceTimersByTimeAsync(0);
@@ -3163,14 +3147,14 @@ describe('Controller (black-box)', () => {
       expect(after.value).toBe(false);
 
       await vi.advanceTimersByTimeAsync(30_000);
-      expect(pollCount).toBe(2);
+      expect(pollCount).toBe(1);
 
       await client.shutdown();
       cleanupCtx();
     });
 
-    it('should not replace immediately initialized data with equal or older data', async () => {
-      const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
+    it('should still reject equal or older stream data without a routed version', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
       const stream = createMockStream();
 
       fetchMock.mockImplementation((input) => {
@@ -3189,7 +3173,14 @@ describe('Controller (black-box)', () => {
         }),
       });
 
-      await client.initialize();
+      const initPromise = client.initialize();
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_123',
+        environment: 'production',
+      });
+      await initPromise;
 
       stream.push({
         type: 'datafile',
@@ -3241,10 +3232,7 @@ describe('Controller (black-box)', () => {
         'all matching entries are invalid',
         'flags_prj_123=later;flags_prj_123=-1',
       ],
-      [
-        'the first valid match is newer',
-        'flags_prj_123=later;flags_prj_123=3000;flags_prj_123=1000',
-      ],
+
       [
         'the primary is empty despite a valid fallback',
         '',
@@ -3258,11 +3246,6 @@ describe('Controller (black-box)', () => {
       [
         'the primary is invalid despite a valid fallback',
         'flags_prj_123=later',
-        'flags_prj_123=1000',
-      ],
-      [
-        'the primary is newer despite an older fallback',
-        'flags_prj_123=3000',
         'flags_prj_123=1000',
       ],
     ])('should keep waiting for the stream when %s', async (_label, headerValue, fallback?: string) => {
@@ -3299,32 +3282,31 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should keep waiting for the stream when the routed version is newer', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    it('should fetch in the background when the routed version is slightly newer', async () => {
       const cleanupCtx = setRoutedVersions('flags_prj_123=2001');
-      serveSilentStream();
-
+      fetchMock.mockResolvedValue(
+        Response.json(makeBundled({ configUpdatedAt: 2001 })),
+      );
       const client = createClient(sdkKey, {
         fetch: fetchMock,
         polling: false,
         datafile: makeBundled({ configUpdatedAt: 2000 }),
       });
-
-      let settled = false;
-      const initPromise = Promise.resolve(client.initialize()).then(() => {
-        settled = true;
-      });
+      await client.initialize();
+      expect(fetchMock).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(0);
-      expect(settled).toBe(false);
-
-      await vi.advanceTimersByTimeAsync(3000);
-      await initPromise;
-      expect(settled).toBe(true);
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: {
+            ...datafileRequestHeaders,
+            'X-Config-Min-Updated-At': '2001',
+          },
+          signal: expect.any(AbortSignal),
+        },
       );
-
-      warnSpy.mockRestore();
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2001);
       await client.shutdown();
       cleanupCtx();
     });
@@ -3387,35 +3369,28 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should keep waiting for the stream when the loaded data has no configUpdatedAt', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    it('should block on a datafile fetch when local configUpdatedAt is unknown', async () => {
       const cleanupCtx = setRoutedVersions('flags_prj_123=1000');
-      serveSilentStream();
-
       const datafile = makeBundled();
       delete (datafile as Record<string, unknown>).configUpdatedAt;
-
-      const client = createClient(sdkKey, {
-        fetch: fetchMock,
-        polling: false,
-        datafile,
-      });
-
+      let respond!: (response: Response) => void;
+      fetchMock.mockReturnValue(
+        new Promise<Response>((resolve) => {
+          respond = resolve;
+        }),
+      );
+      const client = createClient(sdkKey, { fetch: fetchMock, datafile });
       let settled = false;
       const initPromise = Promise.resolve(client.initialize()).then(() => {
         settled = true;
       });
       await vi.advanceTimersByTimeAsync(0);
       expect(settled).toBe(false);
-
-      await vi.advanceTimersByTimeAsync(3000);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      respond(Response.json(makeBundled({ configUpdatedAt: 1000 })));
       await initPromise;
       expect(settled).toBe(true);
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
-      );
-
-      warnSpy.mockRestore();
+      expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
       await client.shutdown();
       cleanupCtx();
     });
@@ -3450,7 +3425,7 @@ describe('Controller (black-box)', () => {
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 2000,
-                mode: 'offline',
+                mode: 'pushVersion',
                 revision: '1',
                 configRoutedInit: 'immediate',
                 environment: 'production',
@@ -3489,6 +3464,15 @@ describe('Controller (black-box)', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const cleanupCtx = setRoutedVersions(headerValue);
       serveSilentStream();
+      if (outcome === 'behind') {
+        fetchMock.mockImplementation((input) =>
+          Promise.resolve(
+            input.toString().includes('/v1/ingest')
+              ? new Response()
+              : Response.json(makeBundled({ configUpdatedAt: 3000 })),
+          ),
+        );
+      }
 
       const client = createClient(sdkKey, {
         fetch: fetchMock,
@@ -3501,9 +3485,13 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       await client.evaluate('flagA');
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
-      );
+      if (outcome === 'invalid') {
+        expect(warnSpy).toHaveBeenCalledWith(
+          '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+        );
+      } else {
+        expect(warnSpy).not.toHaveBeenCalled();
+      }
       warnSpy.mockRestore();
       await client.shutdown();
 
@@ -3517,7 +3505,13 @@ describe('Controller (black-box)', () => {
     it('should report the unknown-local outcome', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const cleanupCtx = setRoutedVersions('flags_prj_123=2000');
-      serveSilentStream();
+      fetchMock.mockImplementation((input) =>
+        Promise.resolve(
+          input.toString().includes('/v1/ingest')
+            ? new Response()
+            : Response.json(makeBundled({ configUpdatedAt: 2000 })),
+        ),
+      );
 
       const datafile = makeBundled();
       delete (datafile as Record<string, unknown>).configUpdatedAt;
@@ -3533,9 +3527,7 @@ describe('Controller (black-box)', () => {
       await initPromise;
 
       await client.evaluate('flagA');
-      expect(warnSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
-      );
+      expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
       await client.shutdown();
 

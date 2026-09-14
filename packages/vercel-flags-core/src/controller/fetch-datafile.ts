@@ -12,6 +12,8 @@ export async function fetchDatafile(options: {
   auth: Auth;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
+  /** Minimum configUpdatedAt advertised by the Edge Network. */
+  minUpdatedAt?: number;
 }): Promise<BundledDefinitions> {
   const token = await options.auth.resolveToken();
 
@@ -39,21 +41,23 @@ export async function fetchDatafile(options: {
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
           : null),
+        ...(options.minUpdatedAt !== undefined
+          ? { 'X-Config-Min-Updated-At': String(options.minUpdatedAt) }
+          : null),
       },
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
-    options.signal?.removeEventListener('abort', onExternalAbort);
 
     if (!res.ok) {
       throw new Error(`Failed to fetch data: ${res.statusText}`);
     }
 
-    return res.json() as Promise<BundledDefinitions>;
+    // Keep timeout and external cancellation active through body consumption.
+    return (await res.json()) as BundledDefinitions;
   } catch (error) {
+    throw error instanceof Error ? error : new Error('Unknown fetch error');
+  } finally {
     clearTimeout(timeoutId);
     options.signal?.removeEventListener('abort', onExternalAbort);
-    throw error instanceof Error ? error : new Error('Unknown fetch error');
   }
 }

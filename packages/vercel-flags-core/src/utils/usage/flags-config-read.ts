@@ -5,7 +5,7 @@ export interface TrackReadOptions {
   /** Whether the config was read from in-memory cache or embedded bundle */
   configOrigin: 'in-memory' | 'embedded';
   /** HIT when definitions exist in memory, MISS when not, BYPASS when using fallback as primary source */
-  cacheStatus?: 'HIT' | 'MISS' | 'BYPASS';
+  cacheStatus?: 'HIT' | 'MISS' | 'BYPASS' | 'STALE';
   /** FOLLOWING when streaming, REFRESHING when polling, NONE otherwise */
   cacheAction?: 'REFRESHING' | 'FOLLOWING' | 'NONE';
   /** True for the very first getData call */
@@ -17,7 +17,7 @@ export interface TrackReadOptions {
   /** Timestamp when the config was last updated */
   configUpdatedAt?: number;
   /** The mode the SDK is operating in */
-  mode?: 'poll' | 'stream' | 'build' | 'offline';
+  mode?: 'poll' | 'stream' | 'pushVersion' | 'build' | 'offline';
   /** Revision of the config */
   revision?: number;
   /** Init comparison outcome; omitted when no routed version applies. */
@@ -39,7 +39,7 @@ export class FlagsConfigReadEvent implements UsageEvent {
     duration?: number;
     configUpdatedAt?: number;
     configOrigin?: 'in-memory' | 'embedded' | 'poll' | 'stream' | 'constructor';
-    mode?: 'poll' | 'stream' | 'build' | 'offline';
+    mode?: 'poll' | 'stream' | 'pushVersion' | 'build' | 'offline';
     revision?: string;
     environment?: string;
     configRoutedInit?: RoutedInitOutcome;

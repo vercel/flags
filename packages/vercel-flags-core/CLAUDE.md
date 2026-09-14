@@ -19,6 +19,7 @@ src/
 │   ├── index.ts              # Controller class
 │   ├── stream-source.ts      # StreamSource (wraps stream-connection)
 │   ├── polling-source.ts     # PollingSource (wraps fetch-datafile)
+│   ├── push-version-source.ts # Request-driven, header-gated refreshes
 │   ├── bundled-source.ts     # BundledSource (wraps read-bundled-definitions)
 │   ├── stream-connection.ts  # Low-level NDJSON stream connection
 │   ├── fetch-datafile.ts     # HTTP datafile fetch
@@ -122,7 +123,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 Key behaviors:
 - Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
-- When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout — unless the routed config version shows the existing data is already current (see [Routed Config Version](#routed-config-version))
+- Without a usable routed version, streaming/polling initialization still waits for fresh data up to `initTimeoutMs`, then falls back to existing data. A valid version for this client switches runtime reads to request-driven `pushVersion` mode instead (see [Routed Config Version](#routed-config-version)).
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
@@ -191,7 +192,7 @@ pnpm test:integration
 `initialize()` waits for fresh data before resolving, even when bundled data or a provided datafile is available:
 - **Streaming**: waits for a stream message (`primed` or `datafile`) up to `initTimeoutMs`
 - **Polling**: waits for the first poll response up to `initTimeoutMs`
-- **Exception**: it resolves immediately when a version header shows local data covers the routed version (see [Routed Config Version](#routed-config-version)). Timeout tests must not set either header for the datafile's `projectId`.
+- **Exception**: a usable version header selects `pushVersion`: no stream or poll is started, and only a missing/unknown local timestamp or a version gap of at least 10 seconds blocks on a datafile fetch. Legacy timeout tests must not set either header for the datafile's `projectId`.
 
 This means:
 
@@ -291,14 +292,30 @@ project entry. Both headers use a semicolon-separated map of store names to
 millisecond timestamps, e.g. `flags_prj_123=1758000000000`.
 
 - `utils/version-header.ts` selects the first valid exact `flags_${projectId}` entry, skipping invalid matches.
-- If local `configUpdatedAt` is **>=** the routed version, `initialize()` resolves
-  immediately while stream/poll updates continue in the background. The state
-  stays `initializing:*` until the source connects.
-- Missing context, project id, or valid entry, and unusable local timestamps
-  preserve the existing initialization wait.
-- `FLAGS_CONFIG_READ.configRoutedInit` records `immediate`, `behind`, `invalid`,
-  or `unknown-local`, without ids or header values. It is omitted
-  when no routed version applies.
+- On initialization and every evaluation/datafile read, a usable version enables
+  **`pushVersion`** mode and stops streaming/polling. No periodic refresh runs.
+- Local `configUpdatedAt >= header`: serve cached definitions without fetching.
+- `0 < header - local < 10_000`: serve cached definitions and defer one datafile
+  fetch to the next tick, protected by `waitUntil`.
+- `header - local >= 10_000`, or an unknown local timestamp: await the fetch.
+  This threshold is the difference between version timestamps, **not a TTL**.
+- `controller/push-version-source.ts` shares scheduled/in-flight refreshes, promotes
+  scheduled work for blocking readers, and follows an older fetch with a newer
+  minimum when needed. Requests send `X-Config-Min-Updated-At`.
+- Failed or insufficient refreshes retain last-known data and throttle retries
+  of the same/older minimum for one second. Responses with unknown timestamps,
+  another project, or older/equal timestamps cannot overwrite cached definitions.
+- If the header disappears or is unusable, resume the configured legacy source.
+  Explicit offline and build modes never opt into `pushVersion`.
+- With no local definitions, a usable flags header permits one authenticated
+  datafile fetch to discover the SDK key's project. Only a matching project
+  entry can select `pushVersion`; discovery failure retains legacy fallbacks.
+- Shutdown/mode changes cancel scheduled and in-flight refreshes; late responses
+  cannot repopulate the cache.
+- Public/ingested metrics report `mode: 'pushVersion'`, with per-read cache status,
+  refresh/follower action, and blocking status. `configRoutedInit` still records
+  the initial comparison (`immediate`, `behind`, `invalid`, `unknown-local`)
+  without project ids or raw header values.
 
 ### configUpdatedAt Guard
 

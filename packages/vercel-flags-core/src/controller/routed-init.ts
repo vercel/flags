@@ -25,7 +25,7 @@ const NO_DECISION: RoutedInitDecision = {
   outcome: undefined,
 };
 
-function parseLocalTimestamp(value: unknown): number | undefined {
+export function parseLocalTimestamp(value: unknown): number | undefined {
   if (typeof value === 'number') {
     return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
   }
@@ -35,7 +35,45 @@ function parseLocalTimestamp(value: unknown): number | undefined {
   return undefined;
 }
 
-/** Skips the init wait only when local definitions cover the routed version. */
+/** Whether a request advertises any usable flags version (for cold-start discovery). */
+export function hasRoutedConfigVersion(): boolean {
+  try {
+    const { headers } = getRequestContext();
+    const header =
+      headers?.[VERSION_HEADER] ?? headers?.[FALLBACK_VERSION_HEADER];
+    return (
+      header?.split(';').some((entry) => {
+        const separator = entry.indexOf('=');
+        const key = entry.slice(0, separator).trim();
+        return (
+          separator !== -1 &&
+          key.startsWith('flags_') &&
+          key.length > 6 &&
+          parseConfigVersion(entry.slice(separator + 1).trim()) !== undefined
+        );
+      }) ?? false
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** A usable version must belong to this client's project, not just any header entry. */
+export function getRoutedConfigVersion(projectId: unknown): number | undefined {
+  if (typeof projectId !== 'string' || !projectId) return undefined;
+  try {
+    const { headers } = getRequestContext();
+    const version = selectConfigVersion(
+      headers?.[VERSION_HEADER] ?? headers?.[FALLBACK_VERSION_HEADER],
+      flagsConfigVersionKey(projectId),
+    );
+    return version.status === 'found' ? version.version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Records how the initial local definitions compare with the routed version. */
 export function decideRoutedInit(data: {
   projectId: unknown;
   configUpdatedAt: unknown;

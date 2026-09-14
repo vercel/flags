@@ -37,14 +37,18 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    */
   async poll(): Promise<void> {
     if (this.abortController?.signal.aborted) return;
+    // The first poll must be cancellable too, before an interval is installed.
+    this.abortController ??= new AbortController();
+    const controller = this.abortController;
 
     try {
       const data = await fetchDatafile({
         ...this.config,
-        signal: this.abortController?.signal,
+        signal: controller.signal,
       });
-      this.emit('data', data);
+      if (!controller.signal.aborted) this.emit('data', data);
     } catch (error) {
+      if (controller.signal.aborted) return;
       const err =
         error instanceof Error ? error : new Error('Unknown poll error');
       this.emit('error', err);
@@ -59,7 +63,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   startInterval(): void {
     if (this.intervalId) return;
 
-    this.abortController = new AbortController();
+    this.abortController ??= new AbortController();
 
     // Start interval
     this.intervalId = setInterval(
