@@ -131,7 +131,7 @@ export async function getVersion(): Promise<number> {
 }
 ```
 
-With Vercel OIDC, the token can come from request context and may not exist during module loading. Even embedded definitions require OIDC to select the entry by the token's `project_id`. Local `.env.local` credentials can hide this timing problem. Explicit initialization is optional and must wait until authentication is available; awaiting an already-started initialization promise later does not move it into request context. See the [core client README](https://github.com/vercel/flags/tree/main/packages/vercel-flags-core#initialization-and-request-scoped-oidc).
+With Vercel OIDC, the token can come from request context and may not exist during module loading. Even embedded definitions require OIDC to select the entry by the token's `project_id`. Local `.env.local` credentials can hide this timing problem. Explicit initialization is optional and must wait until authentication is available; awaiting an already-started initialization promise later does not move it into request context. See the [`@vercel/flags-core` guide](https://flags-sdk.dev/providers/vercel/core-client#use-request-scoped-oidc).
 
 ### `vercel flags` CLI
 

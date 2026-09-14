@@ -48,7 +48,7 @@ export default app;
 Outside Vercel, pass an SDK key explicitly:
 
 ```ts
-const flagsClient = createClient(process.env.FLAGS);
+const flagsClient = createClient(process.env.FLAGS!);
 ```
 
 ## Use request-scoped OIDC
@@ -97,7 +97,7 @@ The pull command writes a Vercel OIDC token to `.env.local`. A local runner that
 
 ## Configure background work
 
-The client reports usage and experiment exposures in the background. It uses a `waitUntil` function to keep this work alive after the response is sent.
+The client reports usage in the background. If you configure `experimental_reportExposures`, it also reports experiment exposures in the background. The client uses a `waitUntil` function to keep this work alive after the response is sent.
 
 The default depends on your runtime:
 
@@ -109,18 +109,16 @@ The default depends on your runtime:
 You do not need to configure `waitUntil` for these runtimes. For another platform or runtime, pass a compatible function to `createClient`:
 
 ```ts
-import { createClient } from '@vercel/flags-core';
+import { createClient, type WaitUntil } from '@vercel/flags-core';
 
-const flagsClient = createClient(process.env.FLAGS, {
-  waitUntil(promise) {
-    backgroundTasks.register(promise);
-  },
-});
+export function createFlagsClient(waitUntil: WaitUntil) {
+  return createClient(process.env.FLAGS!, { waitUntil });
+}
 ```
 
-The function must accept a `Promise<unknown>` and keep the process or request alive until that promise settles. An explicit `waitUntil` option takes precedence over the runtime default.
+Pass the platform's lifecycle function when you create the client. The function must accept a `Promise<unknown>` and keep the process or request alive until that promise settles. An explicit `waitUntil` option takes precedence over the runtime default.
 
-Background reporting does not block flag evaluation. In a long-lived process, call `shutdown()` during graceful shutdown. It flushes usage data, closes active connections, and waits for pending exposure reports:
+Background reporting does not block flag evaluation. In a long-lived process, call `shutdown()` during graceful shutdown. It flushes usage data and closes active connections. If you configure `experimental_reportExposures`, it also waits for pending exposure reports:
 
 ```ts
 process.on('SIGTERM', async () => {
@@ -134,7 +132,7 @@ process.on('SIGTERM', async () => {
 Use `metricEnvironment` to attach an environment to evaluation metrics:
 
 ```ts
-const flagsClient = createClient(process.env.FLAGS, {
+const flagsClient = createClient(process.env.FLAGS!, {
   metricEnvironment: 'preview',
 });
 ```
@@ -143,13 +141,15 @@ This option affects only the metrics sent to the ingestion endpoint. It does not
 
 ## Use OpenFeature
 
-The package includes an OpenFeature-compatible provider at `@vercel/flags-core/openfeature`:
+The package includes an OpenFeature-compatible provider at `@vercel/flags-core/openfeature`. When you initialize the provider during application startup, pass an SDK key because a request-scoped OIDC token is not available yet:
 
 ```ts
 import { OpenFeature } from '@openfeature/server-sdk';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-await OpenFeature.setProviderAndWait(new VercelProvider());
+await OpenFeature.setProviderAndWait(
+  new VercelProvider(process.env.FLAGS!),
+);
 
 const flagsClient = OpenFeature.getClient();
 ```
