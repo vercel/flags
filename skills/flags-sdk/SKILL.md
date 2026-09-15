@@ -356,21 +356,9 @@ export const handle = createHandle({ secret: FLAGS_SECRET, flags });
 
 ## FLAGS_SECRET
 
-Required for precompute and Flags Explorer. Must be 32 random bytes, base64-encoded:
+Required for precompute and Flags Explorer. Vercel Flags activation creates a value per environment. Preserve existing values; do not rotate them during ordinary SDK setup. A missing local value does not mean the remote value is missing: check the target environment first, then follow [Pull environment variables](#pull-environment-variables) for Development.
 
-```sh
-node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
-```
-
-Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, Production), and mark the Preview and Production values as Sensitive. Run the generator once per environment to produce distinct values, then store each on Vercel:
-
-```sh
-vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
-vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
-vercel env add FLAGS_SECRET development --value <development-secret>
-```
-
-Then run `vc env pull` to sync to local.
+Only generate a secret for an environment where it is absent. Use 32 cryptographically random bytes, base64-encoded, with a distinct value per environment. Mark Preview and Production values Sensitive. Send generated values directly to storage, such as stdin for `vercel env add`; do not print them to terminal output, logs, or chat, or embed them in command arguments.
 
 ## Precompute pattern
 
