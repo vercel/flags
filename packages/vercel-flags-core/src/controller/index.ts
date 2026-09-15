@@ -5,6 +5,7 @@ import type {
   DatafileInput,
   Metrics,
 } from '../types';
+import { debugLog } from '../utils/debug';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
@@ -227,6 +228,12 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   private transition(to: State): void {
+    debugLog('controller', 'State changed', {
+      from: this.state,
+      to,
+      projectId: this.data?.projectId,
+      origin: this.data?._origin,
+    });
     this.state = to;
   }
 
@@ -261,6 +268,14 @@ export class Controller implements ControllerInterface {
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
+    debugLog('controller', 'Initializing', {
+      buildStep: this.options.buildStep,
+      streamEnabled: this.options.stream.enabled,
+      pollingEnabled: this.options.polling.enabled,
+      hasData: this.data !== undefined,
+      projectId: this.data?.projectId,
+      origin: this.data?._origin,
+    });
     if (this.options.buildStep) {
       this.transition('build:loading');
       await this.initializeForBuildStep();
@@ -306,6 +321,9 @@ export class Controller implements ControllerInterface {
       return;
     }
 
+    debugLog('controller', 'Header mode unavailable', {
+      reason: 'no-definitions',
+    });
     // Try the configured primary source (stream or poll, never both)
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
@@ -340,6 +358,15 @@ export class Controller implements ControllerInterface {
 
     const readMs = Date.now() - startTime;
     const source = originToMetricsSource(result._origin);
+    debugLog('controller', 'Read resolved', {
+      projectId: result.projectId,
+      mode: this.mode,
+      source,
+      origin: result._origin,
+      cacheStatus,
+      configUpdatedAt: parseConfigUpdatedAt(result.configUpdatedAt),
+      revision: result.revision,
+    });
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     if (this.dataViewSource !== result) {
@@ -422,6 +449,15 @@ export class Controller implements ControllerInterface {
     }
 
     const source = originToMetricsSource(result._origin);
+    debugLog('controller', 'Datafile resolved', {
+      projectId: result.projectId,
+      mode: this.mode,
+      source,
+      origin: result._origin,
+      cacheStatus,
+      configUpdatedAt: parseConfigUpdatedAt(result.configUpdatedAt),
+      revision: result.revision,
+    });
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -521,6 +557,14 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        debugLog(
+          'controller',
+          'Stream initialization timed out; using fallback',
+          {
+            timeoutMs: this.options.stream.initTimeoutMs,
+            origin: this.data?._origin,
+          },
+        );
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
