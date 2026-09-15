@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions';
 import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
@@ -15,9 +16,7 @@ export type HeaderSourceEvents = {
 export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private options: NormalizedOptions;
   private abortController: AbortController | undefined;
-  private promise:
-    | Promise<[TaggedData, Metrics['cacheStatus']] | undefined>
-    | undefined;
+  private promise: Promise<BundledDefinitions> | undefined;
 
   constructor(options: NormalizedOptions) {
     super();
@@ -26,27 +25,28 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   private fetchDatafile(): Promise<BundledDefinitions> {
+    // Share only the transport work, not request-specific freshness decisions.
+    if (this.promise) return this.promise;
+
     const abortController = new AbortController();
     this.abortController = abortController;
-
-    abortController.signal.addEventListener(
-      'abort',
-      () => {
+    this.promise = fetchDatafile({
+      ...this.options,
+      signal: abortController.signal,
+    })
+      .then((data) => {
+        this.emit('data', data);
+        return data;
+      })
+      .finally(() => {
+        // An older, aborted fetch must not clear a newer request's work.
         if (this.abortController === abortController) {
           this.promise = undefined;
           this.abortController = undefined;
         }
-      },
-      { once: true },
-    );
+      });
 
-    try {
-      return fetchDatafile(this.options);
-    } catch (error) {
-      this.promise = undefined;
-      this.abortController = undefined;
-      throw error;
-    }
+    return this.promise;
   }
 
   private getUpdatedAtHeader(projectId: string) {
@@ -54,18 +54,21 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     const header =
       ctx.headers?.['x-vercel-flags-config-versions'] ??
-      ctx.headers?.['x-vercel-flags-config-versions'];
+      ctx.headers?.['flags-config-versions'];
 
     if (!header) {
       return;
     }
 
+    const prefix = `flags_${projectId}=`;
     const value = header
       .split(';')
-      .find((p) => p.startsWith(`flags_${projectId}=`))
-      ?.split('=')[1];
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(prefix))
+      ?.slice(prefix.length);
+    const timestamp = Number(value);
 
-    return Number(value);
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
 
   private async resolveData(
@@ -90,15 +93,20 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     // header is within 10 seconds of current data, we can revalidate in the background
     if (updatedAtHeader <= currentUpdatedAt + 10_000) {
-      this.fetchDatafile().then((data) => {
-        this.emit('data', data);
+      const pending = this.fetchDatafile();
+      const signal = this.abortController?.signal;
+      const background = pending.catch((error) => {
+        if (!signal?.aborted) {
+          console.error('@vercel/flags-core: Header refresh failed:', error);
+        }
       });
+
+      waitUntil(background);
 
       return [currentData, 'STALE'];
     }
 
     const data = await this.fetchDatafile();
-    this.emit('data', data);
 
     return [tagData(data, 'fetched'), 'MISS'];
   }
@@ -106,11 +114,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   read(
     currentData: TaggedData,
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    if (this.promise) return this.promise;
-
-    this.promise = this.resolveData(currentData);
-
-    return this.promise;
+    return this.resolveData(currentData);
   }
 
   isAvailable(projectId: string): boolean {
@@ -118,7 +122,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   /**
-   * Stop the stream connection.
+   * Abort the current header-driven fetch and discard its pending work.
    */
   stop(): void {
     this.abortController?.abort();

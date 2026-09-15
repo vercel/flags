@@ -36,7 +36,7 @@ export class FlagsConfigReadEvent implements UsageEvent {
     duration?: number;
     configUpdatedAt?: number;
     configOrigin?: 'in-memory' | 'embedded' | 'poll' | 'stream' | 'constructor';
-    mode?: 'poll' | 'stream' | 'build' | 'offline';
+    mode?: TrackReadOptions['mode'];
     revision?: string;
     environment?: string;
   };

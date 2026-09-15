@@ -369,6 +369,7 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.headerSource.stop();
     this.data = this.options.datafile
       ? tagData(this.options.datafile, 'provided')
       : undefined;
