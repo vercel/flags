@@ -1,4 +1,8 @@
-type DebugSource = 'controller' | 'stream-source' | 'header-source';
+type DebugSource =
+  | 'controller'
+  | 'stream-source'
+  | 'header-source'
+  | 'bundled-source';
 type DebugDetails = Record<string, string | number | boolean | undefined>;
 
 /** Keep debug payloads limited to operational metadata, never credentials or flags. */

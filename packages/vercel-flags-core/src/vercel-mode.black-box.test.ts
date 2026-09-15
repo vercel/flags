@@ -15,7 +15,7 @@ vi.mock('./utils/read-bundled-definitions', () => ({
 
 const TIMESTAMP = 1_700_000_000_000;
 const PROJECT_ID = 'prj_header_test';
-const HEADER = 'x-vercel-flags-config-versions';
+const HEADER = 'x-vercel-edge-config-versions';
 const SDK_KEY = 'vf_server_header_test';
 
 function datafile(timestamp = TIMESTAMP, enabled = false): BundledDefinitions {

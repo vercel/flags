@@ -321,9 +321,11 @@ export class Controller implements ControllerInterface {
       return;
     }
 
-    debugLog('controller', 'Header mode unavailable', {
-      reason: 'no-definitions',
-    });
+    debugLog(
+      'controller',
+      'No data available — attempting to initialize from primary source or fallbacks',
+    );
+
     // Try the configured primary source (stream or poll, never both)
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');

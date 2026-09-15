@@ -70,11 +70,15 @@ DEBUG=@vercel/flags-core pnpm dev
 ```
 
 Debug logs are written with `console.log` and labeled `[controller]`,
-`[stream-source]`, or `[header-source]`. They show initialization settings and
+`[stream-source]`, `[header-source]`, or `[bundled-source]`. They show initialization settings and
 state transitions, the origin and cache status of each read, stream connections
 and disconnections, and header freshness decisions (`serve-cached`,
 `background-refresh`, or `blocking-refresh`). Missing headers, unmatched projects,
 and invalid timestamps are reported with a reason instead of raw header values.
+Bundled-source logs show load attempts, reuse of a cached or pending lookup,
+and the project, environment, timestamp, and revision of loaded definitions.
+When definitions are unavailable, the reason is `missing-file`, `missing-entry`,
+or `unexpected-error`; raw errors and bundle contents are not logged.
 
 The controller's `origin` distinguishes `stream`, `poll`, `provided`, `bundled`,
 and `fetched` data; `mode` identifies the active update strategy. Debug metadata

@@ -4,6 +4,7 @@ import type {
   BundledDefinitionsResult,
   DatafileInput,
 } from '../types';
+import { debugLog } from '../utils/debug';
 import type { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { Auth } from './auth';
 
@@ -72,9 +73,34 @@ export class BundledSource {
   }
 
   private getResult(): Promise<BundledDefinitionsResult> {
-    if (!this.promise) {
-      this.promise = this.options.readBundledDefinitions(this.options.auth);
+    if (this.promise) {
+      debugLog('bundled-source', 'Reusing cached or pending lookup');
+      return this.promise;
     }
+
+    debugLog('bundled-source', 'Loading bundled definitions');
+    this.promise = this.options.readBundledDefinitions(this.options.auth).then(
+      (result) => {
+        if (result.state === 'ok') {
+          debugLog('bundled-source', 'Bundled definitions loaded', {
+            projectId: result.definitions.projectId,
+            environment: result.definitions.environment,
+            configUpdatedAt: Number(result.definitions.configUpdatedAt),
+            revision: result.definitions.revision,
+          });
+        } else {
+          debugLog('bundled-source', 'Bundled definitions unavailable', {
+            reason: result.state,
+          });
+        }
+        return result;
+      },
+      (error) => {
+        // Error messages can contain credentials or bundled flag data.
+        debugLog('bundled-source', 'Bundled definitions lookup failed');
+        throw error;
+      },
+    );
     return this.promise;
   }
 }

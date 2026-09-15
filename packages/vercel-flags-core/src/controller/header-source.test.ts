@@ -11,7 +11,7 @@ vi.mock('./fetch-datafile', () => ({ fetchDatafile: vi.fn() }));
 
 const PROJECT_ID = 'prj_test';
 const CURRENT_TIMESTAMP = 1_700_000_000_000;
-const HEADER = 'x-vercel-flags-config-versions';
+const HEADER = 'x-vercel-edge-config-versions';
 
 function datafile(configUpdatedAt = CURRENT_TIMESTAMP): BundledDefinitions {
   return {
