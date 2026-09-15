@@ -177,19 +177,7 @@ Keep pages static while using feature flags. Proxy evaluates flags and encodes r
 
 ### Prerequisites
 
-Set `FLAGS_SECRET` env var (32 random bytes, base64-encoded). Use a separate value for each environment (Development, Preview, Production), and mark the Preview and Production values as Sensitive. Run the generator once per environment to produce distinct values:
-
-```sh
-node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
-```
-
-Store each on Vercel:
-
-```sh
-vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
-vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
-vercel env add FLAGS_SECRET development --value <development-secret>
-```
+Ensure `FLAGS_SECRET` is configured using [FLAGS_SECRET](../SKILL.md#flags_secret). Reuse existing values; generate one only for an environment where it is absent.
 
 ### Step 1: Create flag group
 
@@ -431,8 +419,11 @@ export const getOrGenerateVisitorId = async (
 
 ```ts
 const identify = dedupe(
-  async ({ cookies }: { cookies: ReadonlyRequestCookies }): Promise<Entities> => {
-    const visitorId = await getOrGenerateVisitorId(cookies);
+  async ({ cookies, headers }: {
+    cookies: ReadonlyRequestCookies;
+    headers: ReadonlyHeaders;
+  }): Promise<Entities> => {
+    const visitorId = await getOrGenerateVisitorId(cookies, headers);
     return { visitor: visitorId ? { id: visitorId } : undefined };
   },
 );
