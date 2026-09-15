@@ -183,6 +183,11 @@ export class Controller implements ControllerInterface {
   // Source event wiring
   // ---------------------------------------------------------------------------
 
+  /**
+   * Subscribes to source events. Safe to call repeatedly: the handlers are
+   * stable instance properties and the emitter stores them in a Set, so
+   * re-wiring after a shutdown cannot register a handler twice.
+   */
   private wireSourceEvents(): void {
     this.streamSource.on('data', this.onStreamData);
     this.streamSource.on('primed', this.onStreamPrimed);
@@ -458,6 +463,9 @@ export class Controller implements ControllerInterface {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
+    // A shutdown unwired the handlers, so re-wire before the stream can emit.
+    this.wireSourceEvents();
+
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
         await this.streamSource.start();
@@ -518,6 +526,9 @@ export class Controller implements ControllerInterface {
    * Only used when streaming is disabled and polling is the primary source.
    */
   private async tryInitializePolling(): Promise<boolean> {
+    // A shutdown unwired the handlers, so re-wire before the first poll emits.
+    this.wireSourceEvents();
+
     const pollPromise = this.pollingSource.poll();
 
     if (this.options.polling.initTimeoutMs <= 0) {
