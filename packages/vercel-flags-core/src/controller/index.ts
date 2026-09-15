@@ -469,10 +469,10 @@ export class Controller implements ControllerInterface {
 
     if (this.data) {
       if (this.mode === 'vercel') {
-        const data = await this.headerSource.read(this.data);
+        const result = await this.headerSource.read(this.data);
 
-        if (data) {
-          return data;
+        if (result) {
+          return result;
         }
       }
 

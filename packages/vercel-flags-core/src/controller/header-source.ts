@@ -55,8 +55,11 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     const ctx = getRequestContext();
 
     const header =
-      ctx.headers?.['x-vercel-flags-config-versions'] ??
-      ctx.headers?.['flags-config-versions'];
+      ctx.headers?.['x-vercel-edge-config-versions'] ??
+      ctx.headers?.['edge-config-versions'];
+    // const header =
+    //   ctx.headers?.['x-vercel-flags-config-versions'] ??
+    //   ctx.headers?.['flags-config-versions'];
 
     if (!header) {
       return;
