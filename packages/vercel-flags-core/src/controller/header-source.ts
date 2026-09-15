@@ -35,6 +35,8 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       signal: abortController.signal,
     })
       .then((data) => {
+        // A transport may finish after stop() even if it ignores cancellation.
+        abortController.signal.throwIfAborted();
         this.emit('data', data);
         return data;
       })

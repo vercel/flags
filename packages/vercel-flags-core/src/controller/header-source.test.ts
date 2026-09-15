@@ -374,6 +374,46 @@ describe('HeaderSource', () => {
   describe('stop', () => {
     it.each([
       1, 20_000,
+    ])('keeps a restarted fetch isolated from a late aborted fetch for delta %i ms', async (delta) => {
+      setVersion(CURRENT_TIMESTAMP + delta);
+      const current = tagData(datafile(), 'provided');
+      const abandoned = deferred<BundledDefinitions>();
+      const pending = deferred<BundledDefinitions>();
+      const fresh = datafile(CURRENT_TIMESTAMP + delta);
+      vi.mocked(fetchDatafile)
+        .mockReturnValueOnce(abandoned.promise)
+        .mockReturnValueOnce(pending.promise);
+      const abandonedOutcome = source
+        .read(current)
+        .catch((error: unknown) => error);
+      await settlePromises();
+
+      source.stop();
+      const restarted = source.read(current);
+      abandoned.resolve(fresh);
+      const outcome = await abandonedOutcome;
+      await settlePromises();
+
+      expect(onData).not.toHaveBeenCalled();
+      if (delta > 10_000) {
+        expect(outcome).toMatchObject({ name: 'AbortError' });
+      }
+      const concurrent = source.read(current);
+      expect(fetchDatafile).toHaveBeenCalledTimes(2);
+      pending.resolve(fresh);
+      await Promise.all([restarted, concurrent]);
+      await settlePromises();
+
+      expect(onData).toHaveBeenCalledExactlyOnceWith(fresh);
+      await expect(source.read(tagData(fresh, 'fetched'))).resolves.toEqual([
+        fresh,
+        'HIT',
+      ]);
+      expect(fetchDatafile).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      1, 20_000,
     ])('aborts a pending fetch for delta %i ms', async (delta) => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();

@@ -231,8 +231,8 @@ describe('Vercel mode (black-box)', () => {
     const [result, results] = await Promise.all([single, bulk]);
 
     for (const evaluation of [result, results.feature]) {
-      expect(evaluation.value).toBe(true);
-      expect(evaluation.metrics).toMatchObject({
+      expect(evaluation?.value).toBe(true);
+      expect(evaluation?.metrics).toMatchObject({
         mode: 'vercel',
         source: 'remote',
         cacheStatus: 'MISS',
@@ -348,7 +348,7 @@ describe('Vercel mode (black-box)', () => {
     dataFetch.mockReturnValueOnce(pending.promise);
     const instance = client();
     await instance.evaluate('feature');
-    const signal = dataFetch.mock.calls[0][1]?.signal;
+    const signal = dataFetch.mock.calls[0]?.[1]?.signal;
 
     await instance.shutdown();
     clients.delete(instance);
