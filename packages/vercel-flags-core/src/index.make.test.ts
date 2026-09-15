@@ -6,6 +6,7 @@ import { make } from './index.make';
 vi.mock('./controller', () => ({
   // Controller is instantiated with `new`, so the implementation must be a
   // function rather than an arrow — Vitest 4 throws "is not a constructor".
+  // biome-ignore lint/complexity/useArrowFunction: the mock must be constructible
   Controller: vi.fn().mockImplementation(function ({ auth }) {
     return {
       auth,
@@ -22,6 +23,8 @@ vi.mock('./controller', () => ({
 }));
 
 import { Controller } from './controller';
+
+const defaultWaitUntil = vi.fn();
 
 function createMockCreateRawClient(): ReturnType<typeof createCreateRawClient> {
   return vi.fn().mockImplementation(({ controller }) => ({
@@ -62,12 +65,15 @@ describe('make', () => {
   describe('createClient', () => {
     it('should create a client with a valid SDK key', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       const client = createClient('vf_server_test_key');
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil: defaultWaitUntil,
       });
       expect(createRawClient).toHaveBeenCalled();
       expect(client).toBeDefined();
@@ -75,7 +81,9 @@ describe('make', () => {
 
     it('should create a client from a connection string', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       const connectionString =
         'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_client_conn_key';
@@ -83,13 +91,16 @@ describe('make', () => {
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_client_conn_key' }),
+        waitUntil: defaultWaitUntil,
       });
       expect(client).toBeDefined();
     });
 
     it('should create an OIDC-authenticated client with options as the first argument', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       const client = createClient({ stream: false, polling: false });
 
@@ -97,17 +108,21 @@ describe('make', () => {
         auth: expect.objectContaining({ sdkKey: undefined }),
         stream: false,
         polling: false,
+        waitUntil: defaultWaitUntil,
       });
       expect(createRawClient).toHaveBeenCalledWith({
         controller: expect.any(Object),
         origin: { provider: 'vercel', sdkKey: undefined },
+        waitUntil: defaultWaitUntil,
       });
       expect(client).toBeDefined();
     });
 
     it('should pass clientName to the controller', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       const client = createClient('vf_server_test_key', {
         clientName: 'checkout',
@@ -116,13 +131,75 @@ describe('make', () => {
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
         clientName: 'checkout',
+        waitUntil: defaultWaitUntil,
       });
       expect(client).toBeDefined();
     });
 
+    it('should pass a custom waitUntil to the controller and raw client', () => {
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
+      const waitUntil = vi.fn();
+
+      createClient('vf_server_test_key', { waitUntil });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil,
+      });
+    });
+
+    it('should use the default waitUntil for the controller and raw client', () => {
+      const createRawClient = createMockCreateRawClient();
+      const waitUntil = vi.fn();
+      const { createClient } = make(createRawClient, { waitUntil });
+
+      createClient('vf_server_test_key');
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil,
+      });
+    });
+
+    it('should prefer a custom waitUntil over the default', () => {
+      const createRawClient = createMockCreateRawClient();
+      const defaultWaitUntil = vi.fn();
+      const customWaitUntil = vi.fn();
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
+
+      createClient('vf_server_test_key', { waitUntil: customWaitUntil });
+
+      expect(Controller).toHaveBeenCalledWith({
+        auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
+        waitUntil: customWaitUntil,
+      });
+      expect(createRawClient).toHaveBeenCalledWith({
+        controller: expect.any(Object),
+        origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        waitUntil: customWaitUntil,
+      });
+    });
+
     it('should pass experimental_reportExposures to the raw client, not the controller', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
       const reportExposures = vi.fn();
 
       createClient('vf_server_test_key', {
@@ -133,17 +210,21 @@ describe('make', () => {
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_server_test_key' }),
         stream: false,
+        waitUntil: defaultWaitUntil,
       });
       expect(createRawClient).toHaveBeenCalledWith({
         controller: expect.any(Object),
         origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
         experimental_reportExposures: reportExposures,
+        waitUntil: defaultWaitUntil,
       });
     });
 
     it('should throw for empty SDK key', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       expect(() => createClient('')).toThrow(
         '@vercel/flags-core: Missing sdkKey',
@@ -152,7 +233,9 @@ describe('make', () => {
 
     it('should throw for invalid connection string', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       expect(() => createClient('invalid_string')).toThrow(
         '@vercel/flags-core: Missing sdkKey',
@@ -161,7 +244,9 @@ describe('make', () => {
 
     it('should throw for connection string without sdkKey param', () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       expect(() =>
         createClient('flags:edgeConfigId=ecfg_123&edgeConfigToken=token'),
@@ -174,7 +259,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'vf_server_test_key';
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       // Just getting flagsClient shouldn't create anything
       expect(createRawClient).not.toHaveBeenCalled();
@@ -189,11 +276,14 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       delete process.env.FLAGS;
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: undefined }),
+        waitUntil: defaultWaitUntil,
       });
     });
 
@@ -201,7 +291,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'invalid_value';
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       expect(() => flagsClient.evaluate).toThrow(
         '@vercel/flags-core: Missing sdkKey',
@@ -212,7 +304,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'vf_server_test_key';
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       // Access multiple properties
       const _ = flagsClient.evaluate;
@@ -227,11 +321,14 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'vf_server_env_key';
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_server_env_key' }),
+        waitUntil: defaultWaitUntil,
       });
     });
 
@@ -240,11 +337,14 @@ describe('make', () => {
       process.env.FLAGS =
         'flags:edgeConfigId=ecfg_123&edgeConfigToken=token&sdkKey=vf_client_flags_key';
 
-      const { flagsClient } = make(createRawClient);
+      const { flagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
       const _ = flagsClient.evaluate;
 
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_client_flags_key' }),
+        waitUntil: defaultWaitUntil,
       });
     });
   });
@@ -254,7 +354,9 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'vf_server_test_key';
 
-      const { flagsClient, resetDefaultFlagsClient } = make(createRawClient);
+      const { flagsClient, resetDefaultFlagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       // Access to create client
       const _ = flagsClient.evaluate;
@@ -272,12 +374,15 @@ describe('make', () => {
       const createRawClient = createMockCreateRawClient();
       process.env.FLAGS = 'vf_server_first_key';
 
-      const { flagsClient, resetDefaultFlagsClient } = make(createRawClient);
+      const { flagsClient, resetDefaultFlagsClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       // Access with first key
       const _ = flagsClient.evaluate;
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_server_first_key' }),
+        waitUntil: defaultWaitUntil,
       });
 
       // Reset and change env
@@ -288,6 +393,7 @@ describe('make', () => {
       const __ = flagsClient.initialize;
       expect(Controller).toHaveBeenCalledWith({
         auth: expect.objectContaining({ sdkKey: 'vf_client_second_key' }),
+        waitUntil: defaultWaitUntil,
       });
     });
   });
@@ -295,7 +401,9 @@ describe('make', () => {
   describe('integration', () => {
     it('should return a working client that can call methods', async () => {
       const createRawClient = createMockCreateRawClient();
-      const { createClient } = make(createRawClient);
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
 
       const client = createClient('vf_server_test_key');
 

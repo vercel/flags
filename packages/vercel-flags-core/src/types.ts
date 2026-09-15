@@ -18,6 +18,9 @@ export type PollingOptions = {
   initTimeoutMs: number;
 };
 
+/** Keeps an asynchronous task alive after a response has been sent */
+export type WaitUntil = (promise: Promise<unknown>) => void;
+
 /** Input type for creating a datafile (without metrics) */
 export type DatafileInput = Packed.Data & {
   /**
