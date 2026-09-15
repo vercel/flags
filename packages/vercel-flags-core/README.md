@@ -59,6 +59,34 @@ const client = createClient(process.env.FLAGS!, {
 This option is sent only to the metrics ingestion endpoint. It does not select
 the environment used for flag evaluation.
 
+## Debugging data sources
+
+Set `DEBUG=@vercel/flags-core` in your application's server environment (for
+example, in `.env.local` or the Vercel project's environment variables), then
+restart or redeploy the app:
+
+```bash
+DEBUG=@vercel/flags-core pnpm dev
+```
+
+Debug logs are written with `console.log` and labeled `[controller]`,
+`[stream-source]`, `[header-source]`, or `[bundled-source]`. They show initialization settings and
+state transitions, the origin and cache status of each read, stream connections
+and disconnections, and header freshness decisions (`serve-cached`,
+`background-refresh`, or `blocking-refresh`). Missing headers, unmatched projects,
+and invalid timestamps are reported with a reason instead of raw header values.
+Bundled-source logs show load attempts, reuse of a cached or pending lookup,
+and the project, environment, timestamp, and revision of loaded definitions.
+When definitions are unavailable, the reason is `missing-file`, `missing-entry`,
+or `unexpected-error`; raw errors and bundle contents are not logged.
+
+The controller's `origin` distinguishes `stream`, `poll`, `provided`, `bundled`,
+and `fetched` data; `mode` identifies the active update strategy. Debug metadata
+includes project IDs, revisions, and timestamps, but not SDK keys, tokens, flag
+values, or full datafiles. This setting also enables the existing ingest debug
+logging. Unset `DEBUG` to disable debug output; normal warnings and errors are
+unaffected.
+
 ## OpenFeature
 
 An OpenFeature-compatible provider is available at `@vercel/flags-core/openfeature`:
