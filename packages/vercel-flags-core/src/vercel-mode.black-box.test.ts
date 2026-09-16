@@ -15,7 +15,7 @@ vi.mock('./utils/read-bundled-definitions', () => ({
 
 const TIMESTAMP = 1_700_000_000_000;
 const PROJECT_ID = 'prj_header_test';
-const HEADER = 'x-vercel-flags-config-version';
+const HEADER = 'x-vercel-flags-config-versions';
 const SDK_KEY = 'vf_server_header_test';
 
 function datafile(timestamp = TIMESTAMP, enabled = false): BundledDefinitions {
@@ -109,7 +109,7 @@ afterEach(async () => {
 describe('Vercel mode (black-box)', () => {
   it.each([
     HEADER,
-    'flags-config-version',
+    'flags-config-versions',
   ])('initializes and refreshes using %s', async (headerName) => {
     cleanupContext();
     cleanupContext = setRequestContext({

@@ -11,7 +11,7 @@ vi.mock('./fetch-datafile', () => ({ fetchDatafile: vi.fn() }));
 
 const PROJECT_ID = 'prj_test';
 const CURRENT_TIMESTAMP = 1_700_000_000_000;
-const HEADER = 'x-vercel-flags-config-version';
+const HEADER = 'x-vercel-flags-config-versions';
 
 function datafile(configUpdatedAt = CURRENT_TIMESTAMP): BundledDefinitions {
   return {
@@ -89,7 +89,7 @@ describe('HeaderSource', () => {
   describe('header names', () => {
     it.each([
       HEADER,
-      'flags-config-version',
+      'flags-config-versions',
     ])('reads %s', async (headerName) => {
       vi.mocked(getRequestContext).mockReturnValue({
         ctx: {},
@@ -107,7 +107,7 @@ describe('HeaderSource', () => {
         ctx: {},
         headers: {
           [HEADER]: `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP}`,
-          'flags-config-version': `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP + 20_000}`,
+          'flags-config-versions': `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP + 20_000}`,
         },
       });
       const current = tagData(datafile(), 'provided');
@@ -119,8 +119,8 @@ describe('HeaderSource', () => {
     it.each([
       'x-vercel-edge-config-versions',
       'edge-config-versions',
-      'x-vercel-flags-config-versions',
-      'flags-config-versions',
+      'x-vercel-flags-config-version',
+      'flags-config-version',
     ])('ignores the obsolete header %s', async (headerName) => {
       vi.mocked(getRequestContext).mockReturnValue({
         ctx: {},

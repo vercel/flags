@@ -61,7 +61,7 @@ the environment used for flag evaluation.
 
 ## Configuration version headers
 
-The header source reads `x-vercel-flags-config-version` or `flags-config-version`,
+The header source reads `x-vercel-flags-config-versions` or `flags-config-versions`,
 with the `x-vercel-` header taking precedence when both are present.
 
 ## OpenFeature
