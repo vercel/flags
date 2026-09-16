@@ -37,6 +37,20 @@ if (result.created) {
 
 At runtime, `@vercel/flags-core` imports this module as a fallback when streaming or polling is unavailable.
 
+## Debugging embedded JSON parsing
+
+Regenerate the embedded definitions using this version of the package, rebuild your app, and set `VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE=1` in the runtime environment. Updating `@vercel/flags-core` alone does not instrument an existing definitions bundle.
+
+The first lookup of each distinct embedded datafile logs:
+
+```text
+@vercel/flags-definitions: JSON.parse { durationMs: 0.123, jsonChars: 12345 }
+```
+
+The example values are illustrative. `durationMs` uses `performance.now()` immediately around `JSON.parse`, excluding module import, authentication lookup, and logging. `jsonChars` is the input string length in UTF-16 code units, not a byte count. No SDK keys or flag contents are logged.
+
+Parsing remains lazy and memoized: cache hits, missing entries, and additional keys sharing the same datafile do not produce another timing log. Timing and logging are disabled unless the environment variable is exactly `1`. Logging itself can increase overall initialization time, so compare the reported parse duration separately from total init time.
+
 ## Documentation
 
 - [Embedded Definitions](https://vercel.com/docs/flags/vercel-flags/sdks/core#embedded-definitions)

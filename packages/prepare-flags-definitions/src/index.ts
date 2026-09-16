@@ -74,9 +74,9 @@ type MapEntry = {
  * Creates js constants pointing to memoized deduplicated flag definitions.
  * Output format:
  * ```js
- * const _d0 = memo(() => JSON.parse('...'));
- * const _d1 = memo(() => JSON.parse('...'));
- * ````
+ * const _d0 = memo(() => parseDefinitions('...'));
+ * const _d1 = memo(() => parseDefinitions('...'));
+ * ```
  */
 function generateDefinitionConstants(
   lines: string[],
@@ -92,7 +92,7 @@ function generateDefinitionConstants(
       definitionConst = `_d${stringToConst.size}`;
       stringToConst.set(stringified, definitionConst);
       lines.push(
-        `const ${definitionConst} = memo(() => JSON.parse(${JSON.stringify(stringified)}));`,
+        `const ${definitionConst} = memo(() => parseDefinitions(${JSON.stringify(stringified)}));`,
       );
     }
 
@@ -214,11 +214,11 @@ async function fetchDatafile(
  * The map keys are SHA-256 hashes of the SDK keys so that raw keys
  * are not embedded in the output.
  *
- * Output format:
+ * Output format (parseDefinitions wraps JSON.parse with opt-in timing):
  * ```js
  * const memo = (fn) => { let cached; return () => (cached ??= fn()); };
- * const _d0 = memo(() => JSON.parse('...'));
- * const _d1 = memo(() => JSON.parse('...'));
+ * const _d0 = memo(() => parseDefinitions('...'));
+ * const _d1 = memo(() => parseDefinitions('...'));
  * const map = { "<sha256_hash>": _d0, "project_id": _d1 };
  * export function get(key) { return map[key]?.() ?? null; }
  * ```
@@ -234,6 +234,19 @@ export function generateDefinitionsModule(
   // generate shared js
   const lines: string[] = [
     'const memo = (fn) => { let cached; return () => (cached ??= fn()); };',
+    '',
+    'function parseDefinitions(json) {',
+    "  if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);",
+    '  const start = performance.now();',
+    '  const definitions = JSON.parse(json);',
+    '  const durationMs = performance.now() - start;',
+    '  try {',
+    "    console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });",
+    '  } catch {',
+    '    // Diagnostics must not prevent flag evaluation.',
+    '  }',
+    '  return definitions;',
+    '}',
     '',
   ];
 

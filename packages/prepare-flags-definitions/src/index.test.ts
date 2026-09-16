@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
 import { version as pkgVersion } from '../package.json';
 import {
@@ -117,6 +118,117 @@ describe('generateDefinitionsModule', () => {
   });
 });
 
+describe('embedded JSON.parse timing', () => {
+  const definitions = { flag_a: { value: true } };
+  const otherDefinitions = { flag_b: { value: false } };
+
+  function loadGeneratedModule(debug?: string) {
+    const source = generateDefinitionsModule(
+      [
+        { key: 'vf_server_test_key', definitions },
+        { key: 'prj_test', definitions },
+        { key: 'prj_other', definitions: otherDefinitions },
+      ],
+      undefined,
+    );
+    const parse = vi.fn(JSON.parse);
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(10)
+      .mockReturnValueOnce(10.125)
+      .mockReturnValueOnce(20)
+      .mockReturnValueOnce(20.25);
+    const info = vi.fn();
+    // Execute the generated code in isolation, exposing its ESM exports as locals.
+    const { get } = runInNewContext(
+      `${source.replace(/^export /gm, '')}\n({ get });`,
+      {
+        JSON: { parse },
+        performance: { now },
+        console: { info },
+        process: { env: { VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE: debug } },
+      },
+    ) as { get(key: string): Record<string, unknown> | null };
+    return { get, parse, now, info };
+  }
+
+  it.each([
+    undefined,
+    '0',
+    'true',
+  ])('does not time or log parsing when the debug setting is %s', (debug) => {
+    const { get, parse, now, info } = loadGeneratedModule(debug);
+    expect(parse).not.toHaveBeenCalled();
+    expect(get('prj_test')).toEqual(definitions);
+    expect(parse).toHaveBeenCalledExactlyOnceWith(JSON.stringify(definitions));
+    expect(now).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('times only the first parse, including when SDK keys and project IDs share data', () => {
+    const { get, parse, now, info } = loadGeneratedModule('1');
+    expect(parse).not.toHaveBeenCalled();
+    expect(now).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+
+    const first = get('vf_server_test_key');
+    expect(first).toEqual(definitions);
+    expect(get('prj_test')).toBe(first);
+    expect(get('vf_server_test_key')).toBe(first);
+
+    expect(parse).toHaveBeenCalledExactlyOnceWith(JSON.stringify(definitions));
+    expect(now).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-definitions: JSON.parse',
+      { durationMs: 0.125, jsonChars: JSON.stringify(definitions).length },
+    );
+    expect(now.mock.invocationCallOrder[0]).toBeLessThan(
+      parse.mock.invocationCallOrder[0]!,
+    );
+    expect(parse.mock.invocationCallOrder[0]).toBeLessThan(
+      now.mock.invocationCallOrder[1]!,
+    );
+    expect(now.mock.invocationCallOrder[1]).toBeLessThan(
+      info.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('times each distinct datafile independently', () => {
+    const { get, parse, now, info } = loadGeneratedModule('1');
+    expect(get('prj_test')).toEqual(definitions);
+    const other = get('prj_other');
+    expect(other).toEqual(otherDefinitions);
+    expect(get('prj_other')).toBe(other);
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(now).toHaveBeenCalledTimes(4);
+    expect(info).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenLastCalledWith(
+      '@vercel/flags-definitions: JSON.parse',
+      { durationMs: 0.25, jsonChars: JSON.stringify(otherDefinitions).length },
+    );
+  });
+
+  it('does not parse or log a missing entry', () => {
+    const { get, parse, now, info } = loadGeneratedModule('1');
+    expect(get('missing')).toBeNull();
+    expect(parse).not.toHaveBeenCalled();
+    expect(now).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('preserves successful parsing and memoization if logging throws', () => {
+    const { get, parse, info } = loadGeneratedModule('1');
+    info.mockImplementation(() => {
+      throw new Error('Logging unavailable');
+    });
+    const first = get('prj_test');
+    expect(first).toEqual(definitions);
+    expect(get('prj_test')).toBe(first);
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('prepareFlagsDefinitions', () => {
   it('returns { created: false, reason: "no-flags-entries" } when no flags auth is in env', async () => {
     const result = await prepareFlagsDefinitions({
@@ -148,7 +260,20 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      function parseDefinitions(json) {
+        if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);
+        const start = performance.now();
+        const definitions = JSON.parse(json);
+        const durationMs = performance.now() - start;
+        try {
+          console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });
+        } catch {
+          // Diagnostics must not prevent flag evaluation.
+        }
+        return definitions;
+      }
+
+      const _d0 = memo(() => parseDefinitions("{\\"flag_a\\":{\\"value\\":true}}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,
@@ -242,7 +367,20 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      function parseDefinitions(json) {
+        if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);
+        const start = performance.now();
+        const definitions = JSON.parse(json);
+        const durationMs = performance.now() - start;
+        try {
+          console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });
+        } catch {
+          // Diagnostics must not prevent flag evaluation.
+        }
+        return definitions;
+      }
+
+      const _d0 = memo(() => parseDefinitions("{\\"flag_a\\":{\\"value\\":true}}"));
 
       const map = {
         "3790790d2dc9b23c4539a9f3c49eb5820e4216daebdd7eeee9136f3ceccc31a3": _d0,
@@ -298,7 +436,20 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      function parseDefinitions(json) {
+        if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);
+        const start = performance.now();
+        const definitions = JSON.parse(json);
+        const durationMs = performance.now() - start;
+        try {
+          console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });
+        } catch {
+          // Diagnostics must not prevent flag evaluation.
+        }
+        return definitions;
+      }
+
+      const _d0 = memo(() => parseDefinitions("{\\"flag_a\\":{\\"value\\":true}}"));
 
       const map = {
         "prj_oidc_test": _d0,
@@ -338,7 +489,20 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      function parseDefinitions(json) {
+        if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);
+        const start = performance.now();
+        const definitions = JSON.parse(json);
+        const durationMs = performance.now() - start;
+        try {
+          console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });
+        } catch {
+          // Diagnostics must not prevent flag evaluation.
+        }
+        return definitions;
+      }
+
+      const _d0 = memo(() => parseDefinitions("{\\"flag_a\\":{\\"value\\":true}}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,
@@ -440,8 +604,21 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
-      const _d1 = memo(() => JSON.parse("{\\"flag_b\\":{\\"value\\":true}}"));
+      function parseDefinitions(json) {
+        if (typeof process === 'undefined' || process.env.VERCEL_FLAGS_DEBUG_EMBEDDED_PARSE !== '1') return JSON.parse(json);
+        const start = performance.now();
+        const definitions = JSON.parse(json);
+        const durationMs = performance.now() - start;
+        try {
+          console.info('@vercel/flags-definitions: JSON.parse', { durationMs, jsonChars: json.length });
+        } catch {
+          // Diagnostics must not prevent flag evaluation.
+        }
+        return definitions;
+      }
+
+      const _d0 = memo(() => parseDefinitions("{\\"flag_a\\":{\\"value\\":true}}"));
+      const _d1 = memo(() => parseDefinitions("{\\"flag_b\\":{\\"value\\":true}}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,
