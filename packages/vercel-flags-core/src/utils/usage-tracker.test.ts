@@ -115,6 +115,7 @@ function createTracker(sdkKey = 'test-key', options?: Partial<IngestOptions>) {
     auth: createAuth(sdkKey),
     host: 'https://example.com',
     fetch: fetchMock,
+    waitUntil,
     ...options,
   });
 }
@@ -228,6 +229,7 @@ describe('UsageTracker', () => {
         auth: createAuth('my-secret-key'),
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       tracker.trackRead();
@@ -274,6 +276,7 @@ describe('UsageTracker', () => {
         },
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       tracker.trackRead();
@@ -378,6 +381,7 @@ describe('UsageTracker', () => {
         auth: createAuth('test-key'),
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       tracker.trackRead();
@@ -416,6 +420,7 @@ describe('UsageTracker', () => {
         auth: createAuth('test-key'),
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       tracker.trackRead();
@@ -906,12 +911,14 @@ describe('UsageTracker', () => {
         auth: createAuth('key-1'),
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       const tracker2 = new UsageTracker({
         auth: createAuth('key-2'),
         host: 'https://example.com',
         fetch: fetchMock,
+        waitUntil,
       });
 
       // Both trackers track with the same request context

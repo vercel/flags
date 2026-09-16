@@ -40,6 +40,27 @@ const evaluationCache = new WeakMap<
   Map</* flagKey */ string, Map</* entitiesKey */ string, any>>
 >();
 
+const adapterInitializationCache = new WeakMap<object, Promise<void>>();
+
+async function ensureAdapterInitialized(
+  adapter: Pick<Adapter<unknown, unknown>, 'initialize'>,
+): Promise<void> {
+  if (!adapter.initialize) return;
+
+  let initialization = adapterInitializationCache.get(adapter);
+  if (!initialization) {
+    initialization = adapter.initialize();
+    adapterInitializationCache.set(adapter, initialization);
+  }
+
+  try {
+    await initialization;
+  } catch (error) {
+    adapterInitializationCache.delete(adapter);
+    throw error;
+  }
+}
+
 function getCachedValuePromise(
   /**
    * supports Headers for App Router and IncomingHttpHeaders for Pages Router
@@ -197,7 +218,10 @@ type FlagInfo<ValueType> = {
   key: string;
   defaultValue?: ValueType;
   config?: { reportValue?: boolean };
-  adapter?: { config?: { reportValue?: boolean } };
+  adapter?: Pick<
+    Adapter<ValueType, any>,
+    'config' | 'initialize' | 'experimental_reportOverride'
+  >;
 };
 
 function hasOverride(
@@ -227,10 +251,18 @@ async function applyResult<ValueType>(args: {
   definition: FlagInfo<ValueType>;
   readonlyHeaders: ReadonlyHeaders;
   entitiesKey: string;
+  entities?: unknown;
   overrides: Record<string, any> | null;
   produce: () => ValueType | PromiseLike<ValueType>;
 }): Promise<ValueType> {
-  const { definition, readonlyHeaders, entitiesKey, overrides, produce } = args;
+  const {
+    definition,
+    readonlyHeaders,
+    entitiesKey,
+    entities,
+    overrides,
+    produce,
+  } = args;
 
   const cachedValue = getCachedValuePromise(
     readonlyHeaders,
@@ -254,6 +286,19 @@ async function applyResult<ValueType>(args: {
     internalReportValue(definition.key, decision, {
       reason: 'override',
     });
+    try {
+      const adapter = definition.adapter;
+      if (adapter?.experimental_reportOverride) {
+        await ensureAdapterInitialized(adapter);
+        await adapter.experimental_reportOverride({
+          key: definition.key,
+          value: decision,
+          entities,
+        });
+      }
+    } catch (error) {
+      console.error('flags: Failed to report flag override', error);
+    }
     return decision;
   }
 
@@ -401,6 +446,7 @@ export function getRun<ValueType, EntitiesType>(
       definition,
       readonlyHeaders,
       entitiesKey,
+      entities,
       overrides,
       produce: () =>
         decide({
@@ -641,6 +687,7 @@ async function evaluateImpl(
                     definition: flagFn,
                     readonlyHeaders,
                     entitiesKey,
+                    entities,
                     overrides,
                     produce: () => {
                       if (bulkError) throw bulkError;

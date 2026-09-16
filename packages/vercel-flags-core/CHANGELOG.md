@@ -1,5 +1,29 @@
 # @vercel/flags-core
 
+## 1.8.1
+
+### Patch Changes
+
+- [#486](https://github.com/vercel/flags/pull/486) [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823) Thanks [@dferber90](https://github.com/dferber90)! - Add APIs for reporting flag exposures and override values.
+  
+  - The `experimental_reportExposures` client option for supplying an exposure
+    reporter.
+  - The `experimental_reportOverride` client method for reporting values set by
+    the Flags SDK override cookie.
+  - The `experimental_exposureLogging` option on `evaluate()` and
+    `bulkEvaluate()` for disabling exposure reporting for an individual call.
+  - Experiment assignment metadata on `EvaluationResult.experiment`.
+  - The `experimental_EvaluationOptions`,
+    `experimental_ExperimentAssignment`, `experimental_Exposure`, and
+    `experimental_ReportExposures` types.
+  
+  These APIs are not supported for general use yet. Do not use them unless
+  Vercel has explicitly enabled them for you.
+
+- [#494](https://github.com/vercel/flags/pull/494) [`e0eebe6`](https://github.com/vercel/flags/commit/e0eebe6fbc296636761eb3dc31f2c4be01a398bf) Thanks [@luismeyer](https://github.com/luismeyer)! - Request an uncompressed `/v1/stream` body when running on Bun.
+  
+  Bun's `fetch` negotiates brotli or gzip by default, but its streaming decoder withholds small decoded output until more compressed input arrives. The stream's first datafile is followed by silence until the next ping, so on Bun the initial datafile never surfaced, init timed out, and every flag fell back to its default. Sending `Accept-Encoding: identity` on Bun avoids the decoder entirely; other runtimes are unchanged.
+
 ## 1.8.0
 
 ### Minor Changes
