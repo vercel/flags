@@ -64,6 +64,36 @@ the environment used for flag evaluation.
 The header source reads `x-vercel-flags-config-versions` or `flags-config-versions`,
 with the `x-vercel-` header taking precedence when both are present.
 
+## Initialization performance benchmark
+
+From this repository, run the network-free scenario matrix:
+
+```bash
+pnpm --filter @vercel/flags-core bench:init
+pnpm --filter @vercel/flags-core bench:init --definitions /path/to/datafile.json --samples 20
+```
+
+Use `--json` for unrounded phase medians/p95s and path-validation counters. Without a file, the benchmark uses 31 synthetic flags. A supplied file stays local and is not modified; generated copies are removed when the run completes. Project metadata is normalized to synthetic values while preserving the flag and segment payloads.
+
+Each auth method (SDK key and request-scoped OIDC) is measured with:
+
+- Embedded definitions only, with stream/polling disabled.
+- Embedded definitions and a matching, fresh version header, with streaming enabled to verify that the header bypasses it.
+- Embedded definitions and a mocked stream sending a `primed` response.
+- No matching embedded entry and a mocked stream sending a full datafile.
+
+Every cold sample uses a fresh Node process. A second, new client in that process measures warm module, parsed-definition, SDK-key-hash, and OIDC-helper caches. Repeated `initialize()` on the same client is reported separately as `reinit`. There are no timing thresholds: assertions verify paths, authentication, memoization, and stream cancellation rather than machine speed.
+
+The probes measure `createClient()` separately from `initialize()`, then break initialization into embedded module import, auth/project lookup, SDK-key hashing/cache lookup, embedded `JSON.parse`, header detection, stream initialization, and remaining work. JSON output additionally includes total bundled loading and stream authentication; these are **inclusive** parent/child measurements, not additional time to sum. The main table's phase columns are exclusive, but their separately computed medians need not sum to the median init time.
+
+The benchmark bundles the current source into a temporary worker and adds probes only to that build. The real controller, embedded loader, OIDC helper, hash implementation, generated definitions, and stream decoder run; only stream transport and credentials are synthetic. Mock response construction, fixture preparation, SDK module loading, validation, and shutdown are outside the measured init interval. Instrumentation has some overhead. No live network latency or Next.js `use cache` wrapper is measured, so these numbers are diagnostic breakdowns rather than deployed latency predictions.
+
+Run the benchmark's functional tests with:
+
+```bash
+pnpm --filter @vercel/flags-core exec vitest run bench/init.test.ts
+```
+
 ## OpenFeature
 
 An OpenFeature-compatible provider is available at `@vercel/flags-core/openfeature`:

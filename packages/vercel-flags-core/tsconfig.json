@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig-base.json",
-  "include": ["src"],
+  "include": ["src", "bench/**/*.ts"],
   "compilerOptions": {
     "resolveJsonModule": true,
     "target": "ES2023"

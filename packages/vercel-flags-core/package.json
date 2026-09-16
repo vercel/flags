@@ -65,6 +65,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
+    "bench:init": "node bench/init.mjs",
     "build": "tsup",
     "dev": "tsup --watch",
     "check": "biome check",
