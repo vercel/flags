@@ -1,5 +1,4 @@
 import type { DatafileInput } from '../types';
-import { debugLog } from '../utils/debug';
 import type { NormalizedOptions } from './normalized-options';
 import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
@@ -33,12 +32,8 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * If already started, returns the existing promise.
    */
   start(): Promise<void> {
-    if (this.promise) {
-      debugLog('stream-source', 'Reusing stream connection');
-      return this.promise;
-    }
+    if (this.promise) return this.promise;
 
-    debugLog('stream-source', 'Starting stream connection');
     const abortController = new AbortController();
     this.abortController = abortController;
 
@@ -67,42 +62,22 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         },
         {
           onDatafile: (newData) => {
-            debugLog('stream-source', 'Connected with datafile', {
-              projectId: newData.projectId,
-              configUpdatedAt: Number(newData.configUpdatedAt),
-              revision: newData.revision,
-            });
             this.emit('data', newData);
             this.emit('connected');
           },
           onPrimed: (message) => {
-            debugLog('stream-source', 'Connected with current revision', {
-              projectId: message.projectId,
-              revision: message.revision,
-            });
             this.emit('primed', message);
             this.emit('connected');
           },
           onDisconnect: () => {
-            debugLog('stream-source', 'Disconnected', {
-              aborted: abortController.signal.aborted,
-            });
             this.emit('disconnected');
           },
         },
       );
 
-      this.promise = promise.catch((error) => {
-        debugLog('stream-source', 'Stream initialization failed', {
-          aborted: abortController.signal.aborted,
-        });
-        throw error;
-      });
-      return this.promise;
+      this.promise = promise;
+      return promise;
     } catch (error) {
-      debugLog('stream-source', 'Stream initialization failed', {
-        aborted: abortController.signal.aborted,
-      });
       this.promise = undefined;
       this.abortController = undefined;
       throw error;
@@ -113,9 +88,6 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Stop the stream connection.
    */
   stop(): void {
-    debugLog('stream-source', 'Stopping stream connection', {
-      active: this.abortController !== undefined,
-    });
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;

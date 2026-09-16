@@ -1,6 +1,5 @@
 import { waitUntil } from '@vercel/functions';
 import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
-import { debugLog } from '../utils/debug';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
@@ -27,12 +26,8 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
   private fetchDatafile(): Promise<BundledDefinitions> {
     // Share only the transport work, not request-specific freshness decisions.
-    if (this.promise) {
-      debugLog('header-source', 'Reusing pending refresh');
-      return this.promise;
-    }
+    if (this.promise) return this.promise;
 
-    debugLog('header-source', 'Starting refresh');
     const abortController = new AbortController();
     this.abortController = abortController;
     this.promise = fetchDatafile({
@@ -42,19 +37,8 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       .then((data) => {
         // A transport may finish after stop() even if it ignores cancellation.
         abortController.signal.throwIfAborted();
-        debugLog('header-source', 'Refresh completed', {
-          projectId: data.projectId,
-          configUpdatedAt: Number(data.configUpdatedAt),
-          revision: data.revision,
-        });
         this.emit('data', data);
         return data;
-      })
-      .catch((error) => {
-        debugLog('header-source', 'Refresh failed', {
-          aborted: abortController.signal.aborted,
-        });
-        throw error;
       })
       .finally(() => {
         // An older, aborted fetch must not clear a newer request's work.
@@ -70,17 +54,11 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private getUpdatedAtHeader(projectId: string) {
     const ctx = getRequestContext();
 
-    const headerName =
-      ctx.headers?.['x-vercel-flags-config-version'] != null
-        ? 'x-vercel-flags-config-version'
-        : 'flags-config-version';
-    const header = ctx.headers?.[headerName];
+    const header =
+      ctx.headers?.['x-vercel-flags-config-version'] ??
+      ctx.headers?.['flags-config-version'];
 
     if (!header) {
-      debugLog('header-source', 'Header unavailable', {
-        projectId,
-        reason: 'missing-header',
-      });
       return;
     }
 
@@ -92,21 +70,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       ?.slice(prefix.length);
     const timestamp = Number(value);
 
-    if (!Number.isFinite(timestamp) || timestamp <= 0) {
-      debugLog('header-source', 'Header unavailable', {
-        projectId,
-        headerName,
-        reason: value === undefined ? 'project-not-found' : 'invalid-timestamp',
-      });
-      return;
-    }
-
-    debugLog('header-source', 'Header version available', {
-      projectId,
-      headerName,
-      timestamp,
-    });
-    return timestamp;
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
 
   private async resolveData(
@@ -114,10 +78,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
     // current datafile has no timestamp, this shouldn't happen
     if (!currentData.configUpdatedAt) {
-      debugLog('header-source', 'Skipping header refresh', {
-        projectId: currentData.projectId,
-        reason: 'missing-data-timestamp',
-      });
       return;
     }
 
@@ -127,19 +87,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     }
 
     const currentUpdatedAt = Number(currentData.configUpdatedAt);
-    const deltaMs = updatedAtHeader - currentUpdatedAt;
-    debugLog('header-source', 'Freshness decision', {
-      projectId: currentData.projectId,
-      currentUpdatedAt,
-      headerUpdatedAt: updatedAtHeader,
-      deltaMs,
-      action:
-        updatedAtHeader <= currentUpdatedAt
-          ? 'serve-cached'
-          : updatedAtHeader <= currentUpdatedAt + 10_000
-            ? 'background-refresh'
-            : 'blocking-refresh',
-    });
 
     // header is older than current data
     if (updatedAtHeader <= currentUpdatedAt) {
@@ -180,9 +127,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
    * Abort the current header-driven fetch and discard its pending work.
    */
   stop(): void {
-    debugLog('header-source', 'Stopping header refresh', {
-      pending: this.promise !== undefined,
-    });
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;
