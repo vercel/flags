@@ -468,7 +468,7 @@ export class Controller implements ControllerInterface {
     }
 
     if (this.data) {
-      if (this.mode === 'vercel') {
+      if (this.headerSource.isAvailable(this.data.projectId)) {
         const result = await this.headerSource.read(this.data);
 
         if (result) {
