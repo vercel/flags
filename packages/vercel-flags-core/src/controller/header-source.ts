@@ -71,13 +71,10 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     const ctx = getRequestContext();
 
     const headerName =
-      ctx.headers?.['x-vercel-edge-config-versions'] != null
-        ? 'x-vercel-edge-config-versions'
-        : 'edge-config-versions';
+      ctx.headers?.['x-vercel-flags-config-version'] != null
+        ? 'x-vercel-flags-config-version'
+        : 'flags-config-version';
     const header = ctx.headers?.[headerName];
-    // const header =
-    //   ctx.headers?.['x-vercel-flags-config-versions'] ??
-    //   ctx.headers?.['flags-config-versions'];
 
     if (!header) {
       debugLog('header-source', 'Header unavailable', {

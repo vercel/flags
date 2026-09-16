@@ -88,7 +88,7 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
- * **Runtime - vercel mode** (request context has matching x-vercel-flags-config-versions header)
+ * **Runtime - vercel mode** (request context has a matching x-vercel-flags-config-version or flags-config-version header)
  * - Uses the header value to determine if the current data is fresh
  * - Revalidates in the background if the header value is within 10 seconds of the current configUpdatedAt
  * - Blocking fetch if header is newer than current configUpdatedAt

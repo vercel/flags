@@ -15,7 +15,7 @@ vi.mock('./utils/read-bundled-definitions', () => ({
 
 const TIMESTAMP = 1_700_000_000_000;
 const PROJECT_ID = 'prj_header_test';
-const HEADER = 'x-vercel-edge-config-versions';
+const HEADER = 'x-vercel-flags-config-version';
 const SDK_KEY = 'vf_server_header_test';
 
 function datafile(timestamp = TIMESTAMP, enabled = false): BundledDefinitions {
@@ -107,6 +107,42 @@ afterEach(async () => {
 });
 
 describe('Vercel mode (black-box)', () => {
+  it.each([
+    HEADER,
+    'flags-config-version',
+  ])('initializes and refreshes using %s', async (headerName) => {
+    cleanupContext();
+    cleanupContext = setRequestContext({
+      [headerName]: `flags_${PROJECT_ID}=${TIMESTAMP}`,
+    });
+    const instance = client();
+
+    const initial = await instance.evaluate('feature');
+    expect(initial.value).toBe(false);
+    expect(initial.metrics).toMatchObject({
+      mode: 'vercel',
+      cacheStatus: 'HIT',
+    });
+    expect(dataFetch).not.toHaveBeenCalled();
+
+    cleanupContext();
+    cleanupContext = setRequestContext({
+      [headerName]: `flags_${PROJECT_ID}=${TIMESTAMP + 20_000}`,
+    });
+    dataFetch.mockResolvedValueOnce(
+      Response.json(datafile(TIMESTAMP + 20_000, true)),
+    );
+
+    const refreshed = await instance.evaluate('feature');
+    expect(refreshed.value).toBe(true);
+    expect(refreshed.metrics).toMatchObject({
+      mode: 'vercel',
+      source: 'remote',
+      cacheStatus: 'MISS',
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     'provided',
     'bundled',

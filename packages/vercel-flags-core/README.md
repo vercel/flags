@@ -75,6 +75,8 @@ state transitions, the origin and cache status of each read, stream connections
 and disconnections, and header freshness decisions (`serve-cached`,
 `background-refresh`, or `blocking-refresh`). Missing headers, unmatched projects,
 and invalid timestamps are reported with a reason instead of raw header values.
+The header source reads `x-vercel-flags-config-version` or `flags-config-version`,
+with the `x-vercel-` header taking precedence when both are present.
 Bundled-source logs show load attempts, reuse of a cached or pending lookup,
 and the project, environment, timestamp, and revision of loaded definitions.
 When definitions are unavailable, the reason is `missing-file`, `missing-entry`,

@@ -11,7 +11,7 @@ vi.mock('./fetch-datafile', () => ({ fetchDatafile: vi.fn() }));
 
 const PROJECT_ID = 'prj_test';
 const CURRENT_TIMESTAMP = 1_700_000_000_000;
-const HEADER = 'x-vercel-edge-config-versions';
+const HEADER = 'x-vercel-flags-config-version';
 
 function datafile(configUpdatedAt = CURRENT_TIMESTAMP): BundledDefinitions {
   return {
@@ -86,6 +86,57 @@ afterEach(() => {
 });
 
 describe('HeaderSource', () => {
+  describe('header names', () => {
+    it.each([
+      HEADER,
+      'flags-config-version',
+    ])('reads %s', async (headerName) => {
+      vi.mocked(getRequestContext).mockReturnValue({
+        ctx: {},
+        headers: { [headerName]: `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP}` },
+      });
+      const current = tagData(datafile(), 'provided');
+
+      expect(source.isAvailable(PROJECT_ID)).toBe(true);
+      await expect(source.read(current)).resolves.toEqual([current, 'HIT']);
+      expect(fetchDatafile).not.toHaveBeenCalled();
+    });
+
+    it('prefers the x-vercel header when both names are present', async () => {
+      vi.mocked(getRequestContext).mockReturnValue({
+        ctx: {},
+        headers: {
+          [HEADER]: `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP}`,
+          'flags-config-version': `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP + 20_000}`,
+        },
+      });
+      const current = tagData(datafile(), 'provided');
+
+      await expect(source.read(current)).resolves.toEqual([current, 'HIT']);
+      expect(fetchDatafile).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'x-vercel-edge-config-versions',
+      'edge-config-versions',
+      'x-vercel-flags-config-versions',
+      'flags-config-versions',
+    ])('ignores the obsolete header %s', async (headerName) => {
+      vi.mocked(getRequestContext).mockReturnValue({
+        ctx: {},
+        headers: {
+          [headerName]: `flags_${PROJECT_ID}=${CURRENT_TIMESTAMP + 20_000}`,
+        },
+      });
+
+      expect(source.isAvailable(PROJECT_ID)).toBe(false);
+      await expect(
+        source.read(tagData(datafile(), 'provided')),
+      ).resolves.toBeUndefined();
+      expect(fetchDatafile).not.toHaveBeenCalled();
+    });
+  });
+
   describe('project-specific version header', () => {
     it.each([
       `flags_other=${CURRENT_TIMESTAMP + 20_000};flags_${PROJECT_ID}=${CURRENT_TIMESTAMP}`,
