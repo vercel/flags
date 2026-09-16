@@ -1252,7 +1252,7 @@ describe('runtime ingest transport', () => {
     delete (globalThis as Record<symbol, unknown>)[FLAGS_CONTEXT_SYMBOL];
   });
 
-  it('delivers events through the runtime without fetch or waitUntil', async () => {
+  it('delivers events through the runtime without fetch', async () => {
     ingestMock.mockReturnValue(true);
 
     const tracker = createTracker();
@@ -1271,8 +1271,12 @@ describe('runtime ingest transport', () => {
     expect(body).toHaveLength(1);
     expect(body[0]!.type).toBe('FLAG_EVALUATION');
 
+    // The flush is registered with waitUntil, but it is already settled when
+    // the runtime accepted every event, so it never extends the invocation.
+    expect(waitUntilMock).toHaveBeenCalledTimes(1);
+    await waitUntilMock.mock.calls[0]![0];
+
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(waitUntilMock).not.toHaveBeenCalled();
     expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
   });
 
@@ -1281,6 +1285,7 @@ describe('runtime ingest transport', () => {
 
     const resolveToken = vi.fn();
     const tracker = new UsageTracker({
+      waitUntil,
       auth: {
         sdkKey: undefined,
         resolveToken,
@@ -1339,6 +1344,41 @@ describe('runtime ingest transport', () => {
     });
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const events = getBody() as SerializedEvaluationEvent[];
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe('FLAG_EVALUATION');
+  });
+
+  it('drains the HTTP fallback before shutdown resolves', async () => {
+    ingestMock.mockReturnValue(false);
+
+    let resolveFetch!: (response: Response | PromiseLike<Response>) => void;
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((res) => (resolveFetch = res)),
+    );
+
+    const tracker = createTracker();
+    tracker.trackEvaluation({
+      flagKey: 'my-flag',
+      variant: 'on',
+      reason: ResolutionReason.RULE_MATCH,
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    let shutdownResolved = false;
+    const shutdown = tracker.shutdown().then(() => {
+      shutdownResolved = true;
+    });
+
+    // Let any settled promises run: shutdown must still be waiting on the
+    // in-flight fallback send.
+    await new Promise((res) => setTimeout(res, 0));
+    expect(shutdownResolved).toBe(false);
+
+    resolveFetch(jsonResponse({ ok: true }));
+    await shutdown;
+
     const events = getBody() as SerializedEvaluationEvent[];
     expect(events).toHaveLength(1);
     expect(events[0]!.type).toBe('FLAG_EVALUATION');
