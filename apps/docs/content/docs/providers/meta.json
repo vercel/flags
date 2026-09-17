@@ -20,7 +20,8 @@
     "...openfeature",
     "---Others---",
     "optimizely",
-    "split"
+    "split",
+    "hypertune"
   ],
   "defaultOpen": true
 }
