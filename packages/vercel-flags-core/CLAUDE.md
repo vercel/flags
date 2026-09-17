@@ -90,6 +90,7 @@ type ControllerOptions = {
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
+  waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
   sources?: { stream?: StreamSource; polling?: PollingSource; bundled?: BundledSource };  // DI for testing
 };
 ```
@@ -267,7 +268,9 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - Sends to `flags.vercel.com/v1/ingest`
 - At runtime: deduplicates by request context (per-instance WeakSet in UsageTracker)
 - During builds: deduplicates all reads to a single event (buildReadTracked flag in Controller), since there is no request context available
-- Uses `waitUntil()` from `@vercel/functions` (wrapped in try/catch for resilience)
+- Uses a custom `waitUntil()` passed to `createClient`, or defaults to `@vercel/functions` (wrapped in try/catch for resilience)
+- The Next.js conditional export defaults to `after()` from `next/server`; an explicit `waitUntil` option always takes precedence
+- Exposure reporting does not block evaluation; `shutdown()` drains pending exposure reports for graceful shutdown in long-lived processes
 - On flush failure, events are re-queued for retry with a max queue size of 500 events (oldest events are dropped when exceeded)
 - `flush()` directly flushes queued events even when no scheduled flush is pending, ensuring events are not lost during `shutdown()`
 

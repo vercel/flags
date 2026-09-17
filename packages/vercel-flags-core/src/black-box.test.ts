@@ -3836,7 +3836,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('does not block evaluation while reporting an exposure', async () => {
+    it('does not block evaluation and drains exposure reporting on shutdown', async () => {
       let finishReporting: () => void = () => {};
       const reporting = new Promise<void>((resolve) => {
         finishReporting = resolve;
@@ -3856,8 +3856,41 @@ describe('Controller (black-box)', () => {
       ).resolves.toMatchObject({ value: 'treatment-a' });
       expect(reportExposures).toHaveBeenCalledOnce();
 
+      let shutdownComplete = false;
+      const shutdown = Promise.resolve(client.shutdown()).then(() => {
+        shutdownComplete = true;
+      });
+      await Promise.resolve();
+      expect(shutdownComplete).toBe(false);
+
       finishReporting();
-      await reporting;
+      await shutdown;
+      expect(shutdownComplete).toBe(true);
+    });
+
+    it('registers exposure reporting with a custom waitUntil', async () => {
+      let finishReporting: () => void = () => {};
+      const reporting = new Promise<void>((resolve) => {
+        finishReporting = resolve;
+      });
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: () => reporting,
+        waitUntil,
+      });
+
+      await client.evaluate('flagA', undefined, entity);
+
+      expect(waitUntil).toHaveBeenCalledTimes(2);
+      expect(waitUntil).toHaveBeenNthCalledWith(1, expect.any(Promise));
+      expect(waitUntil).toHaveBeenNthCalledWith(2, expect.any(Promise));
+
+      finishReporting();
       await client.shutdown();
     });
 
@@ -4060,6 +4093,26 @@ describe('Controller (black-box)', () => {
   // Usage tracking
   // ---------------------------------------------------------------------------
   describe('usage tracking', () => {
+    it('should use a custom waitUntil function for usage tracking', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        fetch: fetchMock,
+        polling: false,
+        stream: false,
+        waitUntil,
+      });
+
+      await client.evaluate('flagA');
+
+      expect(waitUntil).toHaveBeenCalledOnce();
+      expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+
+      await client.shutdown();
+      cleanupCtx();
+    });
+
     it('should report counted FLAG_EVALUATION events', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       fetchMock.mockImplementation((input) => {
