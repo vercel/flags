@@ -18,7 +18,6 @@ type Provider = {
   badges: string[];
   glowColor?: string;
   skipInvert?: boolean;
-  primary?: boolean;
 };
 
 const VercelLogo = ({ className }: { className?: string }) => (
@@ -47,7 +46,6 @@ const providers: Provider[] = [
     badges: ['Adapter', 'Global Config', 'Flags Explorer'],
     glowColor: '#000000',
     skipInvert: true,
-    primary: true,
   },
   {
     key: 'statsig',
@@ -139,7 +137,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
         )
         .map((provider) => (
           <li
-            className={cn('m-0', provider.primary && 'md:col-span-full')}
+            className="m-0"
             key={provider.key}
             data-replacement={provider.name}
           >
@@ -149,16 +147,11 @@ export function ProviderList({ featured }: { featured?: boolean }) {
                   {provider.name}
                 </span>
                 <div className="z-10 flex items-center justify-center overflow-hidden">
-                  <div
-                    className={cn(
-                      'flex items-center justify-center',
-                      provider.primary ? 'min-h-48' : 'min-h-36',
-                    )}
-                  >
+                  <div className="flex min-h-36 items-center justify-center">
                     <div className="text-black dark:text-white">
                       <provider.logo
                         className={cn(
-                          provider.primary ? 'h-12' : 'h-8',
+                          'h-8',
                           provider.skipInvert ? null : 'dark:invert',
                         )}
                       />
