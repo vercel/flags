@@ -73,7 +73,7 @@ export type Metrics = {
   /** Whether the stream is currently connected */
   connectionState: 'connected' | 'disconnected';
   /** The current operating mode of the client */
-  mode: 'streaming' | 'polling' | 'build' | 'offline';
+  mode: 'streaming' | 'polling' | 'build' | 'vercel' | 'offline';
   /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
   evaluationMs?: number;
 };

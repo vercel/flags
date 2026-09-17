@@ -47,6 +47,11 @@ const client = createClient(process.env.FLAGS!, {
 This option is sent only to the metrics ingestion endpoint. It does not select
 the environment used for flag evaluation.
 
+## Configuration version headers
+
+The header source reads `x-vercel-flags-config-versions` or `flags-config-versions`,
+with the `x-vercel-` header taking precedence when both are present.
+
 ## OpenFeature
 
 An OpenFeature-compatible provider is available at `@vercel/flags-core/openfeature`:
