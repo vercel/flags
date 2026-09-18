@@ -1,5 +1,9 @@
 import type { ProviderData } from 'flags';
 
+/**
+ * @deprecated The Hypertune adapter no longer receives updates.
+ * See https://flags-sdk.dev/providers for alternatives.
+ */
 export async function getProviderData(options: {
   token: string;
 }): Promise<ProviderData> {
