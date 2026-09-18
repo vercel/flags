@@ -128,6 +128,11 @@ const config: NextConfig = {
         destination: 'https://flags-sdk-workshop.vercel.app/',
         permanent: false,
       },
+      {
+        source: '/privacy',
+        destination: 'https://vercel.com/legal/privacy-policy',
+        permanent: false,
+      },
       ...Object.entries(sourceToDestination).map(([source, destination]) => ({
         source,
         destination: destination.startsWith('http') ? destination : `/docs${destination}`,

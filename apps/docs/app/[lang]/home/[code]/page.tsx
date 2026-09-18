@@ -20,7 +20,7 @@ import {
   rootFlags,
 } from '@/flags';
 import { config } from '@/lib/geistdocs/config';
-import { getLocalizedPath } from '@/lib/geistdocs/public-path';
+import { buildHomeMetadata } from '@/lib/site/home-metadata';
 import HeroImage from './components/hero-image';
 import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
@@ -78,22 +78,13 @@ export const generateMetadata = async ({
   const { lang } = await params;
   const agentConfig = config.agent as GeistdocsAgentReadinessConfig | undefined;
 
-  return {
-    alternates: {
-      ...(config.siteUrl
-        ? {
-            canonical: getLocalizedPath(lang, '/'),
-            ...(agentConfig && agentConfig.enabled !== false
-              ? {
-                  types: {
-                    'text/markdown': getLocalizedPath(lang, '/agents.md'),
-                  },
-                }
-              : {}),
-          }
-        : {}),
-    },
-  };
+  return buildHomeMetadata({
+    lang,
+    siteUrl: config.siteUrl,
+    agentReadinessEnabled: Boolean(
+      agentConfig && agentConfig.enabled !== false,
+    ),
+  });
 };
 
 export default async function HomePage({
