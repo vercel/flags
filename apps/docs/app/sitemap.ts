@@ -5,6 +5,7 @@ import { cacheLife } from "next/cache";
 import { config } from "@/lib/geistdocs/config";
 import { absoluteUrl } from "@/lib/geistdocs/site-url";
 import { source } from "@/lib/geistdocs/source";
+import { TRUST_PAGES } from "@/lib/site/trust-pages";
 
 // biome-ignore lint/suspicious/useAwait: Next.js requires cached functions to be async.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -37,6 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
       url: url("/"),
     },
+    ...TRUST_PAGES.map((page) => ({
+      changeFrequency: "yearly" as const,
+      priority: 0.3,
+      url: url(page.path),
+    })),
     ...pages,
   ];
 }
