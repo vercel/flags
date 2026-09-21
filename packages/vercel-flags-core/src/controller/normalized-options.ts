@@ -12,6 +12,7 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
+const DEFAULT_STALE_WHILE_REVALIDATE_MS = 10_000;
 
 /**
  * Configuration options for Controller
@@ -44,6 +45,14 @@ export type ControllerOptions = {
    * @default true
    */
   polling?: boolean | PollingOptions;
+
+  /**
+   * How long header-driven reads may serve cached data while refreshing in the
+   * background, measured from its last fetch or matching version header.
+   * Must be a finite, non-negative number. Set to 0 to always block on refresh.
+   * @default 10000
+   */
+  staleWhileRevalidateMs?: number;
 
   /**
    * Override build step detection
@@ -91,6 +100,7 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  staleWhileRevalidateMs: number;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -139,11 +149,20 @@ export function normalizeOptions(
     };
   }
 
+  const staleWhileRevalidateMs =
+    options.staleWhileRevalidateMs ?? DEFAULT_STALE_WHILE_REVALIDATE_MS;
+  if (!Number.isFinite(staleWhileRevalidateMs) || staleWhileRevalidateMs < 0) {
+    throw new Error(
+      '@vercel/flags-core: staleWhileRevalidateMs must be a finite, non-negative number.',
+    );
+  }
+
   return {
     auth: options.auth,
     datafile: options.datafile,
     stream,
     polling,
+    staleWhileRevalidateMs,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,

@@ -17,12 +17,17 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private options: NormalizedOptions;
   private abortController: AbortController | undefined;
   private promise: Promise<BundledDefinitions> | undefined;
-  private readonly lastSeen = new BoundedMap<number, number>(10);
+  private readonly lastSeen: BoundedMap<number, number>;
 
   constructor(options: NormalizedOptions) {
     super();
 
     this.options = options;
+    // Keep a small version buffer; old observations expire on read.
+    this.lastSeen = new BoundedMap(
+      10,
+      (lastSeenAt) => Date.now() - lastSeenAt > options.staleWhileRevalidateMs,
+    );
   }
 
   private fetchDatafile(): Promise<BundledDefinitions> {
@@ -99,8 +104,11 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       currentData._fetchedAt ?? -Infinity,
       this.lastSeen.get(currentUpdatedAt) ?? -Infinity,
     );
-    // revalidate in the background if currentData was fetchedAt or lastSeen in the last 10 seconds
-    if (Date.now() - freshAt <= 10_000) {
+    const { staleWhileRevalidateMs } = this.options;
+    if (
+      staleWhileRevalidateMs > 0 &&
+      Date.now() - freshAt <= staleWhileRevalidateMs
+    ) {
       const pending = this.fetchDatafile();
       const signal = this.abortController?.signal;
       const background = pending.catch((error) => {
@@ -129,6 +137,11 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   isAvailable(projectId: string): boolean {
+    // Explicit offline mode disables header-driven refreshes too.
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
+      return false;
+    }
+
     return !!this.getUpdatedAtHeader(projectId);
   }
 

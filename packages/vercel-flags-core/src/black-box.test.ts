@@ -175,14 +175,16 @@ describe('Controller (black-box)', () => {
   });
 
   it.each([
-    'poll',
-    'stream',
-  ] as const)('replaces cached data and renews freshness for equal and older %s arrivals', async (source) => {
-    const now = 1_700_000_000_000;
-    vi.setSystemTime(now);
+    ['poll', 3, false, 3],
+    ['poll', 2, true, 2],
+    ['poll', 1, true, 2],
+    ['stream', 3, false, 3],
+    ['stream', 2, true, 2],
+    ['stream', 1, true, 2],
+  ] as const)('applies the version guard to %s version %i', async (source, configUpdatedAt, expectedValue, expectedVersion) => {
     const stream = createMockStream();
     const incoming = makeBundled({
-      configUpdatedAt: 2,
+      configUpdatedAt,
       definitions: {
         flagA: {
           environments: { production: 0 },
@@ -190,20 +192,7 @@ describe('Controller (black-box)', () => {
         },
       },
     });
-    let resolveRefresh!: (response: Response) => void;
-    const pending = new Promise<Response>((resolve) => {
-      resolveRefresh = resolve;
-    });
-    const dataFetch = vi.fn<typeof fetch>();
-    if (source === 'poll') {
-      dataFetch.mockResolvedValueOnce(Response.json(incoming));
-    }
-    dataFetch.mockReturnValueOnce(pending);
-    if (source === 'poll') {
-      dataFetch.mockResolvedValueOnce(
-        Response.json(makeBundled({ configUpdatedAt: 1 })),
-      );
-    }
+    const dataFetch = vi.fn<typeof fetch>(async () => Response.json(incoming));
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       if (url.endsWith('/v1/stream')) return stream.response;
@@ -216,99 +205,27 @@ describe('Controller (black-box)', () => {
       fetch: fetchMock,
       buildStep: false,
       stream: source === 'stream',
-      polling:
-        source === 'poll'
-          ? { intervalMs: 30_000, initTimeoutMs: 3_000 }
-          : false,
+      polling: source === 'poll',
     });
-    let cleanupContext = setRequestContext({});
+    const cleanupContext = setRequestContext({});
     try {
       const initial = client.evaluate('flagA');
       if (source === 'stream') {
         stream.push({ type: 'datafile', data: incoming });
       }
-      await vi.advanceTimersByTimeAsync(0);
-      // Equal-version responses replace provided definitions with network data.
-      expect((await initial).value).toBe(false);
-      expect((await client.getDatafile()).configUpdatedAt).toBe(2);
-      await vi.advanceTimersByTimeAsync(1_000);
-      cleanupContext();
-      cleanupContext = setRequestContext({
-        'x-vercel-flags-config-versions': 'flags_prj_123=3',
-      });
-      const stale = await client.evaluate('flagA');
-      expect(stale.value).toBe(false);
-      expect(stale.metrics?.cacheStatus).toBe('STALE');
-
-      await vi.advanceTimersByTimeAsync(9_000);
-      const boundary = await client.evaluate('flagA');
-      expect(boundary.value).toBe(false);
-      expect(boundary.metrics?.cacheStatus).toBe('STALE');
-      await vi.advanceTimersByTimeAsync(1);
-      const settled = vi.fn();
-      const blocking = client.evaluate('flagA').then((result) => {
-        settled();
-        return result;
-      });
-      await vi.advanceTimersByTimeAsync(0);
-      expect(settled).not.toHaveBeenCalled();
-      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 2 : 1);
-      resolveRefresh(Response.json({ ...incoming, configUpdatedAt: 3 }));
-      const refreshed = await blocking;
-      expect(refreshed.value).toBe(false);
-      expect(refreshed.metrics?.cacheStatus).toBe('MISS');
-
-      // The next scheduled poll (or stream message) carries an older version.
-      await vi.advanceTimersByTimeAsync(19_999);
-      if (source === 'stream') {
-        stream.push({
-          type: 'datafile',
-          data: makeBundled({ configUpdatedAt: 1 }),
-        });
-        await vi.advanceTimersByTimeAsync(0);
-      }
-      expect((await client.getDatafile()).configUpdatedAt).toBe(1);
-      cleanupContext();
-      cleanupContext = setRequestContext({
-        'x-vercel-flags-config-versions': 'flags_prj_123=4',
-      });
-      // Even an older successful arrival starts a new fetched freshness window.
-      await vi.advanceTimersByTimeAsync(9_000);
-      let resolveNext!: (response: Response) => void;
-      const next = new Promise<Response>((resolve) => {
-        resolveNext = resolve;
-      });
-      dataFetch.mockReturnValueOnce(next);
-      try {
-        const afterOlder = await client.evaluate('flagA');
-        expect(afterOlder.value).toBe(true);
-        expect(afterOlder.metrics?.cacheStatus).toBe('STALE');
-        await vi.advanceTimersByTimeAsync(1_000);
-        const olderBoundary = await client.evaluate('flagA');
-        expect(olderBoundary.value).toBe(true);
-        expect(olderBoundary.metrics?.cacheStatus).toBe('STALE');
-        await vi.advanceTimersByTimeAsync(1);
-        const nextSettled = vi.fn();
-        const expired = client.evaluate('flagA').then((result) => {
-          nextSettled();
-          return result;
-        });
-        await vi.advanceTimersByTimeAsync(0);
-        expect(nextSettled).not.toHaveBeenCalled();
-        expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 4 : 2);
-        resolveNext(Response.json({ ...incoming, configUpdatedAt: 4 }));
-        const latest = await expired;
-        expect(latest.value).toBe(false);
-        expect(latest.metrics?.cacheStatus).toBe('MISS');
-        expect((await client.getDatafile()).configUpdatedAt).toBe(4);
-      } finally {
-        resolveNext(Response.json({ ...incoming, configUpdatedAt: 4 }));
-      }
+      expect((await initial).value).toBe(expectedValue);
+      expect((await client.getDatafile()).configUpdatedAt).toBe(
+        expectedVersion,
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
     } finally {
-      resolveRefresh(Response.json({ ...incoming, configUpdatedAt: 3 }));
-      await client.shutdown();
-      stream.close();
       cleanupContext();
+      try {
+        await client.shutdown();
+      } finally {
+        stream.close();
+      }
     }
   });
 
@@ -2268,7 +2185,7 @@ describe('Controller (black-box)', () => {
       errorSpy.mockRestore();
     });
 
-    it('should use the latest response on stream reconnection even when its version is older', async () => {
+    it('should reject older data on stream reconnection', async () => {
       const newerData = makeBundled({
         configUpdatedAt: 2000,
         definitions: {
@@ -2330,11 +2247,11 @@ describe('Controller (black-box)', () => {
       streams[1]!.push({ type: 'datafile', data: olderData });
       await vi.advanceTimersByTimeAsync(0);
 
-      // The reconnected stream's response becomes the current data.
+      // The version guard rejects the older response after reconnection.
       const result2 = await client.evaluate('flagA');
-      expect(result2.value).toBe(false); // variant 0 from the latest response
+      expect(result2.value).toBe(true); // still variant 1
       expect(result2.metrics?.connectionState).toBe('connected');
-      expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       await client.shutdown();
     });
@@ -2702,10 +2619,10 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Network data replacement
+  // configUpdatedAt guard
   // ---------------------------------------------------------------------------
-  describe('network data replacement', () => {
-    it('should replace cached data with an older stream response', async () => {
+  describe('configUpdatedAt guard', () => {
+    it('should not overwrite newer data with older stream message', async () => {
       const newerDatafile = makeBundled({
         configUpdatedAt: 2000,
         definitions: {
@@ -2752,10 +2669,10 @@ describe('Controller (black-box)', () => {
       stream.push({ type: 'datafile', data: olderDatafile });
       await vi.advanceTimersByTimeAsync(50);
 
-      // The last received response wins, independent of its version.
+      // Keep the newer data; the older message was rejected.
       const result = await client.evaluate('flagA', undefined, undefined);
-      expect(result.value).toBe(false); // variant 0 = latest response
-      expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
+      expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       stream.close();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -2786,7 +2703,7 @@ describe('Controller (black-box)', () => {
                 cacheIsFirstRead: true,
                 cacheIsBlocking: false,
                 duration: 0,
-                configUpdatedAt: 1000,
+                configUpdatedAt: 2000,
                 mode: 'stream',
                 revision: '1',
                 environment: 'production',
@@ -2809,7 +2726,7 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should replace stream data with equal configUpdatedAt', async () => {
+    it('should skip stream data with equal configUpdatedAt', async () => {
       const data1 = makeBundled({
         configUpdatedAt: 1000,
         definitions: {
@@ -2854,9 +2771,9 @@ describe('Controller (black-box)', () => {
       stream.push({ type: 'datafile', data: data2 });
       await vi.advanceTimersByTimeAsync(0);
 
-      // Equal versions still replace definitions with the latest response.
+      // Keep the first data; equal configUpdatedAt is not newer.
       const result = await client.evaluate('flagA');
-      expect(result.value).toBe(true); // variant 1 = data2
+      expect(result.value).toBe(false); // variant 0 = data1
       expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
 
       stream.close();
@@ -2916,7 +2833,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should accept older stream responses with string configUpdatedAt', async () => {
+    it('should reject older stream responses with string configUpdatedAt', async () => {
       const newerDatafile = {
         ...makeBundled({
           definitions: {
@@ -2966,8 +2883,8 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       const result = await client.evaluate('flagA');
-      expect(result.value).toBe(false); // variant 0 = latest response
-      expect((await client.getDatafile()).configUpdatedAt).toBe('1000');
+      expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe('2000');
 
       stream.close();
       await client.shutdown();

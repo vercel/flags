@@ -1,58 +1,60 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BoundedMap } from './bounded-map';
 
 describe('BoundedMap', () => {
-  it('stores values up to its capacity', () => {
-    const map = new BoundedMap<number, number>(10);
-    expect(map.get(0)).toBeUndefined();
-    for (let key = 0; key < 10; key++) {
-      expect(map.set(key, key * 100)).toBe(map);
-    }
-
-    expect(map.size).toBe(10);
-    for (let key = 0; key < 10; key++) {
-      expect(map.get(key)).toBe(key * 100);
-    }
-  });
-
-  it('evicts the oldest inserted key on each overflow', () => {
-    const map = new BoundedMap<number, number>(10);
-    for (let key = 0; key < 12; key++) {
-      map.set(key, key);
-      expect(map.size).toBe(Math.min(key + 1, 10));
-    }
-
-    expect(map.get(0)).toBeUndefined();
-    expect(map.get(1)).toBeUndefined();
-    for (let key = 2; key < 12; key++) {
-      expect(map.get(key)).toBe(key);
-    }
-  });
-
-  it('updates values without growing the map or changing eviction order', () => {
+  it('stays bounded across overflows without reads or updates changing FIFO order', () => {
     const map = new BoundedMap<string, number>(2);
-    map.set('first', 1).set('second', 2);
-    map.set('first', 3);
-
-    expect(map.size).toBe(2);
-    expect(map.get('first')).toBe(3);
-    expect(map.get('second')).toBe(2);
-    map.set('third', 4);
-    expect(map.size).toBe(2);
     expect(map.get('first')).toBeUndefined();
+    expect(map.set('first', 1).set('second', 2)).toBe(map);
+    expect(map.size).toBe(2);
     expect(map.get('second')).toBe(2);
-    expect(map.get('third')).toBe(4);
-  });
 
-  it('does not change eviction order when reading an entry', () => {
-    const map = new BoundedMap<string, number>(2);
-    map.set('first', 1).set('second', 2);
     expect(map.get('first')).toBe(1);
     map.set('third', 3);
-
+    expect(map.size).toBe(2);
     expect(map.get('first')).toBeUndefined();
     expect(map.get('second')).toBe(2);
     expect(map.get('third')).toBe(3);
+
+    map.set('second', 20);
+    expect(map.size).toBe(2);
+    expect(map.get('second')).toBe(20);
+    map.set('fourth', 4);
+    expect(map.size).toBe(2);
+    expect(map.get('second')).toBeUndefined();
+    expect(map.get('third')).toBe(3);
+    expect(map.get('fourth')).toBe(4);
+  });
+
+  it('checks the current eviction policy only when an entry is read', () => {
+    let cutoff = 10;
+    const shouldEvict = vi.fn((value: number) => value < cutoff);
+    const map = new BoundedMap<string, number>(3, shouldEvict);
+    map.set('version', 10);
+    expect(shouldEvict).not.toHaveBeenCalled();
+    expect(map.get('version')).toBe(10);
+    expect(shouldEvict).toHaveBeenCalledExactlyOnceWith(10, 'version');
+
+    cutoff = 11;
+    expect(map.size).toBe(1);
+    expect(map.get('version')).toBeUndefined();
+    expect(map.size).toBe(0);
+    expect(map.get('version')).toBeUndefined();
+    expect(shouldEvict).toHaveBeenCalledTimes(2);
+
+    map.set('version', 12);
+    expect(map.get('version')).toBe(12);
+    expect(map.size).toBe(1);
+  });
+
+  it('applies the policy to stored undefined values', () => {
+    const shouldEvict = vi.fn(() => true);
+    const map = new BoundedMap<undefined, undefined>(1, shouldEvict);
+    map.set(undefined, undefined);
+
+    expect(map.get(undefined)).toBeUndefined();
+    expect(shouldEvict).toHaveBeenCalledExactlyOnceWith(undefined, undefined);
+    expect(map.size).toBe(0);
   });
 
   it('clears entries and can be reused', () => {

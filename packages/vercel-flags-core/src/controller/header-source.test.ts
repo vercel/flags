@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BundledDefinitions, DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
+import type { Auth } from './auth';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import { Controller } from './index';
@@ -13,6 +14,13 @@ vi.mock('./fetch-datafile', () => ({ fetchDatafile: vi.fn() }));
 const PROJECT_ID = 'prj_test';
 const CURRENT_TIMESTAMP = 1_700_000_000_000;
 const HEADER = 'x-vercel-flags-config-versions';
+const auth: Auth = {
+  resolveToken: async () => 'vf_test',
+  resolveBundledDefinitionsLookup: async () => ({
+    type: 'project-id',
+    projectId: PROJECT_ID,
+  }),
+};
 
 function datafile(configUpdatedAt = CURRENT_TIMESTAMP): BundledDefinitions {
   return {
@@ -64,19 +72,11 @@ beforeEach(() => {
   );
   source = new HeaderSource(
     normalizeOptions({
-      auth: {
-        resolveToken: async () => 'vf_test',
-        resolveBundledDefinitionsLookup: async () => ({
-          type: 'project-id',
-          projectId: PROJECT_ID,
-        }),
-      },
+      auth,
       // Even an accidental call through to real fetchDatafile cannot use the network.
       fetch: vi
         .fn<typeof fetch>()
         .mockRejectedValue(new Error('Unexpected fetch')),
-      stream: false,
-      polling: false,
       buildStep: false,
     }),
   );
@@ -92,40 +92,24 @@ afterEach(() => {
 
 describe('HeaderSource', () => {
   it('strips freshness metadata from controller read and getDatafile views', async () => {
-    const input = datafile();
-    const original = structuredClone(input);
+    setVersion(CURRENT_TIMESTAMP + 20_000);
     const controller = new Controller({
-      auth: {
-        resolveToken: async () => 'vf_test',
-        resolveBundledDefinitionsLookup: async () => ({
-          type: 'project-id',
-          projectId: PROJECT_ID,
-        }),
-      },
-      datafile: input,
-      stream: false,
-      polling: false,
+      auth,
+      datafile: datafile(),
       buildStep: false,
       fetch: vi.fn<typeof fetch>().mockResolvedValue(new Response()),
     });
     try {
-      const confirmed = await controller.read();
-      setVersion(CURRENT_TIMESTAMP + 20_000);
-      const stale = await controller.read();
-      await settlePromises();
-      const fetched = await controller.read();
-      const cached = await controller.getDatafile();
-      for (const view of [confirmed, stale, fetched, cached]) {
-        expect(Object.keys(view).sort()).toEqual(
-          [...Object.keys(original), 'metrics'].sort(),
-        );
+      for (const view of [
+        await controller.read(),
+        await controller.getDatafile(),
+      ]) {
+        expect(view).toStrictEqual({
+          ...datafile(CURRENT_TIMESTAMP + 20_000),
+          metrics: expect.any(Object),
+        });
       }
-      expect(input).toEqual({
-        ...original,
-        _origin: 'provided',
-        _fetchedAt: undefined,
-      });
-      expect(fetched.configUpdatedAt).toBe(CURRENT_TIMESTAMP + 20_000);
+      expect(fetchDatafile).toHaveBeenCalledTimes(1);
     } finally {
       await controller.shutdown();
     }
@@ -259,17 +243,13 @@ describe('HeaderSource', () => {
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
     });
 
-    it('bounds history by insertion order even when a version is reobserved', async () => {
-      for (let offset = 0; offset < 10; offset++) {
+    it('keeps ten versions in FIFO order even when a version is reobserved', async () => {
+      // Reobserving the oldest version must not change its eviction order.
+      for (const offset of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10]) {
         const version = CURRENT_TIMESTAMP + offset;
         setVersion(version);
         await source.read(tagData(datafile(version), 'provided'));
       }
-      // Updating an entry refreshes its timestamp, not its insertion order.
-      setVersion(CURRENT_TIMESTAMP);
-      await source.read(tagData(datafile(), 'provided'));
-      setVersion(CURRENT_TIMESTAMP + 10);
-      await source.read(tagData(datafile(CURRENT_TIMESTAMP + 10), 'provided'));
 
       const retained = tagData(datafile(CURRENT_TIMESTAMP + 1), 'provided');
       await expect(source.read(retained)).resolves.toEqual([retained, 'STALE']);

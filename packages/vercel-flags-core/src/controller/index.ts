@@ -28,6 +28,23 @@ export { PollingSource } from './polling-source';
 export { StreamSource } from './stream-source';
 
 // ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
+ * Returns undefined if the value is missing or cannot be parsed.
+ */
+function parseConfigUpdatedAt(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
 
@@ -73,8 +90,8 @@ type State =
  * **Runtime - vercel mode** (request context has a matching x-vercel-flags-config-versions or flags-config-versions header)
  * - Uses the header value to determine if the current data is fresh
  * - A matching header confirms the cached version's freshness
- * - For newer headers, revalidates in the background for 10 seconds after the
- *   latest successful fetch or matching header; otherwise blocks for a refresh
+ * - For newer headers, revalidates in the background within staleWhileRevalidateMs
+ *   of the latest successful fetch or matching header; otherwise blocks
  * - Bundled/provided data has unknown freshness until confirmed or fetched
  *
  * **Runtime — offline mode** (neither stream nor polling):
@@ -144,7 +161,9 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
-    this.acceptNetworkData(data, 'stream');
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'stream');
+    }
   };
   private onStreamPrimed = () => {
     // The server confirmed our revision is current — no new data needed.
@@ -164,21 +183,18 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollData = (data: DatafileInput) => {
-    this.acceptNetworkData(data, 'poll');
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'poll');
+    }
   };
   private onPollError = (error: Error) => {
     console.error('@vercel/flags-core: Poll failed:', error);
   };
   private onFetchedData = (data: DatafileInput) => {
-    this.acceptNetworkData(data, 'fetched');
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, 'fetched');
+    }
   };
-
-  private acceptNetworkData(
-    data: DatafileInput,
-    origin: 'stream' | 'poll' | 'fetched',
-  ): void {
-    this.data = tagData(data, origin);
-  }
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -757,6 +773,34 @@ export class Controller implements ControllerInterface {
       '@vercel/flags-core: No flag definitions available. ' +
         'Provide a datafile or bundled definitions.',
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data comparison
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Checks if the incoming data is newer than the current in-memory data.
+   * Returns true if the update should proceed, false if it should be skipped.
+   *
+   * Always accepts the update if:
+   * - There is no current data
+   * - The current data has no configUpdatedAt
+   * - The incoming data has no configUpdatedAt
+   *
+   * Skips the update only when both have configUpdatedAt and incoming is not newer.
+   */
+  private isNewerData(incoming: DatafileInput): boolean {
+    if (!this.data) return true;
+
+    const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
+    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
+
+    if (currentTs === undefined || incomingTs === undefined) {
+      return true;
+    }
+
+    return incomingTs > currentTs;
   }
 
   // ---------------------------------------------------------------------------
