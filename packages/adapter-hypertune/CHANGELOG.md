@@ -1,5 +1,12 @@
 # @flags-sdk/hypertune
 
+## 0.3.5
+
+### Patch Changes
+
+- [#503](https://github.com/vercel/flags/pull/503) [`8ff953b`](https://github.com/vercel/flags/commit/8ff953b592a2154c7c2cc0554df9d1c9361bcbd1) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Deprecate the Hypertune adapter. It no longer receives updates. See
+  https://flags-sdk.dev/providers for alternatives.
+
 ## 0.3.4
 
 ### Patch Changes

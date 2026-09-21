@@ -1,5 +1,16 @@
 # @vercel/flags-core
 
+## 1.8.2
+
+### Patch Changes
+
+- [#497](https://github.com/vercel/flags/pull/497) [`4848877`](https://github.com/vercel/flags/commit/4848877ca60c8595745b7759e351e936d7fe5889) Thanks [@feugy](https://github.com/feugy)! - Allow passing a custom `waitUntil` function to `createClient` for background
+  usage and exposure reporting. Pending exposure reports are drained by
+  `client.shutdown()`. The Next.js conditional export uses `after` from
+  `next/server` by default.
+
+- [#490](https://github.com/vercel/flags/pull/490) [`186ea50`](https://github.com/vercel/flags/commit/186ea5092b22cd3eadf136824ecb2d7293a047fd) Thanks [@AndyBitz](https://github.com/AndyBitz)! - Use the runtime-provided ingest transport when available
+
 ## 1.8.1
 
 ### Patch Changes
