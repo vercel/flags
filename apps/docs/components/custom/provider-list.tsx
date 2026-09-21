@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { FlagsmithLogo } from './logos/flagsmith';
 import { GrowthbookLogo } from './logos/growthbook';
-import { HypertuneLogo } from './logos/hypertune';
 import { LaunchDarklyLogo } from './logos/launchdarkly';
 import { OpenFeatureLogo } from './logos/openfeature';
 import { OptimizelyLogo } from './logos/optimizely';
@@ -55,14 +54,6 @@ const providers: Provider[] = [
     logo: StatsigLogo,
     badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#1b63d2',
-  },
-  {
-    key: 'hypertune',
-    name: 'Hypertune',
-    href: '/providers/hypertune',
-    logo: HypertuneLogo,
-    badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
-    glowColor: '#000000',
   },
   {
     key: 'launchdarkly',
@@ -133,12 +124,7 @@ const providers: Provider[] = [
 ];
 
 type ProvidersList = (typeof providers)[number]['key'];
-const featuredProviders: ProvidersList[] = [
-  'vercel',
-  'statsig',
-  'hypertune',
-  'growthbook',
-];
+const featuredProviders: ProvidersList[] = ['vercel', 'statsig', 'growthbook'];
 
 export function ProviderList({ featured }: { featured?: boolean }) {
   return (
