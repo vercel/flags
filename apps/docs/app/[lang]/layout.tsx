@@ -10,6 +10,10 @@ import { mono, sans } from "@/lib/geistdocs/fonts";
 import { i18n } from "@/lib/geistdocs/i18n";
 import { getRootLang } from "@/lib/geistdocs/root-params";
 import { isSiteUrlConfigured, siteUrl } from "@/lib/geistdocs/site-url";
+import {
+  getOrganizationStructuredData,
+  serializeStructuredData,
+} from "@/lib/site/organization";
 import { cn } from "@/lib/utils";
 
 export const generateStaticParams = () =>
@@ -30,6 +34,17 @@ const Layout = async ({ children }: LayoutProps<"/[lang]">) => {
       suppressHydrationWarning
     >
       <body>
+        {isSiteUrlConfigured ? (
+          <script
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD is serialized and escapes HTML start characters.
+            dangerouslySetInnerHTML={{
+              __html: serializeStructuredData(
+                getOrganizationStructuredData()
+              ),
+            }}
+            type="application/ld+json"
+          />
+        ) : null}
         <GeistdocsProvider basePath={config.basePath} lang={lang}>
           <Navbar config={config} />
           {children}
