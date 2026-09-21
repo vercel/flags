@@ -1,5 +1,5 @@
-import { waitUntil } from '@vercel/functions';
 import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
+import { BoundedMap } from '../utils/bounded-map';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
@@ -17,6 +17,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private options: NormalizedOptions;
   private abortController: AbortController | undefined;
   private promise: Promise<BundledDefinitions> | undefined;
+  private readonly lastSeen = new BoundedMap<number, number>(10);
 
   constructor(options: NormalizedOptions) {
     super();
@@ -88,13 +89,18 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     const currentUpdatedAt = Number(currentData.configUpdatedAt);
 
-    // header is older than current data
+    this.lastSeen.set(updatedAtHeader, Date.now());
+
     if (updatedAtHeader <= currentUpdatedAt) {
       return [currentData, 'HIT'];
     }
 
-    // header is within 10 seconds of current data, we can revalidate in the background
-    if (updatedAtHeader <= currentUpdatedAt + 10_000) {
+    const freshAt = Math.max(
+      currentData._fetchedAt ?? -Infinity,
+      this.lastSeen.get(currentUpdatedAt) ?? -Infinity,
+    );
+    // revalidate in the background if currentData was fetchedAt or lastSeen in the last 10 seconds
+    if (Date.now() - freshAt <= 10_000) {
       const pending = this.fetchDatafile();
       const signal = this.abortController?.signal;
       const background = pending.catch((error) => {
@@ -103,13 +109,16 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
         }
       });
 
-      waitUntil(background);
+      try {
+        this.options.waitUntil(background);
+      } catch {
+        // Registration is best-effort; the handled refresh continues regardless.
+      }
 
       return [currentData, 'STALE'];
     }
 
     const data = await this.fetchDatafile();
-
     return [tagData(data, 'fetched'), 'MISS'];
   }
 
@@ -130,5 +139,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;
+    this.lastSeen.clear();
   }
 }

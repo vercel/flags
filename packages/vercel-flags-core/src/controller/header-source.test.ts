@@ -3,6 +3,7 @@ import type { BundledDefinitions, DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
+import { Controller } from './index';
 import { normalizeOptions } from './normalized-options';
 import { tagData } from './tagged-data';
 
@@ -55,6 +56,8 @@ let onData: ReturnType<typeof vi.fn<(data: DatafileInput) => void>>;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(CURRENT_TIMESTAMP);
   setVersion(CURRENT_TIMESTAMP);
   vi.mocked(fetchDatafile).mockResolvedValue(
     datafile(CURRENT_TIMESTAMP + 20_000),
@@ -83,9 +86,51 @@ beforeEach(() => {
 
 afterEach(() => {
   source.stop();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('HeaderSource', () => {
+  it('strips freshness metadata from controller read and getDatafile views', async () => {
+    const input = datafile();
+    const original = structuredClone(input);
+    const controller = new Controller({
+      auth: {
+        resolveToken: async () => 'vf_test',
+        resolveBundledDefinitionsLookup: async () => ({
+          type: 'project-id',
+          projectId: PROJECT_ID,
+        }),
+      },
+      datafile: input,
+      stream: false,
+      polling: false,
+      buildStep: false,
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(new Response()),
+    });
+    try {
+      const confirmed = await controller.read();
+      setVersion(CURRENT_TIMESTAMP + 20_000);
+      const stale = await controller.read();
+      await settlePromises();
+      const fetched = await controller.read();
+      const cached = await controller.getDatafile();
+      for (const view of [confirmed, stale, fetched, cached]) {
+        expect(Object.keys(view).sort()).toEqual(
+          [...Object.keys(original), 'metrics'].sort(),
+        );
+      }
+      expect(input).toEqual({
+        ...original,
+        _origin: 'provided',
+        _fetchedAt: undefined,
+      });
+      expect(fetched.configUpdatedAt).toBe(CURRENT_TIMESTAMP + 20_000);
+    } finally {
+      await controller.shutdown();
+    }
+  });
+
   describe('header names', () => {
     it.each([
       HEADER,
@@ -182,6 +227,71 @@ describe('HeaderSource', () => {
     });
   });
 
+  describe('last-seen version history', () => {
+    it('reuses a version observation across data objects without tagging them', async () => {
+      const original = Object.freeze(tagData(datafile(), 'provided'));
+      await expect(source.read(original)).resolves.toEqual([original, 'HIT']);
+      expect(original).not.toHaveProperty('_lastSeen');
+
+      const replacement = Object.freeze(tagData(datafile(), 'provided'));
+      setVersion(CURRENT_TIMESTAMP + 20_000);
+      await expect(source.read(replacement)).resolves.toEqual([
+        replacement,
+        'STALE',
+      ]);
+      expect(replacement).not.toHaveProperty('_lastSeen');
+      await settlePromises();
+      expect(fetchDatafile).toHaveBeenCalledTimes(1);
+    });
+
+    it('remembers observed headers independently of the cached version', async () => {
+      const newer = tagData(datafile(CURRENT_TIMESTAMP + 1), 'provided');
+      await expect(source.read(newer)).resolves.toEqual([newer, 'HIT']);
+
+      // The previous read observed CURRENT_TIMESTAMP, not the newer cached version.
+      const previous = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP + 2);
+      await expect(source.read(previous)).resolves.toEqual([previous, 'STALE']);
+      await settlePromises();
+
+      const result = await source.read(newer);
+      expect(result?.[1]).toBe('MISS');
+      expect(fetchDatafile).toHaveBeenCalledTimes(2);
+    });
+
+    it('bounds history by insertion order even when a version is reobserved', async () => {
+      for (let offset = 0; offset < 10; offset++) {
+        const version = CURRENT_TIMESTAMP + offset;
+        setVersion(version);
+        await source.read(tagData(datafile(version), 'provided'));
+      }
+      // Updating an entry refreshes its timestamp, not its insertion order.
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(tagData(datafile(), 'provided'));
+      setVersion(CURRENT_TIMESTAMP + 10);
+      await source.read(tagData(datafile(CURRENT_TIMESTAMP + 10), 'provided'));
+
+      const retained = tagData(datafile(CURRENT_TIMESTAMP + 1), 'provided');
+      await expect(source.read(retained)).resolves.toEqual([retained, 'STALE']);
+      await settlePromises();
+
+      // The first inserted version was evicted despite being reobserved.
+      const evicted = await source.read(tagData(datafile(), 'provided'));
+      expect(evicted?.[1]).toBe('MISS');
+      expect(fetchDatafile).toHaveBeenCalledTimes(2);
+    });
+
+    it('clears version history when stopped', async () => {
+      await source.read(tagData(datafile(), 'provided'));
+      source.stop();
+      setVersion(CURRENT_TIMESTAMP + 1);
+
+      const result = await source.read(tagData(datafile(), 'provided'));
+      expect(result?.[1]).toBe('MISS');
+      expect(fetchDatafile).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('timestamp boundaries', () => {
     it.each([
       -1, 0,
@@ -202,6 +312,10 @@ describe('HeaderSource', () => {
     ])('returns STALE immediately and emits background data for delta %i ms', async (delta) => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const current = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(current);
+      setVersion(CURRENT_TIMESTAMP + delta);
+
       const fresh = datafile(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
@@ -233,7 +347,7 @@ describe('HeaderSource', () => {
       expect(onData).not.toHaveBeenCalled();
       pending.resolve(fresh);
       await expect(read).resolves.toEqual([
-        { ...fresh, _origin: 'fetched' },
+        { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
         'MISS',
       ]);
       expect(fetchDatafile).toHaveBeenCalledTimes(1);
@@ -263,6 +377,27 @@ describe('HeaderSource', () => {
     });
   });
 
+  it('timestamps fetched data on arrival without changing the previous datafile', async () => {
+    const current = Object.freeze(tagData(datafile(), 'provided'));
+    setVersion(CURRENT_TIMESTAMP + 20_000);
+    const pending = deferred<BundledDefinitions>();
+    vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
+    const read = source.read(current);
+
+    expect(current._fetchedAt).toBeUndefined();
+    vi.setSystemTime(CURRENT_TIMESTAMP + 5_000);
+    const fetched = datafile(CURRENT_TIMESTAMP + 20_000);
+    pending.resolve(fetched);
+    const result = await read;
+
+    expect(result?.[0]).toBe(fetched);
+    expect(result?.[0]._fetchedAt).toBe(CURRENT_TIMESTAMP + 5_000);
+    expect(result?.[1]).toBe('MISS');
+    expect(current._fetchedAt).toBeUndefined();
+    expect(current.configUpdatedAt).toBe(CURRENT_TIMESTAMP);
+    expect(fetchDatafile).toHaveBeenCalledTimes(1);
+  });
+
   describe('fetch deduplication and subsequent reads', () => {
     it('shares one pending blocking fetch across concurrent readers', async () => {
       setVersion(CURRENT_TIMESTAMP + 20_000);
@@ -281,7 +416,10 @@ describe('HeaderSource', () => {
       pending.resolve(fresh);
       const results = await Promise.all(reads);
       for (const result of results) {
-        expect(result).toEqual([{ ...fresh, _origin: 'fetched' }, 'MISS']);
+        expect(result).toEqual([
+          { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
+          'MISS',
+        ]);
       }
       expect(onData).toHaveBeenCalledExactlyOnceWith(fresh);
     });
@@ -289,6 +427,10 @@ describe('HeaderSource', () => {
     it('shares background fetches even after the STALE read has settled', async () => {
       setVersion(CURRENT_TIMESTAMP + 1);
       const current = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(current);
+      setVersion(CURRENT_TIMESTAMP + 1);
+
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
@@ -315,7 +457,7 @@ describe('HeaderSource', () => {
 
       const result = await source.read(current);
 
-      expect(result?.[1]).toBe('MISS');
+      expect(result?.[1]).toBe('STALE');
       expect(fetchDatafile).toHaveBeenCalledTimes(1);
     });
 
@@ -340,6 +482,10 @@ describe('HeaderSource', () => {
     it('uses updated current data after a background fetch', async () => {
       setVersion(CURRENT_TIMESTAMP + 1);
       const current = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(current);
+      setVersion(CURRENT_TIMESTAMP + 1);
+
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile).mockResolvedValueOnce(fresh);
       await expect(source.read(current)).resolves.toEqual([current, 'STALE']);
@@ -374,10 +520,18 @@ describe('HeaderSource', () => {
       setVersion(newer.configUpdatedAt);
       vi.mocked(fetchDatafile).mockResolvedValueOnce(newer);
 
+      vi.setSystemTime(CURRENT_TIMESTAMP + 10_001);
       const result = await source.read(updated);
 
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
-      expect(result).toEqual([{ ...newer, _origin: 'fetched' }, 'MISS']);
+      expect(result).toEqual([
+        {
+          ...newer,
+          _origin: 'fetched',
+          _fetchedAt: CURRENT_TIMESTAMP + 10_001,
+        },
+        'MISS',
+      ]);
       expect(onData).toHaveBeenCalledTimes(2);
     });
 
@@ -393,7 +547,7 @@ describe('HeaderSource', () => {
       expect(onData).not.toHaveBeenCalled();
 
       await expect(source.read(current)).resolves.toEqual([
-        { ...fresh, _origin: 'fetched' },
+        { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
         'MISS',
       ]);
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
@@ -401,8 +555,13 @@ describe('HeaderSource', () => {
     });
 
     it('handles background rejection and retries on a later read', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       setVersion(CURRENT_TIMESTAMP + 1);
       const current = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(current);
+      setVersion(CURRENT_TIMESTAMP + 1);
+
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile)
@@ -412,9 +571,14 @@ describe('HeaderSource', () => {
 
       // Do not swallow rejections from HeaderSource: Vitest must report an
       // unhandled rejection if the background refresh has no error handler.
-      pending.reject(new Error('HeaderSource background refresh failed'));
+      const failure = new Error('HeaderSource background refresh failed');
+      pending.reject(failure);
       await settlePromises();
       expect(onData).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Header refresh failed:',
+        failure,
+      );
       await expect(source.read(current)).resolves.toEqual([current, 'STALE']);
       await settlePromises();
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
@@ -427,7 +591,7 @@ describe('HeaderSource', () => {
       1, 20_000,
     ])('keeps a restarted fetch isolated from a late aborted fetch for delta %i ms', async (delta) => {
       setVersion(CURRENT_TIMESTAMP + delta);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(datafile(), delta === 1 ? 'fetched' : 'provided');
       const abandoned = deferred<BundledDefinitions>();
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + delta);
@@ -456,10 +620,8 @@ describe('HeaderSource', () => {
       await settlePromises();
 
       expect(onData).toHaveBeenCalledExactlyOnceWith(fresh);
-      await expect(source.read(tagData(fresh, 'fetched'))).resolves.toEqual([
-        fresh,
-        'HIT',
-      ]);
+      const updated = tagData(fresh, 'fetched');
+      await expect(source.read(updated)).resolves.toEqual([updated, 'HIT']);
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
     });
 
@@ -469,7 +631,8 @@ describe('HeaderSource', () => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
-      const read = source.read(tagData(datafile(), 'provided'));
+      const current = tagData(datafile(), delta === 1 ? 'fetched' : 'provided');
+      const read = source.read(current);
       const outcome = read.catch(() => undefined);
       await settlePromises();
       const signal = vi.mocked(fetchDatafile).mock.calls[0]?.[0].signal;
@@ -490,7 +653,8 @@ describe('HeaderSource', () => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
-      const read = source.read(tagData(datafile(), 'provided'));
+      const current = tagData(datafile(), delta === 1 ? 'fetched' : 'provided');
+      const read = source.read(current);
       const outcome = read.catch(() => undefined);
       await settlePromises();
       expect(onData).not.toHaveBeenCalled();

@@ -12,13 +12,22 @@ export type DataOrigin = 'stream' | 'poll' | 'bundled' | 'provided' | 'fetched';
  */
 export type TaggedData = DatafileInput & {
   _origin: DataOrigin;
+  /** Successful network arrival of this version */
+  _fetchedAt?: number;
 };
 
 /**
- * Tags a DatafileInput with its origin.
+ * Tags a DatafileInput with metadata.
  */
 export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
-  return Object.assign(data, { _origin: origin }) as TaggedData;
+  let fetchedAt: number | undefined;
+  if (origin === 'fetched' || origin === 'poll' || origin === 'stream') {
+    fetchedAt = Date.now();
+  }
+  return Object.assign(data, {
+    _origin: origin,
+    _fetchedAt: fetchedAt,
+  }) as TaggedData;
 }
 
 /**

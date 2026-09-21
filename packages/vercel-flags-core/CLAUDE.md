@@ -259,7 +259,9 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` mutates the input object in-place via `Object.assign` (callers always pass freshly-created data).
+`tagData` attaches metadata in place. Runtime `_fetchedAt` records successful network arrival for fetched, polled, or streamed data; tagging provided or bundled data leaves it undefined. Internal metadata is stripped from public reads. Header observations belong only to `HeaderSource`, which keeps a per-instance `BoundedMap` from version header timestamps to last-seen times, capped at ten entries and cleared on stop. Eviction follows insertion order; observing an existing version updates its timestamp without moving the entry.
+
+For header-driven refreshes, newer headers serve stale data only for 10,000ms after the later of `_fetchedAt` and the cached version's entry in that map, independent of the version timestamp gap. Unknown-age bundled/provided data blocks on first invalidation unless a matching header has confirmed it. Successful responses replace cached data and renew fetched freshness even when their version is equal or older. Failed or aborted header refreshes leave cached data and freshness unchanged. Different version headers do not renew the cached version's entry, and missing or malformed headers do not update the map.
 
 ### Usage Tracking
 
@@ -281,9 +283,9 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - Supports multiple simultaneous clients
 - Necessary as we can't pass functions to `'use cache'` wrappers
 
-### configUpdatedAt Guard
+### Network Data Replacement
 
-The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+The Controller accepts every successful stream, poll, and header-fetch response as the current data, even when its `configUpdatedAt` is equal to or older than the cached version. Each arrival updates the data origin and `_fetchedAt`. Version headers are used by `HeaderSource` to decide whether to reuse cached data, refresh in the background, or block for a fetch; they do not filter incoming network responses.
 
 ### Evaluation Reporting
 
