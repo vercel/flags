@@ -707,7 +707,8 @@ describe('Controller (black-box)', () => {
       const client = createClient(sdkKey, { fetch: fetchMock });
       const initPromise = client.initialize();
 
-      stream.push({ type: 'datafile', data: datafile1 });
+      vi.setSystemTime(1_700_000_000_000);
+      stream.push({ type: 'datafile', data: { ...datafile1, fetchedAt: 1 } });
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
@@ -715,6 +716,8 @@ describe('Controller (black-box)', () => {
       const result1 = await client.evaluate('flagA');
       expect(result1.value).toBe(false);
 
+      expect((await client.getDatafile()).fetchedAt).toBe(1_700_000_000_000);
+      vi.setSystemTime(1_700_000_005_000);
       // Push updated definitions
       stream.push({ type: 'datafile', data: datafile2 });
       await vi.advanceTimersByTimeAsync(0);
@@ -722,6 +725,7 @@ describe('Controller (black-box)', () => {
       // Second evaluate returns variant 1 (true)
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(true);
+      expect((await client.getDatafile()).fetchedAt).toBe(1_700_000_005_000);
 
       stream.close();
       await client.shutdown();

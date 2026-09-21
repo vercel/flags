@@ -62,7 +62,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         },
         {
           onDatafile: (newData) => {
-            this.emit('data', newData);
+            this.emit('data', { ...newData, fetchedAt: Date.now() });
             this.emit('connected');
           },
           onPrimed: (message) => {

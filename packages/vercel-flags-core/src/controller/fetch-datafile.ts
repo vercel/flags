@@ -50,7 +50,8 @@ export async function fetchDatafile(options: {
       throw new Error(`Failed to fetch data: ${res.statusText}`);
     }
 
-    return res.json() as Promise<BundledDefinitions>;
+    const data = (await res.json()) as BundledDefinitions;
+    return { ...data, fetchedAt: Date.now() };
   } catch (error) {
     clearTimeout(timeoutId);
     options.signal?.removeEventListener('abort', onExternalAbort);

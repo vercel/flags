@@ -55,6 +55,8 @@ let onData: ReturnType<typeof vi.fn<(data: DatafileInput) => void>>;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(CURRENT_TIMESTAMP);
   setVersion(CURRENT_TIMESTAMP);
   vi.mocked(fetchDatafile).mockResolvedValue(
     datafile(CURRENT_TIMESTAMP + 20_000),
@@ -83,6 +85,7 @@ beforeEach(() => {
 
 afterEach(() => {
   source.stop();
+  vi.useRealTimers();
 });
 
 describe('HeaderSource', () => {
@@ -199,9 +202,12 @@ describe('HeaderSource', () => {
 
     it.each([
       1, 9_999, 10_000,
-    ])('returns STALE immediately and emits background data for delta %i ms', async (delta) => {
+    ])('returns STALE immediately for data acquired %i ms ago', async (delta) => {
       setVersion(CURRENT_TIMESTAMP + delta);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(
+        { ...datafile(), fetchedAt: CURRENT_TIMESTAMP - delta },
+        'provided',
+      );
       const fresh = datafile(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
@@ -288,7 +294,10 @@ describe('HeaderSource', () => {
 
     it('shares background fetches even after the STALE read has settled', async () => {
       setVersion(CURRENT_TIMESTAMP + 1);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(
+        { ...datafile(), fetchedAt: CURRENT_TIMESTAMP },
+        'provided',
+      );
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
@@ -312,6 +321,7 @@ describe('HeaderSource', () => {
       const current = tagData(datafile(), 'provided');
       await expect(source.read(current)).resolves.toEqual([current, 'HIT']);
       setVersion(CURRENT_TIMESTAMP + 20_000);
+      vi.setSystemTime(CURRENT_TIMESTAMP + 10_001);
 
       const result = await source.read(current);
 
@@ -339,7 +349,10 @@ describe('HeaderSource', () => {
 
     it('uses updated current data after a background fetch', async () => {
       setVersion(CURRENT_TIMESTAMP + 1);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(
+        { ...datafile(), fetchedAt: CURRENT_TIMESTAMP },
+        'provided',
+      );
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile).mockResolvedValueOnce(fresh);
       await expect(source.read(current)).resolves.toEqual([current, 'STALE']);
@@ -401,8 +414,12 @@ describe('HeaderSource', () => {
     });
 
     it('handles background rejection and retries on a later read', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       setVersion(CURRENT_TIMESTAMP + 1);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(
+        { ...datafile(), fetchedAt: CURRENT_TIMESTAMP },
+        'provided',
+      );
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + 1);
       vi.mocked(fetchDatafile)
@@ -412,8 +429,14 @@ describe('HeaderSource', () => {
 
       // Do not swallow rejections from HeaderSource: Vitest must report an
       // unhandled rejection if the background refresh has no error handler.
-      pending.reject(new Error('HeaderSource background refresh failed'));
+      const error = new Error('HeaderSource background refresh failed');
+      pending.reject(error);
       await settlePromises();
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Header refresh failed:',
+        error,
+      );
+      errorSpy.mockRestore();
       expect(onData).not.toHaveBeenCalled();
       await expect(source.read(current)).resolves.toEqual([current, 'STALE']);
       await settlePromises();
@@ -427,7 +450,10 @@ describe('HeaderSource', () => {
       1, 20_000,
     ])('keeps a restarted fetch isolated from a late aborted fetch for delta %i ms', async (delta) => {
       setVersion(CURRENT_TIMESTAMP + delta);
-      const current = tagData(datafile(), 'provided');
+      const current = tagData(
+        { ...datafile(), fetchedAt: CURRENT_TIMESTAMP - delta },
+        'provided',
+      );
       const abandoned = deferred<BundledDefinitions>();
       const pending = deferred<BundledDefinitions>();
       const fresh = datafile(CURRENT_TIMESTAMP + delta);
@@ -469,7 +495,12 @@ describe('HeaderSource', () => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
-      const read = source.read(tagData(datafile(), 'provided'));
+      const read = source.read(
+        tagData(
+          { ...datafile(), fetchedAt: CURRENT_TIMESTAMP - delta },
+          'provided',
+        ),
+      );
       const outcome = read.catch(() => undefined);
       await settlePromises();
       const signal = vi.mocked(fetchDatafile).mock.calls[0]?.[0].signal;
@@ -490,7 +521,12 @@ describe('HeaderSource', () => {
       setVersion(CURRENT_TIMESTAMP + delta);
       const pending = deferred<BundledDefinitions>();
       vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
-      const read = source.read(tagData(datafile(), 'provided'));
+      const read = source.read(
+        tagData(
+          { ...datafile(), fetchedAt: CURRENT_TIMESTAMP - delta },
+          'provided',
+        ),
+      );
       const outcome = read.catch(() => undefined);
       await settlePromises();
       expect(onData).not.toHaveBeenCalled();

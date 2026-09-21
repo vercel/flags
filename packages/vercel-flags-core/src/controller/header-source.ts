@@ -15,6 +15,9 @@ export type HeaderSourceEvents = {
  */
 export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private options: NormalizedOptions;
+  // Confirmation belongs only to this exact in-memory data version.
+  private confirmedData: TaggedData | undefined;
+  private confirmedAt: number | undefined;
   private abortController: AbortController | undefined;
   private promise: Promise<BundledDefinitions> | undefined;
 
@@ -76,8 +79,13 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private async resolveData(
     currentData: TaggedData,
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    // current datafile has no timestamp, this shouldn't happen
-    if (!currentData.configUpdatedAt) {
+    if (this.confirmedData !== currentData) {
+      this.confirmedData = currentData;
+      this.confirmedAt = undefined;
+    }
+
+    const currentUpdatedAt = Number(currentData.configUpdatedAt);
+    if (!Number.isFinite(currentUpdatedAt) || currentUpdatedAt <= 0) {
       return;
     }
 
@@ -86,15 +94,28 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       return;
     }
 
-    const currentUpdatedAt = Number(currentData.configUpdatedAt);
+    const now = Date.now();
+    if (updatedAtHeader === currentUpdatedAt) {
+      this.confirmedAt = now;
+    }
 
-    // header is older than current data
+    // Older headers can use current data, but cannot confirm its freshness.
     if (updatedAtHeader <= currentUpdatedAt) {
       return [currentData, 'HIT'];
     }
 
-    // header is within 10 seconds of current data, we can revalidate in the background
-    if (updatedAtHeader <= currentUpdatedAt + 10_000) {
+    // Loading cached data is not an acquisition. Only a valid local fetch time
+    // or an exact matching-header observation can establish freshness.
+    const freshAt = Math.max(
+      ...[currentData.fetchedAt, this.confirmedAt].filter(
+        (timestamp): timestamp is number =>
+          typeof timestamp === 'number' &&
+          Number.isFinite(timestamp) &&
+          timestamp > 0 &&
+          timestamp <= now,
+      ),
+    );
+    if (now - freshAt <= 10_000) {
       const pending = this.fetchDatafile();
       const signal = this.abortController?.signal;
       const background = pending.catch((error) => {
@@ -127,6 +148,8 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
    * Abort the current header-driven fetch and discard its pending work.
    */
   stop(): void {
+    this.confirmedData = undefined;
+    this.confirmedAt = undefined;
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;

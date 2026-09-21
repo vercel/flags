@@ -183,7 +183,8 @@ async function fetchDatafile(
     }
 
     if (res.ok) {
-      return res.json() as Promise<BundledDefinitions>;
+      const data = (await res.json()) as BundledDefinitions;
+      return { ...data, fetchedAt: Date.now() };
     }
 
     if (res.status === 404) {

@@ -20,7 +20,12 @@ import {
 import { PollingSource } from './polling-source';
 import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
-import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
+import {
+  type DataOrigin,
+  originToMetricsSource,
+  type TaggedData,
+  tagData,
+} from './tagged-data';
 
 export { BundledSource } from './bundled-source';
 export type { ControllerOptions } from './normalized-options';
@@ -89,7 +94,7 @@ type State =
  *
  * **Runtime - vercel mode** (request context has a matching x-vercel-flags-config-versions or flags-config-versions header)
  * - Uses the header value to determine if the current data is fresh
- * - Revalidates in the background if the header value is within 10 seconds of the current configUpdatedAt
+ * - Revalidates in the background if data was acquired or header-confirmed within 10 seconds
  * - Blocking fetch if header is newer than current configUpdatedAt
  *
  * **Runtime — offline mode** (neither stream nor polling):
@@ -159,9 +164,7 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'stream');
-    }
+    this.acceptData(data, 'stream');
   };
   private onStreamPrimed = () => {
     // The server confirmed our revision is current — no new data needed.
@@ -181,17 +184,13 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'poll');
-    }
+    this.acceptData(data, 'poll');
   };
   private onPollError = (error: Error) => {
     console.error('@vercel/flags-core: Poll failed:', error);
   };
   private onFetchedData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'fetched');
-    }
+    this.acceptData(data, 'fetched');
   };
 
   // ---------------------------------------------------------------------------
@@ -776,6 +775,31 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
   // Data comparison
   // ---------------------------------------------------------------------------
+
+  private acceptData(incoming: DatafileInput, origin: DataOrigin): void {
+    if (this.isNewerData(incoming)) {
+      this.data = tagData(incoming, origin);
+      return;
+    }
+
+    // A repeated acquisition of this exact version refreshes its age without
+    // replacing definitions rejected by the configUpdatedAt guard.
+    const current = this.data;
+    const timestamp = parseConfigUpdatedAt(incoming.configUpdatedAt);
+    if (
+      current &&
+      timestamp !== undefined &&
+      Number.isFinite(timestamp) &&
+      timestamp > 0 &&
+      timestamp === parseConfigUpdatedAt(current.configUpdatedAt) &&
+      incoming.projectId === current.projectId &&
+      incoming.environment === current.environment &&
+      incoming.revision === current.revision &&
+      incoming.fetchedAt !== undefined
+    ) {
+      this.data = { ...current, fetchedAt: incoming.fetchedAt };
+    }
+  }
 
   /**
    * Checks if the incoming data is newer than the current in-memory data.

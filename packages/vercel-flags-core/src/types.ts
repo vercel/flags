@@ -35,6 +35,8 @@ export type DatafileInput = Packed.Data & {
    * Some older responses might return a string instead of a number. Both will be timestamps.
    */
   configUpdatedAt?: number | string;
+  /** Local acquisition time in epoch milliseconds; absent in legacy datafiles. */
+  fetchedAt?: number;
   /** Version number of the data */
   revision?: number;
 };
