@@ -65,11 +65,6 @@ export const agent = {
       href: "https://www.npmjs.com/package/flags",
       description: "Install the flags package from npm",
     },
-    {
-      label: "Contact",
-      href: "/contact",
-      description: "Bug reports, security disclosures, and Vercel support",
-    },
   ],
   instructions: [
     "Flags SDK is a library, not a hosted service. Install it from npm and follow the framework guides; there is no runtime API to call.",

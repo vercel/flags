@@ -37,11 +37,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
       url: url("/"),
     },
-    {
-      changeFrequency: "yearly",
-      priority: 0.3,
-      url: url("/contact"),
-    },
     ...pages,
   ];
 }

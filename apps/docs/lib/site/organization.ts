@@ -4,9 +4,7 @@ export const GITHUB_ISSUES_URL = `https://github.com/${github.owner}/${github.re
 export const SECURITY_POLICY_URL =
   'https://vercel.com/.well-known/security.txt';
 export const SECURITY_EMAIL = 'responsible.disclosure@vercel.com';
-export const PRIVACY_POLICY_URL = 'https://vercel.com/legal/privacy-policy';
 export const VERCEL_CONTACT_URL = 'https://vercel.com/contact';
-export const VERCEL_HELP_URL = 'https://vercel.com/help';
 
 export const ORGANIZATION = {
   name: 'Vercel Inc.',
