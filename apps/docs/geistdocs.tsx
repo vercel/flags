@@ -54,9 +54,6 @@ export const agent = {
       "Precompute feature flags in supported frameworks",
     ],
   },
-  api: {
-    openApiUrl: "/openapi.json",
-  },
   links: [
     {
       label: "Flags SDK source",
@@ -67,11 +64,6 @@ export const agent = {
       label: "Flags SDK on npm",
       href: "https://www.npmjs.com/package/flags",
       description: "Install the flags package from npm",
-    },
-    {
-      label: "About the Flags SDK",
-      href: "/about",
-      description: "What the SDK is and who maintains it",
     },
     {
       label: "Contact",

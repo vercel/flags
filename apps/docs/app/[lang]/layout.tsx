@@ -39,7 +39,7 @@ const Layout = async ({ children }: LayoutProps<"/[lang]">) => {
             // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD is serialized and escapes HTML start characters.
             dangerouslySetInnerHTML={{
               __html: serializeStructuredData(
-                getOrganizationStructuredData({ siteUrl: siteUrl.toString() })
+                getOrganizationStructuredData()
               ),
             }}
             type="application/ld+json"

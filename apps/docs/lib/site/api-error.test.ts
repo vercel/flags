@@ -12,12 +12,10 @@ import {
 } from './api-error';
 
 describe('createApiErrorBody', () => {
-  it('returns code, message, and docs, and omits hint when absent', () => {
-    expect(createApiErrorBody({ code: 'bad_request', message: 'Bad' })).toEqual(
-      {
-        error: { code: 'bad_request', message: 'Bad', docs: '/openapi.json' },
-      },
-    );
+  it('returns code and message, and omits hint when absent', () => {
+    expect(createApiErrorBody({ code: 'not_found', message: 'Gone' })).toEqual({
+      error: { code: 'not_found', message: 'Gone' },
+    });
   });
 
   it('includes hint when provided', () => {
@@ -32,7 +30,7 @@ describe('jsonError', () => {
   it('returns a JSON response with the given status and no-store caching', async () => {
     const response = jsonError({
       status: 418,
-      code: 'internal_error',
+      code: 'not_found',
       message: 'Teapot',
     });
 
@@ -40,24 +38,20 @@ describe('jsonError', () => {
     expect(response.headers.get('content-type')).toContain('application/json');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'internal_error',
-        message: 'Teapot',
-        docs: '/openapi.json',
-      },
+      error: { code: 'not_found', message: 'Teapot' },
     });
   });
 });
 
 describe('notFoundError', () => {
-  it('returns a 404 JSON error pointing to the OpenAPI document', async () => {
+  it('returns a 404 JSON error naming the path and the Markdown surfaces', async () => {
     const response = notFoundError('/api/unknown');
     const body = await response.json();
 
     expect(response.status).toBe(404);
     expect(body.error.code).toBe('not_found');
     expect(body.error.message).toContain('/api/unknown');
-    expect(body.error.hint).toContain('/openapi.json');
+    expect(body.error.hint).toContain('/agents.md');
   });
 });
 

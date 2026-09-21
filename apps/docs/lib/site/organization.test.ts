@@ -5,9 +5,7 @@ import {
 } from './organization';
 
 describe('getOrganizationStructuredData', () => {
-  const data = getOrganizationStructuredData({
-    siteUrl: 'https://flags-sdk.dev/',
-  });
+  const data = getOrganizationStructuredData();
 
   it('is a schema.org Organization', () => {
     expect(data['@context']).toBe('https://schema.org');
@@ -35,11 +33,6 @@ describe('getOrganizationStructuredData', () => {
     expect(data.address.addressRegion).toBeTruthy();
     expect(data.address.postalCode).toBeTruthy();
     expect(data.address.addressCountry).toBe('US');
-  });
-
-  it('links the organization to the Flags SDK site', () => {
-    expect(data.owns.url).toBe('https://flags-sdk.dev/');
-    expect(data.owns.name).toBe('Flags SDK');
   });
 });
 

@@ -1,19 +1,12 @@
-export type ApiErrorCode =
-  | 'bad_request'
-  | 'not_found'
-  | 'method_not_allowed'
-  | 'internal_error';
+export type ApiErrorCode = 'not_found' | 'method_not_allowed';
 
 export interface ApiErrorBody {
   error: {
     code: ApiErrorCode;
     message: string;
     hint?: string;
-    docs: string;
   };
 }
-
-const ERROR_DOCS_PATH = '/openapi.json';
 
 export const createApiErrorBody = ({
   code,
@@ -28,7 +21,6 @@ export const createApiErrorBody = ({
     code,
     message,
     ...(hint ? { hint } : {}),
-    docs: ERROR_DOCS_PATH,
   },
 });
 
@@ -56,7 +48,7 @@ export const notFoundError = (pathname: string) =>
     status: 404,
     code: 'not_found',
     message: `No API route exists at ${pathname}.`,
-    hint: 'List the available operations in the OpenAPI document at /openapi.json.',
+    hint: 'This site only serves /api/search and /api/chat. Documentation is available as Markdown at /agents.md and /llms.txt.',
   });
 
 export const methodNotAllowedError = (method: string, allow: string[]) =>

@@ -1,8 +1,6 @@
-import { agent, github } from '@/geistdocs';
+import { github } from '@/geistdocs';
 
-export const GITHUB_URL = `https://github.com/${github.owner}/${github.repo}`;
-export const GITHUB_ISSUES_URL = `${GITHUB_URL}/issues`;
-export const NPM_URL = 'https://www.npmjs.com/package/flags';
+export const GITHUB_ISSUES_URL = `https://github.com/${github.owner}/${github.repo}/issues`;
 export const SECURITY_POLICY_URL =
   'https://vercel.com/.well-known/security.txt';
 export const SECURITY_EMAIL = 'responsible.disclosure@vercel.com';
@@ -29,11 +27,7 @@ export const ORGANIZATION = {
   ],
 } as const;
 
-export const getOrganizationStructuredData = ({
-  siteUrl,
-}: {
-  siteUrl: string;
-}) => ({
+export const getOrganizationStructuredData = () => ({
   '@context': 'https://schema.org',
   '@type': 'Organization',
   '@id': `${ORGANIZATION.url}#organization`,
@@ -69,11 +63,6 @@ export const getOrganizationStructuredData = ({
   address: {
     '@type': 'PostalAddress',
     ...ORGANIZATION.address,
-  },
-  owns: {
-    '@type': 'SoftwareApplication',
-    name: agent.product.name,
-    url: siteUrl,
   },
 });
 
