@@ -33,7 +33,6 @@ function setup() {
     createFlagsmithAdapter({
       environmentKey,
       fetch,
-      enableLocalEvaluation: false,
       retries: 0,
     });
   const adapter = create();
@@ -56,7 +55,7 @@ function setup() {
 const alice = { targetingKey: 'alice', traits: { tier: 'gold' } };
 
 describe('Flagsmith request isolation with the real SDK', () => {
-  it('shares one evaluation across concurrent flags with equivalent identities', async () => {
+  it('defaults to remote evaluation and shares one evaluation across concurrent flags with equivalent identities', async () => {
     const { fetch, evaluate } = setup();
     const headers = new Headers();
     const first = { targetingKey: 'alice', traits: { tier: 'gold', age: 30 } };
@@ -68,6 +67,7 @@ describe('Flagsmith request isolation with the real SDK', () => {
       ]),
     ).toEqual(['alice:gold', 'alice:gold']);
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]?.[0]).toMatch(/\/identities\/$/);
     expect(await evaluate(headers, alice)).toBe('alice:gold');
     expect(fetch).toHaveBeenCalledTimes(2); // Different traits require a new context.
   });

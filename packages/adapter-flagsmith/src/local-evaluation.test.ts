@@ -65,6 +65,7 @@ function setup(config: FlagsmithConfig = {}) {
   const fetch = vi.fn(async () => Response.json(environment()));
   const adapter = createFlagsmithAdapter({
     environmentKey: 'ser.test',
+    enableLocalEvaluation: true,
     fetch,
     retries: 0,
     ...config,

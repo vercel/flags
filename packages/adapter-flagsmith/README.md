@@ -127,20 +127,22 @@ MIT
 
 ## Server-side evaluation
 
-The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. Local evaluation is enabled by default. Set `FLAGSMITH_ENVIRONMENT_KEY` to a **server-side environment key** (starting with `ser.`); keep this key on the server.
+The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. **Remote evaluation is the default**, suitable for serverless deployments: it fetches evaluated flags from Flagsmith without downloading an environment document or starting background polling. Set `FLAGSMITH_ENVIRONMENT_KEY` to your Flagsmith environment key and keep it on the server.
 
-One client is shared per adapter. It lazily fetches the environment document, evaluates flags locally, and polls for updates every 60 seconds. Flags evaluated with the same request headers reference and identity/traits share one evaluation result. User identities are passed to `getIdentityFlags` rather than stored as the client's current user.
+One client is shared per adapter. Flags evaluated with the same request headers reference and identity/traits share one evaluation result. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
 
-Local evaluation uses traits supplied with the evaluation and does not persist them to Flagsmith. To retain remote evaluation behavior, explicitly configure it:
+For a long-running server, opt into **local evaluation** with one option:
 
 ```ts
 const adapter = createFlagsmithAdapter({
   environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY,
-  enableLocalEvaluation: false,
+  enableLocalEvaluation: true,
 });
 ```
 
-For local evaluation, `environmentRefreshIntervalSeconds` controls the refresh interval. Call `await adapter.close()` when shutting down a long-running process to stop polling. The default `flagsmithAdapter` also exposes `close()`.
+Local evaluation requires a **server-side environment key** (starting with `ser.`). It downloads the environment document and polls for updates every 60 seconds. Each new client must initialize this document, so prefer remote evaluation for short-lived serverless instances. Set `environmentRefreshIntervalSeconds` to change the refresh interval and call `await adapter.close()` on shutdown to stop polling. The default `flagsmithAdapter` also exposes `close()`.
+
+Local evaluation does not persist supplied traits to the Flagsmith API. In `@flagsmith/nodejs` 9.0.3, however, identities with overrides can retain traits from earlier evaluations within a shared client. Account for this upstream behavior when opting into local evaluation; remote evaluation separately uses traits persisted in Flagsmith.
 
 ### Migration from the JavaScript SDK adapter
 
@@ -148,4 +150,4 @@ For local evaluation, `environmentRefreshIntervalSeconds` controls the refresh i
 - Use `environmentKey` instead of `environmentID` in custom configuration. `environmentID` is no longer supported.
 - Use server SDK options such as `apiUrl` instead of `api`. Browser SDK options such as `cacheFlags`, `state`, and `onChange` are no longer supported.
 - Pass user identity and traits through the flag's `identify` function.
-- Set `enableLocalEvaluation: false` if your application relies on remote evaluation and persisted identity traits.
+- Remote evaluation remains the default. Set `enableLocalEvaluation: true` to opt into local evaluation on a long-running server.

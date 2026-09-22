@@ -3,6 +3,8 @@ import { flag } from 'flags/next';
 
 const adapter = createFlagsmithAdapter({
   environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY ?? '',
+  // Remote evaluation is the default for serverless deployments.
+  // Set enableLocalEvaluation: true for a long-running server.
 });
 
 export const welcomeMessage = flag({

@@ -485,6 +485,8 @@ pnpm i @flags-sdk/flagsmith
 
 Env: `FLAGSMITH_ENVIRONMENT_KEY` (required)
 
+Remote evaluation is the default for serverless deployments. For a long-running server, use `createFlagsmithAdapter({ environmentKey, enableLocalEvaluation: true })` with a server-side key to opt into local evaluation and environment polling. Call `adapter.close()` on shutdown to stop polling.
+
 ### Usage with type coercion
 
 ```ts

@@ -53,7 +53,7 @@ export function createFlagsmithAdapter(
         if (!client) {
           client = new Flagsmith({
             ...params,
-            enableLocalEvaluation: params.enableLocalEvaluation ?? true,
+            enableLocalEvaluation: params.enableLocalEvaluation ?? false,
           });
         }
         return identity
