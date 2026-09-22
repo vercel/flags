@@ -181,6 +181,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
   try {
     datafile = await controller.read();
   } catch (error) {
+    if (flags.some((flag) => flag.defaultValue === undefined)) throw error;
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to read datafile';
 

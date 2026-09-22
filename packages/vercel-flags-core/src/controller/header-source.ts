@@ -1,8 +1,8 @@
-import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
+import type { BundledDefinitions, DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
-import { type TaggedData, tagData } from './tagged-data';
+import type { TaggedData } from './tagged-data';
 import { TypedEmitter } from './typed-emitter';
 
 export type HeaderSourceEvents = {
@@ -25,7 +25,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     this.options = options;
   }
 
-  private fetchDatafile(): Promise<BundledDefinitions> {
+  refresh(): Promise<BundledDefinitions> {
     // Share only the transport work, not request-specific freshness decisions.
     if (this.promise) return this.promise;
 
@@ -68,55 +68,32 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
 
-  private async resolveData(
-    currentData: TaggedData,
-    updatedAtHeader: number | undefined,
-  ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    // current datafile has no timestamp, this shouldn't happen
-    if (!currentData.configUpdatedAt) {
-      return;
-    }
+  /** Capture request context before asynchronous work, including a cold fetch. */
+  request(): (data: TaggedData | undefined) => number | undefined {
+    const { headers } = getRequestContext();
+    const header =
+      headers?.['x-vercel-flags-config-versions'] ??
+      headers?.['flags-config-versions'];
+    return (data) => {
+      if (!data) return undefined;
+      const version = this.getUpdatedAtHeader(data.projectId, header);
+      if (version) this.observe(version, Number(data.configUpdatedAt));
+      return version;
+    };
+  }
 
-    if (!updatedAtHeader) {
-      return;
-    }
-
-    const currentUpdatedAt = Number(currentData.configUpdatedAt);
-
-    if (updatedAtHeader <= currentUpdatedAt) {
-      return [currentData, 'HIT'];
-    }
-
-    const freshAt = Math.max(
-      currentData.fetchedAt ?? -Infinity,
-      this.lastSeen?.version === currentUpdatedAt
-        ? this.lastSeen.at
-        : -Infinity,
+  matches(data: TaggedData, required: number | undefined): boolean {
+    return (
+      required !== undefined &&
+      required === Number(data.configUpdatedAt) &&
+      required === this.highestObserved
     );
-    const { staleWhileRevalidateMs } = this.options;
-    if (
-      staleWhileRevalidateMs > 0 &&
-      Date.now() - freshAt <= staleWhileRevalidateMs
-    ) {
-      const pending = this.fetchDatafile();
-      const signal = this.abortController?.signal;
-      const background = pending.catch((error) => {
-        if (!signal?.aborted) {
-          console.error('@vercel/flags-core: Header refresh failed:', error);
-        }
-      });
+  }
 
-      try {
-        this.options.waitUntil(background);
-      } catch {
-        // Registration is best-effort; the handled refresh continues regardless.
-      }
-
-      return [currentData, 'STALE'];
-    }
-
-    const data = await this.fetchDatafile();
-    return [tagData(data, 'fetched'), 'MISS'];
+  confirmedAt(data: TaggedData): number {
+    return this.lastSeen?.version === Number(data.configUpdatedAt)
+      ? this.lastSeen.at
+      : -Infinity;
   }
 
   private observe(version: number, currentVersion: number): void {
@@ -124,24 +101,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     // Once invalidated, an older matching header cannot renew freshness.
     if (version !== currentVersion || version !== this.highestObserved) return;
     this.lastSeen = { version, at: Date.now() };
-  }
-
-  async read(
-    currentData: TaggedData | undefined,
-  ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    // Capture the request header before a cold fetch discovers its project.
-    const { headers } = getRequestContext();
-    const header =
-      headers?.['x-vercel-flags-config-versions'] ??
-      headers?.['flags-config-versions'];
-    const data = currentData ?? tagData(await this.fetchDatafile(), 'fetched');
-    const updatedAtHeader = this.getUpdatedAtHeader(data.projectId, header);
-    if (updatedAtHeader) {
-      this.observe(updatedAtHeader, Number(data.configUpdatedAt));
-    }
-
-    if (!currentData) return [data, 'MISS'];
-    return this.resolveData(currentData, updatedAtHeader);
   }
 
   isAvailable(): boolean {

@@ -55,12 +55,20 @@ export type ControllerOptions = {
   vercel?: boolean;
 
   /**
-   * How long header-driven reads may serve cached data while refreshing in the
-   * background, measured from its last fetch or matching version header.
+   * How long runtime reads may serve stale data while refreshing, in milliseconds
+   * since the last evidence of freshness. Build/offline caches do not expire.
    * Must be a finite, non-negative number. Set to 0 to always block on refresh.
    * @default 10000
    */
   staleWhileRevalidateMs?: number;
+
+  /**
+   * Additional milliseconds of stale fallback after SWR when refresh fails or
+   * the source is unavailable. Infinity also permits unknown-age fallback data.
+   * Finite, non-negative values require a known freshness timestamp.
+   * @default Infinity
+   */
+  staleIfErrorMs?: number;
 
   /**
    * Override build step detection
@@ -110,6 +118,7 @@ export type NormalizedOptions = {
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
   vercel: boolean;
   staleWhileRevalidateMs: number;
+  staleIfErrorMs: number;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -166,6 +175,16 @@ export function normalizeOptions(
     );
   }
 
+  const staleIfErrorMs = options.staleIfErrorMs ?? Infinity;
+  if (
+    (!Number.isFinite(staleIfErrorMs) && staleIfErrorMs !== Infinity) ||
+    staleIfErrorMs < 0
+  ) {
+    throw new Error(
+      '@vercel/flags-core: staleIfErrorMs must be a non-negative number or Infinity.',
+    );
+  }
+
   return {
     auth: options.auth,
     datafile: options.datafile,
@@ -173,6 +192,7 @@ export function normalizeOptions(
     polling,
     vercel: options.vercel ?? process.env.VERCEL === '1',
     staleWhileRevalidateMs,
+    staleIfErrorMs,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,

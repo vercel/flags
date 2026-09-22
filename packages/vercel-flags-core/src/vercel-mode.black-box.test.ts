@@ -489,7 +489,7 @@ describe('Vercel mode (black-box)', () => {
 
     expect(completedBeforeFetch).toBe(1);
     expect(hitResult.value).toBe(false);
-    expect(hitResult.metrics?.cacheStatus).toBe('HIT');
+    expect(hitResult.metrics?.cacheStatus).toBe('STALE');
     expect(blockingResult.value).toBe(true);
     expect(dataFetch).toHaveBeenCalledTimes(1);
   });
@@ -500,7 +500,7 @@ describe('Vercel mode (black-box)', () => {
     dataFetch.mockResolvedValueOnce(
       new Response(null, { status: 503, statusText: 'Service Unavailable' }),
     );
-    const instance = client();
+    const instance = client({ staleIfErrorMs: 0 });
 
     const failed = await instance.evaluate('feature', false);
     expect(failed.value).toBe(false);
@@ -533,7 +533,7 @@ describe('Vercel mode (black-box)', () => {
     pending.reject(failure);
     await vi.advanceTimersByTimeAsync(0);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
+      '@vercel/flags-core: Background refresh failed:',
       failure,
     );
     dataFetch.mockResolvedValueOnce(
@@ -724,6 +724,7 @@ describe('Vercel mode (black-box)', () => {
     expect(fetched).not.toHaveProperty('_origin');
     const later = TIMESTAMP + 365 * 24 * 60 * 60 * 1_000;
     vi.setSystemTime(later);
+    setVersion(undefined);
     const second = client({ datafile: JSON.parse(JSON.stringify(fetched)) });
     expect((await second.getDatafile()).fetchedAt).toBe(TIMESTAMP);
 
@@ -788,7 +789,7 @@ describe('Vercel mode (black-box)', () => {
     // An overlapping request still has the old header, but cannot undo invalidation.
     setVersion(TIMESTAMP);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'HIT',
+      'STALE',
     );
     vi.setSystemTime(TIMESTAMP + 10_001);
     setVersion(TIMESTAMP + 1);
@@ -827,7 +828,9 @@ describe('Vercel mode (black-box)', () => {
       'STALE',
     );
     await vi.advanceTimersByTimeAsync(0);
+    setVersion(undefined);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
+    setVersion(TIMESTAMP + 100_000);
 
     // The accepted response renews fetched freshness beyond the confirmation.
     vi.setSystemTime(TIMESTAMP + 29_000);
@@ -874,6 +877,7 @@ describe('Vercel mode (black-box)', () => {
   it.each([
     0, -1,
   ])('ignores a background response with version delta %i without extending freshness', async (delta) => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const instance = client();
     await instance.evaluate('feature');
     vi.setSystemTime(TIMESTAMP + 9_000);
@@ -883,11 +887,17 @@ describe('Vercel mode (black-box)', () => {
       'STALE',
     );
     await vi.advanceTimersByTimeAsync(0);
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Background refresh failed:',
+      expect.any(Error),
+    );
+    setVersion(undefined);
     expect(await instance.getDatafile()).toEqual({
       ...datafile(),
       metrics: expect.any(Object),
     });
 
+    setVersion(TIMESTAMP + 1);
     vi.setSystemTime(TIMESTAMP + 10_001);
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect(await instance.evaluate('feature')).toMatchObject({
@@ -909,10 +919,12 @@ describe('Vercel mode (black-box)', () => {
     );
     await vi.advanceTimersByTimeAsync(0);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
+      '@vercel/flags-core: Background refresh failed:',
       expect.any(Error),
     );
+    setVersion(undefined);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
+    setVersion(TIMESTAMP + 1);
     vi.setSystemTime(TIMESTAMP + 10_001);
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
@@ -932,22 +944,26 @@ describe('Vercel mode (black-box)', () => {
     vi.setSystemTime(TIMESTAMP + 10_001);
     setVersion(TIMESTAMP + 2);
     mockDatafileResponse(TIMESTAMP + 1 + delta, false);
-    // The blocking read uses the response, but the version guard preserves the cache.
+    // A rejected response uses the eligible last-known cache, never its payload.
     expect(await instance.evaluate('feature')).toMatchObject({
-      value: false,
-      metrics: { cacheStatus: 'MISS' },
+      value: true,
+      metrics: { cacheStatus: 'STALE' },
     });
+    setVersion(undefined);
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
       fetchedAt: TIMESTAMP,
       metrics: expect.any(Object),
     });
 
+    setVersion(TIMESTAMP + 2);
     mockDatafileResponse(TIMESTAMP + 2, true);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'MISS',
     );
+    setVersion(undefined);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
+    setVersion(TIMESTAMP + 100_000);
     expect(dataFetch).toHaveBeenCalledTimes(3);
   });
 
