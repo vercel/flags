@@ -12,6 +12,7 @@ import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { DatafileCache } from './datafile-cache';
+import { parseConfigUpdatedAt } from './datafile-version';
 import { fetchDatafile } from './fetch-datafile';
 import {
   type ControllerOptions,
@@ -27,23 +28,6 @@ export { BundledSource } from './bundled-source';
 export type { ControllerOptions } from './normalized-options';
 export { PollingSource } from './polling-source';
 export { StreamSource } from './stream-source';
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
- * Returns undefined if the value is missing or cannot be parsed.
- */
-function parseConfigUpdatedAt(value: unknown): number | undefined {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-  return undefined;
-}
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -101,7 +85,7 @@ export class Controller implements ControllerInterface {
   private readonly cache = new DatafileCache();
 
   private get data(): TaggedData | undefined {
-    return this.cache.peek()?.data;
+    return this.cache.peek();
   }
 
   // Memoized data spread for read() / getDatafile().
@@ -183,12 +167,10 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.cache.set(tagData(data, 'poll'));
-      this.cache.confirm(this.cache.peek());
+      this.cache.confirm();
       return;
     }
-    if (this.confirmsCurrentData(data)) {
-      this.cache.confirm(this.cache.peek());
-    }
+    this.cache.tryConfirm(data);
   };
   private onPollError = (error: Error) => {
     this.noteUnauthorized(error);
@@ -804,20 +786,6 @@ export class Controller implements ControllerInterface {
     }
 
     return incomingTs > currentTs;
-  }
-
-  /** Equal finite versions confirm freshness without replacing the snapshot. */
-  private confirmsCurrentData(incoming: DatafileInput): boolean {
-    const current = this.data;
-    if (!current) return false;
-    const currentTs = parseConfigUpdatedAt(current.configUpdatedAt);
-    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
-    return (
-      Number.isFinite(currentTs) &&
-      currentTs === incomingTs &&
-      current.projectId === incoming.projectId &&
-      current.environment === incoming.environment
-    );
   }
 
   // ---------------------------------------------------------------------------
