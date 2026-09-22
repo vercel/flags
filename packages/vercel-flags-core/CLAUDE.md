@@ -42,7 +42,7 @@ src/
 
 ```
 createClient(sdkKey, options)
-  → Controller (state machine, owns all data tagging and source coordination)
+  → Controller (state machine, selects data origin and coordinates sources/cache)
     → StreamSource / PollingSource / BundledSource (emit raw DatafileInput)
   → create-raw-client (ID-based indirection for 'use cache' support)
     → controller-fns (lookup by ID, evaluate, report)
@@ -51,7 +51,7 @@ createClient(sdkKey, options)
 
 ### Design principles
 
-- **Sources emit raw data** — StreamSource, PollingSource, and BundledSource return/emit raw `DatafileInput`. The Controller is solely responsible for tagging data with its origin (`tagData(data, 'stream')` etc.).
+- **Sources emit raw data** — StreamSource, PollingSource, and BundledSource return/emit raw `DatafileInput`. The Controller selects the source origin. For live updates, `DatafileCache.updateFromSource()` checks version acceptance before tagging and storing data; the Controller tags initial/fallback snapshots passed to `seed()`.
 - **BundledSource is a plain class** — unlike StreamSource and PollingSource which extend TypedEmitter, BundledSource has no event listeners. The Controller calls its methods directly and uses return values.
 - **Tests are black-box** — all behavioral tests go through the public API (`createClient` from `./index.default`). Mock `readBundledDefinitions` and `internalReportValue` as observable I/O. Use `fetchMock` for network assertions.
 - **ID-based indirection** — `controller-fns.ts` holds a `controllerInstanceMap` (Map<number, ControllerInstance>) so that `'use cache'` wrappers in Next.js can pass serializable IDs instead of function references.
@@ -254,7 +254,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 
 ### Data Origin Tagging
 
-The Controller tags all data with its origin using `tagData(data, origin)` from `tagged-data.ts`. Origins map to public `metrics.source` values:
+The Controller selects the origin. Initial/fallback snapshots are tagged before `cache.seed()`; live stream/poll updates are tagged inside `cache.updateFromSource()` only after acceptance. Both use `tagData(data, origin)` from `tagged-data.ts`. Origins map to public `metrics.source` values:
 - `'stream'`, `'poll'`, `'provided'` → `'in-memory'`
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
@@ -283,7 +283,7 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 ### configUpdatedAt Guard
 
-The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+The DatafileCache rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
 
 ### Evaluation Reporting
 

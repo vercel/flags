@@ -18,13 +18,23 @@ function data(_origin: TaggedData['_origin'] = 'provided'): TaggedData {
   return { ...response(), _origin };
 }
 
+let errorSpy: ReturnType<typeof vi.spyOn>;
+let warnSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(1_000);
+  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 afterEach(() => {
-  vi.restoreAllMocks();
-  vi.useRealTimers();
+  try {
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+  } finally {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  }
 });
 
 describe('DatafileCache', () => {
@@ -38,10 +48,9 @@ describe('DatafileCache', () => {
 
     const error = new Error('poll failed before data arrived');
     cache.fail(error);
-    cache.confirm();
     expect(cache.tryConfirm(response())).toBe(false);
     expect(cache.read(0)).toBeUndefined();
-    cache.set(data());
+    cache.seed(data());
     expect(() => cache.read(0)).toThrow(error);
     expect(fetch).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
@@ -50,7 +59,7 @@ describe('DatafileCache', () => {
   it('stores data without an age-based expiry when no failure exists', () => {
     const cache = new DatafileCache();
     const original = data();
-    expect(cache.set(original)).toBe(original);
+    expect(cache.seed(original)).toBe(original);
     expect(cache.peek()).toBe(original);
 
     vi.setSystemTime(1_000_000);
@@ -59,7 +68,7 @@ describe('DatafileCache', () => {
 
   it('starts the inclusive allowance at the first failure, not storage time', () => {
     const cache = new DatafileCache();
-    const original = cache.set(data('poll'));
+    const original = cache.seed(data('poll'));
     vi.setSystemTime(2_000);
     const firstError = new Error('first poll failed');
     cache.fail(firstError);
@@ -75,7 +84,7 @@ describe('DatafileCache', () => {
 
   it('supports immediate failure and unlimited stale reads', () => {
     const cache = new DatafileCache();
-    const original = cache.set(data());
+    const original = cache.seed(data());
     const error = new Error('poll failed');
     cache.fail(error);
     expect(() => cache.read(0)).toThrow(error);
@@ -85,13 +94,13 @@ describe('DatafileCache', () => {
     expect(cache.read(Infinity)).toBe(original);
   });
 
-  it('does not clear or renew failure when storing network data', () => {
+  it('does not clear or renew failure when seeding network data', () => {
     const cache = new DatafileCache();
-    cache.set(data('poll'));
+    cache.seed(data('poll'));
     const error = new Error('poll failed');
     cache.fail(error);
     vi.setSystemTime(1_050);
-    const replacement = cache.set(data('poll'));
+    const replacement = cache.seed(data('poll'));
     expect(cache.read(100)).toBe(replacement);
     vi.setSystemTime(1_101);
     expect(() => cache.read(100)).toThrow(error);
@@ -102,7 +111,7 @@ describe('DatafileCache', () => {
     'bundled',
   ] as const)('restores %s seeds only within the original failure deadline', (origin) => {
     const cache = new DatafileCache();
-    const seed = cache.set(data(origin));
+    const seed = cache.seed(data(origin));
     const firstError = new Error('first poll failed');
     cache.fail(firstError);
 
@@ -111,23 +120,22 @@ describe('DatafileCache', () => {
     expect(cache.peek()).toBeUndefined();
     expect(cache.read(0)).toBeUndefined();
     expect(cache.tryConfirm(response())).toBe(false);
-    cache.confirm();
     cache.fail(new Error('poll still failing'));
-    cache.set(seed);
+    cache.seed(seed);
     expect(cache.read(100)).toBe(seed);
     vi.setSystemTime(1_100);
     expect(cache.read(100)).toBe(seed);
 
     vi.setSystemTime(1_101);
     cache.clear();
-    cache.set(seed);
+    cache.seed(seed);
     cache.fail(new Error('poll failed again'));
     expect(() => cache.read(100)).toThrow(firstError);
   });
 
   it('clears failure on a matching raw source response without replacing data', () => {
     const cache = new DatafileCache();
-    const original = cache.set(data());
+    const original = cache.seed(data());
     const incoming = response();
     const firstError = new Error('first outage');
     cache.fail(firstError);
@@ -155,7 +163,7 @@ describe('DatafileCache', () => {
     [0, '0'],
   ])('confirms equal finite versions (%s and %s)', (current, incoming) => {
     const cache = new DatafileCache();
-    const original = cache.set({ ...data(), configUpdatedAt: current });
+    const original = cache.seed({ ...data(), configUpdatedAt: current });
     cache.fail(new Error('poll failed'));
 
     expect(cache.tryConfirm(response({ configUpdatedAt: incoming }))).toBe(
@@ -182,7 +190,7 @@ describe('DatafileCache', () => {
     Partial<DatafileInput>,
   ][])('rejects %s without changing storage or the failure deadline', (_, overrides) => {
     const cache = new DatafileCache();
-    const original = cache.set(data());
+    const original = cache.seed(data());
     const error = new Error('first outage');
     cache.fail(error);
     vi.setSystemTime(1_050);
@@ -205,7 +213,7 @@ describe('DatafileCache', () => {
     -Infinity,
   ])('never confirms invalid current version %s, even for the same object', (configUpdatedAt) => {
     const cache = new DatafileCache();
-    const original = cache.set({ ...data(), configUpdatedAt });
+    const original = cache.seed({ ...data(), configUpdatedAt });
     const error = new Error('poll failed');
     cache.fail(error);
 
@@ -221,29 +229,242 @@ describe('DatafileCache', () => {
     'invalid',
     NaN,
     Infinity,
-  ])('recovers explicitly after storing an accepted update with version %s', (configUpdatedAt) => {
+  ])('retains failure when seeding a replacement with version %s', (configUpdatedAt) => {
     const cache = new DatafileCache();
-    cache.set(data());
+    cache.seed(data());
     const error = new Error('poll failed');
     cache.fail(error);
-    const accepted = cache.set({ ...data('poll'), configUpdatedAt });
+    vi.setSystemTime(1_050);
+    const replacement = cache.seed({ ...data('poll'), configUpdatedAt });
     expect(() => cache.read(0)).toThrow(error);
-
-    cache.confirm();
-    expect(cache.peek()).toBe(accepted);
-    expect(cache.read(0)).toBe(accepted);
+    expect(cache.peek()).toBe(replacement);
+    vi.setSystemTime(1_100);
+    expect(cache.read(100)).toBe(replacement);
+    vi.setSystemTime(1_101);
+    expect(() => cache.read(100)).toThrow(error);
   });
 
   it('rejects an old response after storing a newer replacement', () => {
     const cache = new DatafileCache();
-    cache.set(data());
+    cache.seed(data());
     const oldResponse = response();
-    const replacement = cache.set({ ...data('poll'), configUpdatedAt: 2 });
+    const replacement = cache.seed({ ...data('poll'), configUpdatedAt: 2 });
     const error = new Error('replacement outage');
     cache.fail(error);
 
     expect(cache.tryConfirm(oldResponse)).toBe(false);
     expect(() => cache.read(0)).toThrow(error);
     expect(cache.peek()).toBe(replacement);
+  });
+
+  describe('updateFromSource', () => {
+    it.each([
+      'poll',
+      'stream',
+    ] as const)('accepts the first %s response and clears a failure recorded while empty', (origin) => {
+      const cache = new DatafileCache();
+      cache.fail(new Error('failed before data arrived'));
+      vi.setSystemTime(2_000);
+      const incoming = response({ configUpdatedAt: NaN });
+      const snapshot = { ...incoming };
+
+      expect(cache.updateFromSource(incoming, origin)).toBeUndefined();
+      expect(cache.peek()).toBe(incoming);
+      expect(cache.read(0)).toBe(incoming);
+      expect(incoming).toEqual({ ...snapshot, _origin: origin });
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each([
+      [1, 2],
+      [1, '2'],
+      ['1', 2],
+      ['9', '10'],
+      [1, undefined],
+      [1, 'invalid'],
+      [1, 'NaN'],
+      [1, Infinity],
+      [1, 'Infinity'],
+      [undefined, 0],
+      ['invalid', 0],
+      ['NaN', 0],
+      [undefined, undefined],
+      ['invalid', 'invalid'],
+      [undefined, NaN],
+      [NaN, undefined],
+      [NaN, 'invalid'],
+      [-Infinity, 0],
+      [Infinity, undefined],
+    ])('accepts version %s → %s and automatically starts a fresh allowance on the next failure', (current, next) => {
+      const cache = new DatafileCache();
+      cache.seed({ ...data('bundled'), configUpdatedAt: current });
+      const firstError = new Error('first outage');
+      cache.fail(firstError);
+      vi.setSystemTime(2_000);
+      expect(() => cache.read(100)).toThrow(firstError);
+      const incoming = response({ configUpdatedAt: next });
+      const snapshot = { ...incoming };
+
+      expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
+      expect(cache.peek()).toBe(incoming);
+      expect(cache.read(0)).toBe(incoming);
+      expect(incoming).toEqual({ ...snapshot, _origin: 'poll' });
+      expect(cache.peek()?.definitions).toBe(incoming.definitions);
+
+      const nextError = new Error('second outage');
+      cache.fail(nextError);
+      vi.setSystemTime(2_100);
+      expect(cache.read(100)).toBe(incoming);
+      vi.setSystemTime(2_101);
+      expect(() => cache.read(100)).toThrow(nextError);
+    });
+
+    it.each([
+      { projectId: 'prj_other' },
+      { environment: 'preview' },
+    ])('preserves acceptance of a newer version despite mismatched identity %j', (overrides) => {
+      const cache = new DatafileCache();
+      cache.seed(data('bundled'));
+      cache.fail(new Error('outage'));
+      const incoming = response({ ...overrides, configUpdatedAt: 2 });
+
+      cache.updateFromSource(incoming, 'stream');
+      expect(cache.read(0)).toBe(incoming);
+      expect(incoming).toEqual({
+        ...response({ ...overrides, configUpdatedAt: 2 }),
+        _origin: 'stream',
+      });
+    });
+
+    it.each([
+      [1, 1],
+      [1, '1'],
+      ['1', 1],
+      ['1', '1'],
+      [0, '0'],
+      ['0', 0],
+    ])('confirms equal finite versions %s and %s without tagging or replacing either object', (current, next) => {
+      const cache = new DatafileCache();
+      const original = cache.seed(
+        Object.freeze({ ...data('bundled'), configUpdatedAt: current }),
+      );
+      const incoming = Object.freeze(response({ configUpdatedAt: next }));
+      const snapshot = { ...incoming };
+      const error = new Error('outage');
+      cache.fail(error);
+      vi.setSystemTime(1_101);
+      expect(() => cache.read(100)).toThrow(error);
+
+      expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
+      expect(cache.peek()).toBe(original);
+      expect(cache.read(0)).toBe(original);
+      expect(original._origin).toBe('bundled');
+      expect(incoming).toEqual(snapshot);
+      expect(incoming).not.toHaveProperty('_origin');
+    });
+
+    it.each([
+      'reused',
+      'distinct',
+    ])('confirms a %s tagged response without changing its origin', (kind) => {
+      const cache = new DatafileCache();
+      const original = cache.seed(Object.freeze(data('bundled')));
+      const incoming =
+        kind === 'reused' ? original : Object.freeze(data('provided'));
+      const snapshot = { ...incoming };
+      cache.fail(new Error('outage'));
+
+      cache.updateFromSource(incoming, 'poll');
+      expect(cache.peek()).toBe(original);
+      expect(cache.read(0)).toBe(original);
+      expect(original._origin).toBe('bundled');
+      expect(incoming).toEqual(snapshot);
+    });
+
+    it.each([
+      ['older version', { configUpdatedAt: 0 }],
+      ['older numeric string', { configUpdatedAt: '0' }],
+      ['wrong project', { projectId: 'prj_other' }],
+      ['wrong environment', { environment: 'preview' }],
+      ['numeric NaN', { configUpdatedAt: NaN }],
+      ['negative Infinity', { configUpdatedAt: -Infinity }],
+      ['string negative Infinity', { configUpdatedAt: '-Infinity' }],
+    ] satisfies [
+      string,
+      Partial<DatafileInput>,
+    ][])('rejects %s without mutation or clearing the original error/deadline', (_, overrides) => {
+      const cache = new DatafileCache();
+      const original = cache.seed(Object.freeze(data('bundled')));
+      const incoming = Object.freeze(response(overrides));
+      const snapshot = { ...incoming };
+      const error = new Error('first outage');
+      cache.fail(error);
+      vi.setSystemTime(1_050);
+
+      expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
+      expect(cache.peek()).toBe(original);
+      expect(original._origin).toBe('bundled');
+      expect(incoming).toEqual(snapshot);
+      expect(incoming).not.toHaveProperty('_origin');
+      expect(() => cache.read(0)).toThrow(error);
+      cache.fail(new Error('repeated outage'));
+      vi.setSystemTime(1_100);
+      expect(cache.read(100)).toBe(original);
+      vi.setSystemTime(1_101);
+      expect(() => cache.read(100)).toThrow(error);
+    });
+
+    it.each([
+      [NaN, 1],
+      [NaN, NaN],
+      [Infinity, 1],
+      [Infinity, Infinity],
+      [Infinity, 'Infinity'],
+      ['Infinity', Infinity],
+      [-Infinity, -Infinity],
+      [-Infinity, '-Infinity'],
+    ])('cannot recover from a rejected response with nonfinite current version %s and incoming version %s', (current, next) => {
+      const cache = new DatafileCache();
+      const original = cache.seed(
+        Object.freeze({ ...data('bundled'), configUpdatedAt: current }),
+      );
+      const incoming = Object.freeze(response({ configUpdatedAt: next }));
+      const snapshot = { ...incoming };
+      const error = new Error('first outage');
+      cache.fail(error);
+      vi.setSystemTime(1_050);
+
+      cache.updateFromSource(incoming, 'poll');
+      cache.updateFromSource(original, 'poll');
+      expect(cache.peek()).toBe(original);
+      expect(original._origin).toBe('bundled');
+      expect(incoming).toEqual(snapshot);
+      expect(incoming).not.toHaveProperty('_origin');
+      expect(() => cache.read(0)).toThrow(error);
+      vi.setSystemTime(1_100);
+      expect(cache.read(100)).toBe(original);
+      vi.setSystemTime(1_101);
+      expect(() => cache.read(100)).toThrow(error);
+    });
+
+    it('rejects an old response after an accepted replacement without renewing its failure deadline', () => {
+      const cache = new DatafileCache();
+      const oldResponse = cache.seed(Object.freeze(data('bundled')));
+      const replacement = response({ configUpdatedAt: 2 });
+      cache.updateFromSource(replacement, 'poll');
+      const error = new Error('replacement outage');
+      cache.fail(error);
+      vi.setSystemTime(1_050);
+
+      cache.updateFromSource(oldResponse, 'stream');
+      expect(cache.peek()).toBe(replacement);
+      expect(cache.peek()?._origin).toBe('poll');
+      expect(oldResponse._origin).toBe('bundled');
+      expect(() => cache.read(0)).toThrow(error);
+      vi.setSystemTime(1_100);
+      expect(cache.read(100)).toBe(replacement);
+      vi.setSystemTime(1_101);
+      expect(() => cache.read(100)).toThrow(error);
+    });
   });
 });
