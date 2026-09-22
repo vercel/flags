@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StreamMessage } from './controller/stream-connection';
 import {
   type BundledDefinitions,
   type CreateClientOptions,
@@ -32,6 +33,29 @@ function response(value: BundledDefinitions): Response {
   const result = new Response();
   result.json = async () => value;
   return result;
+}
+
+function stream() {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start(value) {
+      controller = value;
+    },
+  });
+  return {
+    response: new Response(body),
+    push(message: StreamMessage) {
+      controller.enqueue(
+        new TextEncoder().encode(`${JSON.stringify(message)}\n`),
+      );
+    },
+    fail(error: Error) {
+      controller.error(error);
+    },
+    close() {
+      controller.close();
+    },
+  };
 }
 
 function deferred<T>() {
@@ -73,6 +97,7 @@ function expectErrors(...errors: Error[]) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(0);
+  vi.spyOn(Math, 'random').mockReturnValue(0);
   clients = [];
   poll.mockReset().mockImplementation(async () => response(data()));
   fetchMock.mockReset().mockImplementation((input) => {
@@ -98,7 +123,7 @@ afterEach(async () => {
   }
 });
 
-describe('polling stale-if-error through the public API', () => {
+describe('runtime stale-if-error through the public API', () => {
   it.each([
     -1,
     NaN,
@@ -389,6 +414,197 @@ describe('polling stale-if-error through the public API', () => {
     expect(await instance.evaluate('flagA')).toEqual(initial);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(poll).not.toHaveBeenCalled();
+  });
+
+  it('freezes stream freshness at the first failure through repeated errors and the exact deadline', async () => {
+    const initialStream = stream();
+    const first = new Error('stream failed');
+    const repeated = new Error('retry failed');
+    fetchMock
+      .mockResolvedValueOnce(initialStream.response)
+      .mockRejectedValue(repeated);
+    const instance = client({ stream: true, staleIfErrorMs: 1_000 });
+    initialStream.push({ type: 'datafile', data: data() });
+    await instance.evaluate('flagA');
+    await vi.advanceTimersByTimeAsync(10_000);
+    initialStream.fail(first);
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(instance.evaluate('flagA')).rejects.toBe(first);
+    expect(await instance.evaluate('flagA', false)).toEqual({
+      value: false,
+      variantId: null,
+      reason: 'error',
+      errorMessage: first.message,
+    });
+    expect(
+      await instance.bulkEvaluate([{ key: 'flagA', defaultValue: false }]),
+    ).toEqual({
+      flagA: {
+        value: false,
+        variantId: null,
+        reason: 'error',
+        errorMessage: first.message,
+      },
+    });
+    expect((await instance.getDatafile()).definitions).toEqual(
+      data().definitions,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3); // Initial stream + immediate retry + next backoff retry.
+    expect(poll).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'equal',
+    'newer',
+    'primed',
+  ] as const)('recovers streaming with %s evidence and starts a new outage', async (confirmation) => {
+    const initialStream = stream();
+    const recoveredStream = stream();
+    fetchMock
+      .mockResolvedValueOnce(initialStream.response)
+      .mockResolvedValueOnce(recoveredStream.response);
+    const instance = client({ stream: true, staleIfErrorMs: 0 });
+    initialStream.push({ type: 'datafile', data: data() });
+    await instance.evaluate('flagA');
+    const snapshot = await instance.getDatafile();
+    const first = new Error('stream failed');
+    initialStream.fail(first);
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(instance.evaluate('flagA')).rejects.toBe(first);
+    await vi.advanceTimersByTimeAsync(1_000);
+    const message: StreamMessage =
+      confirmation === 'primed'
+        ? {
+            type: 'primed',
+            revision: 1,
+            projectId: 'prj_123',
+            environment: 'production',
+          }
+        : {
+            type: 'datafile',
+            data: data({ configUpdatedAt: confirmation === 'newer' ? 11 : 10 }),
+          };
+    recoveredStream.push(message);
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    const recovered = await instance.getDatafile();
+    expect(recovered.definitions === snapshot.definitions).toBe(
+      confirmation !== 'newer',
+    );
+    const second = new Error('second outage');
+    recoveredStream.fail(second);
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(instance.evaluate('flagA')).rejects.toBe(second);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(poll).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: 'datafile', data: data({ configUpdatedAt: 9 }) },
+    { type: 'datafile', data: data({ projectId: 'other' }) },
+    {
+      type: 'primed',
+      revision: 0,
+      projectId: 'prj_123',
+      environment: 'production',
+    },
+    {
+      type: 'primed',
+      revision: 1,
+      projectId: 'other',
+      environment: 'production',
+    },
+    {
+      type: 'primed',
+      revision: 1,
+      projectId: 'prj_123',
+      environment: 'preview',
+    },
+  ] satisfies StreamMessage[])('does not let an unrelated stream confirmation clear an outage: %j', async (message) => {
+    const initialStream = stream();
+    const next = stream();
+    fetchMock
+      .mockResolvedValueOnce(initialStream.response)
+      .mockResolvedValueOnce(next.response);
+    const instance = client({ stream: true, staleIfErrorMs: 0 });
+    initialStream.push({ type: 'datafile', data: data() });
+    await instance.evaluate('flagA');
+    const failure = new Error('stream failed');
+    initialStream.fail(failure);
+    await vi.advanceTimersByTimeAsync(1_000);
+    next.push(message);
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    undefined,
+    0,
+  ])('treats a closed stream as unavailable (allowance=%s)', async (staleIfErrorMs) => {
+    const initialStream = stream();
+    const next = stream();
+    fetchMock
+      .mockResolvedValueOnce(initialStream.response)
+      .mockResolvedValueOnce(next.response);
+    const instance = client({ stream: true, staleIfErrorMs });
+    initialStream.push({ type: 'datafile', data: data() });
+    await instance.evaluate('flagA');
+    initialStream.close();
+    await vi.advanceTimersByTimeAsync(5_000);
+    if (staleIfErrorMs === 0) {
+      await expect(instance.evaluate('flagA')).rejects.toThrow(
+        '@vercel/flags-core: Stream disconnected',
+      );
+    } else {
+      expect((await instance.evaluate('flagA')).value).toBe(true);
+    }
+    expect((await instance.getDatafile()).metrics.connectionState).toBe(
+      'disconnected',
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('enforces zero after an unauthorized initial stream response', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+    const instance = client({
+      stream: true,
+      datafile: data(),
+      staleIfErrorMs: 0,
+    });
+    await expect(instance.evaluate('flagA')).rejects.toThrow(
+      'stream: unauthorized (401)',
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(poll).not.toHaveBeenCalled();
+  });
+
+  it('does not treat stream initialization timeout as an error; a later rejection does', async () => {
+    const pending = deferred<Response>();
+    fetchMock.mockReturnValue(pending.promise);
+    const instance = client({
+      stream: true,
+      datafile: data(),
+      staleIfErrorMs: 0,
+    });
+    const evaluation = instance.evaluate('flagA');
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect((await evaluation).value).toBe(true);
+    expect(warnSpy.mock.calls).toEqual([
+      [
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      ],
+    ]);
+    warnSpy.mockClear();
+    const failure = new Error('late stream failure');
+    pending.reject(failure);
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // Existing immediate reconnect after the late failure.
   });
 
   it.each([
