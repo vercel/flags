@@ -556,6 +556,39 @@ describe('Vercel mode (black-box)', () => {
     expect((await blocking).metrics?.cacheStatus).toBe('MISS');
   });
 
+  it('does not renew freshness from an older matching header after observing an invalidation', async () => {
+    const instance = client();
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+
+    // An overlapping request still has the old header, but cannot undo invalidation.
+    setVersion(TIMESTAMP);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'HIT',
+    );
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    const settled = vi.fn();
+    const blocking = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    expect(await blocking).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+  });
+
   it('uses the later of the matching-header and fetched timestamps', async () => {
     const instance = client();
     setVersion(TIMESTAMP + 1);

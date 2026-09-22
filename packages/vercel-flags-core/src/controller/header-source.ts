@@ -1,5 +1,4 @@
 import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
-import { BoundedMap } from '../utils/bounded-map';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
@@ -17,17 +16,13 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private options: NormalizedOptions;
   private abortController: AbortController | undefined;
   private promise: Promise<BundledDefinitions> | undefined;
-  private readonly lastSeen: BoundedMap<number, number>;
+  private highestObserved = 0;
+  private lastSeen: { version: number; at: number } | undefined;
 
   constructor(options: NormalizedOptions) {
     super();
 
     this.options = options;
-    // Keep a small version buffer; old observations expire on read.
-    this.lastSeen = new BoundedMap(
-      10,
-      (lastSeenAt) => Date.now() - lastSeenAt > options.staleWhileRevalidateMs,
-    );
   }
 
   private fetchDatafile(): Promise<BundledDefinitions> {
@@ -94,7 +89,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     const currentUpdatedAt = Number(currentData.configUpdatedAt);
 
-    this.lastSeen.set(updatedAtHeader, Date.now());
+    this.observe(updatedAtHeader, currentUpdatedAt);
 
     if (updatedAtHeader <= currentUpdatedAt) {
       return [currentData, 'HIT'];
@@ -102,7 +97,9 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     const freshAt = Math.max(
       currentData._fetchedAt ?? -Infinity,
-      this.lastSeen.get(currentUpdatedAt) ?? -Infinity,
+      this.lastSeen?.version === currentUpdatedAt
+        ? this.lastSeen.at
+        : -Infinity,
     );
     const { staleWhileRevalidateMs } = this.options;
     if (
@@ -130,6 +127,13 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     return [tagData(data, 'fetched'), 'MISS'];
   }
 
+  private observe(version: number, currentVersion: number): void {
+    this.highestObserved = Math.max(this.highestObserved, version);
+    // Once invalidated, an older matching header cannot renew freshness.
+    if (version !== currentVersion || version !== this.highestObserved) return;
+    this.lastSeen = { version, at: Date.now() };
+  }
+
   read(
     currentData: TaggedData,
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
@@ -152,6 +156,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;
-    this.lastSeen.clear();
+    this.lastSeen = undefined;
+    this.highestObserved = 0;
   }
 }

@@ -211,7 +211,7 @@ describe('HeaderSource', () => {
     });
   });
 
-  describe('last-seen version history', () => {
+  describe('version observations', () => {
     it('reuses a version observation across data objects without tagging them', async () => {
       const original = Object.freeze(tagData(datafile(), 'provided'));
       await expect(source.read(original)).resolves.toEqual([original, 'HIT']);
@@ -228,40 +228,21 @@ describe('HeaderSource', () => {
       expect(fetchDatafile).toHaveBeenCalledTimes(1);
     });
 
-    it('remembers observed headers independently of the cached version', async () => {
+    it('only confirms the version currently cached', async () => {
       const newer = tagData(datafile(CURRENT_TIMESTAMP + 1), 'provided');
       await expect(source.read(newer)).resolves.toEqual([newer, 'HIT']);
 
-      // The previous read observed CURRENT_TIMESTAMP, not the newer cached version.
+      // An older header did not confirm either cache object's freshness.
       const previous = tagData(datafile(), 'provided');
       setVersion(CURRENT_TIMESTAMP + 2);
-      await expect(source.read(previous)).resolves.toEqual([previous, 'STALE']);
-      await settlePromises();
+      expect((await source.read(previous))?.[1]).toBe('MISS');
 
       const result = await source.read(newer);
       expect(result?.[1]).toBe('MISS');
       expect(fetchDatafile).toHaveBeenCalledTimes(2);
     });
 
-    it('keeps ten versions in FIFO order even when a version is reobserved', async () => {
-      // Reobserving the oldest version must not change its eviction order.
-      for (const offset of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10]) {
-        const version = CURRENT_TIMESTAMP + offset;
-        setVersion(version);
-        await source.read(tagData(datafile(version), 'provided'));
-      }
-
-      const retained = tagData(datafile(CURRENT_TIMESTAMP + 1), 'provided');
-      await expect(source.read(retained)).resolves.toEqual([retained, 'STALE']);
-      await settlePromises();
-
-      // The first inserted version was evicted despite being reobserved.
-      const evicted = await source.read(tagData(datafile(), 'provided'));
-      expect(evicted?.[1]).toBe('MISS');
-      expect(fetchDatafile).toHaveBeenCalledTimes(2);
-    });
-
-    it('clears version history when stopped', async () => {
+    it('clears the last confirmation when stopped', async () => {
       await source.read(tagData(datafile(), 'provided'));
       source.stop();
       setVersion(CURRENT_TIMESTAMP + 1);
@@ -269,6 +250,20 @@ describe('HeaderSource', () => {
       const result = await source.read(tagData(datafile(), 'provided'));
       expect(result?.[1]).toBe('MISS');
       expect(fetchDatafile).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows a new confirmation after stopping clears the highest observed version', async () => {
+      const current = tagData(datafile(), 'provided');
+      setVersion(CURRENT_TIMESTAMP + 1);
+      await source.read(current);
+      source.stop();
+      setVersion(CURRENT_TIMESTAMP);
+      await source.read(current);
+      setVersion(CURRENT_TIMESTAMP + 1);
+
+      await expect(source.read(current)).resolves.toEqual([current, 'STALE']);
+      await settlePromises();
+      expect(fetchDatafile).toHaveBeenCalledTimes(2);
     });
   });
 
