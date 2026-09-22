@@ -183,10 +183,16 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.cache.set(tagData(data, 'poll'));
+      this.cache.confirm();
+      return;
+    }
+    if (this.confirmsCurrentData(data)) {
+      this.cache.confirm();
     }
   };
   private onPollError = (error: Error) => {
     this.noteUnauthorized(error);
+    this.cache.fail(error);
     console.error('@vercel/flags-core: Poll failed:', error);
   };
 
@@ -323,6 +329,14 @@ export class Controller implements ControllerInterface {
     this.isFirstGetData = false;
 
     const [result, cacheStatus] = await this.resolveData();
+
+    if (
+      !this.options.buildStep &&
+      !this.options.stream.enabled &&
+      this.options.polling.enabled
+    ) {
+      this.cache.assertUsable(this.options.staleIfErrorMs);
+    }
 
     const readMs = Date.now() - startTime;
     const source = originToMetricsSource(result._origin);
@@ -790,6 +804,20 @@ export class Controller implements ControllerInterface {
     }
 
     return incomingTs > currentTs;
+  }
+
+  /** Equal finite versions confirm freshness without replacing the snapshot. */
+  private confirmsCurrentData(incoming: DatafileInput): boolean {
+    const current = this.data;
+    if (!current) return false;
+    const currentTs = parseConfigUpdatedAt(current.configUpdatedAt);
+    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
+    return (
+      Number.isFinite(currentTs) &&
+      currentTs === incomingTs &&
+      current.projectId === incoming.projectId &&
+      current.environment === incoming.environment
+    );
   }
 
   // ---------------------------------------------------------------------------
