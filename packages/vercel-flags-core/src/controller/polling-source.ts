@@ -25,6 +25,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   private config: PollingSourceConfig;
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private abortController: AbortController | undefined;
+  private promise: Promise<boolean> | undefined;
 
   constructor(config: PollingSourceConfig) {
     super();
@@ -35,20 +36,35 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * Perform a single poll request.
    * Emits 'data' on success, 'error' on failure.
    */
-  async poll(): Promise<void> {
-    if (this.abortController?.signal.aborted) return;
-
-    try {
-      const data = await fetchDatafile({
-        ...this.config,
-        signal: this.abortController?.signal,
+  poll(): Promise<boolean> {
+    if (this.promise) return this.promise;
+    const abortController = new AbortController();
+    this.abortController = abortController;
+    this.promise = fetchDatafile({
+      ...this.config,
+      signal: abortController.signal,
+    })
+      .then((data) => {
+        abortController.signal.throwIfAborted();
+        this.emit('data', data);
+        return true;
+      })
+      .catch((error) => {
+        if (!abortController.signal.aborted) {
+          this.emit(
+            'error',
+            error instanceof Error ? error : new Error('Unknown poll error'),
+          );
+        }
+        return false;
+      })
+      .finally(() => {
+        if (this.abortController === abortController) {
+          this.promise = undefined;
+          this.abortController = undefined;
+        }
       });
-      this.emit('data', data);
-    } catch (error) {
-      const err =
-        error instanceof Error ? error : new Error('Unknown poll error');
-      this.emit('error', err);
-    }
+    return this.promise;
   }
 
   /**
@@ -58,8 +74,6 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    */
   startInterval(): void {
     if (this.intervalId) return;
-
-    this.abortController = new AbortController();
 
     // Start interval
     this.intervalId = setInterval(
@@ -78,5 +92,6 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     }
     this.abortController?.abort();
     this.abortController = undefined;
+    this.promise = undefined;
   }
 }

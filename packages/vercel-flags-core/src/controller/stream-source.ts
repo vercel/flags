@@ -62,10 +62,12 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         },
         {
           onDatafile: (newData) => {
+            if (abortController.signal.aborted) return;
             this.emit('data', newData);
             this.emit('connected');
           },
           onPrimed: (message) => {
+            if (abortController.signal.aborted) return;
             this.emit('primed', message);
             this.emit('connected');
           },
@@ -82,6 +84,11 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       this.abortController = undefined;
       throw error;
     }
+  }
+
+  /** Keep reconnection in the source; disconnected reads use the error window. */
+  reconnect(): void {
+    void this.start().catch(() => {});
   }
 
   /**
