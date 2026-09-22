@@ -11,7 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import { type CacheEntry, DatafileCache } from './datafile-cache';
+import { DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import {
   type ControllerOptions,
@@ -19,7 +19,7 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
-import { type PrimedMessage, UnauthorizedError } from './stream-connection';
+import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
 
@@ -104,12 +104,6 @@ export class Controller implements ControllerInterface {
     return this.cache.peek()?.data;
   }
 
-  // Source health is assumed current until the first consecutive failure.
-  // Keep its confirmation bound to that entry; reseeding is not recovery.
-  private sourceFailure:
-    | { error: Error; at: number; snapshot: CacheEntry | undefined }
-    | undefined;
-
   // Memoized data spread for read() / getDatafile().
   // Rebuilt only when `this.data` reference changes (e.g. on stream/poll update).
   // Holds the result of stripping `_origin`; metrics are appended per-call.
@@ -165,23 +159,10 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.cache.set(tagData(data, 'stream'));
-      this.sourceFailure = undefined;
-      return;
     }
-    if (this.confirmsCurrentData(data)) this.sourceFailure = undefined;
   };
-  private onStreamPrimed = (message: PrimedMessage) => {
+  private onStreamPrimed = () => {
     this.unauthorized = false;
-    const current = this.data;
-    if (
-      current &&
-      Number.isFinite(current.revision) &&
-      current.revision === message.revision &&
-      current.projectId === message.projectId &&
-      current.environment === message.environment
-    ) {
-      this.sourceFailure = undefined;
-    }
     // The server confirmed our revision is current — no new data needed.
     // Transition to streaming like a normal connected event.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -194,7 +175,6 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamDisconnected = () => {
-    this.onSourceError(new Error('@vercel/flags-core: Stream disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded');
     }
@@ -203,23 +183,16 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.cache.set(tagData(data, 'poll'));
-      this.sourceFailure = undefined;
+      this.cache.confirm(this.cache.peek());
       return;
     }
     if (this.confirmsCurrentData(data)) {
-      this.sourceFailure = undefined;
+      this.cache.confirm(this.cache.peek());
     }
-  };
-  private onSourceError = (error: Error) => {
-    this.sourceFailure ??= {
-      error,
-      at: Date.now(),
-      snapshot: this.cache.peek(),
-    };
   };
   private onPollError = (error: Error) => {
     this.noteUnauthorized(error);
-    this.onSourceError(error);
+    this.cache.fail(error);
     console.error('@vercel/flags-core: Poll failed:', error);
   };
 
@@ -232,7 +205,6 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
-    this.streamSource.on('error', this.onSourceError);
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
   }
@@ -242,7 +214,6 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
-    this.streamSource.off('error', this.onSourceError);
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
   }
@@ -357,8 +328,15 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    const [resolved, cacheStatus] = await this.resolveData();
-    const result = this.readCache() ?? resolved;
+    let [result, cacheStatus] = await this.resolveData();
+
+    if (
+      !this.options.buildStep &&
+      !this.options.stream.enabled &&
+      this.options.polling.enabled
+    ) {
+      result = this.cache.read(this.options.staleIfErrorMs) ?? result;
+    }
 
     const readMs = Date.now() - startTime;
     const source = originToMetricsSource(result._origin);
@@ -382,25 +360,6 @@ export class Controller implements ControllerInterface {
         mode: this.mode,
       },
     } satisfies Datafile;
-  }
-
-  private readCache(): TaggedData | undefined {
-    if (this.options.buildStep) return this.data;
-    if (!this.options.stream.enabled && !this.options.polling.enabled) {
-      return this.data;
-    }
-
-    const failure = this.sourceFailure;
-    return this.cache.read(
-      {
-        snapshot: failure ? failure.snapshot : this.cache.peek(),
-        needsRefresh: failure !== undefined,
-        // A healthy live source confirms the current snapshot on every read.
-        // On failure that confirmation freezes; repeated errors cannot renew it.
-        confirmedAt: failure ? failure.at : Date.now(),
-      },
-      { error: failure?.error, staleIfErrorMs: this.options.staleIfErrorMs },
-    ).data;
   }
 
   /**

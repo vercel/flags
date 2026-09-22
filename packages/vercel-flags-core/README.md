@@ -33,42 +33,41 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
-## Cached runtime evaluations
+## Cached polling evaluations
 
-`staleIfErrorMs` controls how long streaming and polling evaluations may use
-cached definitions after the active source fails:
+With streaming disabled, `staleIfErrorMs` controls how long evaluations may use
+cached definitions after a poll error:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
+  stream: false,
+  polling: true,
   staleIfErrorMs: 60_000,
 });
 ```
 
 The default is `Infinity`, preserving unlimited cached fallback. Use a finite
 nonnegative number of milliseconds to bound fallback. A positive window includes
-its exact deadline; `0` disables cached fallback immediately after a source error
-or stream disconnect. Negative values, `NaN`, and negative infinity throw when
-creating the client.
+its exact deadline; `0` disables cached fallback immediately after a poll error.
+Negative values, `NaN`, and negative infinity throw when creating the client.
 
-A stream or polling source is assumed to keep its cached snapshot current until
-it fails. The first consecutive failure freezes that confirmation time. Repeated
-errors and provided or bundled fallback data do not renew it. Accepted source data,
-a finite equal version for the same project/environment, or a stream `primed`
-message matching the cached revision and project/environment clears the outage.
-A later failure starts a new allowance. Responses retain their existing completion
-order and version acceptance rules.
+The allowance starts at the first consecutive poll error. Repeated errors and
+provided or bundled fallback data do not renew it. A poll that replaces the
+snapshot, or confirms a finite equal version for the same project and environment,
+clears the outage. A later error starts a new allowance. Responses are observed in
+completion order, and existing version acceptance rules still apply.
 
 After expiry, `evaluate()` returns the caller's default with reason `error`, or
-throws the first source error when no default is supplied. `bulkEvaluate()` returns
+throws the first poll error when no default is supplied. `bulkEvaluate()` returns
 an error result for each requested flag, with its default value when provided.
 The cached snapshot is retained: `getDatafile()` can still return it after expiry.
 Reads do not start an extra refresh because the allowance expired.
 
-Build and offline read policies, source scheduling, and metrics categories are
-unchanged. An initialization timeout alone does not start the allowance; source
-failure evidence must occur. Existing startup limitations remain: when initial
-polling times out, no recurring interval is started, even if that in-flight request
-later completes.
+This option applies only to runtime polling evaluations. Streaming, offline and
+build behavior, polling intervals, and metrics categories are unchanged. An
+initialization timeout alone does not start the allowance; an actual poll error
+must occur. Existing startup limitations remain: when initial polling times out,
+no recurring interval is started, even if that in-flight request later completes.
 
 ## Evaluation Metrics
 
