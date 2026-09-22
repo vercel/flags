@@ -1,28 +1,46 @@
+import type { DatafileInput } from '../types';
+import { parseConfigUpdatedAt } from './datafile-version';
 import type { TaggedData } from './tagged-data';
-
-/** A new token for each stored snapshot, even if the data object is reused. */
-export type CacheEntry = Readonly<{
-  data: TaggedData;
-}>;
 
 /** Storage and failure-relative read policy; callers provide source evidence. */
 export class DatafileCache {
-  private entry: CacheEntry | undefined;
+  private data: TaggedData | undefined;
   private failure: { error: Error; startedAt: number } | undefined;
 
-  peek(): CacheEntry | undefined {
-    return this.entry;
+  peek(): TaggedData | undefined {
+    return this.data;
   }
 
   set(data: TaggedData): TaggedData {
-    this.entry = { data };
+    this.data = data;
     return data;
   }
 
-  confirm(snapshot: CacheEntry | undefined): void {
-    if (snapshot && snapshot === this.entry) {
+  /** Reports a source update synchronously accepted and stored by the caller. */
+  confirm(): void {
+    if (this.data) {
       this.failure = undefined;
     }
+  }
+
+  /** Confirms a same-version source response without replacing stored data. */
+  tryConfirm(incoming: DatafileInput): boolean {
+    if (!this.data) return false;
+
+    const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
+    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
+    if (
+      !Number.isFinite(currentTs) ||
+      !Number.isFinite(incomingTs) ||
+      currentTs !== incomingTs ||
+      this.data.projectId !== incoming.projectId ||
+      this.data.environment !== incoming.environment
+    ) {
+      return false;
+    }
+
+    this.confirm();
+    return true;
   }
 
   fail(error: Error): void {
@@ -30,9 +48,9 @@ export class DatafileCache {
   }
 
   read(staleIfErrorMs: number): TaggedData | undefined {
-    if (!this.entry) return undefined;
+    if (!this.data) return undefined;
 
-    if (!this.failure || staleIfErrorMs === Infinity) return this.entry.data;
+    if (!this.failure || staleIfErrorMs === Infinity) return this.data;
 
     const withinAllowance =
       staleIfErrorMs > 0 &&
@@ -40,10 +58,10 @@ export class DatafileCache {
     if (!withinAllowance) {
       throw this.failure.error;
     }
-    return this.entry.data;
+    return this.data;
   }
 
   clear(): void {
-    this.entry = undefined;
+    this.data = undefined;
   }
 }
