@@ -87,11 +87,13 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
- * **Runtime - vercel mode** (request context has a matching x-vercel-flags-config-versions or flags-config-versions header)
+ * **Runtime — Vercel mode** (VERCEL=1, with stream or polling enabled)
  * - Uses the header value to determine if the current data is fresh
  * - A matching header confirms the cached version's freshness
- * - For newer headers, revalidates in the background within staleWhileRevalidateMs
+ * - For newer headers, revalidates in the background within staleWhileRevalidate
  *   of the latest successful fetch or matching header; otherwise blocks
+ * - Initialization performs no I/O; reads lazily load bundled data or fetch
+ * - Missing headers serve cached data, fetching only when empty
  * - Bundled/provided data has unknown freshness until confirmed or fetched
  *
  * **Runtime — offline mode** (neither stream nor polling):
@@ -146,7 +148,13 @@ export class Controller implements ControllerInterface {
       readBundledDefinitions,
     });
 
-    this.headerSource = new HeaderSource(this.options);
+    this.headerSource = new HeaderSource(
+      this.options,
+      () => this.data,
+      (data) => {
+        this.data = data;
+      },
+    );
 
     // Wire source events to state machine
     this.wireSourceEvents();
@@ -190,11 +198,6 @@ export class Controller implements ControllerInterface {
   private onPollError = (error: Error) => {
     console.error('@vercel/flags-core: Poll failed:', error);
   };
-  private onFetchedData = (data: DatafileInput) => {
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'fetched');
-    }
-  };
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -208,8 +211,6 @@ export class Controller implements ControllerInterface {
 
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
-
-    this.headerSource.on('data', this.onFetchedData);
   }
 
   private unwireSourceEvents(): void {
@@ -220,8 +221,6 @@ export class Controller implements ControllerInterface {
 
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
-
-    this.headerSource.off('data', this.onFetchedData);
   }
 
   // ---------------------------------------------------------------------------
@@ -230,6 +229,13 @@ export class Controller implements ControllerInterface {
 
   private transition(to: State): void {
     this.state = to;
+  }
+
+  private get usesHeaders(): boolean {
+    return (
+      this.options.vercel &&
+      (this.options.stream.enabled || this.options.polling.enabled)
+    );
   }
 
   private get isConnected(): boolean {
@@ -255,7 +261,7 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Initializes the data source.
+   * Initializes the data source. Vercel runtime defers all loading to reads.
    *
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
@@ -267,6 +273,12 @@ export class Controller implements ControllerInterface {
       this.transition('build:loading');
       await this.initializeForBuildStep();
       this.transition('build:ready');
+      return;
+    }
+
+    // Vercel INIT runs without a request context. Defer all loading to reads.
+    if (this.usesHeaders) {
+      this.transition('vercel');
       return;
     }
 
@@ -294,9 +306,7 @@ export class Controller implements ControllerInterface {
     // being considered initialized, so we know we have fresh data.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
-      if (this.headerSource.isAvailable(this.data.projectId)) {
-        this.transition('vercel');
-      } else if (this.options.stream.enabled) {
+      if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
@@ -393,6 +403,8 @@ export class Controller implements ControllerInterface {
 
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
+    } else if (this.usesHeaders) {
+      [result, cacheStatus] = await this.resolveData();
     } else if (this.data) {
       cacheStatus = this.isConnected ? 'HIT' : 'STALE';
       result = this.data;
@@ -469,15 +481,18 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.data) {
-      if (this.headerSource.isAvailable(this.data.projectId)) {
-        const result = await this.headerSource.read(this.data);
-
-        if (result) {
-          return result;
-        }
+    if (this.usesHeaders) {
+      this.transition('vercel');
+      if (!this.data) {
+        const bundled = await this.bundledSource.tryLoad();
+        if (this.state === 'shutdown')
+          throw new Error('@vercel/flags-core: Client is shut down');
+        if (bundled && !this.data) this.data = tagData(bundled, 'bundled');
       }
+      return this.headerSource.read();
+    }
 
+    if (this.data) {
       const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
       return [this.data, cacheStatus];
     }

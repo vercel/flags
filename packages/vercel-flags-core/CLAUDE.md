@@ -88,7 +88,8 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
-  staleWhileRevalidateMs?: number; // Header refresh window; default 10_000, 0 disables stale serving
+  staleWhileRevalidate?: number; // Header refresh window in seconds; default 60
+  staleIfError?: number; // Additional seconds on refresh failure; default 3600
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -260,9 +261,15 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` attaches metadata in place. Runtime `_fetchedAt` records successful network arrival for fetched, polled, or streamed data; tagging provided or bundled data leaves it undefined. Internal metadata is stripped from public reads. Header observations belong only to `HeaderSource`, which keeps a per-instance `BoundedMap` from version header timestamps to last-seen times, capped at ten entries and cleared on stop. Capacity eviction follows insertion order; observing an existing version updates its timestamp without moving the entry. Reading an entry lazily removes it if its last-seen time is outside `staleWhileRevalidateMs`.
+`tagData` returns a copy with origin metadata; it does not mutate shared inputs. Runtime `_fetchedAt` records successful network arrival for fetched, polled, or streamed data. Provided/bundled data has unknown freshness. Internal metadata is stripped from public reads.
 
-For header-driven refreshes, newer headers serve stale data only for `staleWhileRevalidateMs` (default: 10,000ms) after the later of `_fetchedAt` and the cached version's entry in that map, independent of the version timestamp gap. This option must be finite and non-negative; `0` disables stale serving. Unknown-age bundled/provided data blocks on first invalidation unless a matching header has confirmed it. Only accepted newer responses replace cached data and set fetched freshness. Equal or older responses, and failed or aborted header refreshes, leave cached data and freshness unchanged. Different version headers do not renew the cached version's entry, and missing or malformed headers do not update the map.
+On Vercel (`VERCEL=1`) with stream or polling enabled, initialization performs no I/O. Reads lazily load bundled data and use `HeaderSource`; no stream or polling timer is started. Missing/invalid headers serve cached data, fetching only when empty. Disabling both update mechanisms preserves offline behavior.
+
+`HeaderSource` accesses the controller-owned cache via callbacks. It retains the highest observed header version and one matching-version observation, without a version-history map. Older matching headers cannot renew freshness after a newer version has been observed. Only a strictly newer fetched version replaces the cache and renews `_fetchedAt`.
+
+`staleWhileRevalidate` (default 60 seconds) measures eligibility from the later of fetch arrival and accepted matching-header observation. `staleIfError` (default 3600 seconds) extends that window on refresh failure. Zero SWR disables background stale serving; zero staleIfError adds no extra window. Unknown-age data cannot use either window.
+
+A shared refresh cycle makes up to three attempts, with 100ms/200ms backoff and a ten-second deadline covering token resolution, transport, and body parsing. Each attempt snapshots its target version and compares it with the actual response. Each read captures its own minimum version; notifications after responses release satisfied readers without waiting for newer concurrent requirements. Remaining work is registered with `waitUntil`. Shutdown aborts pending work, and late responses cannot mutate the cache.
 
 ### Usage Tracking
 
@@ -286,7 +293,7 @@ For header-driven refreshes, newer headers serve stale data only for `staleWhile
 
 ### configUpdatedAt Guard
 
-The Controller uses `isNewerData` for stream, poll, and header-fetch events. Incoming data replaces the cache only when its `configUpdatedAt` is newer; missing or unparseable timestamps are accepted. Equal or older versions leave the cache and its metadata unchanged. A blocking header read returns the fetched response directly, while the event handler applies this guard to the shared cache.
+The Controller uses `isNewerData` for stream and poll events; HeaderSource separately validates numeric versions and only accepts strictly newer data. Incoming data replaces the cache only when its `configUpdatedAt` is newer; missing or unparseable timestamps are accepted. Equal or older versions leave the cache and its metadata unchanged. Blocking header reads check the controller-owned cache against their own required version after each response. Both `read()` and `getDatafile()` apply header freshness rules.
 
 ### Evaluation Reporting
 

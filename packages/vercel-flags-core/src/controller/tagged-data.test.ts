@@ -24,17 +24,17 @@ describe('tagData', () => {
     'fetched',
     'poll',
     'stream',
-  ] as const)('tags and retags %s data in place with each arrival time', (origin) => {
+  ] as const)('tags %s data without mutating the input', (origin) => {
     const input = { ...datafile };
     const tagged = tagData(input, origin);
 
-    expect(tagged).toBe(input);
+    expect(tagged).not.toBe(input);
     expect(tagged).toEqual({ ...datafile, _origin: origin, _fetchedAt: NOW });
     expect(tagged).not.toHaveProperty('_lastSeen');
 
     vi.setSystemTime(NOW + 1_000);
-    expect(tagData(input, origin)).toBe(input);
-    expect(tagged._fetchedAt).toBe(NOW + 1_000);
+    expect(tagData(input, origin)._fetchedAt).toBe(NOW + 1_000);
+    expect(tagged._fetchedAt).toBe(NOW);
     expect(tagged.configUpdatedAt).toBe(datafile.configUpdatedAt);
   });
 
@@ -48,7 +48,7 @@ describe('tagData', () => {
     vi.setSystemTime(NOW + 1_000);
     const tagged = tagData(input, origin);
 
-    expect(tagged).toBe(input);
+    expect(tagged).not.toBe(input);
     expect(tagged).toEqual({
       ...datafile,
       _origin: origin,

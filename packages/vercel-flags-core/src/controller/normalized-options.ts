@@ -12,7 +12,8 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
-const DEFAULT_STALE_WHILE_REVALIDATE_MS = 10_000;
+const DEFAULT_STALE_WHILE_REVALIDATE = 60;
+const DEFAULT_STALE_IF_ERROR = 3_600;
 
 /**
  * Configuration options for Controller
@@ -47,12 +48,21 @@ export type ControllerOptions = {
   polling?: boolean | PollingOptions;
 
   /**
-   * How long header-driven reads may serve cached data while refreshing in the
+   * How many seconds header-driven reads may serve cached data while refreshing in the
    * background, measured from its last fetch or matching version header.
    * Must be a finite, non-negative number. Set to 0 to always block on refresh.
-   * @default 10000
+   * @default 60
    */
-  staleWhileRevalidateMs?: number;
+  staleWhileRevalidate?: number;
+
+  /**
+   * How many additional seconds cached data may be served after header refresh retries fail,
+   * measured from its last successful fetch or accepted matching header.
+   * Extends staleWhileRevalidate. Unknown freshness cannot be served.
+   * Must be finite and non-negative; 0 adds no extra stale-on-error window.
+   * @default 3600
+   */
+  staleIfError?: number;
 
   /**
    * Override build step detection
@@ -100,7 +110,9 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
-  staleWhileRevalidateMs: number;
+  staleWhileRevalidate: number;
+  staleIfError: number;
+  vercel: boolean;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -149,11 +161,18 @@ export function normalizeOptions(
     };
   }
 
-  const staleWhileRevalidateMs =
-    options.staleWhileRevalidateMs ?? DEFAULT_STALE_WHILE_REVALIDATE_MS;
-  if (!Number.isFinite(staleWhileRevalidateMs) || staleWhileRevalidateMs < 0) {
+  const staleWhileRevalidate =
+    options.staleWhileRevalidate ?? DEFAULT_STALE_WHILE_REVALIDATE;
+  if (!Number.isFinite(staleWhileRevalidate) || staleWhileRevalidate < 0) {
     throw new Error(
-      '@vercel/flags-core: staleWhileRevalidateMs must be a finite, non-negative number.',
+      '@vercel/flags-core: staleWhileRevalidate must be a finite, non-negative number.',
+    );
+  }
+
+  const staleIfError = options.staleIfError ?? DEFAULT_STALE_IF_ERROR;
+  if (!Number.isFinite(staleIfError) || staleIfError < 0) {
+    throw new Error(
+      '@vercel/flags-core: staleIfError must be a finite, non-negative number.',
     );
   }
 
@@ -162,7 +181,9 @@ export function normalizeOptions(
     datafile: options.datafile,
     stream,
     polling,
-    staleWhileRevalidateMs,
+    staleWhileRevalidate,
+    staleIfError,
+    vercel: process.env.VERCEL === '1',
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,

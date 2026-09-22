@@ -24,7 +24,7 @@ export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
   if (origin === 'fetched' || origin === 'poll' || origin === 'stream') {
     fetchedAt = Date.now();
   }
-  return Object.assign(data, {
+  return Object.assign({}, data, {
     _origin: origin,
     _fetchedAt: fetchedAt,
   }) as TaggedData;

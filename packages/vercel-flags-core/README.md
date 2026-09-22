@@ -33,6 +33,49 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
+## Cache freshness on Vercel
+
+At runtime on Vercel (`VERCEL=1`), enabling streaming or polling automatically
+uses request-header invalidation instead. `initialize()` does not load data,
+open a stream, or start polling, so it is safe during the Lambda INIT phase.
+Reads lazily load provided/bundled definitions or fetch a datafile.
+
+The `x-vercel-flags-config-versions` header (with `flags-config-versions` as an
+alias) supplies a project-specific minimum version. Both evaluation and
+`getDatafile()` apply it. Without a usable header, reads serve cached data;
+only an empty cache causes a fetch. Outside Vercel, the configured streaming
+or polling strategy remains in effect. Disabling both selects offline mode
+and disables header refreshes, too.
+
+```ts
+const client = createClient({
+  staleWhileRevalidate: 60, // seconds; default 60 (1 minute)
+  staleIfError: 3600,       // additional seconds; default 3600 (1 hour)
+});
+```
+
+Freshness is measured from the later of the cached version's successful fetch
+and its last accepted matching-header observation, never from `configUpdatedAt`.
+Once a newer header version has been observed, older matching headers cannot
+renew freshness. Equal or older fetch responses do not renew it either.
+Provided/bundled definitions have unknown freshness until confirmed or replaced.
+
+When a newer version is required, cached data may be served during
+`staleWhileRevalidate` while a background refresh runs. Otherwise the read
+blocks. Refreshes share one transport request at a time, with up to three
+attempts, 100ms/200ms backoff, and a ten-second overall deadline per cycle.
+Each read waits only for its own version requirement; a newer concurrent read
+can trigger a follow-up fetch without delaying an already-satisfied read.
+
+If retries fail, `staleIfError` extends the stale-serving window. In the example,
+stale data is eligible for background refresh for 60 seconds, and may be served
+on refresh failure until 3,660 seconds (61 minutes) after its last accepted freshness evidence.
+Unknown-age data cannot use either window. Setting `staleWhileRevalidate: 0`
+disables background stale serving; setting `staleIfError: 0` adds no extra
+stale-on-error window beyond it. After expiry, reads throw; evaluation uses a
+supplied default value or throws when none is provided. Bulk evaluation throws
+if any requested flag lacks a default.
+
 ## Evaluation Metrics
 
 To associate evaluation metrics with an environment, pass the
