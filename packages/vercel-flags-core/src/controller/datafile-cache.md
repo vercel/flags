@@ -1,9 +1,10 @@
 # Cache ownership and extension boundary
 
 The controller owns one `DatafileCache` containing the current tagged datafile.
-Sources obtain data and report outcomes. The controller selects the mode, preserves
-version acceptance and tagging, and forwards evidence. The cache stores the entry,
-records the first consecutive failure, and decides whether it may be served.
+Sources obtain data and report outcomes. The controller selects the mode and source
+origin, and forwards data and evidence. The cache applies version acceptance, tags
+accepted updates, stores the entry, records the first consecutive failure, and
+decides whether it may be served.
 
 ```mermaid
 flowchart LR
@@ -19,27 +20,30 @@ flowchart LR
 
 All modes use the same storage. Polling is the only mode with new serving policy:
 
-1. `onPollData` applies the existing version predicate and tags accepted data.
-   It stores accepted data with `set()` and calls `confirm()` to report success.
-   For responses that do not replace storage, `tryConfirm(response)` checks the
-   cached version and project/environment inside the cache. A valid equal-version
-   response clears failure without replacing the entry.
+1. `onPollData` calls `updateFromSource(data, 'poll')`. The cache applies the existing
+   version predicate, tags and stores accepted data, and clears failure. If the
+   response is not accepted as a replacement, `tryConfirm(response)` checks whether
+   it confirms the current version without replacing or retagging the entry.
 2. `onPollError` calls `fail()`, retaining the first consecutive error and time.
 3. Runtime polling evaluations use `read(staleIfErrorMs)` at the shared controller
    read boundary. The cache enforces the allowance and retains expired data.
 4. A valid confirmation clears the failure; a later error starts a new allowance.
 
-`set()` and `clear()` affect storage only. Loading a provided or bundled seed does
-not confirm freshness, erase an outage, or renew its deadline. `confirm()` reports
-an accepted source update immediately after storage. `tryConfirm(response)` handles
-unchanged versions: it requires equal finite versions and matching project/environment,
+`seed()` stores initial or fallback snapshots; `clear()` removes storage. Neither
+operation erases an outage or renews its deadline. Seeds include provided/bundled
+restoration, build data, and snapshot/offline fallback loads. These writes preserve
+the existing storage behavior and are separate from live source updates.
+
+`updateFromSource()` owns version acceptance and recovery in one operation. It
+preserves the existing acceptance rules, including missing or unparseable versions.
+`tryConfirm()` requires equal finite versions and matching project/environment,
 so an older response cannot clear a newer cached version's failure. Object identity
 alone is not freshness evidence. No separate mutable `isFresh` flag is needed.
 
-Accepted updates have an explicit success path because the existing acceptance
-rules also allow missing or unparseable versions. Treating those as equal-version
-confirmations would change behavior. Both confirmation operations live in the cache;
-the controller has no confirmation predicate or snapshot round trip.
+Both stream and poll data callbacks use `updateFromSource()`. The controller passes
+the origin, and the cache calls the existing `tagData()` only after acceptance.
+Rejected and same-version responses leave the stored reference and origin unchanged.
+Stream disconnect/primed integration and stream serving policy remain deferred.
 
 There is no age-based expiry between successful polls and no read-triggered poll.
 Positive finite SIE windows include the exact deadline; zero disables fallback
@@ -75,8 +79,8 @@ it describes, `needsRefresh`, and `confirmedAt` as separate facts:
 - A matching header can confirm that version only if no newer version was observed.
 - A newer required version requests refresh without moving the previous confirmation.
 - Missing/malformed headers add no evidence and preserve cached-read behavior.
-- An older request must not call global `confirm()` to undo a known invalidation.
-  Its read assessment must remain tied to the request and cached entry it checked.
+- An older request must not clear global failure or invalidation state. Its read
+  assessment must remain tied to the request and cached entry it checked.
 
 The future policy can combine an entry's fetch time and applicable confirmation:
 `freshAt = Math.max(cached.fetchedAt ?? -Infinity, confirmedAt ?? -Infinity)`.
