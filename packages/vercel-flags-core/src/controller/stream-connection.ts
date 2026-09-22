@@ -48,7 +48,6 @@ export type StreamCallbacks = {
   onDatafile: (data: BundledDefinitions) => void;
   onPrimed?: (message: PrimedMessage) => void;
   onDisconnect?: () => void;
-  onError?: (error: Error) => void;
 };
 
 export type StreamConfig = {
@@ -72,18 +71,9 @@ export async function connectStream(
   callbacks: StreamCallbacks,
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
-  const { onDatafile, onPrimed, onDisconnect, onError } = callbacks;
+  const { onDatafile, onPrimed, onDisconnect } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
-
-  const reportError = (error: unknown): void => {
-    if (abortController.signal.aborted) return;
-    onError?.(
-      error instanceof Error
-        ? error
-        : new Error('Unknown stream error', { cause: error }),
-    );
-  };
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
@@ -165,17 +155,15 @@ export async function connectStream(
           signal: connectionAbort.signal,
         });
 
-        if (!response.ok && response.status === 401) {
-          const error = new UnauthorizedError(config.sourceProjectId);
-          reportError(error);
-          if (!initialDataReceived) {
-            rejectInit!(error);
-          }
-          abortController.abort();
-          break;
-        }
-
         if (!response.ok) {
+          if (response.status === 401) {
+            if (!initialDataReceived) {
+              rejectInit!(new UnauthorizedError(config.sourceProjectId));
+            }
+            abortController.abort();
+            break;
+          }
+
           throw new Error(`stream was not ok: ${response.status}`);
         }
 
@@ -275,9 +263,6 @@ export async function connectStream(
         abortController.signal.removeEventListener('abort', onMainAbort);
         if (abortController.signal.aborted) {
           break;
-        }
-        if (!connectionAbort.signal.aborted) {
-          reportError(error);
         }
         if (error instanceof TokenResolutionError && !initialDataReceived) {
           rejectInit!(error.cause);
