@@ -1,43 +1,74 @@
 import type { TaggedData } from './tagged-data';
 
-type Freshness =
-  | { status: 'unknown' | 'fresh' }
-  | { status: 'unavailable'; since: number; error: Error };
+/** A new token for each stored snapshot, even if the data object is reused. */
+export type CacheEntry = Readonly<{
+  data: TaggedData;
+  fetchedAt?: number;
+}>;
 
-/** The authoritative tagged snapshot, shared by every controller mode. */
+/** Evidence applies only to the snapshot that was assessed. */
+export type FreshnessAssessment = {
+  snapshot: CacheEntry | undefined;
+  needsRefresh: boolean;
+  confirmedAt?: number;
+};
+
+type CacheRead =
+  | { data: TaggedData; refresh: 'none' | 'background' }
+  | { data?: undefined; refresh: 'blocking' };
+
+/** Storage and read policy only; callers own source health and fetching. */
 export class DatafileCache {
-  private data: TaggedData | undefined;
-  private freshness: Freshness = { status: 'unknown' };
+  private entry: CacheEntry | undefined;
 
-  get(): TaggedData | undefined {
-    return this.data;
+  peek(): CacheEntry | undefined {
+    return this.entry;
   }
 
-  // Storage changes (including fallback seeds) do not confirm freshness.
   set(data: TaggedData): TaggedData {
-    this.data = data;
+    const fromNetwork =
+      data._origin === 'poll' ||
+      data._origin === 'stream' ||
+      data._origin === 'fetched';
+    this.entry = { data, fetchedAt: fromNetwork ? Date.now() : undefined };
     return data;
   }
 
-  confirm(): void {
-    this.freshness = { status: 'fresh' };
+  read(
+    assessment: FreshnessAssessment,
+    options: {
+      error?: Error;
+      staleIfErrorMs?: number;
+      staleWhileRevalidateMs?: number;
+    } = {},
+  ): CacheRead {
+    const cached = this.entry;
+    if (!cached) return { refresh: 'blocking' };
+
+    const sameSnapshot = assessment.snapshot === cached;
+    if (sameSnapshot && !assessment.needsRefresh) {
+      return { data: cached.data, refresh: 'none' };
+    }
+
+    const freshAt = Math.max(
+      cached.fetchedAt ?? -Infinity,
+      sameSnapshot ? (assessment.confirmedAt ?? -Infinity) : -Infinity,
+    );
+    if (!options.error && !Number.isFinite(freshAt)) {
+      return { refresh: 'blocking' };
+    }
+    const windowMs = options.error
+      ? (options.staleIfErrorMs ?? Infinity)
+      : (options.staleWhileRevalidateMs ?? 0);
+    const canServeStale =
+      windowMs > 0 &&
+      (windowMs === Infinity || Date.now() - freshAt <= windowMs);
+    if (canServeStale) return { data: cached.data, refresh: 'background' };
+    if (options.error) throw options.error;
+    return { refresh: 'blocking' };
   }
 
-  fail(error: Error): void {
-    if (this.freshness.status === 'unavailable') return;
-    this.freshness = { status: 'unavailable', since: Date.now(), error };
-  }
-
-  assertUsable(staleIfErrorMs: number): void {
-    if (this.freshness.status !== 'unavailable') return;
-    if (staleIfErrorMs === Infinity) return;
-    const elapsed = Date.now() - this.freshness.since;
-    if (staleIfErrorMs > 0 && elapsed <= staleIfErrorMs) return;
-    throw this.freshness.error;
-  }
-
-  // Clearing storage is not recovery evidence either.
   clear(): void {
-    this.data = undefined;
+    this.entry = undefined;
   }
 }
