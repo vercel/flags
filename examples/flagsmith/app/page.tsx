@@ -2,6 +2,9 @@ import {evaluate} from "flags/next"
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
+  // using evaluate() for batch evaluation, could also call invidually
+  // const message = await welcomeMessage()
+  // const banner = await showBanner()
   const [message, banner] = await evaluate([welcomeMessage, showBanner]);
 
   return (
