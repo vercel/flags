@@ -78,6 +78,7 @@ beforeEach(() => {
         .fn<typeof fetch>()
         .mockRejectedValue(new Error('Unexpected fetch')),
       buildStep: false,
+      vercel: true,
     }),
   );
   onData = vi.fn<(data: DatafileInput) => void>();
@@ -97,6 +98,7 @@ describe('HeaderSource', () => {
       auth,
       datafile: datafile(),
       buildStep: false,
+      vercel: true,
       fetch: vi.fn<typeof fetch>().mockResolvedValue(new Response()),
     });
     try {
@@ -126,7 +128,6 @@ describe('HeaderSource', () => {
       });
       const current = tagData(datafile(), 'provided');
 
-      expect(source.isAvailable(PROJECT_ID)).toBe(true);
       await expect(source.read(current)).resolves.toEqual([current, 'HIT']);
       expect(fetchDatafile).not.toHaveBeenCalled();
     });
@@ -158,7 +159,6 @@ describe('HeaderSource', () => {
         },
       });
 
-      expect(source.isAvailable(PROJECT_ID)).toBe(false);
       await expect(
         source.read(tagData(datafile(), 'provided')),
       ).resolves.toBeUndefined();
@@ -175,7 +175,6 @@ describe('HeaderSource', () => {
       setHeader(header);
       const current = tagData(datafile(), 'provided');
 
-      expect(source.isAvailable(PROJECT_ID)).toBe(true);
       await expect(source.read(current)).resolves.toEqual([current, 'HIT']);
       expect(fetchDatafile).not.toHaveBeenCalled();
     });
@@ -204,7 +203,6 @@ describe('HeaderSource', () => {
       setHeader(header);
       const result = await source.read(tagData(datafile(), 'provided'));
 
-      expect.soft(source.isAvailable(PROJECT_ID)).toBe(false);
       expect.soft(result).toBeUndefined();
       expect.soft(fetchDatafile).not.toHaveBeenCalled();
       expect.soft(onData).not.toHaveBeenCalled();

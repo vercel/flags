@@ -52,13 +52,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     return this.promise;
   }
 
-  private getUpdatedAtHeader(projectId: string) {
-    const ctx = getRequestContext();
-
-    const header =
-      ctx.headers?.['x-vercel-flags-config-versions'] ??
-      ctx.headers?.['flags-config-versions'];
-
+  private getUpdatedAtHeader(projectId: string, header: string | undefined) {
     if (!header) {
       return;
     }
@@ -76,20 +70,18 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
   private async resolveData(
     currentData: TaggedData,
+    updatedAtHeader: number | undefined,
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
     // current datafile has no timestamp, this shouldn't happen
     if (!currentData.configUpdatedAt) {
       return;
     }
 
-    const updatedAtHeader = this.getUpdatedAtHeader(currentData.projectId);
     if (!updatedAtHeader) {
       return;
     }
 
     const currentUpdatedAt = Number(currentData.configUpdatedAt);
-
-    this.observe(updatedAtHeader, currentUpdatedAt);
 
     if (updatedAtHeader <= currentUpdatedAt) {
       return [currentData, 'HIT'];
@@ -134,19 +126,30 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     this.lastSeen = { version, at: Date.now() };
   }
 
-  read(
-    currentData: TaggedData,
+  async read(
+    currentData: TaggedData | undefined,
   ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    return this.resolveData(currentData);
-  }
-
-  isAvailable(projectId: string): boolean {
-    // Explicit offline mode disables header-driven refreshes too.
-    if (!this.options.stream.enabled && !this.options.polling.enabled) {
-      return false;
+    // Capture the request header before a cold fetch discovers its project.
+    const { headers } = getRequestContext();
+    const header =
+      headers?.['x-vercel-flags-config-versions'] ??
+      headers?.['flags-config-versions'];
+    const data = currentData ?? tagData(await this.fetchDatafile(), 'fetched');
+    const updatedAtHeader = this.getUpdatedAtHeader(data.projectId, header);
+    if (updatedAtHeader) {
+      this.observe(updatedAtHeader, Number(data.configUpdatedAt));
     }
 
-    return !!this.getUpdatedAtHeader(projectId);
+    if (!currentData) return [data, 'MISS'];
+    return this.resolveData(currentData, updatedAtHeader);
+  }
+
+  isAvailable(): boolean {
+    // Explicit offline mode disables header-driven refreshes too.
+    return (
+      this.options.vercel &&
+      (this.options.stream.enabled || this.options.polling.enabled)
+    );
   }
 
   /**

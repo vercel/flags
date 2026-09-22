@@ -78,6 +78,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(TIMESTAMP);
   vi.stubEnv('VERCEL_ENV', 'production');
+  vi.stubEnv('VERCEL', '1');
   vi.mocked(readBundledDefinitions).mockReset();
   vi.mocked(readBundledDefinitions).mockResolvedValue({
     definitions: null,
@@ -112,6 +113,120 @@ afterEach(async () => {
 });
 
 describe('Vercel mode (black-box)', () => {
+  it.each([
+    [undefined, undefined, 'polling'],
+    ['0', undefined, 'polling'],
+    ['true', undefined, 'polling'],
+    ['1', undefined, 'vercel'],
+    ['1', false, 'polling'],
+    [undefined, true, 'vercel'],
+  ] as const)('uses %s with vercel=%s to select %s mode', async (env, vercel, mode) => {
+    vi.stubEnv('VERCEL', env);
+    mockDatafileResponse(TIMESTAMP, true);
+    const instance = client({ vercel, stream: false, datafile: undefined });
+    await instance.initialize();
+    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('initializes without request context or I/O, then shares the first read fetch', async () => {
+    setVersion(undefined);
+    const instance = client({ datafile: undefined });
+    await instance.initialize();
+    expect(readBundledDefinitions).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const reads = [instance.evaluate('feature'), instance.evaluate('feature')];
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    for (const result of await Promise.all(reads)) {
+      expect(result).toMatchObject({
+        value: true,
+        metrics: { mode: 'vercel', source: 'remote', cacheStatus: 'MISS' },
+      });
+    }
+    expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'HIT',
+    );
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    expect(
+      transport.mock.calls.some(([url]) => String(url).includes('/stream')),
+    ).toBe(false);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+    'empty',
+  ] as const)('uses the %s cache without a header, fetching only when empty', async (cache) => {
+    setVersion(undefined);
+    if (cache === 'bundled') {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        definitions: datafile(),
+        state: 'ok',
+      });
+    }
+    mockDatafileResponse(TIMESTAMP, true);
+    const instance = client({
+      datafile: cache === 'provided' ? datafile() : undefined,
+    });
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: cache === 'empty',
+      metrics: {
+        mode: 'vercel',
+        cacheStatus: cache === 'empty' ? 'MISS' : 'STALE',
+      },
+    });
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    expect(dataFetch).toHaveBeenCalledTimes(cache === 'empty' ? 1 : 0);
+  });
+
+  it('recovers on a later read when the cold-cache fetch fails', async () => {
+    const instance = client({ datafile: undefined });
+    dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(instance.evaluate('feature')).rejects.toThrow(
+      'Failed to fetch data',
+    );
+    mockDatafileResponse(TIMESTAMP, true);
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode: 'vercel', cacheStatus: 'MISS' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start a cold fetch after shutdown while bundled data is loading', async () => {
+    const pending =
+      deferred<Awaited<ReturnType<typeof readBundledDefinitions>>>();
+    vi.mocked(readBundledDefinitions).mockReturnValueOnce(pending.promise);
+    const instance = client({ datafile: undefined });
+    const reading = instance.evaluate('feature');
+    const outcome = expect(reading).rejects.toThrow('Client is shut down');
+    await vi.advanceTimersByTimeAsync(0);
+    await instance.shutdown();
+    clients.delete(instance);
+    pending.resolve({ definitions: datafile(), state: 'ok' });
+
+    await outcome;
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it.each([
     HEADER,
     'flags-config-versions',

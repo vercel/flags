@@ -87,7 +87,9 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
- * **Runtime - vercel mode** (request context has a matching x-vercel-flags-config-versions or flags-config-versions header)
+ * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled)
+ * - Initialization defers loading to reads; no streaming or polling
+ * - Missing headers serve cached data, fetching only when empty
  * - Uses the header value to determine if the current data is fresh
  * - A matching header confirms the cached version's freshness
  * - For newer headers, revalidates in the background within staleWhileRevalidateMs
@@ -270,6 +272,11 @@ export class Controller implements ControllerInterface {
       return;
     }
 
+    if (this.headerSource.isAvailable()) {
+      this.transition('vercel');
+      return;
+    }
+
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
     if (!this.data && this.options.datafile) {
       this.data = tagData(this.options.datafile, 'provided');
@@ -294,9 +301,7 @@ export class Controller implements ControllerInterface {
     // being considered initialized, so we know we have fresh data.
     // For no-updates (offline), return immediately since we already have usable data.
     if (this.data) {
-      if (this.headerSource.isAvailable(this.data.projectId)) {
-        this.transition('vercel');
-      } else if (this.options.stream.enabled) {
+      if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
       } else if (this.options.polling.enabled) {
@@ -469,15 +474,20 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.data) {
-      if (this.headerSource.isAvailable(this.data.projectId)) {
-        const result = await this.headerSource.read(this.data);
-
-        if (result) {
-          return result;
-        }
+    if (this.headerSource.isAvailable()) {
+      this.transition('vercel');
+      const bundled = this.data
+        ? undefined
+        : await this.bundledSource.tryLoad();
+      if (this.state === 'shutdown') {
+        throw new Error('@vercel/flags-core: Client is shut down');
       }
+      if (bundled && !this.data) this.data = tagData(bundled, 'bundled');
+      const result = await this.headerSource.read(this.data);
+      if (result) return result;
+    }
 
+    if (this.data) {
       const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
       return [this.data, cacheStatus];
     }

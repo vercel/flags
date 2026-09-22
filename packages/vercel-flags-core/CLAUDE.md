@@ -88,6 +88,7 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
+  vercel?: boolean; // Use request headers at runtime; default process.env.VERCEL === '1'
   staleWhileRevalidateMs?: number; // Header refresh window; default 10_000, 0 disables stale serving
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
@@ -112,7 +113,13 @@ Behavior differs based on environment:
 
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
-**Runtime** (default, or `buildStep: false`):
+**Vercel runtime** (`vercel: true`, default when `VERCEL=1`, unless both streaming and polling are disabled):
+- Initialization starts no streams or polls and defers bundle loading to the first read
+- Reads serve cached data without a usable version header, fetching only if the cache is empty
+- Matching headers confirm freshness; newer headers trigger background or blocking refreshes according to `staleWhileRevalidateMs`
+- `vercel: false` keeps the configured streaming/polling behavior even when version headers are present
+
+**Other runtime** (default off Vercel, or `vercel: false`):
 1. **Stream** - Real-time updates via NDJSON streaming, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
