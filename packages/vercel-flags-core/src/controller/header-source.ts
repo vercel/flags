@@ -61,13 +61,14 @@ export class HeaderSource {
 
   private within(data: TaggedData, windowSeconds: number): boolean {
     const freshAt = Math.max(
-      data._fetchedAt ?? -Infinity,
+      data.fetchedAt ?? -Infinity,
       this.lastSeen?.version === version(data) ? this.lastSeen.at : -Infinity,
     );
     return windowSeconds > 0 && Date.now() - freshAt <= windowSeconds * 1000;
   }
 
   private canServeOnError(data: TaggedData): boolean {
+    if (this.options.staleIfError === Infinity) return true;
     return this.within(
       data,
       this.options.staleWhileRevalidate + this.options.staleIfError,

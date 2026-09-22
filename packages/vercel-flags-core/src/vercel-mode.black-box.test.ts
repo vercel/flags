@@ -116,6 +116,138 @@ afterEach(async () => {
 
 describe('Vercel mode (black-box)', () => {
   it.each([
+    'provided',
+    'bundled',
+  ] as const)('uses persisted fetchedAt for %s SWR without a matching header', async (origin) => {
+    const input = {
+      ...datafile(TIMESTAMP - 365 * 24 * 60 * 60 * 1000, true),
+      fetchedAt: TIMESTAMP - 9000,
+    };
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      state: 'ok',
+      definitions: input,
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+    });
+    setVersion(TIMESTAMP);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const first = await instance.getDatafile();
+    expect(first.fetchedAt).toBe(TIMESTAMP - 9000);
+    expect(first.metrics.cacheStatus).toBe('STALE');
+    expect(first).not.toHaveProperty('_fetchedAt');
+    expect(first).not.toHaveProperty('_origin');
+    vi.setSystemTime(TIMESTAMP + 1001);
+    const settled = vi.fn();
+    const blocking = instance.getDatafile().then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    pending.resolve(Response.json(datafile(TIMESTAMP, false)));
+    expect((await blocking).fetchedAt).toBe(TIMESTAMP + 1001);
+    expect(input.fetchedAt).toBe(TIMESTAMP - 9000);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('uses persisted fetchedAt for %s finite staleIfError', async (origin) => {
+    const input = {
+      ...datafile(TIMESTAMP - 100_000, true),
+      fetchedAt: TIMESTAMP - 25_000,
+    };
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      state: 'ok',
+      definitions: input,
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+      staleIfError: 20,
+    });
+    setVersion(TIMESTAMP);
+    dataFetch.mockRejectedValue(new Error('unavailable'));
+    const stale = instance.evaluate('feature', false);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await stale).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    vi.setSystemTime(TIMESTAMP + 5001);
+    const expired = instance.evaluate('feature', false);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await expired).toMatchObject({ value: false, reason: 'error' });
+    expect(dataFetch).toHaveBeenCalledTimes(6);
+  });
+
+  it('preserves a fetched datafile timestamp when serialized and supplied to another client', async () => {
+    const first = client({
+      datafile: undefined,
+      stream: false,
+      polling: false,
+    });
+    mockDatafileResponse(TIMESTAMP, true);
+    const fetched = await first.getDatafile();
+    expect(fetched.fetchedAt).toBe(TIMESTAMP);
+    vi.setSystemTime(TIMESTAMP + 365 * 24 * 60 * 60 * 1000);
+    const second = client({
+      datafile: JSON.parse(JSON.stringify(fetched)),
+      stream: false,
+      polling: false,
+    });
+    expect((await second.getDatafile()).fetchedAt).toBe(TIMESTAMP);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['provided', undefined],
+    ['provided', Infinity],
+    ['bundled', undefined],
+    ['bundled', Infinity],
+  ] as const)('uses unconfirmed %s data on error with staleIfError=%s', async (origin, staleIfError) => {
+    const input = datafile(TIMESTAMP, true);
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      state: 'ok',
+      definitions: input,
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+      staleIfError,
+    });
+    vi.setSystemTime(TIMESTAMP + 365 * 24 * 60 * 60 * 1000);
+    setVersion(TIMESTAMP + 1);
+    dataFetch.mockRejectedValue(new Error('unavailable'));
+    const evaluation = instance.evaluate('feature', false);
+    const bulk = instance.bulkEvaluate([
+      { key: 'feature', defaultValue: false },
+    ]);
+    const snapshot = instance.getDatafile();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await evaluation).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    expect(await bulk).toMatchObject({ feature: { value: true } });
+    expect((await snapshot).configUpdatedAt).toBe(TIMESTAMP);
+    expect(dataFetch).toHaveBeenCalledTimes(3);
+    mockDatafileResponse(TIMESTAMP + 1, false);
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('still throws with infinite staleIfError when no data is available', async () => {
+    const instance = client({ datafile: undefined, staleIfError: undefined });
+    dataFetch.mockRejectedValue(new Error('unavailable'));
+    const read = instance.getDatafile().catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await read).toMatchObject({ message: 'unavailable' });
+    expect(dataFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
     true,
     false,
   ])('does no loading during INIT with provided data=%s', async (provided) => {
@@ -156,6 +288,7 @@ describe('Vercel mode (black-box)', () => {
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
       metrics: expect.objectContaining({ cacheStatus: 'MISS' }),
     });
     expect(dataFetch).toHaveBeenCalledTimes(1);
@@ -163,7 +296,7 @@ describe('Vercel mode (black-box)', () => {
 
   it.each([
     [10, 5, 15],
-    [undefined, undefined, 3_660],
+    [undefined, 3600, 3_660],
   ] as const)('honors staleWhileRevalidate=%s and staleIfError=%s through %s seconds', async (staleWhileRevalidate, staleIfError, totalSeconds) => {
     const instance = client({ staleWhileRevalidate, staleIfError });
     await instance.evaluate('feature');
@@ -214,11 +347,10 @@ describe('Vercel mode (black-box)', () => {
   it.each([
     -1,
     NaN,
-    Infinity,
     -Infinity,
   ])('rejects invalid staleIfError=%s', (staleIfError) => {
     expect(() => client({ staleIfError })).toThrow(
-      'staleIfError must be a finite, non-negative number',
+      'staleIfError must be a non-negative number or Infinity',
     );
   });
 
@@ -639,6 +771,7 @@ describe('Vercel mode (black-box)', () => {
     });
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
       metrics: expect.any(Object),
     });
     expect(dataFetch).toHaveBeenCalledTimes(1);
@@ -809,6 +942,7 @@ describe('Vercel mode (black-box)', () => {
     setVersion();
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
       metrics: expect.any(Object),
     });
 

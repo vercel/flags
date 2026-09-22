@@ -144,7 +144,7 @@ describe('HeaderSource', () => {
     pending.resolve(datafile(V1 + 1));
     await vi.advanceTimersByTimeAsync(0);
     expect(current?.configUpdatedAt).toBe(V1 + 1);
-    expect(current?._fetchedAt).toBe(NOW + 10_000);
+    expect(current?.fetchedAt).toBe(NOW + 10_000);
     expect(old?.configUpdatedAt).toBe(V1);
   });
   it('does not renew freshness from an older matching header after invalidation', async () => {
@@ -235,7 +235,7 @@ describe('HeaderSource', () => {
     await vi.advanceTimersByTimeAsync(300);
     expect(await outcome).toBeInstanceOf(Error);
     expect(current).toBe(original);
-    expect(current?._fetchedAt).toBe(NOW);
+    expect(current?.fetchedAt).toBe(NOW);
     expect(fetchDatafile).toHaveBeenCalledTimes(3);
   });
   it('can serve a newly accepted version within SWR even when the final attempt falls behind', async () => {

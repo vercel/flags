@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { describe, expect, it, vi } from 'vitest';
+import { pathToFileURL } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { version as pkgVersion } from '../package.json';
 import {
   generateDefinitionsModule,
@@ -7,6 +8,14 @@ import {
   hashSdkKey,
   prepareFlagsDefinitions,
 } from './index';
+
+const FETCH_TIME = 1_700_000_000_000;
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'], now: FETCH_TIME });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function createOidcToken(projectId: string): string {
   const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString(
@@ -118,6 +127,34 @@ describe('generateDefinitionsModule', () => {
 });
 
 describe('prepareFlagsDefinitions', () => {
+  it('persists fetch completion time and preserves it when the generated bundle is loaded later', async () => {
+    const cwd = '/tmp/test-fetched-at-definitions';
+    await prepareFlagsDefinitions({
+      cwd,
+      env: { FLAGS: 'vf_server_timestamp' },
+      fetch: vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          vi.setSystemTime(FETCH_TIME + 5000);
+          return { configUpdatedAt: 123, fetchedAt: 456, definitions: {} };
+        },
+      }),
+    });
+    vi.setSystemTime(FETCH_TIME + 365 * 24 * 60 * 60 * 1000);
+    const url = pathToFileURL(
+      `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
+    ).href;
+    const bundle = await import(/* @vite-ignore */ url);
+    expect(bundle.get(hashSdkKey('vf_server_timestamp'))).toEqual({
+      configUpdatedAt: 123,
+      fetchedAt: FETCH_TIME + 5000,
+      definitions: {},
+    });
+    expect(bundle.get(hashSdkKey('vf_server_timestamp')).fetchedAt).toBe(
+      FETCH_TIME + 5000,
+    );
+  });
+
   it('returns { created: false, reason: "no-flags-entries" } when no flags auth is in env', async () => {
     const result = await prepareFlagsDefinitions({
       cwd: '/tmp/test',
@@ -148,7 +185,7 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,
@@ -242,7 +279,7 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "3790790d2dc9b23c4539a9f3c49eb5820e4216daebdd7eeee9136f3ceccc31a3": _d0,
@@ -298,7 +335,7 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "prj_oidc_test": _d0,
@@ -338,7 +375,7 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,
@@ -440,8 +477,8 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
-      const _d1 = memo(() => JSON.parse("{\\"flag_b\\":{\\"value\\":true}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
+      const _d1 = memo(() => JSON.parse("{\\"flag_b\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "faab116281fa4201059a73f3ca8b7cad7fce9e1132988008784883fa2c78d64a": _d0,

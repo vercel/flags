@@ -13,7 +13,7 @@ const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
 const DEFAULT_STALE_WHILE_REVALIDATE = 60;
-const DEFAULT_STALE_IF_ERROR = 3_600;
+const DEFAULT_STALE_IF_ERROR = Infinity;
 
 /**
  * Configuration options for Controller
@@ -23,8 +23,8 @@ export type ControllerOptions = {
   auth: Auth;
 
   /**
-   * Initial datafile to use immediately
-   * - At runtime: used while waiting for stream/poll, then updated in background
+   * Initial datafile
+   * - At runtime: must be confirmed before it has known freshness
    * - At build step: used as primary source (skips network)
    */
   datafile?: DatafileInput;
@@ -48,19 +48,21 @@ export type ControllerOptions = {
   polling?: boolean | PollingOptions;
 
   /**
-   * How many seconds header-driven reads may serve cached data while refreshing in the
-   * background, measured from its last fetch or matching version header.
+   * How many seconds reads may serve cached data while updates run in the background.
+   * Measured from the last poll confirmation, stream disconnection, or (on Vercel)
+   * accepted fetch/matching version header. A connected stream remains fresh.
    * Must be a finite, non-negative number. Set to 0 to always block on refresh.
    * @default 60
    */
   staleWhileRevalidate?: number;
 
   /**
-   * How many additional seconds cached data may be served after header refresh retries fail,
-   * measured from its last successful fetch or accepted matching header.
-   * Extends staleWhileRevalidate. Unknown freshness cannot be served.
-   * Must be finite and non-negative; 0 adds no extra stale-on-error window.
-   * @default 3600
+   * How many additional seconds cached data may be served when refreshing fails.
+   * Applies to polling, stream reconnection, and header-driven refreshes.
+   * Extends staleWhileRevalidate. Infinity allows any available data on error,
+   * including unconfirmed bundled/provided data. Finite windows require known freshness.
+   * Must be non-negative; Infinity is allowed. 0 adds no extra stale-on-error window.
+   * @default Infinity
    */
   staleIfError?: number;
 
@@ -170,9 +172,12 @@ export function normalizeOptions(
   }
 
   const staleIfError = options.staleIfError ?? DEFAULT_STALE_IF_ERROR;
-  if (!Number.isFinite(staleIfError) || staleIfError < 0) {
+  if (
+    staleIfError !== Infinity &&
+    (!Number.isFinite(staleIfError) || staleIfError < 0)
+  ) {
     throw new Error(
-      '@vercel/flags-core: staleIfError must be a finite, non-negative number.',
+      '@vercel/flags-core: staleIfError must be a non-negative number or Infinity.',
     );
   }
 

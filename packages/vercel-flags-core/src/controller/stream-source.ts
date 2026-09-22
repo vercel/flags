@@ -8,6 +8,7 @@ export type StreamSourceEvents = {
   primed: (message: PrimedMessage) => void;
   connected: () => void;
   disconnected: () => void;
+  stopped: () => void;
 };
 
 /**
@@ -46,6 +47,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         if (this.abortController === abortController) {
           this.promise = undefined;
           this.abortController = undefined;
+          this.emit('stopped');
         }
       },
       { once: true },
@@ -82,6 +84,42 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       this.abortController = undefined;
       throw error;
     }
+  }
+
+  /** Wait for a new connection confirmation, not the already-settled init promise. */
+  waitForConnection(signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        this.off('connected', connected);
+        this.off('stopped', stopped);
+        signal.removeEventListener('abort', aborted);
+      };
+      const connected = () => {
+        cleanup();
+        resolve();
+      };
+      const stopped = () => {
+        cleanup();
+        reject(
+          new Error('@vercel/flags-core: Stream stopped before reconnecting'),
+        );
+      };
+      const aborted = () => {
+        cleanup();
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
+      this.on('connected', connected);
+      this.on('stopped', stopped);
+      signal.addEventListener('abort', aborted, { once: true });
+      void this.start().catch((error) => {
+        cleanup();
+        reject(error);
+      });
+    });
   }
 
   /**
