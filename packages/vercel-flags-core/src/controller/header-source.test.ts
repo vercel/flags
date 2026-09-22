@@ -102,6 +102,7 @@ describe('HeaderSource', () => {
       fetch: vi.fn<typeof fetch>().mockResolvedValue(new Response()),
     });
     try {
+      await controller.initialize();
       for (const view of [
         await controller.read(),
         await controller.getDatafile(),

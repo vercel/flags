@@ -88,7 +88,7 @@ type State =
  * - Same fallback chains as streaming mode
  *
  * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled)
- * - Initialization defers loading to reads; no streaming or polling
+ * - Initialization loads provided/bundled data; no streaming or polling
  * - Missing headers serve cached data, fetching only when empty
  * - Uses the header value to determine if the current data is fresh
  * - A matching header confirms the cached version's freshness
@@ -262,6 +262,7 @@ export class Controller implements ControllerInterface {
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
    * Polling mode (no stream): poll → datafile → bundled
+   * Vercel mode: datafile → bundled; fetch only on a read
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
@@ -269,11 +270,6 @@ export class Controller implements ControllerInterface {
       this.transition('build:loading');
       await this.initializeForBuildStep();
       this.transition('build:ready');
-      return;
-    }
-
-    if (this.headerSource.isAvailable()) {
-      this.transition('vercel');
       return;
     }
 
@@ -286,14 +282,22 @@ export class Controller implements ControllerInterface {
     // send the revision to the stream and potentially get a lightweight
     // "primed" response instead of a full datafile.
     if (!this.data) {
+      this.transition('initializing:fallback');
+      let bundled: DatafileInput | undefined;
       try {
-        const bundled = await this.bundledSource.tryLoad();
-        if (bundled) {
-          this.data = tagData(bundled, 'bundled');
-        }
+        bundled = await this.bundledSource.tryLoad();
       } catch {
         // Bundled definitions not available — proceed without revision
       }
+      if (this.state === 'shutdown') {
+        throw new Error('@vercel/flags-core: Client is shut down');
+      }
+      if (bundled) this.data = tagData(bundled, 'bundled');
+    }
+
+    if (this.headerSource.isAvailable()) {
+      this.transition('vercel');
+      return;
     }
 
     // If we already have data (from provided datafile or bundled definitions),
@@ -474,15 +478,7 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.headerSource.isAvailable()) {
-      this.transition('vercel');
-      const bundled = this.data
-        ? undefined
-        : await this.bundledSource.tryLoad();
-      if (this.state === 'shutdown') {
-        throw new Error('@vercel/flags-core: Client is shut down');
-      }
-      if (bundled && !this.data) this.data = tagData(bundled, 'bundled');
+    if (this.state === 'vercel') {
       const result = await this.headerSource.read(this.data);
       if (result) return result;
     }

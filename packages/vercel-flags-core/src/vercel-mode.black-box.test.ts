@@ -134,11 +134,11 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('initializes without request context or I/O, then shares the first read fetch', async () => {
+  it('checks the bundle during initialization without request context, then shares the first read fetch', async () => {
     setVersion(undefined);
     const instance = client({ datafile: undefined });
     await instance.initialize();
-    expect(readBundledDefinitions).not.toHaveBeenCalled();
+    expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
     expect(transport).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
 
@@ -211,13 +211,13 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('does not start a cold fetch after shutdown while bundled data is loading', async () => {
+  it('does not finish initialization after shutdown while bundled data is loading', async () => {
     const pending =
       deferred<Awaited<ReturnType<typeof readBundledDefinitions>>>();
     vi.mocked(readBundledDefinitions).mockReturnValueOnce(pending.promise);
     const instance = client({ datafile: undefined });
-    const reading = instance.evaluate('feature');
-    const outcome = expect(reading).rejects.toThrow('Client is shut down');
+    const initializing = instance.initialize();
+    const outcome = expect(initializing).rejects.toThrow('Client is shut down');
     await vi.advanceTimersByTimeAsync(0);
     await instance.shutdown();
     clients.delete(instance);
@@ -268,6 +268,7 @@ describe('Vercel mode (black-box)', () => {
     'provided',
     'bundled',
   ] as const)('uses fresh %s definitions without opening a stream or polling', async (origin) => {
+    setVersion(undefined);
     const bundled = datafile();
     vi.mocked(readBundledDefinitions).mockResolvedValue({
       definitions: bundled,
@@ -277,6 +278,19 @@ describe('Vercel mode (black-box)', () => {
       datafile: origin === 'provided' ? bundled : undefined,
     });
     await instance.initialize();
+    expect(readBundledDefinitions).toHaveBeenCalledTimes(
+      origin === 'bundled' ? 1 : 0,
+    );
+    expect(transport).not.toHaveBeenCalled();
+    expect(await instance.getDatafile()).toEqual({
+      ...bundled,
+      metrics: expect.objectContaining({
+        mode: 'vercel',
+        source: origin === 'provided' ? 'in-memory' : 'embedded',
+        cacheStatus: 'STALE',
+      }),
+    });
+    setVersion(TIMESTAMP);
 
     const result = await instance.evaluate('feature');
 
