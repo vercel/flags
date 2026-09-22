@@ -55,21 +55,95 @@ function setup() {
 const alice = { targetingKey: 'alice', traits: { tier: 'gold' } };
 
 describe('Flagsmith request isolation with the real SDK', () => {
-  it('defaults to remote evaluation and shares one evaluation across concurrent flags with equivalent identities', async () => {
-    const { fetch, evaluate } = setup();
-    const headers = new Headers();
-    const first = { targetingKey: 'alice', traits: { tier: 'gold', age: 30 } };
-    const second = { targetingKey: 'alice', traits: { age: 30, tier: 'gold' } };
+  it('fetches once per native batch', async () => {
+    const { fetch, create } = setup();
+    const adapter = create().getValue();
     expect(
-      await Promise.all([
-        evaluate(headers, first),
-        evaluate(headers, second, 'other'),
-      ]),
-    ).toEqual(['alice:gold', 'alice:gold']);
+      await adapter.bulkDecide!({
+        flags: [{ key: 'plan' }, { key: 'other' }],
+        headers: new Headers(),
+        cookies: {} as DecideArgs['cookies'],
+        entities: alice,
+      }),
+    ).toEqual({ plan: 'alice:gold', other: 'alice:gold' });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0]?.[0]).toMatch(/\/identities\/$/);
-    expect(await evaluate(headers, alice)).toBe('alice:gold');
-    expect(fetch).toHaveBeenCalledTimes(2); // Different traits require a new context.
+  });
+
+  it('groups adapters by configuration and coercion mode', () => {
+    const { create } = setup();
+    const first = create();
+    expect(first.getValue().adapterId).toBe(first.getValue().adapterId);
+    expect(first.getValue({ coerce: 'string' }).adapterId).toBe(
+      first.getValue({ coerce: 'string' }).adapterId,
+    );
+    expect(first.getValue({ coerce: 'string' }).adapterId).not.toBe(
+      first.getValue({ coerce: 'boolean' }).adapterId,
+    );
+    expect(first.getValue().adapterId).not.toBe(create().getValue().adapterId);
+  });
+
+  it('preserves coercion and defaults for every value in a batch', async () => {
+    const adapter = createFlagsmithAdapter({
+      environmentKey: 'test',
+      retries: 0,
+      fetch: async () =>
+        Response.json([
+          {
+            feature: { name: 'number' },
+            enabled: true,
+            feature_state_value: '42',
+          },
+          {
+            feature: { name: 'boolean' },
+            enabled: true,
+            feature_state_value: 'false',
+          },
+          {
+            feature: { name: 'disabled' },
+            enabled: false,
+            feature_state_value: 'ignored',
+          },
+          {
+            feature: { name: 'empty' },
+            enabled: true,
+            feature_state_value: '',
+          },
+        ]),
+    });
+    const flags = ['number', 'boolean', 'disabled', 'empty'].map((key) => ({
+      key,
+      defaultValue: 'fallback',
+    }));
+    const args = {
+      flags,
+      headers: new Headers(),
+      cookies: {} as DecideArgs['cookies'],
+    };
+    expect(
+      await adapter.getValue({ coerce: 'string' }).bulkDecide!(args),
+    ).toEqual({
+      number: '42',
+      boolean: 'false',
+      disabled: 'fallback',
+      empty: 'fallback',
+    });
+    expect(
+      await adapter.getValue({ coerce: 'boolean' }).bulkDecide!(args),
+    ).toEqual({
+      number: true,
+      boolean: false,
+      disabled: 'fallback',
+      empty: 'fallback',
+    });
+    expect(
+      await adapter.getValue({ coerce: 'number' }).bulkDecide!(args),
+    ).toEqual({
+      number: 42,
+      boolean: 'fallback',
+      disabled: 'fallback',
+      empty: 'fallback',
+    });
   });
 
   it('does not retain a signed-in identity for subsequent anonymous requests', async () => {
@@ -120,20 +194,12 @@ describe('Flagsmith request isolation with the real SDK', () => {
     expect(fetch.mock.calls[1]?.[1]?.body).toBeUndefined();
   });
 
-  it('shares a failed evaluation within a request but retries on the next request', async () => {
+  it('retries failed evaluations without retaining rejected promises', async () => {
     const { fetch, evaluate } = setup();
     fetch.mockRejectedValueOnce(new Error('unavailable'));
     const headers = new Headers();
-    const results = await Promise.allSettled([
-      evaluate(headers, alice),
-      evaluate(headers, alice, 'other'),
-    ]);
-    expect(results.map((result) => result.status)).toEqual([
-      'rejected',
-      'rejected',
-    ]);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(await evaluate(new Headers(), alice)).toBe('alice:gold');
+    await expect(evaluate(headers, alice)).rejects.toThrow();
+    expect(await evaluate(headers, alice)).toBe('alice:gold');
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

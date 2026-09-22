@@ -21,7 +21,7 @@ const adapter = createFlagsmithAdapter({
 });
 ```
 
-Share one server client per adapter, passing identity and traits as evaluation arguments. Deduplicate evaluation results by request headers and identity/traits instead of sharing a mutable current-user client across requests. Remote evaluation does not initialize or poll an environment document. When local evaluation is enabled, the shared environment document refreshes every 60 seconds by default.
+Share one server client per adapter, passing identity and traits as evaluation arguments. Integrate with the Flags SDK’s native `evaluate()` batching through `adapterId` and `bulkDecide`, without a custom headers-based result cache. Each batch fetches flags once; different coercion modes use separate batches. Individual flag calls remain supported. Remote evaluation does not initialize or poll an environment document. When local evaluation is enabled, the shared environment document refreshes every 60 seconds by default.
 
 Add `close()` to stop environment polling during shutdown. Existing flag value coercion and per-flag default values are preserved.
 

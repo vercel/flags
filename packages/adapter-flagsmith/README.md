@@ -129,7 +129,7 @@ MIT
 
 The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. **Remote evaluation is the default**, suitable for serverless deployments: it fetches evaluated flags from Flagsmith without downloading an environment document or starting background polling. Set `FLAGSMITH_ENVIRONMENT_KEY` to your Flagsmith environment key and keep it on the server.
 
-One client is shared per adapter. Flags evaluated with the same request headers reference and identity/traits share one evaluation result. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
+One client is shared per adapter. Use `evaluate([flagA, flagB])` from `flags/next` to batch flags: the Flags SDK groups flags by adapter and `identify` function, and the adapter fetches all values once per batch. Different coercion modes form separate batches to preserve their value types. Individual flag calls use `decide()` and do not share an adapter-level result cache. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
 
 For a long-running server, opt into **local evaluation** with one option:
 

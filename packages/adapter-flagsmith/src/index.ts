@@ -1,6 +1,5 @@
 import { type Flags, Flagsmith, type FlagsmithConfig } from '@flagsmith/nodejs';
-import type { Adapter, ReadonlyHeaders } from 'flags';
-import stringify from 'json-stable-stringify';
+import type { Adapter } from 'flags';
 import {
   type CoercedType,
   type CoerceOption,
@@ -32,37 +31,18 @@ export function createFlagsmithAdapter(
   // The server SDK keeps environment data on the client, not a current user.
   // Construct lazily so imports and builds do not start background polling.
   let client: Flagsmith | undefined;
-  const evaluations = new WeakMap<
-    ReadonlyHeaders,
-    Map<string, Promise<Flags>>
-  >();
+  // The bulk hook uses the first adapter in each group, so each coercion
+  // mode needs its own identity while sharing the underlying client.
+  const adapterIds = new Map<CoerceOption | undefined, symbol>();
 
-  function getFlags(headers: ReadonlyHeaders, entities?: EntitiesType) {
-    const identity = entities?.targetingKey ? entities : undefined;
-    const key = identity
-      ? stringify([identity.targetingKey, identity.traits ?? {}])!
-      : '';
-    let requestEvaluations = evaluations.get(headers);
-    if (!requestEvaluations) {
-      requestEvaluations = new Map();
-      evaluations.set(headers, requestEvaluations);
-    }
-    let result = requestEvaluations.get(key);
-    if (!result) {
-      result = Promise.resolve().then(() => {
-        if (!client) {
-          client = new Flagsmith({
-            ...params,
-            enableLocalEvaluation: params.enableLocalEvaluation ?? false,
-          });
-        }
-        return identity
-          ? client.getIdentityFlags(identity.targetingKey, identity.traits)
-          : client.getEnvironmentFlags();
-      });
-      requestEvaluations.set(key, result);
-    }
-    return result;
+  function getFlags(entities?: EntitiesType): Promise<Flags> {
+    client ??= new Flagsmith({
+      ...params,
+      enableLocalEvaluation: params.enableLocalEvaluation ?? false,
+    });
+    return entities?.targetingKey
+      ? client.getIdentityFlags(entities.targetingKey, entities.traits)
+      : client.getEnvironmentFlags();
   }
 
   /**
@@ -88,43 +68,47 @@ export function createFlagsmithAdapter(
   function getValue<T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }): Adapter<CoercedType<T>, EntitiesType> {
+    const coerce = options?.coerce;
+    let adapterId = adapterIds.get(coerce);
+    if (!adapterId) {
+      adapterId = Symbol('flagsmithAdapter');
+      adapterIds.set(coerce, adapterId);
+    }
+
+    function readValue(
+      flags: Flags,
+      key: string,
+      defaultValue: unknown,
+    ): CoercedType<T> {
+      const flagState = flags.getFlag(key);
+      if (!flagState?.enabled) return defaultValue as CoercedType<T>;
+      const value = flagState.value;
+      if (value === null || value === undefined || value === '') {
+        return defaultValue as CoercedType<T>;
+      }
+      if (!coerce) return value as CoercedType<T>;
+      const coercedValue = coerceValue(value, coerce);
+      if (coercedValue === undefined && coerce === 'boolean') {
+        return flagState.enabled as CoercedType<T>;
+      }
+      return (
+        coercedValue === undefined ? defaultValue : coercedValue
+      ) as CoercedType<T>;
+    }
+
     return {
-      async decide({
-        key,
-        defaultValue,
-        entities: identity,
-        headers,
-      }): Promise<CoercedType<T>> {
-        const flags = await getFlags(headers, identity);
-        const flagState = flags.getFlag(key);
-        const isFlagDisabled = !flagState || !flagState.enabled;
-
-        if (isFlagDisabled) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        const value = flagState.value;
-        const isEmpty = value === null || value === undefined || value === '';
-
-        if (isEmpty) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        if (!options?.coerce) {
-          return value as CoercedType<T>;
-        }
-
-        const coercedValue = coerceValue(value, options.coerce);
-
-        if (coercedValue === undefined && options.coerce === 'boolean') {
-          return flagState.enabled as CoercedType<T>;
-        }
-
-        if (coercedValue === undefined) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        return coercedValue as CoercedType<T>;
+      adapterId,
+      async decide({ key, defaultValue, entities }) {
+        return readValue(await getFlags(entities), key, defaultValue);
+      },
+      async bulkDecide({ flags, entities }) {
+        const values = await getFlags(entities);
+        return Object.fromEntries(
+          flags.map(({ key, defaultValue }) => [
+            key,
+            readValue(values, key, defaultValue),
+          ]),
+        );
       },
     };
   }

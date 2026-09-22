@@ -121,26 +121,18 @@ describe('Flagsmith local evaluation with the real server SDK', () => {
     );
   });
 
-  it('deduplicates equivalent identities across flags without reusing results for different traits', async () => {
+  it('evaluates a local batch once with the supplied identity', async () => {
     const spy = vi.spyOn(Flagsmith.prototype, 'getIdentityFlags');
-    const { evaluate } = setup();
-    const headers = new Headers();
-    await Promise.all([
-      evaluate(headers, {
-        targetingKey: 'alice',
-        traits: { tier: 'gold', age: 30 },
+    const { adapter } = setup();
+    expect(
+      await adapter.getValue().bulkDecide!({
+        flags: [{ key: 'plan' }, { key: 'message' }],
+        entities: { targetingKey: 'alice', traits: { tier: 'gold' } },
+        headers: new Headers(),
+        cookies: {} as DecideArgs['cookies'],
       }),
-      evaluate(
-        headers,
-        { targetingKey: 'alice', traits: { age: 30, tier: 'gold' } },
-        'message',
-      ),
-    ]);
+    ).toEqual({ plan: 'gold', message: 'hello' });
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(await evaluate(headers, { targetingKey: 'alice', traits: {} })).toBe(
-      'free',
-    );
-    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes the shared environment and stops polling on close', async () => {
@@ -153,7 +145,7 @@ describe('Flagsmith local evaluation with the real server SDK', () => {
     fetch.mockImplementation(async () => Response.json(environment('updated')));
     await vi.advanceTimersByTimeAsync(1000);
     expect(await evaluate()).toBe('updated');
-    expect(await evaluate(headers)).toBe('free');
+    expect(await evaluate(headers)).toBe('updated');
     expect(fetch).toHaveBeenCalledTimes(2);
     await adapter.close();
     await vi.advanceTimersByTimeAsync(2000);
