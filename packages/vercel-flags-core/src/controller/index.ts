@@ -12,7 +12,6 @@ import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { DatafileCache } from './datafile-cache';
-import { parseConfigUpdatedAt } from './datafile-version';
 import { fetchDatafile } from './fetch-datafile';
 import {
   type ControllerOptions,
@@ -132,7 +131,7 @@ export class Controller implements ControllerInterface {
 
     // If datafile provided, use it immediately
     if (this.options.datafile) {
-      this.cache.set(tagData(this.options.datafile, 'provided'));
+      this.cache.seed(tagData(this.options.datafile, 'provided'));
     }
 
     this.usageTracker = new UsageTracker(this.options);
@@ -141,9 +140,7 @@ export class Controller implements ControllerInterface {
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
     this.unauthorized = false;
-    if (this.isNewerData(data)) {
-      this.cache.set(tagData(data, 'stream'));
-    }
+    this.cache.updateFromSource(data, 'stream');
   };
   private onStreamPrimed = () => {
     this.unauthorized = false;
@@ -165,12 +162,7 @@ export class Controller implements ControllerInterface {
   };
   private onPollData = (data: DatafileInput) => {
     this.unauthorized = false;
-    if (this.isNewerData(data)) {
-      this.cache.set(tagData(data, 'poll'));
-      this.cache.confirm();
-      return;
-    }
-    this.cache.tryConfirm(data);
+    this.cache.updateFromSource(data, 'poll');
   };
   private onPollError = (error: Error) => {
     this.noteUnauthorized(error);
@@ -246,7 +238,7 @@ export class Controller implements ControllerInterface {
 
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
     if (!this.data && this.options.datafile) {
-      this.cache.set(tagData(this.options.datafile, 'provided'));
+      this.cache.seed(tagData(this.options.datafile, 'provided'));
     }
 
     // If no data yet, try loading bundled definitions eagerly so we can
@@ -256,7 +248,7 @@ export class Controller implements ControllerInterface {
       try {
         const bundled = await this.bundledSource.tryLoad();
         if (bundled) {
-          this.cache.set(tagData(bundled, 'bundled'));
+          this.cache.seed(tagData(bundled, 'bundled'));
         }
       } catch {
         // Bundled definitions not available — proceed without revision
@@ -353,7 +345,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.stop();
     this.cache.clear();
     if (this.options.datafile) {
-      this.cache.set(tagData(this.options.datafile, 'provided'));
+      this.cache.seed(tagData(this.options.datafile, 'provided'));
     }
     this.transition('shutdown');
     await this.usageTracker.shutdown();
@@ -380,7 +372,7 @@ export class Controller implements ControllerInterface {
       // No in-memory data — try bundled, then one-time fetch
       const bundled = await this.bundledSource.tryLoad();
       if (bundled) {
-        result = this.cache.set(tagData(bundled, 'bundled'));
+        result = this.cache.seed(tagData(bundled, 'bundled'));
         cacheStatus = 'MISS';
       } else {
         // One-time fetch as last resort
@@ -390,7 +382,7 @@ export class Controller implements ControllerInterface {
             auth: this.options.auth,
             fetch: this.options.fetch,
           });
-          result = this.cache.set(tagData(fetched, 'fetched'));
+          result = this.cache.seed(tagData(fetched, 'fetched'));
           cacheStatus = 'MISS';
         } catch (error) {
           this.noteUnauthorized(error);
@@ -588,7 +580,7 @@ export class Controller implements ControllerInterface {
     if (!this.buildDataPromise) {
       this.buildDataPromise = this.loadBuildData();
     }
-    this.cache.set(await this.buildDataPromise);
+    this.cache.seed(await this.buildDataPromise);
   }
 
   /**
@@ -610,7 +602,7 @@ export class Controller implements ControllerInterface {
     const data = await this.buildDataPromise;
 
     if (!this.data) {
-      this.cache.set(data);
+      this.cache.seed(data);
       return [data, 'MISS'];
     }
     return [this.data, 'HIT'];
@@ -657,7 +649,7 @@ export class Controller implements ControllerInterface {
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
-      this.cache.set(tagData(bundled, 'bundled'));
+      this.cache.seed(tagData(bundled, 'bundled'));
       this.transition('degraded');
       return;
     }
@@ -670,7 +662,7 @@ export class Controller implements ControllerInterface {
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
-        this.cache.set(tagData(fetched, 'fetched'));
+        this.cache.seed(tagData(fetched, 'fetched'));
         this.transition('degraded');
         return;
       } catch {
@@ -726,7 +718,7 @@ export class Controller implements ControllerInterface {
     this.transition('initializing:fallback');
 
     if (this.options.datafile) {
-      const data = this.cache.set(tagData(this.options.datafile, 'provided'));
+      const data = this.cache.seed(tagData(this.options.datafile, 'provided'));
       this.transition('degraded');
       return [data, 'STALE'];
     }
@@ -734,7 +726,7 @@ export class Controller implements ControllerInterface {
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
-      const data = this.cache.set(tagData(bundled, 'bundled'));
+      const data = this.cache.seed(tagData(bundled, 'bundled'));
       this.transition('degraded');
       return [data, 'STALE'];
     }
@@ -747,7 +739,7 @@ export class Controller implements ControllerInterface {
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
-        const data = this.cache.set(tagData(fetched, 'fetched'));
+        const data = this.cache.seed(tagData(fetched, 'fetched'));
         this.transition('degraded');
         return [data, 'MISS'];
       } catch {
@@ -758,34 +750,6 @@ export class Controller implements ControllerInterface {
     throw this.noDefinitionsError(
       '. Provide a datafile or bundled definitions.',
     );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Data comparison
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Checks if the incoming data is newer than the current in-memory data.
-   * Returns true if the update should proceed, false if it should be skipped.
-   *
-   * Always accepts the update if:
-   * - There is no current data
-   * - The current data has no configUpdatedAt
-   * - The incoming data has no configUpdatedAt
-   *
-   * Skips the update only when both have configUpdatedAt and incoming is not newer.
-   */
-  private isNewerData(incoming: DatafileInput): boolean {
-    if (!this.data) return true;
-
-    const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
-    const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
-
-    if (currentTs === undefined || incomingTs === undefined) {
-      return true;
-    }
-
-    return incomingTs > currentTs;
   }
 
   // ---------------------------------------------------------------------------
