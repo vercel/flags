@@ -245,6 +245,44 @@ describe('polling stale-if-error through the public API', () => {
     expectErrors(failure, failure);
   });
 
+  it('recovers when polling reuses the same bundled object without changing its embedded origin', async () => {
+    const supplied = data();
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: supplied,
+      state: 'ok',
+    });
+    const instance = client({ staleIfErrorMs: 0 });
+    const initial = await instance.evaluate('flagA');
+    expect(initial.value).toBe(true);
+    expect(initial.metrics).toEqual({
+      readMs: 0,
+      evaluationMs: 0,
+      source: 'embedded',
+      cacheStatus: 'STALE',
+      connectionState: 'disconnected',
+      mode: 'offline', // Bundled initialization retains the existing lifecycle state.
+    });
+    const snapshot = await instance.getDatafile();
+    expect(snapshot.definitions).toBe(supplied.definitions);
+    expect(snapshot.metrics.source).toBe('embedded');
+    const failure = new Error('polling outage');
+    poll.mockRejectedValueOnce(failure);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+
+    // Return the exact bundled object, including the origin attached at startup.
+    poll.mockResolvedValueOnce(response(supplied));
+    await vi.advanceTimersByTimeAsync(30_000);
+    const recovered = await instance.evaluate('flagA');
+    expect(recovered).toEqual(initial);
+    const retained = await instance.getDatafile();
+    expect(retained).toEqual(snapshot);
+    expect(retained.definitions).toBe(supplied.definitions);
+    expect(retained.segments).toBe(supplied.segments);
+    expect(poll).toHaveBeenCalledTimes(3);
+    expectErrors(failure);
+  });
+
   it.each([
     { configUpdatedAt: 9 },
     { projectId: 'other' },
