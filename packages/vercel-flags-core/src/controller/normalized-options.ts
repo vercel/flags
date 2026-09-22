@@ -46,6 +46,16 @@ export type ControllerOptions = {
   polling?: boolean | PollingOptions;
 
   /**
+   * How long runtime polling evaluations may use cached data after the first
+   * consecutive poll error. Accepts nonnegative milliseconds or Infinity.
+   * Zero disables fallback immediately; positive windows include the deadline.
+   * Successful accepted or same-version/identity polls reset the allowance.
+   * Does not affect streaming, build/offline reads, or getDatafile().
+   * @default Infinity
+   */
+  staleIfErrorMs?: number;
+
+  /**
    * Override build step detection
    * - `true`: Treat as build step (use datafile/bundled only, no network)
    * - `false`: Treat as runtime (try stream/poll first)
@@ -91,6 +101,7 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  staleIfErrorMs: number;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -103,6 +114,13 @@ export type NormalizedOptions = {
 export function normalizeOptions(
   options: ControllerOptions,
 ): NormalizedOptions {
+  const staleIfErrorMs = options.staleIfErrorMs ?? Infinity;
+  if (typeof staleIfErrorMs !== 'number' || !(staleIfErrorMs >= 0)) {
+    throw new Error(
+      '@vercel/flags-core: staleIfErrorMs must be a nonnegative number or Infinity.',
+    );
+  }
+
   const autoDetectedBuildStep =
     process.env.CI === '1' ||
     process.env.NEXT_PHASE === 'phase-production-build';
@@ -144,6 +162,7 @@ export function normalizeOptions(
     datafile: options.datafile,
     stream,
     polling,
+    staleIfErrorMs,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,

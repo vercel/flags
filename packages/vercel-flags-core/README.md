@@ -33,6 +33,42 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
+## Cached polling evaluations
+
+With streaming disabled, `staleIfErrorMs` controls how long evaluations may use
+cached definitions after a poll error:
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  stream: false,
+  polling: true,
+  staleIfErrorMs: 60_000,
+});
+```
+
+The default is `Infinity`, preserving unlimited cached fallback. Use a finite
+nonnegative number of milliseconds to bound fallback. A positive window includes
+its exact deadline; `0` disables cached fallback immediately after a poll error.
+Negative values, `NaN`, and negative infinity throw when creating the client.
+
+The allowance starts at the first consecutive poll error. Repeated errors and
+provided or bundled fallback data do not renew it. A poll that replaces the
+snapshot, or confirms a finite equal version for the same project and environment,
+clears the outage. A later error starts a new allowance. Responses are observed in
+completion order, and existing version acceptance rules still apply.
+
+After expiry, `evaluate()` returns the caller's default with reason `error`, or
+throws the first poll error when no default is supplied. `bulkEvaluate()` returns
+an error result for each requested flag, with its default value when provided.
+The cached snapshot is retained: `getDatafile()` can still return it after expiry.
+Reads do not start an extra refresh because the allowance expired.
+
+This option applies only to runtime polling evaluations. Streaming, offline and
+build behavior, polling intervals, and metrics categories are unchanged. An
+initialization timeout alone does not start the allowance; an actual poll error
+must occur. Existing startup limitations remain: when initial polling times out,
+no recurring interval is started, even if that in-flight request later completes.
+
 ## Evaluation Metrics
 
 To associate evaluation metrics with an environment, pass the
