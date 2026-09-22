@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isBun } from '../utils/runtime';
+import { Authentication } from './auth';
+import { normalizeOptions } from './normalized-options';
 import { connectStream } from './stream-connection';
+import { StreamSource } from './stream-source';
 
 vi.mock('../utils/runtime', () => ({ isBun: vi.fn(() => false) }));
 
@@ -445,6 +448,7 @@ describe('connectStream', () => {
 
       const abortController = new AbortController();
       const onDisconnect = vi.fn();
+      const onError = vi.fn();
 
       await connectStream(
         {
@@ -453,7 +457,7 @@ describe('connectStream', () => {
           abortController,
           fetch: fetchMock,
         },
-        { onDatafile: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect, onError },
       );
 
       // Advance past the reconnection backoff delay
@@ -461,17 +465,13 @@ describe('connectStream', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(onDisconnect).toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
 
       abortController.abort();
     });
   });
 
   describe('failure cases', () => {
-    // Note: 401 response behavior is tested through Controller
-    // which handles the timeout fallback. The stream-connection aborts on 401
-    // but the promise resolution is handled by the timeout mechanism in
-    // Controller.
-
     it('should reject if resolving the token fails before first datafile', async () => {
       const authError = new Error('auth unavailable');
       const resolveToken = vi
@@ -626,6 +626,9 @@ describe('connectStream', () => {
       );
 
       const abortController = new AbortController();
+      const onError = vi.fn(() => {
+        expect(abortController.signal.aborted).toBe(false);
+      });
 
       const promise = connectStream(
         {
@@ -634,7 +637,7 @@ describe('connectStream', () => {
           abortController,
           fetch: fetchMock,
         },
-        { onDatafile: vi.fn() },
+        { onDatafile: vi.fn(), onError },
       );
       // Attach the rejection expectation up front so the rejection is never
       // briefly unhandled while we drive the timers below.
@@ -655,6 +658,12 @@ describe('connectStream', () => {
         '@vercel/flags-core: Max retry count exceeded',
         expect.objectContaining({ message: 'fetch failed' }),
       );
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledTimes(16);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'fetch failed' }),
+      );
+      expect(abortController.signal.aborted).toBe(true);
 
       abortController.abort();
       errorSpy.mockRestore();
@@ -706,6 +715,311 @@ describe('connectStream', () => {
     });
   });
 
+  describe('error callback', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      expect(console.error).not.toHaveBeenCalled();
+      expect(console.warn).not.toHaveBeenCalled();
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    describe.each([false, true])('after initial data: %s', (initialized) => {
+      it.each([
+        {
+          failure: 'fetch rejection',
+          response: () => Promise.reject(new Error('fetch failed')),
+          message: 'fetch failed',
+        },
+        {
+          failure: 'reader rejection',
+          response: () =>
+            streamResponse(
+              new ReadableStream({
+                start(controller) {
+                  controller.error(new Error('reader failed'));
+                },
+              }),
+            ),
+          message: 'reader failed',
+        },
+        {
+          failure: 'HTTP error',
+          response: () => streamResponse(null, 500),
+          message: 'stream was not ok: 500',
+        },
+        {
+          failure: 'missing body',
+          response: () => streamResponse(null),
+          message: 'stream body was not present',
+        },
+        {
+          failure: 'non-Error rejection',
+          response: () => Promise.reject('offline'),
+          message: 'Unknown stream error',
+        },
+      ])('reports $failure and still retries', async ({
+        response,
+        message,
+      }) => {
+        if (initialized) {
+          fetchMock.mockImplementationOnce(() =>
+            ndjsonResponse([datafileMsg()]),
+          );
+        }
+        fetchMock
+          .mockImplementationOnce(response)
+          .mockImplementation(() =>
+            ndjsonResponse([datafileMsg()], { keepOpen: true }),
+          );
+
+        const abortController = new AbortController();
+        const onError = vi.fn();
+        const onDisconnect = vi.fn();
+        const onDatafile = vi.fn();
+        const promise = connectStream(
+          {
+            host: HOST,
+            resolveToken: () => Promise.resolve('vf_test'),
+            abortController,
+            fetch: fetchMock,
+          },
+          { onDatafile, onDisconnect, onError },
+        );
+
+        await vi.advanceTimersByTimeAsync(initialized ? 1000 : 0);
+        expect(onError).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ message }),
+        );
+        expect(onError.mock.calls[0]![0]).toBeInstanceOf(Error);
+        expect(onDisconnect).toHaveBeenCalledTimes(initialized ? 2 : 1);
+        expect(abortController.signal.aborted).toBe(false);
+
+        // Reporting a failure must not change the existing retry timing.
+        await vi.advanceTimersByTimeAsync(999);
+        expect(fetchMock).toHaveBeenCalledTimes(initialized ? 2 : 1);
+        await vi.advanceTimersByTimeAsync(1);
+        await promise;
+        expect(fetchMock).toHaveBeenCalledTimes(initialized ? 3 : 2);
+        expect(onDatafile).toHaveBeenCalledTimes(initialized ? 2 : 1);
+        expect(onError).toHaveBeenCalledTimes(1);
+        abortController.abort();
+      });
+
+      it('reports token resolution failure before any terminal abort', async () => {
+        const authError = new Error('auth unavailable');
+        const resolveToken = vi.fn<() => Promise<string>>();
+        if (initialized) resolveToken.mockResolvedValueOnce('vf_test');
+        resolveToken
+          .mockRejectedValueOnce(authError)
+          .mockResolvedValue('vf_test');
+        fetchMock
+          .mockImplementationOnce(() => ndjsonResponse([datafileMsg()]))
+          .mockImplementation(() =>
+            ndjsonResponse([datafileMsg()], { keepOpen: true }),
+          );
+
+        const abortController = new AbortController();
+        const events: string[] = [];
+        const onError = vi.fn(() => events.push('error'));
+        abortController.signal.addEventListener('abort', () =>
+          events.push('abort'),
+        );
+        const onDisconnect = vi.fn();
+        const promise = connectStream(
+          { host: HOST, resolveToken, abortController, fetch: fetchMock },
+          { onDatafile: vi.fn(), onDisconnect, onError },
+        );
+        const settled = initialized
+          ? promise
+          : expect(promise).rejects.toBe(authError);
+
+        await vi.advanceTimersByTimeAsync(initialized ? 1000 : 0);
+        await settled;
+        expect(onError).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            name: 'TokenResolutionError',
+            cause: authError,
+          }),
+        );
+        expect(events).toEqual(initialized ? ['error'] : ['error', 'abort']);
+        expect(onDisconnect).toHaveBeenCalledTimes(initialized ? 2 : 0);
+        expect(fetchMock).toHaveBeenCalledTimes(initialized ? 1 : 0);
+
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(resolveToken).toHaveBeenCalledTimes(initialized ? 3 : 1);
+        expect(fetchMock).toHaveBeenCalledTimes(initialized ? 2 : 0);
+        expect(onError).toHaveBeenCalledTimes(1);
+        abortController.abort();
+      });
+
+      it('reports 401 before terminal abort without retrying', async () => {
+        if (initialized) {
+          fetchMock.mockImplementationOnce(() =>
+            ndjsonResponse([datafileMsg()]),
+          );
+        }
+        fetchMock.mockImplementation(() => streamResponse(null, 401));
+
+        const abortController = new AbortController();
+        const events: string[] = [];
+        const onError = vi.fn(() => events.push('error'));
+        abortController.signal.addEventListener('abort', () =>
+          events.push('abort'),
+        );
+        const onDisconnect = vi.fn();
+        const promise = connectStream(
+          {
+            host: HOST,
+            resolveToken: () => Promise.resolve('vf_test'),
+            abortController,
+            fetch: fetchMock,
+          },
+          { onDatafile: vi.fn(), onDisconnect, onError },
+        );
+        const settled = initialized
+          ? promise
+          : expect(promise).rejects.toThrow('stream: unauthorized (401)');
+
+        await vi.advanceTimersByTimeAsync(initialized ? 1000 : 0);
+        await settled;
+        expect(onError).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ name: 'UnauthorizedError' }),
+        );
+        expect(events).toEqual(['error', 'abort']);
+        expect(onDisconnect).toHaveBeenCalledTimes(initialized ? 1 : 0);
+        expect(abortController.signal.aborted).toBe(true);
+        await vi.advanceTimersByTimeAsync(61_000);
+        expect(fetchMock).toHaveBeenCalledTimes(initialized ? 2 : 1);
+        expect(onError).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it.each([
+      'fetch',
+      'token',
+      '401',
+    ])('does not report a late %s failure after main abort', async (failure) => {
+      let finishRequest!: () => void;
+      const response = new Promise<Response>((resolve, reject) => {
+        finishRequest = () =>
+          failure === '401'
+            ? resolve(new Response(null, { status: 401 }))
+            : reject(new Error('fetch aborted'));
+      });
+      let failToken!: () => void;
+      const token = new Promise<string>((_resolve, reject) => {
+        failToken = () => reject(new Error('token unavailable'));
+      });
+      fetchMock.mockReturnValue(response);
+      const abortController = new AbortController();
+      const onError = vi.fn();
+      const onDisconnect = vi.fn();
+      const promise = connectStream(
+        {
+          host: HOST,
+          resolveToken: () =>
+            failure === 'token' ? token : Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn(), onDisconnect, onError },
+      );
+      const rejection = expect(promise).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(0);
+      abortController.abort();
+      if (failure === 'token') failToken();
+      else finishRequest();
+      await rejection;
+      expect(onError).not.toHaveBeenCalled();
+      expect(onDisconnect).not.toHaveBeenCalled();
+    });
+
+    it('does not report reader failure caused by main abort after data', async () => {
+      fetchMock.mockImplementation((_input, init) =>
+        streamResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(`${JSON.stringify(datafileMsg())}\n`),
+              );
+              init?.signal?.addEventListener('abort', () => {
+                controller.error(new DOMException('Aborted', 'AbortError'));
+              });
+            },
+          }),
+        ),
+      );
+      const abortController = new AbortController();
+      const onError = vi.fn();
+      const onDisconnect = vi.fn();
+      await connectStream(
+        {
+          host: HOST,
+          resolveToken: () => Promise.resolve('vf_test'),
+          abortController,
+          fetch: fetchMock,
+        },
+        { onDatafile: vi.fn(), onError, onDisconnect },
+      );
+      abortController.abort();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(onError).not.toHaveBeenCalled();
+      expect(onDisconnect).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('forwards StreamSource errors before and after data and stays silent on stop', async () => {
+      let streamController!: ReadableStreamDefaultController<Uint8Array>;
+      fetchMock
+        .mockImplementationOnce(() => streamResponse(null, 401))
+        .mockImplementation(() =>
+          streamResponse(
+            new ReadableStream({
+              start(controller) {
+                streamController = controller;
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `${JSON.stringify(datafileMsg())}\n`,
+                  ),
+                );
+              },
+            }),
+          ),
+        );
+      const source = new StreamSource(
+        normalizeOptions({
+          auth: new Authentication('vf_server_test'),
+          fetch: fetchMock,
+        }),
+        () => undefined,
+      );
+      const onError = vi.fn();
+      source.on('error', onError);
+      await expect(source.start()).rejects.toThrow(
+        'stream: unauthorized (401)',
+      );
+      expect(onError).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ name: 'UnauthorizedError' }),
+      );
+      await source.start();
+      const readerError = new Error('reader failed after data');
+      streamController.error(readerError);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onError).toHaveBeenNthCalledWith(2, readerError);
+      source.stop();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(onError).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('ping timeout', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
@@ -732,6 +1046,7 @@ describe('connectStream', () => {
 
       const abortController = new AbortController();
       const onDisconnect = vi.fn();
+      const onError = vi.fn();
 
       await connectStream(
         {
@@ -740,7 +1055,7 @@ describe('connectStream', () => {
           abortController,
           fetch: fetchMock,
         },
-        { onDatafile: vi.fn(), onDisconnect },
+        { onDatafile: vi.fn(), onDisconnect, onError },
       );
 
       expect(requestCount).toBe(1);
@@ -754,6 +1069,7 @@ describe('connectStream', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(onDisconnect).toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
 
       // Should have attempted reconnection
       expect(requestCount).toBeGreaterThanOrEqual(2);
