@@ -8,7 +8,6 @@ export type StreamSourceEvents = {
   primed: (message: PrimedMessage) => void;
   connected: () => void;
   disconnected: () => void;
-  error: (error: Error) => void;
 };
 
 /**
@@ -72,9 +71,6 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           },
           onDisconnect: () => {
             this.emit('disconnected');
-          },
-          onError: (error) => {
-            this.emit('error', error);
           },
         },
       );

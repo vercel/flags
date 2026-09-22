@@ -17,159 +17,146 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(1_000);
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
-describe('cache assessment contract for future refresh sources', () => {
-  it('requires a blocking fetch for an empty cache regardless of assessment', () => {
+describe('DatafileCache', () => {
+  it('returns undefined when empty without fetching or confirming a failure', () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
+      throw new Error('Unexpected fetch');
+    });
     const cache = new DatafileCache();
-    expect(
-      cache.read({
-        snapshot: cache.peek(),
-        needsRefresh: false,
-        confirmedAt: Date.now(),
-      }),
-    ).toEqual({ refresh: 'blocking' });
+    expect(cache.peek()).toBeUndefined();
+    expect(cache.read(Infinity)).toBeUndefined();
+
+    const error = new Error('poll failed before data arrived');
+    cache.fail(error);
+    cache.confirm(cache.peek());
+    expect(cache.read(0)).toBeUndefined();
+    cache.set(data());
+    expect(() => cache.read(0)).toThrow(error);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('preserves cached-read behavior when the source has no invalidation', () => {
+  it('stores data without an age-based expiry when no failure exists', () => {
     const cache = new DatafileCache();
-    const original = cache.set(data());
-    expect(cache.read({ snapshot: cache.peek(), needsRefresh: false })).toEqual(
-      { data: original, refresh: 'none' },
-    );
-    expect(cache.peek()?.fetchedAt).toBeUndefined();
+    const original = data();
+    expect(cache.set(original)).toBe(original);
+    expect(cache.peek()).toEqual({ data: original });
+
+    vi.setSystemTime(1_000_000);
+    expect(cache.read(0)).toBe(original);
   });
 
-  it('uses the later of network fetch and matching confirmation, including the deadline', () => {
+  it('starts the inclusive allowance at the first failure, not storage time', () => {
     const cache = new DatafileCache();
     const original = cache.set(data('poll'));
+    vi.setSystemTime(2_000);
+    const firstError = new Error('first poll failed');
+    cache.fail(firstError);
+    expect(cache.read(100)).toBe(original);
+
+    vi.setSystemTime(2_100);
+    cache.fail(new Error('second poll failed'));
+    expect(cache.read(100)).toBe(original);
+    vi.setSystemTime(2_101);
+    expect(() => cache.read(100)).toThrow(firstError);
+    expect(cache.peek()?.data).toBe(original);
+  });
+
+  it('supports immediate failure and unlimited stale reads', () => {
+    const cache = new DatafileCache();
+    const original = cache.set(data());
+    const error = new Error('poll failed');
+    cache.fail(error);
+    expect(() => cache.read(0)).toThrow(error);
+    expect(() => cache.read(-1)).toThrow(error);
+
+    vi.setSystemTime(1_000_000);
+    expect(cache.read(Infinity)).toBe(original);
+  });
+
+  it('does not clear or renew failure when storing network data', () => {
+    const cache = new DatafileCache();
+    cache.set(data('poll'));
+    const error = new Error('poll failed');
+    cache.fail(error);
+    vi.setSystemTime(1_050);
+    const replacement = cache.set(data('poll'));
+    expect(cache.read(100)).toBe(replacement);
+    vi.setSystemTime(1_101);
+    expect(() => cache.read(100)).toThrow(error);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('restores %s seeds only within the original failure deadline', (origin) => {
+    const cache = new DatafileCache();
+    const seed = cache.set(data(origin));
     const snapshot = cache.peek();
-    const options = { staleWhileRevalidateMs: 100 };
-    const earlier = { snapshot, needsRefresh: true, confirmedAt: 900 };
+    const firstError = new Error('first poll failed');
+    cache.fail(firstError);
+
+    vi.setSystemTime(1_050);
+    cache.clear();
+    expect(cache.peek()).toBeUndefined();
+    expect(cache.read(0)).toBeUndefined();
+    cache.confirm(snapshot);
+    cache.confirm(cache.peek());
+    cache.fail(new Error('poll still failing'));
+    cache.set(seed);
+    expect(cache.read(100)).toBe(seed);
     vi.setSystemTime(1_100);
-    expect(cache.read(earlier, options)).toEqual({
-      data: original,
-      refresh: 'background',
-    });
+    expect(cache.read(100)).toBe(seed);
+
     vi.setSystemTime(1_101);
-    expect(cache.read(earlier, options)).toEqual({ refresh: 'blocking' });
-    const later = { snapshot, needsRefresh: true, confirmedAt: 1_050 };
-    vi.setSystemTime(1_150);
-    expect(cache.read(later, options)).toEqual({
-      data: original,
-      refresh: 'background',
-    });
-    vi.setSystemTime(1_151);
-    expect(cache.read(later, options)).toEqual({ refresh: 'blocking' });
-    expect(original).not.toHaveProperty('fetchedAt');
+    cache.clear();
+    cache.set(seed);
+    cache.fail(new Error('poll failed again'));
+    expect(() => cache.read(100)).toThrow(firstError);
   });
 
-  it('does not renew freshness just because refresh is requested again', () => {
+  it('clears failure on matching confirmation without replacing the entry', () => {
     const cache = new DatafileCache();
-    cache.set(data());
-    const assessment = {
-      snapshot: cache.peek(),
-      needsRefresh: true,
-      confirmedAt: 1_000,
-    };
-    expect(
-      cache.read(assessment, { staleWhileRevalidateMs: 100 }).refresh,
-    ).toBe('background');
-    vi.setSystemTime(1_101);
-    expect(cache.read(assessment, { staleWhileRevalidateMs: 100 })).toEqual({
-      refresh: 'blocking',
-    });
-  });
+    const original = cache.set(data());
+    const snapshot = cache.peek();
+    const firstError = new Error('first outage');
+    cache.fail(firstError);
+    vi.setSystemTime(2_000);
+    expect(() => cache.read(100)).toThrow(firstError);
 
-  it('blocks unknown-age seeds when invalidated and honors a zero refresh window', () => {
-    const cache = new DatafileCache();
-    cache.set(data());
-    const assessment = { snapshot: cache.peek(), needsRefresh: true };
-    expect(cache.read(assessment, { staleWhileRevalidateMs: 100 })).toEqual({
-      refresh: 'blocking',
-    });
-    expect(
-      cache.read(
-        { ...assessment, confirmedAt: Date.now() },
-        { staleWhileRevalidateMs: 0 },
-      ),
-    ).toEqual({ refresh: 'blocking' });
-  });
+    cache.confirm(snapshot);
+    expect(cache.peek()).toBe(snapshot);
+    expect(cache.read(0)).toBe(original);
 
-  it.each([
-    'provided',
-    'bundled',
-  ] as const)('requires known freshness for invalidated %s seeds even with infinite SWR', (origin) => {
-    const cache = new DatafileCache();
-    const original = cache.set(data(origin));
-    const assessment = { snapshot: cache.peek(), needsRefresh: true };
-    const options = { staleWhileRevalidateMs: Infinity };
-
-    expect(cache.read(assessment, options)).toEqual({ refresh: 'blocking' });
-    expect(
-      cache.read({ ...assessment, confirmedAt: Date.now() }, options),
-    ).toEqual({ data: original, refresh: 'background' });
-  });
-
-  it.each([
-    'provided',
-    'bundled',
-  ] as const)('preserves unlimited error fallback for unknown-age %s seeds', (origin) => {
-    const cache = new DatafileCache();
-    const original = cache.set(data(origin));
-    const assessment = { snapshot: cache.peek(), needsRefresh: true };
-    const error = new Error('refresh failed');
-
-    expect(cache.read(assessment, { error, staleIfErrorMs: Infinity })).toEqual(
-      { data: original, refresh: 'background' },
-    );
-    expect(cache.read(assessment, { error })).toEqual({
-      data: original,
-      refresh: 'background',
-    });
+    const nextError = new Error('next outage');
+    cache.fail(nextError);
+    vi.setSystemTime(2_100);
+    expect(cache.read(100)).toBe(original);
+    vi.setSystemTime(2_101);
+    expect(() => cache.read(100)).toThrow(nextError);
   });
 
   it.each([
     false,
     true,
-  ])('ignores an old assessment after replacing an entry (same object=%s)', (reuse) => {
+  ])('rejects old confirmation after replacement (same data object=%s)', (reuse) => {
     const cache = new DatafileCache();
     const original = cache.set(data());
-    const assessment = {
-      snapshot: cache.peek(),
-      needsRefresh: false,
-      confirmedAt: Date.now(),
-    };
+    const oldSnapshot = cache.peek();
     cache.set(reuse ? original : data());
-    expect(cache.read(assessment, { staleWhileRevalidateMs: 100 })).toEqual({
-      refresh: 'blocking',
-    });
-    const error = new Error('refresh failed');
-    expect(() =>
-      cache.read(
-        { ...assessment, needsRefresh: true },
-        { error, staleIfErrorMs: 100 },
-      ),
-    ).toThrow(error);
-  });
+    const replacementSnapshot = cache.peek();
+    expect(replacementSnapshot).not.toBe(oldSnapshot);
+    const error = new Error('replacement outage');
+    cache.fail(error);
 
-  it('uses the same version-bound freshness for stale-if-error', () => {
-    const cache = new DatafileCache();
-    const original = cache.set(data());
-    const assessment = {
-      snapshot: cache.peek(),
-      needsRefresh: true,
-      confirmedAt: Date.now(),
-    };
-    const error = new Error('refresh failed');
-    const options = { error, staleIfErrorMs: 100 };
-    vi.setSystemTime(1_100);
-    expect(cache.read(assessment, options)).toEqual({
-      data: original,
-      refresh: 'background',
-    });
-    vi.setSystemTime(1_101);
-    expect(() => cache.read(assessment, options)).toThrow(error);
-    expect(cache.peek()?.data).toBe(original);
+    cache.confirm(oldSnapshot);
+    cache.confirm(undefined);
+    expect(() => cache.read(0)).toThrow(error);
+    expect(cache.peek()).toBe(replacementSnapshot);
   });
 });
