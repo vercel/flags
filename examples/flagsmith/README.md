@@ -21,7 +21,13 @@ Copy `.env.example` to `.env.local` and set `FLAGSMITH_ENVIRONMENT_KEY` to the e
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-The home page evaluates both flags concurrently. Change their values in Flagsmith and refresh the page. With the workspace adapter, allow up to 60 seconds for the environment document to refresh. Disabled or unavailable flags use the defaults in `flags.ts`. This example uses environment-level flags without user targeting.
+The home page evaluates both flags concurrently. Change their values in Flagsmith and refresh the page. The adapter uses remote evaluation by default, fetching evaluated flags from Flagsmith for each request without environment-document initialization or background polling. Disabled or unavailable flags use the defaults in `flags.ts`. This example uses environment-level flags without user targeting.
+
+## Local evaluation on a long-running server
+
+Set `enableLocalEvaluation: true` in the `createFlagsmithAdapter` configuration in `flags.ts`. This uses the server-side key already configured for the example and downloads an environment document, then polls every 60 seconds. Allow up to 60 seconds for dashboard changes to appear. Call `await adapter.close()` when shutting down your server.
+
+Keep the default remote evaluation for serverless deployments to avoid environment-document initialization on each cold start. See the [adapter documentation](https://flags-sdk.dev/providers/flagsmith) for local evaluation's identity-trait caveat.
 
 ## Run as a standalone project
 
@@ -43,7 +49,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flagsmith-example
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/flagsmith` dependencies to `workspace:*`. All flags in this example use the local SDK and adapter, with local evaluation enabled by default. Turbo builds the workspace dependencies before starting Next.js.
+The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/flagsmith` dependencies to `workspace:*`. All flags in this example use the local SDK and adapter, with remote evaluation enabled by default. Turbo builds the workspace dependencies before starting Next.js.
 
 For a production build:
 
