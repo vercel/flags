@@ -2,4 +2,4 @@
 "@vercel/flags-core": minor
 ---
 
-Add `staleIfErrorMs` to bound cached runtime polling evaluations after the first consecutive poll error. The default `Infinity` preserves unlimited fallback; finite nonnegative durations use existing evaluation defaults and errors after expiry. Accepted updates or valid equal-version confirmations reset the allowance. Storing fallback data does not confirm freshness or renew the failure clock. Snapshot reads, streaming, builds, offline behavior, and source scheduling are unchanged.
+Add `staleIfErrorMs` to bound cached runtime reads after the first consecutive stream/poll failure or stream disconnect. The default `Infinity` preserves unlimited fallback; finite nonnegative durations use existing evaluation defaults and errors after expiry, and `getDatafile()` follows the same allowance. Accepted updates, valid equal-version responses, or matching stream primed revisions reset the allowance. Storing fallback data does not confirm freshness or renew the failure clock. Build/offline behavior and source scheduling remain unchanged.
