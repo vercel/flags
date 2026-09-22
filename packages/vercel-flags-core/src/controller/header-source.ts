@@ -96,6 +96,17 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       : -Infinity;
   }
 
+  canRevalidateInBackground(data: TaggedData): boolean {
+    const freshAt = Math.max(
+      data.fetchedAt ?? -Infinity,
+      this.confirmedAt(data),
+    );
+    return (
+      this.options.staleWhileRevalidateMs > 0 &&
+      Date.now() - freshAt <= this.options.staleWhileRevalidateMs
+    );
+  }
+
   private observe(version: number, currentVersion: number): void {
     this.highestObserved = Math.max(this.highestObserved, version);
     // Once invalidated, an older matching header cannot renew freshness.

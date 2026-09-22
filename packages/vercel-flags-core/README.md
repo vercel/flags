@@ -65,12 +65,13 @@ const client = OpenFeature.getClient();
 - [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
 - [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
 
-## Cache freshness
+## Cached data during outages
 
-Runtime evaluation and `getDatafile()` share `staleWhileRevalidateMs` (default
-`10_000`) and `staleIfErrorMs` (default `Infinity`). Both use milliseconds. Finite
-error windows extend SWR and require known freshness; expired definitions use
-evaluation defaults or throw. Build and offline caches remain static.
+`staleIfErrorMs` controls how long runtime reads can serve cached definitions
+following the first source failure or stream disconnect. It defaults to
+`Infinity`; a finite value is a grace period in milliseconds. Repeated failures
+do not extend it, and successful updates or confirmations reset it. After expiry,
+evaluations use supplied defaults or throw.
 
-See [runtime cache freshness](./docs/cache-freshness.md) for source behavior,
-concurrency, persisted timestamps and failure handling.
+The existing header-specific `staleWhileRevalidateMs` remains independent.
+Build and offline caches remain static. See [cached data during outages](./docs/cache-freshness.md).

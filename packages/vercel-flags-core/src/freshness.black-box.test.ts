@@ -1,4 +1,4 @@
-/** Shared freshness through public APIs; only network/filesystem boundaries mocked. */
+/** Outage grace through public APIs; only network/filesystem boundaries mocked. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, type FlagsClient } from './index.default';
 import { setRequestContext } from './test-utils';
@@ -99,7 +99,7 @@ async function expectExpired(instance: FlagsClient) {
   await expect(instance.getDatafile()).rejects.toThrow();
 }
 
-describe('shared runtime freshness', () => {
+describe('stale-if-error grace period', () => {
   it.each([
     -1,
     -Infinity,
@@ -111,23 +111,29 @@ describe('shared runtime freshness', () => {
   it.each([
     'provided',
     'bundled',
-  ] as const)('expires %s fallback at SWR + SIE for every API with no usable source', async (origin) => {
+  ] as const)('starts the grace period for old %s data on initial poll failure', async (origin) => {
+    const fallback = { ...data(), fetchedAt: NOW - 86_400_000 };
     vi.mocked(readBundledDefinitions).mockResolvedValue({
       state: 'ok',
-      definitions: data(),
+      definitions: fallback,
     });
     const instance = client({
-      datafile: origin === 'provided' ? data() : undefined,
-      staleWhileRevalidateMs: 10,
+      vercel: false,
+      stream: false,
+      datafile: origin === 'provided' ? fallback : undefined,
       staleIfErrorMs: 20,
     });
-    vi.setSystemTime(NOW + 30);
+    await instance.initialize();
+    vi.setSystemTime(NOW + 20);
     expect((await instance.evaluate('feature')).value).toBe(true);
-    expect((await instance.getDatafile()).fetchedAt).toBe(NOW);
-    vi.setSystemTime(NOW + 31);
+    expect((await instance.getDatafile()).fetchedAt).toBe(fallback.fetchedAt);
+    vi.setSystemTime(NOW + 21);
     await expectExpired(instance);
-    expect(network).not.toHaveBeenCalled();
-    expect(errors).not.toHaveBeenCalled();
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(errors).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Poll failed:',
+      expect.any(Error),
+    );
   });
 
   it.each([
@@ -135,20 +141,44 @@ describe('shared runtime freshness', () => {
     NaN,
     -1,
     Infinity,
-  ])('requires evidence for finite windows with fetchedAt=%s', async (fetchedAt) => {
+  ])('does not need a fetchedAt timestamp for outage fallback (%s)', async (fetchedAt) => {
     const instance = client({
+      vercel: false,
+      stream: false,
       datafile: { ...data(), fetchedAt },
-      staleIfErrorMs: 100,
+      staleIfErrorMs: 20,
     });
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    expect((await instance.getDatafile()).fetchedAt).toBeUndefined();
+    vi.setSystemTime(NOW + 21);
     await expectExpired(instance);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(errors).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Poll failed:',
+      expect.any(Error),
+    );
+  });
+
+  it('keeps healthy cached data without headers regardless of age, even with zero grace', async () => {
+    const instance = client({
+      staleIfErrorMs: 0,
+      datafile: { ...data(), fetchedAt: undefined },
+    });
+    vi.setSystemTime(NOW + 86_400_000);
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(1);
     expect(network).not.toHaveBeenCalled();
   });
 
-  it('retains unknown-age fallback by default, including failed initialization', async () => {
-    const input = { ...data(), fetchedAt: undefined };
-    const instance = client({ vercel: false, stream: false, datafile: input });
+  it('keeps unknown-age fallback indefinitely by default after a failed poll', async () => {
+    const instance = client({
+      vercel: false,
+      stream: false,
+      datafile: { ...data(), fetchedAt: undefined },
+    });
+    await instance.initialize();
+    vi.setSystemTime(NOW + 86_400_000);
     expect((await instance.evaluate('feature')).value).toBe(true);
-    expect((await instance.getDatafile()).fetchedAt).toBeUndefined();
     expect(network).toHaveBeenCalledTimes(1);
     expect(errors).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Poll failed:',
@@ -166,10 +196,9 @@ describe('shared runtime freshness', () => {
       polling: false,
       staleWhileRevalidateMs: 0,
       staleIfErrorMs: 0,
-      datafile: { ...data(), fetchedAt: undefined },
     });
-    vi.setSystemTime(NOW + 1_000_000);
     version(100);
+    vi.setSystemTime(NOW + 86_400_000);
     expect((await instance.evaluate('feature')).value).toBe(true);
     expect(
       (await instance.bulkEvaluate([{ key: 'feature' }])).feature?.value,
@@ -178,9 +207,116 @@ describe('shared runtime freshness', () => {
     expect(network).not.toHaveBeenCalled();
   });
 
-  it('shares one background handler, registration and error across all APIs', async () => {
+  it('does not extend an outage on repeated polls, and an unchanged successful poll resets it', async () => {
+    const instance = client({
+      vercel: false,
+      stream: false,
+      staleIfErrorMs: 30_000,
+    });
+    network.mockResolvedValueOnce(Response.json(data()));
+    await instance.initialize();
+    await vi.advanceTimersByTimeAsync(30_000); // first failure
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(30_000); // second failure, original deadline
+    expect((await instance.getDatafile()).fetchedAt).toBe(NOW);
+    await vi.advanceTimersByTimeAsync(1);
+    await expectExpired(instance);
+    expect(network).toHaveBeenCalledTimes(3); // reads never trigger polling
+    network.mockResolvedValueOnce(Response.json(data(1, false)));
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect((await instance.evaluate('feature')).value).toBe(true); // unchanged version preserves payload
+    expect((await instance.getDatafile()).fetchedAt).toBe(NOW);
+    await vi.advanceTimersByTimeAsync(30_000); // new outage has its own full grace
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(30_001);
+    await expectExpired(instance);
+    expect(network).toHaveBeenCalledTimes(6);
+    expect(errors).toHaveBeenCalledTimes(4);
+    for (const call of errors.mock.calls)
+      expect(call).toEqual([
+        '@vercel/flags-core: Poll failed:',
+        expect.any(Error),
+      ]);
+  });
+
+  it('does not let regressed poll responses clear an outage', async () => {
+    const instance = client({
+      vercel: false,
+      stream: false,
+      staleIfErrorMs: 20,
+    });
+    await instance.initialize();
+    network.mockResolvedValueOnce(Response.json(data(0, false)));
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expectExpired(instance);
+    network.mockResolvedValueOnce(Response.json(data(2, false)));
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    expect(network).toHaveBeenCalledTimes(3);
+    expect(errors).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Poll failed:',
+      expect.any(Error),
+    );
+  });
+
+  it('disables error fallback with zero without adding the SWR duration', async () => {
+    const instance = client({
+      vercel: false,
+      stream: false,
+      staleWhileRevalidateMs: 100_000,
+      staleIfErrorMs: 0,
+    });
+    await expectExpired(instance);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(errors).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Poll failed:',
+      expect.any(Error),
+    );
+  });
+
+  it('starts fetch grace on failure, refuses to extend it, and clears it on accepted data', async () => {
+    const instance = client({
+      staleWhileRevalidateMs: 0,
+      staleIfErrorMs: 20,
+      datafile: data(1, true, NOW - 86_400_000),
+    });
+    version(2);
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    vi.setSystemTime(NOW + 20);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(1);
+    vi.setSystemTime(NOW + 21);
+    await expectExpired(instance);
+    network.mockResolvedValueOnce(Response.json(data(2, false)));
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    version(3);
+    vi.setSystemTime(NOW + 100);
+    expect((await instance.evaluate('feature')).value).toBe(false); // new failure, new grace
+    vi.setSystemTime(NOW + 121);
+    await expectExpired(instance);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it('clears a fetch outage with a matching header but not an older matching request', async () => {
+    const instance = client({ staleWhileRevalidateMs: 0, staleIfErrorMs: 20 });
+    version(2);
+    await instance.evaluate('feature'); // starts outage; newest header is 2
+    version(1);
+    vi.setSystemTime(NOW + 21);
+    await expectExpired(instance); // matching cached version cannot undo invalidation
+    network.mockResolvedValueOnce(Response.json(data(2)));
+    version(2);
+    await instance.getDatafile();
+    version(3);
+    await instance.evaluate('feature'); // another failure
+    vi.setSystemTime(NOW + 42);
+    version(2);
+    await expectExpired(instance);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it('shares one background handler and starts grace when the background fetch fails', async () => {
     const waitUntil = vi.fn();
-    const instance = client({ waitUntil });
+    const instance = client({ waitUntil, staleIfErrorMs: 20 });
     version(1);
     await instance.evaluate('feature');
     waitUntil.mockClear();
@@ -194,8 +330,14 @@ describe('shared runtime freshness', () => {
     ]);
     expect(network).toHaveBeenCalledTimes(1);
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
+    vi.setSystemTime(NOW + 5);
     pending.reject(new Error('Failed refresh'));
     await vi.advanceTimersByTimeAsync(0);
+    version(); // no new evidence and no new refresh
+    vi.setSystemTime(NOW + 25);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(1);
+    vi.setSystemTime(NOW + 26);
+    await expectExpired(instance);
     expect(errors).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Background refresh failed:',
       expect.any(Error),
@@ -226,7 +368,7 @@ describe('shared runtime freshness', () => {
     expect(network).toHaveBeenCalledTimes(2);
   });
 
-  it('checks the captured header even when a cold fetch discovers the project', async () => {
+  it('checks the captured header when a cold fetch discovers the project', async () => {
     const instance = client({
       datafile: undefined,
       staleWhileRevalidateMs: 0,
@@ -238,109 +380,18 @@ describe('shared runtime freshness', () => {
     expect(network).toHaveBeenCalledTimes(1);
   });
 
-  it('does not renew finite freshness from old headers or regressed responses', async () => {
-    const instance = client({ staleWhileRevalidateMs: 10, staleIfErrorMs: 20 });
-    version(1);
-    await instance.evaluate('feature');
-    vi.setSystemTime(NOW + 11);
-    version(2);
-    network.mockResolvedValueOnce(Response.json(data(0, false)));
-    expect((await instance.evaluate('feature')).value).toBe(true);
-    vi.setSystemTime(NOW + 31);
-    version(1);
-    await expectExpired(instance);
-    expect(network).toHaveBeenCalledTimes(1);
-    expect(errors).not.toHaveBeenCalled();
-  });
-
-  it('uses the finite error extension after a failed refresh, then recovers', async () => {
-    const instance = client({ staleWhileRevalidateMs: 10, staleIfErrorMs: 20 });
-    version(2);
-    vi.setSystemTime(NOW + 30);
-    expect((await instance.evaluate('feature')).value).toBe(true);
-    vi.setSystemTime(NOW + 31);
-    await expectExpired(instance);
-    network.mockResolvedValueOnce(Response.json(data(2, false)));
-    expect((await instance.evaluate('feature')).value).toBe(false);
-    expect((await instance.getDatafile()).fetchedAt).toBe(NOW + 31);
-    expect(errors).not.toHaveBeenCalled();
-  });
-
-  it('confirms unchanged polls without replacing the configuration or fetchedAt', async () => {
-    const instance = client({
-      vercel: false,
-      stream: false,
-      staleWhileRevalidateMs: 10,
-      staleIfErrorMs: 20,
-    });
-    network.mockResolvedValueOnce(Response.json(data()));
-    await instance.initialize();
-    vi.setSystemTime(NOW + 100);
-    network.mockResolvedValueOnce(Response.json(data(1, false)));
-    const results = await Promise.all([
-      instance.evaluate('feature'),
-      instance.getDatafile(),
-    ]);
-    expect(results[0].value).toBe(true);
-    expect(results[1].fetchedAt).toBe(NOW);
-    expect(network).toHaveBeenCalledTimes(2);
-    vi.setSystemTime(NOW + 130);
-    expect((await instance.evaluate('feature')).value).toBe(true);
-    vi.setSystemTime(NOW + 131);
-    await expectExpired(instance);
-    expect(errors).toHaveBeenCalledTimes(6);
-  });
-
-  it('does not confirm regressed polls, including at the same clock tick', async () => {
-    const instance = client({
-      vercel: false,
-      stream: false,
-      staleWhileRevalidateMs: 0,
-      staleIfErrorMs: 0,
-    });
-    network.mockResolvedValueOnce(Response.json(data()));
-    await instance.initialize();
-    network.mockResolvedValueOnce(Response.json(data(0, false)));
-    await expect(instance.getDatafile()).rejects.toThrow(
-      'Poll did not confirm',
-    );
-    expect(errors).not.toHaveBeenCalled();
-  });
-
-  it('recovers on the polling interval after initial failure without reads', async () => {
-    const instance = client({
-      vercel: false,
-      stream: false,
-      datafile: { ...data(), fetchedAt: undefined },
-      staleIfErrorMs: 0,
-    });
-    await instance.initialize();
-    await expectExpired(instance);
-    expect(network).toHaveBeenCalledTimes(1);
-    network.mockResolvedValueOnce(Response.json(data(2, false)));
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect((await instance.getDatafile()).configUpdatedAt).toBe(2);
-    expect(network).toHaveBeenCalledTimes(2);
-    expect(errors).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Poll failed:',
-      expect.any(Error),
-    );
-  });
-
   it.each([
     'header',
     'poll',
-  ] as const)('rejects pending %s reads on shutdown and ignores late arrivals', async (source) => {
+  ] as const)('ignores late %s arrivals during shutdown', async (source) => {
     const instance = client({
       vercel: source === 'header',
       stream: false,
       staleWhileRevalidateMs: 0,
     });
-    if (source === 'poll') network.mockResolvedValueOnce(Response.json(data()));
-    await instance.initialize();
-    version(2);
     const pending = deferred<Response>();
     network.mockReturnValueOnce(pending.promise);
+    version(2);
     const outcome = instance.getDatafile().catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(0);
     const signal = network.mock.lastCall?.[1]?.signal;
@@ -354,71 +405,79 @@ describe('shared runtime freshness', () => {
     expect(errors).not.toHaveBeenCalled();
   });
 
-  it('keeps a connected stream fresh and measures expiry from disconnect, then recovers', async () => {
+  it('starts a full grace period when a long-lived stream disconnects, and resets on confirmation', async () => {
     let writer!: ReadableStreamDefaultController<Uint8Array>;
-    const stream = () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            writer = controller;
-          },
-        }),
-      );
-    const push = (value: unknown) =>
-      writer.enqueue(new TextEncoder().encode(`${JSON.stringify(value)}\n`));
-    network.mockImplementation(async () => stream());
-    const instance = client({
-      vercel: false,
-      staleWhileRevalidateMs: 10,
-      staleIfErrorMs: 20,
-    });
-    const init = instance.initialize();
-    await vi.advanceTimersByTimeAsync(0);
-    push({
+    network.mockImplementation(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              writer = controller;
+            },
+          }),
+        ),
+    );
+    const push = (message: unknown) =>
+      writer.enqueue(new TextEncoder().encode(`${JSON.stringify(message)}\n`));
+    const primed = {
       type: 'primed',
       revision: 1,
       projectId: PROJECT,
       environment: 'production',
-    });
+    };
+    const instance = client({ vercel: false, staleIfErrorMs: 20 });
+    const init = instance.initialize();
+    await vi.advanceTimersByTimeAsync(0);
+    push(primed);
     await init;
-    vi.setSystemTime(NOW + 1_000_000);
+    vi.setSystemTime(NOW + 86_400_000);
     expect((await instance.getDatafile()).metrics.cacheStatus).toBe('HIT');
     writer.close();
     await vi.advanceTimersByTimeAsync(0);
-    vi.setSystemTime(NOW + 1_000_030);
+    vi.setSystemTime(NOW + 86_400_020);
     expect((await instance.evaluate('feature')).value).toBe(true);
-    vi.setSystemTime(NOW + 1_000_031);
+    vi.setSystemTime(NOW + 86_400_021);
     await expectExpired(instance);
     await vi.advanceTimersByTimeAsync(2_000);
-    // A regressed response on the reconnected transport cannot renew freshness.
-    push({ type: 'datafile', data: data(0, false) });
+    push({ type: 'datafile', data: data(0, false) }); // rejected update cannot clear the outage
     await vi.advanceTimersByTimeAsync(0);
     await expectExpired(instance);
-    push({ type: 'datafile', data: data(2, false) });
+    writer.close(); // another disconnect cannot restart the grace period
     await vi.advanceTimersByTimeAsync(0);
-    expect((await instance.evaluate('feature')).value).toBe(false);
+    await expectExpired(instance);
+    await vi.advanceTimersByTimeAsync(2_000);
+    push(primed);
+    await vi.advanceTimersByTimeAsync(0);
     expect((await instance.getDatafile()).metrics.cacheStatus).toBe('HIT');
+    writer.close();
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(21);
+    await expectExpired(instance);
     expect(errors).not.toHaveBeenCalled();
   });
-  it('rejects unknown fallback after failed stream initialization with finite windows', async () => {
+
+  it('starts grace on failed stream initialization without retrying on reads', async () => {
     network.mockResolvedValueOnce(new Response(null, { status: 401 }));
     const instance = client({
       vercel: false,
       datafile: { ...data(), fetchedAt: undefined },
-      staleIfErrorMs: 0,
+      staleIfErrorMs: 20,
     });
+    expect((await instance.evaluate('feature')).value).toBe(true);
+    vi.setSystemTime(NOW + 21);
     await expectExpired(instance);
     expect(network).toHaveBeenCalledTimes(1);
     expect(errors).not.toHaveBeenCalled();
   });
 
-  it('shares the initial blocking poll across concurrent public reads', async () => {
+  it('shares initial polling across concurrent public reads even with SWR disabled', async () => {
     const pending = deferred<Response>();
     network.mockReturnValueOnce(pending.promise);
     const instance = client({
       vercel: false,
       stream: false,
-      staleWhileRevalidateMs: 10,
+      staleWhileRevalidateMs: 0,
       staleIfErrorMs: 0,
     });
     const reads = [
@@ -433,6 +492,7 @@ describe('shared runtime freshness', () => {
     expect(network).toHaveBeenCalledTimes(1);
     expect(errors).not.toHaveBeenCalled();
   });
+
   it('shares cold initialization before selecting header mode across all reads', async () => {
     const bundle =
       deferred<Awaited<ReturnType<typeof readBundledDefinitions>>>();

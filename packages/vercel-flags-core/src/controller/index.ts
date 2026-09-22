@@ -20,7 +20,12 @@ import {
 import { PollingSource } from './polling-source';
 import { UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
-import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
+import {
+  type DataOrigin,
+  originToMetricsSource,
+  type TaggedData,
+  tagData,
+} from './tagged-data';
 
 export { BundledSource } from './bundled-source';
 export type { ControllerOptions } from './normalized-options';
@@ -81,10 +86,10 @@ type State =
  *
  * **Runtime — updating modes**:
  * - Vercel uses request headers; elsewhere streaming takes precedence over polling
- * - All reads share SWR and stale-if-error policy, including bundled/provided data
- * - Connected streams are fresh; disconnect starts their stale period
- * - Accepted arrivals, unchanged polls and matching headers confirm freshness
- * - Sources own transport/reconnection; the controller owns stale eligibility
+ * - The controller retains accepted data and records the first failure/disconnect
+ * - Cached reads remain eligible for staleIfErrorMs from that first failure
+ * - Accepted arrivals and confirmations clear the outage; failures do not extend it
+ * - Sources keep their existing updates; SWR applies only to header revalidation
  *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
@@ -121,11 +126,8 @@ export class Controller implements ControllerInterface {
 
   // Suppresses usage tracking when the SDK key is unauthorized
   private unauthorized = false;
-  private confirmedAt = -Infinity;
-  private pollConfirmed = false;
-  private streamConfirmed = false;
+  private unhealthySince: number | undefined;
   private initializationPromise: Promise<void> | undefined;
-  private refreshPromise: Promise<void> | undefined;
   private backgroundRefresh: Promise<void> | undefined;
 
   private assertActive(): void {
@@ -163,26 +165,35 @@ export class Controller implements ControllerInterface {
     this.usageTracker = new UsageTracker(this.options);
   }
 
-  // Source event handlers (stored for cleanup)
-  private onStreamData = (data: DatafileInput) => {
-    if (
-      !this.isNewerData(data) &&
-      parseConfigUpdatedAt(data.configUpdatedAt) !==
-        parseConfigUpdatedAt(this.data?.configUpdatedAt)
-    )
-      return;
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'stream');
-    }
-    this.streamConfirmed = true;
+  private markUnhealthy = () => {
+    this.unhealthySince ??= Date.now();
   };
-  private onStreamPrimed = () => {
-    this.streamConfirmed = true;
-    // The server confirmed our revision is current — no new data needed.
-    // Transition to streaming like a normal connected event.
-    if (this.state === 'degraded' || this.state === 'initializing:stream') {
-      this.transition('streaming');
+
+  /** Accepted arrivals and unchanged confirmations end the current outage. */
+  private acceptData(data: DatafileInput, origin: DataOrigin): void {
+    if (this.isNewerData(data)) {
+      this.data = tagData(data, origin);
+      this.unhealthySince = undefined;
+      return;
     }
+    const version = parseConfigUpdatedAt(data.configUpdatedAt);
+    if (
+      origin !== 'fetched' &&
+      version !== undefined &&
+      version === parseConfigUpdatedAt(this.data?.configUpdatedAt)
+    ) {
+      this.unhealthySince = undefined;
+      return;
+    }
+    this.markUnhealthy();
+  }
+
+  // Source event handlers (stored for cleanup)
+  private onStreamData = (data: DatafileInput) =>
+    this.acceptData(data, 'stream');
+  private onStreamPrimed = () => {
+    this.unhealthySince = undefined;
+    this.onStreamConnected();
   };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -190,36 +201,20 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamDisconnected = () => {
-    if (this.state === 'streaming' && this.streamConfirmed)
-      this.confirmedAt = Date.now();
-    this.streamConfirmed = false;
+    this.markUnhealthy();
     if (this.state === 'streaming') this.transition('degraded');
   };
-  private onPollData = (data: DatafileInput) => {
-    this.pollConfirmed = false;
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'poll');
-      this.confirmedAt = Date.now();
-      this.pollConfirmed = true;
-      return;
-    }
-    if (
-      parseConfigUpdatedAt(data.configUpdatedAt) !== undefined &&
-      parseConfigUpdatedAt(data.configUpdatedAt) ===
-        parseConfigUpdatedAt(this.data?.configUpdatedAt)
-    ) {
-      this.confirmedAt = Date.now();
-      this.pollConfirmed = true;
-    }
-  };
+  private onPollData = (data: DatafileInput) => this.acceptData(data, 'poll');
   private onPollError = (error: Error) => {
+    this.markUnhealthy();
     console.error('@vercel/flags-core: Poll failed:', error);
   };
   private onFetchedData = (data: DatafileInput) => {
-    if (parseConfigUpdatedAt(data.configUpdatedAt) === undefined) return;
-    if (this.isNewerData(data)) {
-      this.data = tagData(data, 'fetched');
+    if (parseConfigUpdatedAt(data.configUpdatedAt) === undefined) {
+      this.markUnhealthy();
+      return;
     }
+    this.acceptData(data, 'fetched');
   };
 
   // ---------------------------------------------------------------------------
@@ -488,126 +483,98 @@ export class Controller implements ControllerInterface {
     if (this.state === 'idle' || this.initializationPromise)
       await this.initialize();
     this.assertActive();
-    if (this.state === 'vercel')
-      return this.resolveRuntimeData(this.headerSource.request());
+    if (this.state === 'vercel') return this.resolveHeaderData();
     if (this.options.stream.enabled || this.options.polling.enabled) {
-      return this.resolveRuntimeData();
+      return this.cachedData(this.isConnected ? 'HIT' : 'STALE');
     }
     if (this.data) return [this.data, hadData ? 'STALE' : 'MISS'];
     return this.resolveDataWithFallbacks();
   }
 
-  private freshAt(): number {
-    if (!this.data) return -Infinity;
-    return Math.max(
-      this.data.fetchedAt ?? -Infinity,
-      this.confirmedAt,
-      this.state === 'vercel'
-        ? this.headerSource.confirmedAt(this.data)
-        : -Infinity,
+  private canServeCached(): boolean {
+    const window = this.options.staleIfErrorMs;
+    return (
+      this.unhealthySince === undefined ||
+      window === Infinity ||
+      (window > 0 && Date.now() - this.unhealthySince <= window)
     );
   }
 
-  /** Shared policy; sources own request context, transport and reconnection. */
-  private async resolveRuntimeData(
-    requestVersion?: (data: TaggedData | undefined) => number | undefined,
-  ): Promise<[TaggedData, Metrics['cacheStatus']]> {
-    const required = requestVersion?.(this.data);
-    const currentVersion = Number(this.data?.configUpdatedAt);
+  private cachedData(
+    status: Metrics['cacheStatus'],
+  ): [TaggedData, Metrics['cacheStatus']] {
+    this.assertActive();
+    if (!this.data || !this.canServeCached()) {
+      throw new Error(
+        '@vercel/flags-core: No eligible flag definitions available',
+      );
+    }
+    return [this.data, this.unhealthySince === undefined ? status : 'STALE'];
+  }
+
+  /** Header-specific revalidation stays independent of the outage grace period. */
+  private async resolveHeaderData(): Promise<
+    [TaggedData, Metrics['cacheStatus']]
+  > {
+    const requestVersion = this.headerSource.request();
+    const required = requestVersion(this.data);
+    if (this.data && this.headerSource.matches(this.data, required)) {
+      this.unhealthySince = undefined;
+    }
     if (
       this.data &&
-      ((this.isConnected && this.streamConfirmed) ||
-        this.headerSource.matches(this.data, required))
+      (required === undefined || Number(this.data.configUpdatedAt) >= required)
     ) {
-      return [this.data, 'HIT'];
+      return this.cachedData(required === undefined ? 'STALE' : 'HIT');
     }
-
-    const age = Date.now() - this.freshAt();
-    const swr = this.options.staleWhileRevalidateMs;
-    // Missing/older headers supply no new evidence or refresh requirement.
-    const canRefresh =
-      !requestVersion ||
-      !this.data ||
-      (required !== undefined && !(currentVersion >= required));
-    if (this.data && swr > 0 && age <= swr) {
-      if (canRefresh && requestVersion) this.refreshInBackground();
-      return [this.data, 'STALE'];
+    if (
+      this.data &&
+      this.canServeCached() &&
+      this.headerSource.canRevalidateInBackground(this.data)
+    ) {
+      this.refreshInBackground(requestVersion);
+      return this.cachedData('STALE');
     }
-
     try {
-      if (!canRefresh)
-        throw new Error('@vercel/flags-core: Freshness source unavailable');
-      await this.refresh();
+      const data = await this.refreshHeader(requestVersion);
       this.assertActive();
-      const version = requestVersion?.(this.data);
+      return [data, 'MISS'];
+    } catch (error) {
+      this.assertActive();
+      if (this.data && this.canServeCached()) return this.cachedData('STALE');
+      throw error;
+    }
+  }
+
+  private async refreshHeader(
+    requestVersion: (data: TaggedData | undefined) => number | undefined,
+  ): Promise<TaggedData> {
+    try {
+      await this.headerSource.refresh();
+      this.assertActive();
+      const required = requestVersion(this.data);
       if (
         !this.data ||
-        (version !== undefined &&
-          !(Number(this.data.configUpdatedAt) >= version))
+        (required !== undefined &&
+          !(Number(this.data.configUpdatedAt) >= required))
       ) {
         throw new Error(
           '@vercel/flags-core: Refresh did not satisfy the required version',
         );
       }
-      return [this.data, 'MISS'];
+      return this.data;
     } catch (error) {
-      this.assertActive();
-      const { staleIfErrorMs } = this.options;
-      if (
-        this.data &&
-        (staleIfErrorMs === Infinity ||
-          (Number.isFinite(this.freshAt()) &&
-            swr + staleIfErrorMs > 0 &&
-            Date.now() - this.freshAt() <= swr + staleIfErrorMs))
-      ) {
-        return [this.data, 'STALE'];
-      }
+      this.markUnhealthy();
       throw error;
     }
   }
 
-  private refresh(): Promise<void> {
-    if (this.refreshPromise) return this.refreshPromise;
-    const pending = this.refreshSource().finally(() => {
-      if (this.refreshPromise === pending) this.refreshPromise = undefined;
-    });
-    this.refreshPromise = pending;
-    return pending;
-  }
-
-  private async refreshSource(): Promise<void> {
-    this.assertActive();
-    if (this.state === 'vercel') {
-      const previous = this.data;
-      await this.headerSource.refresh();
-      this.assertActive();
-      if (this.data === previous)
-        throw new Error(
-          '@vercel/flags-core: Header refresh did not advance the cache',
-        );
-      return;
-    }
-    if (this.options.stream.enabled) {
-      if (!this.unauthorized) this.streamSource.reconnect();
-      throw new Error('@vercel/flags-core: Stream unavailable');
-    }
-    // A failed initial poll leaves unknown-age fallback unconfirmed. The
-    // interval continues recovery without repeating that failed init per read.
-    if (this.data && this.freshAt() === -Infinity && !this.pollConfirmed) {
-      throw new Error('@vercel/flags-core: Poll has not confirmed the cache');
-    }
-    const succeeded = await this.pollingSource.poll();
-    this.assertActive();
-    if (!succeeded || !this.pollConfirmed) {
-      throw new Error('@vercel/flags-core: Poll did not confirm the cache');
-    }
-    this.pollingSource.startInterval();
-    this.transition('polling');
-  }
-
-  private refreshInBackground(): void {
+  private refreshInBackground(
+    requestVersion: (data: TaggedData | undefined) => number | undefined,
+  ): void {
     if (this.backgroundRefresh) return;
-    const background = this.refresh()
+    const background = this.refreshHeader(requestVersion)
+      .then(() => {})
       .catch((error) => {
         if (this.state !== 'shutdown') {
           console.error(
@@ -642,6 +609,7 @@ export class Controller implements ControllerInterface {
         await this.streamSource.start();
         return true;
       } catch (error) {
+        this.markUnhealthy();
         if (error instanceof UnauthorizedError) {
           this.unauthorized = true;
         }
@@ -666,6 +634,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        this.markUnhealthy();
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
@@ -678,6 +647,7 @@ export class Controller implements ControllerInterface {
 
       return true;
     } catch (error) {
+      this.markUnhealthy();
       clearTimeout(timeoutId!);
       if (error instanceof Error && error.message.includes('401')) {
         this.unauthorized = true;
@@ -710,6 +680,7 @@ export class Controller implements ControllerInterface {
         }
         return false;
       } catch {
+        this.markUnhealthy();
         return false;
       }
     }
@@ -728,6 +699,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        this.markUnhealthy();
         console.warn(
           '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );
@@ -740,6 +712,7 @@ export class Controller implements ControllerInterface {
       }
       return false;
     } catch {
+      this.markUnhealthy();
       clearTimeout(timeoutId!);
       return false;
     }

@@ -55,17 +55,17 @@ export type ControllerOptions = {
   vercel?: boolean;
 
   /**
-   * How long runtime reads may serve stale data while refreshing, in milliseconds
-   * since the last evidence of freshness. Build/offline caches do not expire.
+   * How long header-driven reads may serve cached data while refreshing in the
+   * background, measured from its last fetch or matching version header.
    * Must be a finite, non-negative number. Set to 0 to always block on refresh.
    * @default 10000
    */
   staleWhileRevalidateMs?: number;
 
   /**
-   * Additional milliseconds of stale fallback after SWR when refresh fails or
-   * the source is unavailable. Infinity also permits unknown-age fallback data.
-   * Finite, non-negative values require a known freshness timestamp.
+   * Milliseconds to keep serving cached data after the first source failure or
+   * disconnect. Repeated failures do not extend this grace period; successful
+   * updates or confirmations reset it. Zero disables fallback on error.
    * @default Infinity
    */
   staleIfErrorMs?: number;

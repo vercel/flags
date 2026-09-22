@@ -89,8 +89,8 @@ type ControllerOptions = {
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   vercel?: boolean; // Use request headers at runtime; default process.env.VERCEL === '1'
-  staleWhileRevalidateMs?: number; // Runtime SWR in milliseconds; default 10_000
-  staleIfErrorMs?: number; // Additional milliseconds of error fallback; default Infinity
+  staleWhileRevalidateMs?: number; // Header SWR in milliseconds; default 10_000
+  staleIfErrorMs?: number; // Grace period after first failure/disconnect in milliseconds; default Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -116,7 +116,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 **Vercel runtime** (`vercel: true`, default when `VERCEL=1`, unless both streaming and polling are disabled):
 - Initialization loads provided or bundled definitions before selecting Vercel mode; it starts no streams or polls. An empty cache is fetched on the first read
-- Without a usable version header, cached data follows finite stale eligibility; only an empty cache fetches
+- Without a usable version header, cached data is served unless an existing outage grace period has expired; only an empty cache fetches
 - Matching headers confirm freshness; newer headers trigger background or blocking refreshes according to `staleWhileRevalidateMs`
 - `vercel: false` keeps the configured streaming/polling behavior even when version headers are present
 
@@ -247,7 +247,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
-- On disconnect: state transitions to `'degraded'`, records freshness and applies stale windows while the stream reconnects
+- On disconnect: state transitions to `'degraded'` and records the first failure time while the stream reconnects. Further failures do not extend the grace period.
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 - Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
@@ -270,7 +270,7 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 `tagData` copies data before attaching origin metadata. Public `fetchedAt` records successful network arrival for fetched, polled, or streamed data. Provided and bundled data preserve an existing finite, non-negative timestamp; missing or invalid timestamps leave freshness unknown. Serialization and public reads preserve `fetchedAt`; only internal origin metadata is stripped. Header observations belong only to `HeaderSource`, which keeps the highest observed header version and a single last-seen record for a matching cached version. Only a matching header at the highest observed version renews freshness, so older requests cannot undo a known invalidation. Both observations are cleared on stop.
 
-The controller owns shared SWR and stale-if-error decisions. Sources own I/O and header observations. See [cache freshness](./docs/cache-freshness.md) for options, evidence, boundaries, concurrent reads and recovery. Tests cover policy through public APIs; source tests cover header parsing, observations and transport cancellation.
+The controller keeps the last accepted data and one `unhealthySince` timestamp. First failure/disconnect starts the `staleIfErrorMs` grace period; subsequent failures preserve it, and accepted arrivals or confirmations clear it. Cache age is irrelevant to this error policy. Streaming/polling reads never initiate extra refreshes. Header-specific SWR remains independent. Sources own I/O and header observations. See [cache freshness](./docs/cache-freshness.md) for options, evidence, boundaries, concurrent reads and recovery. Tests cover policy through public APIs; source tests cover header parsing, observations and transport cancellation.
 
 ### Usage Tracking
 
@@ -294,7 +294,7 @@ The controller owns shared SWR and stale-if-error decisions. Sources own I/O and
 
 ### configUpdatedAt Guard
 
-The Controller uses `isNewerData` to prevent version regression. Unchanged successful polls confirm freshness without replacing data; older polls do not. Header fetches require a finite version and only accepted newer responses renew arrival freshness. Blocking header reads validate their own version requirement against the accepted cache, never return the rejected response directly, and apply stale-if-error on failure.
+The Controller uses `isNewerData` to prevent version regression. Unchanged successful polls clear the outage without replacing data; older polls do not. Header fetches require a finite version and only accepted newer responses renew arrival freshness. Blocking header reads validate their own version requirement against the accepted cache, never return the rejected response directly, and apply stale-if-error on failure.
 
 ### Evaluation Reporting
 

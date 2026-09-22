@@ -86,11 +86,6 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     }
   }
 
-  /** Keep reconnection in the source; disconnected reads use the error window. */
-  reconnect(): void {
-    void this.start().catch(() => {});
-  }
-
   /**
    * Stop the stream connection.
    */

@@ -489,7 +489,7 @@ describe('Vercel mode (black-box)', () => {
 
     expect(completedBeforeFetch).toBe(1);
     expect(hitResult.value).toBe(false);
-    expect(hitResult.metrics?.cacheStatus).toBe('STALE');
+    expect(hitResult.metrics?.cacheStatus).toBe('HIT');
     expect(blockingResult.value).toBe(true);
     expect(dataFetch).toHaveBeenCalledTimes(1);
   });
@@ -789,7 +789,7 @@ describe('Vercel mode (black-box)', () => {
     // An overlapping request still has the old header, but cannot undo invalidation.
     setVersion(TIMESTAMP);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'STALE',
+      'HIT',
     );
     vi.setSystemTime(TIMESTAMP + 10_001);
     setVersion(TIMESTAMP + 1);
