@@ -639,9 +639,98 @@ describe('Vercel mode (black-box)', () => {
     });
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
       metrics: expect.any(Object),
     });
     expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('uses persisted %s fetchedAt until its original freshness expires', async (origin) => {
+    const input = Object.freeze({
+      ...datafile(TIMESTAMP - 365 * 24 * 60 * 60 * 1_000),
+      fetchedAt: TIMESTAMP - 9_000,
+    });
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: input,
+      state: 'ok',
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+    });
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+
+    // A recent fetch, not the config's age or a matching header, permits SWR.
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    vi.setSystemTime(TIMESTAMP + 1_000);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    expect((await instance.getDatafile()).fetchedAt).toBe(TIMESTAMP - 9_000);
+
+    vi.setSystemTime(TIMESTAMP + 1_001);
+    const settled = vi.fn();
+    const blocking = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP, true)));
+    expect(await blocking).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(await instance.getDatafile()).toEqual({
+      ...datafile(TIMESTAMP, true),
+      fetchedAt: TIMESTAMP + 1_001,
+      metrics: expect.any(Object),
+    });
+    expect(input.fetchedAt).toBe(TIMESTAMP - 9_000);
+    expect(input).not.toHaveProperty('_origin');
+  });
+
+  it('preserves serialized fetchedAt in another client without making old data fresh', async () => {
+    const first = client({
+      datafile: undefined,
+      stream: false,
+      polling: false,
+    });
+    mockDatafileResponse(TIMESTAMP, true);
+    const fetched = await first.getDatafile();
+    expect(fetched.fetchedAt).toBe(TIMESTAMP);
+    expect(fetched).not.toHaveProperty('_fetchedAt');
+    expect(fetched).not.toHaveProperty('_origin');
+    const later = TIMESTAMP + 365 * 24 * 60 * 60 * 1_000;
+    vi.setSystemTime(later);
+    const second = client({ datafile: JSON.parse(JSON.stringify(fetched)) });
+    expect((await second.getDatafile()).fetchedAt).toBe(TIMESTAMP);
+
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const settled = vi.fn();
+    const blocking = second.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, false)));
+    expect(await blocking).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect((await second.getDatafile()).fetchedAt).toBe(later);
+    expect(fetched.fetchedAt).toBe(TIMESTAMP);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -836,6 +925,7 @@ describe('Vercel mode (black-box)', () => {
     });
     expect(await instance.getDatafile()).toEqual({
       ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
       metrics: expect.any(Object),
     });
 

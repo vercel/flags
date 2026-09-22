@@ -92,7 +92,7 @@ afterEach(() => {
 });
 
 describe('HeaderSource', () => {
-  it('strips freshness metadata from controller read and getDatafile views', async () => {
+  it('exposes fetchedAt without internal metadata in controller views', async () => {
     setVersion(CURRENT_TIMESTAMP + 20_000);
     const controller = new Controller({
       auth,
@@ -108,6 +108,7 @@ describe('HeaderSource', () => {
       ]) {
         expect(view).toStrictEqual({
           ...datafile(CURRENT_TIMESTAMP + 20_000),
+          fetchedAt: CURRENT_TIMESTAMP,
           metrics: expect.any(Object),
         });
       }
@@ -320,7 +321,7 @@ describe('HeaderSource', () => {
       expect(onData).not.toHaveBeenCalled();
       pending.resolve(fresh);
       await expect(read).resolves.toEqual([
-        { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
+        { ...fresh, _origin: 'fetched', fetchedAt: CURRENT_TIMESTAMP },
         'MISS',
       ]);
       expect(fetchDatafile).toHaveBeenCalledTimes(1);
@@ -357,16 +358,21 @@ describe('HeaderSource', () => {
     vi.mocked(fetchDatafile).mockReturnValueOnce(pending.promise);
     const read = source.read(current);
 
-    expect(current._fetchedAt).toBeUndefined();
+    expect(current.fetchedAt).toBeUndefined();
     vi.setSystemTime(CURRENT_TIMESTAMP + 5_000);
     const fetched = datafile(CURRENT_TIMESTAMP + 20_000);
     pending.resolve(fetched);
     const result = await read;
 
-    expect(result?.[0]).toBe(fetched);
-    expect(result?.[0]._fetchedAt).toBe(CURRENT_TIMESTAMP + 5_000);
+    expect(result?.[0]).toEqual({
+      ...fetched,
+      _origin: 'fetched',
+      fetchedAt: CURRENT_TIMESTAMP + 5_000,
+    });
+    expect(fetched).not.toHaveProperty('fetchedAt');
+    expect(result?.[0].fetchedAt).toBe(CURRENT_TIMESTAMP + 5_000);
     expect(result?.[1]).toBe('MISS');
-    expect(current._fetchedAt).toBeUndefined();
+    expect(current.fetchedAt).toBeUndefined();
     expect(current.configUpdatedAt).toBe(CURRENT_TIMESTAMP);
     expect(fetchDatafile).toHaveBeenCalledTimes(1);
   });
@@ -390,7 +396,7 @@ describe('HeaderSource', () => {
       const results = await Promise.all(reads);
       for (const result of results) {
         expect(result).toEqual([
-          { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
+          { ...fresh, _origin: 'fetched', fetchedAt: CURRENT_TIMESTAMP },
           'MISS',
         ]);
       }
@@ -501,7 +507,7 @@ describe('HeaderSource', () => {
         {
           ...newer,
           _origin: 'fetched',
-          _fetchedAt: CURRENT_TIMESTAMP + 10_001,
+          fetchedAt: CURRENT_TIMESTAMP + 10_001,
         },
         'MISS',
       ]);
@@ -520,7 +526,7 @@ describe('HeaderSource', () => {
       expect(onData).not.toHaveBeenCalled();
 
       await expect(source.read(current)).resolves.toEqual([
-        { ...fresh, _origin: 'fetched', _fetchedAt: CURRENT_TIMESTAMP },
+        { ...fresh, _origin: 'fetched', fetchedAt: CURRENT_TIMESTAMP },
         'MISS',
       ]);
       expect(fetchDatafile).toHaveBeenCalledTimes(2);

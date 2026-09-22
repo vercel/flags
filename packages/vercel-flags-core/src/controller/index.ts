@@ -94,7 +94,7 @@ type State =
  * - A matching header confirms the cached version's freshness
  * - For newer headers, revalidates in the background within staleWhileRevalidateMs
  *   of the latest successful fetch or matching header; otherwise blocks
- * - Bundled/provided data has unknown freshness until confirmed or fetched
+ * - Bundled/provided data preserves fetchedAt, or has unknown freshness without it
  *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
@@ -350,7 +350,7 @@ export class Controller implements ControllerInterface {
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
 
     if (this.dataViewSource !== result) {
-      const { _origin, _fetchedAt, ...rest } = result;
+      const { _origin, ...rest } = result;
       this.dataViewBase = rest;
       this.dataViewSource = result;
     }
@@ -431,7 +431,7 @@ export class Controller implements ControllerInterface {
     const source = originToMetricsSource(result._origin);
 
     if (this.dataViewSource !== result) {
-      const { _origin, _fetchedAt, ...rest } = result;
+      const { _origin, ...rest } = result;
       this.dataViewBase = rest;
       this.dataViewSource = result;
     }

@@ -88,7 +88,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     }
 
     const freshAt = Math.max(
-      currentData._fetchedAt ?? -Infinity,
+      currentData.fetchedAt ?? -Infinity,
       this.lastSeen?.version === currentUpdatedAt
         ? this.lastSeen.at
         : -Infinity,
