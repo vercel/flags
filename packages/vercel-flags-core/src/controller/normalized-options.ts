@@ -46,11 +46,12 @@ export type ControllerOptions = {
   polling?: boolean | PollingOptions;
 
   /**
-   * How long runtime polling evaluations may use cached data after the first
-   * consecutive poll error. Accepts nonnegative milliseconds or Infinity.
+   * How long runtime reads may use cached data after the first consecutive
+   * stream/poll failure or stream disconnect. Accepts nonnegative milliseconds or Infinity.
    * Zero disables fallback immediately; positive windows include the deadline.
-   * Successful accepted or same-version/identity polls reset the allowance.
-   * Does not affect streaming, build/offline reads, or getDatafile().
+   * Accepted updates, matching versions, or matching stream primed revisions
+   * reset the allowance. Applies to evaluations and getDatafile().
+   * Build/offline behavior is unchanged.
    * @default Infinity
    */
   staleIfErrorMs?: number;

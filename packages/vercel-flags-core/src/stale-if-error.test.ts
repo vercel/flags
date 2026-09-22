@@ -161,10 +161,14 @@ describe('polling stale-if-error through the public API', () => {
       flagA: fallback,
       missing: { ...fallback, value: undefined },
     });
+    await expect(instance.getDatafile()).rejects.toBe(first);
+    expect(poll).toHaveBeenCalledTimes(3);
+    poll.mockResolvedValueOnce(response(data()));
+    await vi.advanceTimersByTimeAsync(29_999);
     const retained = await instance.getDatafile();
     expect(retained).toEqual(snapshot);
     expect(retained.definitions).toBe(snapshot.definitions);
-    expect(poll).toHaveBeenCalledTimes(3);
+    expect(poll).toHaveBeenCalledTimes(4);
     expectErrors(first, repeated);
   });
 
@@ -197,9 +201,10 @@ describe('polling stale-if-error through the public API', () => {
       staleIfErrorMs: 0,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
-    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
-    expect(Date.now()).toBe(0);
     const snapshot = await instance.getDatafile();
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    await expect(instance.getDatafile()).rejects.toBe(failure);
+    expect(Date.now()).toBe(0);
     expect(snapshot.definitions).toBe(supplied.definitions);
     expect(snapshot.metrics.source).toBe(
       seed === 'provided' ? 'in-memory' : 'embedded',
@@ -299,10 +304,14 @@ describe('polling stale-if-error through the public API', () => {
       .mockResolvedValue(response(data(override)));
     await vi.advanceTimersByTimeAsync(60_000);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    await expect(instance.getDatafile()).rejects.toBe(failure);
+    expect(poll).toHaveBeenCalledTimes(3);
+    poll.mockResolvedValueOnce(response(data()));
+    await vi.advanceTimersByTimeAsync(30_000);
     expect((await instance.getDatafile()).definitions).toBe(
       snapshot.definitions,
     );
-    expect(poll).toHaveBeenCalledTimes(3);
+    expect(poll).toHaveBeenCalledTimes(4);
     expectErrors(failure);
   });
 
@@ -383,9 +392,7 @@ describe('polling stale-if-error through the public API', () => {
     // Main permits reinitialization but does not rewire source events.
     // Restoring a seed must not turn that limitation into a policy bypass.
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
-    expect((await instance.getDatafile()).definitions).toBe(
-      supplied.definitions,
-    );
+    await expect(instance.getDatafile()).rejects.toBe(failure);
     expect(poll).toHaveBeenCalledTimes(2);
     expectErrors(failure);
   });
@@ -421,7 +428,7 @@ describe('polling stale-if-error through the public API', () => {
     expectErrors(failure, secondFailure);
   });
 
-  it('retains streaming policy with zero even when polling is configured', async () => {
+  it('keeps healthy streaming data with zero even when polling is configured', async () => {
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(
@@ -441,16 +448,23 @@ describe('polling stale-if-error through the public API', () => {
     expect(poll).not.toHaveBeenCalled();
   });
 
-  it('preserves streaming fallback on an initial error with a zero polling allowance', async () => {
+  it('applies zero allowance to an initial stream error without starting polling', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
     const instance = client({
       stream: true,
       datafile: data(),
       staleIfErrorMs: 0,
     });
-    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await expect(instance.evaluate('flagA')).rejects.toThrow(
+      'stream: unauthorized (401)',
+    );
     await vi.advanceTimersByTimeAsync(60_000);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await expect(instance.evaluate('flagA')).rejects.toThrow(
+      'stream: unauthorized (401)',
+    );
+    await expect(instance.getDatafile()).rejects.toThrow(
+      'stream: unauthorized (401)',
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(poll).not.toHaveBeenCalled();
   });
