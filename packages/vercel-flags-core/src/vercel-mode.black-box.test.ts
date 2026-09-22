@@ -354,13 +354,10 @@ describe('Vercel mode (black-box)', () => {
     );
   });
 
-  it.each([
-    HEADER,
-    'flags-config-versions',
-  ])('initializes and refreshes using %s', async (headerName) => {
+  it('initializes and refreshes using the Vercel header', async () => {
     cleanupContext();
     cleanupContext = setRequestContext({
-      [headerName]: `flags_${PROJECT_ID}=${TIMESTAMP}`,
+      [HEADER]: `flags_${PROJECT_ID}=${TIMESTAMP}`,
     });
     const instance = client();
 
@@ -374,7 +371,7 @@ describe('Vercel mode (black-box)', () => {
 
     cleanupContext();
     cleanupContext = setRequestContext({
-      [headerName]: `flags_${PROJECT_ID}=${TIMESTAMP + 20_000}`,
+      [HEADER]: `flags_${PROJECT_ID}=${TIMESTAMP + 20_000}`,
     });
     dataFetch.mockResolvedValueOnce(
       Response.json(datafile(TIMESTAMP + 20_000, true)),

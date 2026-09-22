@@ -83,26 +83,12 @@ afterEach(() => {
 });
 
 describe('HeaderSource', () => {
-  it.each([
-    HEADER,
-    'flags-config-versions',
-  ])('reads %s and selects the exact project', async (name) => {
+  it('reads the Vercel header and selects the exact project', async () => {
     setHeader(
       `flags_other=${V1 + 1}; flags_${PROJECT}_suffix=${V1 + 1}; flags_${PROJECT}=${V1}`,
-      name,
+      HEADER,
     );
     expect(await source.read()).toEqual([current, 'HIT']);
-    expect(fetchDatafile).not.toHaveBeenCalled();
-  });
-  it('prefers the x-vercel header', async () => {
-    vi.mocked(getRequestContext).mockReturnValue({
-      ctx: {},
-      headers: {
-        [HEADER]: `flags_${PROJECT}=${V1}`,
-        'flags-config-versions': `flags_${PROJECT}=${V1 + 1}`,
-      },
-    });
-    expect((await source.read())[1]).toBe('HIT');
     expect(fetchDatafile).not.toHaveBeenCalled();
   });
   it.each([

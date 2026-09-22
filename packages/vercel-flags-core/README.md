@@ -40,8 +40,7 @@ uses request-header invalidation instead. `initialize()` does not load data,
 open a stream, or start polling, so it is safe during the Lambda INIT phase.
 Reads lazily load provided/bundled definitions or fetch a datafile.
 
-The `x-vercel-flags-config-versions` header (with `flags-config-versions` as an
-alias) supplies a project-specific minimum version. Both evaluation and
+The `x-vercel-flags-config-versions` header supplies a project-specific minimum version. Both evaluation and
 `getDatafile()` apply it. Without a usable header, reads serve cached data;
 only an empty cache causes a fetch. Outside Vercel, the configured streaming
 or polling strategy remains in effect. Disabling both selects offline mode

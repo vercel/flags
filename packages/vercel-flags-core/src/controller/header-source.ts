@@ -184,9 +184,7 @@ export class HeaderSource {
   async read(): Promise<[TaggedData, Metrics['cacheStatus']]> {
     const headers = getRequestContext().headers;
     // Capture request context before any await, including a cold-cache fetch.
-    const header =
-      headers?.['x-vercel-flags-config-versions'] ??
-      headers?.['flags-config-versions'];
+    const header = headers?.['x-vercel-flags-config-versions'];
     let required = this.observe(header);
     let fetched = false;
     let previous: Refresh | undefined;
