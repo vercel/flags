@@ -10,6 +10,7 @@ import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
+import { DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import {
   type ControllerOptions,
@@ -96,7 +97,11 @@ export class Controller implements ControllerInterface {
   private state: State = 'idle';
 
   // Data state — tagged with origin
-  private data: TaggedData | undefined;
+  private readonly cache = new DatafileCache();
+
+  private get data(): TaggedData | undefined {
+    return this.cache.get();
+  }
 
   // Memoized data spread for read() / getDatafile().
   // Rebuilt only when `this.data` reference changes (e.g. on stream/poll update).
@@ -141,7 +146,7 @@ export class Controller implements ControllerInterface {
 
     // If datafile provided, use it immediately
     if (this.options.datafile) {
-      this.data = tagData(this.options.datafile, 'provided');
+      this.cache.set(tagData(this.options.datafile, 'provided'));
     }
 
     this.usageTracker = new UsageTracker(this.options);
@@ -150,7 +155,7 @@ export class Controller implements ControllerInterface {
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
     if (this.isNewerData(data)) {
-      this.data = tagData(data, 'stream');
+      this.cache.set(tagData(data, 'stream'));
     }
   };
   private onStreamPrimed = () => {
@@ -172,7 +177,7 @@ export class Controller implements ControllerInterface {
   };
   private onPollData = (data: DatafileInput) => {
     if (this.isNewerData(data)) {
-      this.data = tagData(data, 'poll');
+      this.cache.set(tagData(data, 'poll'));
     }
   };
   private onPollError = (error: Error) => {
@@ -247,7 +252,7 @@ export class Controller implements ControllerInterface {
 
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
     if (!this.data && this.options.datafile) {
-      this.data = tagData(this.options.datafile, 'provided');
+      this.cache.set(tagData(this.options.datafile, 'provided'));
     }
 
     // If no data yet, try loading bundled definitions eagerly so we can
@@ -257,7 +262,7 @@ export class Controller implements ControllerInterface {
       try {
         const bundled = await this.bundledSource.tryLoad();
         if (bundled) {
-          this.data = tagData(bundled, 'bundled');
+          this.cache.set(tagData(bundled, 'bundled'));
         }
       } catch {
         // Bundled definitions not available — proceed without revision
@@ -344,9 +349,10 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
-    this.data = this.options.datafile
-      ? tagData(this.options.datafile, 'provided')
-      : undefined;
+    this.cache.clear();
+    if (this.options.datafile) {
+      this.cache.set(tagData(this.options.datafile, 'provided'));
+    }
     this.transition('shutdown');
     await this.usageTracker.shutdown();
   }
@@ -372,8 +378,7 @@ export class Controller implements ControllerInterface {
       // No in-memory data — try bundled, then one-time fetch
       const bundled = await this.bundledSource.tryLoad();
       if (bundled) {
-        this.data = tagData(bundled, 'bundled');
-        result = this.data;
+        result = this.cache.set(tagData(bundled, 'bundled'));
         cacheStatus = 'MISS';
       } else {
         // One-time fetch as last resort
@@ -383,8 +388,7 @@ export class Controller implements ControllerInterface {
             auth: this.options.auth,
             fetch: this.options.fetch,
           });
-          this.data = tagData(fetched, 'fetched');
-          result = this.data;
+          result = this.cache.set(tagData(fetched, 'fetched'));
           cacheStatus = 'MISS';
         } catch {
           throw new Error(
@@ -577,7 +581,7 @@ export class Controller implements ControllerInterface {
     if (!this.buildDataPromise) {
       this.buildDataPromise = this.loadBuildData();
     }
-    this.data = await this.buildDataPromise;
+    this.cache.set(await this.buildDataPromise);
   }
 
   /**
@@ -599,7 +603,7 @@ export class Controller implements ControllerInterface {
     const data = await this.buildDataPromise;
 
     if (!this.data) {
-      this.data = data;
+      this.cache.set(data);
       return [data, 'MISS'];
     }
     return [this.data, 'HIT'];
@@ -647,7 +651,7 @@ export class Controller implements ControllerInterface {
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
-      this.data = tagData(bundled, 'bundled');
+      this.cache.set(tagData(bundled, 'bundled'));
       this.transition('degraded');
       return;
     }
@@ -660,7 +664,7 @@ export class Controller implements ControllerInterface {
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
-        this.data = tagData(fetched, 'fetched');
+        this.cache.set(tagData(fetched, 'fetched'));
         this.transition('degraded');
         return;
       } catch {
@@ -704,17 +708,17 @@ export class Controller implements ControllerInterface {
     this.transition('initializing:fallback');
 
     if (this.options.datafile) {
-      this.data = tagData(this.options.datafile, 'provided');
+      const data = this.cache.set(tagData(this.options.datafile, 'provided'));
       this.transition('degraded');
-      return [this.data, 'STALE'];
+      return [data, 'STALE'];
     }
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
-      this.data = tagData(bundled, 'bundled');
+      const data = this.cache.set(tagData(bundled, 'bundled'));
       this.transition('degraded');
-      return [this.data, 'STALE'];
+      return [data, 'STALE'];
     }
 
     // Last resort: one-time fetch (only when no stream/poll configured)
@@ -725,9 +729,9 @@ export class Controller implements ControllerInterface {
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
-        this.data = tagData(fetched, 'fetched');
+        const data = this.cache.set(tagData(fetched, 'fetched'));
         this.transition('degraded');
-        return [this.data, 'MISS'];
+        return [data, 'MISS'];
       } catch {
         // fetch failed — fall through to throw
       }
