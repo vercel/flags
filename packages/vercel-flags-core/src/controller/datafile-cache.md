@@ -20,18 +20,26 @@ flowchart LR
 All modes use the same storage. Polling is the only mode with new serving policy:
 
 1. `onPollData` applies the existing version predicate and tags accepted data.
-   It stores accepted data with `set()` and confirms the resulting cache entry.
-   A valid equal-version response confirms without replacing the entry.
+   It stores accepted data with `set()` and calls `confirm()` to report success.
+   For responses that do not replace storage, `tryConfirm(response)` checks the
+   cached version and project/environment inside the cache. A valid equal-version
+   response clears failure without replacing the entry.
 2. `onPollError` calls `fail()`, retaining the first consecutive error and time.
 3. Runtime polling evaluations use `read(staleIfErrorMs)` at the shared controller
    read boundary. The cache enforces the allowance and retains expired data.
 4. A valid confirmation clears the failure; a later error starts a new allowance.
 
 `set()` and `clear()` affect storage only. Loading a provided or bundled seed does
-not confirm freshness, erase an outage, or renew its deadline. `confirm(snapshot)`
-requires the current entry token; each storage write gets a new token, even when
-reusing a data object. Confirmation for an older entry cannot clear a replacement
-entry's failure. No separate mutable `isFresh` flag is needed.
+not confirm freshness, erase an outage, or renew its deadline. `confirm()` reports
+an accepted source update immediately after storage. `tryConfirm(response)` handles
+unchanged versions: it requires equal finite versions and matching project/environment,
+so an older response cannot clear a newer cached version's failure. Object identity
+alone is not freshness evidence. No separate mutable `isFresh` flag is needed.
+
+Accepted updates have an explicit success path because the existing acceptance
+rules also allow missing or unparseable versions. Treating those as equal-version
+confirmations would change behavior. Both confirmation operations live in the cache;
+the controller has no confirmation predicate or snapshot round trip.
 
 There is no age-based expiry between successful polls and no read-triggered poll.
 Positive finite SIE windows include the exact deadline; zero disables fallback
