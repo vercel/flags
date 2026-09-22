@@ -5,6 +5,7 @@ import {
   createClient,
   type FlagsClient,
 } from './index.default';
+import { deferred } from './test-utils';
 import { readBundledDefinitions } from './utils/read-bundled-definitions';
 
 vi.mock('./utils/read-bundled-definitions', () => ({
@@ -29,13 +30,6 @@ function datafile(
       },
     },
   };
-}
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
 }
 function stream() {
   let writer!: ReadableStreamDefaultController<Uint8Array>;

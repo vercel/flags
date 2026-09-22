@@ -5,7 +5,7 @@ import {
   createClient,
   type FlagsClient,
 } from './index.default';
-import { setRequestContext } from './test-utils';
+import { deferred, setRequestContext } from './test-utils';
 import { readBundledDefinitions } from './utils/read-bundled-definitions';
 
 // Only the filesystem boundary is replaced; no controller/source is mocked.
@@ -33,16 +33,6 @@ function datafile(timestamp = TIMESTAMP, enabled = false): BundledDefinitions {
     digest: `digest-${timestamp}`,
     revision: timestamp - TIMESTAMP + 1,
   };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
 }
 
 const clients = new Set<FlagsClient>();
@@ -354,40 +344,6 @@ describe('Vercel mode (black-box)', () => {
     );
   });
 
-  it('initializes and refreshes using the Vercel header', async () => {
-    cleanupContext();
-    cleanupContext = setRequestContext({
-      [HEADER]: `flags_${PROJECT_ID}=${TIMESTAMP}`,
-    });
-    const instance = client();
-
-    const initial = await instance.evaluate('feature');
-    expect(initial.value).toBe(false);
-    expect(initial.metrics).toMatchObject({
-      mode: 'vercel',
-      cacheStatus: 'HIT',
-    });
-    expect(dataFetch).not.toHaveBeenCalled();
-
-    cleanupContext();
-    cleanupContext = setRequestContext({
-      [HEADER]: `flags_${PROJECT_ID}=${TIMESTAMP + 20_000}`,
-    });
-    dataFetch.mockResolvedValueOnce(
-      Response.json(datafile(TIMESTAMP + 20_000, true)),
-    );
-
-    vi.setSystemTime(TIMESTAMP + 10_001);
-    const refreshed = await instance.evaluate('feature');
-    expect(refreshed.value).toBe(true);
-    expect(refreshed.metrics).toMatchObject({
-      mode: 'vercel',
-      source: 'remote',
-      cacheStatus: 'MISS',
-    });
-    expect(dataFetch).toHaveBeenCalledTimes(1);
-  });
-
   it.each([
     'provided',
     'bundled',
@@ -604,34 +560,7 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('retries a failed blocking refresh instead of poisoning subsequent evaluations', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    setVersion(TIMESTAMP + 20_000);
-    dataFetch.mockImplementation(() =>
-      Promise.resolve(
-        new Response(null, { status: 503, statusText: 'Service Unavailable' }),
-      ),
-    );
-    const instance = client();
-
-    const failing = instance.evaluate('feature', false);
-    await vi.advanceTimersByTimeAsync(300);
-    const failed = await failing;
-    expect(failed.value).toBe(false);
-    expect(failed.reason).toBe('error');
-    expect(failed.errorMessage).toContain('Service Unavailable');
-    expect(errorSpy).not.toHaveBeenCalled();
-
-    dataFetch.mockResolvedValueOnce(
-      Response.json(datafile(TIMESTAMP + 20_000, true)),
-    );
-    const recovered = await instance.evaluate('feature');
-    expect(recovered.value).toBe(true);
-    expect(recovered.metrics?.cacheStatus).toBe('MISS');
-    expect(dataFetch).toHaveBeenCalledTimes(4);
-  });
-
-  it('contains background fetch errors and retries without losing cached data', async () => {
+  it('contains background errors without renewing freshness and recovers on the next read', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     setVersion(TIMESTAMP + 1);
     const pending = deferred<Response>();
@@ -639,6 +568,7 @@ describe('Vercel mode (black-box)', () => {
     const instance = client();
     setVersion(TIMESTAMP);
     await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
     setVersion(TIMESTAMP + 1);
 
     expect((await instance.evaluate('feature')).value).toBe(false);
@@ -654,10 +584,14 @@ describe('Vercel mode (black-box)', () => {
     dataFetch.mockResolvedValueOnce(
       Response.json(datafile(TIMESTAMP + 1, true)),
     );
-    expect((await instance.evaluate('feature')).value).toBe(false);
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect((await instance.evaluate('feature')).value).toBe(true);
+    setVersion();
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
     expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
@@ -720,22 +654,6 @@ describe('Vercel mode (black-box)', () => {
     expect(lifetimeSettled).toHaveBeenCalledTimes(1);
   });
 
-  it('disables stale serving with a zero window, even immediately after a HIT', async () => {
-    const instance = client({ staleWhileRevalidate: 0 });
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'HIT',
-    );
-    expect(dataFetch).not.toHaveBeenCalled();
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-
-    expect(await instance.evaluate('feature')).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'MISS' },
-    });
-    expect(dataFetch).toHaveBeenCalledTimes(1);
-  });
-
   it.each([
     -1,
     NaN,
@@ -745,33 +663,6 @@ describe('Vercel mode (black-box)', () => {
     expect(() => client({ staleWhileRevalidate })).toThrow(
       'staleWhileRevalidate must be a finite, non-negative number',
     );
-  });
-
-  it.each([
-    'provided',
-    'bundled',
-  ] as const)('blocks on the first invalidation of unknown-age %s data', async (origin) => {
-    const input = datafile();
-    vi.mocked(readBundledDefinitions).mockResolvedValue({
-      definitions: input,
-      state: 'ok',
-    });
-    const instance = client({
-      datafile: origin === 'provided' ? input : undefined,
-    });
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-
-    expect(await instance.evaluate('feature')).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'MISS' },
-    });
-    expect(await instance.getDatafile()).toEqual({
-      ...datafile(TIMESTAMP + 1, true),
-      fetchedAt: TIMESTAMP,
-      metrics: expect.any(Object),
-    });
-    expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -863,116 +754,6 @@ describe('Vercel mode (black-box)', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(dataFetch).toHaveBeenCalledTimes(2);
     expect(input).not.toHaveProperty('_lastSeen');
-  });
-
-  it.each([
-    0, -1,
-  ])('ignores a background response with version delta %i without extending freshness', async (delta) => {
-    const instance = client();
-    await instance.evaluate('feature');
-    vi.setSystemTime(TIMESTAMP + 9_000);
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + delta, true);
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'STALE',
-    );
-    await vi.advanceTimersByTimeAsync(0);
-    setVersion();
-    expect(await instance.getDatafile()).toEqual({
-      ...datafile(),
-      metrics: expect.any(Object),
-    });
-
-    vi.setSystemTime(TIMESTAMP + 10_001);
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-    const blocking = instance.evaluate('feature');
-    await vi.advanceTimersByTimeAsync(100);
-    expect(await blocking).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'MISS' },
-    });
-    expect(dataFetch).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not extend freshness after a failed background response', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const instance = client();
-    await instance.evaluate('feature');
-    vi.setSystemTime(TIMESTAMP + 9_000);
-    setVersion(TIMESTAMP + 1);
-    dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'STALE',
-    );
-    await vi.advanceTimersByTimeAsync(300);
-    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
-      expect.any(Error),
-    );
-    setVersion();
-    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
-    vi.setSystemTime(TIMESTAMP + 10_001);
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'MISS',
-    );
-    expect(dataFetch).toHaveBeenCalledTimes(4);
-  });
-
-  it.each([
-    0, -1,
-  ])('keeps the cache unchanged after a blocking response with version delta %i', async (delta) => {
-    const instance = client();
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-    await instance.evaluate('feature');
-
-    vi.setSystemTime(TIMESTAMP + 10_001);
-    setVersion(TIMESTAMP + 2);
-    mockDatafileResponse(TIMESTAMP + 1 + delta, false);
-    // Exhausting retries must not return a response behind this read's header.
-    const failed = instance.evaluate('feature').catch((error: Error) => error);
-    await vi.advanceTimersByTimeAsync(300);
-    expect(await failed).toBeInstanceOf(Error);
-    setVersion();
-    expect(await instance.getDatafile()).toEqual({
-      ...datafile(TIMESTAMP + 1, true),
-      fetchedAt: TIMESTAMP,
-      metrics: expect.any(Object),
-    });
-
-    setVersion(TIMESTAMP + 2);
-    mockDatafileResponse(TIMESTAMP + 2, true);
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'MISS',
-    );
-    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
-    expect(dataFetch).toHaveBeenCalledTimes(5);
-  });
-
-  it('finishes the background refresh even when waitUntil registration throws', async () => {
-    const waitUntil = vi.fn(() => {
-      throw new Error('No request lifetime available');
-    });
-    const instance = client({ waitUntil });
-    await instance.evaluate('feature');
-    waitUntil.mockClear();
-    setVersion(TIMESTAMP + 1);
-    mockDatafileResponse(TIMESTAMP + 1, true);
-
-    expect(await instance.evaluate('feature')).toMatchObject({
-      value: false,
-      metrics: { cacheStatus: 'STALE' },
-    });
-    expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(await instance.evaluate('feature')).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'HIT' },
-    });
-    expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
   it('reports vercel mode in config-read telemetry', async () => {

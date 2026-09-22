@@ -260,23 +260,14 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` returns a copy with origin metadata; it does not mutate shared inputs. Public `fetchedAt` records successful network arrival in Unix milliseconds for fetched, polled, or streamed data. Generated bundles record fetch completion time. Provided/bundled data retains its original valid timestamp; loading never resets it. Missing/invalid timestamps mean unknown freshness. Public reads preserve `fetchedAt` for serialization and strip only internal origin metadata.
+`tagData` copies inputs, stamps network arrivals with public `fetchedAt`, and preserves optional bundled/provided timestamps. Public reads strip only `_origin`. See [cache freshness](./docs/cache-freshness.md) for the user-facing policy, defaults, and error behavior.
 
-On Vercel (`VERCEL=1`) with stream or polling enabled, initialization performs no I/O. Reads lazily load bundled data and use `HeaderSource`; no stream or polling timer is started. Missing/invalid headers serve cached data, fetching only when empty. Disabling both update mechanisms preserves offline behavior.
+### Refresh implementation
 
-`HeaderSource` accesses the controller-owned cache via callbacks. It retains the highest observed header version and one matching-version observation, without a version-history map. Older matching headers cannot renew freshness after a newer version has been observed. Only a strictly newer fetched version replaces the cache and renews `fetchedAt`.
-
-`staleWhileRevalidate` (default 60 seconds) measures eligibility from the later of fetch arrival and accepted matching-header observation. `staleIfError` (default Infinity) extends that window on refresh failure. Zero SWR disables background stale serving; zero staleIfError adds no extra window. Unknown-age data cannot use finite windows, but Infinity allows any available cached, bundled, or provided data on error.
-
-A shared refresh cycle makes up to three attempts, with 100ms/200ms backoff and a ten-second deadline covering token resolution, transport, and body parsing. Each attempt snapshots its target version and compares it with the actual response. Each read captures its own minimum version; notifications after responses release satisfied readers without waiting for newer concurrent requirements. Remaining work is registered with `waitUntil`. Shutdown aborts pending work, and late responses cannot mutate the cache.
-
-### Regular streaming and polling freshness
-
-The controller tracks confirmation time separately from `fetchedAt` and measures freshness from their maximum. Persisted fetch time qualifies provided/bundled data for finite windows even after initialization fails. An unchanged successful poll renews confirmation; an older response does not. Scheduled polls and reads share transport and failures. Reads within SWR use cache while polling continues; older reads wait for a poll and can fall back only inside the combined SWR + staleIfError window.
-
-A connected stream is continuously fresh. Disconnection records the beginning of the stale window. Beyond SWR, concurrent reads share a ten-second wait for a new connection confirmation, not the already-settled initialization promise. `primed` and datafile events release readers. Timeout leaves reconnection running; shutdown cancels waiting readers without serving stale data.
-
-The default infinite staleIfError allows unconfirmed provided/bundled data after initialization failure. Explicit finite windows require known freshness. If no data is available, or a finite window expires, evaluation defaults or throws accordingly. Build and offline modes retain static cache behavior. Vercel reads without a usable header still serve existing cache as specified above.
+- `HeaderSource` accesses controller-owned data through callbacks and tracks the highest observed version plus one matching observation. Each attempt snapshots its target; each read retains its own minimum version. Response notifications release satisfied reads while the shared cycle catches up. `waitUntil` retains background work.
+- The controller tracks runtime `confirmedAt` separately from persisted `fetchedAt`. Unchanged polls confirm freshness; regressed responses do not. Stream disconnects record confirmation time.
+- Reconnection waits must observe a new `connected` event, not the settled initialization promise. `primed` and datafile events confirm connections. Timeouts leave reconnection running.
+- Deadlines include authentication and body parsing. Shutdown cancels pending reads without stale fallback, and late responses cannot update the cache.
 
 ### Usage Tracking
 

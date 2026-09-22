@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { deferred } from '../test-utils';
 import type { BundledDefinitions } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { fetchDatafile } from './fetch-datafile';
@@ -22,15 +23,6 @@ function datafile(configUpdatedAt = V1): BundledDefinitions {
     digest: `digest-${configUpdatedAt}`,
     revision: configUpdatedAt,
   };
-}
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
 }
 function setHeader(value?: string, name = HEADER) {
   vi.mocked(getRequestContext).mockReturnValue({
@@ -155,6 +147,7 @@ describe('HeaderSource', () => {
   });
   it('releases each zero-SWR reader when its own requirement is met', async () => {
     setup({ staleWhileRevalidate: 0 });
+    expect((await source.read())[1]).toBe('HIT');
     const first = deferred<BundledDefinitions>();
     const second = deferred<BundledDefinitions>();
     vi.mocked(fetchDatafile)
