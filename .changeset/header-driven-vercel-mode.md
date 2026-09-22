@@ -3,8 +3,8 @@
 "@vercel/prepare-flags-definitions": patch
 ---
 
-Add header-driven cache invalidation on Vercel, with lazy initialization and shared, bounded revalidation that honors each concurrent read's required version. Headerless reads use cache, fetching only if empty; disabling streaming and polling retains offline behavior.
+Flag updates on Vercel can now reach your application on the next request, without waiting for a polling interval or maintaining a streaming connection. When streaming or polling is enabled, the client automatically uses Vercel's request headers to detect changes. Concurrent reads share refreshes, avoiding duplicate requests and unnecessary waiting.
 
-Add `staleWhileRevalidate` (default 60 seconds) and `staleIfError` (default `Infinity`) across header, polling, and streaming refreshes. Finite error windows extend SWR; expired reads use evaluation defaults or throw. Freshness follows fetch/confirmation time, never configuration age.
+Choose how to balance fast evaluations with fresh configuration using `staleWhileRevalidate` (default `60` seconds) and `staleIfError` (default `Infinity`). These options work across Vercel, polling, and streaming. By default, your application can keep using its last available flags during an outage. Set a finite `staleIfError` to limit fallback beyond the stale-while-revalidate window; once that window expires, evaluations use supplied defaults or throw.
 
-Expose optional `fetchedAt` (Unix milliseconds), preserve it through datafile reads and client creation, and record it in generated bundles. Loading bundled/provided data retains its original age; missing timestamps remain supported.
+Bundled and saved configurations can participate in these freshness windows immediately, even if the initial connection fails. Their optional `fetchedAt` timestamp is preserved when loading or reusing data, so deploying an old bundle does not make it appear freshly fetched. Existing bundles without a timestamp remain supported, and offline mode continues to serve cached flags without refreshing.
