@@ -1,6 +1,6 @@
-import type { Adapter } from 'flags';
-import flagsmith from 'flagsmith';
-import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
+import { type Flags, Flagsmith, type FlagsmithConfig } from '@flagsmith/nodejs';
+import type { Adapter, ReadonlyHeaders } from 'flags';
+import stringify from 'json-stable-stringify';
 import {
   type CoercedType,
   type CoerceOption,
@@ -11,7 +11,7 @@ export { getProviderData } from './provider';
 
 let defaultFlagsmithAdapter: AdapterResponse | undefined;
 
-export type FlagsmithValue = IFlagsmithFeature['value'];
+export type { FlagsmithConfig, FlagsmithValue } from '@flagsmith/nodejs';
 
 export type EntitiesType = {
   targetingKey: string;
@@ -19,14 +19,50 @@ export type EntitiesType = {
 };
 
 export type AdapterResponse = {
+  /** Stop the shared client's environment polling when shutting down. */
+  close: () => Promise<void>;
   getValue: <T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }) => Adapter<CoercedType<T>, EntitiesType>;
 };
 
-export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
-  async function initialize() {
-    await flagsmith.init({ fetch: globalThis.fetch, ...params });
+export function createFlagsmithAdapter(
+  params: FlagsmithConfig,
+): AdapterResponse {
+  // The server SDK keeps environment data on the client, not a current user.
+  // Construct lazily so imports and builds do not start background polling.
+  let client: Flagsmith | undefined;
+  const evaluations = new WeakMap<
+    ReadonlyHeaders,
+    Map<string, Promise<Flags>>
+  >();
+
+  function getFlags(headers: ReadonlyHeaders, entities?: EntitiesType) {
+    const identity = entities?.targetingKey ? entities : undefined;
+    const key = identity
+      ? stringify([identity.targetingKey, identity.traits ?? {}])!
+      : '';
+    let requestEvaluations = evaluations.get(headers);
+    if (!requestEvaluations) {
+      requestEvaluations = new Map();
+      evaluations.set(headers, requestEvaluations);
+    }
+    let result = requestEvaluations.get(key);
+    if (!result) {
+      result = Promise.resolve().then(() => {
+        if (!client) {
+          client = new Flagsmith({
+            ...params,
+            enableLocalEvaluation: params.enableLocalEvaluation ?? true,
+          });
+        }
+        return identity
+          ? client.getIdentityFlags(identity.targetingKey, identity.traits)
+          : client.getEnvironmentFlags();
+      });
+      requestEvaluations.set(key, result);
+    }
+    return result;
   }
 
   /**
@@ -57,36 +93,28 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
         key,
         defaultValue,
         entities: identity,
+        headers,
       }): Promise<CoercedType<T>> {
-        await initialize();
-
-        if (identity?.targetingKey) {
-          const { targetingKey, traits } = identity;
-          await flagsmith.identify(targetingKey, traits);
-        }
-
-        const state = flagsmith.getState();
-        const flagState = state.flags?.[key];
+        const flags = await getFlags(headers, identity);
+        const flagState = flags.getFlag(key);
         const isFlagDisabled = !flagState || !flagState.enabled;
 
         if (isFlagDisabled) {
           return defaultValue as CoercedType<T>;
         }
 
-        const isEmpty =
-          flagState.value === null ||
-          flagState.value === undefined ||
-          flagState.value === '';
+        const value = flagState.value;
+        const isEmpty = value === null || value === undefined || value === '';
 
         if (isEmpty) {
           return defaultValue as CoercedType<T>;
         }
 
         if (!options?.coerce) {
-          return flagState.value as CoercedType<T>;
+          return value as CoercedType<T>;
         }
 
-        const coercedValue = coerceValue(flagState.value, options.coerce);
+        const coercedValue = coerceValue(value, options.coerce);
 
         if (coercedValue === undefined && options.coerce === 'boolean') {
           return flagState.enabled as CoercedType<T>;
@@ -102,6 +130,9 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
   }
 
   return {
+    close: async () => {
+      await client?.close();
+    },
     getValue,
   };
 }
@@ -116,9 +147,9 @@ function assertEnv(name: string): string {
 
 const getOrCreateDefaultFlagsmithAdapter = () => {
   if (!defaultFlagsmithAdapter) {
-    const environmentId = assertEnv('FLAGSMITH_ENVIRONMENT_ID');
+    const environmentKey = assertEnv('FLAGSMITH_ENVIRONMENT_KEY');
     defaultFlagsmithAdapter = createFlagsmithAdapter({
-      environmentID: environmentId,
+      environmentKey,
     });
   }
   return defaultFlagsmithAdapter;
@@ -126,6 +157,9 @@ const getOrCreateDefaultFlagsmithAdapter = () => {
 
 // Lazy default adapter
 export const flagsmithAdapter: AdapterResponse = {
+  close: async () => {
+    await defaultFlagsmithAdapter?.close();
+  },
   getValue: <T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }) => getOrCreateDefaultFlagsmithAdapter().getValue(options),

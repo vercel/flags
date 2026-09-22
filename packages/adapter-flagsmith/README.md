@@ -13,7 +13,7 @@ npm i @flags-sdk/flagsmith
 Set the required environment variable:
 
 ```sh
-export FLAGSMITH_ENVIRONMENT_ID="your-environment-id"
+export FLAGSMITH_ENVIRONMENT_KEY="your-server-side-environment-key"
 ```
 
 ## Usage
@@ -83,8 +83,8 @@ const identify: Identify<EntitiesType> = dedupe(async () => {
 });
 
 const adapter = createFlagsmithAdapter({
-  environmentID: "your-environment-id",
-  // Additional Flagsmith config options
+  environmentKey: "your-server-side-environment-key",
+  // Additional @flagsmith/nodejs configuration options
 });
 
 export const showBanner = flag<boolean, EntitiesType>({
@@ -104,7 +104,7 @@ import { getProviderData } from "@flags-sdk/flagsmith";
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
   return getProviderData({
-    environmentKey: process.env.FLAGSMITH_ENVIRONMENT_ID,
+    environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY,
     projectId: process.env.FLAGSMITH_PROJECT_ID,
   });
 });
@@ -114,7 +114,7 @@ This endpoint fetches flag definitions directly from Flagsmith's API and returns
 
 ## Environment Variables
 
-- `FLAGSMITH_ENVIRONMENT_ID` (required): Your Flagsmith environment ID
+- `FLAGSMITH_ENVIRONMENT_KEY` (required): Your Flagsmith server-side environment key
 - `FLAGSMITH_PROJECT_ID` (optional): Required for the Flags Discovery Endpoint
 
 ## Documentation
@@ -124,3 +124,28 @@ Please check out the [Flagsmith provider documentation](https://flags-sdk.dev/pr
 ## License
 
 MIT
+
+## Server-side evaluation
+
+The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. Local evaluation is enabled by default. Set `FLAGSMITH_ENVIRONMENT_KEY` to a **server-side environment key** (starting with `ser.`); keep this key on the server.
+
+One client is shared per adapter. It lazily fetches the environment document, evaluates flags locally, and polls for updates every 60 seconds. Flags evaluated with the same request headers reference and identity/traits share one evaluation result. User identities are passed to `getIdentityFlags` rather than stored as the client's current user.
+
+Local evaluation uses traits supplied with the evaluation and does not persist them to Flagsmith. To retain remote evaluation behavior, explicitly configure it:
+
+```ts
+const adapter = createFlagsmithAdapter({
+  environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY,
+  enableLocalEvaluation: false,
+});
+```
+
+For local evaluation, `environmentRefreshIntervalSeconds` controls the refresh interval. Call `await adapter.close()` when shutting down a long-running process to stop polling. The default `flagsmithAdapter` also exposes `close()`.
+
+### Migration from the JavaScript SDK adapter
+
+- Replace client-side environment keys with server-side keys for local evaluation.
+- Use `environmentKey` instead of `environmentID` in custom configuration. `environmentID` is no longer supported.
+- Use server SDK options such as `apiUrl` instead of `api`. Browser SDK options such as `cacheFlags`, `state`, and `onChange` are no longer supported.
+- Pass user identity and traits through the flag's `identify` function.
+- Set `enableLocalEvaluation: false` if your application relies on remote evaluation and persisted identity traits.

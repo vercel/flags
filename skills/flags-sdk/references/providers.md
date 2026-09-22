@@ -483,7 +483,7 @@ Package: `@flags-sdk/flagsmith`
 pnpm i @flags-sdk/flagsmith
 ```
 
-Env: `FLAGSMITH_ENVIRONMENT_ID` (required)
+Env: `FLAGSMITH_ENVIRONMENT_KEY` (required)
 
 ### Usage with type coercion
 
