@@ -19,10 +19,11 @@ flowchart LR
 ## One serving policy
 
 `read()` is the only full-entry read. The cache receives `staleIfErrorMs` once at
-construction. The controller's evaluations and `getDatafile()` use the same cache
-read and public-view construction. Their existing loading paths and metrics stay
-intact: `getDatafile()` can still load a snapshot without starting stream/poll
-initialization. `getFallbackDatafile()` remains an independent bundled-data export.
+construction. The controller's evaluations and `getDatafile()` use this cache
+read policy within their existing data resolution and public-view construction.
+Their loading paths and metrics stay intact: `getDatafile()` can still load a
+snapshot without starting stream/poll initialization. `getFallbackDatafile()`
+remains an independent bundled-data export.
 
 `hasData` and `revision` expose only coordination metadata. An expired entry still
 exists and its revision can be sent when reconnecting, without serving its data or

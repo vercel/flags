@@ -304,7 +304,7 @@ are not recovery/failure evidence respectively.
 ### Evaluation Safety
 
 - Regex comparators (`REGEX`, `NOT_REGEX`) limit input string length to 10,000 characters to prevent ReDoS
-- `read()` and `getDatafile()` share one cache-policy/view boundary and return new objects with spread (never mutate cached data)
+- `read()` and `getDatafile()` apply the same cache read policy and each return new objects with spread (never mutate cached data)
 
 ### Debug Mode
 
