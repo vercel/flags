@@ -18,7 +18,7 @@ import {
   normalizeOptions,
 } from './normalized-options';
 import { PollingSource } from './polling-source';
-import { UnauthorizedError } from './stream-connection';
+import { type PrimedMessage, UnauthorizedError } from './stream-connection';
 import { StreamSource } from './stream-source';
 import { originToMetricsSource, type TaggedData, tagData } from './tagged-data';
 
@@ -80,14 +80,10 @@ export class Controller implements ControllerInterface {
   private state: State = 'idle';
 
   // Data state — tagged with origin
-  private readonly cache = new DatafileCache();
-
-  private get data(): TaggedData | undefined {
-    return this.cache.peek();
-  }
+  private readonly cache: DatafileCache;
 
   // Memoized data spread for read() / getDatafile().
-  // Rebuilt only when `this.data` reference changes (e.g. on stream/poll update).
+  // Rebuilt only when the cached data reference changes (e.g. on stream/poll update).
   // Holds the result of stripping `_origin`; metrics are appended per-call.
   private dataViewSource: TaggedData | undefined = undefined;
   private dataViewBase: DatafileInput | undefined = undefined;
@@ -110,11 +106,12 @@ export class Controller implements ControllerInterface {
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
+    this.cache = new DatafileCache(this.options.staleIfErrorMs);
 
     // Create source modules
     this.streamSource = new StreamSource(
       this.options,
-      () => this.data?.revision,
+      () => this.cache.revision,
     );
 
     this.pollingSource = new PollingSource(this.options);
@@ -139,7 +136,8 @@ export class Controller implements ControllerInterface {
   private onStreamData = (data: DatafileInput) => {
     this.cache.updateFromSource(data, 'stream');
   };
-  private onStreamPrimed = () => {
+  private onStreamPrimed = (message: PrimedMessage) => {
+    this.cache.tryConfirm(message, 'revision');
     // The server confirmed our revision is current — no new data needed.
     // Transition to streaming like a normal connected event.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -152,9 +150,13 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamDisconnected = () => {
+    this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded');
     }
+  };
+  private onStreamError = (error: Error) => {
+    this.cache.fail(error);
   };
   private onPollData = (data: DatafileInput) => {
     this.cache.updateFromSource(data, 'poll');
@@ -173,6 +175,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
+    this.streamSource.on('error', this.onStreamError);
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
   }
@@ -182,6 +185,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
+    this.streamSource.off('error', this.onStreamError);
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
   }
@@ -231,14 +235,14 @@ export class Controller implements ControllerInterface {
     }
 
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
-    if (!this.data && this.options.datafile) {
+    if (!this.cache.hasData && this.options.datafile) {
       this.cache.seed(tagData(this.options.datafile, 'provided'));
     }
 
     // If no data yet, try loading bundled definitions eagerly so we can
     // send the revision to the stream and potentially get a lightweight
     // "primed" response instead of a full datafile.
-    if (!this.data) {
+    if (!this.cache.hasData) {
       try {
         const bundled = await this.bundledSource.tryLoad();
         if (bundled) {
@@ -253,7 +257,7 @@ export class Controller implements ControllerInterface {
     // start updates. Both streaming and polling wait for initial data before
     // being considered initialized, so we know we have fresh data.
     // For no-updates (offline), return immediately since we already have usable data.
-    if (this.data) {
+    if (this.cache.hasData) {
       if (this.options.stream.enabled) {
         this.transition('initializing:stream');
         await this.tryInitializeStream();
@@ -292,42 +296,14 @@ export class Controller implements ControllerInterface {
    */
   async read(): Promise<Datafile> {
     const startTime = Date.now();
-    const cacheHadDefinitions = this.data !== undefined;
+    const cacheHadDefinitions = this.cache.hasData;
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    let [result, cacheStatus] = await this.resolveData();
-
-    if (
-      !this.options.buildStep &&
-      !this.options.stream.enabled &&
-      this.options.polling.enabled
-    ) {
-      result = this.cache.read(this.options.staleIfErrorMs) ?? result;
-    }
-
-    const readMs = Date.now() - startTime;
-    const source = originToMetricsSource(result._origin);
-    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, source);
-
-    if (this.dataViewSource !== result) {
-      const { _origin, ...rest } = result;
-      this.dataViewBase = rest;
-      this.dataViewSource = result;
-    }
-
-    return {
-      ...(this.dataViewBase as DatafileInput),
-      metrics: {
-        readMs,
-        source,
-        cacheStatus,
-        connectionState: this.isConnected
-          ? ('connected' as const)
-          : ('disconnected' as const),
-        mode: this.mode,
-      },
-    } satisfies Datafile;
+    const cacheStatus = await this.resolveData();
+    const result = this.readDatafile(startTime, cacheStatus);
+    this.trackRead(startTime, cacheHadDefinitions, isFirstRead, result);
+    return result;
   }
 
   /**
@@ -354,30 +330,25 @@ export class Controller implements ControllerInterface {
     const startTime = Date.now();
     this.isFirstGetData = false;
 
-    let result: TaggedData;
     let cacheStatus: Metrics['cacheStatus'];
 
     if (this.options.buildStep) {
-      [result, cacheStatus] = await this.resolveDataForBuildStep();
-    } else if (this.data) {
+      cacheStatus = await this.resolveDataForBuildStep();
+    } else if (this.cache.hasData) {
       cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      result = this.data;
     } else {
-      // No in-memory data — try bundled, then one-time fetch
+      // Preserve snapshot loading without starting stream/poll initialization.
       const bundled = await this.bundledSource.tryLoad();
       if (bundled) {
-        result = this.cache.seed(tagData(bundled, 'bundled'));
-        cacheStatus = 'MISS';
+        this.cache.seed(tagData(bundled, 'bundled'));
       } else {
-        // One-time fetch as last resort
         try {
           const fetched = await fetchDatafile({
             host: this.options.host,
             auth: this.options.auth,
             fetch: this.options.fetch,
           });
-          result = this.cache.seed(tagData(fetched, 'fetched'));
-          cacheStatus = 'MISS';
+          this.cache.seed(tagData(fetched, 'fetched'));
         } catch {
           throw new Error(
             '@vercel/flags-core: No flag definitions available. ' +
@@ -385,9 +356,24 @@ export class Controller implements ControllerInterface {
           );
         }
       }
+      cacheStatus = 'MISS';
     }
 
-    const source = originToMetricsSource(result._origin);
+    return this.readDatafile(startTime, cacheStatus);
+  }
+
+  /** One serving-policy and public-view boundary for evaluations and snapshots. */
+  private readDatafile(
+    startTime: number,
+    cacheStatus: Metrics['cacheStatus'],
+  ): Datafile {
+    const result = this.cache.read();
+    if (!result) {
+      throw new Error(
+        '@vercel/flags-core: No flag definitions available. ' +
+          'Provide a datafile or bundled definitions.',
+      );
+    }
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -399,7 +385,7 @@ export class Controller implements ControllerInterface {
       ...(this.dataViewBase as DatafileInput),
       metrics: {
         readMs: Date.now() - startTime,
-        source,
+        source: originToMetricsSource(result._origin),
         cacheStatus,
         connectionState: this.isConnected
           ? ('connected' as const)
@@ -422,20 +408,20 @@ export class Controller implements ControllerInterface {
 
   /**
    * Resolves the current data, using the appropriate strategy for the
-   * current mode. Returns tagged data and cache status.
+   * current mode. Populates the cache and returns its metrics status.
    *
    * Build step: cached → bundled → one-time fetch
    * Runtime with cache: return cached data
    * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
    */
-  private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
+  private async resolveData(): Promise<Metrics['cacheStatus']> {
     if (this.options.buildStep) {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.data) {
+    if (this.cache.hasData) {
       const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      return [this.data, cacheStatus];
+      return cacheStatus;
     }
 
     return this.resolveDataWithFallbacks();
@@ -515,7 +501,7 @@ export class Controller implements ControllerInterface {
     if (this.options.polling.initTimeoutMs <= 0) {
       try {
         await pollPromise;
-        if (this.data) {
+        if (this.cache.hasData) {
           this.pollingSource.startInterval();
           return true;
         }
@@ -545,7 +531,7 @@ export class Controller implements ControllerInterface {
         return false;
       }
 
-      if (this.data) {
+      if (this.cache.hasData) {
         this.pollingSource.startInterval();
         return true;
       }
@@ -564,7 +550,7 @@ export class Controller implements ControllerInterface {
    * Initializes data for build step environments.
    */
   private async initializeForBuildStep(): Promise<void> {
-    if (this.data) return;
+    if (this.cache.hasData) return;
 
     if (!this.buildDataPromise) {
       this.buildDataPromise = this.loadBuildData();
@@ -575,13 +561,11 @@ export class Controller implements ControllerInterface {
   /**
    * Retrieves data during build steps.
    * Concurrent callers share a single load promise. The first caller to
-   * populate `this.data` gets cacheStatus MISS; subsequent callers get HIT.
+   * populate the cache gets cacheStatus MISS; subsequent callers get HIT.
    */
-  private async resolveDataForBuildStep(): Promise<
-    [TaggedData, Metrics['cacheStatus']]
-  > {
-    if (this.data) {
-      return [this.data, 'HIT'];
+  private async resolveDataForBuildStep(): Promise<Metrics['cacheStatus']> {
+    if (this.cache.hasData) {
+      return 'HIT';
     }
 
     if (!this.buildDataPromise) {
@@ -590,11 +574,11 @@ export class Controller implements ControllerInterface {
 
     const data = await this.buildDataPromise;
 
-    if (!this.data) {
+    if (!this.cache.hasData) {
       this.cache.seed(data);
-      return [data, 'MISS'];
+      return 'MISS';
     }
-    return [this.data, 'HIT'];
+    return 'HIT';
   }
 
   /**
@@ -632,7 +616,7 @@ export class Controller implements ControllerInterface {
   private async initializeFromFallbacks(): Promise<void> {
     this.transition('initializing:fallback');
 
-    if (this.data) {
+    if (this.cache.hasData) {
       this.transition('degraded');
       return;
     }
@@ -672,23 +656,21 @@ export class Controller implements ControllerInterface {
    * Polling mode: poll → datafile → bundled.
    * Offline mode: datafile → bundled → one-time fetch.
    */
-  private async resolveDataWithFallbacks(): Promise<
-    [TaggedData, Metrics['cacheStatus']]
-  > {
+  private async resolveDataWithFallbacks(): Promise<Metrics['cacheStatus']> {
     // Try the configured primary source
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
       const streamSuccess = await this.tryInitializeStream();
-      if (streamSuccess && this.data) {
+      if (streamSuccess && this.cache.hasData) {
         this.transition('streaming');
-        return [this.data, 'MISS'];
+        return 'MISS';
       }
     } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
-      if (pollingSuccess && this.data) {
+      if (pollingSuccess && this.cache.hasData) {
         this.transition('polling');
-        return [this.data, 'MISS'];
+        return 'MISS';
       }
     }
 
@@ -696,17 +678,17 @@ export class Controller implements ControllerInterface {
     this.transition('initializing:fallback');
 
     if (this.options.datafile) {
-      const data = this.cache.seed(tagData(this.options.datafile, 'provided'));
+      this.cache.seed(tagData(this.options.datafile, 'provided'));
       this.transition('degraded');
-      return [data, 'STALE'];
+      return 'STALE';
     }
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
-      const data = this.cache.seed(tagData(bundled, 'bundled'));
+      this.cache.seed(tagData(bundled, 'bundled'));
       this.transition('degraded');
-      return [data, 'STALE'];
+      return 'STALE';
     }
 
     // Last resort: one-time fetch (only when no stream/poll configured)
@@ -717,9 +699,9 @@ export class Controller implements ControllerInterface {
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
-        const data = this.cache.seed(tagData(fetched, 'fetched'));
+        this.cache.seed(tagData(fetched, 'fetched'));
         this.transition('degraded');
-        return [data, 'MISS'];
+        return 'MISS';
       } catch {
         // fetch failed — fall through to throw
       }
@@ -743,14 +725,14 @@ export class Controller implements ControllerInterface {
     startTime: number,
     cacheHadDefinitions: boolean,
     isFirstRead: boolean,
-    source: Metrics['source'],
+    datafile: Datafile,
   ): void {
     if (this.unauthorized) return;
     if (this.options.buildStep && this.buildReadTracked) return;
     if (this.options.buildStep) this.buildReadTracked = true;
 
     const configOrigin: 'in-memory' | 'embedded' =
-      source === 'embedded' ? 'embedded' : 'in-memory';
+      datafile.metrics.source === 'embedded' ? 'embedded' : 'in-memory';
     const cacheAction: 'FOLLOWING' | 'REFRESHING' | 'NONE' =
       this.state === 'streaming'
         ? 'FOLLOWING'
@@ -767,11 +749,11 @@ export class Controller implements ControllerInterface {
       mode:
         mode === 'streaming' ? 'stream' : mode === 'polling' ? 'poll' : mode,
     };
-    const configUpdatedAt = this.data?.configUpdatedAt;
+    const configUpdatedAt = datafile.configUpdatedAt;
     if (typeof configUpdatedAt === 'number') {
       trackOptions.configUpdatedAt = configUpdatedAt;
     }
-    const revision = this.data?.revision;
+    const revision = datafile.revision;
     if (typeof revision === 'number') {
       trackOptions.revision = revision;
     }

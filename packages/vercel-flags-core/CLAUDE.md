@@ -231,7 +231,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`, and `onError` (failure evidence for cache policy)
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
 - The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
@@ -290,10 +290,21 @@ The DatafileCache rejects incoming data (from stream or poll) if its `configUpda
 - `internalReportValue` (defined in `lib/report-value.ts`, called from `controller-fns.ts`) reports flag evaluations to the Vercel request context
 - Reports are sent for all evaluations where `datafile.projectId` exists, including error cases (e.g., FLAG_NOT_FOUND)
 
+### Cache read policy
+
+`DatafileCache.read()` is the only full-entry read. The cache is configured once
+with `staleIfErrorMs`; evaluations and `getDatafile()` share the same serving
+boundary. `hasData` and `revision` expose coordination metadata even after expiry,
+so retained data is not replaced by fallback and stream reconnects can still send
+`X-Revision`. `seed()` never clears failure. Accepted source updates or valid
+version/revision confirmations clear it; repeated errors/disconnects do not renew
+the first-error deadline. Stream opening/pings and initialization timeout alone
+are not recovery/failure evidence respectively.
+
 ### Evaluation Safety
 
 - Regex comparators (`REGEX`, `NOT_REGEX`) limit input string length to 10,000 characters to prevent ReDoS
-- `read()` and `getDatafile()` return new objects with spread (never mutate `this.data`)
+- `read()` and `getDatafile()` share one cache-policy/view boundary and return new objects with spread (never mutate cached data)
 
 ### Debug Mode
 
