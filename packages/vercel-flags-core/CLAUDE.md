@@ -89,7 +89,8 @@ type ControllerOptions = {
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   vercel?: boolean; // Use request headers at runtime; default process.env.VERCEL === '1'
-  staleWhileRevalidateMs?: number; // Header refresh window; default 10_000, 0 disables stale serving
+  staleWhileRevalidateMs?: number; // Runtime SWR in milliseconds; default 10_000
+  staleIfErrorMs?: number; // Additional milliseconds of error fallback; default Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -115,7 +116,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 **Vercel runtime** (`vercel: true`, default when `VERCEL=1`, unless both streaming and polling are disabled):
 - Initialization loads provided or bundled definitions before selecting Vercel mode; it starts no streams or polls. An empty cache is fetched on the first read
-- Reads serve cached data without a usable version header, fetching only if the cache is empty
+- Without a usable version header, cached data follows finite stale eligibility; only an empty cache fetches
 - Matching headers confirm freshness; newer headers trigger background or blocking refreshes according to `staleWhileRevalidateMs`
 - `vercel: false` keeps the configured streaming/polling behavior even when version headers are present
 
@@ -132,7 +133,7 @@ Key behaviors:
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
-- If stream disconnects → start polling (if enabled)
+- If stream disconnects → start its stale period while the stream reconnects
 - Use `buildStep: true` to force static-only mode (e.g., serverless cold starts)
 - Use `buildStep: false` to force runtime mode (e.g., custom build environments)
 
@@ -246,7 +247,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
-- On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
+- On disconnect: state transitions to `'degraded'`, records freshness and applies stale windows while the stream reconnects
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 - Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
@@ -256,7 +257,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `intervalMs`: 30000ms (30s)
 - Default `initTimeoutMs`: 3000ms (3s)
 - No retries — on fetch failure, emits an error event and waits for the next interval
-- Stops automatically when stream reconnects
+- Never runs alongside streaming; stays scheduled after initialization failure
 - `PollingSource` passes its abort signal to `fetchDatafile`, so calling `stop()` aborts in-flight HTTP requests
 - `fetchDatafile` accepts an optional `signal` parameter; when provided, it aborts the internal fetch controller when the external signal fires
 
@@ -269,7 +270,7 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 `tagData` copies data before attaching origin metadata. Public `fetchedAt` records successful network arrival for fetched, polled, or streamed data. Provided and bundled data preserve an existing finite, non-negative timestamp; missing or invalid timestamps leave freshness unknown. Serialization and public reads preserve `fetchedAt`; only internal origin metadata is stripped. Header observations belong only to `HeaderSource`, which keeps the highest observed header version and a single last-seen record for a matching cached version. Only a matching header at the highest observed version renews freshness, so older requests cannot undo a known invalidation. Both observations are cleared on stop.
 
-For header-driven refreshes, newer headers serve stale data only for `staleWhileRevalidateMs` (default: 10,000ms) after the later of `fetchedAt` and the cached version's last matching-header observation, independent of the version timestamp gap. This option must be finite and non-negative; `0` disables stale serving. Unknown-age bundled/provided data blocks on first invalidation unless a matching header has confirmed it. Only accepted newer responses replace cached data and set fetched freshness. Equal or older responses, and failed or aborted header refreshes, leave cached data and freshness unchanged. Different version headers do not renew the cached version's freshness, and missing or malformed headers do not update observations.
+The controller owns shared SWR and stale-if-error decisions. Sources own I/O and header observations. See [cache freshness](./docs/cache-freshness.md) for options, evidence, boundaries, concurrent reads and recovery. Tests cover policy through public APIs; source tests cover header parsing, observations and transport cancellation.
 
 ### Usage Tracking
 
@@ -293,7 +294,7 @@ For header-driven refreshes, newer headers serve stale data only for `staleWhile
 
 ### configUpdatedAt Guard
 
-The Controller uses `isNewerData` for stream, poll, and header-fetch events. Incoming data replaces the cache only when its `configUpdatedAt` is newer; missing or unparseable timestamps are accepted. Equal or older versions leave the cache and its metadata unchanged. A blocking header read returns the fetched response directly, while the event handler applies this guard to the shared cache.
+The Controller uses `isNewerData` to prevent version regression. Unchanged successful polls confirm freshness without replacing data; older polls do not. Header fetches require a finite version and only accepted newer responses renew arrival freshness. Blocking header reads validate their own version requirement against the accepted cache, never return the rejected response directly, and apply stale-if-error on failure.
 
 ### Evaluation Reporting
 

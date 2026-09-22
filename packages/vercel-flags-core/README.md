@@ -64,3 +64,13 @@ const client = OpenFeature.getClient();
 - [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
 - [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
 - [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
+
+## Cache freshness
+
+Runtime evaluation and `getDatafile()` share `staleWhileRevalidateMs` (default
+`10_000`) and `staleIfErrorMs` (default `Infinity`). Both use milliseconds. Finite
+error windows extend SWR and require known freshness; expired definitions use
+evaluation defaults or throw. Build and offline caches remain static.
+
+See [runtime cache freshness](./docs/cache-freshness.md) for source behavior,
+concurrency, persisted timestamps and failure handling.
