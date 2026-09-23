@@ -14,7 +14,6 @@ import {
   type CacheMetadata,
   type CacheReadPolicy,
   DatafileCache,
-  Freshness,
 } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
@@ -226,10 +225,6 @@ export class Controller implements ControllerInterface {
     this.state = to;
   }
 
-  private get isConnected(): boolean {
-    return this.state === 'streaming';
-  }
-
   private get mode(): Metrics['mode'] {
     if (this.options.buildStep) return 'build';
     switch (this.state) {
@@ -348,9 +343,10 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState: this.isConnected
-          ? ('connected' as const)
-          : ('disconnected' as const),
+        connectionState:
+          this.state === 'streaming'
+            ? ('connected' as const)
+            : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -390,10 +386,14 @@ export class Controller implements ControllerInterface {
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (result) {
-      const status = this.getBackgroundSourceStatus({
-        ageMs: this.cache.ageMs,
-      });
-      cacheStatus = status === Freshness.Fresh ? 'HIT' : 'STALE';
+      const metadata = this.cache.metadata;
+      // Snapshots must not turn request headers into freshness evidence.
+      const status =
+        metadata && this.state !== 'vercel'
+          ? this.cacheReadPolicy.getStatus(metadata)
+          : 'unknown';
+
+      cacheStatus = status === 'fresh' ? 'HIT' : 'STALE';
     } else {
       // Preserve snapshot loading without starting stream/poll initialization.
       const bundled = await this.bundledSource.tryLoad();
@@ -430,9 +430,10 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState: this.isConnected
-          ? ('connected' as const)
-          : ('disconnected' as const),
+        connectionState:
+          this.state === 'streaming'
+            ? ('connected' as const)
+            : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -462,12 +463,13 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    const result = await this.cache.resolve(this.getCacheReadPolicy());
+    const result = await this.cache.resolve(this.cacheReadPolicy);
     if (result) return result;
+
     return this.resolveDataWithFallbacks();
   }
 
-  private getCacheReadPolicy(): CacheReadPolicy {
+  private get cacheReadPolicy(): CacheReadPolicy {
     if (this.state === 'vercel') {
       return {
         getStatus: this.headerSource.getStatusCheck(),
@@ -475,17 +477,16 @@ export class Controller implements ControllerInterface {
       };
     }
 
-    // Stream/poll maintain their existing schedules; reads do not trigger I/O.
-    return { getStatus: this.getBackgroundSourceStatus };
-  }
-
-  private getBackgroundSourceStatus = (data: Pick<CacheMetadata, 'ageMs'>) => {
-    if (this.isConnected) return this.streamSource.getStatus(data);
-    if (this.state === 'polling' || this.state === 'initializing:polling') {
-      return this.pollingSource.getStatus(data);
+    if (this.state === 'streaming') {
+      return { getStatus: this.streamSource.getStatus };
     }
-    return Freshness.Unknown;
-  };
+
+    if (this.state === 'polling' || this.state === 'initializing:polling') {
+      return { getStatus: this.pollingSource.getStatus };
+    }
+
+    return { getStatus: () => 'unknown' };
+  }
 
   // ---------------------------------------------------------------------------
   // Stream initialization

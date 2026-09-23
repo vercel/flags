@@ -326,7 +326,7 @@ the first-error deadline. Stream opening/pings and initialization timeout alone
 are not recovery/failure evidence respectively.
 
 `cache.resolve(policy)` receives a mode-specific `getStatus` callback returning
-`Freshness.Fresh`, `Stale`, `Expired`, or `Unknown`, and an optional `fetch` callback.
+`fresh`, `stale`, `expired`, or `unknown`, and an optional `fetch` callback.
 It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation on clear. HeaderSource supplies small version/age
 checks and a fetch callback; it does not read the cache. Header confirmations are
 forwarded through controller event wiring. Stream/poll modes omit on-read revalidation
