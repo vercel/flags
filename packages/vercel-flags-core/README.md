@@ -33,10 +33,36 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
-## Cached stream and polling reads
+## Header-driven reads on Vercel
+
+When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
+or bundled definitions without starting a stream or polling. Request version headers
+indicate when cached definitions need refreshing; reads without a usable header keep
+cached definitions, fetching only when the cache is empty.
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  vercel: true,
+  staleWhileRevalidate: 10, // Seconds of background-refresh grace.
+  staleIfError: 60, // Seconds of cached fallback after a refresh failure.
+});
+```
+
+`staleWhileRevalidate` defaults to 10 seconds and accepts finite, nonnegative values,
+including fractions. `0` makes refreshes block. The window starts at the latest
+accepted fetch or matching request-header confirmation. Bundled/provided definitions
+preserve their original `fetchedAt`; unknown or expired freshness requires a blocking
+refresh when a newer request version arrives. Refresh failures use `staleIfError`.
+A newer-header read attempts blocking recovery after that failure allowance expires.
+
+`getDatafile()` remains a snapshot read: it applies stale-if-error but does not inspect
+headers. Use `vercel: false` to select the existing stream/poll behavior. Disabling both
+stream and polling still selects offline mode, and builds retain their existing loading.
+
+## Cached reads after errors
 
 `staleIfError` controls how many seconds evaluations and `getDatafile()` may use
-cached flag definitions after a stream/poll failure or stream disconnect:
+cached flag definitions after a stream/poll/header-refresh failure or stream disconnect:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
@@ -66,8 +92,8 @@ retained for recovery, including its revision for stream reconnection. A clean
 stream close or ping timeout records `stream: disconnected` if no earlier failure
 exists. `getFallbackDatafile()` remains an independent bundled-data export.
 
-There is no age-based expiry while the source is healthy, and reads do not trigger
-an extra refresh after expiry. Build/offline behavior, source scheduling, retries,
+Stream/poll modes have no age-based expiry while the source is healthy, and reads
+do not trigger an extra refresh after expiry. Build/offline behavior, source scheduling, retries,
 timeouts, metrics categories, and logging are unchanged. An initialization timeout
 alone does not start the allowance. Existing startup limitations remain: when
 initial polling times out, no recurring interval is started, even if that in-flight
