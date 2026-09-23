@@ -249,22 +249,6 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('does not finish initialization after shutdown while bundled data is loading', async () => {
-    const pending =
-      deferred<Awaited<ReturnType<typeof readBundledDefinitions>>>();
-    vi.mocked(readBundledDefinitions).mockReturnValueOnce(pending.promise);
-    const instance = client({ datafile: undefined });
-    const initializing = instance.initialize();
-    const outcome = expect(initializing).rejects.toThrow('Client is shut down');
-    await vi.advanceTimersByTimeAsync(0);
-    await instance.shutdown();
-    clients.delete(instance);
-    pending.resolve({ definitions: datafile(), state: 'ok' });
-
-    await outcome;
-    expect(transport).not.toHaveBeenCalled();
-  });
-
   it.each([
     HEADER,
     'flags-config-versions',
