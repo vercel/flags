@@ -632,4 +632,532 @@ describe('Vercel mode (black-box)', () => {
     );
   });
 
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('blocks on the first invalidation of unknown-age %s data', async (origin) => {
+    const input = datafile();
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: input,
+      state: 'ok',
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+    });
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(await instance.getDatafile()).toEqual({
+      ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
+      metrics: expect.any(Object),
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('uses persisted %s fetchedAt until its original freshness expires', async (origin) => {
+    const input = Object.freeze({
+      ...datafile(TIMESTAMP - 365 * 24 * 60 * 60 * 1_000),
+      fetchedAt: TIMESTAMP - 9_000,
+    });
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: input,
+      state: 'ok',
+    });
+    const instance = client({
+      datafile: origin === 'provided' ? input : undefined,
+    });
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+
+    // A recent fetch, not the config's age or a matching header, permits SWR.
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    vi.setSystemTime(TIMESTAMP + 1_000);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    expect((await instance.getDatafile()).fetchedAt).toBe(TIMESTAMP - 9_000);
+
+    vi.setSystemTime(TIMESTAMP + 1_001);
+    const settled = vi.fn();
+    const blocking = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP, true)));
+    expect(await blocking).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(await instance.getDatafile()).toEqual({
+      ...datafile(TIMESTAMP, true),
+      fetchedAt: TIMESTAMP + 1_001,
+      metrics: expect.any(Object),
+    });
+    expect(input.fetchedAt).toBe(TIMESTAMP - 9_000);
+    expect(input).not.toHaveProperty('_origin');
+  });
+
+  it('preserves serialized fetchedAt in another client without making old data fresh', async () => {
+    const first = client({
+      datafile: undefined,
+      stream: false,
+      polling: false,
+    });
+    mockDatafileResponse(TIMESTAMP, true);
+    const fetched = await first.getDatafile();
+    expect(fetched.fetchedAt).toBe(TIMESTAMP);
+    expect(fetched).not.toHaveProperty('_fetchedAt');
+    expect(fetched).not.toHaveProperty('_origin');
+    const later = TIMESTAMP + 365 * 24 * 60 * 60 * 1_000;
+    vi.setSystemTime(later);
+    const second = client({ datafile: JSON.parse(JSON.stringify(fetched)) });
+    expect((await second.getDatafile()).fetchedAt).toBe(TIMESTAMP);
+
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const settled = vi.fn();
+    const blocking = second.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, false)));
+    expect(await blocking).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect((await second.getDatafile()).fetchedAt).toBe(later);
+    expect(fetched.fetchedAt).toBe(TIMESTAMP);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['older', TIMESTAMP - 1],
+    ['missing', undefined],
+    ['malformed', 'invalid'],
+    ['newer', TIMESTAMP + 1],
+  ] as const)('does not renew freshness for %s headers', async (_kind, version) => {
+    const instance = client();
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    setVersion(version);
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    const settled = vi.fn();
+    const blocking = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    expect((await blocking).metrics?.cacheStatus).toBe('MISS');
+  });
+
+  it('does not renew freshness from an older matching header after observing an invalidation', async () => {
+    const instance = client();
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+
+    // An overlapping request still has the old header, but cannot undo invalidation.
+    setVersion(TIMESTAMP);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'HIT',
+    );
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    const settled = vi.fn();
+    const blocking = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    expect(await blocking).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+  });
+
+  it('uses the later of the matching-header and fetched timestamps', async () => {
+    const instance = client();
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'MISS',
+    );
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'HIT',
+    );
+
+    // The matching header extends freshness beyond the original fetch time.
+    vi.setSystemTime(TIMESTAMP + 19_000);
+    setVersion(TIMESTAMP + 100_000);
+    mockDatafileResponse(TIMESTAMP + 2, false);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
+
+    // The accepted response renews fetched freshness beyond the confirmation.
+    vi.setSystemTime(TIMESTAMP + 29_000);
+    mockDatafileResponse(TIMESTAMP + 100_000, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(
+      TIMESTAMP + 100_000,
+    );
+    expect(dataFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    'provided',
+    'bundled',
+  ] as const)('does not share confirmation across clients using the same %s object', async (origin) => {
+    const input = datafile();
+    vi.mocked(readBundledDefinitions).mockResolvedValue({
+      definitions: input,
+      state: 'ok',
+    });
+    const options = { datafile: origin === 'provided' ? input : undefined };
+    const first = client(options);
+    const second = client(options);
+    await first.evaluate('feature');
+    setVersion(TIMESTAMP + 1);
+
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect((await second.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'MISS',
+    );
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect((await first.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(input).not.toHaveProperty('_lastSeen');
+  });
+
+  it.each([
+    0, -1,
+  ])('ignores a background response with version delta %i without extending freshness', async (delta) => {
+    const instance = client();
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + delta, true);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await instance.getDatafile()).toEqual({
+      ...datafile(),
+      metrics: expect.any(Object),
+    });
+
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not extend freshness after a failed background response', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const instance = client();
+    await instance.evaluate('feature');
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP + 1);
+    dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Header refresh failed:',
+      expect.any(Error),
+    );
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'MISS',
+    );
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    0, -1,
+  ])('keeps the cache unchanged after a blocking response with version delta %i', async (delta) => {
+    const instance = client();
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    await instance.evaluate('feature');
+
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 2);
+    mockDatafileResponse(TIMESTAMP + 1 + delta, false);
+    // Both the blocking read and later snapshots use the cache version guard.
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(await instance.getDatafile()).toEqual({
+      ...datafile(TIMESTAMP + 1, true),
+      fetchedAt: TIMESTAMP,
+      metrics: expect.any(Object),
+    });
+
+    mockDatafileResponse(TIMESTAMP + 2, true);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'MISS',
+    );
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
+    expect(dataFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('finishes the background refresh even when waitUntil registration throws', async () => {
+    const waitUntil = vi.fn(() => {
+      throw new Error('No request lifetime available');
+    });
+    const instance = client({ waitUntil });
+    await instance.evaluate('feature');
+    waitUntil.mockClear();
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'HIT' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the default unlimited stale-if-error allowance after blocking failures', async () => {
+    setVersion(TIMESTAMP + 1);
+    const instance = client();
+    dataFetch.mockRejectedValue(new Error('service unavailable'));
+
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    vi.setSystemTime(TIMESTAMP + 365 * 24 * 60 * 60 * 1_000);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares the first-error deadline with snapshots and recovers after expiry', async () => {
+    const instance = client({ staleIfErrorMs: 1_000 });
+    setVersion(TIMESTAMP + 1);
+    const firstError = new Error('first failure');
+    dataFetch.mockRejectedValueOnce(firstError);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+
+    vi.setSystemTime(TIMESTAMP + 1_000);
+    dataFetch.mockRejectedValueOnce(new Error('second failure'));
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
+
+    vi.setSystemTime(TIMESTAMP + 1_001);
+    // Older/missing evidence must not reset the first-error deadline or fetch.
+    for (const version of [undefined, 'invalid', TIMESTAMP - 1, TIMESTAMP]) {
+      setVersion(version);
+      await expect(instance.evaluate('feature')).rejects.toBe(firstError);
+      await expect(instance.getDatafile()).rejects.toBe(firstError);
+    }
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+
+    setVersion(TIMESTAMP + 1);
+    dataFetch.mockRejectedValueOnce(new Error('third failure'));
+    await expect(instance.evaluate('feature')).rejects.toBe(firstError);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it.each([
+    -1, 0, 1,
+  ])('blocks after a background failure and applies recovery for response delta %i', async (delta) => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const instance = client({
+      datafile: { ...datafile(), fetchedAt: TIMESTAMP },
+      staleIfErrorMs: 0,
+    });
+    setVersion(TIMESTAMP + 1);
+    const failure = new Error('background failure');
+    dataFetch.mockRejectedValueOnce(failure);
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Header refresh failed:',
+      failure,
+    );
+    await expect(instance.getDatafile()).rejects.toBe(failure);
+
+    vi.setSystemTime(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const settled = vi.fn();
+    const read = instance.evaluate('feature').finally(settled);
+    const outcome =
+      delta < 0
+        ? expect(read).rejects.toBe(failure)
+        : expect(read).resolves.toMatchObject({
+            value: delta > 0,
+            metrics: { cacheStatus: 'MISS' },
+          });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+
+    pending.resolve(Response.json(datafile(TIMESTAMP + delta, true)));
+    await outcome;
+    if (delta < 0) {
+      await expect(instance.getDatafile()).rejects.toBe(failure);
+      return;
+    }
+    // A matching response confirms recovery without replacing or retagging data.
+    expect(await instance.getDatafile()).toMatchObject({
+      configUpdatedAt: TIMESTAMP + delta,
+      fetchedAt: TIMESTAMP + delta,
+    });
+  });
+
+  it.each([
+    '',
+    'flags_other=123',
+    `flags_${PROJECT_ID}=0`,
+    `flags_${PROJECT_ID}=-1`,
+    `flags_${PROJECT_ID}=NaN`,
+    `flags_${PROJECT_ID}=Infinity`,
+    `flags_${PROJECT_ID}=`,
+  ])('ignores unusable header %s without starting sources', async (header) => {
+    cleanupContext();
+    cleanupContext = setRequestContext({ [HEADER]: header });
+    const instance = client();
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE', mode: 'vercel' },
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('prefers the Vercel header and parses spaced project entries with a legacy cached version', async () => {
+    cleanupContext();
+    cleanupContext = setRequestContext({
+      [HEADER]: ` flags_other=1 ; flags_${PROJECT_ID}=${TIMESTAMP} ; flags_other2=3 `,
+      'flags-config-versions': `flags_${PROJECT_ID}=${TIMESTAMP + 1}`,
+    });
+    const instance = client({
+      datafile: { ...datafile(), configUpdatedAt: String(TIMESTAMP) },
+    });
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'HIT' },
+    });
+    expect(dataFetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps cached definitions without a config version', async () => {
+    setVersion(TIMESTAMP + 1);
+    const instance = client({
+      datafile: { ...datafile(), configUpdatedAt: undefined },
+    });
+    expect((await instance.evaluate('feature')).value).toBe(false);
+    expect(dataFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a blocking read on shutdown even if the transport ignores cancellation', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const instance = client();
+    const reading = instance.evaluate('feature');
+    const outcome = expect(reading).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(0);
+    const signal = dataFetch.mock.calls[0]?.[1]?.signal;
+    await instance.shutdown();
+    clients.delete(instance);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    await outcome;
+    expect(signal?.aborted).toBe(true);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('reports vercel mode in config-read telemetry', async () => {
+    const instance = client();
+    await instance.evaluate('feature');
+    await instance.shutdown();
+    clients.delete(instance);
+
+    const events = transport.mock.calls
+      .filter(([url]) => String(url).endsWith('/v1/ingest'))
+      .flatMap(([, init]) => JSON.parse(String(init?.body)));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'FLAGS_CONFIG_READ',
+          payload: expect.objectContaining({
+            mode: 'vercel',
+            configUpdatedAt: TIMESTAMP,
+            cacheAction: 'NONE',
+          }),
+        }),
+      ]),
+    );
+  });
 });
