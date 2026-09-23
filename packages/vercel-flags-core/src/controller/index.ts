@@ -272,17 +272,12 @@ export class Controller implements ControllerInterface {
     // send the revision to the stream and potentially get a lightweight
     // "primed" response instead of a full datafile.
     if (!this.cache.hasData) {
-      this.transition('initializing:fallback');
-      let bundled: DatafileInput | undefined;
       try {
-        bundled = await this.bundledSource.tryLoad();
+        const bundled = await this.bundledSource.tryLoad();
+        if (bundled) this.cache.seed(tagData(bundled, 'bundled'));
       } catch {
         // Bundled definitions not available — proceed without revision
       }
-      if (this.state === 'shutdown') {
-        throw new Error('@vercel/flags-core: Client is shut down');
-      }
-      if (bundled) this.cache.seed(tagData(bundled, 'bundled'));
     }
 
     if (this.headerSource.isAvailable()) {
