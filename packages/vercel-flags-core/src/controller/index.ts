@@ -15,6 +15,7 @@ import {
   type CacheReadPolicy,
   DatafileCache,
 } from './datafile-cache';
+import { debug } from './debug';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -149,6 +150,18 @@ export class Controller implements ControllerInterface {
     }
 
     this.usageTracker = new UsageTracker(this.options);
+    debug('client.created', () => ({
+      buildStep: this.options.buildStep,
+      vercel: this.options.vercel,
+      stream: this.options.stream.enabled,
+      streamInitTimeoutMs: this.options.stream.initTimeoutMs,
+      polling: this.options.polling.enabled,
+      pollingIntervalMs: this.options.polling.intervalMs,
+      pollingInitTimeoutMs: this.options.polling.initTimeoutMs,
+      staleWhileRevalidateMs: this.options.staleWhileRevalidateMs,
+      staleIfErrorMs: this.options.staleIfErrorMs,
+      hasData: this.cache.hasData,
+    }));
   }
 
   // Source event handlers (stored for cleanup)
@@ -156,6 +169,7 @@ export class Controller implements ControllerInterface {
     this.cache.updateFromSource(data, 'stream');
   };
   private onStreamPrimed = (message: PrimedMessage) => {
+    debug('stream.primed');
     this.cache.tryConfirm(message, 'revision');
     // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -163,15 +177,18 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamPing = () => {
+    debug('stream.ping');
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
     this.cache.confirm();
   };
   private onStreamConnected = () => {
+    debug('stream.connected');
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
     }
   };
   private onStreamDisconnected = () => {
+    debug('stream.disconnected');
     this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded');
@@ -225,7 +242,13 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   private transition(to: State): void {
+    const from = this.state;
     this.state = to;
+    debug('client.state', () => ({
+      from,
+      to,
+      hasData: this.cache.hasData,
+    }));
   }
 
   private get mode(): Metrics['mode'] {
@@ -256,6 +279,7 @@ export class Controller implements ControllerInterface {
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
+    debug('client.initialize', () => ({ state: this.state }));
     if (this.options.buildStep) {
       this.transition('build:loading');
       await this.initializeForBuildStep();
@@ -333,7 +357,10 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveData();
+    const [result, cacheStatus] = await this.resolveData().catch((error) => {
+      debug('client.read.failed', () => ({ state: this.state }));
+      throw error;
+    });
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -355,6 +382,10 @@ export class Controller implements ControllerInterface {
       },
     } satisfies Datafile;
 
+    debug('client.read', () => ({
+      state: this.state,
+      ...datafile.metrics,
+    }));
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, datafile);
     return datafile;
   }
@@ -428,6 +459,12 @@ export class Controller implements ControllerInterface {
       this.dataViewSource = result;
     }
 
+    debug('client.snapshot', () => ({
+      state: this.state,
+      cacheStatus,
+      source: result._origin,
+      ageMs: this.cache.ageMs,
+    }));
     return {
       ...(this.dataViewBase as DatafileInput),
       metrics: {
@@ -491,6 +528,7 @@ export class Controller implements ControllerInterface {
   }
 
   private async initializeHeaderFallback(): Promise<void> {
+    debug('header.fallback', () => ({ reason: 'missing-version-header' }));
     this.cache.cancelFetch();
     this.headerSource.stop();
 
@@ -566,6 +604,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        debug('stream.initialize.timeout');
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
@@ -626,6 +665,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        debug('poll.initialize.timeout');
         console.warn(
           '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );

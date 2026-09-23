@@ -1,5 +1,6 @@
 import type { DatafileInput } from '../types';
 import type { CacheMetadata, Freshness } from './datafile-cache';
+import { debug } from './debug';
 import type { NormalizedOptions } from './normalized-options';
 import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
@@ -40,6 +41,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
+    debug('stream.start');
     const abortController = new AbortController();
     this.abortController = abortController;
 
@@ -98,6 +100,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Stop the stream connection.
    */
   stop(): void {
+    debug('stream.stop');
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;

@@ -138,3 +138,35 @@ const client = OpenFeature.getClient();
 - [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
 - [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
 - [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
+
+### Client debug logging
+
+Set `DEBUG=@vercel/flags-core` to enable detailed diagnostics. This reuses the
+existing ingest debug switch:
+
+```sh
+DEBUG=@vercel/flags-core pnpm dev
+```
+
+Client diagnostics use `console.debug` with the `@vercel/flags-core` prefix and
+an object containing an `event` and its diagnostic details. The controller, cache,
+and network sources all use the same global logging function. For example:
+
+```text
+@vercel/flags-core { event: 'client.state', from: 'idle', to: 'vercel', hasData: true }
+@vercel/flags-core { event: 'cache.freshness', status: 'expired', revision: 42, ageMs: 15000, ... }
+@vercel/flags-core { event: 'cache.refresh.blocking', ... }
+```
+
+Events cover initialization and shutdown, selected modes and state transitions,
+read/snapshot results, cache versions and age, version acceptance/confirmation,
+header timestamps, background/blocking/shared refreshes, stale-if-error expiry,
+HTTP response status, polling, stream pings, timeouts, and reconnect delays.
+Cache ages and delays are in milliseconds; `Infinity` denotes unknown age or an
+unlimited stale-if-error window. The new client diagnostics omit credentials,
+raw headers, flag definitions, evaluation entities, and raw error messages.
+
+Logging is off by default. The logger checks `DEBUG` on each call; removing the
+namespace disables client diagnostics, including for existing clients. Diagnostics
+are verbose, including an event for each read, and event names/fields are internal
+rather than a stable API. Configure your log collector to include `console.debug` output.
