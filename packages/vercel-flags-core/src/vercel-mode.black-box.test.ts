@@ -593,7 +593,7 @@ describe('Vercel mode (black-box)', () => {
     dataFetch.mockResolvedValueOnce(
       new Response(null, { status: 503, statusText: 'Service Unavailable' }),
     );
-    const instance = client({ staleIfErrorMs: 0 });
+    const instance = client({ staleIfError: 0 });
 
     const failed = await instance.evaluate('feature', false);
     expect(failed.value).toBe(false);
@@ -1089,7 +1089,7 @@ describe('Vercel mode (black-box)', () => {
   });
 
   it('shares the first-error deadline with snapshots and recovers after expiry', async () => {
-    const instance = client({ staleIfErrorMs: 1_000 });
+    const instance = client({ staleIfError: 1 });
     setVersion(TIMESTAMP + 1);
     const firstError = new Error('first failure');
     dataFetch.mockRejectedValueOnce(firstError);
@@ -1129,7 +1129,7 @@ describe('Vercel mode (black-box)', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const instance = client({
       datafile: { ...datafile(), fetchedAt: TIMESTAMP },
-      staleIfErrorMs: 0,
+      staleIfError: 0,
     });
     setVersion(TIMESTAMP + 1);
     const failure = new Error('background failure');
