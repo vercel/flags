@@ -40,7 +40,7 @@ export const HighlightedCode = async ({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 [&_[data-geist-code-block]]:my-0! [&_[data-geist-code-block]]:flex [&_[data-geist-code-block]]:h-full [&_[data-geist-code-block]]:flex-col [&_[data-section=content]]:flex-1 [&_[data-section=content]>pre]:h-full [&_[data-section=tabs]>div:first-child>span:first-child]:hidden">
+      <div className="flex-1 [&_[data-geist-code-block]]:my-0! [&_[data-geist-code-block]]:flex [&_[data-geist-code-block]]:h-full [&_[data-geist-code-block]]:flex-col [&_[data-section=content]]:flex-1 [&_[data-section=content]>pre]:h-full">
         {rendered}
       </div>
       <span className="mt-2 block text-copy-14 text-gray-900">{caption}</span>
