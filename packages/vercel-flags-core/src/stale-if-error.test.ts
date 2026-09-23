@@ -70,6 +70,12 @@ function expectErrors(...errors: Error[]) {
   errorSpy.mockClear();
 }
 
+function rejectPollOnce(error: Error) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    poll.mockRejectedValueOnce(error);
+  }
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(0);
@@ -103,9 +109,9 @@ describe('polling stale-if-error through the public API', () => {
     -1,
     NaN,
     -Infinity,
-  ])('rejects invalid duration %s', (staleIfErrorMs) => {
-    expect(() => client({ staleIfErrorMs })).toThrow(
-      '@vercel/flags-core: staleIfErrorMs must be a nonnegative number or Infinity.',
+  ])('rejects invalid duration %s', (staleIfError) => {
+    expect(() => client({ staleIfError })).toThrow(
+      '@vercel/flags-core: staleIfError must be a nonnegative number of seconds or Infinity.',
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -113,19 +119,19 @@ describe('polling stale-if-error through the public API', () => {
   it.each([
     undefined,
     Infinity,
-  ])('keeps unlimited fallback for %s', async (staleIfErrorMs) => {
-    const instance = client({ staleIfErrorMs });
+  ])('keeps unlimited fallback for %s', async (staleIfError) => {
+    const instance = client({ staleIfError });
     const initial = await instance.evaluate('flagA');
     const failure = new Error('offline');
     poll.mockRejectedValue(failure);
-    await vi.advanceTimersByTimeAsync(90_000);
+    await vi.advanceTimersByTimeAsync(90_300);
     expect(await instance.evaluate('flagA')).toEqual(initial);
-    expect(poll).toHaveBeenCalledTimes(4);
+    expect(poll).toHaveBeenCalledTimes(10);
     expectErrors(failure, failure, failure);
   });
 
   it('includes the finite deadline, preserves the first error, and uses existing error/default/bulk conventions', async () => {
-    const instance = client({ staleIfErrorMs: 30_000 });
+    const instance = client({ staleIfError: 30 });
     const initial = await instance.evaluate('flagA');
     expect(initial.metrics).toEqual({
       readMs: 0,
@@ -138,8 +144,9 @@ describe('polling stale-if-error through the public API', () => {
     const snapshot = await instance.getDatafile();
     const first = new Error('first failure');
     const repeated = new Error('repeated failure');
-    poll.mockRejectedValueOnce(first).mockRejectedValue(repeated);
-    await vi.advanceTimersByTimeAsync(30_000);
+    rejectPollOnce(first);
+    poll.mockRejectedValue(repeated);
+    await vi.advanceTimersByTimeAsync(30_300);
     expect(await instance.evaluate('flagA')).toEqual(initial);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(await instance.evaluate('flagA')).toEqual(initial);
@@ -162,18 +169,18 @@ describe('polling stale-if-error through the public API', () => {
       missing: { ...fallback, value: undefined },
     });
     await expect(instance.getDatafile()).rejects.toBe(first);
-    expect(poll).toHaveBeenCalledTimes(3);
+    expect(poll).toHaveBeenCalledTimes(7);
     poll.mockResolvedValueOnce(response(data()));
-    await vi.advanceTimersByTimeAsync(29_999);
+    await vi.advanceTimersByTimeAsync(29_699);
     const retained = await instance.getDatafile();
     expect(retained).toEqual(snapshot);
     expect(retained.definitions).toBe(snapshot.definitions);
-    expect(poll).toHaveBeenCalledTimes(4);
+    expect(poll).toHaveBeenCalledTimes(8);
     expectErrors(first, repeated);
   });
 
   it('does not expire healthy data between polls or start a poll from reads', async () => {
-    const instance = client({ staleIfErrorMs: 1 });
+    const instance = client({ staleIfError: 0.001 });
     const initial = await instance.evaluate('flagA');
     await vi.advanceTimersByTimeAsync(29_999);
     expect(await instance.evaluate('flagA')).toEqual(initial);
@@ -182,6 +189,23 @@ describe('polling stale-if-error through the public API', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(await instance.evaluate('flagA')).toEqual(initial);
     expect(poll).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts fractional seconds and expires just after the inclusive millisecond deadline', async () => {
+    const instance = client({ staleIfError: 0.25 });
+    const initial = await instance.evaluate('flagA');
+    const failure = new Error('offline');
+    rejectPollOnce(failure);
+    await vi.advanceTimersByTimeAsync(30_300);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(await instance.evaluate('flagA')).toEqual(initial);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await instance.evaluate('flagA')).toEqual(initial);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    await expect(instance.getDatafile()).rejects.toBe(failure);
+    expect(poll).toHaveBeenCalledTimes(4);
+    expectErrors(failure);
   });
 
   it.each([
@@ -196,15 +220,18 @@ describe('polling stale-if-error through the public API', () => {
       });
     }
     const failure = new Error('initial failure');
-    poll.mockRejectedValueOnce(failure);
+    rejectPollOnce(failure);
     const instance = client({
-      staleIfErrorMs: 0,
+      staleIfError: 0,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
     const snapshot = await instance.getDatafile();
-    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    const evaluation = instance.evaluate('flagA');
+    const evaluationOutcome = expect(evaluation).rejects.toBe(failure);
+    await vi.advanceTimersByTimeAsync(300);
+    await evaluationOutcome;
     await expect(instance.getDatafile()).rejects.toBe(failure);
-    expect(Date.now()).toBe(0);
+    expect(Date.now()).toBe(300);
     expect(snapshot.definitions).toBe(supplied.definitions);
     expect(snapshot.metrics.source).toBe(
       seed === 'provided' ? 'in-memory' : 'embedded',
@@ -214,7 +241,7 @@ describe('polling stale-if-error through the public API', () => {
     expect((await instance.getDatafile()).definitions).toBe(
       snapshot.definitions,
     );
-    expect(poll).toHaveBeenCalledTimes(2);
+    expect(poll).toHaveBeenCalledTimes(4);
     expectErrors(failure);
   });
 
@@ -225,16 +252,16 @@ describe('polling stale-if-error through the public API', () => {
     undefined,
     'invalid',
   ])('recovers on accepted or confirmed version %s and starts a second outage', async (version) => {
-    const instance = client({ staleIfErrorMs: 100 });
+    const instance = client({ staleIfError: 0.1 });
     await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
     const failure = new Error('offline');
     poll.mockRejectedValue(failure);
-    await vi.advanceTimersByTimeAsync(30_101);
+    await vi.advanceTimersByTimeAsync(30_401);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     const updated = data({ configUpdatedAt: version as number });
     poll.mockResolvedValueOnce(response(updated));
-    await vi.advanceTimersByTimeAsync(29_899);
+    await vi.advanceTimersByTimeAsync(29_599);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     const recovered = await instance.getDatafile();
     expect(recovered.definitions).toBe(
@@ -242,11 +269,11 @@ describe('polling stale-if-error through the public API', () => {
         ? snapshot.definitions
         : updated.definitions,
     );
-    await vi.advanceTimersByTimeAsync(30_100);
+    await vi.advanceTimersByTimeAsync(30_400);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
-    expect(poll).toHaveBeenCalledTimes(4);
+    expect(poll).toHaveBeenCalledTimes(8);
     expectErrors(failure, failure);
   });
 
@@ -256,7 +283,7 @@ describe('polling stale-if-error through the public API', () => {
       definitions: supplied,
       state: 'ok',
     });
-    const instance = client({ staleIfErrorMs: 0 });
+    const instance = client({ staleIfError: 0 });
     const initial = await instance.evaluate('flagA');
     expect(initial.value).toBe(true);
     expect(initial.metrics).toEqual({
@@ -271,20 +298,20 @@ describe('polling stale-if-error through the public API', () => {
     expect(snapshot.definitions).toBe(supplied.definitions);
     expect(snapshot.metrics.source).toBe('embedded');
     const failure = new Error('polling outage');
-    poll.mockRejectedValueOnce(failure);
-    await vi.advanceTimersByTimeAsync(30_000);
+    rejectPollOnce(failure);
+    await vi.advanceTimersByTimeAsync(30_300);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
 
     // Return the exact bundled object, including the origin attached at startup.
     poll.mockResolvedValueOnce(response(supplied));
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(29_700);
     const recovered = await instance.evaluate('flagA');
     expect(recovered).toEqual(initial);
     const retained = await instance.getDatafile();
     expect(retained).toEqual(snapshot);
     expect(retained.definitions).toBe(supplied.definitions);
     expect(retained.segments).toBe(supplied.segments);
-    expect(poll).toHaveBeenCalledTimes(3);
+    expect(poll).toHaveBeenCalledTimes(5);
     expectErrors(failure);
   });
 
@@ -295,23 +322,22 @@ describe('polling stale-if-error through the public API', () => {
     { configUpdatedAt: NaN },
     { configUpdatedAt: -Infinity },
   ])('does not confirm rejected data %j', async (override) => {
-    const instance = client({ staleIfErrorMs: 0 });
+    const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
     const failure = new Error('offline');
-    poll
-      .mockRejectedValueOnce(failure)
-      .mockResolvedValue(response(data(override)));
+    rejectPollOnce(failure);
+    poll.mockResolvedValue(response(data(override)));
     await vi.advanceTimersByTimeAsync(60_000);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     await expect(instance.getDatafile()).rejects.toBe(failure);
-    expect(poll).toHaveBeenCalledTimes(3);
+    expect(poll).toHaveBeenCalledTimes(5);
     poll.mockResolvedValueOnce(response(data()));
     await vi.advanceTimersByTimeAsync(30_000);
     expect((await instance.getDatafile()).definitions).toBe(
       snapshot.definitions,
     );
-    expect(poll).toHaveBeenCalledTimes(4);
+    expect(poll).toHaveBeenCalledTimes(6);
     expectErrors(failure);
   });
 
@@ -321,20 +347,20 @@ describe('polling stale-if-error through the public API', () => {
     -Infinity,
   ])('does not confirm equal nonfinite version %s', async (configUpdatedAt) => {
     poll.mockResolvedValue(response(data({ configUpdatedAt })));
-    const instance = client({ staleIfErrorMs: 0 });
+    const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const failure = new Error('offline');
-    poll.mockRejectedValueOnce(failure);
+    rejectPollOnce(failure);
     await vi.advanceTimersByTimeAsync(60_000);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     expectErrors(failure);
   });
 
   it('retains main acceptance of a newer mismatched identity and positive Infinity', async () => {
-    const instance = client({ staleIfErrorMs: 0 });
+    const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const failure = new Error('offline');
-    poll.mockRejectedValueOnce(failure);
+    rejectPollOnce(failure);
     const accepted = data({ configUpdatedAt: Infinity, projectId: 'other' });
     poll.mockResolvedValue(response(accepted));
     await vi.advanceTimersByTimeAsync(60_000);
@@ -348,7 +374,7 @@ describe('polling stale-if-error through the public API', () => {
   it('does not start SIE at initialization timeout; a late actual error does', async () => {
     const pending = deferred<Response>();
     poll.mockReturnValue(pending.promise);
-    const instance = client({ staleIfErrorMs: 0, datafile: data() });
+    const instance = client({ staleIfError: 0, datafile: data() });
     const evaluation = instance.evaluate('flagA');
     await vi.advanceTimersByTimeAsync(3_000);
     expect((await evaluation).value).toBe(true);
@@ -362,10 +388,10 @@ describe('polling stale-if-error through the public API', () => {
     expect((await instance.evaluate('flagA')).value).toBe(true);
     const failure = new Error('late failure');
     pending.reject(failure);
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(300);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(poll).toHaveBeenCalledTimes(1); // Main starts no interval after this timeout.
+    expect(poll).toHaveBeenCalledTimes(3); // Main starts no interval after this timeout.
     expectErrors(failure);
   });
 
@@ -383,49 +409,49 @@ describe('polling stale-if-error through the public API', () => {
     const failure = new Error('initial failure');
     poll.mockRejectedValue(failure);
     const instance = client({
-      staleIfErrorMs: 100,
+      staleIfError: 0.1,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
-    expect((await instance.evaluate('flagA')).value).toBe(true);
+    const initial = instance.evaluate('flagA');
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await initial).value).toBe(true);
     await vi.advanceTimersByTimeAsync(101);
     await instance.shutdown();
     // Main permits reinitialization but does not rewire source events.
     // Restoring a seed must not turn that limitation into a policy bypass.
-    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    const restored = instance.evaluate('flagA');
+    const restoredOutcome = expect(restored).rejects.toBe(failure);
+    await vi.advanceTimersByTimeAsync(300);
+    await restoredOutcome;
     await expect(instance.getDatafile()).rejects.toBe(failure);
-    expect(poll).toHaveBeenCalledTimes(2);
+    expect(poll).toHaveBeenCalledTimes(6);
     expectErrors(failure);
   });
 
-  it('observes overlapping polls in completion order without coalescing', async () => {
-    const instance = client({ staleIfErrorMs: 0 });
+  it('settles a timed-out poll before the next interval can recover', async () => {
+    const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const delayedBody = deferred<BundledDefinitions>();
     const delayedResponse = new Response();
     delayedResponse.json = () => delayedBody.promise;
     poll.mockResolvedValueOnce(delayedResponse);
-    await vi.advanceTimersByTimeAsync(30_000);
-    const failure = new Error('outage');
-    poll.mockRejectedValueOnce(failure);
-    await vi.advanceTimersByTimeAsync(30_000);
-    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
-    // An older request confirms the current version after the newer error.
+    await vi.advanceTimersByTimeAsync(40_000);
+    await expect(instance.evaluate('flagA')).rejects.toThrow(
+      '@vercel/flags-core: Datafile fetch deadline exceeded',
+    );
+
+    // Completing the abandoned response cannot overwrite the timeout.
     delayedBody.resolve(data());
     await vi.advanceTimersByTimeAsync(0);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await expect(instance.evaluate('flagA')).rejects.toThrow(
+      '@vercel/flags-core: Datafile fetch deadline exceeded',
+    );
 
-    const lateError = deferred<BundledDefinitions>();
-    const lateResponse = new Response();
-    lateResponse.json = () => lateError.promise;
-    poll.mockResolvedValueOnce(lateResponse);
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(20_000);
     expect((await instance.evaluate('flagA')).value).toBe(true);
-    const secondFailure = new Error('late outage');
-    lateError.reject(secondFailure);
-    await vi.advanceTimersByTimeAsync(0);
-    await expect(instance.evaluate('flagA')).rejects.toBe(secondFailure);
-    expect(poll).toHaveBeenCalledTimes(5);
-    expectErrors(failure, secondFailure);
+    expect(poll).toHaveBeenCalledTimes(3);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockClear();
   });
 
   it('keeps healthy streaming data with zero even when polling is configured', async () => {
@@ -439,7 +465,7 @@ describe('polling stale-if-error through the public API', () => {
       },
     });
     fetchMock.mockResolvedValue(new Response(body));
-    const instance = client({ stream: true, staleIfErrorMs: 0 });
+    const instance = client({ stream: true, staleIfError: 0 });
     const initial = await instance.evaluate('flagA');
     expect(initial.metrics?.mode).toBe('streaming');
     await vi.advanceTimersByTimeAsync(60_000);
@@ -453,7 +479,7 @@ describe('polling stale-if-error through the public API', () => {
     const instance = client({
       stream: true,
       datafile: data(),
-      staleIfErrorMs: 0,
+      staleIfError: 0,
     });
     await expect(instance.evaluate('flagA')).rejects.toThrow(
       'stream: unauthorized (401)',
@@ -476,7 +502,7 @@ describe('polling stale-if-error through the public API', () => {
     const instance = client({
       buildStep,
       polling: false,
-      staleIfErrorMs: 0,
+      staleIfError: 0,
       datafile: data(),
     });
     expect((await instance.evaluate('flagA')).value).toBe(true);
