@@ -154,13 +154,13 @@ export class Controller implements ControllerInterface {
   };
   private onStreamPrimed = (message: PrimedMessage) => {
     this.cache.tryConfirm(message, 'revision');
-    // The server confirmed our revision is current — no new data needed.
-    // Transition to streaming like a normal connected event.
+    // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
     }
   };
   private onStreamPing = () => {
+    // Pings refresh age but do not prove recovery from a recorded failure.
     this.cache.resetAge();
   };
   private onStreamConnected = () => {
@@ -277,6 +277,7 @@ export class Controller implements ControllerInterface {
       }
     }
 
+    // Select header mode after hydration so provided/bundled data avoids a cold fetch.
     if (this.headerSource.isAvailable()) {
       this.transition('vercel');
       return;
@@ -447,7 +448,7 @@ export class Controller implements ControllerInterface {
   }
 
   // ---------------------------------------------------------------------------
-  // Data resolution (shared by read() and getDatafile())
+  // Data resolution
   // ---------------------------------------------------------------------------
 
   /**
@@ -455,8 +456,7 @@ export class Controller implements ControllerInterface {
    * current mode. Returns tagged data and cache status.
    *
    * Build step: cached → bundled → one-time fetch
-   * Runtime with cache: return cached data
-   * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
+   * Runtime: source policy chooses cached data or refresh; fall back if empty.
    */
   private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
     if (this.options.buildStep) {
@@ -481,6 +481,7 @@ export class Controller implements ControllerInterface {
       return { getStatus: this.streamSource.getStatus };
     }
 
+    // Seeded initialization can leave the active poller in 'initializing:polling'.
     if (this.state === 'polling' || this.state === 'initializing:polling') {
       return { getStatus: this.pollingSource.getStatus };
     }
