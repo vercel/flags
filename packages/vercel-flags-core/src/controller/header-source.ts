@@ -1,10 +1,6 @@
 import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
-import {
-  type CacheMetadata,
-  type CacheReadPolicy,
-  Freshness,
-} from './datafile-cache';
+import type { CacheMetadata, CacheReadPolicy } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
 import { TypedEmitter } from './typed-emitter';
@@ -28,7 +24,28 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     const header =
       headers?.['x-vercel-flags-config-versions'] ??
       headers?.['flags-config-versions'];
-    return (data) => this.getStatus(data, header);
+
+    return (data) => {
+      const headerTs = this.getUpdatedAtHeader(data.projectId, header);
+      if (headerTs === undefined) return 'unknown';
+
+      const currentTs = Number(data.configUpdatedAt);
+      this.highestObserved = Math.max(this.highestObserved, headerTs);
+
+      if (!Number.isFinite(currentTs) || currentTs <= 0) return 'unknown';
+
+      // An older matching request cannot undo a newer request's invalidation.
+      if (headerTs === currentTs && headerTs === this.highestObserved) {
+        this.emit('confirmed', data);
+      }
+
+      if (headerTs <= currentTs) return 'fresh';
+
+      const { staleWhileRevalidateMs } = this.options;
+      return staleWhileRevalidateMs > 0 && data.ageMs <= staleWhileRevalidateMs
+        ? 'stale'
+        : 'expired';
+    };
   }
 
   private getUpdatedAtHeader(projectId: string, header: string | undefined) {
@@ -42,28 +59,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       ?.slice(prefix.length);
     const timestamp = Number(value);
     return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
-  }
-
-  private getStatus(
-    data: CacheMetadata,
-    header: string | undefined,
-  ): Freshness {
-    const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-    if (headerTs === undefined) return Freshness.Unknown;
-
-    const currentTs = Number(data.configUpdatedAt);
-    this.highestObserved = Math.max(this.highestObserved, headerTs);
-    if (!Number.isFinite(currentTs) || currentTs <= 0) return Freshness.Unknown;
-    // An older matching request cannot undo a newer request's invalidation.
-    if (headerTs === currentTs && headerTs === this.highestObserved) {
-      this.emit('confirmed', data);
-    }
-
-    if (headerTs <= currentTs) return Freshness.Fresh;
-    const { staleWhileRevalidateMs } = this.options;
-    return staleWhileRevalidateMs > 0 && data.ageMs <= staleWhileRevalidateMs
-      ? Freshness.Stale
-      : Freshness.Expired;
   }
 
   fetch = async (signal: AbortSignal): Promise<void> => {
