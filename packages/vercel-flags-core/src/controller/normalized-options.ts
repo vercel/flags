@@ -47,14 +47,15 @@ export type ControllerOptions = {
 
   /**
    * How long runtime reads may use cached data after the first consecutive
-   * stream/poll failure or stream disconnect. Accepts nonnegative milliseconds or Infinity.
+   * stream/poll failure or stream disconnect. Accepts nonnegative seconds or Infinity.
+   * Fractional seconds are supported.
    * Zero disables fallback immediately; positive windows include the deadline.
    * Accepted updates, matching versions, or matching stream primed revisions
    * reset the allowance. Applies to evaluations and getDatafile().
    * Build/offline behavior is unchanged.
    * @default Infinity
    */
-  staleIfErrorMs?: number;
+  staleIfError?: number;
 
   /**
    * Override build step detection
@@ -115,10 +116,10 @@ export type NormalizedOptions = {
 export function normalizeOptions(
   options: ControllerOptions,
 ): NormalizedOptions {
-  const staleIfErrorMs = options.staleIfErrorMs ?? Infinity;
-  if (typeof staleIfErrorMs !== 'number' || !(staleIfErrorMs >= 0)) {
+  const staleIfError = options.staleIfError ?? Infinity;
+  if (typeof staleIfError !== 'number' || !(staleIfError >= 0)) {
     throw new Error(
-      '@vercel/flags-core: staleIfErrorMs must be a nonnegative number or Infinity.',
+      '@vercel/flags-core: staleIfError must be a nonnegative number of seconds or Infinity.',
     );
   }
 
@@ -163,7 +164,7 @@ export function normalizeOptions(
     datafile: options.datafile,
     stream,
     polling,
-    staleIfErrorMs,
+    staleIfErrorMs: staleIfError * 1000,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,
