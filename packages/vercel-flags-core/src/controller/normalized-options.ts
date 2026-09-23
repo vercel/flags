@@ -12,7 +12,7 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
-const DEFAULT_STALE_WHILE_REVALIDATE_MS = 10_000;
+const DEFAULT_STALE_WHILE_REVALIDATE = 10;
 
 /**
  * Configuration options for Controller
@@ -57,10 +57,11 @@ export type ControllerOptions = {
   /**
    * How long header-driven reads may serve cached data while refreshing in the
    * background, measured from its last fetch or matching version header.
-   * Must be a finite, non-negative number. Set to 0 to always block on refresh.
-   * @default 10000
+   * Accepts finite, non-negative seconds, including fractional seconds.
+   * Set to 0 to always block on refresh.
+   * @default 10
    */
-  staleWhileRevalidateMs?: number;
+  staleWhileRevalidate?: number;
 
   /**
    * How long runtime reads may use cached data after the first consecutive
@@ -178,11 +179,11 @@ export function normalizeOptions(
     };
   }
 
-  const staleWhileRevalidateMs =
-    options.staleWhileRevalidateMs ?? DEFAULT_STALE_WHILE_REVALIDATE_MS;
-  if (!Number.isFinite(staleWhileRevalidateMs) || staleWhileRevalidateMs < 0) {
+  const staleWhileRevalidate =
+    options.staleWhileRevalidate ?? DEFAULT_STALE_WHILE_REVALIDATE;
+  if (!Number.isFinite(staleWhileRevalidate) || staleWhileRevalidate < 0) {
     throw new Error(
-      '@vercel/flags-core: staleWhileRevalidateMs must be a finite, non-negative number.',
+      '@vercel/flags-core: staleWhileRevalidate must be a finite, non-negative number of seconds.',
     );
   }
 
@@ -192,7 +193,7 @@ export function normalizeOptions(
     stream,
     polling,
     vercel: options.vercel ?? process.env.VERCEL === '1',
-    staleWhileRevalidateMs,
+    staleWhileRevalidateMs: staleWhileRevalidate * 1000,
     staleIfErrorMs: staleIfError * 1000,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,

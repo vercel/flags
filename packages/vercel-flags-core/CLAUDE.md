@@ -90,7 +90,7 @@ type ControllerOptions = {
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
   vercel?: boolean; // default: process.env.VERCEL === '1'; replaces stream/poll at runtime
-  staleWhileRevalidateMs?: number; // header refresh only; default: 10_000
+  staleWhileRevalidate?: number; // Seconds of header refresh grace; default: 10
   staleIfError?: number; // Seconds of fallback after update failure; default: Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
@@ -120,7 +120,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - Do not start stream/poll; the first read fetches if the cache is empty.
 - HeaderSource parses the request's project version and owns `highestObserved` and `lastSeen`.
 - A matching header confirms freshness only when no newer version has been observed.
-- A newer header refreshes in the background within `staleWhileRevalidateMs` of the latest
+- A newer header refreshes in the background within `staleWhileRevalidate` of the latest
   accepted fetch or matching header; unknown/expired freshness requires a blocking refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
   `staleIfErrorMs` allowance; expiry forces blocking recovery on the next newer-header read.

@@ -568,15 +568,15 @@ describe('Vercel mode (black-box)', () => {
 
   it.each([
     undefined,
-    100,
-    20_000,
-  ])('honors staleWhileRevalidateMs=%s at the boundary and on expiry', async (staleWhileRevalidateMs) => {
+    0.1,
+    20,
+  ])('honors staleWhileRevalidate=%s at the boundary and on expiry', async (staleWhileRevalidate) => {
     const waitUntil = vi.fn();
-    const instance = client({ staleWhileRevalidateMs, waitUntil });
+    const instance = client({ staleWhileRevalidate, waitUntil });
     await instance.evaluate('feature');
     waitUntil.mockClear();
 
-    const windowMs = staleWhileRevalidateMs ?? 10_000;
+    const windowMs = (staleWhileRevalidate ?? 10) * 1000;
     const pending = deferred<Response>();
     dataFetch.mockReturnValueOnce(pending.promise);
     setVersion(TIMESTAMP + 100_000);
@@ -606,7 +606,7 @@ describe('Vercel mode (black-box)', () => {
   });
 
   it('disables stale serving with a zero window, even immediately after a HIT', async () => {
-    const instance = client({ staleWhileRevalidateMs: 0 });
+    const instance = client({ staleWhileRevalidate: 0 });
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'HIT',
     );
@@ -626,9 +626,9 @@ describe('Vercel mode (black-box)', () => {
     NaN,
     Infinity,
     -Infinity,
-  ])('rejects invalid staleWhileRevalidateMs=%s', (staleWhileRevalidateMs) => {
-    expect(() => client({ staleWhileRevalidateMs })).toThrow(
-      'staleWhileRevalidateMs must be a finite, non-negative number',
+  ])('rejects invalid staleWhileRevalidate=%s', (staleWhileRevalidate) => {
+    expect(() => client({ staleWhileRevalidate })).toThrow(
+      'staleWhileRevalidate must be a finite, non-negative number of seconds',
     );
   });
 
