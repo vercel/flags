@@ -1,4 +1,4 @@
-import { ThemeAwareImage } from "@vercel/geistdocs/components/theme-aware-image";
+import { Image as ThemeAwareImage } from "@vercel/geistdocs/components/image";
 import { MobileDocsBar } from "@vercel/geistdocs/mobile-docs-bar";
 import { createDocsPage } from "@vercel/geistdocs/pages/docs";
 import type { MDXComponents } from "mdx/types";

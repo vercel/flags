@@ -1,6 +1,5 @@
 'use client';
 import { track } from '@vercel/analytics';
-import { Switch } from '@vercel/geistdocs/components/switch';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -12,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 const oneYearInSeconds = 31_536_000;
 

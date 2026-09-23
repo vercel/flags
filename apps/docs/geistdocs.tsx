@@ -1,4 +1,4 @@
-import { LogoFlagsSdk } from "@vercel/geistdocs/assets/logos/logo-flags-sdk";
+import { LogoFlagsSdk } from "@/components/custom/logos/flags-sdk";
 import type { GeistdocsAgentReadinessConfig } from "@vercel/geistdocs/config";
 
 export const Logo = () => <LogoFlagsSdk className="mt-0.5" height={20} />;

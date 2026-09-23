@@ -207,16 +207,16 @@ export default async function HomePage({
                 flags.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="lg"
-              className="shrink-0 rounded-full"
-              asChild
-            >
-              <Link href="/frameworks/next" prefetch={true}>
+            <Link href="/frameworks/next" prefetch={true} className="shrink-0">
+              <Button
+                Component="span"
+                variant="secondary"
+                size="large"
+                className="rounded-full"
+              >
                 Read the Docs
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </div>
           <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
             <HighlightedCode
@@ -252,11 +252,11 @@ export default async function HomePage({
           {/* Stack until the section itself goes side-by-side at md, and keep
               the buttons on the heading's left edge while stacked. */}
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
-            <Button size="lg" asChild className="rounded-full">
-              <Link href="/frameworks/next" prefetch={true}>
+            <Link href="/frameworks/next" prefetch={true}>
+              <Button Component="span" size="large" className="rounded-full">
                 Get Started
-              </Link>
-            </Button>
+              </Button>
+            </Link>
             {/* Root is `w-full items-center` by default, which would centre the
                 pill against the left-aligned heading while stacked. */}
             <CommandPromptRoot className="items-start" defaultValue="install">

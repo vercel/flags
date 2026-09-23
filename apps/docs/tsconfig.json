@@ -18,7 +18,8 @@
     "incremental": true,
     "paths": {
       "@/*": ["./*"],
-      "@/.source": [".source"]
+      "@/.source": [".source"],
+      "next/server": ["./node_modules/next/server"]
     },
     "plugins": [
       {
