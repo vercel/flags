@@ -177,9 +177,13 @@ export class DatafileCache {
     if (metadata) {
       const status = policy.getStatus(metadata);
       if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
+        // No on-read refresh is requested or available here. Even a fresh
+        // assessment must pass read()'s stale-if-error check before serving.
         return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
       }
 
+      // If stale-if-error has expired, fall through to a blocking recovery fetch.
+      // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read()!;
         this.fetchInBackground(policy.fetch);
