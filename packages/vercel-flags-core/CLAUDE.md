@@ -125,7 +125,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - A newer header permits background refresh within `staleWhileRevalidate` seconds of the
   latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
-  `staleIfErrorMs` allowance; expiry forces blocking recovery on the next newer-header read.
+  `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
 - Missing/malformed headers use cached data without fetching, subject to stale-if-error.
 - `getDatafile()` remains a snapshot read: it enforces the same failure policy but does
   not inspect request headers. Disabling both stream and polling selects offline mode.
