@@ -6,18 +6,23 @@ type Confirmation = Pick<
   'configUpdatedAt' | 'revision' | 'projectId' | 'environment'
 >;
 
-export type CacheMetadata = Confirmation & Pick<DatafileInput, 'fetchedAt'>;
+export type CacheMetadata = Confirmation & { ageMs: number };
 
-type Revalidate = (signal: AbortSignal) => Promise<void>;
+export enum Freshness {
+  Fresh = 'fresh',
+  Stale = 'stale',
+  Expired = 'expired',
+  Unknown = 'unknown',
+}
+
+type Fetch = (signal: AbortSignal) => Promise<void>;
 type CacheResult = [TaggedData, Metrics['cacheStatus']];
 
 export type CacheReadPolicy = {
-  /** Undefined adds no freshness evidence and keeps cached-read behavior. */
-  isFresh: (data: CacheMetadata) => boolean | undefined;
-  /** Whether stale data may be served while revalidation runs. */
-  isStale: (data: CacheMetadata) => boolean;
+  /** Unknown adds no freshness evidence and keeps cached-read behavior. */
+  getStatus: (data: CacheMetadata) => Freshness;
   /** Omit for modes whose stream/poll loop already maintains the cache. */
-  revalidate?: Revalidate;
+  fetch?: Fetch;
 };
 
 /**
@@ -33,13 +38,14 @@ function parseConfigUpdatedAt(value: unknown): number | undefined {
   return undefined;
 }
 
-/** Storage, serving policy, and revalidation driven by source callbacks. */
+/** Storage, serving policy, and fetching driven by source callbacks. */
 export class DatafileCache {
   private data: TaggedData | undefined;
+  private freshAt: number | undefined;
   private failure: { error: Error; startedAt: number } | undefined;
 
   private abortController = new AbortController();
-  private revalidation: Promise<void> | undefined;
+  private fetching: Promise<void> | undefined;
 
   constructor(
     private readonly staleIfErrorMs = Infinity,
@@ -55,23 +61,47 @@ export class DatafileCache {
     return this.data?.revision;
   }
 
+  /** Time since the latest freshness evidence, if known. */
+  get ageMs(): number {
+    return this.freshAt === undefined
+      ? Infinity
+      : Math.max(0, Date.now() - this.freshAt);
+  }
+
+  /** Records freshness evidence without confirming recovery from a failure. */
+  resetAge(): void {
+    if (this.data) this.freshAt = Date.now();
+  }
+
   /** Freshness checks can inspect retained metadata even after serving expires. */
   private get metadata(): CacheMetadata | undefined {
     if (!this.data) return undefined;
-    const { projectId, environment, configUpdatedAt, revision, fetchedAt } =
-      this.data;
-    return { projectId, environment, configUpdatedAt, revision, fetchedAt };
+    const { projectId, environment, configUpdatedAt, revision } = this.data;
+    return {
+      projectId,
+      environment,
+      configUpdatedAt,
+      revision,
+      ageMs: this.ageMs,
+    };
   }
 
   /** Stores initial or fallback data without confirming recovery from a failure. */
   seed(data: TaggedData): void {
     this.data = data;
+    this.freshAt =
+      typeof data.fetchedAt === 'number' &&
+      Number.isFinite(data.fetchedAt) &&
+      data.fetchedAt >= 0
+        ? data.fetchedAt
+        : undefined;
   }
 
   /** Accepts a source update or confirms the current version without replacing it. */
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
       this.data = tagData(incoming, origin);
+      this.resetAge();
       this.failure = undefined;
       return;
     }
@@ -103,6 +133,7 @@ export class DatafileCache {
       return false;
     }
 
+    this.resetAge();
     this.failure = undefined;
     return true;
   }
@@ -143,19 +174,23 @@ export class DatafileCache {
   async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
     const metadata = this.metadata;
     if (metadata) {
-      const fresh = policy.isFresh(metadata);
-      if (fresh !== false || !policy.revalidate) {
-        return [this.read()!, fresh ? 'HIT' : 'STALE'];
+      const status = policy.getStatus(metadata);
+      if (
+        status === Freshness.Fresh ||
+        status === Freshness.Unknown ||
+        !policy.fetch
+      ) {
+        return [this.read()!, status === Freshness.Fresh ? 'HIT' : 'STALE'];
       }
-      if (policy.isStale(metadata) && this.canServe()) {
+      if (status === Freshness.Stale && this.canServe()) {
         const stale = this.read()!;
-        this.revalidateInBackground(policy.revalidate);
+        this.fetchInBackground(policy.fetch);
         return [stale, 'STALE'];
       }
     }
 
-    if (!policy.revalidate) return;
-    const { promise, signal } = this.startRevalidation(policy.revalidate);
+    if (!policy.fetch) return;
+    const { promise, signal } = this.startFetch(policy.fetch);
     try {
       await promise;
       signal.throwIfAborted();
@@ -167,46 +202,41 @@ export class DatafileCache {
     }
 
     // A cold fetch discovers the project; assess the original request's header.
-    if (!metadata && this.metadata) policy.isFresh(this.metadata);
+    if (!metadata && this.metadata) policy.getStatus(this.metadata);
     const data = this.read();
     if (!data)
-      throw new Error(
-        '@vercel/flags-core: Revalidation returned no definitions',
-      );
+      throw new Error('@vercel/flags-core: Fetch returned no definitions');
     return [data, 'MISS'];
   }
 
-  private startRevalidation(revalidate: Revalidate) {
+  private startFetch(fetch: Fetch) {
     const { signal } = this.abortController;
-    if (this.revalidation) return { promise: this.revalidation, signal };
+    if (this.fetching) return { promise: this.fetching, signal };
 
     const promise = Promise.resolve()
       .then(() => {
         signal.throwIfAborted();
-        return revalidate(signal);
+        return fetch(signal);
       })
       .then(() => signal.throwIfAborted())
       .catch((error) => {
         if (!signal.aborted) {
           this.fail(
-            error instanceof Error
-              ? error
-              : new Error('Unknown revalidation error'),
+            error instanceof Error ? error : new Error('Unknown fetch error'),
           );
         }
         throw error;
       })
       .finally(() => {
         // An old, aborted operation must not clear a newer one.
-        if (this.abortController.signal === signal)
-          this.revalidation = undefined;
+        if (this.abortController.signal === signal) this.fetching = undefined;
       });
-    this.revalidation = promise;
+    this.fetching = promise;
     return { promise, signal };
   }
 
-  private revalidateInBackground(revalidate: Revalidate): void {
-    const { promise, signal } = this.startRevalidation(revalidate);
+  private fetchInBackground(fetch: Fetch): void {
+    const { promise, signal } = this.startFetch(fetch);
     const background = promise.catch((error) => {
       if (!signal.aborted) {
         console.error('@vercel/flags-core: Revalidation failed:', error);
@@ -222,7 +252,8 @@ export class DatafileCache {
   clear(): void {
     this.abortController.abort();
     this.abortController = new AbortController();
-    this.revalidation = undefined;
+    this.fetching = undefined;
     this.data = undefined;
+    this.freshAt = undefined;
   }
 }
