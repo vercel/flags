@@ -196,6 +196,44 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(cache === 'empty' ? 1 : 0);
   });
 
+  it('retains the original cold request header when the request context changes during a fetch', async () => {
+    const firstFetch = deferred<Response>();
+    dataFetch.mockReturnValueOnce(firstFetch.promise);
+    const instance = client({ datafile: undefined });
+    const firstRead = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(0);
+    setVersion(TIMESTAMP + 1);
+    firstFetch.resolve(Response.json(datafile()));
+    expect((await firstRead).metrics?.cacheStatus).toBe('MISS');
+
+    // The unrelated context above must not prevent a matching request confirming freshness.
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'HIT',
+    );
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    const nextFetch = deferred<Response>();
+    dataFetch.mockReturnValueOnce(nextFetch.promise);
+    const settled = vi.fn();
+    const reading = instance.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const servedBeforeRefresh = settled.mock.calls.length;
+    nextFetch.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    expect(await reading).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    expect(servedBeforeRefresh).toBe(1);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect((await instance.evaluate('feature')).value).toBe(true);
+  });
+
   it('recovers on a later read when the cold-cache fetch fails', async () => {
     const instance = client({ datafile: undefined });
     dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
