@@ -895,7 +895,7 @@ describe('Vercel mode (black-box)', () => {
 
   it.each([
     0, -1,
-  ])('ignores a background response with version delta %i without extending freshness', async (delta) => {
+  ])('retains a background response with version delta %i and renews age only on confirmation', async (delta) => {
     const instance = client();
     await instance.evaluate('feature');
     vi.setSystemTime(TIMESTAMP + 9_000);
@@ -913,9 +913,11 @@ describe('Vercel mode (black-box)', () => {
     vi.setSystemTime(TIMESTAMP + 10_001);
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect(await instance.evaluate('feature')).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'MISS' },
+      value: delta !== 0,
+      metrics: { cacheStatus: delta === 0 ? 'STALE' : 'MISS' },
     });
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
     expect(dataFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -967,8 +969,9 @@ describe('Vercel mode (black-box)', () => {
 
     mockDatafileResponse(TIMESTAMP + 2, true);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'MISS',
+      delta === 0 ? 'STALE' : 'MISS',
     );
+    await vi.advanceTimersByTimeAsync(0);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
     expect(dataFetch).toHaveBeenCalledTimes(3);
   });
