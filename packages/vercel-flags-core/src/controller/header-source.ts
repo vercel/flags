@@ -1,67 +1,35 @@
-import type { BundledDefinitions, DatafileInput, Metrics } from '../types';
+import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
-import type { CacheMetadata, DatafileCache } from './datafile-cache';
+import type { CacheMetadata, CacheReadPolicy } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
-import type { TaggedData } from './tagged-data';
 import { TypedEmitter } from './typed-emitter';
 
 export type HeaderSourceEvents = {
   data: (data: DatafileInput) => void;
-  error: (error: Error) => void;
+  confirmed: (data: CacheMetadata) => void;
 };
 
-/**
- * Manages a lazy pulling of flag data from the flags service using the version header.
- */
+/** Request version evidence and fetching; the cache decides how to serve reads. */
 export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
-  private options: NormalizedOptions;
-  private abortController: AbortController | undefined;
-  private promise: Promise<BundledDefinitions> | undefined;
   private highestObserved = 0;
   private lastSeen: { version: number; at: number } | undefined;
 
-  constructor(options: NormalizedOptions) {
+  constructor(private readonly options: NormalizedOptions) {
     super();
-
-    this.options = options;
   }
 
-  private fetchDatafile(): Promise<BundledDefinitions> {
-    // Share only the transport work, not request-specific freshness decisions.
-    if (this.promise) return this.promise;
-
-    const abortController = new AbortController();
-    this.abortController = abortController;
-    this.promise = fetchDatafile({
-      ...this.options,
-      signal: abortController.signal,
-    })
-      .then((data) => {
-        // A transport may finish after stop() even if it ignores cancellation.
-        abortController.signal.throwIfAborted();
-        this.emit('data', data);
-        return data;
-      })
-      .catch((error) => {
-        if (!abortController.signal.aborted) this.emit('error', error);
-        throw error;
-      })
-      .finally(() => {
-        // An older, aborted fetch must not clear a newer request's work.
-        if (this.abortController === abortController) {
-          this.promise = undefined;
-          this.abortController = undefined;
-        }
-      });
-
-    return this.promise;
+  /** Capture this request's header before any cold-cache fetch awaits. */
+  getFreshnessCheck(): CacheReadPolicy['isFresh'] {
+    const { headers } = getRequestContext();
+    const header =
+      headers?.['x-vercel-flags-config-versions'] ??
+      headers?.['flags-config-versions'];
+    return (data) => this.isFresh(data, header);
   }
 
   private getUpdatedAtHeader(projectId: string, header: string | undefined) {
-    if (!header) {
-      return;
-    }
+    if (!header) return;
 
     const prefix = `flags_${projectId}=`;
     const value = header
@@ -70,113 +38,49 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
       .find((part) => part.startsWith(prefix))
       ?.slice(prefix.length);
     const timestamp = Number(value);
-
     return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
 
-  private async refresh(
-    cache: DatafileCache,
-  ): Promise<[TaggedData, Metrics['cacheStatus']]> {
-    const pending = this.fetchDatafile();
-    const signal = this.abortController!.signal;
-    try {
-      await pending;
-      signal.throwIfAborted();
-    } catch (error) {
-      if (signal.aborted) throw error;
-      // The controller recorded the failure; the cache decides whether to serve it.
-      const stale = cache.read();
-      if (!stale) throw error;
-      return [stale, 'STALE'];
+  private isFresh(
+    data: CacheMetadata,
+    header: string | undefined,
+  ): boolean | undefined {
+    const version = this.getUpdatedAtHeader(data.projectId, header);
+    if (!version) return;
+
+    const currentVersion = Number(data.configUpdatedAt);
+    this.highestObserved = Math.max(this.highestObserved, version);
+    // An older matching request cannot undo a newer request's invalidation.
+    if (version === currentVersion && version === this.highestObserved) {
+      this.lastSeen = { version, at: Date.now() };
+      this.emit('confirmed', data);
     }
-    return [cache.read()!, 'MISS'];
+
+    if (!data.configUpdatedAt) return;
+    return version <= currentVersion;
   }
 
-  private revalidate(): void {
-    const pending = this.fetchDatafile();
-    const signal = this.abortController?.signal;
-    const background = pending.catch((error) => {
-      if (!signal?.aborted) {
-        console.error('@vercel/flags-core: Header refresh failed:', error);
-      }
-    });
-
-    try {
-      this.options.waitUntil(background);
-    } catch {
-      // Registration is best-effort; the handled refresh continues regardless.
-    }
-  }
-
-  private async resolveData(
-    cache: DatafileCache,
-    current: CacheMetadata,
-    updatedAtHeader: number | undefined,
-  ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    if (!current.configUpdatedAt || !updatedAtHeader) return;
-
-    const currentUpdatedAt = Number(current.configUpdatedAt);
-    if (updatedAtHeader <= currentUpdatedAt) {
-      return [cache.read()!, 'HIT'];
-    }
-
+  /** Whether this version is still inside its background-refresh window. */
+  isStale = (data: CacheMetadata): boolean => {
     const freshAt = Math.max(
-      current.fetchedAt ?? -Infinity,
-      this.lastSeen?.version === currentUpdatedAt
+      data.fetchedAt ?? -Infinity,
+      this.lastSeen?.version === Number(data.configUpdatedAt)
         ? this.lastSeen.at
         : -Infinity,
     );
     const { staleWhileRevalidateMs } = this.options;
-    if (
+    return (
       staleWhileRevalidateMs > 0 &&
       Date.now() - freshAt <= staleWhileRevalidateMs
-    ) {
-      let stale: TaggedData | undefined;
-      try {
-        stale = cache.read();
-      } catch {
-        // Expired stale-if-error requires a blocking recovery attempt below.
-      }
-      if (stale) {
-        this.revalidate();
-        return [stale, 'STALE'];
-      }
-    }
+    );
+  };
 
-    return this.refresh(cache);
-  }
-
-  private observe(version: number, currentVersion: number): boolean {
-    this.highestObserved = Math.max(this.highestObserved, version);
-    // Once invalidated, an older matching header cannot renew freshness.
-    if (version !== currentVersion || version !== this.highestObserved)
-      return false;
-    this.lastSeen = { version, at: Date.now() };
-    return true;
-  }
-
-  async read(
-    cache: DatafileCache,
-  ): Promise<[TaggedData, Metrics['cacheStatus']] | undefined> {
-    // Capture the request header before a cold fetch discovers its project.
-    const { headers } = getRequestContext();
-    const header =
-      headers?.['x-vercel-flags-config-versions'] ??
-      headers?.['flags-config-versions'];
-    const current = cache.metadata;
-    const fetched = current ? undefined : await this.refresh(cache);
-    const metadata = current ?? cache.metadata!;
-    const updatedAtHeader = this.getUpdatedAtHeader(metadata.projectId, header);
-    if (
-      updatedAtHeader &&
-      this.observe(updatedAtHeader, Number(metadata.configUpdatedAt))
-    ) {
-      cache.tryConfirm(metadata);
-    }
-
-    if (fetched) return fetched;
-    return this.resolveData(cache, metadata, updatedAtHeader);
-  }
+  revalidate = async (signal: AbortSignal): Promise<void> => {
+    const data = await fetchDatafile({ ...this.options, signal });
+    // Transports can finish after cancellation; never publish that response.
+    signal.throwIfAborted();
+    this.emit('data', data);
+  };
 
   isAvailable(): boolean {
     // Explicit offline mode disables header-driven refreshes too.
@@ -186,13 +90,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     );
   }
 
-  /**
-   * Abort the current header-driven fetch and discard its pending work.
-   */
   stop(): void {
-    this.abortController?.abort();
-    this.abortController = undefined;
-    this.promise = undefined;
     this.lastSeen = undefined;
     this.highestObserved = 0;
   }
