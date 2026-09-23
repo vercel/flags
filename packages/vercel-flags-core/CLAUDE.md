@@ -254,7 +254,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onPing` (age-only reset), `onDisconnect`, and `onError` (failure evidence for cache policy)
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onPing` (resets age and clears failure), `onDisconnect`, and `onError` (failure evidence for cache policy)
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
 - The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — resets cache age and clears a failure when revision/identity match, then transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
@@ -326,7 +326,7 @@ boundary. `hasData` and `revision` expose coordination metadata even after expir
 so retained data is not replaced by fallback and stream reconnects can still send
 `X-Revision`. `seed()` never clears failure. Accepted source updates or valid
 version/revision confirmations clear it; repeated errors/disconnects do not renew
-the first-error deadline. Stream opening/pings and initialization timeout alone
+the first-error deadline. Stream opening and initialization timeout alone
 are not recovery/failure evidence respectively.
 
 `cache.resolve(policy)` receives a mode-specific `getStatus` callback returning
@@ -337,7 +337,8 @@ forwarded through controller event wiring. Stream/poll modes omit on-read revali
 and retain their existing schedules. New public time windows use seconds; internal
 normalized durations, cache age, and `fetchedAt` use milliseconds. Polling is fresh
 through its interval; streaming through 30 seconds. Accepted updates, valid confirmations,
-and stream pings reset cache age. Pings preserve any failure and its original deadline.
+and stream pings reset cache age. Pings also clear failures: each connection sends
+`primed` or a datafile before pings, so they confirm recovery without rewriting `fetchedAt`.
 Polling errors use the shared source-error handler without logging each failed poll.
 
 ### Evaluation Safety

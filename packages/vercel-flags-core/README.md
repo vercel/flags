@@ -84,8 +84,9 @@ The allowance starts at the first consecutive failure. Repeated errors,
 disconnects, and provided or bundled fallback data do not renew it. An accepted
 source update, or a finite equal version for the same project and environment,
 clears the outage. A stream `primed` message also clears it when its finite numeric
-revision and identity match the cached entry. Opening a connection or receiving
-a ping alone does not clear a failure. A later failure starts a new allowance.
+revision and identity match the cached entry. Pings clear failures too: the server
+sends `primed` or a datafile before pings on each connection. Opening a connection
+alone does not clear a failure. A later failure starts a new allowance.
 Responses are observed in completion order, with existing version acceptance.
 
 After expiry, `evaluate()` returns the caller's default with reason `error`, or
@@ -98,7 +99,7 @@ exists. `getFallbackDatafile()` remains an independent bundled-data export.
 
 Polling data is marked stale after the polling interval; streaming data after 30
 seconds. Accepted updates and valid confirmations reset cache age without rewriting
-`fetchedAt`. Stream pings also reset age, while preserving any failure and its deadline.
+`fetchedAt`. Stream pings also reset age and clear any failure.
 Age alone does not prevent stream/poll reads or trigger extra requests. Source scheduling,
 retries, timeouts, and build/offline behavior remain unchanged. Poll errors feed the
 shared failure handler without logging each failed poll. An initialization timeout

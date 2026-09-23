@@ -163,8 +163,8 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamPing = () => {
-    // Pings refresh age but do not prove recovery from a recorded failure.
-    this.cache.resetAge();
+    // Each connection sends primed/datafile before pings, so a ping confirms recovery.
+    this.cache.confirm();
   };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {

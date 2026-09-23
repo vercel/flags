@@ -227,8 +227,9 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0', '1', '2', '3', '4', '5', '6', '7']);
   });
 
-  it('keeps the inclusive first-error deadline through retries, HTTP open, pings, and connected events', async () => {
+  it('keeps the first-error deadline through retries and unconfirmed messages, then recovers on ping', async () => {
     const { instance, stream } = await start({ staleIfError: 3 });
+    const snapshot = await instance.getDatafile();
     const first = new Error('first stream read failed');
     const repeated = new Error('reconnect failed');
     const reconnect = mockStream();
@@ -246,11 +247,9 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0', '1']);
     await vi.advanceTimersByTimeAsync(1);
     expectRequests(['0', '1', '2']);
-    reconnect.push({ type: 'ping' });
     // These messages emit connected but neither confirms the cached snapshot.
     reconnect.push(primed({ revision: 6 }));
     reconnect.push({ type: 'datafile', data: data({ configUpdatedAt: 9 }) });
-    reconnect.push({ type: 'ping' });
     await vi.advanceTimersByTimeAsync(1_000);
     expect(await instance.evaluate('flagA')).toMatchObject({
       value: true,
@@ -262,9 +261,6 @@ describe('stream stale-if-error through the public API', () => {
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(10);
     await vi.advanceTimersByTimeAsync(1);
-    await expectExpired(instance, first);
-    reconnect.push({ type: 'ping' });
-    await vi.advanceTimersByTimeAsync(0);
     await expectExpired(instance, first);
     const fallback = {
       value: false,
@@ -282,6 +278,16 @@ describe('stream stale-if-error through the public API', () => {
       flagA: fallback,
       missing: { ...fallback, value: undefined },
     });
+    reconnect.push({ type: 'ping' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await instance.evaluate('flagA')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'HIT' },
+    });
+    const recovered = await instance.getDatafile();
+    expect(recovered).toEqual(snapshot);
+    expect(recovered.definitions).toBe(snapshot.definitions);
+    expect(recovered.fetchedAt).toBe(0);
     expectRequests(['0', '1', '2']);
   });
 
@@ -565,7 +571,7 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0', '1']);
   });
 
-  it('starts SIE only at ping timeout and keeps the original failure through another ping timeout', async () => {
+  it('starts a new SIE allowance when a recovered stream times out again', async () => {
     const { instance } = await start({ staleIfError: 0.1 });
     const reconnect = mockStream();
     const third = mockStream();
@@ -577,7 +583,6 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0']);
     await vi.advanceTimersByTimeAsync(2);
     expectRequests(['0', '1']);
-    reconnect.push({ type: 'ping' });
     await vi.advanceTimersByTimeAsync(99);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
@@ -587,8 +592,23 @@ describe('stream stale-if-error through the public API', () => {
     expect(failure).toBeInstanceOf(Error);
     expect(failure).toMatchObject({ message: 'stream: disconnected' });
     await expectExpired(instance, failure as Error);
-    await vi.advanceTimersByTimeAsync(89_901);
-    await expectExpired(instance, failure as Error);
+
+    reconnect.push(primed());
+    reconnect.push({ type: 'ping' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(100);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    const second = await instance
+      .evaluate('flagA')
+      .catch((error: unknown) => error);
+    expect(second).toBeInstanceOf(Error);
+    expect(second).toMatchObject({ message: 'stream: disconnected' });
+    expect(second).not.toBe(failure);
+    await expectExpired(instance, second as Error);
     expectRequests(['0', '1', '1']);
   });
 
