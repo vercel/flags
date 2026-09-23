@@ -98,6 +98,30 @@
     },
     "flags-sdk-flagsmith#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
+    },
+    "flags-sdk-statsig#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
+      "env": [
+        "STATSIG_SERVER_API_KEY",
+        "FLAGS_SECRET",
+        "EXPERIMENTATION_CONFIG",
+        "EXPERIMENTATION_CONFIG_ITEM_KEY"
+      ],
+      "cache": false
+    },
+    "flags-sdk-statsig#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
+      "env": [
+        "STATSIG_SERVER_API_KEY",
+        "FLAGS_SECRET",
+        "EXPERIMENTATION_CONFIG",
+        "EXPERIMENTATION_CONFIG_ITEM_KEY"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-statsig#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"]
     }
   }
 }
