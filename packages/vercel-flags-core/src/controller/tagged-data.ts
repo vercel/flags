@@ -15,7 +15,7 @@ export type TaggedData = DatafileInput & {
 };
 
 /**
- * Tags a DatafileInput with metadata.
+ * Stamp live arrivals; reusing provided/bundled data must preserve its original age.
  */
 export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
   const tagged: TaggedData = { ...data, _origin: origin };
