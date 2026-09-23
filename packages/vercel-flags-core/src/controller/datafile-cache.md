@@ -18,9 +18,10 @@ flowchart LR
 
 ## One serving policy
 
-`read()` is the only full-entry read. The cache receives `staleIfErrorMs` once at
-construction. The controller's evaluations and `getDatafile()` use this cache
-read policy within their existing data resolution and public-view construction.
+`read()` is the only full-entry read. The public `staleIfError` option is in
+seconds; normalization converts it to the internal `staleIfErrorMs` passed to the
+cache at construction. The controller's evaluations and `getDatafile()` use this
+cache read policy within their existing data resolution and public-view construction.
 Their loading paths and metrics stay intact: `getDatafile()` can still load a
 snapshot without starting stream/poll initialization. `getFallbackDatafile()`
 remains an independent bundled-data export.
