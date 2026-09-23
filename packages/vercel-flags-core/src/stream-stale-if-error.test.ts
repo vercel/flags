@@ -156,6 +156,61 @@ afterEach(async () => {
 
 describe('stream stale-if-error through the public API', () => {
   it.each([
+    'ping',
+    'primed',
+  ] as const)('resets stream freshness on %s without changing the fetched snapshot', async (type) => {
+    const { instance, stream } = await start({ staleIfError: 0 });
+    const initial = await instance.evaluate('flagA');
+    const snapshot = await instance.getDatafile();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await instance.evaluate('flagA')).toEqual(initial);
+    expect((await instance.getDatafile()).metrics.cacheStatus).toBe('HIT');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await instance.evaluate('flagA')).toEqual({
+      ...initial,
+      metrics: { ...initial.metrics, cacheStatus: 'STALE' },
+    });
+    expect((await instance.getDatafile()).metrics.cacheStatus).toBe('STALE');
+
+    stream.push(type === 'ping' ? { type } : primed());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await instance.evaluate('flagA')).toEqual(initial);
+    const confirmed = await instance.getDatafile();
+    expect(confirmed).toEqual(snapshot);
+    expect(confirmed.definitions).toBe(snapshot.definitions);
+    expect(confirmed.fetchedAt).toBe(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe('HIT');
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    expectRequests(['0']);
+  });
+
+  it('does not renew stream freshness on an invalid confirmation', async () => {
+    const { instance, stream } = await start();
+    const snapshot = await instance.getDatafile();
+    await vi.advanceTimersByTimeAsync(30_001);
+    for (const override of [
+      { revision: 6 },
+      { projectId: 'other' },
+      { environment: 'preview' },
+    ]) {
+      stream.push(primed(override));
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe(
+        'STALE',
+      );
+      expect(await instance.getDatafile()).toEqual({
+        ...snapshot,
+        metrics: { ...snapshot.metrics, cacheStatus: 'STALE' },
+      });
+    }
+    expectRequests(['0']);
+  });
+
+  it.each([
     undefined,
     Infinity,
   ])('retains unlimited fallback for %s', async (staleIfError) => {
@@ -195,13 +250,21 @@ describe('stream stale-if-error through the public API', () => {
     // These messages emit connected but neither confirms the cached snapshot.
     reconnect.push(primed({ revision: 6 }));
     reconnect.push({ type: 'datafile', data: data({ configUpdatedAt: 9 }) });
+    reconnect.push({ type: 'ping' });
     await vi.advanceTimersByTimeAsync(1_000);
     expect(await instance.evaluate('flagA')).toMatchObject({
       value: true,
-      metrics: { mode: 'streaming', connectionState: 'connected' },
+      metrics: {
+        mode: 'streaming',
+        connectionState: 'connected',
+        cacheStatus: 'HIT',
+      },
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(10);
     await vi.advanceTimersByTimeAsync(1);
+    await expectExpired(instance, first);
+    reconnect.push({ type: 'ping' });
+    await vi.advanceTimersByTimeAsync(0);
     await expectExpired(instance, first);
     const fallback = {
       value: false,
