@@ -6,6 +6,8 @@ type Confirmation = Pick<
   'configUpdatedAt' | 'revision' | 'projectId' | 'environment'
 >;
 
+export type CacheMetadata = Confirmation & Pick<DatafileInput, 'fetchedAt'>;
+
 /**
  * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
  * Returns undefined if the value is missing or cannot be parsed.
@@ -33,6 +35,14 @@ export class DatafileCache {
   /** Retained revisions remain available for reconnecting after serving expires. */
   get revision(): number | undefined {
     return this.data?.revision;
+  }
+
+  /** Freshness checks can inspect retained metadata even after serving expires. */
+  get metadata(): CacheMetadata | undefined {
+    if (!this.data) return undefined;
+    const { projectId, environment, configUpdatedAt, revision, fetchedAt } =
+      this.data;
+    return { projectId, environment, configUpdatedAt, revision, fetchedAt };
   }
 
   /** Stores initial or fallback data without confirming recovery from a failure. */
