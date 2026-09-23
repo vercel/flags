@@ -120,8 +120,10 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - Do not start stream/poll; the first read fetches if the cache is empty.
 - HeaderSource parses the request's project version and owns `highestObserved` and `lastSeen`.
 - A matching header confirms freshness only when no newer version has been observed.
-- A newer header refreshes in the background within `staleWhileRevalidate` of the latest
-  accepted fetch or matching header; unknown/expired freshness requires a blocking refresh.
+- The controller passes `isFresh`, `isStale`, and `revalidate` callbacks to `cache.resolve()`.
+  The cache selects cached/background/blocking behavior and shares refresh work.
+- A newer header permits background refresh within `staleWhileRevalidate` seconds of the
+  latest accepted fetch or matching header; unknown/expired freshness blocks for refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
   `staleIfErrorMs` allowance; expiry forces blocking recovery on the next newer-header read.
 - Missing/malformed headers use cached data without fetching, subject to stale-if-error.
@@ -312,15 +314,23 @@ The DatafileCache rejects incoming data (from stream or poll) if its `configUpda
 
 ### Cache read policy
 
-`DatafileCache.read()` is the only full-entry read. The cache is configured once
+Every served entry passes through `DatafileCache.read()`, including `resolve(policy)` results. The cache is configured once
 with the internal `staleIfErrorMs`, normalized from the public `staleIfError`
 option in seconds. Evaluations and `getDatafile()` share the same serving
-boundary. `hasData`, `revision`, and `metadata` expose coordination metadata even after expiry,
+boundary. `hasData` and `revision` expose coordination metadata even after expiry,
 so retained data is not replaced by fallback and stream reconnects can still send
 `X-Revision`. `seed()` never clears failure. Accepted source updates or valid
 version/revision confirmations clear it; repeated errors/disconnects do not renew
 the first-error deadline. Stream opening/pings and initialization timeout alone
 are not recovery/failure evidence respectively.
+
+`cache.resolve(policy)` receives mode-specific `isFresh`, `isStale`, and optional
+`revalidate` functions. It owns background/blocking decisions, `waitUntil`, shared
+revalidation, and cancellation on clear. HeaderSource supplies small version/age
+checks and a fetch callback; it does not read the cache. Header confirmations are
+forwarded through controller event wiring. Stream/poll modes omit on-read revalidation
+and retain their existing schedules. New public time windows use seconds; internal
+normalized durations and `fetchedAt` use milliseconds.
 
 ### Evaluation Safety
 
