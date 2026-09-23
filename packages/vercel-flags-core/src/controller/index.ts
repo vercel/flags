@@ -105,8 +105,9 @@ export class Controller implements ControllerInterface {
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
   private headerSource: HeaderSource;
-  // Retain the startup promise so fallback stays permanent and concurrent reads share it.
-  private headerFallback: Promise<void> | undefined;
+  private headerModeDisabled = false;
+  // Share only pending fallback work; later reads must use the current cache.
+  private fallbackPromise: Promise<Metrics['cacheStatus']> | undefined;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -281,7 +282,7 @@ export class Controller implements ControllerInterface {
     }
 
     // Select header mode after hydration so provided/bundled data avoids a cold fetch.
-    if (this.headerSource.isAvailable() && !this.headerFallback) {
+    if (this.headerSource.isAvailable() && !this.headerModeDisabled) {
       this.transition('vercel');
       return;
     }
@@ -466,46 +467,23 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.state === 'vercel' && !this.headerSource.hasVersionHeader()) {
-      this.headerFallback = this.initializeHeaderFallback();
-    }
-
-    if (this.headerFallback) {
-      await this.headerFallback;
-      if (this.state === 'shutdown') {
-        throw new Error('@vercel/flags-core: Client is shut down');
-      }
-    }
-
     const usingHeaders = this.state === 'vercel';
+    if (
+      (usingHeaders && !this.headerSource.hasVersionHeader()) ||
+      this.fallbackPromise
+    ) {
+      return this.resolveDataWithFallbacks();
+    }
+
     try {
       const result = await this.cache.resolve(this.cacheReadPolicy);
       if (result) return result;
     } catch (error) {
-      // A concurrent read may have switched sources and cancelled this header fetch.
-      if (usingHeaders && this.headerFallback) return this.resolveData();
-      throw error;
+      // A cancelled header read joins the same fallback path as the switching read.
+      if (!usingHeaders || !this.headerModeDisabled) throw error;
     }
 
     return this.resolveDataWithFallbacks();
-  }
-
-  private async initializeHeaderFallback(): Promise<void> {
-    this.cache.cancelFetch();
-    this.headerSource.stop();
-
-    if (this.options.stream.enabled) {
-      this.transition('initializing:stream');
-      await this.tryInitializeStream();
-      return;
-    }
-
-    this.transition('initializing:polling');
-    await this.tryInitializePolling();
-    if (this.state === 'shutdown') return;
-    // A timed-out first poll must not leave the fallback without future updates.
-    this.pollingSource.startInterval();
-    this.transition('polling');
   }
 
   private get cacheReadPolicy(): CacheReadPolicy {
@@ -754,31 +732,64 @@ export class Controller implements ControllerInterface {
     );
   }
 
-  /**
-   * Retrieves data using the fallback chain (called when no cached data exists).
-   * Streaming mode: stream → datafile → bundled.
-   * Polling mode: poll → datafile → bundled.
-   * Offline mode: datafile → bundled → one-time fetch.
-   */
+  private assertActive(): void {
+    if (this.state === 'shutdown') {
+      throw new Error('@vercel/flags-core: Client is shut down');
+    }
+  }
+
+  /** Share startup, then read again so completion never bypasses stale-if-error. */
   private async resolveDataWithFallbacks(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
-    // Try the configured primary source
+    this.assertActive();
+    this.fallbackPromise ??= this.loadDataWithFallbacks().finally(() => {
+      this.fallbackPromise = undefined;
+    });
+    const cacheStatus = await this.fallbackPromise;
+    this.assertActive();
+    return [this.cache.read()!, cacheStatus];
+  }
+
+  /** Start stream/poll, then fall back to current cache → provided → bundled. */
+  private async loadDataWithFallbacks(): Promise<Metrics['cacheStatus']> {
+    const switchingFromHeaders = this.state === 'vercel';
+    if (switchingFromHeaders) {
+      this.headerModeDisabled = true;
+      this.cache.cancelFetch();
+      this.headerSource.stop();
+    } else {
+      // A cancelled header fetch can finish after the new source is already ready.
+      const cached = await this.cache.resolve(this.cacheReadPolicy);
+      if (cached) return cached[1];
+    }
+    this.assertActive();
+
+    let sourceInitialized = false;
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
-      const streamSuccess = await this.tryInitializeStream();
-      if (streamSuccess && this.cache.hasData) {
-        this.transition('streaming');
-        return [this.cache.read()!, 'MISS'];
-      }
+      sourceInitialized = await this.tryInitializeStream();
     } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
-      const pollingSuccess = await this.tryInitializePolling();
-      if (pollingSuccess && this.cache.hasData) {
-        this.transition('polling');
-        return [this.cache.read()!, 'MISS'];
-      }
+      sourceInitialized = await this.tryInitializePolling();
     }
+    this.assertActive();
+
+    if (sourceInitialized && !switchingFromHeaders) {
+      this.transition(this.options.stream.enabled ? 'streaming' : 'polling');
+    }
+    if (switchingFromHeaders && !this.options.stream.enabled) {
+      // Header fallback must keep updating even when its first poll times out.
+      this.pollingSource.startInterval();
+      this.transition('polling');
+    }
+
+    // Preserve newer cached data on timeout; expired failures must throw before reseeding.
+    const cached = await this.cache.resolve(this.cacheReadPolicy);
+    if (cached) {
+      return sourceInitialized && !switchingFromHeaders ? 'MISS' : cached[1];
+    }
+    this.assertActive();
 
     // Fallback chain: datafile → bundled → one-time fetch
     this.transition('initializing:fallback');
@@ -786,15 +797,16 @@ export class Controller implements ControllerInterface {
     if (this.options.datafile) {
       this.cache.seed(tagData(this.options.datafile, 'provided'));
       this.transition('degraded');
-      return [this.cache.read()!, 'STALE'];
+      return 'STALE';
     }
 
     const bundled = await this.bundledSource.tryLoad();
+    this.assertActive();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
       this.cache.seed(tagData(bundled, 'bundled'));
       this.transition('degraded');
-      return [this.cache.read()!, 'STALE'];
+      return 'STALE';
     }
 
     // Last resort: one-time fetch (only when no stream/poll configured)
@@ -809,10 +821,11 @@ export class Controller implements ControllerInterface {
       } catch {
         // fetch failed — fall through to throw
       }
+      this.assertActive();
       if (fetched) {
         this.cache.seed(tagData(fetched, 'fetched'));
         this.transition('degraded');
-        return [this.cache.read()!, 'MISS'];
+        return 'MISS';
       }
     }
 
