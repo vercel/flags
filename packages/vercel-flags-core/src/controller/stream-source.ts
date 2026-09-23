@@ -1,5 +1,5 @@
 import type { DatafileInput } from '../types';
-import { type CacheMetadata, Freshness } from './datafile-cache';
+import type { CacheMetadata, Freshness } from './datafile-cache';
 import type { NormalizedOptions } from './normalized-options';
 import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
@@ -30,7 +30,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   }
 
   getStatus = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): Freshness =>
-    ageMs <= 30_000 ? Freshness.Fresh : Freshness.Stale;
+    ageMs <= 30_000 ? 'fresh' : 'stale';
 
   /**
    * Start the stream connection.

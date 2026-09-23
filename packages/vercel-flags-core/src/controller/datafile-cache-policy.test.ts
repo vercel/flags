@@ -5,7 +5,7 @@ import { Authentication } from './auth';
 import {
   type CacheReadPolicy,
   DatafileCache,
-  Freshness,
+  type Freshness,
 } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
@@ -58,16 +58,19 @@ afterEach(() => {
 });
 
 describe('cache read callbacks', () => {
-  it.each(
-    Object.values(Freshness),
-  )('serves %s without fetching when fetch is omitted, subject to SIE', async (status) => {
+  it.each([
+    'expired',
+    'fresh',
+    'stale',
+    'unknown',
+  ] satisfies Freshness[])('serves %s without fetching when fetch is omitted, subject to SIE', async (status) => {
     const cache = new DatafileCache(0);
     const original = tagData(data(), 'provided');
     cache.seed(original);
     const policy = { getStatus: vi.fn(() => status) };
     expect(await cache.resolve(policy)).toEqual([
       original,
-      status === Freshness.Fresh ? 'HIT' : 'STALE',
+      status === 'fresh' ? 'HIT' : 'STALE',
     ]);
     const error = new Error('outage');
     cache.fail(error);
@@ -77,15 +80,15 @@ describe('cache read callbacks', () => {
 
   it('returns undefined without assessing an empty cache when fetch is omitted', async () => {
     const cache = new DatafileCache();
-    const getStatus = vi.fn(() => Freshness.Fresh);
+    const getStatus = vi.fn(() => 'fresh' as const);
     expect(await cache.resolve({ getStatus })).toBeUndefined();
     expect(getStatus).not.toHaveBeenCalled();
   });
 
   it.each([
-    Freshness.Fresh,
-    Freshness.Unknown,
-  ])('serves a %s assessment without fetching or clearing a failure', async (status) => {
+    'fresh',
+    'unknown',
+  ] as const)('serves a %s assessment without fetching or clearing a failure', async (status) => {
     const cache = new DatafileCache(0);
     const original = tagData(data(), 'provided');
     cache.seed(original);
@@ -96,7 +99,7 @@ describe('cache read callbacks', () => {
 
     expect(await cache.resolve(policy)).toEqual([
       original,
-      status === Freshness.Fresh ? 'HIT' : 'STALE',
+      status === 'fresh' ? 'HIT' : 'STALE',
     ]);
     expect(policy.getStatus).toHaveBeenCalledExactlyOnceWith({
       projectId: 'prj_policy',
@@ -123,7 +126,7 @@ describe('cache read callbacks', () => {
     });
     const settled = vi.fn();
     const reading = cache
-      .resolve({ getStatus: () => Freshness.Expired, fetch })
+      .resolve({ getStatus: () => 'expired' as const, fetch })
       .then(settled);
     await vi.advanceTimersByTimeAsync(0);
     expect(settled).not.toHaveBeenCalled();
@@ -144,7 +147,7 @@ describe('cache read callbacks', () => {
       .fn<NonNullable<CacheReadPolicy['fetch']>>()
       .mockRejectedValueOnce(firstError)
       .mockRejectedValue(new Error('later outage'));
-    const policy = { getStatus: () => Freshness.Expired, fetch };
+    const policy = { getStatus: () => 'expired' as const, fetch };
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     vi.setSystemTime(1_100);
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
@@ -158,7 +161,7 @@ describe('cache read callbacks', () => {
     cache.seed(tagData(data(), 'provided'));
     const fetch = vi.fn().mockRejectedValue('transport failed');
     await expect(
-      cache.resolve({ getStatus: () => Freshness.Expired, fetch }),
+      cache.resolve({ getStatus: () => 'expired' as const, fetch }),
     ).rejects.toThrow('Unknown fetch error');
     expect(() => cache.read()).toThrow('Unknown fetch error');
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -174,7 +177,7 @@ describe('cache read callbacks', () => {
     const failure = new Error('fetch failed');
     const fetch = vi.fn().mockRejectedValue(failure);
     expect(
-      await cache.resolve({ getStatus: () => Freshness.Stale, fetch }),
+      await cache.resolve({ getStatus: () => 'stale' as const, fetch }),
     ).toEqual([original, 'STALE']);
     await waitUntil.mock.calls[0]?.[0];
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
@@ -197,12 +200,12 @@ describe('cache read callbacks', () => {
       await pending.promise;
       cache.updateFromSource(data(2), 'fetched');
     });
-    const policy = { getStatus: () => Freshness.Stale, fetch };
+    const policy = { getStatus: () => 'stale' as const, fetch };
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
     const settled = vi.fn();
     const blocking = cache
-      .resolve({ ...policy, getStatus: () => Freshness.Expired })
+      .resolve({ ...policy, getStatus: () => 'expired' as const })
       .then((result) => {
         settled();
         return result;
@@ -225,7 +228,7 @@ describe('cache read callbacks', () => {
     const fetch = vi
       .fn<NonNullable<CacheReadPolicy['fetch']>>()
       .mockRejectedValueOnce(failure);
-    const policy = { getStatus: () => Freshness.Stale, fetch };
+    const policy = { getStatus: () => 'stale' as const, fetch };
 
     expect((await cache.resolve(policy))?.[1]).toBe('STALE');
     await waitUntil.mock.calls[0]?.[0];
@@ -251,7 +254,7 @@ describe('cache read callbacks', () => {
     const fetch = vi.fn<NonNullable<CacheReadPolicy['fetch']>>(() => {
       throw failure;
     });
-    const policy = { getStatus: () => Freshness.Expired, fetch };
+    const policy = { getStatus: () => 'expired' as const, fetch };
     await expect(cache.resolve(policy)).rejects.toBe(failure);
     fetch.mockImplementationOnce(async () =>
       cache.updateFromSource(data(), 'fetched'),
@@ -264,7 +267,7 @@ describe('cache read callbacks', () => {
     const cache = new DatafileCache();
     const fetch = vi.fn(async () => {});
     const reading = cache.resolve({
-      getStatus: () => Freshness.Expired,
+      getStatus: () => 'expired' as const,
       fetch,
     });
     const outcome = expect(reading).rejects.toThrow();
@@ -286,7 +289,7 @@ describe('cache read callbacks', () => {
         signal.throwIfAborted();
         cache.updateFromSource(data(2), 'fetched');
       });
-    const policy = { getStatus: () => Freshness.Expired, fetch };
+    const policy = { getStatus: () => 'expired' as const, fetch };
     const oldRead = cache.resolve(policy);
     const cancelled = expect(oldRead).rejects.toThrow('cancelled transport');
     await vi.advanceTimersByTimeAsync(0);
@@ -347,7 +350,7 @@ describe('header freshness policy', () => {
     const confirmed = vi.fn();
     headerSource.on('confirmed', confirmed);
     expect(statusCheck(headerSource, header)({ ...data(), ageMs: 0 })).toBe(
-      Freshness.Unknown,
+      'unknown',
     );
     expect(confirmed).not.toHaveBeenCalled();
   });
@@ -372,20 +375,20 @@ describe('header freshness policy', () => {
         configUpdatedAt,
         ageMs: 0,
       }),
-    ).toBe(Freshness.Unknown);
+    ).toBe('unknown');
     expect(confirmed).not.toHaveBeenCalled();
   });
 
   it.each([
-    [1, 2, Infinity, 1, Freshness.Fresh],
-    [2, 2, Infinity, 1, Freshness.Fresh],
-    [3, 2, 0, 1, Freshness.Stale],
-    [3, 2, 1_000, 1, Freshness.Stale],
-    [3, 2, 1_001, 1, Freshness.Expired],
-    [3, 2, Infinity, 1, Freshness.Expired],
-    [3, 2, 0, 0, Freshness.Expired],
-    [3, 2, 500, 0.5, Freshness.Stale],
-    [3, 2, 501, 0.5, Freshness.Expired],
+    [1, 2, Infinity, 1, 'fresh'],
+    [2, 2, Infinity, 1, 'fresh'],
+    [3, 2, 0, 1, 'stale'],
+    [3, 2, 1_000, 1, 'stale'],
+    [3, 2, 1_001, 1, 'expired'],
+    [3, 2, Infinity, 1, 'expired'],
+    [3, 2, 0, 0, 'expired'],
+    [3, 2, 500, 0.5, 'stale'],
+    [3, 2, 501, 0.5, 'expired'],
   ])('assesses header %s against timestamp %s with age %s and SWR %s as %s', (headerTs, currentTs, ageMs, swr, status) => {
     const headerSource = source(swr);
     const confirmed = vi.fn();
@@ -472,8 +475,8 @@ describe('header freshness policy', () => {
       [cache.read(), 'MISS'],
     ]);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(originalCheck).toHaveReturnedWith(Freshness.Stale);
-    expect(laterCheck).toHaveReturnedWith(Freshness.Fresh);
+    expect(originalCheck).toHaveReturnedWith('stale');
+    expect(laterCheck).toHaveReturnedWith('fresh');
     expect(originalCheck).toHaveBeenCalledTimes(1);
     expect(laterCheck).toHaveBeenCalledTimes(1);
     expect(confirmed).not.toHaveBeenCalled();
@@ -494,7 +497,7 @@ describe('header freshness policy', () => {
       headers: { 'flags-config-versions': 'flags_prj_policy=1' },
     });
     expect(headerSource.getStatusCheck()({ ...data(), ageMs: Infinity })).toBe(
-      Freshness.Fresh,
+      'fresh',
     );
     vi.mocked(getRequestContext).mockReturnValue({
       ctx: undefined,
@@ -504,7 +507,7 @@ describe('header freshness policy', () => {
       },
     });
     expect(headerSource.getStatusCheck()({ ...data(), ageMs: Infinity })).toBe(
-      Freshness.Expired,
+      'expired',
     );
   });
 
