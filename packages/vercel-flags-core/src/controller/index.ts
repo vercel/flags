@@ -11,7 +11,11 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import { DatafileCache } from './datafile-cache';
+import {
+  type CacheMetadata,
+  type CacheReadPolicy,
+  DatafileCache,
+} from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -116,7 +120,10 @@ export class Controller implements ControllerInterface {
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
-    this.cache = new DatafileCache(this.options.staleIfErrorMs);
+    this.cache = new DatafileCache(
+      this.options.staleIfErrorMs,
+      this.options.waitUntil,
+    );
 
     // Create source modules
     this.streamSource = new StreamSource(
@@ -178,6 +185,9 @@ export class Controller implements ControllerInterface {
   private onHeaderData = (data: DatafileInput) => {
     this.cache.updateFromSource(data, 'fetched');
   };
+  private onHeaderConfirmed = (data: CacheMetadata) => {
+    this.cache.tryConfirm(data);
+  };
   private onPollError = (error: Error) => {
     this.noteUnauthorized(error);
     this.cache.fail(error);
@@ -197,7 +207,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
     this.headerSource.on('data', this.onHeaderData);
-    this.headerSource.on('error', this.onSourceError);
+    this.headerSource.on('confirmed', this.onHeaderConfirmed);
   }
 
   private unwireSourceEvents(): void {
@@ -209,7 +219,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
     this.headerSource.off('data', this.onHeaderData);
-    this.headerSource.off('error', this.onSourceError);
+    this.headerSource.off('confirmed', this.onHeaderConfirmed);
   }
 
   // ---------------------------------------------------------------------------
@@ -458,18 +468,25 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.state === 'vercel') {
-      const result = await this.headerSource.read(this.cache);
-      if (result) return result;
-    }
-
-    const data = this.cache.read();
-    if (data) {
-      const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      return [data, cacheStatus];
-    }
-
+    const result = await this.cache.resolve(this.getCacheReadPolicy());
+    if (result) return result;
     return this.resolveDataWithFallbacks();
+  }
+
+  private getCacheReadPolicy(): CacheReadPolicy {
+    if (this.state === 'vercel') {
+      return {
+        isFresh: this.headerSource.getFreshnessCheck(),
+        isStale: this.headerSource.isStale,
+        revalidate: this.headerSource.revalidate,
+      };
+    }
+
+    // Stream/poll maintain their existing schedules; reads do not trigger I/O.
+    return {
+      isFresh: () => this.isConnected,
+      isStale: () => true,
+    };
   }
 
   // ---------------------------------------------------------------------------

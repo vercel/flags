@@ -1,4 +1,4 @@
-import type { DatafileInput } from '../types';
+import type { DatafileInput, Metrics, WaitUntil } from '../types';
 import { type DataOrigin, type TaggedData, tagData } from './tagged-data';
 
 type Confirmation = Pick<
@@ -7,6 +7,18 @@ type Confirmation = Pick<
 >;
 
 export type CacheMetadata = Confirmation & Pick<DatafileInput, 'fetchedAt'>;
+
+type Revalidate = (signal: AbortSignal) => Promise<void>;
+type CacheResult = [TaggedData, Metrics['cacheStatus']];
+
+export type CacheReadPolicy = {
+  /** Undefined adds no freshness evidence and keeps cached-read behavior. */
+  isFresh: (data: CacheMetadata) => boolean | undefined;
+  /** Whether stale data may be served while revalidation runs. */
+  isStale: (data: CacheMetadata) => boolean;
+  /** Omit for modes whose stream/poll loop already maintains the cache. */
+  revalidate?: Revalidate;
+};
 
 /**
  * Parses a configUpdatedAt value (number or string) into a numeric timestamp.
@@ -21,12 +33,18 @@ function parseConfigUpdatedAt(value: unknown): number | undefined {
   return undefined;
 }
 
-/** Storage and failure-relative read policy; callers provide source evidence. */
+/** Storage, serving policy, and revalidation driven by source callbacks. */
 export class DatafileCache {
   private data: TaggedData | undefined;
   private failure: { error: Error; startedAt: number } | undefined;
 
-  constructor(private readonly staleIfErrorMs = Infinity) {}
+  private abortController = new AbortController();
+  private revalidation: Promise<void> | undefined;
+
+  constructor(
+    private readonly staleIfErrorMs = Infinity,
+    private readonly waitUntil: WaitUntil = () => {},
+  ) {}
 
   get hasData(): boolean {
     return this.data !== undefined;
@@ -38,7 +56,7 @@ export class DatafileCache {
   }
 
   /** Freshness checks can inspect retained metadata even after serving expires. */
-  get metadata(): CacheMetadata | undefined {
+  private get metadata(): CacheMetadata | undefined {
     if (!this.data) return undefined;
     const { projectId, environment, configUpdatedAt, revision, fetchedAt } =
       this.data;
@@ -107,21 +125,104 @@ export class DatafileCache {
     this.failure ??= { error, startedAt: Date.now() };
   }
 
+  private canServe(): boolean {
+    if (!this.failure || this.staleIfErrorMs === Infinity) return true;
+    return (
+      this.staleIfErrorMs > 0 &&
+      Date.now() - this.failure.startedAt <= this.staleIfErrorMs
+    );
+  }
+
+  /** The serving boundary for both snapshot and policy-driven reads. */
   read(): TaggedData | undefined {
     if (!this.data) return undefined;
-
-    if (!this.failure || this.staleIfErrorMs === Infinity) return this.data;
-
-    const withinAllowance =
-      this.staleIfErrorMs > 0 &&
-      Date.now() - this.failure.startedAt <= this.staleIfErrorMs;
-    if (!withinAllowance) {
-      throw this.failure.error;
-    }
+    if (!this.canServe()) throw this.failure!.error;
     return this.data;
   }
 
+  async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
+    const metadata = this.metadata;
+    if (metadata) {
+      const fresh = policy.isFresh(metadata);
+      if (fresh !== false || !policy.revalidate) {
+        return [this.read()!, fresh ? 'HIT' : 'STALE'];
+      }
+      if (policy.isStale(metadata) && this.canServe()) {
+        const stale = this.read()!;
+        this.revalidateInBackground(policy.revalidate);
+        return [stale, 'STALE'];
+      }
+    }
+
+    if (!policy.revalidate) return;
+    const { promise, signal } = this.startRevalidation(policy.revalidate);
+    try {
+      await promise;
+      signal.throwIfAborted();
+    } catch (error) {
+      if (signal.aborted) throw error;
+      const stale = this.read();
+      if (!stale) throw error;
+      return [stale, 'STALE'];
+    }
+
+    // A cold fetch discovers the project; assess the original request's header.
+    if (!metadata && this.metadata) policy.isFresh(this.metadata);
+    const data = this.read();
+    if (!data)
+      throw new Error(
+        '@vercel/flags-core: Revalidation returned no definitions',
+      );
+    return [data, 'MISS'];
+  }
+
+  private startRevalidation(revalidate: Revalidate) {
+    const { signal } = this.abortController;
+    if (this.revalidation) return { promise: this.revalidation, signal };
+
+    const promise = Promise.resolve()
+      .then(() => {
+        signal.throwIfAborted();
+        return revalidate(signal);
+      })
+      .then(() => signal.throwIfAborted())
+      .catch((error) => {
+        if (!signal.aborted) {
+          this.fail(
+            error instanceof Error
+              ? error
+              : new Error('Unknown revalidation error'),
+          );
+        }
+        throw error;
+      })
+      .finally(() => {
+        // An old, aborted operation must not clear a newer one.
+        if (this.abortController.signal === signal)
+          this.revalidation = undefined;
+      });
+    this.revalidation = promise;
+    return { promise, signal };
+  }
+
+  private revalidateInBackground(revalidate: Revalidate): void {
+    const { promise, signal } = this.startRevalidation(revalidate);
+    const background = promise.catch((error) => {
+      if (!signal.aborted) {
+        console.error('@vercel/flags-core: Revalidation failed:', error);
+      }
+    });
+    try {
+      this.waitUntil(background);
+    } catch {
+      // Registration is best-effort; the handled refresh continues regardless.
+    }
+  }
+
   clear(): void {
+    this.abortController.abort();
+    this.abortController = new AbortController();
+    this.revalidation = undefined;
     this.data = undefined;
   }
 }

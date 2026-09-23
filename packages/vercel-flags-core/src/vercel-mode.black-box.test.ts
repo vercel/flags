@@ -533,7 +533,7 @@ describe('Vercel mode (black-box)', () => {
     pending.reject(failure);
     await vi.advanceTimersByTimeAsync(0);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
+      '@vercel/flags-core: Revalidation failed:',
       failure,
     );
     dataFetch.mockResolvedValueOnce(
@@ -909,7 +909,7 @@ describe('Vercel mode (black-box)', () => {
     );
     await vi.advanceTimersByTimeAsync(0);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
+      '@vercel/flags-core: Revalidation failed:',
       expect.any(Error),
     );
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
@@ -1041,7 +1041,7 @@ describe('Vercel mode (black-box)', () => {
     expect((await instance.evaluate('feature')).value).toBe(false);
     await vi.advanceTimersByTimeAsync(0);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Header refresh failed:',
+      '@vercel/flags-core: Revalidation failed:',
       failure,
     );
     await expect(instance.getDatafile()).rejects.toBe(failure);
