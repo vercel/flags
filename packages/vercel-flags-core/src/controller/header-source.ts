@@ -18,12 +18,21 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     super();
   }
 
+  private getVersionHeader(): string | undefined {
+    const { headers } = getRequestContext();
+    return (
+      headers?.['x-vercel-flags-config-versions'] ??
+      headers?.['flags-config-versions']
+    );
+  }
+
+  hasVersionHeader(): boolean {
+    return Boolean(this.getVersionHeader());
+  }
+
   /** Capture the header now so a shared fetch cannot switch the request being assessed. */
   getStatusCheck(): CacheReadPolicy['getStatus'] {
-    const { headers } = getRequestContext();
-    const header =
-      headers?.['x-vercel-flags-config-versions'] ??
-      headers?.['flags-config-versions'];
+    const header = this.getVersionHeader();
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);

@@ -49,6 +49,7 @@ export type ControllerOptions = {
   /**
    * Use request version headers instead of streaming or polling at runtime.
    * Initialization starts no network activity; reads fetch only when needed.
+   * A read without a version header permanently falls back to stream/poll.
    * Disabling both stream and polling still selects offline mode.
    * @default process.env.VERCEL === '1'
    */
