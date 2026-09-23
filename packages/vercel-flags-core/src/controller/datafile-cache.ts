@@ -8,12 +8,7 @@ type Confirmation = Pick<
 
 export type CacheMetadata = Confirmation & { ageMs: number };
 
-export enum Freshness {
-  Fresh = 'fresh',
-  Stale = 'stale',
-  Expired = 'expired',
-  Unknown = 'unknown',
-}
+export type Freshness = 'fresh' | 'stale' | 'expired' | 'unknown';
 
 type Fetch = (signal: AbortSignal) => Promise<void>;
 type CacheResult = [TaggedData, Metrics['cacheStatus']];
@@ -74,7 +69,7 @@ export class DatafileCache {
   }
 
   /** Freshness checks can inspect retained metadata even after serving expires. */
-  private get metadata(): CacheMetadata | undefined {
+  public get metadata(): CacheMetadata | undefined {
     if (!this.data) return undefined;
     const { projectId, environment, configUpdatedAt, revision } = this.data;
     return {
@@ -133,9 +128,14 @@ export class DatafileCache {
       return false;
     }
 
+    this.confirm();
+    return true;
+  }
+
+  /** Confirms the current cache state by clearing failures and resetting age. */
+  confirm(): void {
     this.resetAge();
     this.failure = undefined;
-    return true;
   }
 
   /** Preserves existing acceptance, including missing or unparseable versions. */
@@ -172,17 +172,15 @@ export class DatafileCache {
   }
 
   async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
+    // Expired entries can still recover through confirmation or a blocking fetch.
     const metadata = this.metadata;
     if (metadata) {
       const status = policy.getStatus(metadata);
-      if (
-        status === Freshness.Fresh ||
-        status === Freshness.Unknown ||
-        !policy.fetch
-      ) {
-        return [this.read()!, status === Freshness.Fresh ? 'HIT' : 'STALE'];
+      if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
+        return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
       }
-      if (status === Freshness.Stale && this.canServe()) {
+
+      if (status === 'stale' && this.canServe()) {
         const stale = this.read()!;
         this.fetchInBackground(policy.fetch);
         return [stale, 'STALE'];
@@ -190,6 +188,7 @@ export class DatafileCache {
     }
 
     if (!policy.fetch) return;
+
     const { promise, signal } = this.startFetch(policy.fetch);
     try {
       await promise;
