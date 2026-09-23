@@ -1,7 +1,7 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import type { Auth } from './auth';
-import { type DebugLogger, noopDebug } from './debug';
+import { debug } from './debug';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
@@ -13,9 +13,7 @@ export async function fetchDatafile(options: {
   auth: Auth;
   fetch: typeof globalThis.fetch;
   signal?: AbortSignal;
-  debug?: DebugLogger;
 }): Promise<BundledDefinitions> {
-  const debug = options.debug ?? noopDebug;
   debug('datafile.fetch.start');
   const token = await options.auth.resolveToken().catch((error) => {
     debug('datafile.auth.failed');

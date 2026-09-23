@@ -1,5 +1,5 @@
 import type { DatafileInput, Metrics, WaitUntil } from '../types';
-import { type DebugLogger, noopDebug } from './debug';
+import { debug } from './debug';
 import { type DataOrigin, type TaggedData, tagData } from './tagged-data';
 
 type Confirmation = Pick<
@@ -47,7 +47,6 @@ export class DatafileCache {
   constructor(
     private readonly staleIfErrorMs = Infinity,
     private readonly waitUntil: WaitUntil = () => {},
-    private readonly debug: DebugLogger = noopDebug,
   ) {}
 
   /** Expired data still exists; fallback loading must not bypass its failure policy. */
@@ -108,7 +107,7 @@ export class DatafileCache {
       data.fetchedAt >= 0
         ? data.fetchedAt
         : undefined;
-    this.debug('cache.seed', this.debugState);
+    debug('cache.seed', this.debugState);
   }
 
   /** Accepts a source update or confirms the current version without replacing it. */
@@ -117,11 +116,11 @@ export class DatafileCache {
       this.data = tagData(incoming, origin);
       this.resetAge();
       this.failure = undefined;
-      this.debug('cache.update.accepted', this.debugState);
+      debug('cache.update.accepted', this.debugState);
       return;
     }
     if (!this.tryConfirm(incoming)) {
-      this.debug('cache.update.ignored', () => ({
+      debug('cache.update.ignored', () => ({
         ...this.debugState(),
         incomingConfigUpdatedAt: parseConfigUpdatedAt(incoming.configUpdatedAt),
         incomingRevision: incoming.revision,
@@ -156,7 +155,7 @@ export class DatafileCache {
     }
 
     this.confirm();
-    this.debug('cache.confirmed', () => ({ version, ...this.debugState() }));
+    debug('cache.confirmed', () => ({ version, ...this.debugState() }));
     return true;
   }
 
@@ -164,7 +163,7 @@ export class DatafileCache {
   confirm(): void {
     this.resetAge();
     this.failure = undefined;
-    this.debug('cache.recovered', this.debugState);
+    debug('cache.recovered', this.debugState);
   }
 
   /** Preserves existing acceptance, including missing or unparseable versions. */
@@ -184,7 +183,7 @@ export class DatafileCache {
   fail(error: Error): void {
     // Repeated failures must not keep extending the stale-if-error allowance.
     this.failure ??= { error, startedAt: Date.now() };
-    this.debug('cache.failure', this.debugState);
+    debug('cache.failure', this.debugState);
   }
 
   private canServe(): boolean {
@@ -199,7 +198,7 @@ export class DatafileCache {
   read(): TaggedData | undefined {
     if (!this.data) return undefined;
     if (!this.canServe()) {
-      this.debug('cache.read.expired', this.debugState);
+      debug('cache.read.expired', this.debugState);
       throw this.failure!.error;
     }
     return this.data;
@@ -210,7 +209,7 @@ export class DatafileCache {
     if (metadata) {
       // The assessment may confirm recovery, so run it before read() checks failure.
       const status = policy.getStatus(metadata);
-      this.debug('cache.freshness', () => ({ status, ...this.debugState() }));
+      debug('cache.freshness', () => ({ status, ...this.debugState() }));
       if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
         // Stream/poll omit fetch because they maintain the cache independently.
         // read() still enforces stale-if-error, even for a fresh assessment.
@@ -221,18 +220,18 @@ export class DatafileCache {
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read()!;
-        this.debug('cache.refresh.background', this.debugState);
+        debug('cache.refresh.background', this.debugState);
         this.fetchInBackground(policy.fetch);
         return [stale, 'STALE'];
       }
     }
 
     if (!policy.fetch) {
-      this.debug('cache.empty', this.debugState);
+      debug('cache.empty', this.debugState);
       return;
     }
 
-    this.debug('cache.refresh.blocking', this.debugState);
+    debug('cache.refresh.blocking', this.debugState);
 
     const { promise, signal } = this.startFetch(policy.fetch);
     try {
@@ -242,7 +241,7 @@ export class DatafileCache {
       if (signal.aborted) throw error;
       const stale = this.read();
       if (!stale) throw error;
-      this.debug('cache.stale-if-error', this.debugState);
+      debug('cache.stale-if-error', this.debugState);
       return [stale, 'STALE'];
     }
 
@@ -259,10 +258,10 @@ export class DatafileCache {
     const { signal } = this.abortController;
     // Share the fetch, but let each caller assess its own request's headers.
     if (this.fetching) {
-      this.debug('cache.fetch.shared');
+      debug('cache.fetch.shared');
       return { promise: this.fetching, signal };
     }
-    this.debug('cache.fetch.start');
+    debug('cache.fetch.start');
 
     const promise = Promise.resolve()
       .then(() => {
@@ -271,12 +270,10 @@ export class DatafileCache {
       })
       .then(() => {
         signal.throwIfAborted();
-        this.debug('cache.fetch.complete', this.debugState);
+        debug('cache.fetch.complete', this.debugState);
       })
       .catch((error) => {
-        this.debug(
-          signal.aborted ? 'cache.fetch.aborted' : 'cache.fetch.failed',
-        );
+        debug(signal.aborted ? 'cache.fetch.aborted' : 'cache.fetch.failed');
         if (!signal.aborted) {
           this.fail(
             error instanceof Error ? error : new Error('Unknown fetch error'),
@@ -308,7 +305,7 @@ export class DatafileCache {
 
   /** Switching sources cancels revalidation without changing storage or failure. */
   cancelFetch(): void {
-    this.debug('cache.fetch.cancel', this.debugState);
+    debug('cache.fetch.cancel', this.debugState);
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
@@ -316,7 +313,7 @@ export class DatafileCache {
 
   /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
   clear(): void {
-    this.debug('cache.clear', this.debugState);
+    debug('cache.clear', this.debugState);
     this.cancelFetch();
     this.data = undefined;
     this.freshAt = undefined;

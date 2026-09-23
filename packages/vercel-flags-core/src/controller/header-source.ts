@@ -1,7 +1,7 @@
 import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import type { CacheMetadata, CacheReadPolicy } from './datafile-cache';
-import { type DebugLogger, noopDebug } from './debug';
+import { debug } from './debug';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
 import { TypedEmitter } from './typed-emitter';
@@ -15,10 +15,7 @@ export type HeaderSourceEvents = {
 export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private highestObserved = 0;
 
-  constructor(
-    private readonly options: NormalizedOptions,
-    private readonly debug: DebugLogger = noopDebug,
-  ) {
+  constructor(private readonly options: NormalizedOptions) {
     super();
   }
 
@@ -40,7 +37,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-      this.debug('header.observed', () => ({
+      debug('header.observed', () => ({
         hasHeader: header !== undefined,
         headerTimestamp: headerTs,
         configUpdatedAt: Number(data.configUpdatedAt),
@@ -85,7 +82,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     const data = await fetchDatafile({
       ...this.options,
       signal,
-      debug: this.debug,
     });
     // Transports can finish after cancellation; never publish that response.
     signal.throwIfAborted();

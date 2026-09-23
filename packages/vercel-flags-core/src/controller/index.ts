@@ -15,7 +15,7 @@ import {
   type CacheReadPolicy,
   DatafileCache,
 } from './datafile-cache';
-import { createDebugLogger } from './debug';
+import { debug } from './debug';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -88,7 +88,6 @@ type State =
  */
 export class Controller implements ControllerInterface {
   private options: NormalizedOptions;
-  private readonly debug = createDebugLogger();
 
   // State machine
   private state: State = 'idle';
@@ -126,18 +125,16 @@ export class Controller implements ControllerInterface {
     this.cache = new DatafileCache(
       this.options.staleIfErrorMs,
       this.options.waitUntil,
-      this.debug,
     );
 
     // Create source modules
     this.streamSource = new StreamSource(
       this.options,
       () => this.cache.revision,
-      this.debug,
     );
 
-    this.pollingSource = new PollingSource(this.options, this.debug);
-    this.headerSource = new HeaderSource(this.options, this.debug);
+    this.pollingSource = new PollingSource(this.options);
+    this.headerSource = new HeaderSource(this.options);
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -153,7 +150,7 @@ export class Controller implements ControllerInterface {
     }
 
     this.usageTracker = new UsageTracker(this.options);
-    this.debug('client.created', () => ({
+    debug('client.created', () => ({
       buildStep: this.options.buildStep,
       vercel: this.options.vercel,
       stream: this.options.stream.enabled,
@@ -172,7 +169,7 @@ export class Controller implements ControllerInterface {
     this.cache.updateFromSource(data, 'stream');
   };
   private onStreamPrimed = (message: PrimedMessage) => {
-    this.debug('stream.primed');
+    debug('stream.primed');
     this.cache.tryConfirm(message, 'revision');
     // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -180,18 +177,18 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamPing = () => {
-    this.debug('stream.ping');
+    debug('stream.ping');
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
     this.cache.confirm();
   };
   private onStreamConnected = () => {
-    this.debug('stream.connected');
+    debug('stream.connected');
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
     }
   };
   private onStreamDisconnected = () => {
-    this.debug('stream.disconnected');
+    debug('stream.disconnected');
     this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded');
@@ -247,7 +244,7 @@ export class Controller implements ControllerInterface {
   private transition(to: State): void {
     const from = this.state;
     this.state = to;
-    this.debug('client.state', () => ({
+    debug('client.state', () => ({
       from,
       to,
       hasData: this.cache.hasData,
@@ -282,7 +279,7 @@ export class Controller implements ControllerInterface {
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
-    this.debug('client.initialize', () => ({ state: this.state }));
+    debug('client.initialize', () => ({ state: this.state }));
     if (this.options.buildStep) {
       this.transition('build:loading');
       await this.initializeForBuildStep();
@@ -361,7 +358,7 @@ export class Controller implements ControllerInterface {
     this.isFirstGetData = false;
 
     const [result, cacheStatus] = await this.resolveData().catch((error) => {
-      this.debug('client.read.failed', () => ({ state: this.state }));
+      debug('client.read.failed', () => ({ state: this.state }));
       throw error;
     });
 
@@ -385,7 +382,7 @@ export class Controller implements ControllerInterface {
       },
     } satisfies Datafile;
 
-    this.debug('client.read', () => ({
+    debug('client.read', () => ({
       state: this.state,
       ...datafile.metrics,
     }));
@@ -443,7 +440,6 @@ export class Controller implements ControllerInterface {
             host: this.options.host,
             auth: this.options.auth,
             fetch: this.options.fetch,
-            debug: this.debug,
           });
           this.cache.seed(tagData(fetched, 'fetched'));
         } catch {
@@ -463,7 +459,7 @@ export class Controller implements ControllerInterface {
       this.dataViewSource = result;
     }
 
-    this.debug('client.snapshot', () => ({
+    debug('client.snapshot', () => ({
       state: this.state,
       cacheStatus,
       source: result._origin,
@@ -532,7 +528,7 @@ export class Controller implements ControllerInterface {
   }
 
   private async initializeHeaderFallback(): Promise<void> {
-    this.debug('header.fallback', () => ({ reason: 'missing-version-header' }));
+    debug('header.fallback', () => ({ reason: 'missing-version-header' }));
     this.cache.cancelFetch();
     this.headerSource.stop();
 
@@ -608,7 +604,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
-        this.debug('stream.initialize.timeout');
+        debug('stream.initialize.timeout');
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
@@ -669,7 +665,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
-        this.debug('poll.initialize.timeout');
+        debug('poll.initialize.timeout');
         console.warn(
           '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );
@@ -742,7 +738,6 @@ export class Controller implements ControllerInterface {
         host: this.options.host,
         auth: this.options.auth,
         fetch: this.options.fetch,
-        debug: this.debug,
       });
       return tagData(fetched, 'fetched');
     } catch {
@@ -784,7 +779,6 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
-          debug: this.debug,
         });
         this.cache.seed(tagData(fetched, 'fetched'));
         this.transition('degraded');
@@ -851,7 +845,6 @@ export class Controller implements ControllerInterface {
           host: this.options.host,
           auth: this.options.auth,
           fetch: this.options.fetch,
-          debug: this.debug,
         });
       } catch {
         // fetch failed — fall through to throw
