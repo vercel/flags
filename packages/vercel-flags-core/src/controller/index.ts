@@ -14,6 +14,7 @@ import {
   type CacheMetadata,
   type CacheReadPolicy,
   DatafileCache,
+  Freshness,
 } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
@@ -465,16 +466,15 @@ export class Controller implements ControllerInterface {
   private getCacheReadPolicy(): CacheReadPolicy {
     if (this.state === 'vercel') {
       return {
-        isFresh: this.headerSource.getFreshnessCheck(),
-        isStale: this.headerSource.isStale,
-        revalidate: this.headerSource.revalidate,
+        getStatus: this.headerSource.getStatusCheck(),
+        fetch: this.headerSource.fetch,
       };
     }
 
     // Stream/poll maintain their existing schedules; reads do not trigger I/O.
     return {
-      isFresh: () => this.isConnected,
-      isStale: () => true,
+      getStatus: () =>
+        this.isConnected ? Freshness.Fresh : Freshness.Stale,
     };
   }
 

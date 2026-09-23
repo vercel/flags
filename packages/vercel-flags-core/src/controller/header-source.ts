@@ -1,6 +1,10 @@
 import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
-import type { CacheMetadata, CacheReadPolicy } from './datafile-cache';
+import {
+  type CacheMetadata,
+  type CacheReadPolicy,
+  Freshness,
+} from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
 import { TypedEmitter } from './typed-emitter';
@@ -13,19 +17,18 @@ export type HeaderSourceEvents = {
 /** Request version evidence and fetching; the cache decides how to serve reads. */
 export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   private highestObserved = 0;
-  private lastSeen: { version: number; at: number } | undefined;
 
   constructor(private readonly options: NormalizedOptions) {
     super();
   }
 
   /** Capture this request's header before any cold-cache fetch awaits. */
-  getFreshnessCheck(): CacheReadPolicy['isFresh'] {
+  getStatusCheck(): CacheReadPolicy['getStatus'] {
     const { headers } = getRequestContext();
     const header =
       headers?.['x-vercel-flags-config-versions'] ??
       headers?.['flags-config-versions'];
-    return (data) => this.isFresh(data, header);
+    return (data) => this.getStatus(data, header);
   }
 
   private getUpdatedAtHeader(projectId: string, header: string | undefined) {
@@ -41,41 +44,29 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
 
-  private isFresh(
+  private getStatus(
     data: CacheMetadata,
     header: string | undefined,
-  ): boolean | undefined {
-    const version = this.getUpdatedAtHeader(data.projectId, header);
-    if (!version) return;
+  ): Freshness {
+    const headerTs = this.getUpdatedAtHeader(data.projectId, header);
+    if (headerTs === undefined) return Freshness.Unknown;
 
-    const currentVersion = Number(data.configUpdatedAt);
-    this.highestObserved = Math.max(this.highestObserved, version);
+    const currentTs = Number(data.configUpdatedAt);
+    this.highestObserved = Math.max(this.highestObserved, headerTs);
+    if (!Number.isFinite(currentTs) || currentTs <= 0) return Freshness.Unknown;
     // An older matching request cannot undo a newer request's invalidation.
-    if (version === currentVersion && version === this.highestObserved) {
-      this.lastSeen = { version, at: Date.now() };
+    if (headerTs === currentTs && headerTs === this.highestObserved) {
       this.emit('confirmed', data);
     }
 
-    if (!data.configUpdatedAt) return;
-    return version <= currentVersion;
+    if (headerTs <= currentTs) return Freshness.Fresh;
+    const { staleWhileRevalidateMs } = this.options;
+    return staleWhileRevalidateMs > 0 && data.ageMs <= staleWhileRevalidateMs
+      ? Freshness.Stale
+      : Freshness.Expired;
   }
 
-  /** Whether this version is still inside its background-refresh window. */
-  isStale = (data: CacheMetadata): boolean => {
-    const freshAt = Math.max(
-      data.fetchedAt ?? -Infinity,
-      this.lastSeen?.version === Number(data.configUpdatedAt)
-        ? this.lastSeen.at
-        : -Infinity,
-    );
-    const { staleWhileRevalidateMs } = this.options;
-    return (
-      staleWhileRevalidateMs > 0 &&
-      Date.now() - freshAt <= staleWhileRevalidateMs
-    );
-  };
-
-  revalidate = async (signal: AbortSignal): Promise<void> => {
+  fetch = async (signal: AbortSignal): Promise<void> => {
     const data = await fetchDatafile({ ...this.options, signal });
     // Transports can finish after cancellation; never publish that response.
     signal.throwIfAborted();
@@ -91,7 +82,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   stop(): void {
-    this.lastSeen = undefined;
     this.highestObserved = 0;
   }
 }
