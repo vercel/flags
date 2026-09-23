@@ -33,6 +33,46 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
+## Cached stream and polling reads
+
+`staleIfError` controls how many seconds evaluations and `getDatafile()` may use
+cached flag definitions after a stream/poll failure or stream disconnect:
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  staleIfError: 60,
+});
+```
+
+The default is `Infinity`, preserving unlimited cached fallback. Use a finite
+nonnegative number of seconds to bound fallback. Fractional seconds are supported
+(for example, `0.5` allows 500 milliseconds). A positive window includes its exact
+deadline; `0` disables cached fallback immediately after failure.
+Negative values, `NaN`, and negative infinity throw when creating the client.
+
+The allowance starts at the first consecutive failure. Repeated errors,
+disconnects, and provided or bundled fallback data do not renew it. An accepted
+source update, or a finite equal version for the same project and environment,
+clears the outage. A stream `primed` message also clears it when its finite numeric
+revision and identity match the cached entry. Opening a connection or receiving
+a ping alone does not clear a failure. A later failure starts a new allowance.
+Responses are observed in completion order, with existing version acceptance.
+
+After expiry, `evaluate()` returns the caller's default with reason `error`, or
+throws the first failure when no default is supplied. `bulkEvaluate()` returns
+an error result for each requested flag, with its default value when provided.
+`getDatafile()` follows the same allowance and throws after expiry. The entry is
+retained for recovery, including its revision for stream reconnection. A clean
+stream close or ping timeout records `stream: disconnected` if no earlier failure
+exists. `getFallbackDatafile()` remains an independent bundled-data export.
+
+There is no age-based expiry while the source is healthy, and reads do not trigger
+an extra refresh after expiry. Build/offline behavior, source scheduling, retries,
+timeouts, metrics categories, and logging are unchanged. An initialization timeout
+alone does not start the allowance. Existing startup limitations remain: when
+initial polling times out, no recurring interval is started, even if that in-flight
+request later completes.
+
 ## Evaluation Metrics
 
 To associate evaluation metrics with an environment, pass the
