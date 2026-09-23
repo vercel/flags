@@ -17,21 +17,22 @@ Or replace the last step with:
 
 ## Testing with examples
 
-You can try an updates to adapters with the existing examples in [vercel/examples](https://github.com/vercel/examples/tree/main/flags-sdk).
-The example uses the LaunchDarkly adapter.
+You can test SDK and adapter changes with the apps in [examples](../examples). Choose an example that uses the package you are reviewing and follow its README for setup.
 
-1. Build the adapter
+In the commands below, replace `<example-folder>` with the folder under `examples/` and `<example-package>` with the `name` from that example's `package.json`.
 
-- `cd packages/adapter-launchdarkly`
-- `pnpm build`
+1. From the repository root, run `pnpm install`.
+2. Configure the environment variables described in `examples/<example-folder>/README.md`. If the example provides `.env.example`, copy it to `.env.local` in that folder and fill in the values. For an existing Vercel project, run `vc link` and `vc env pull` from the example folder.
+3. From the repository root, start the example:
 
-2. Try it out
+   ```sh
+   pnpm exec turbo run dev --filter=<example-package>
+   ```
 
-- Clone https://github.com/vercel/examples/
-- Change into `flags-sdk/launchdarkly`
-- Run `pnpm install`
-- Run `vc link` and link to `Vercel Examples` team and `flags-sdk-launchdarkly` project
-- Run `vc env pull`
-- Change the `@flags-sdk/launchdarkly` dependency of `flags-sdk/launchdarkly/package.json` to a relative path
-  - `"@flags-sdk/launchdarkly": "file:../../../flags/packages/adapter-launchdarkly"`
-- Run `pnpm install`
+Workspace dependencies and overrides in `pnpm-workspace.yaml` link examples to the local SDK and adapter packages. Turbo builds the configured dependencies before starting the app. After changing SDK or adapter code, restart this command to rebuild the packages.
+
+The root `pnpm build` builds only `packages/*`, so contributors do not need example credentials. Use `pnpm build:all` to build the entire workspace, including all examples and apps, after configuring their environments. To build only a selected example and its dependencies, run:
+
+```sh
+pnpm exec turbo run build --filter=<example-package>
+```

@@ -13,7 +13,8 @@
   "license": "MIT",
   "scripts": {
     "attw": "turbo attw",
-    "build": "turbo build",
+    "build": "turbo build --filter='./packages/*'",
+    "build:all": "turbo build",
     "dev": "turbo dev",
     "dev:docs": "pnpm dev -F docs",
     "check": "turbo check",
