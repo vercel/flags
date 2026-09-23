@@ -234,12 +234,18 @@ describe('Vercel mode (black-box)', () => {
     expect((await instance.evaluate('feature')).value).toBe(true);
   });
 
-  it('recovers on a later read when the cold-cache fetch fails', async () => {
-    const instance = client({ datafile: undefined });
+  it.each([
+    undefined,
+    0,
+    0.01,
+  ])('recovers on a later read when the cold-cache fetch fails with staleIfError=%s', async (staleIfError) => {
+    const instance = client({ datafile: undefined, staleIfError });
     dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
     await expect(instance.evaluate('feature')).rejects.toThrow(
       'Failed to fetch data',
     );
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(11);
     mockDatafileResponse(TIMESTAMP, true);
 
     expect(await instance.evaluate('feature')).toMatchObject({
@@ -328,6 +334,71 @@ describe('Vercel mode (black-box)', () => {
     expect(
       transport.mock.calls.every(([url]) => String(url).endsWith('/v1/ingest')),
     ).toBe(true);
+  });
+
+  it('does not renew freshness from a matching header on a snapshot read', async () => {
+    const input = { ...datafile(), fetchedAt: TIMESTAMP };
+    const instance = client({ datafile: input });
+    await instance.initialize();
+    vi.setSystemTime(TIMESTAMP + 11_000);
+    setVersion(TIMESTAMP);
+    const snapshot = await instance.getDatafile();
+    expect(snapshot).toEqual({
+      ...input,
+      metrics: {
+        readMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'STALE',
+        connectionState: 'disconnected',
+        mode: 'vercel',
+      },
+    });
+    expect(snapshot.definitions).toBe(input.definitions);
+    expect(dataFetch).not.toHaveBeenCalled();
+
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not observe newer snapshot headers when assessing later matching evaluations', async () => {
+    const input = { ...datafile(), fetchedAt: TIMESTAMP };
+    const instance = client({ datafile: input });
+    await instance.initialize();
+    vi.setSystemTime(TIMESTAMP + 9_000);
+    setVersion(TIMESTAMP + 1);
+    const snapshot = await instance.getDatafile();
+    expect(snapshot).toEqual({
+      ...input,
+      metrics: {
+        readMs: 0,
+        source: 'in-memory',
+        cacheStatus: 'STALE',
+        connectionState: 'disconnected',
+        mode: 'vercel',
+      },
+    });
+    expect(dataFetch).not.toHaveBeenCalled();
+
+    setVersion(TIMESTAMP);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'HIT' },
+    });
+    vi.setSystemTime(TIMESTAMP + 10_001);
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([
