@@ -8,6 +8,14 @@ The Deploy button copies only this folder. It installs published SDK packages an
 
 ## Setup
 
+You can run and build this example without environment variables. When
+`EXPERIMENTATION_CONFIG` is unset or empty, it shows the default welcome message
+and hides the banner without connecting to LaunchDarkly.
+
+To use LaunchDarkly instead, configure the integration and environment below.
+Setting `EXPERIMENTATION_CONFIG` enables the adapter and requires both
+`LAUNCHDARKLY_PROJECT_SLUG` and `LAUNCHDARKLY_CLIENT_SIDE_ID`.
+
 Install the [LaunchDarkly integration](https://vercel.com/marketplace/launchdarkly) and enable **Global Config Syncing**. The integration provides the `EXPERIMENTATION_CONFIG` connection string used by the adapter.
 
 Create these flags in your LaunchDarkly environment, enable **SDKs using Client-side ID**, and turn both flags on:
@@ -45,7 +53,7 @@ Open http://localhost:3000. For a production build, run `pnpm build` and `pnpm s
 
 ## Run inside the Flags SDK repository
 
-Configure `examples/providers/launchdarkly/.env.local` as described above. From the repository root:
+Optionally configure `examples/providers/launchdarkly/.env.local` to use LaunchDarkly. From the repository root:
 
 ```sh
 pnpm install
