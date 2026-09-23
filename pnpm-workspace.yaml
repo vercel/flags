@@ -2,6 +2,7 @@ packages:
   - packages/*
   - tests/*
   - examples/*
+  - examples/providers/*
   - apps/*
 
 catalog:

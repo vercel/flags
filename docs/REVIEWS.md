@@ -19,7 +19,7 @@ Or replace the last step with:
 
 You can test SDK and adapter changes with the apps in [examples](../examples). Choose an example that uses the package you are reviewing and follow its README for setup.
 
-In the commands below, replace `<example-folder>` with the folder under `examples/` and `<example-package>` with the `name` from that example's `package.json`.
+In the commands below, replace `<example-folder>` with the path under `examples/` (including `providers/` for provider examples) and `<example-package>` with the `name` from that example's `package.json`.
 
 1. From the repository root, run `pnpm install`.
 2. Configure the environment variables described in `examples/<example-folder>/README.md`. If the example provides `.env.example`, copy it to `.env.local` in that folder and fill in the values. For an existing Vercel project, run `vc link` and `vc env pull` from the example folder.
