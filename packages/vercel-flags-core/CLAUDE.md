@@ -118,12 +118,12 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 **Vercel runtime** (`vercel: true`, default when `VERCEL=1`):
 - Load provided or bundled definitions during initialization, then select Vercel mode.
 - Do not start stream/poll; the first read fetches if the cache is empty.
-- HeaderSource parses the request's project version and owns `highestObserved` and `lastSeen`.
+- HeaderSource parses the request's project version and owns `highestObserved`. The cache owns freshness age.
 - A matching header confirms freshness only when no newer version has been observed.
-- The controller passes `isFresh`, `isStale`, and `revalidate` callbacks to `cache.resolve()`.
+- The controller passes `getStatus` and `fetch` callbacks to `cache.resolve()`.
   The cache selects cached/background/blocking behavior and shares refresh work.
 - A newer header permits background refresh within `staleWhileRevalidate` seconds of the
-  latest accepted fetch or matching header; unknown/expired freshness blocks for refresh.
+  latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
   `staleIfErrorMs` allowance; expiry forces blocking recovery on the next newer-header read.
 - Missing/malformed headers use cached data without fetching, subject to stale-if-error.
@@ -250,9 +250,9 @@ When updating tests for new behavior, preserve the strength of existing assertio
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`, and `onError` (failure evidence for cache policy)
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onPing` (age-only reset), `onDisconnect`, and `onError` (failure evidence for cache policy)
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
-- The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
+- The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — resets cache age and clears a failure when revision/identity match, then transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
@@ -280,8 +280,9 @@ The Controller selects the origin. Initial/fallback snapshots are tagged before 
 
 `tagData` returns a shallow copy. Accepted fetched/stream/poll data is stamped with
 `fetchedAt`; provided and bundled data preserves valid finite nonnegative timestamps.
-Missing/invalid timestamps mean unknown fetch age. Loading data never resets its age,
-and equal/older source responses do not replace or retag the cache.
+The cache seeds its own freshness age from that timestamp; missing/invalid timestamps
+mean unknown age. Accepted updates and valid confirmations reset cache age without
+rewriting the stored `fetchedAt`. Equal/older responses do not replace or retag data.
 
 ### Usage Tracking
 
@@ -324,13 +325,16 @@ version/revision confirmations clear it; repeated errors/disconnects do not rene
 the first-error deadline. Stream opening/pings and initialization timeout alone
 are not recovery/failure evidence respectively.
 
-`cache.resolve(policy)` receives mode-specific `isFresh`, `isStale`, and optional
-`revalidate` functions. It owns background/blocking decisions, `waitUntil`, shared
-revalidation, and cancellation on clear. HeaderSource supplies small version/age
+`cache.resolve(policy)` receives a mode-specific `getStatus` callback returning
+`Freshness.Fresh`, `Stale`, `Expired`, or `Unknown`, and an optional `fetch` callback.
+It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation on clear. HeaderSource supplies small version/age
 checks and a fetch callback; it does not read the cache. Header confirmations are
 forwarded through controller event wiring. Stream/poll modes omit on-read revalidation
 and retain their existing schedules. New public time windows use seconds; internal
-normalized durations and `fetchedAt` use milliseconds.
+normalized durations, cache age, and `fetchedAt` use milliseconds. Polling is fresh
+through its interval; streaming through 30 seconds. Accepted updates, valid confirmations,
+and stream pings reset cache age. Pings preserve any failure and its original deadline.
+Polling errors use the shared source-error handler without logging each failed poll.
 
 ### Evaluation Safety
 

@@ -50,8 +50,9 @@ const client = createClient(process.env.FLAGS!, {
 
 `staleWhileRevalidate` defaults to 10 seconds and accepts finite, nonnegative values,
 including fractions. `0` makes refreshes block. The window starts at the latest
-accepted fetch or matching request-header confirmation. Bundled/provided definitions
-preserve their original `fetchedAt`; unknown or expired freshness requires a blocking
+accepted fetch or valid confirmation, including an equal-version fetch response.
+The cache tracks this age independently of `fetchedAt`. Bundled/provided definitions
+preserve their original `fetchedAt`; unknown or expired cache age requires a blocking
 refresh when a newer request version arrives. Refresh failures use `staleIfError`.
 A newer-header read attempts blocking recovery after that failure allowance expires.
 
@@ -92,9 +93,12 @@ retained for recovery, including its revision for stream reconnection. A clean
 stream close or ping timeout records `stream: disconnected` if no earlier failure
 exists. `getFallbackDatafile()` remains an independent bundled-data export.
 
-Stream/poll modes have no age-based expiry while the source is healthy, and reads
-do not trigger an extra refresh after expiry. Build/offline behavior, source scheduling, retries,
-timeouts, metrics categories, and logging are unchanged. An initialization timeout
+Polling data is marked stale after the polling interval; streaming data after 30
+seconds. Accepted updates and valid confirmations reset cache age without rewriting
+`fetchedAt`. Stream pings also reset age, while preserving any failure and its deadline.
+Age alone does not prevent stream/poll reads or trigger extra requests. Source scheduling,
+retries, timeouts, and build/offline behavior remain unchanged. Poll errors feed the
+shared failure handler without logging each failed poll. An initialization timeout
 alone does not start the allowance. Existing startup limitations remain: when
 initial polling times out, no recurring interval is started, even if that in-flight
 request later completes.
