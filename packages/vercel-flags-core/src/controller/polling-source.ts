@@ -1,6 +1,7 @@
 import type { DatafileInput } from '../types';
 import type { Auth } from './auth';
 import type { CacheMetadata, Freshness } from './datafile-cache';
+import { type DebugLogger, noopDebug } from './debug';
 import { fetchDatafile } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
@@ -27,7 +28,10 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private abortController: AbortController | undefined;
 
-  constructor(config: PollingSourceConfig) {
+  constructor(
+    config: PollingSourceConfig,
+    private readonly debug: DebugLogger = noopDebug,
+  ) {
     super();
     this.config = config;
   }
@@ -42,13 +46,17 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   async poll(): Promise<void> {
     if (this.abortController?.signal.aborted) return;
 
+    this.debug('poll.start');
     try {
       const data = await fetchDatafile({
         ...this.config,
+        debug: this.debug,
         signal: this.abortController?.signal,
       });
+      this.debug('poll.complete');
       this.emit('data', data);
     } catch (error) {
+      this.debug('poll.failed');
       const err =
         error instanceof Error ? error : new Error('Unknown poll error');
       this.emit('error', err);
@@ -63,6 +71,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   startInterval(): void {
     if (this.intervalId) return;
 
+    this.debug('poll.interval.start', () => ({
+      intervalMs: this.config.polling.intervalMs,
+    }));
     this.abortController = new AbortController();
 
     // Start interval
@@ -76,6 +87,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * Stop interval-based polling.
    */
   stop(): void {
+    this.debug('poll.stop');
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = undefined;
