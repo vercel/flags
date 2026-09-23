@@ -439,8 +439,13 @@ describe('DatafileCache', () => {
       const snapshot = { ...incoming };
 
       expect(cache.updateFromSource(incoming, origin)).toBeUndefined();
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({ ...snapshot, _origin: origin });
+      expect(cache.read()).not.toBe(incoming);
+      expect(cache.read()).toEqual({
+        ...snapshot,
+        _origin: origin,
+        fetchedAt: 2_000,
+      });
+      expect(incoming).toEqual(snapshot);
       expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -475,14 +480,20 @@ describe('DatafileCache', () => {
       const snapshot = { ...incoming };
 
       expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({ ...snapshot, _origin: 'poll' });
+      const accepted = cache.read();
+      expect(accepted).not.toBe(incoming);
+      expect(accepted).toEqual({
+        ...snapshot,
+        _origin: 'poll',
+        fetchedAt: 2_000,
+      });
+      expect(incoming).toEqual(snapshot);
       expect(cache.read()?.definitions).toBe(incoming.definitions);
 
       const nextError = new Error('second outage');
       cache.fail(nextError);
       vi.setSystemTime(2_100);
-      expect(cache.read()).toBe(incoming);
+      expect(cache.read()).toBe(accepted);
       vi.setSystemTime(2_101);
       expect(() => cache.read()).toThrow(nextError);
     });
@@ -497,11 +508,13 @@ describe('DatafileCache', () => {
       const incoming = response({ ...overrides, configUpdatedAt: 2 });
 
       cache.updateFromSource(incoming, 'stream');
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({
-        ...response({ ...overrides, configUpdatedAt: 2 }),
+      expect(cache.read()).not.toBe(incoming);
+      expect(cache.read()).toEqual({
+        ...incoming,
         _origin: 'stream',
+        fetchedAt: 1_000,
       });
+      expect(incoming).toEqual(response({ ...overrides, configUpdatedAt: 2 }));
     });
 
     it.each([
@@ -646,8 +659,13 @@ describe('DatafileCache', () => {
         cache.seed(oldResponse);
         const replacement = response({ configUpdatedAt: 2 });
         cache.updateFromSource(replacement, 'poll');
-        expect(cache.read()).toBe(replacement);
-        expect(cache.read()?._origin).toBe('poll');
+        const accepted = cache.read();
+        expect(accepted).not.toBe(replacement);
+        expect(accepted).toEqual({
+          ...replacement,
+          _origin: 'poll',
+          fetchedAt: 1_000,
+        });
         const error = new Error('replacement outage');
         cache.fail(error);
         vi.setSystemTime(1_050);
@@ -656,19 +674,19 @@ describe('DatafileCache', () => {
         if (staleIfErrorMs === 0) {
           expect(() => cache.read()).toThrow(error);
         } else {
-          expect(cache.read()).toBe(replacement);
+          expect(cache.read()).toBe(accepted);
         }
         expect(oldResponse._origin).toBe('bundled');
         vi.setSystemTime(1_100);
         if (staleIfErrorMs === 0) {
           expect(() => cache.read()).toThrow(error);
         } else {
-          expect(cache.read()).toBe(replacement);
+          expect(cache.read()).toBe(accepted);
         }
         vi.setSystemTime(1_101);
         expect(() => cache.read()).toThrow(error);
         expect(cache.tryConfirm(replacement)).toBe(true);
-        expect(cache.read()).toBe(replacement);
+        expect(cache.read()).toBe(accepted);
       });
     });
   });

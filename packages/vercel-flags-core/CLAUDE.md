@@ -260,7 +260,10 @@ The Controller selects the origin. Initial/fallback snapshots are tagged before 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` mutates the input object in-place via `Object.assign` (callers always pass freshly-created data).
+`tagData` returns a shallow copy. Accepted fetched/stream/poll data is stamped with
+`fetchedAt`; provided and bundled data preserves valid finite nonnegative timestamps.
+Missing/invalid timestamps mean unknown fetch age. Loading data never resets its age,
+and equal/older source responses do not replace or retag the cache.
 
 ### Usage Tracking
 
