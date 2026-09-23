@@ -158,8 +158,8 @@ describe('stream stale-if-error through the public API', () => {
   it.each([
     undefined,
     Infinity,
-  ])('retains unlimited fallback for %s', async (staleIfErrorMs) => {
-    const { instance, stream } = await start({ staleIfErrorMs });
+  ])('retains unlimited fallback for %s', async (staleIfError) => {
+    const { instance, stream } = await start({ staleIfError });
     const snapshot = await instance.getDatafile();
     const failure = new Error('offline');
     streamFetch.mockRejectedValue(failure);
@@ -173,7 +173,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('keeps the inclusive first-error deadline through retries, HTTP open, pings, and connected events', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 3_000 });
+    const { instance, stream } = await start({ staleIfError: 3 });
     const first = new Error('first stream read failed');
     const repeated = new Error('reconnect failed');
     const reconnect = mockStream();
@@ -227,7 +227,7 @@ describe('stream stale-if-error through the public API', () => {
     '10',
     11,
   ])('recovers on stream configUpdatedAt %s, replacing only accepted data', async (configUpdatedAt) => {
-    const { instance, stream } = await start({ staleIfErrorMs: 0 });
+    const { instance, stream } = await start({ staleIfError: 0 });
     const snapshot = await instance.getDatafile();
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
@@ -266,7 +266,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('uses a retained revision after expiry, confirms primed without replacement, and starts a fresh second allowance', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 100 });
+    const { instance, stream } = await start({ staleIfError: 0.1 });
     const snapshot = await instance.getDatafile();
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
@@ -301,7 +301,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('rejects old, unequal, malformed, missing, nonfinite, or wrong-identity primed confirmations', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 0 });
+    const { instance, stream } = await start({ staleIfError: 0 });
     const snapshot = await instance.getDatafile();
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
@@ -352,7 +352,7 @@ describe('stream stale-if-error through the public API', () => {
     streamFetch
       .mockResolvedValueOnce(stream.response)
       .mockResolvedValueOnce(reconnect.response);
-    const instance = client({ datafile: supplied, staleIfErrorMs: 0 });
+    const instance = client({ datafile: supplied, staleIfError: 0 });
     const initial = instance.evaluate('flagA');
     stream.push(primed());
     await vi.advanceTimersByTimeAsync(0);
@@ -379,7 +379,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('does not confirm rejected same-version data with mismatched identity or older versions', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 0 });
+    const { instance, stream } = await start({ staleIfError: 0 });
     const snapshot = await instance.getDatafile();
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
@@ -421,7 +421,7 @@ describe('stream stale-if-error through the public API', () => {
       .mockRejectedValueOnce(failure)
       .mockResolvedValueOnce(reconnect.response);
     const instance = client({
-      staleIfErrorMs: 0,
+      staleIfError: 0,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
     const evaluation = instance.evaluate('flagA', false);
@@ -452,7 +452,7 @@ describe('stream stale-if-error through the public API', () => {
     const stream = mockStream();
     streamFetch.mockResolvedValueOnce(stream.response);
     const supplied = data();
-    const instance = client({ datafile: supplied, staleIfErrorMs: 0 });
+    const instance = client({ datafile: supplied, staleIfError: 0 });
     const initialized = vi.fn();
     const initialization = Promise.resolve(instance.initialize()).then(
       initialized,
@@ -484,7 +484,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('records a clean disconnect immediately with zero and does not renew on repeated closes', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 0 });
+    const { instance, stream } = await start({ staleIfError: 0 });
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
     stream.close();
@@ -503,7 +503,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('starts SIE only at ping timeout and keeps the original failure through another ping timeout', async () => {
-    const { instance } = await start({ staleIfErrorMs: 100 });
+    const { instance } = await start({ staleIfError: 0.1 });
     const reconnect = mockStream();
     const third = mockStream();
     streamFetch
@@ -530,7 +530,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('stops silently on terminal 401 without replacing the first error or renewing its deadline', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 1_000 });
+    const { instance, stream } = await start({ staleIfError: 1 });
     const first = new Error('stream failed before unauthorized reconnect');
     streamFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
     stream.fail(first);
@@ -544,7 +544,7 @@ describe('stream stale-if-error through the public API', () => {
 
   it('fast-fails initial 401 against a zero allowance without retries or timeout logging', async () => {
     streamFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
-    const instance = client({ datafile: data(), staleIfErrorMs: 0 });
+    const instance = client({ datafile: data(), staleIfError: 0 });
     const failure = await instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
@@ -560,7 +560,7 @@ describe('stream stale-if-error through the public API', () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
       new Error('OIDC unavailable'),
     );
-    const instance = client({ datafile: data(), staleIfErrorMs: 0 }, true);
+    const instance = client({ datafile: data(), staleIfError: 0 }, true);
     const failure = await instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
@@ -597,7 +597,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('cancels a pending retry on shutdown without new warnings or errors', async () => {
-    const { instance, stream } = await start({ staleIfErrorMs: 0 });
+    const { instance, stream } = await start({ staleIfError: 0 });
     stream.fail(new Error('disconnected before shutdown'));
     await vi.advanceTimersByTimeAsync(0);
     await instance.shutdown();

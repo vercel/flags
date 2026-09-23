@@ -35,18 +35,19 @@ Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
 ## Cached stream and polling reads
 
-`staleIfErrorMs` controls how long evaluations and `getDatafile()` may use cached
-flag definitions after a stream/poll failure or stream disconnect:
+`staleIfError` controls how many seconds evaluations and `getDatafile()` may use
+cached flag definitions after a stream/poll failure or stream disconnect:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
-  staleIfErrorMs: 60_000,
+  staleIfError: 60,
 });
 ```
 
 The default is `Infinity`, preserving unlimited cached fallback. Use a finite
-nonnegative number of milliseconds to bound fallback. A positive window includes
-its exact deadline; `0` disables cached fallback immediately after failure.
+nonnegative number of seconds to bound fallback. Fractional seconds are supported
+(for example, `0.5` allows 500 milliseconds). A positive window includes its exact
+deadline; `0` disables cached fallback immediately after failure.
 Negative values, `NaN`, and negative infinity throw when creating the client.
 
 The allowance starts at the first consecutive failure. Repeated errors,

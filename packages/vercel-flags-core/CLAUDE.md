@@ -88,6 +88,7 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
+  staleIfError?: number;  // Seconds of fallback after stream/poll failure; default: Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -293,7 +294,8 @@ The DatafileCache rejects incoming data (from stream or poll) if its `configUpda
 ### Cache read policy
 
 `DatafileCache.read()` is the only full-entry read. The cache is configured once
-with `staleIfErrorMs`; evaluations and `getDatafile()` share the same serving
+with the internal `staleIfErrorMs`, normalized from the public `staleIfError`
+option in seconds. Evaluations and `getDatafile()` share the same serving
 boundary. `hasData` and `revision` expose coordination metadata even after expiry,
 so retained data is not replaced by fallback and stream reconnects can still send
 `X-Revision`. `seed()` never clears failure. Accepted source updates or valid
