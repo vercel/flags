@@ -12,6 +12,7 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
+const DEFAULT_STALE_WHILE_REVALIDATE = 10;
 
 /**
  * Configuration options for Controller
@@ -46,8 +47,26 @@ export type ControllerOptions = {
   polling?: boolean | PollingOptions;
 
   /**
+   * Use request version headers instead of streaming or polling at runtime.
+   * Initialization starts no network activity; reads fetch only when needed.
+   * A read without a version header permanently falls back to stream/poll.
+   * Disabling both stream and polling still selects offline mode.
+   * @default process.env.VERCEL === '1'
+   */
+  vercel?: boolean;
+
+  /**
+   * How long header-driven reads may serve cached data while refreshing in the
+   * background, measured from its last fetch or matching version header.
+   * Accepts finite, non-negative seconds, including fractional seconds.
+   * Set to 0 to always block on refresh.
+   * @default 10
+   */
+  staleWhileRevalidate?: number;
+
+  /**
    * How long runtime reads may use cached data after the first consecutive
-   * stream/poll failure or stream disconnect. Accepts nonnegative seconds or Infinity.
+   * stream/poll/header failure or stream disconnect. Accepts nonnegative seconds or Infinity.
    * Fractional seconds are supported.
    * Zero disables fallback immediately; positive windows include the deadline.
    * Accepted updates, matching versions, or matching stream primed revisions
@@ -103,6 +122,8 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  vercel: boolean;
+  staleWhileRevalidateMs: number;
   staleIfErrorMs: number;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
@@ -159,11 +180,21 @@ export function normalizeOptions(
     };
   }
 
+  const staleWhileRevalidate =
+    options.staleWhileRevalidate ?? DEFAULT_STALE_WHILE_REVALIDATE;
+  if (!Number.isFinite(staleWhileRevalidate) || staleWhileRevalidate < 0) {
+    throw new Error(
+      '@vercel/flags-core: staleWhileRevalidate must be a finite, non-negative number of seconds.',
+    );
+  }
+
   return {
     auth: options.auth,
     datafile: options.datafile,
     stream,
     polling,
+    vercel: options.vercel ?? process.env.VERCEL === '1',
+    staleWhileRevalidateMs: staleWhileRevalidate * 1000,
     staleIfErrorMs: staleIfError * 1000,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,

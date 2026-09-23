@@ -15,10 +15,21 @@ export type TaggedData = DatafileInput & {
 };
 
 /**
- * Tags a DatafileInput with its origin.
+ * Stamp live arrivals; reusing provided/bundled data must preserve its original age.
  */
 export function tagData(data: DatafileInput, origin: DataOrigin): TaggedData {
-  return Object.assign(data, { _origin: origin }) as TaggedData;
+  const tagged: TaggedData = { ...data, _origin: origin };
+  if (origin === 'fetched' || origin === 'poll' || origin === 'stream') {
+    tagged.fetchedAt = Date.now();
+  } else if (
+    typeof data.fetchedAt !== 'number' ||
+    !Number.isFinite(data.fetchedAt) ||
+    data.fetchedAt < 0
+  ) {
+    // Legacy data without a valid timestamp has unknown freshness.
+    delete tagged.fetchedAt;
+  }
+  return tagged;
 }
 
 /**

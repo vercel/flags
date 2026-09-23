@@ -1,5 +1,6 @@
 import type { DatafileInput } from '../types';
 import type { Auth } from './auth';
+import type { CacheMetadata, Freshness } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
@@ -30,6 +31,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     super();
     this.config = config;
   }
+
+  getStatus = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): Freshness =>
+    ageMs <= this.config.polling.intervalMs ? 'fresh' : 'stale';
 
   /**
    * Perform a single poll request.
