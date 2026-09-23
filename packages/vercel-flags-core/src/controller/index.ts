@@ -161,6 +161,9 @@ export class Controller implements ControllerInterface {
       this.transition('streaming');
     }
   };
+  private onStreamPing = () => {
+    this.cache.resetAge();
+  };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
@@ -184,10 +187,6 @@ export class Controller implements ControllerInterface {
   private onHeaderConfirmed = (data: CacheMetadata) => {
     this.cache.tryConfirm(data);
   };
-  private onPollError = (error: Error) => {
-    this.cache.fail(error);
-    console.error('@vercel/flags-core: Poll failed:', error);
-  };
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -196,11 +195,12 @@ export class Controller implements ControllerInterface {
   private wireSourceEvents(): void {
     this.streamSource.on('data', this.onStreamData);
     this.streamSource.on('primed', this.onStreamPrimed);
+    this.streamSource.on('ping', this.onStreamPing);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
     this.streamSource.on('error', this.onSourceError);
     this.pollingSource.on('data', this.onPollData);
-    this.pollingSource.on('error', this.onPollError);
+    this.pollingSource.on('error', this.onSourceError);
     this.headerSource.on('data', this.onHeaderData);
     this.headerSource.on('confirmed', this.onHeaderConfirmed);
   }
@@ -208,11 +208,12 @@ export class Controller implements ControllerInterface {
   private unwireSourceEvents(): void {
     this.streamSource.off('data', this.onStreamData);
     this.streamSource.off('primed', this.onStreamPrimed);
+    this.streamSource.off('ping', this.onStreamPing);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
     this.streamSource.off('error', this.onSourceError);
     this.pollingSource.off('data', this.onPollData);
-    this.pollingSource.off('error', this.onPollError);
+    this.pollingSource.off('error', this.onSourceError);
     this.headerSource.off('data', this.onHeaderData);
     this.headerSource.off('confirmed', this.onHeaderConfirmed);
   }
@@ -389,7 +390,10 @@ export class Controller implements ControllerInterface {
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (result) {
-      cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+      const status = this.getBackgroundSourceStatus({
+        ageMs: this.cache.ageMs,
+      });
+      cacheStatus = status === Freshness.Fresh ? 'HIT' : 'STALE';
     } else {
       // Preserve snapshot loading without starting stream/poll initialization.
       const bundled = await this.bundledSource.tryLoad();
@@ -472,11 +476,16 @@ export class Controller implements ControllerInterface {
     }
 
     // Stream/poll maintain their existing schedules; reads do not trigger I/O.
-    return {
-      getStatus: () =>
-        this.isConnected ? Freshness.Fresh : Freshness.Stale,
-    };
+    return { getStatus: this.getBackgroundSourceStatus };
   }
+
+  private getBackgroundSourceStatus = (data: Pick<CacheMetadata, 'ageMs'>) => {
+    if (this.isConnected) return this.streamSource.getStatus(data);
+    if (this.state === 'polling' || this.state === 'initializing:polling') {
+      return this.pollingSource.getStatus(data);
+    }
+    return Freshness.Unknown;
+  };
 
   // ---------------------------------------------------------------------------
   // Stream initialization

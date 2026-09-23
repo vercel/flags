@@ -1,4 +1,5 @@
 import type { DatafileInput } from '../types';
+import { type CacheMetadata, Freshness } from './datafile-cache';
 import type { NormalizedOptions } from './normalized-options';
 import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
@@ -6,6 +7,7 @@ import { TypedEmitter } from './typed-emitter';
 export type StreamSourceEvents = {
   data: (data: DatafileInput) => void;
   primed: (message: PrimedMessage) => void;
+  ping: () => void;
   connected: () => void;
   disconnected: () => void;
   error: (error: Error) => void;
@@ -26,6 +28,9 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     this.options = options;
     this.revision = revision;
   }
+
+  getStatus = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): Freshness =>
+    ageMs <= 30_000 ? Freshness.Fresh : Freshness.Stale;
 
   /**
    * Start the stream connection.
@@ -70,6 +75,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
             this.emit('primed', message);
             this.emit('connected');
           },
+          onPing: () => this.emit('ping'),
           onDisconnect: () => {
             this.emit('disconnected');
           },
