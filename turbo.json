@@ -62,6 +62,30 @@
     "test:integration": {
       "dependsOn": ["^build"]
     },
+    "flags-sdk-launchdarkly#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
+      "env": [
+        "EXPERIMENTATION_CONFIG",
+        "FLAGS_SECRET",
+        "LAUNCHDARKLY_CLIENT_SIDE_ID",
+        "LAUNCHDARKLY_PROJECT_SLUG"
+      ],
+      "cache": false
+    },
+    "flags-sdk-launchdarkly#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
+      "env": [
+        "EXPERIMENTATION_CONFIG",
+        "FLAGS_SECRET",
+        "LAUNCHDARKLY_CLIENT_SIDE_ID",
+        "LAUNCHDARKLY_PROJECT_SLUG"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-launchdarkly#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"]
+    },
     "biome:check": {}
   }
 }
