@@ -257,11 +257,16 @@ export class DatafileCache {
     }
   }
 
-  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
-  clear(): void {
+  /** Switching sources cancels revalidation without changing storage or failure. */
+  cancelFetch(): void {
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
+  }
+
+  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
+  clear(): void {
+    this.cancelFetch();
     this.data = undefined;
     this.freshAt = undefined;
   }

@@ -37,8 +37,11 @@ Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
 When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
 or bundled definitions without starting a stream or polling. Request version headers
-indicate when cached definitions need refreshing; reads without a usable header keep
-cached definitions, fetching only when the cache is empty.
+indicate when cached definitions need refreshing. If an evaluation has no version
+header (or an empty one), the client permanently switches to streaming when enabled,
+otherwise polling. Concurrent evaluations share that startup and later headers do
+not switch the client back. A present but malformed or unrelated header keeps the
+existing cached-read behavior, fetching only when the cache is empty.
 
 ```ts
 const client = createClient(process.env.FLAGS!, {

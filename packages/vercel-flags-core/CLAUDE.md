@@ -126,7 +126,11 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
   `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
-- Missing/malformed headers use cached data without fetching, subject to stale-if-error.
+- Evaluations without a version header (including an empty header) permanently
+  start streaming if enabled, otherwise polling, using the existing startup timeouts.
+  Concurrent reads share source startup. Pending header fetches are cancelled without
+  clearing stored data or the failure deadline; their readers resume through the new source.
+- Present malformed/unrelated headers use cached data without fetching, subject to stale-if-error.
 - `getDatafile()` remains a snapshot read: it enforces the same failure policy but does
   not inspect request headers. Disabling both stream and polling selects offline mode.
 
