@@ -18,7 +18,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     super();
   }
 
-  /** Capture this request's header before any cold-cache fetch awaits. */
+  /** Capture the header now so a shared fetch cannot switch the request being assessed. */
   getStatusCheck(): CacheReadPolicy['getStatus'] {
     const { headers } = getRequestContext();
     const header =
@@ -39,6 +39,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
         this.emit('confirmed', data);
       }
 
+      // This request is satisfied; only confirmation above can renew age or clear failure.
       if (headerTs <= currentTs) return 'fresh';
 
       const { staleWhileRevalidateMs } = this.options;

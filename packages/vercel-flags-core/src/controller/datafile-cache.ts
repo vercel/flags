@@ -36,6 +36,7 @@ function parseConfigUpdatedAt(value: unknown): number | undefined {
 /** Storage, serving policy, and fetching driven by source callbacks. */
 export class DatafileCache {
   private data: TaggedData | undefined;
+  // Confirmations refresh age without rewriting the datafile's persisted fetch time.
   private freshAt: number | undefined;
   private failure: { error: Error; startedAt: number } | undefined;
 
@@ -47,6 +48,7 @@ export class DatafileCache {
     private readonly waitUntil: WaitUntil = () => {},
   ) {}
 
+  /** Expired data still exists; fallback loading must not bypass its failure policy. */
   get hasData(): boolean {
     return this.data !== undefined;
   }
@@ -153,6 +155,7 @@ export class DatafileCache {
   }
 
   fail(error: Error): void {
+    // Repeated failures must not keep extending the stale-if-error allowance.
     this.failure ??= { error, startedAt: Date.now() };
   }
 
@@ -172,13 +175,13 @@ export class DatafileCache {
   }
 
   async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
-    // Expired entries can still recover through confirmation or a blocking fetch.
     const metadata = this.metadata;
     if (metadata) {
+      // The assessment may confirm recovery, so run it before read() checks failure.
       const status = policy.getStatus(metadata);
       if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
-        // No on-read refresh is requested or available here. Even a fresh
-        // assessment must pass read()'s stale-if-error check before serving.
+        // Stream/poll omit fetch because they maintain the cache independently.
+        // read() still enforces stale-if-error, even for a fresh assessment.
         return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
       }
 
@@ -206,6 +209,7 @@ export class DatafileCache {
 
     // A cold fetch discovers the project; assess the original request's header.
     if (!metadata && this.metadata) policy.getStatus(this.metadata);
+    // Serve the accepted cache entry; the response may have contained older data.
     const data = this.read();
     if (!data)
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
@@ -214,6 +218,7 @@ export class DatafileCache {
 
   private startFetch(fetch: Fetch) {
     const { signal } = this.abortController;
+    // Share the fetch, but let each caller assess its own request's headers.
     if (this.fetching) return { promise: this.fetching, signal };
 
     const promise = Promise.resolve()
@@ -252,6 +257,7 @@ export class DatafileCache {
     }
   }
 
+  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
   clear(): void {
     this.abortController.abort();
     this.abortController = new AbortController();

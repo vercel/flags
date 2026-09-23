@@ -78,6 +78,7 @@ export async function connectStream(
   let lastAttemptTime = 0;
 
   const reportError = (error: unknown): void => {
+    // Deliberate shutdown must not start a stale-if-error deadline.
     if (abortController.signal.aborted) return;
     onError?.(
       error instanceof Error
@@ -278,6 +279,7 @@ export async function connectStream(
         if (abortController.signal.aborted) {
           break;
         }
+        // Ping timeouts report failure through onDisconnect below, not an abort error.
         if (!connectionAbort.signal.aborted) {
           reportError(error);
         }
