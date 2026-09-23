@@ -1,6 +1,6 @@
 import { getVercelOidcToken } from '@vercel/oidc';
 import { version } from '../../package.json';
-import type { Auth } from '../controller/auth';
+import { type Auth, authHeaders } from '../controller/auth';
 import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
 import { getRuntimeIngest } from './runtime-ingest';
@@ -55,7 +55,7 @@ async function getIngestHeaders(
 
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    ...authHeaders(token, options.auth.sourceProjectId),
     'User-Agent': `VercelFlagsCore/${version}`,
     [FLUSH_REASON_HEADER]: flushReason,
     ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
@@ -105,7 +105,12 @@ export async function sendIngestEvents(
 ): Promise<void> {
   let eventsToSend = events.map((event) => event.ingestEvent());
 
-  const runtimeIngest = getRuntimeIngest();
+  // The runtime transport attributes events to the calling deployment's own
+  // project. Events for another project's flags must carry the source header,
+  // so they always go over HTTP.
+  const runtimeIngest = options.auth.sourceProjectId
+    ? undefined
+    : getRuntimeIngest();
   if (runtimeIngest) {
     const headers = getRuntimeIngestHeaders(options, flushReason);
     // Events the runtime does not accept fall through to the HTTP transport.

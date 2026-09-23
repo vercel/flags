@@ -84,7 +84,11 @@ export function make(
     });
     return createRawClient<Entities>({
       controller,
-      origin: { provider: 'vercel', sdkKey: auth.sdkKey },
+      origin: {
+        provider: 'vercel',
+        sdkKey: auth.sdkKey,
+        ...(auth.sourceProjectId ? { projectId: auth.sourceProjectId } : null),
+      },
       waitUntil,
       ...(experimental_reportExposures ? { experimental_reportExposures } : {}),
     });

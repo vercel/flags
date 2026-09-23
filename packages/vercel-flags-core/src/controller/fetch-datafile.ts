@@ -1,6 +1,6 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
-import type { Auth } from './auth';
+import { type Auth, authHeaders, unauthorizedMessage } from './auth';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
@@ -34,7 +34,7 @@ export async function fetchDatafile(options: {
   try {
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...authHeaders(token, options.auth.sourceProjectId),
         'User-Agent': `VercelFlagsCore/${version}`,
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
@@ -46,6 +46,11 @@ export async function fetchDatafile(options: {
     clearTimeout(timeoutId);
     options.signal?.removeEventListener('abort', onExternalAbort);
 
+    if (res.status === 401 && options.auth.sourceProjectId) {
+      throw new Error(
+        `Failed to fetch data: ${unauthorizedMessage(options.auth.sourceProjectId)}`,
+      );
+    }
     if (!res.ok) {
       throw new Error(`Failed to fetch data: ${res.statusText}`);
     }

@@ -9,6 +9,7 @@ import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
+import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
 import {
@@ -668,9 +669,17 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
+    throw this.noDefinitionsError('Bundled definitions not found.');
+  }
+
+  private noDefinitionsError(hint: string): Error {
+    const { sourceProjectId } = this.options.auth;
+    const reason =
+      this.unauthorized && sourceProjectId
+        ? ` Request was ${unauthorizedMessage(sourceProjectId)}`
+        : '';
+    return new Error(
+      `@vercel/flags-core: No flag definitions available. ${hint}${reason}`,
     );
   }
 
@@ -733,10 +742,7 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Provide a datafile or bundled definitions.',
-    );
+    throw this.noDefinitionsError('Provide a datafile or bundled definitions.');
   }
 
   // ---------------------------------------------------------------------------

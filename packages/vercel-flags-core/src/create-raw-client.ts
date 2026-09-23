@@ -57,7 +57,7 @@ export function createCreateRawClient(fns: {
     waitUntil = defaultWaitUntil,
   }: {
     controller: ControllerInterface;
-    origin?: { provider: string; sdkKey?: string };
+    origin?: { provider: string; sdkKey?: string; projectId?: string };
     experimental_reportExposures?: experimental_ReportExposures<Entities>;
     waitUntil?: WaitUntil;
   }): FlagsClient<Entities> {

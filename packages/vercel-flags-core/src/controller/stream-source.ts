@@ -56,6 +56,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         {
           host: this.options.host,
           resolveToken: () => this.options.auth.resolveToken(),
+          sourceProjectId: this.options.auth.sourceProjectId,
           abortController,
           fetch: this.options.fetch,
           revision: this.revision,

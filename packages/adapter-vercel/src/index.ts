@@ -132,7 +132,7 @@ function getOrCreateClient(sdkKey?: string): FlagsClient {
 
 function isVercelOrigin(
   origin: unknown,
-): origin is { provider: 'vercel'; sdkKey?: string } {
+): origin is { provider: 'vercel'; sdkKey?: string; projectId?: string } {
   return (
     typeof origin === 'object' &&
     origin !== null &&
@@ -152,10 +152,11 @@ export async function getProviderData(
     // filter out precomputed arrays
     .filter((i): i is KeyedFlagDefinitionType => !Array.isArray(i));
 
-  // Collect unique sdkKeys and resolve their projectIds
+  // Collect unique sdkKeys and resolve their projectIds. Origins that already
+  // name a project need no lookup.
   const sdkKeys = new Set<string | undefined>();
   for (const d of flagDefs) {
-    if (isVercelOrigin(d.origin)) {
+    if (isVercelOrigin(d.origin) && !d.origin.projectId) {
       sdkKeys.add(d.origin.sdkKey);
     }
   }
@@ -177,7 +178,8 @@ export async function getProviderData(
   const definitions = flagDefs.reduce<FlagDefinitionsType>((acc, d) => {
     if (!isVercelOrigin(d.origin)) return acc;
 
-    const projectId = projectIdBySdkKey.get(d.origin.sdkKey)!;
+    const projectId =
+      d.origin.projectId ?? projectIdBySdkKey.get(d.origin.sdkKey)!;
     acc[d.key] = {
       options: d.options,
       origin: {

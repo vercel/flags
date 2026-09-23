@@ -136,6 +136,7 @@ async function fetchDatafile(
   fetchFn: typeof globalThis.fetch,
   userAgentSuffix?: string,
   output?: Output,
+  sourceProjectId?: string,
 ): Promise<BundledDefinitions | undefined> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
@@ -146,6 +147,13 @@ async function fetchDatafile(
       .filter(Boolean)
       .join(' '),
   };
+
+  if (sourceProjectId) {
+    headers['x-vercel-flags-project-id'] = sourceProjectId;
+  }
+  const label = sourceProjectId
+    ? `project ${sourceProjectId}`
+    : obfuscate(token);
 
   // Add Vercel metadata headers if available
   if (env.VERCEL_PROJECT_ID) {
@@ -168,7 +176,7 @@ async function fetchDatafile(
       // Exponential backoff: 200ms, 400ms, 800ms, ...
       const delay = FETCH_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
       output?.debug(
-        `vercel-flags: retrying datafile fetch for ${obfuscate(token)} (attempt ${attempt}/${FETCH_MAX_RETRIES}) after ${delay}ms`,
+        `vercel-flags: retrying datafile fetch for ${label} (attempt ${attempt}/${FETCH_MAX_RETRIES}) after ${delay}ms`,
       );
       await wait(delay);
     }
@@ -191,7 +199,7 @@ async function fetchDatafile(
     }
 
     const error = new Error(
-      `Failed to fetch flag definitions for ${obfuscate(token)}: ${res.status} ${res.statusText}`,
+      `Failed to fetch flag definitions for ${label}: ${res.status} ${res.statusText}`,
     );
 
     if (!isRetryableStatus(res.status)) {
@@ -204,7 +212,7 @@ async function fetchDatafile(
   throw lastError instanceof Error
     ? lastError
     : new Error(
-        `Failed to fetch flag definitions for ${obfuscate(token)} after ${FETCH_MAX_RETRIES} retries`,
+        `Failed to fetch flag definitions for ${label} after ${FETCH_MAX_RETRIES} retries`,
       );
 }
 
@@ -251,10 +259,9 @@ export function generateDefinitionsModule(
   return lines.join('\n');
 }
 
-type FlagEntry = {
-  type: 'oidcToken' | 'sdkKey';
-  key: string;
-};
+type FlagEntry =
+  | { type: 'oidcToken' | 'sdkKey'; key: string }
+  | { type: 'sourceProject'; key: string; projectId: string };
 
 /**
  * Regex to match valid Vercel Flags SDK keys.
@@ -273,29 +280,31 @@ function collectFlagEntries(
 ): FlagEntry[] {
   const entries: FlagEntry[] = [];
 
-  // Collect unique SDK keys from environment variables
-  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
-  const sdkKeys = Array.from(
-    Object.values(env).reduce<Set<string>>((acc, value) => {
-      if (typeof value === 'string') {
-        if (SDK_KEY_REGEX.test(value)) {
-          acc.add(value);
-        } else if (value.startsWith('flags:')) {
-          const params = new URLSearchParams(value.slice('flags:'.length));
-          const sdkKey = params.get('sdkKey');
-          if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
-            acc.add(sdkKey);
-          }
-        }
+  // Collect unique SDK keys and source projects from environment variables.
+  // Supports direct SDK keys (vf_server_*/vf_client_*) and the flags: format
+  // with either sdkKey= or projectId=.
+  const sdkKeys = new Set<string>();
+  const sourceProjectIds = new Set<string>();
+  for (const value of Object.values(env)) {
+    if (typeof value !== 'string') continue;
+    if (SDK_KEY_REGEX.test(value)) {
+      sdkKeys.add(value);
+    } else if (value.startsWith('flags:')) {
+      const params = new URLSearchParams(value.slice('flags:'.length));
+      const sdkKey = params.get('sdkKey');
+      const projectId = params.get('projectId');
+      if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
+        sdkKeys.add(sdkKey);
+      } else if (projectId && !sdkKey) {
+        sourceProjectIds.add(projectId);
       }
-      return acc;
-    }, new Set<string>()),
-  );
+    }
+  }
 
-  if (sdkKeys.length > 0) {
-    output?.debug(`vercel-flags: found ${sdkKeys.length} SDK keys`);
+  if (sdkKeys.size > 0) {
+    output?.debug(`vercel-flags: found ${sdkKeys.size} SDK keys`);
 
-    for (const key of sdkKeys) {
+    for (const key of Array.from(sdkKeys)) {
       entries.push({ type: 'sdkKey', key });
     }
   }
@@ -305,6 +314,21 @@ function collectFlagEntries(
     output?.debug(`vercel-flags: found OIDC token`);
 
     entries.push({ type: 'oidcToken', key: oidcToken });
+
+    const ownProjectId = getProjectIdFromOidcToken(oidcToken);
+    for (const projectId of Array.from(sourceProjectIds)) {
+      if (projectId === ownProjectId) continue;
+      entries.push({ type: 'sourceProject', key: oidcToken, projectId });
+    }
+    if (sourceProjectIds.size > 0) {
+      output?.debug(
+        `vercel-flags: found ${sourceProjectIds.size} connected projects`,
+      );
+    }
+  } else if (sourceProjectIds.size > 0) {
+    output?.debug(
+      `vercel-flags: skipping ${sourceProjectIds.size} connected projects, no OIDC token`,
+    );
   }
 
   return entries;
@@ -343,20 +367,25 @@ export async function prepareFlagsDefinitions(options: {
 
   // fetch all datafiles for sdk keys and oidc tokens
   const resolvedEntries = await Promise.all(
-    entries.map(async ({ key, type }) => {
+    entries.map(async (entry) => {
       const definitions = await fetchDatafile(
-        key,
+        entry.key,
         env,
         fetchFn,
         userAgentSuffix,
         output,
+        entry.type === 'sourceProject' ? entry.projectId : undefined,
       );
       if (!definitions) {
         return;
       }
 
-      if (type === 'oidcToken') {
-        const projectId = getProjectIdFromOidcToken(key);
+      if (entry.type === 'sourceProject') {
+        return { key: entry.projectId, definitions };
+      }
+
+      if (entry.type === 'oidcToken') {
+        const projectId = getProjectIdFromOidcToken(entry.key);
 
         if (projectId) {
           return {
@@ -366,9 +395,9 @@ export async function prepareFlagsDefinitions(options: {
         }
       }
 
-      if (type === 'sdkKey') {
+      if (entry.type === 'sdkKey') {
         return {
-          key: hashSdkKey(key),
+          key: hashSdkKey(entry.key),
           definitions,
         };
       }

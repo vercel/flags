@@ -1,8 +1,53 @@
 import { describe, expect, it } from 'vitest';
 import {
   isValidSdkKey,
+  parseFlagsConnectionString,
   parseSdkKeyFromFlagsConnectionString,
 } from './sdk-keys';
+
+describe('parseFlagsConnectionString', () => {
+  it('returns a bare SDK key', () => {
+    expect(parseFlagsConnectionString('vf_server_abc')).toEqual({
+      sdkKey: 'vf_server_abc',
+      projectId: null,
+    });
+  });
+
+  it('returns sdkKey from a flags: string', () => {
+    expect(
+      parseFlagsConnectionString(
+        'flags:edgeConfigId=ecfg_1&sdkKey=vf_server_abc',
+      ),
+    ).toEqual({ sdkKey: 'vf_server_abc', projectId: null });
+  });
+
+  it('returns projectId from a flags: string', () => {
+    expect(parseFlagsConnectionString('flags:projectId=prj_abc')).toEqual({
+      sdkKey: null,
+      projectId: 'prj_abc',
+    });
+  });
+
+  it('returns both when both are present', () => {
+    expect(
+      parseFlagsConnectionString(
+        'flags:sdkKey=vf_server_abc&projectId=prj_abc',
+      ),
+    ).toEqual({ sdkKey: 'vf_server_abc', projectId: 'prj_abc' });
+  });
+
+  it('drops invalid sdkKey values and empty projectId values', () => {
+    expect(
+      parseFlagsConnectionString('flags:sdkKey=vf_abc&projectId='),
+    ).toEqual({ sdkKey: null, projectId: null });
+  });
+
+  it('returns null for values that are neither', () => {
+    expect(parseFlagsConnectionString('')).toBeNull();
+    expect(parseFlagsConnectionString('random')).toBeNull();
+    expect(parseFlagsConnectionString('vf_abc')).toBeNull();
+  });
+});
 
 describe('isValidSdkKey', () => {
   it('should return true for vf_server_ keys', () => {
