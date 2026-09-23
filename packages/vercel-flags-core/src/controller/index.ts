@@ -12,6 +12,7 @@ import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
+import { HeaderSource } from './header-source';
 import {
   type ControllerOptions,
   type NormalizedOptions,
@@ -41,6 +42,7 @@ type State =
   | 'initializing:fallback'
   | 'streaming'
   | 'polling'
+  | 'vercel'
   | 'degraded'
   | 'build:loading'
   | 'build:ready'
@@ -69,6 +71,11 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
+ * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
+ * - Loads provided/bundled data before selecting the mode; no startup network
+ * - HeaderSource checks request versions and refreshes when needed
+ * - Cache applies version acceptance and stale-if-error to all served data
+ *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
  * - Read fallback: in-memory value → constructor datafile → bundled → one-time fetch → throw
@@ -92,6 +99,7 @@ export class Controller implements ControllerInterface {
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
+  private headerSource: HeaderSource;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -115,6 +123,7 @@ export class Controller implements ControllerInterface {
     );
 
     this.pollingSource = new PollingSource(this.options);
+    this.headerSource = new HeaderSource(this.options);
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -155,11 +164,14 @@ export class Controller implements ControllerInterface {
       this.transition('degraded');
     }
   };
-  private onStreamError = (error: Error) => {
+  private onSourceError = (error: Error) => {
     this.cache.fail(error);
   };
   private onPollData = (data: DatafileInput) => {
     this.cache.updateFromSource(data, 'poll');
+  };
+  private onHeaderData = (data: DatafileInput) => {
+    this.cache.updateFromSource(data, 'fetched');
   };
   private onPollError = (error: Error) => {
     this.cache.fail(error);
@@ -175,9 +187,11 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
-    this.streamSource.on('error', this.onStreamError);
+    this.streamSource.on('error', this.onSourceError);
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
+    this.headerSource.on('data', this.onHeaderData);
+    this.headerSource.on('error', this.onSourceError);
   }
 
   private unwireSourceEvents(): void {
@@ -185,9 +199,11 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
-    this.streamSource.off('error', this.onStreamError);
+    this.streamSource.off('error', this.onSourceError);
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
+    this.headerSource.off('data', this.onHeaderData);
+    this.headerSource.off('error', this.onSourceError);
   }
 
   // ---------------------------------------------------------------------------
@@ -209,6 +225,8 @@ export class Controller implements ControllerInterface {
         return 'streaming';
       case 'polling':
         return 'polling';
+      case 'vercel':
+        return 'vercel';
       default:
         return 'offline';
     }
@@ -224,6 +242,7 @@ export class Controller implements ControllerInterface {
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
    * Polling mode (no stream): poll → datafile → bundled
+   * Vercel mode: datafile → bundled; fetch only on a read
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
@@ -243,14 +262,22 @@ export class Controller implements ControllerInterface {
     // send the revision to the stream and potentially get a lightweight
     // "primed" response instead of a full datafile.
     if (!this.cache.hasData) {
+      this.transition('initializing:fallback');
+      let bundled: DatafileInput | undefined;
       try {
-        const bundled = await this.bundledSource.tryLoad();
-        if (bundled) {
-          this.cache.seed(tagData(bundled, 'bundled'));
-        }
+        bundled = await this.bundledSource.tryLoad();
       } catch {
         // Bundled definitions not available — proceed without revision
       }
+      if (this.state === 'shutdown') {
+        throw new Error('@vercel/flags-core: Client is shut down');
+      }
+      if (bundled) this.cache.seed(tagData(bundled, 'bundled'));
+    }
+
+    if (this.headerSource.isAvailable()) {
+      this.transition('vercel');
+      return;
     }
 
     // If we already have data (from provided datafile or bundled definitions),
@@ -332,6 +359,7 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.headerSource.stop();
     this.cache.clear();
     if (this.options.datafile) {
       this.cache.seed(tagData(this.options.datafile, 'provided'));
@@ -422,6 +450,11 @@ export class Controller implements ControllerInterface {
   private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
     if (this.options.buildStep) {
       return this.resolveDataForBuildStep();
+    }
+
+    if (this.state === 'vercel') {
+      const result = await this.headerSource.read(this.cache);
+      if (result) return result;
     }
 
     const data = this.cache.read();

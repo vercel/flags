@@ -18,6 +18,7 @@ src/
 ├── controller/           # Controller (state machine) and I/O sources
 │   ├── index.ts              # Controller class
 │   ├── stream-source.ts      # StreamSource (wraps stream-connection)
+│   ├── header-source.ts       # Request version checks and on-demand refresh
 │   ├── polling-source.ts     # PollingSource (wraps fetch-datafile)
 │   ├── bundled-source.ts     # BundledSource (wraps read-bundled-definitions)
 │   ├── stream-connection.ts  # Low-level NDJSON stream connection
@@ -43,7 +44,7 @@ src/
 ```
 createClient(sdkKey, options)
   → Controller (state machine, selects data origin and coordinates sources/cache)
-    → StreamSource / PollingSource / BundledSource (emit raw DatafileInput)
+    → StreamSource / PollingSource / HeaderSource / BundledSource (raw DatafileInput)
   → create-raw-client (ID-based indirection for 'use cache' support)
     → controller-fns (lookup by ID, evaluate, report)
   → FlagsClient (public API)
@@ -88,7 +89,9 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
-  staleIfError?: number;  // Seconds of fallback after stream/poll failure; default: Infinity
+  vercel?: boolean; // default: process.env.VERCEL === '1'; replaces stream/poll at runtime
+  staleWhileRevalidateMs?: number; // header refresh only; default: 10_000
+  staleIfError?: number; // Seconds of fallback after update failure; default: Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -112,7 +115,20 @@ Behavior differs based on environment:
 
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
-**Runtime** (default, or `buildStep: false`):
+**Vercel runtime** (`vercel: true`, default when `VERCEL=1`):
+- Load provided or bundled definitions during initialization, then select Vercel mode.
+- Do not start stream/poll; the first read fetches if the cache is empty.
+- HeaderSource parses the request's project version and owns `highestObserved` and `lastSeen`.
+- A matching header confirms freshness only when no newer version has been observed.
+- A newer header refreshes in the background within `staleWhileRevalidateMs` of the latest
+  accepted fetch or matching header; unknown/expired freshness requires a blocking refresh.
+- Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
+  `staleIfErrorMs` allowance; expiry forces blocking recovery on the next newer-header read.
+- Missing/malformed headers use cached data without fetching, subject to stale-if-error.
+- `getDatafile()` remains a snapshot read: it enforces the same failure policy but does
+  not inspect request headers. Disabling both stream and polling selects offline mode.
+
+**Other runtime** (default outside Vercel, or `vercel: false`):
 1. **Stream** - Real-time updates via NDJSON streaming, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
@@ -299,7 +315,7 @@ The DatafileCache rejects incoming data (from stream or poll) if its `configUpda
 `DatafileCache.read()` is the only full-entry read. The cache is configured once
 with the internal `staleIfErrorMs`, normalized from the public `staleIfError`
 option in seconds. Evaluations and `getDatafile()` share the same serving
-boundary. `hasData` and `revision` expose coordination metadata even after expiry,
+boundary. `hasData`, `revision`, and `metadata` expose coordination metadata even after expiry,
 so retained data is not replaced by fallback and stream reconnects can still send
 `X-Revision`. `seed()` never clears failure. Accepted source updates or valid
 version/revision confirmations clear it; repeated errors/disconnects do not renew
