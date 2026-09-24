@@ -174,6 +174,60 @@ describe('Controller (black-box)', () => {
     delete process.env.NEXT_PHASE;
   });
 
+  it.each([
+    ['poll', 3, false, 3],
+    ['poll', 2, true, 2],
+    ['stream', 3, false, 3],
+    ['stream', 2, true, 2],
+    ['stream', 1, true, 2],
+  ] as const)('applies the version guard to %s version %i', async (source, configUpdatedAt, expectedValue, expectedVersion) => {
+    const stream = createMockStream();
+    const incoming = makeBundled({
+      configUpdatedAt,
+      definitions: {
+        flagA: {
+          environments: { production: 0 },
+          variants: [false, true],
+        },
+      },
+    });
+    const dataFetch = vi.fn<typeof fetch>(async () => Response.json(incoming));
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith('/v1/stream')) return stream.response;
+      if (url.endsWith('/v1/datafile')) return dataFetch(input, init);
+      if (url.endsWith('/v1/ingest')) return Promise.resolve(new Response());
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    const client = createClient(sdkKey, {
+      datafile: makeBundled({ configUpdatedAt: 2 }),
+      fetch: fetchMock,
+      buildStep: false,
+      stream: source === 'stream',
+      polling: source === 'poll',
+    });
+    const cleanupContext = setRequestContext({});
+    try {
+      const initial = client.evaluate('flagA');
+      if (source === 'stream') {
+        stream.push({ type: 'datafile', data: incoming });
+      }
+      expect((await initial).value).toBe(expectedValue);
+      expect((await client.getDatafile()).configUpdatedAt).toBe(
+        expectedVersion,
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
+    } finally {
+      cleanupContext();
+      try {
+        await client.shutdown();
+      } finally {
+        stream.close();
+      }
+    }
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();

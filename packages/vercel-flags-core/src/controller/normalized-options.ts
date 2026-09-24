@@ -12,6 +12,8 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
+const DEFAULT_STALE_WHILE_REVALIDATE = 60;
+const DEFAULT_STALE_IF_ERROR = Infinity;
 
 /**
  * Configuration options for Controller
@@ -21,8 +23,8 @@ export type ControllerOptions = {
   auth: Auth;
 
   /**
-   * Initial datafile to use immediately
-   * - At runtime: used while waiting for stream/poll, then updated in background
+   * Initial datafile
+   * - At runtime: must be confirmed before it has known freshness
    * - At build step: used as primary source (skips network)
    */
   datafile?: DatafileInput;
@@ -44,6 +46,25 @@ export type ControllerOptions = {
    * @default true
    */
   polling?: boolean | PollingOptions;
+
+  /**
+   * How many seconds reads may serve cached data while updates run in the background.
+   * Measured from the last poll confirmation, stream disconnection, or (on Vercel)
+   * accepted fetch/matching version header. A connected stream remains fresh.
+   * Must be a finite, non-negative number. Set to 0 to always block on refresh.
+   * @default 60
+   */
+  staleWhileRevalidate?: number;
+
+  /**
+   * How many additional seconds cached data may be served when refreshing fails.
+   * Applies to polling, stream reconnection, and header-driven refreshes.
+   * Extends staleWhileRevalidate. Infinity allows any available data on error,
+   * including unconfirmed bundled/provided data. Finite windows require known freshness.
+   * Must be non-negative; Infinity is allowed. 0 adds no extra stale-on-error window.
+   * @default Infinity
+   */
+  staleIfError?: number;
 
   /**
    * Override build step detection
@@ -91,6 +112,9 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  staleWhileRevalidate: number;
+  staleIfError: number;
+  vercel: boolean;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -139,11 +163,32 @@ export function normalizeOptions(
     };
   }
 
+  const staleWhileRevalidate =
+    options.staleWhileRevalidate ?? DEFAULT_STALE_WHILE_REVALIDATE;
+  if (!Number.isFinite(staleWhileRevalidate) || staleWhileRevalidate < 0) {
+    throw new Error(
+      '@vercel/flags-core: staleWhileRevalidate must be a finite, non-negative number.',
+    );
+  }
+
+  const staleIfError = options.staleIfError ?? DEFAULT_STALE_IF_ERROR;
+  if (
+    staleIfError !== Infinity &&
+    (!Number.isFinite(staleIfError) || staleIfError < 0)
+  ) {
+    throw new Error(
+      '@vercel/flags-core: staleIfError must be a non-negative number or Infinity.',
+    );
+  }
+
   return {
     auth: options.auth,
     datafile: options.datafile,
     stream,
     polling,
+    staleWhileRevalidate,
+    staleIfError,
+    vercel: process.env.VERCEL === '1',
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,

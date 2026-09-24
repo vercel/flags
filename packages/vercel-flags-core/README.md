@@ -33,19 +33,21 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
-## Evaluation Metrics
+## Cache freshness
 
-To associate evaluation metrics with an environment, pass the
-`metricEnvironment` option:
+The client uses request headers to refresh flags on Vercel, and streaming or
+polling elsewhere. By default, it allows a one-minute stale-while-revalidate
+window and keeps the last available configuration if refreshing fails.
 
 ```ts
-const client = createClient(process.env.FLAGS!, {
-  metricEnvironment: 'preview',
+const client = createClient({
+  staleWhileRevalidate: 60, // seconds
+  staleIfError: Infinity,  // seconds; unlimited fallback on error
 });
 ```
 
-This option is sent only to the metrics ingestion endpoint. It does not select
-the environment used for flag evaluation.
+See [cache freshness](./docs/cache-freshness.md) for finite error windows,
+offline mode, bundled data, and concurrent refresh behavior.
 
 ## OpenFeature
 
@@ -61,6 +63,8 @@ const client = OpenFeature.getClient();
 
 ## Documentation
 
+- [Cache freshness and refresh modes](./docs/cache-freshness.md)
+- [Evaluation metrics configuration](./docs/evaluation-metrics.md)
 - [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
 - [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
 - [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)

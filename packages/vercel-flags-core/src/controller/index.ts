@@ -11,6 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
+import { HeaderSource } from './header-source';
 import {
   type ControllerOptions,
   type NormalizedOptions,
@@ -57,6 +58,7 @@ type State =
   | 'initializing:fallback'
   | 'streaming'
   | 'polling'
+  | 'vercel'
   | 'degraded'
   | 'build:loading'
   | 'build:ready'
@@ -79,11 +81,20 @@ type State =
  * **Runtime — streaming mode** (stream enabled):
  * - Uses streaming exclusively; polling is never started, even if configured
  * - Init fallback (no data yet): constructor datafile → bundled → throw
- * - Read fallback (post-init): in-memory value → constructor datafile → bundled → throw
+ * - Connected reads are fresh; disconnected reads enforce SWR and staleIfError
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
  * - Uses polling exclusively
- * - Same fallback chains as streaming mode
+ * - Successful polls confirm freshness; expired reads block and enforce staleIfError
+ *
+ * **Runtime — Vercel mode** (VERCEL=1, with stream or polling enabled)
+ * - Uses the header value to determine if the current data is fresh
+ * - A matching header confirms the cached version's freshness
+ * - For newer headers, revalidates in the background within staleWhileRevalidate
+ *   of the latest successful fetch or matching header; otherwise blocks
+ * - Initialization performs no I/O; reads lazily load bundled data or fetch
+ * - Missing headers serve cached data, fetching only when empty
+ * - Bundled/provided data has unknown freshness until confirmed or fetched
  *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
@@ -97,10 +108,16 @@ export class Controller implements ControllerInterface {
 
   // Data state — tagged with origin
   private data: TaggedData | undefined;
+  // Regular polling confirms even an unchanged version; a connected stream stays fresh.
+  private confirmedAt: number | undefined;
+  private updateError: unknown;
+  private reconnect:
+    | { abort: AbortController; promise: Promise<void> }
+    | undefined;
 
   // Memoized data spread for read() / getDatafile().
   // Rebuilt only when `this.data` reference changes (e.g. on stream/poll update).
-  // Holds the result of stripping `_origin`; metrics are appended per-call.
+  // Holds the result of stripping internal metadata; metrics are appended per-call.
   private dataViewSource: TaggedData | undefined = undefined;
   private dataViewBase: DatafileInput | undefined = undefined;
 
@@ -108,6 +125,7 @@ export class Controller implements ControllerInterface {
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
+  private headerSource: HeaderSource;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -136,6 +154,14 @@ export class Controller implements ControllerInterface {
       readBundledDefinitions,
     });
 
+    this.headerSource = new HeaderSource(
+      this.options,
+      () => this.data,
+      (data) => {
+        this.data = data;
+      },
+    );
+
     // Wire source events to state machine
     this.wireSourceEvents();
 
@@ -154,6 +180,8 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamPrimed = () => {
+    this.confirmedAt = Date.now();
+    this.updateError = undefined;
     // The server confirmed our revision is current — no new data needed.
     // Transition to streaming like a normal connected event.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -161,21 +189,33 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamConnected = () => {
+    this.confirmedAt = Date.now();
+    this.updateError = undefined;
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
     }
   };
   private onStreamDisconnected = () => {
     if (this.state === 'streaming') {
+      this.confirmedAt = Date.now();
       this.transition('degraded');
     }
   };
   private onPollData = (data: DatafileInput) => {
     if (this.isNewerData(data)) {
       this.data = tagData(data, 'poll');
+    } else if (
+      parseConfigUpdatedAt(data.configUpdatedAt) !==
+      parseConfigUpdatedAt(this.data?.configUpdatedAt)
+    ) {
+      throw new Error('@vercel/flags-core: Poll returned an older datafile');
     }
+    this.confirmedAt = Date.now();
+    this.updateError = undefined;
+    this.transition('polling');
   };
   private onPollError = (error: Error) => {
+    this.updateError = error;
     console.error('@vercel/flags-core: Poll failed:', error);
   };
 
@@ -188,6 +228,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('primed', this.onStreamPrimed);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
+
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onPollError);
   }
@@ -197,6 +238,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('primed', this.onStreamPrimed);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
+
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onPollError);
   }
@@ -207,6 +249,13 @@ export class Controller implements ControllerInterface {
 
   private transition(to: State): void {
     this.state = to;
+  }
+
+  private get usesHeaders(): boolean {
+    return (
+      this.options.vercel &&
+      (this.options.stream.enabled || this.options.polling.enabled)
+    );
   }
 
   private get isConnected(): boolean {
@@ -220,6 +269,8 @@ export class Controller implements ControllerInterface {
         return 'streaming';
       case 'polling':
         return 'polling';
+      case 'vercel':
+        return 'vercel';
       default:
         return 'offline';
     }
@@ -230,7 +281,7 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Initializes the data source.
+   * Initializes the data source. Vercel runtime defers all loading to reads.
    *
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
@@ -242,6 +293,12 @@ export class Controller implements ControllerInterface {
       this.transition('build:loading');
       await this.initializeForBuildStep();
       this.transition('build:ready');
+      return;
+    }
+
+    // Vercel INIT runs without a request context. Defer all loading to reads.
+    if (this.usesHeaders) {
+      this.transition('vercel');
       return;
     }
 
@@ -341,9 +398,14 @@ export class Controller implements ControllerInterface {
    * Shuts down the data source and releases resources.
    */
   async shutdown(): Promise<void> {
+    this.reconnect?.abort.abort();
+    this.reconnect = undefined;
+    this.confirmedAt = undefined;
+    this.updateError = undefined;
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.headerSource.stop();
     this.data = this.options.datafile
       ? tagData(this.options.datafile, 'provided')
       : undefined;
@@ -353,8 +415,8 @@ export class Controller implements ControllerInterface {
 
   /**
    * Returns the datafile with metrics.
-   * Uses in-memory data if available, otherwise falls back to bundled,
-   * then to a one-time fetch if called without prior initialization.
+   * Uses the same runtime freshness policy as evaluation. Static modes use
+   * in-memory or bundled data, with a one-time fetch if neither is available.
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
@@ -365,6 +427,8 @@ export class Controller implements ControllerInterface {
 
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
+    } else if (this.options.stream.enabled || this.options.polling.enabled) {
+      [result, cacheStatus] = await this.resolveData();
     } else if (this.data) {
       cacheStatus = this.isConnected ? 'HIT' : 'STALE';
       result = this.data;
@@ -433,7 +497,7 @@ export class Controller implements ControllerInterface {
    * current mode. Returns tagged data and cache status.
    *
    * Build step: cached → bundled → one-time fetch
-   * Runtime with cache: return cached data
+   * Runtime with cache: enforce the selected update strategy's freshness policy
    * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
    */
   private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
@@ -441,12 +505,105 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    if (this.data) {
-      const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      return [this.data, cacheStatus];
+    if (this.usesHeaders) {
+      this.transition('vercel');
+      if (!this.data) {
+        const bundled = await this.bundledSource.tryLoad();
+        if (this.state === 'shutdown')
+          throw new Error('@vercel/flags-core: Client is shut down');
+        if (bundled && !this.data) this.data = tagData(bundled, 'bundled');
+      }
+      return this.headerSource.read();
     }
 
-    return this.resolveDataWithFallbacks();
+    if (this.data) {
+      if (this.options.stream.enabled || this.options.polling.enabled) {
+        return this.resolveUpdatingData();
+      }
+      return [this.data, 'STALE'];
+    }
+
+    const result = await this.resolveDataWithFallbacks();
+    if (this.options.stream.enabled || this.options.polling.enabled) {
+      return this.resolveUpdatingData();
+    }
+    return result;
+  }
+
+  private withinFreshness(seconds: number): boolean {
+    const freshAt = Math.max(
+      this.data?.fetchedAt ?? -Infinity,
+      this.confirmedAt ?? -Infinity,
+    );
+    return seconds > 0 && Date.now() - freshAt <= seconds * 1000;
+  }
+
+  private canServeOnError(): boolean {
+    return (
+      this.options.staleIfError === Infinity ||
+      this.withinFreshness(
+        this.options.staleWhileRevalidate + this.options.staleIfError,
+      )
+    );
+  }
+
+  private async resolveUpdatingData(): Promise<
+    [TaggedData, Metrics['cacheStatus']]
+  > {
+    if (this.data && this.isConnected) return [this.data, 'HIT'];
+    if (this.data && this.withinFreshness(this.options.staleWhileRevalidate)) {
+      // Polling continues on its interval; streaming already reconnects with backoff.
+      if (this.options.stream.enabled)
+        void this.streamSource.start().catch(() => {});
+      return [this.data, 'STALE'];
+    }
+    // An initialization failure cannot establish freshness for bundled/provided data.
+    if (
+      this.confirmedAt === undefined &&
+      this.data?.fetchedAt === undefined &&
+      this.updateError
+    ) {
+      if (this.options.stream.enabled && !this.unauthorized) {
+        void this.streamSource.start().catch(() => {});
+      }
+      if (this.data && this.canServeOnError()) return [this.data, 'STALE'];
+      throw this.updateError;
+    }
+    try {
+      if (this.options.stream.enabled) await this.waitForReconnect();
+      else {
+        this.pollingSource.startInterval();
+        await this.pollingSource.poll();
+      }
+      if (!this.data)
+        throw new Error('@vercel/flags-core: No flag definitions available');
+      return [this.data, 'MISS'];
+    } catch (error) {
+      if (this.state !== 'shutdown' && this.data && this.canServeOnError())
+        return [this.data, 'STALE'];
+      throw error;
+    }
+  }
+
+  private waitForReconnect(): Promise<void> {
+    if (this.reconnect) return this.reconnect.promise;
+    this.transition('initializing:stream');
+    const abort = new AbortController();
+    const timeout = setTimeout(
+      () =>
+        abort.abort(
+          new Error('@vercel/flags-core: Stream refresh deadline exceeded'),
+        ),
+      10_000,
+    );
+    const promise = this.streamSource
+      .waitForConnection(abort.signal)
+      .finally(() => {
+        clearTimeout(timeout);
+        if (this.reconnect?.abort === abort) this.reconnect = undefined;
+      });
+    this.reconnect = { abort, promise };
+    return promise;
   }
 
   // ---------------------------------------------------------------------------
@@ -463,6 +620,7 @@ export class Controller implements ControllerInterface {
         await this.streamSource.start();
         return true;
       } catch (error) {
+        this.updateError = error;
         if (error instanceof UnauthorizedError) {
           this.unauthorized = true;
         }
@@ -487,6 +645,9 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        this.updateError = new Error(
+          '@vercel/flags-core: Stream initialization timeout',
+        );
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
@@ -499,6 +660,7 @@ export class Controller implements ControllerInterface {
 
       return true;
     } catch (error) {
+      this.updateError = error;
       clearTimeout(timeoutId!);
       if (error instanceof Error && error.message.includes('401')) {
         this.unauthorized = true;
@@ -518,13 +680,13 @@ export class Controller implements ControllerInterface {
    * Only used when streaming is disabled and polling is the primary source.
    */
   private async tryInitializePolling(): Promise<boolean> {
+    this.pollingSource.startInterval();
     const pollPromise = this.pollingSource.poll();
 
     if (this.options.polling.initTimeoutMs <= 0) {
       try {
         await pollPromise;
         if (this.data) {
-          this.pollingSource.startInterval();
           return true;
         }
         return false;
@@ -547,6 +709,9 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        this.updateError = new Error(
+          '@vercel/flags-core: Polling initialization timeout',
+        );
         console.warn(
           '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );
@@ -554,7 +719,6 @@ export class Controller implements ControllerInterface {
       }
 
       if (this.data) {
-        this.pollingSource.startInterval();
         return true;
       }
       return false;

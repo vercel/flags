@@ -13,3 +13,14 @@ export function setRequestContext(headers: Record<string, string>): () => void {
     delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
   };
 }
+
+/** A controllable response for testing reads while transport is pending. */
+export function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
