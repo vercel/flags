@@ -1,12 +1,12 @@
 'use client';
 
+import { LogoNextjs } from '@vercel/geistdocs/assets/logos/logo-nextjs';
+import { LogoSvelteKit } from '@vercel/geistdocs/assets/logos/logo-svelte-kit';
 import {
   GeistdocsRouteSelect,
   type GeistdocsRouteSelectItem,
 } from '@vercel/geistdocs/versions';
 import { usePathname } from 'next/navigation';
-import { NextLogo as LogoNextjs } from '@/components/custom/logos/next';
-import { SvelteKitLogo as LogoSvelteKit } from '@/components/custom/logos/sveltekit';
 
 const frameworks = [
   {

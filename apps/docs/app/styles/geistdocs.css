@@ -6,14 +6,6 @@
 @source "../../components/**/*.{ts,tsx}";
 
 @layer base {
-  html {
-    /* Geist 1.7 uses ss05 for the alternate capital I. */
-    font-feature-settings:
-      "rlig" 1,
-      "calt" 0,
-      "ss05" 1;
-  }
-
   body {
     @apply bg-background-200 text-gray-1000;
   }

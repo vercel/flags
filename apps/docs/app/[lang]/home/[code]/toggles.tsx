@@ -1,5 +1,6 @@
 'use client';
 import { track } from '@vercel/analytics';
+import { Toggle } from '@vercel/geistdocs/components/toggle';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 
 const oneYearInSeconds = 31_536_000;
 
@@ -78,17 +78,14 @@ export const FlagToggle = ({
   return (
     <div className="flex items-center justify-between px-2 py-4">
       <div className="flex flex-col gap-y-0.5">
-        <Label htmlFor={flagKey} className="font-mono text-sm">
-          {label}
-        </Label>
+        <Label className="font-mono text-sm">{label}</Label>
         {description ? (
           <span className="text-gray-900 text-sm">{description}</span>
         ) : null}
       </div>
-      <Switch
-        id={flagKey}
+      <Toggle
         checked={override === null ? value : override}
-        onCheckedChange={(nextValue: boolean) => {
+        onChange={(nextValue: boolean) => {
           document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
@@ -99,7 +96,9 @@ export const FlagToggle = ({
           }
           router.refresh();
         }}
-      />
+      >
+        <span className="sr-only">{label}</span>
+      </Toggle>
     </div>
   );
 };
