@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=FLAGS_SECRET,LAUNCHDARKLY_PROJECT_SLUG,LAUNCHDARKLY_CLIENT_SIDE_ID&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
