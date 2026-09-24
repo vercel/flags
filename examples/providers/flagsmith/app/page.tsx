@@ -1,4 +1,4 @@
-import {evaluate} from "flags/next"
+import { evaluate } from 'flags/next';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {

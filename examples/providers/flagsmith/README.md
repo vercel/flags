@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY,FLAGS_SECRET&envDescription=Use%20your%20Flagsmith%20server-side%20environment%20key%20and%20a%20random%2032-byte%20base64url%20FLAGS_SECRET.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fflagsmith%23setup&project-name=flagsmith-example&repository-name=flagsmith-example)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY,FLAGS_SECRET&envDescription=Use%20your%20Flagsmith%20server-side%20environment%20key%20and%20a%20random%2032-byte%20base64url%20FLAGS_SECRET.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith%23setup&project-name=flagsmith-example&repository-name=flagsmith-example)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
@@ -60,12 +60,12 @@ pnpm --filter flagsmith-example start
 
 To deploy the workspace version on Vercel:
 
-1. Import the full Flags SDK repository and set **Root Directory** to `examples/flagsmith`.
+1. Import the full Flags SDK repository and set **Root Directory** to `examples/providers/flagsmith`.
 2. Enable **Include source files outside of the Root Directory in the Build Step**.
-3. Set **Install Command** to `cd ../.. && pnpm install --frozen-lockfile`.
-4. Set **Build Command** to `cd ../.. && pnpm exec turbo run build --filter=flagsmith-example`.
+3. Set **Install Command** to `cd ../../.. && pnpm install --frozen-lockfile`.
+4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flagsmith-example`.
 5. Add the environment variables from Setup.
 
 When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
 
-This example requires `@flags-sdk/flagsmith` 2.0.0 or later. Until that release is published, run it from this workspace; standalone installs and the Deploy button require the published 2.x release.
+This example requires `@flags-sdk/flagsmith` 2.0.0 or later.
