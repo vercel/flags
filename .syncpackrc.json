@@ -19,7 +19,8 @@
         "flags-sdk-statsig",
         "flags-sdk-vercel",
         "flags-sdk-reflag",
-        "flags-sdk-posthog"
+        "flags-sdk-posthog",
+        "flags-sdk-openfeature"
       ],
       "dependencies": [
         "flags",
@@ -28,7 +29,8 @@
         "@flags-sdk/statsig",
         "@flags-sdk/vercel",
         "@flags-sdk/reflag",
-        "@flags-sdk/posthog"
+        "@flags-sdk/posthog",
+        "@flags-sdk/openfeature"
       ],
       "range": "^"
     },
@@ -51,7 +53,8 @@
         "flags-sdk-statsig",
         "flags-sdk-vercel",
         "flags-sdk-reflag",
-        "flags-sdk-posthog"
+        "flags-sdk-posthog",
+        "flags-sdk-openfeature"
       ],
       "dependencies": ["@types/react", "@types/react-dom"],
       "pinVersion": "^19"

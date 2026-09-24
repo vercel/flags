@@ -182,6 +182,20 @@
     },
     "flags-sdk-posthog#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/posthog#build"]
+    },
+    "flags-sdk-openfeature#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"],
+      "env": ["FLAGS_SECRET"],
+      "cache": false
+    },
+    "flags-sdk-openfeature#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"],
+      "env": ["FLAGS_SECRET"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-openfeature#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"]
     }
   }
 }
