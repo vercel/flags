@@ -1,6 +1,6 @@
 ---
 title: 'Flagsmith'
-description: 'Evaluate Flagsmith flags in serverless deployments or on long-running servers with the Flags SDK.'
+description: 'Evaluate Flagsmith flags with the Flags SDK.'
 ---
 
 The [Flagsmith](https://flagsmith.com) provider for the [Flags SDK](https://flags-sdk.dev/) contains support for Flagsmith's Feature Flags and Remote Configuration.
@@ -160,7 +160,7 @@ const adapter = createFlagsmithAdapter({
 
 Local evaluation requires a **server-side environment key** (starting with `ser.`). It downloads the environment document and polls for updates every 60 seconds. Each new client must initialize this document, so prefer remote evaluation for short-lived serverless instances. Set `environmentRefreshIntervalSeconds` to change the refresh interval and call `await adapter.close()` on shutdown to stop polling. The default `flagsmithAdapter` also exposes `close()`.
 
-Local evaluation does not persist supplied traits to the Flagsmith API. In `@flagsmith/nodejs` 9.0.3, however, identities with overrides can retain traits from earlier evaluations within a shared client. Account for this upstream behavior when opting into local evaluation; remote evaluation separately uses traits persisted in Flagsmith.
+Local evaluation does not persist supplied traits to the Flagsmith API. However, `@flagsmith/nodejs` 9.0.3 may retain previously supplied traits for identities with overrides, even when later evaluations of the same identity omit those traits. For example, evaluating an identity with `{ tier: "gold" }` and then with `{}` may still use `tier: "gold"` on the second evaluation.
 
 ### Migration from the JavaScript SDK adapter
 
