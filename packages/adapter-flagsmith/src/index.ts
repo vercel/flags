@@ -1,6 +1,5 @@
+import { type Flags, Flagsmith, type FlagsmithConfig } from '@flagsmith/nodejs';
 import type { Adapter } from 'flags';
-import flagsmith from 'flagsmith';
-import type { IFlagsmithFeature, IInitConfig } from 'flagsmith/types';
 import {
   type CoercedType,
   type CoerceOption,
@@ -11,7 +10,7 @@ export { getProviderData } from './provider';
 
 let defaultFlagsmithAdapter: AdapterResponse | undefined;
 
-export type FlagsmithValue = IFlagsmithFeature['value'];
+export type { FlagsmithConfig, FlagsmithValue } from '@flagsmith/nodejs';
 
 export type EntitiesType = {
   targetingKey: string;
@@ -19,14 +18,31 @@ export type EntitiesType = {
 };
 
 export type AdapterResponse = {
+  /** Stop the shared client's environment polling when shutting down. */
+  close: () => Promise<void>;
   getValue: <T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }) => Adapter<CoercedType<T>, EntitiesType>;
 };
 
-export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
-  async function initialize() {
-    await flagsmith.init({ fetch: globalThis.fetch, ...params });
+export function createFlagsmithAdapter(
+  params: FlagsmithConfig,
+): AdapterResponse {
+  // The server SDK keeps environment data on the client, not a current user.
+  // Construct lazily so imports and builds do not start background polling.
+  let client: Flagsmith | undefined;
+  // The bulk hook uses the first adapter in each group, so each coercion
+  // mode needs its own identity while sharing the underlying client.
+  const adapterIds = new Map<CoerceOption | undefined, symbol>();
+
+  function getFlags(entities?: EntitiesType): Promise<Flags> {
+    client ??= new Flagsmith({
+      ...params,
+      enableLocalEvaluation: params.enableLocalEvaluation ?? false,
+    });
+    return entities?.targetingKey
+      ? client.getIdentityFlags(entities.targetingKey, entities.traits)
+      : client.getEnvironmentFlags();
   }
 
   /**
@@ -52,56 +68,55 @@ export function createFlagsmithAdapter(params: IInitConfig): AdapterResponse {
   function getValue<T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }): Adapter<CoercedType<T>, EntitiesType> {
+    const coerce = options?.coerce;
+    let adapterId = adapterIds.get(coerce);
+    if (!adapterId) {
+      adapterId = Symbol('flagsmithAdapter');
+      adapterIds.set(coerce, adapterId);
+    }
+
+    function readValue(
+      flags: Flags,
+      key: string,
+      defaultValue: unknown,
+    ): CoercedType<T> {
+      const flagState = flags.getFlag(key);
+      if (!flagState?.enabled) return defaultValue as CoercedType<T>;
+      const value = flagState.value;
+      if (value === null || value === undefined || value === '') {
+        return defaultValue as CoercedType<T>;
+      }
+      if (!coerce) return value as CoercedType<T>;
+      const coercedValue = coerceValue(value, coerce);
+      if (coercedValue === undefined && coerce === 'boolean') {
+        return flagState.enabled as CoercedType<T>;
+      }
+      return (
+        coercedValue === undefined ? defaultValue : coercedValue
+      ) as CoercedType<T>;
+    }
+
     return {
-      async decide({
-        key,
-        defaultValue,
-        entities: identity,
-      }): Promise<CoercedType<T>> {
-        await initialize();
-
-        if (identity?.targetingKey) {
-          const { targetingKey, traits } = identity;
-          await flagsmith.identify(targetingKey, traits);
-        }
-
-        const state = flagsmith.getState();
-        const flagState = state.flags?.[key];
-        const isFlagDisabled = !flagState || !flagState.enabled;
-
-        if (isFlagDisabled) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        const isEmpty =
-          flagState.value === null ||
-          flagState.value === undefined ||
-          flagState.value === '';
-
-        if (isEmpty) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        if (!options?.coerce) {
-          return flagState.value as CoercedType<T>;
-        }
-
-        const coercedValue = coerceValue(flagState.value, options.coerce);
-
-        if (coercedValue === undefined && options.coerce === 'boolean') {
-          return flagState.enabled as CoercedType<T>;
-        }
-
-        if (coercedValue === undefined) {
-          return defaultValue as CoercedType<T>;
-        }
-
-        return coercedValue as CoercedType<T>;
+      adapterId,
+      async decide({ key, defaultValue, entities }) {
+        return readValue(await getFlags(entities), key, defaultValue);
+      },
+      async bulkDecide({ flags, entities }) {
+        const values = await getFlags(entities);
+        return Object.fromEntries(
+          flags.map(({ key, defaultValue }) => [
+            key,
+            readValue(values, key, defaultValue),
+          ]),
+        );
       },
     };
   }
 
   return {
+    close: async () => {
+      await client?.close();
+    },
     getValue,
   };
 }
@@ -116,9 +131,9 @@ function assertEnv(name: string): string {
 
 const getOrCreateDefaultFlagsmithAdapter = () => {
   if (!defaultFlagsmithAdapter) {
-    const environmentId = assertEnv('FLAGSMITH_ENVIRONMENT_ID');
+    const environmentKey = assertEnv('FLAGSMITH_ENVIRONMENT_KEY');
     defaultFlagsmithAdapter = createFlagsmithAdapter({
-      environmentID: environmentId,
+      environmentKey,
     });
   }
   return defaultFlagsmithAdapter;
@@ -126,6 +141,9 @@ const getOrCreateDefaultFlagsmithAdapter = () => {
 
 // Lazy default adapter
 export const flagsmithAdapter: AdapterResponse = {
+  close: async () => {
+    await defaultFlagsmithAdapter?.close();
+  },
   getValue: <T extends CoerceOption | undefined = undefined>(options?: {
     coerce?: T;
   }) => getOrCreateDefaultFlagsmithAdapter().getValue(options),
