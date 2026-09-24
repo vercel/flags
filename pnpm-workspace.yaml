@@ -54,3 +54,5 @@ overrides:
   "flags-sdk-posthog>@flags-sdk/posthog": "workspace:*"
   "flags-sdk-openfeature>flags": "workspace:*"
   "flags-sdk-openfeature>@flags-sdk/openfeature": "workspace:*"
+  "flags-sdk-growthbook>flags": "workspace:*"
+  "flags-sdk-growthbook>@flags-sdk/growthbook": "workspace:*"

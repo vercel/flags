@@ -5,8 +5,8 @@ import { Header } from './header';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Flags SDK + LaunchDarkly',
-  description: 'A minimal LaunchDarkly example using the Flags SDK.',
+  title: 'Flags SDK + GrowthBook',
+  description: 'A minimal GrowthBook example using the Flags SDK.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

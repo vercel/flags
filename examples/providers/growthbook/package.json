@@ -1,5 +1,5 @@
 {
-  "name": "flags-sdk-launchdarkly",
+  "name": "flags-sdk-growthbook",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@flags-sdk/launchdarkly": "^1.1.1",
+    "@flags-sdk/growthbook": "^0.3.1",
     "flags": "^4.3.1",
     "next": "16.3.6",
     "react": "19.2.4",
