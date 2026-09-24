@@ -85,6 +85,7 @@ export const FlagToggle = ({
       </div>
       <Toggle
         checked={override === null ? value : override}
+        size="medium"
         onChange={(nextValue: boolean) => {
           document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
