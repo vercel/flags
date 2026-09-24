@@ -209,8 +209,8 @@ export default async function HomePage({
             </div>
             <Button
               Component={Link}
+              className="rounded-full"
               href="/frameworks/next"
-              shape="rounded"
               size="large"
               variant="secondary"
             >
@@ -253,8 +253,8 @@ export default async function HomePage({
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
             <Button
               Component={Link}
+              className="rounded-full"
               href="/frameworks/next"
-              shape="rounded"
               size="large"
             >
               Get Started
