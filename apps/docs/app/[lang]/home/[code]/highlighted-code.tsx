@@ -30,8 +30,8 @@ export const HighlightedCode = async ({
     engine: 'js',
     theme: geistShikiTheme,
     components: {
-      pre: ({ children, className, style }: ComponentProps<'pre'>) => (
-        <CodeBlock className={className} style={style} title={filename}>
+      pre: ({ children, className }: ComponentProps<'pre'>) => (
+        <CodeBlock className={className} title={filename}>
           {children}
         </CodeBlock>
       ),
