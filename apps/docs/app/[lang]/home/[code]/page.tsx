@@ -12,6 +12,7 @@ import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { ComponentProps } from 'react';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
@@ -27,6 +28,10 @@ import Testimonials from './components/testimonials';
 import { HighlightedCode } from './highlighted-code';
 import { InstallCommand } from './install-command';
 import { FlagSelect, FlagToggle } from './toggles';
+
+const PrefetchedLink = (props: ComponentProps<typeof Link>) => (
+  <Link {...props} prefetch={true} />
+);
 
 const FEATURES = [
   {
@@ -208,7 +213,7 @@ export default async function HomePage({
               </p>
             </div>
             <Button
-              Component={Link}
+              Component={PrefetchedLink}
               className="rounded-full"
               href="/frameworks/next"
               size="large"
@@ -252,7 +257,7 @@ export default async function HomePage({
               the buttons on the heading's left edge while stacked. */}
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
             <Button
-              Component={Link}
+              Component={PrefetchedLink}
               className="rounded-full"
               href="/frameworks/next"
               size="large"
