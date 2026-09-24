@@ -17,14 +17,16 @@
         "flags-sdk-flagsmith",
         "flags-sdk-launchdarkly",
         "flags-sdk-statsig",
-        "flags-sdk-vercel"
+        "flags-sdk-vercel",
+        "flags-sdk-reflag"
       ],
       "dependencies": [
         "flags",
         "@flags-sdk/flagsmith",
         "@flags-sdk/launchdarkly",
         "@flags-sdk/statsig",
-        "@flags-sdk/vercel"
+        "@flags-sdk/vercel",
+        "@flags-sdk/reflag"
       ],
       "range": "^"
     },
@@ -45,7 +47,8 @@
         "flags-sdk-flagsmith",
         "flags-sdk-launchdarkly",
         "flags-sdk-statsig",
-        "flags-sdk-vercel"
+        "flags-sdk-vercel",
+        "flags-sdk-reflag"
       ],
       "dependencies": ["@types/react", "@types/react-dom"],
       "pinVersion": "^19"

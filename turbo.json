@@ -138,6 +138,20 @@
     },
     "flags-sdk-vercel#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/vercel#build"]
+    },
+    "flags-sdk-reflag#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"],
+      "env": ["FLAGS_SECRET", "REFLAG_SECRET_KEY"],
+      "cache": false
+    },
+    "flags-sdk-reflag#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"],
+      "env": ["FLAGS_SECRET", "REFLAG_SECRET_KEY"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-reflag#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"]
     }
   }
 }
