@@ -11,6 +11,19 @@
   }
 }
 
+/* Geistdocs 2.x mounts a plain rich-color Sonner toaster with a fixed light
+   theme. Map the toast variables to Geist tokens so toasts follow the site
+   theme, and render warnings in the neutral style the 1.x toaster used. */
+[data-sonner-toaster] [data-sonner-toast] {
+  --normal-bg: var(--ds-background-100);
+  --normal-border: var(--ds-gray-alpha-400);
+  --normal-text: var(--ds-gray-1000);
+  --border-radius: var(--radius);
+  --warning-bg: var(--normal-bg);
+  --warning-border: var(--normal-border);
+  --warning-text: var(--normal-text);
+}
+
 /* Align docs content with navbar on mobile */
 /*
  * On mobile the sticky MobileDocsBar abuts the navbar via a negative top
