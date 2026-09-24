@@ -252,7 +252,7 @@ export default async function HomePage({
           {/* Stack until the section itself goes side-by-side at md, and keep
               the buttons on the heading's left edge while stacked. */}
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
-            <Link href="/frameworks/next" prefetch={true}>
+            <Link href="/frameworks/next" prefetch={true} className="shrink-0">
               <Button Component="span" size="large" className="rounded-full">
                 Get Started
               </Button>
