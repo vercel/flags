@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/flagsmith",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Flagsmith provider for the Flags SDK",
   "keywords": [
     "flags-sdk",
