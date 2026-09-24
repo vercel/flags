@@ -42,3 +42,5 @@ overrides:
   # Use local SDKs in this repo while keeping the template independently installable.
   "flags-sdk-launchdarkly>flags": "workspace:*"
   "flags-sdk-launchdarkly>@flags-sdk/launchdarkly": "workspace:*"
+  "flags-sdk-flagsmith>flags": "workspace:*"
+  "flags-sdk-flagsmith>@flags-sdk/flagsmith": "workspace:*"
