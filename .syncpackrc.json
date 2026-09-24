@@ -18,7 +18,8 @@
         "flags-sdk-launchdarkly",
         "flags-sdk-statsig",
         "flags-sdk-vercel",
-        "flags-sdk-reflag"
+        "flags-sdk-reflag",
+        "flags-sdk-posthog"
       ],
       "dependencies": [
         "flags",
@@ -26,7 +27,8 @@
         "@flags-sdk/launchdarkly",
         "@flags-sdk/statsig",
         "@flags-sdk/vercel",
-        "@flags-sdk/reflag"
+        "@flags-sdk/reflag",
+        "@flags-sdk/posthog"
       ],
       "range": "^"
     },
@@ -48,7 +50,8 @@
         "flags-sdk-launchdarkly",
         "flags-sdk-statsig",
         "flags-sdk-vercel",
-        "flags-sdk-reflag"
+        "flags-sdk-reflag",
+        "flags-sdk-posthog"
       ],
       "dependencies": ["@types/react", "@types/react-dom"],
       "pinVersion": "^19"

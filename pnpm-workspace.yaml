@@ -50,3 +50,5 @@ overrides:
   "flags-sdk-vercel>@flags-sdk/vercel": "workspace:*"
   "flags-sdk-reflag>flags": "workspace:*"
   "flags-sdk-reflag>@flags-sdk/reflag": "workspace:*"
+  "flags-sdk-posthog>flags": "workspace:*"
+  "flags-sdk-posthog>@flags-sdk/posthog": "workspace:*"
