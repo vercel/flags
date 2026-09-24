@@ -28,8 +28,8 @@ overrides:
   '@sveltejs/kit': ^2.70.2
   flags-sdk-launchdarkly>flags: workspace:*
   flags-sdk-launchdarkly>@flags-sdk/launchdarkly: workspace:*
-  flagsmith-example>flags: workspace:*
-  flagsmith-example>@flags-sdk/flagsmith: workspace:*
+  flags-sdk-flagsmith>flags: workspace:*
+  flags-sdk-flagsmith>@flags-sdk/flagsmith: workspace:*
 
 importers:
 

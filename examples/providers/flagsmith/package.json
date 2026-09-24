@@ -1,5 +1,5 @@
 {
-  "name": "flagsmith-example",
+  "name": "flags-sdk-flagsmith",
   "version": "0.0.0",
   "private": true,
   "scripts": {
