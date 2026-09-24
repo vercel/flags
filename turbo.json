@@ -86,18 +86,6 @@
     "flags-sdk-launchdarkly#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"]
     },
-    "biome:check": {},
-    "flagsmith-example#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"],
-      "outputs": [".next/**", "!.next/cache/**"]
-    },
-    "flagsmith-example#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "cache": false
-    },
-    "flagsmith-example#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
-    }
+    "biome:check": {}
   }
 }

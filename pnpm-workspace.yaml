@@ -25,7 +25,6 @@ minimumReleaseAgeExclude:
   - '@flags-sdk/*'
   - '@vercel/*'
 
-# Keep the example independently installable while using local SDKs in this repo.
 overrides:
   "postcss": "^8.5.23"
   "esbuild": "^0.28.1"
@@ -43,5 +42,3 @@ overrides:
   # Use local SDKs in this repo while keeping the template independently installable.
   "flags-sdk-launchdarkly>flags": "workspace:*"
   "flags-sdk-launchdarkly>@flags-sdk/launchdarkly": "workspace:*"
-  "flagsmith-example>flags": "workspace:*"
-  "flagsmith-example>@flags-sdk/flagsmith": "workspace:*"
