@@ -11,6 +11,13 @@
   }
 }
 
+/* Geistdocs 2.x transitions only transform and color on the navigation-menu
+   chevron, but Tailwind v4's rotate-180 sets the `rotate` property, so the
+   navbar caret snaps open instead of turning. Restore the 1.x animation. */
+[data-slot="navigation-menu-trigger"] > svg {
+  transition-property: transform, rotate, color;
+}
+
 /* Geistdocs 2.x mounts a plain rich-color Sonner toaster with a fixed light
    theme. Map the toast variables to Geist tokens so toasts follow the site
    theme, and render warnings in the neutral style the 1.x toaster used. */
