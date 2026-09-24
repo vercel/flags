@@ -1,4 +1,3 @@
-import flagsmith from 'flagsmith';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {
@@ -14,31 +13,41 @@ import {
 import { getProviderData } from './provider';
 import * as mocks from './test-mocks';
 
-vi.stubEnv('FLAGSMITH_ENVIRONMENT_ID', 'test-env-id');
+vi.stubEnv('FLAGSMITH_ENVIRONMENT_KEY', 'test-env-id');
 
-vi.mock('flagsmith', () => ({
-  default: {
-    init: vi.fn(),
-    getState: vi.fn(),
-    identify: vi.fn(),
-    initialised: false,
+const sdk = vi.hoisted(() => ({ getFlags: vi.fn(), close: vi.fn() }));
+
+vi.mock('@flagsmith/nodejs', () => ({
+  Flagsmith: class {
+    getEnvironmentFlags = sdk.getFlags;
+    getIdentityFlags = sdk.getFlags;
+    close = sdk.close;
   },
 }));
 
+const getState = vi.fn();
+
 describe('Flagsmith Adapter', () => {
   let flagsmithAdapter: any;
-  const mockHeaders = {} as any;
+  let mockHeaders = {} as any;
   const mockCookies = {} as any;
   const mockEnvironmentId = 'test-env-id';
 
   beforeEach(async () => {
+    mockHeaders = {} as any;
     const mod = await import('.');
     flagsmithAdapter = mod.flagsmithAdapter;
     vi.resetAllMocks();
+    sdk.getFlags.mockImplementation(async () => ({
+      getFlag: (key: string) =>
+        getState().flags[key] ?? {
+          enabled: false,
+          value: undefined,
+        },
+    }));
   });
 
   afterEach(() => {
-    vi.mocked(flagsmith.init).mockClear();
     vi.clearAllMocks();
   });
 
@@ -47,7 +56,7 @@ describe('Flagsmith Adapter', () => {
       it('should return raw string value when no coercion is specified', async () => {
         const adapter = flagsmithAdapter.getValue();
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.stringFlag);
+        vi.mocked(getState).mockReturnValue(mocks.stringFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -63,7 +72,7 @@ describe('Flagsmith Adapter', () => {
       it('should return raw number value when no coercion is specified', async () => {
         const adapter = flagsmithAdapter.getValue();
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.numberFlag);
+        vi.mocked(getState).mockReturnValue(mocks.numberFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -79,7 +88,7 @@ describe('Flagsmith Adapter', () => {
       it('should return raw boolean value when no coercion is specified', async () => {
         const adapter = flagsmithAdapter.getValue();
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.booleanTrueFlag);
+        vi.mocked(getState).mockReturnValue(mocks.booleanTrueFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -95,7 +104,7 @@ describe('Flagsmith Adapter', () => {
       it('should return default value when flag value is empty', async () => {
         const adapter = flagsmithAdapter.getValue();
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.emptyStringFlag);
+        vi.mocked(getState).mockReturnValue(mocks.emptyStringFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -111,7 +120,7 @@ describe('Flagsmith Adapter', () => {
       it('should return default value when flag value is null', async () => {
         const adapter = flagsmithAdapter.getValue();
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.nullFlag);
+        vi.mocked(getState).mockReturnValue(mocks.nullFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -129,7 +138,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce number to string', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'string' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.numberFlag);
+        vi.mocked(getState).mockReturnValue(mocks.numberFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -145,7 +154,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce boolean to string', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'string' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.booleanTrueFlag);
+        vi.mocked(getState).mockReturnValue(mocks.booleanTrueFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -161,7 +170,7 @@ describe('Flagsmith Adapter', () => {
       it('should return default value for null instead of "null" string', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'string' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.nullFlag);
+        vi.mocked(getState).mockReturnValue(mocks.nullFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -177,7 +186,7 @@ describe('Flagsmith Adapter', () => {
       it('should return default value for NaN instead of "NaN" string', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'string' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.nanFlag);
+        vi.mocked(getState).mockReturnValue(mocks.nanFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -195,7 +204,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce string to number', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'number' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.stringNumberFlag);
+        vi.mocked(getState).mockReturnValue(mocks.stringNumberFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -211,9 +220,7 @@ describe('Flagsmith Adapter', () => {
       it('should return default value when string cannot be coerced to number', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'number' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(
-          mocks.stringInvalidNumberFlag,
-        );
+        vi.mocked(getState).mockReturnValue(mocks.stringInvalidNumberFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -229,7 +236,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce boolean true to number 1', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'number' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.booleanTrueFlag);
+        vi.mocked(getState).mockReturnValue(mocks.booleanTrueFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -245,7 +252,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce boolean false to number 0', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'number' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.booleanFalseFlag);
+        vi.mocked(getState).mockReturnValue(mocks.booleanFalseFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -263,7 +270,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce string "true" to boolean', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.stringTrueFlag);
+        vi.mocked(getState).mockReturnValue(mocks.stringTrueFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -279,7 +286,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce string "false" to boolean', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.stringFalseFlag);
+        vi.mocked(getState).mockReturnValue(mocks.stringFalseFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -295,7 +302,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce number 1 to true', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.numberOneFlag);
+        vi.mocked(getState).mockReturnValue(mocks.numberOneFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -311,7 +318,7 @@ describe('Flagsmith Adapter', () => {
       it('should coerce number 0 to false', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(mocks.numberZeroFlag);
+        vi.mocked(getState).mockReturnValue(mocks.numberZeroFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -327,9 +334,7 @@ describe('Flagsmith Adapter', () => {
       it('should fall back to flagState.enabled when value cannot be coerced to boolean', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(
-          mocks.stringInvalidBooleanFlag,
-        );
+        vi.mocked(getState).mockReturnValue(mocks.stringInvalidBooleanFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -345,9 +350,7 @@ describe('Flagsmith Adapter', () => {
       it('should fall back to flagState.enabled when number is not 0 or 1', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(
-          mocks.numberInvalidBooleanFlag,
-        );
+        vi.mocked(getState).mockReturnValue(mocks.numberInvalidBooleanFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
@@ -363,9 +366,7 @@ describe('Flagsmith Adapter', () => {
       it('should fall back to flagState.enabled when value cannot be coerced to boolean and flag is enabled', async () => {
         const adapter = flagsmithAdapter.getValue({ coerce: 'boolean' });
 
-        vi.mocked(flagsmith.getState).mockReturnValue(
-          mocks.nonBooleanValueEnabledFlag,
-        );
+        vi.mocked(getState).mockReturnValue(mocks.nonBooleanValueEnabledFlag);
 
         const value = await adapter.decide({
           key: 'test-flag',
