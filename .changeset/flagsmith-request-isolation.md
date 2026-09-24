@@ -6,10 +6,10 @@ Replaced the Flagsmith JavaScript SDK with `@flagsmith/nodejs`, adding support f
 
 **Breaking changes**
 
-- A Node.js runtime is now required.
 - The default adapter reads `FLAGSMITH_ENVIRONMENT_KEY` instead of `FLAGSMITH_ENVIRONMENT_ID`.
 - `createFlagsmithAdapter()` now accepts `FlagsmithConfig` from `@flagsmith/nodejs`. Rename `environmentID` to `environmentKey` and `api` to `apiUrl`.
 - Browser SDK options, including `cacheFlags`, `state`, and `onChange`, are no longer supported. Supply user identity and traits through the flag's `identify` function.
+- Internally replaced the deprecated `flagsmith` package with `@flagsmith/nodejs`.
 
 Remote evaluation remains the default and continues to persist identity traits in Flagsmith. For long-running servers, enable local evaluation with a server-side environment key (starting with `ser.`):
 
