@@ -12,7 +12,6 @@ import { generatePermutations } from 'flags/next';
 import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { ComponentProps } from 'react';
 import {
   enableBannerFlag,
   enableDitheredHeroFlag,
@@ -28,10 +27,6 @@ import Testimonials from './components/testimonials';
 import { HighlightedCode } from './highlighted-code';
 import { InstallCommand } from './install-command';
 import { FlagSelect, FlagToggle } from './toggles';
-
-const PrefetchedLink = (props: ComponentProps<typeof Link>) => (
-  <Link {...props} prefetch={true} />
-);
 
 const FEATURES = [
   {
@@ -212,15 +207,16 @@ export default async function HomePage({
                 flags.
               </p>
             </div>
-            <Button
-              Component={PrefetchedLink}
-              className="rounded-full"
-              href="/frameworks/next"
-              size="large"
-              variant="secondary"
-            >
-              Read the Docs
-            </Button>
+            <Link href="/frameworks/next" prefetch={true} className="shrink-0">
+              <Button
+                Component="span"
+                className="rounded-full"
+                size="large"
+                variant="secondary"
+              >
+                Read the Docs
+              </Button>
+            </Link>
           </div>
           <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
             <HighlightedCode
@@ -256,14 +252,11 @@ export default async function HomePage({
           {/* Stack until the section itself goes side-by-side at md, and keep
               the buttons on the heading's left edge while stacked. */}
           <div className="flex flex-col items-start gap-3 md:flex-row md:items-center">
-            <Button
-              Component={PrefetchedLink}
-              className="rounded-full"
-              href="/frameworks/next"
-              size="large"
-            >
-              Get Started
-            </Button>
+            <Link href="/frameworks/next" prefetch={true} className="shrink-0">
+              <Button Component="span" className="rounded-full" size="large">
+                Get Started
+              </Button>
+            </Link>
             {/* Root is `w-full items-center` by default, which would centre the
                 pill against the left-aligned heading while stacked. */}
             <CommandPromptRoot className="items-start" defaultValue="install">
