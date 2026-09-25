@@ -1,19 +1,19 @@
 'use client';
 
+import { LogoNextJs } from '@vercel/geistdocs/assets/logos/logo-next-js';
+import { LogoSvelteKit } from '@vercel/geistdocs/assets/logos/logo-svelte-kit';
 import {
   GeistdocsRouteSelect,
   type GeistdocsRouteSelectItem,
 } from '@vercel/geistdocs/versions';
 import { usePathname } from 'next/navigation';
-import { NextLogo } from '@/components/custom/logos/next';
-import { SvelteKitLogo } from '@/components/custom/logos/sveltekit';
 
 const frameworks = [
   {
     id: 'next',
     label: 'Next.js',
     href: '/docs/frameworks/next',
-    icon: <NextLogo className="size-4 text-gray-1000" height={16} />,
+    icon: <LogoNextJs className="size-4 text-gray-1000" height={16} />,
     description: 'Flags SDK for Next.js',
   },
   {
@@ -21,7 +21,7 @@ const frameworks = [
     label: 'SvelteKit',
     href: '/docs/frameworks/sveltekit',
     icon: (
-      <SvelteKitLogo className="size-4 grayscale text-gray-1000" height={16} />
+      <LogoSvelteKit className="size-4 grayscale text-gray-1000" height={16} />
     ),
     description: 'Flags SDK for SvelteKit',
   },
