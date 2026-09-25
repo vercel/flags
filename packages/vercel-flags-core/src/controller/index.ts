@@ -388,10 +388,10 @@ export class Controller implements ControllerInterface {
           this.data = tagData(fetched, 'fetched');
           result = this.data;
           cacheStatus = 'MISS';
-        } catch {
-          throw new Error(
-            '@vercel/flags-core: No flag definitions available. ' +
-              'Initialize the client or provide a datafile.',
+        } catch (error) {
+          this.noteUnauthorized(error);
+          throw this.noDefinitionsError(
+            '. Initialize the client or provide a datafile.',
           );
         }
       }

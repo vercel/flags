@@ -473,6 +473,30 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('should name the source project when getDatafile falls back to an unauthorized fetch', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(connectionString, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await expect(client.getDatafile()).rejects.toThrow(
+        'No flag definitions available. Initialize the client or provide a datafile. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+
+      await client.shutdown();
+    });
+
     it('should name the source project when the build-step fetch is unauthorized', async () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
