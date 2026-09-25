@@ -1,14 +1,15 @@
 import { evaluate } from 'flags/next';
+import { FlagValues } from 'flags/react';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
-  // using evaluate() for batch evaluation, could also call invidually
-  // const message = await welcomeMessage()
-  // const banner = await showBanner()
   const [message, banner] = await evaluate([welcomeMessage, showBanner]);
 
   return (
     <main>
+      <FlagValues
+        values={{ [welcomeMessage.key]: message, [showBanner.key]: banner }}
+      />
       <p>Flags SDK + Flagsmith</p>
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}

@@ -4,3 +4,6 @@ node_modules/
 .env*.local
 next-env.d.ts
 *.tsbuildinfo
+.vercel
+.env*
+!.env.example

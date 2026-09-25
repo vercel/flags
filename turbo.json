@@ -93,12 +93,24 @@
     "biome:check": {},
     "flags-sdk-flagsmith#build": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "env": [
+        "FLAGS_SECRET",
+        "FLAGSMITH_ENVIRONMENT_KEY",
+        "FLAGSMITH_ENVIRONMENT_ID",
+        "FLAGSMITH_PROJECT_ID"
+      ],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
     },
     "flags-sdk-flagsmith#dev": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "cache": false
+      "cache": false,
+      "env": [
+        "FLAGS_SECRET",
+        "FLAGSMITH_ENVIRONMENT_KEY",
+        "FLAGSMITH_ENVIRONMENT_ID",
+        "FLAGSMITH_PROJECT_ID"
+      ]
     },
     "flags-sdk-flagsmith#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
