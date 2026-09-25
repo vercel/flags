@@ -15,18 +15,31 @@ In your Vercel project's **Flags** tab, create these flags and configure their v
 | `welcome_message` | String | `Hello from Vercel` |
 | `show_banner` | Boolean | `true` |
 
-Copy `.env.example` to `.env.local` and set:
+Link this folder to your Vercel project and pull its Development environment variables:
 
-- `FLAGS`: the Vercel Flags SDK connection string for your project and environment. Link your project with `vercel link` and run `vercel env pull .env.local` to pull it.
-- `FLAGS_SECRET`: generate a random secret with the command below, and add it to your project's environment variables and `.env.local`.
+```sh
+vercel link
+vercel env pull .env.local
+```
+
+- `VERCEL_OIDC_TOKEN`: pulled by Vercel CLI for local development and provided automatically on Vercel deployments. No SDK key is required.
+- `FLAGS_SECRET`: used to authenticate Flags Explorer and encrypt overrides. Creating your first flag provisions it in Vercel; pull the value for the environment you are using. If configuring it manually, generate 32 random bytes with the command below and add the value to the matching Vercel environment as well as `.env.local`. For Development, use a regular environment variable (Config), rather than a Secret.
 
 ```sh
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
+Run `vercel env pull .env.local` again if your local OIDC token expires. For deployments outside Vercel, you can optionally set `FLAGS` to a Vercel Flags SDK key.
+
 The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change their values in the Vercel Dashboard and refresh the page. If flags cannot be evaluated, the welcome message falls back to `Welcome to the Vercel example` and the banner stays hidden.
 
 See the [Vercel Flags quickstart](https://vercel.com/docs/flags/vercel-flags/quickstart) for provider setup.
+
+## Flags Explorer
+
+The example exposes both flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`, and reports their evaluated values to the toolbar.
+
+The Vercel Toolbar is included during local development. Sign in and open Flags Explorer to override `welcome_message` or `show_banner` for your session without changing their configured values. The local `FLAGS_SECRET` must match the linked project's Development value. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
 ## Run as a standalone project
 

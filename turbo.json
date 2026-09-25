@@ -6,21 +6,14 @@
     ".env.development.local",
     "biome.json"
   ],
-  "globalEnv": [
-    "NPM_TOKEN",
-    "DEPLOYMENT_PROTECTION_BYPASS"
-  ],
+  "globalEnv": ["NPM_TOKEN", "DEPLOYMENT_PROTECTION_BYPASS"],
   "tasks": {
     "dev": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": false
     },
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "env": [
         "GLOBAL_CONFIG",
         "FLAGS_SECRET",
@@ -35,10 +28,7 @@
         "REDIS_URL",
         "BLOB_READ_WRITE_TOKEN"
       ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
@@ -48,54 +38,32 @@
       ]
     },
     "check": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "type-check": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "attw": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "start": {
-      "dependsOn": [
-        "^start"
-      ]
+      "dependsOn": ["^start"]
     },
     "test:e2e": {
-      "dependsOn": [
-        "^build",
-        "^start"
-      ],
-      "env": [
-        "FLAGS_SECRET"
-      ]
+      "dependsOn": ["^build", "^start"],
+      "env": ["FLAGS_SECRET"]
     },
     "publint": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "test:integration": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "flags-sdk-launchdarkly#dev": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/launchdarkly#build"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
       "env": [
         "EXPERIMENTATION_CONFIG",
         "FLAGS_SECRET",
@@ -105,64 +73,34 @@
       "cache": false
     },
     "flags-sdk-launchdarkly#build": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/launchdarkly#build"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
       "env": [
         "EXPERIMENTATION_CONFIG",
         "FLAGS_SECRET",
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
         "LAUNCHDARKLY_PROJECT_SLUG"
       ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
-      "outputs": [
-        ".next/**",
-        "!.next/cache/**"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-launchdarkly#type-check": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/launchdarkly#build"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"]
     },
     "biome:check": {},
     "flags-sdk-flagsmith#build": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/flagsmith#build"
-      ],
-      "env": [
-        "FLAGS_SECRET",
-        "FLAGSMITH_ENVIRONMENT_KEY"
-      ],
-      "outputs": [
-        ".next/**",
-        "!.next/cache/**"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
+      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"],
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-flagsmith#dev": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/flagsmith#build"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
       "cache": false
     },
     "flags-sdk-flagsmith#type-check": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/flagsmith#build"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
     },
     "flags-sdk-statsig#dev": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/statsig#build"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
       "env": [
         "STATSIG_SERVER_API_KEY",
         "FLAGS_SECRET",
@@ -172,65 +110,34 @@
       "cache": false
     },
     "flags-sdk-statsig#build": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/statsig#build"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
       "env": [
         "STATSIG_SERVER_API_KEY",
         "FLAGS_SECRET",
         "EXPERIMENTATION_CONFIG",
         "EXPERIMENTATION_CONFIG_ITEM_KEY"
       ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
-      "outputs": [
-        ".next/**",
-        "!.next/cache/**"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-statsig#type-check": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/statsig#build"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"]
     },
     "flags-sdk-vercel#dev": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/vercel#build"
-      ],
-      "env": [
-        "FLAGS",
-        "FLAGS_SECRET"
-      ],
-      "cache": false
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "env": ["FLAGS", "FLAGS_SECRET"],
+      "cache": false,
+      "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
     },
     "flags-sdk-vercel#build": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/vercel#build"
-      ],
-      "env": [
-        "FLAGS",
-        "FLAGS_SECRET"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
-      "outputs": [
-        ".next/**",
-        "!.next/cache/**"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "env": ["FLAGS", "FLAGS_SECRET"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
     },
     "flags-sdk-vercel#type-check": {
-      "dependsOn": [
-        "flags#build",
-        "@flags-sdk/vercel#build"
-      ]
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"]
     }
   }
 }
