@@ -139,6 +139,17 @@ describe('OpenFeature Adapter', () => {
         expect(adapter.client).toBe(mockClient);
       });
     });
+
+    describe('close', () => {
+      it('should hand the provided client to onClose', async () => {
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(mockClient, { onClose });
+
+        await adapter.close();
+
+        expect(onClose).toHaveBeenCalledWith(mockClient);
+      });
+    });
   });
 
   describe('async client', () => {
@@ -316,6 +327,97 @@ describe('OpenFeature Adapter', () => {
         'rejected',
       ]);
       expect(initFn).toHaveBeenCalledTimes(1);
+    });
+
+    describe('close', () => {
+      it('should re-initialize on the next evaluation', async () => {
+        const initFn = vi.fn(async () => mockClient);
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(initFn, { onClose });
+
+        await adapter.client();
+        await adapter.close();
+
+        expect(onClose).toHaveBeenCalledWith(mockClient);
+        await expect(adapter.client()).resolves.toBe(mockClient);
+        expect(initFn).toHaveBeenCalledTimes(2);
+      });
+
+      it('should do nothing when never initialized', async () => {
+        const initFn = vi.fn(async () => mockClient);
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(initFn, { onClose });
+
+        await adapter.close();
+
+        expect(initFn).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+      });
+
+      it('should be idempotent', async () => {
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(async () => mockClient, {
+          onClose,
+        });
+
+        await adapter.client();
+        await adapter.close();
+        await adapter.close();
+        await Promise.all([adapter.close(), adapter.close()]);
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+      });
+
+      it('should dispose a client that initialized during the shutdown', async () => {
+        const delay = (ms: number) =>
+          new Promise((resolve) => setTimeout(resolve, ms));
+        const initFn = vi.fn(async () => {
+          await delay(5);
+          return mockClient;
+        });
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(initFn, { onClose });
+
+        const clientPromise = adapter.client();
+        await adapter.close();
+
+        await expect(clientPromise).resolves.toBe(mockClient);
+        expect(onClose).toHaveBeenCalledWith(mockClient);
+      });
+
+      it('should not dispose anything when initialization failed', async () => {
+        const initFn = vi
+          .fn<() => Promise<Client>>()
+          .mockRejectedValue(new Error('transient connect failure'));
+        const onClose = vi.fn();
+        const adapter = createOpenFeatureAdapter(initFn, { onClose });
+
+        await expect(adapter.client()).rejects.toThrow(
+          'transient connect failure',
+        );
+        await adapter.close();
+
+        expect(onClose).not.toHaveBeenCalled();
+      });
+
+      it('should make evaluations started during a shutdown wait for a fresh client', async () => {
+        const delay = (ms: number) =>
+          new Promise((resolve) => setTimeout(resolve, ms));
+        const initFn = vi.fn(async () => mockClient);
+        const onClose = vi.fn(async () => {
+          await delay(5);
+        });
+        const adapter = createOpenFeatureAdapter(initFn, { onClose });
+
+        await adapter.client();
+        const closed = adapter.close();
+        const clientPromise = adapter.client();
+
+        await closed;
+        await expect(clientPromise).resolves.toBe(mockClient);
+        expect(initFn).toHaveBeenCalledTimes(2);
+        expect(onClose).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('should only initialize the client once', async () => {
