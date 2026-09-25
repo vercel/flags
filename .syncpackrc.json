@@ -13,11 +13,16 @@
   "semverGroups": [
     {
       "label": "Standalone provider templates consume published SDK releases",
-      "packages": ["flags-sdk-flagsmith", "flags-sdk-launchdarkly"],
+      "packages": [
+        "flags-sdk-flagsmith",
+        "flags-sdk-launchdarkly",
+        "flags-sdk-statsig"
+      ],
       "dependencies": [
         "flags",
         "@flags-sdk/flagsmith",
-        "@flags-sdk/launchdarkly"
+        "@flags-sdk/launchdarkly",
+        "@flags-sdk/statsig"
       ],
       "range": "^"
     },
@@ -34,7 +39,11 @@
     },
     {
       "label": "Provider templates must remain installable outside this workspace",
-      "packages": ["flags-sdk-flagsmith", "flags-sdk-launchdarkly"],
+      "packages": [
+        "flags-sdk-flagsmith",
+        "flags-sdk-launchdarkly",
+        "flags-sdk-statsig"
+      ],
       "dependencies": ["@types/react", "@types/react-dom"],
       "pinVersion": "^19"
     },

@@ -30,6 +30,8 @@ overrides:
   flags-sdk-launchdarkly>@flags-sdk/launchdarkly: workspace:*
   flags-sdk-flagsmith>flags: workspace:*
   flags-sdk-flagsmith>@flags-sdk/flagsmith: workspace:*
+  flags-sdk-statsig>flags: workspace:*
+  flags-sdk-statsig>@flags-sdk/statsig: workspace:*
 
 importers:
 
@@ -288,6 +290,40 @@ importers:
       '@flags-sdk/launchdarkly':
         specifier: workspace:*
         version: link:../../../packages/adapter-launchdarkly
+      flags:
+        specifier: workspace:*
+        version: link:../../../packages/flags
+      next:
+        specifier: 16.3.6
+        version: 16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  examples/providers/statsig:
+    dependencies:
+      '@flags-sdk/statsig':
+        specifier: workspace:*
+        version: link:../../../packages/adapter-statsig
+      '@vercel/toolbar':
+        specifier: 0.2.7
+        version: 0.2.7(cf16d0a141a9d648730468962675b87c)
       flags:
         specifier: workspace:*
         version: link:../../../packages/flags

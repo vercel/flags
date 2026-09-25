@@ -44,3 +44,5 @@ overrides:
   "flags-sdk-launchdarkly>@flags-sdk/launchdarkly": "workspace:*"
   "flags-sdk-flagsmith>flags": "workspace:*"
   "flags-sdk-flagsmith>@flags-sdk/flagsmith": "workspace:*"
+  "flags-sdk-statsig>flags": "workspace:*"
+  "flags-sdk-statsig>@flags-sdk/statsig": "workspace:*"
