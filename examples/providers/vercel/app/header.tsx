@@ -38,12 +38,19 @@ export function Header() {
           <a href="https://flags-sdk.dev" target="_blank" rel="noreferrer">
             Flags SDK
           </a>
-          <span
-            className="example-header-breadcrumb-separator"
+          <svg
+            className="example-header-divider"
+            viewBox="0 0 24 24"
+            width="32"
+            height="32"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+            fill="none"
             aria-hidden="true"
           >
-            /
-          </span>
+            <path d="M16.88 3.549L7.12 20.451" />
+          </svg>
           <a href={exampleUrl} target="_blank" rel="noreferrer">
             Vercel
           </a>
