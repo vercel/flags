@@ -66,7 +66,8 @@ function getSplitBoundaries(outcome: { weights: number[] }): number[] {
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
   const cached = compiledRegexCache.get(rhs);
   if (cached) return cached;
-  const compiled = new RegExp(rhs.pattern, rhs.flags.replace(/[gy]/, ''));
+  // Boolean predicates must not retain lastIndex across cached evaluations.
+  const compiled = new RegExp(rhs.pattern, rhs.flags.replace(/[gy]/g, ''));
   compiledRegexCache.set(rhs, compiled);
   return compiled;
 }

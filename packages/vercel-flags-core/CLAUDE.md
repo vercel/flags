@@ -247,10 +247,11 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Interval-based HTTP requests to `/v1/datafile`
 - Default `intervalMs`: 30000ms (30s)
 - Default `initTimeoutMs`: 3000ms (3s)
-- No retries — on fetch failure, emits an error event and waits for the next interval
+- Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
 - Stops automatically when stream reconnects
-- `PollingSource` passes its abort signal to `fetchDatafile`, so calling `stop()` aborts in-flight HTTP requests
-- `fetchDatafile` accepts an optional `signal` parameter; when provided, it aborts the internal fetch controller when the external signal fires
+- `PollingSource` passes its abort signal to `fetchDatafile` for both initialization and scheduled polls, so calling `stop()` cancels pending requests and backoff without emitting a shutdown error.
+- `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
+- Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
 
 ### Data Origin Tagging
 
