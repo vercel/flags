@@ -1,4 +1,5 @@
 import { evaluate } from 'flags/next';
+import { FlagValues } from 'flags/react';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
@@ -6,6 +7,9 @@ export default async function Home() {
 
   return (
     <main>
+      <FlagValues
+        values={{ [welcomeMessage.key]: message, [showBanner.key]: banner }}
+      />
       <p>Flags SDK + Statsig</p>
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}

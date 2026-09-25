@@ -6,6 +6,7 @@ const identify = (): StatsigUser => ({ userID: 'demo-user' });
 
 export const welcomeMessage = flag<string, StatsigUser>({
   key: 'welcome_message',
+  description: 'The welcome message shown on the home page.',
   defaultValue: 'Welcome to the Statsig example',
   identify,
   adapter: statsigAdapter.dynamicConfig((config) =>
@@ -15,6 +16,7 @@ export const welcomeMessage = flag<string, StatsigUser>({
 
 export const showBanner = flag<boolean, StatsigUser>({
   key: 'show_banner',
+  description: 'Show the promotional banner on the home page.',
   defaultValue: false,
   identify,
   adapter: statsigAdapter.featureGate((gate) => gate.value),
