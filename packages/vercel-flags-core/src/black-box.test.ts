@@ -294,6 +294,67 @@ describe('Controller (black-box)', () => {
       );
     });
 
+    it('should reject a projectId that is not a valid project id', () => {
+      expect(() =>
+        createClient('flags:projectId=prj_a/b', {
+          fetch: fetchMock,
+          stream: false,
+          polling: false,
+        }),
+      ).toThrow('@vercel/flags-core: Invalid projectId in connection string');
+    });
+
+    it('should resume usage tracking once polling recovers from a 401', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      let datafileCalls = 0;
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          datafileCalls++;
+          return Promise.resolve(
+            datafileCalls === 1
+              ? new Response(null, { status: 401, statusText: 'Unauthorized' })
+              : Response.json(makeBundled({ projectId: 'prj_source' })),
+          );
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient(connectionString, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+        datafile: makeBundled({ projectId: 'prj_source', revision: 0 }),
+      });
+
+      await client.initialize();
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+
+      // Unauthorized: evaluations are not tracked.
+      await client.evaluate('flagA');
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(datafileCalls).toBe(2);
+
+      // Recovered: evaluations are tracked again and flushed on shutdown.
+      await client.evaluate('flagA');
+      await client.shutdown();
+
+      const ingestCalls = fetchMock.mock.calls.filter((call) =>
+        String(call[0]).includes('/v1/ingest'),
+      );
+      expect(ingestCalls).toHaveLength(1);
+      const body = JSON.parse(ingestCalls[0]![1]!.body as string) as Array<{
+        type: string;
+        payload: { evaluationCount: number };
+      }>;
+      const evaluation = body.find((e) => e.type === 'FLAG_EVALUATION');
+      expect(evaluation?.payload.evaluationCount).toBe(1);
+
+      cleanupCtx();
+    });
+
     it('should send the OIDC token and the source project header on the stream', async () => {
       vi.useRealTimers();
       const stream = createMockStream();

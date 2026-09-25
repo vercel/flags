@@ -1,5 +1,9 @@
 import { getVercelOidcToken } from '@vercel/oidc';
-import { isValidSdkKey, parseFlagsConnectionString } from '../utils/sdk-keys';
+import {
+  isValidProjectId,
+  isValidSdkKey,
+  parseFlagsConnectionString,
+} from '../utils/sdk-keys';
 
 export type BundledDefinitionsLookup =
   | { type: 'sdk-key'; sdkKey: string }
@@ -93,6 +97,11 @@ export class Authentication implements Auth {
         }
         this.sdkKey = parsed.sdkKey;
       } else if (parsed?.projectId) {
+        if (!isValidProjectId(parsed.projectId)) {
+          throw new Error(
+            '@vercel/flags-core: Invalid projectId in connection string',
+          );
+        }
         this.sourceProjectId = parsed.projectId;
       } else {
         throw new Error('@vercel/flags-core: Missing sdkKey');

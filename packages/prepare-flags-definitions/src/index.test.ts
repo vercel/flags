@@ -364,11 +364,12 @@ describe('prepareFlagsDefinitions', () => {
     ).toBeUndefined();
   });
 
-  it('treats a connection string with both sdkKey and projectId as an SDK key', async () => {
+  it('skips a connection string with both sdkKey and projectId', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ flag_a: { value: true } }),
     });
+    const debug = vi.fn();
 
     const result = await prepareFlagsDefinitions({
       cwd: '/tmp/test-connected-project-both',
@@ -377,13 +378,36 @@ describe('prepareFlagsDefinitions', () => {
         FLAGS: 'flags:sdkKey=vf_server_my_key&projectId=prj_source',
       },
       fetch: mockFetch,
+      output: { debug, time: (_label, promise) => promise },
     });
 
-    expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    for (const call of mockFetch.mock.calls) {
-      expect(call[1]?.headers?.['x-vercel-flags-project-id']).toBeUndefined();
-    }
+    expect(result).toEqual({ created: true, entryCount: 1 });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(
+      mockFetch.mock.calls[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
+    ).toBeUndefined();
+    expect(debug).toHaveBeenCalledWith(
+      'vercel-flags: skipping FLAGS, connection string has both sdkKey and projectId',
+    );
+  });
+
+  it('ignores connected project ids that are not valid project ids', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ flag_a: { value: true } }),
+    });
+
+    const result = await prepareFlagsDefinitions({
+      cwd: '/tmp/test-connected-project-invalid-id',
+      env: {
+        VERCEL_OIDC_TOKEN: createOidcToken('prj_consumer'),
+        FLAGS: 'flags:projectId=prj_a/b',
+      },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, entryCount: 1 });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('stores OIDC definitions under the token project_id', async () => {

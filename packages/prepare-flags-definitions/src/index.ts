@@ -271,6 +271,9 @@ type FlagEntry =
  */
 const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
 
+/** Same shape the flags service accepts: `prj_…` or legacy `Qm…` ids. */
+const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
+
 /**
  * Collect all possible flag entries the need embedding from the environment
  */
@@ -285,7 +288,7 @@ function collectFlagEntries(
   // with either sdkKey= or projectId=.
   const sdkKeys = new Set<string>();
   const sourceProjectIds = new Set<string>();
-  for (const value of Object.values(env)) {
+  for (const [name, value] of Object.entries(env)) {
     if (typeof value !== 'string') continue;
     if (SDK_KEY_REGEX.test(value)) {
       sdkKeys.add(value);
@@ -293,9 +296,13 @@ function collectFlagEntries(
       const params = new URLSearchParams(value.slice('flags:'.length));
       const sdkKey = params.get('sdkKey');
       const projectId = params.get('projectId');
-      if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
+      if (sdkKey && projectId) {
+        output?.debug(
+          `vercel-flags: skipping ${name}, connection string has both sdkKey and projectId`,
+        );
+      } else if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
         sdkKeys.add(sdkKey);
-      } else if (projectId && !sdkKey) {
+      } else if (projectId && PROJECT_ID_REGEX.test(projectId)) {
         sourceProjectIds.add(projectId);
       }
     }

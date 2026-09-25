@@ -118,7 +118,8 @@ export class Controller implements ControllerInterface {
   private buildDataPromise: Promise<TaggedData> | null = null;
   private buildReadTracked = false;
 
-  // Suppresses usage tracking when the SDK key is unauthorized
+  // Suppresses usage tracking while the credential is rejected. Set on a 401
+  // from any source, cleared as soon as a source delivers data again.
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
@@ -150,11 +151,13 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
+    this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.data = tagData(data, 'stream');
     }
   };
   private onStreamPrimed = () => {
+    this.unauthorized = false;
     // The server confirmed our revision is current — no new data needed.
     // Transition to streaming like a normal connected event.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -172,6 +175,7 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollData = (data: DatafileInput) => {
+    this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.data = tagData(data, 'poll');
     }

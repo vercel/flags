@@ -55,7 +55,9 @@ createClient(sdkKey, options)
 
 - `vf_server_*` / `vf_client_*` or `flags:…&sdkKey=vf_…` → SDK key mode. The key is the bearer token and the bundled-definitions lookup key (hashed).
 - `undefined` → OIDC mode for the deployment's own project. The bearer token comes from `@vercel/oidc`; bundled definitions are looked up by the token's `project_id`.
-- `flags:projectId=prj_…` → OIDC mode for another project. Same token, plus `X-Vercel-Flags-Project-Id` on datafile, stream, and ingest requests (`authHeaders()`); bundled definitions are looked up by that project id without resolving a token. Events bypass the runtime ingest transport because it attributes to the calling project. A string with both `sdkKey` and `projectId` throws.
+- `flags:projectId=prj_…` → OIDC mode for another project. Same token, plus `X-Vercel-Flags-Project-Id` on datafile, stream, and ingest requests (`authHeaders()`); bundled definitions are looked up by that project id without resolving a token. Events bypass the runtime ingest transport because it attributes to the calling project. A string with both `sdkKey` and `projectId`, or a `projectId` outside `[A-Za-z0-9_]{1,64}`, throws.
+
+The Controller's `unauthorized` flag gates usage tracking. It is set on a 401 from any source (stream init, poll, one-time fetch) and cleared when a source delivers data again, so a transient 401 does not silence tracking for the client's lifetime.
 
 ### Design principles
 
