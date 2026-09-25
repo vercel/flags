@@ -4,8 +4,8 @@ title: 'Vercel Flags'
 
 Vercel Flags is a feature flag provider built into Vercel's platform, allowing you to manage flags directly in your Vercel projects. The `@flags-sdk/vercel` package connects the Flags SDK to Vercel Flags.
 
-<CopyPrompt text="Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, pull the `FLAGS` and `FLAGS_SECRET` environment variables, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished.">
-  Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, pull the `FLAGS` and `FLAGS_SECRET` environment variables, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished.
+<CopyPrompt text="Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. `vercelAdapter` authenticates with the project's Vercel OIDC token, so do not add a `FLAGS` SDK key unless the app runs outside Vercel or reads flags from another Vercel project; in that case pass the key to `createVercelAdapter`.">
+  Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. `vercelAdapter` authenticates with the project's Vercel OIDC token, so do not add a `FLAGS` SDK key unless the app runs outside Vercel or reads flags from another Vercel project; in that case pass the key to `createVercelAdapter`.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/blog/vercel-flags-platform-native-feature-flags" target="_blank">
@@ -36,13 +36,11 @@ Create your first feature flag in the Vercel dashboard:
 
 You can create a boolean feature flag called `example-flag` for this quickstart.
 
-When you create a flag, Vercel automatically configures these environment variables:
-- `FLAGS` - SDK Key for your Vercel Flags project
-- `FLAGS_SECRET` - Secret key used by Flags Explorer for flag overrides
+When you create your first flag, Vercel activates Vercel Flags for the project and creates a `FLAGS_SECRET` environment variable for each environment. Flags Explorer uses it for flag overrides.
 
 ### 2. Sync environment variables
 
-Pull the environment variables to your local project using [Vercel CLI](https://vercel.com/docs/cli):
+Vercel Flags authenticates with the Vercel OpenID Connect (OIDC) token of your project. Deployments receive this token automatically. For local development, pull the environment variables to your `.env.local` file using [Vercel CLI](https://vercel.com/docs/cli):
 
 ```bash
 vercel env pull
@@ -64,7 +62,7 @@ export const exampleFlag = flag({
 });
 ```
 
-The `vercelAdapter` automatically uses the `FLAGS` environment variable to connect to your Vercel Flags project.
+The `vercelAdapter` authenticates with the OIDC token of your project and evaluates the flags of the current environment. If you set a `FLAGS` environment variable, the adapter uses that SDK key instead. See [SDK keys](#sdk-keys) for when you need one.
 
 ### 4. Use the flag
 
@@ -142,9 +140,9 @@ This endpoint allows Flags Explorer to:
 
 ## Advanced configuration
 
-### Custom adapter configuration
+### SDK keys
 
-To connect to a different Vercel Flags project or use a custom SDK Key:
+You do not need an SDK key when your app runs on Vercel and reads the flags of its own project. Use one when the app runs outside Vercel, or when it reads flags from another Vercel project. Create the key in the Vercel dashboard and pass it to `createVercelAdapter`:
 
 ```ts title="flags.ts"
 import { flag } from 'flags/next';
@@ -159,6 +157,10 @@ export const exampleFlag = flag({
   adapter: customAdapter
 });
 ```
+
+<LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys" target="_blank">
+  Learn more about SDK keys
+</LearnMore>
 
 ## Additional resources
 
