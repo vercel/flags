@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@flags-sdk/posthog": "^1.0.1",
+    "@flags-sdk/posthog": "^1.1.0",
     "flags": "^4.3.1",
     "next": "16.3.6",
     "react": "19.2.4",
