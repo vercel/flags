@@ -283,7 +283,6 @@ importers:
         specifier: 5.6.3
         version: 5.6.3
 
-
   examples/providers/launchdarkly:
     dependencies:
       '@flags-sdk/launchdarkly':
@@ -314,7 +313,6 @@ importers:
       typescript:
         specifier: 5.6.3
         version: 5.6.3
-
 
   examples/shirt-shop:
     dependencies:
@@ -938,8 +936,8 @@ importers:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.6.3)
       next:
-        specifier: 16.3.1
-        version: 16.3.1(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: 16.3.3
+        version: 16.3.3(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.6.3)(yaml@2.9.0)
@@ -11518,7 +11516,7 @@ snapshots:
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
       '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.3
+      '@emnapi/runtime': 1.11.1
       '@tybys/wasm-util': 0.10.3
     optional: true
 
@@ -18750,6 +18748,33 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       '@playwright/test': 1.58.1
       sharp: 0.35.3(@types/node@22.14.0)
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@types/node'
+      - babel-plugin-macros
+
+  next@16.3.3(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@next/env': 16.3.3
+      '@swc/helpers': 0.5.23
+      baseline-browser-mapping: 2.10.0
+      caniuse-lite: 1.0.30001777
+      postcss: 8.5.26
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.4)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 16.3.3
+      '@next/swc-darwin-x64': 16.3.3
+      '@next/swc-linux-arm64-gnu': 16.3.3
+      '@next/swc-linux-arm64-musl': 16.3.3
+      '@next/swc-linux-x64-gnu': 16.3.3
+      '@next/swc-linux-x64-musl': 16.3.3
+      '@next/swc-win32-arm64-msvc': 16.3.3
+      '@next/swc-win32-x64-msvc': 16.3.3
+      '@opentelemetry/api': 1.9.0
+      '@playwright/test': 1.58.1
+      sharp: 0.35.4(@types/node@22.14.0)
     transitivePeerDependencies:
       - '@babel/core'
       - '@types/node'

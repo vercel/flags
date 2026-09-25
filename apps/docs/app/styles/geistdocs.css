@@ -15,6 +15,13 @@
   }
 }
 
+/* Geistdocs 2.x transitions only transform and color on the navigation-menu
+   chevron, but Tailwind v4's rotate-180 sets the `rotate` property, so the
+   navbar caret snaps open instead of turning. Restore the 1.x animation. */
+[data-slot="navigation-menu-trigger"] > svg {
+  transition-property: transform, rotate, color;
+}
+
 /* Align docs content with navbar on mobile */
 /*
  * On mobile the sticky MobileDocsBar abuts the navbar via a negative top

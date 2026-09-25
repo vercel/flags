@@ -54,6 +54,9 @@ export const agent = {
       "Precompute feature flags in supported frameworks",
     ],
   },
+  api: {
+    siteOpenApiUrl: "/openapi.json",
+  },
   links: [
     {
       label: "Flags SDK source",
