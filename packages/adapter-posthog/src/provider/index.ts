@@ -35,20 +35,24 @@ type ProviderOptions = {
 export async function getProviderData(
   options: ProviderOptions,
 ): Promise<ProviderData> {
-  const useDefinitions = 'projectSecretApiKey' in options;
-  const apiKey = useDefinitions
-    ? options.projectSecretApiKey
-    : options.personalApiKey;
+  const apiKeyMode: 'personal' | 'project' =
+    'projectSecretApiKey' in options ? 'project' : 'personal';
+  const apiKey =
+    apiKeyMode === 'project'
+      ? options.projectSecretApiKey
+      : options.personalApiKey;
   const hints: Exclude<ProviderData['hints'], undefined> = [];
 
   if (!apiKey) {
     hints.push({
-      key: useDefinitions
-        ? 'posthog/missing-project-secret-api-key'
-        : 'posthog/missing-personal-api-key',
-      text: useDefinitions
-        ? 'Missing PostHog Project Secret API Key'
-        : 'Missing PostHog Personal API Key',
+      key:
+        apiKeyMode === 'project'
+          ? 'posthog/missing-project-secret-api-key'
+          : 'posthog/missing-personal-api-key',
+      text:
+        apiKeyMode === 'project'
+          ? 'Missing PostHog Project Secret API Key'
+          : 'Missing PostHog Personal API Key',
     });
   }
 
@@ -80,12 +84,14 @@ export async function getProviderData(
   };
 
   // Definitions are served by the ingestion host, not the management API.
-  const apiHost = useDefinitions
-    ? (options.apiHost ?? getApiHost(host!)).replace(/\/$/, '')
-    : undefined;
-  const endpoint = useDefinitions
-    ? `${apiHost}/flags/definitions/`
-    : `${host}/api/projects/${options.projectId}/feature_flags`;
+  const apiHost =
+    apiKeyMode === 'project'
+      ? (options.apiHost ?? getApiHost(host!)).replace(/\/$/, '')
+      : undefined;
+  const endpoint =
+    apiKeyMode === 'project'
+      ? `${apiHost}/flags/definitions/`
+      : `${host}/api/projects/${options.projectId}/feature_flags`;
   const res = await fetch(endpoint, {
     method: 'GET',
     headers,
@@ -106,12 +112,13 @@ export async function getProviderData(
 
   try {
     const data = (await res.json()) as ApiData | DefinitionsData;
-    const items = useDefinitions
-      ? [...(data as DefinitionsData).flags]
-      : [...(data as ApiData).results];
+    const items =
+      apiKeyMode === 'project'
+        ? [...(data as DefinitionsData).flags]
+        : [...(data as ApiData).results];
 
     // Only the management API paginates its response.
-    const count = useDefinitions ? 0 : (data as ApiData).count;
+    const count = apiKeyMode === 'project' ? 0 : (data as ApiData).count;
     for (let offset = 100; offset < count; offset += 100) {
       const paginatedRes = await fetch(
         `${host}/api/projects/${options.projectId}/feature_flags?offset=${offset}&limit=100`,
