@@ -152,6 +152,36 @@
     },
     "flags-sdk-reflag#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/reflag#build"]
+    },
+    "flags-sdk-posthog#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"],
+      "env": [
+        "FLAGS_SECRET",
+        "POSTHOG_PROJECT_API_KEY",
+        "POSTHOG_HOST",
+        "POSTHOG_SECRET_KEY",
+        "POSTHOG_PERSONAL_API_KEY",
+        "POSTHOG_PROJECT_SECRET_API_KEY",
+        "POSTHOG_PROJECT_ID"
+      ],
+      "cache": false
+    },
+    "flags-sdk-posthog#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"],
+      "env": [
+        "FLAGS_SECRET",
+        "POSTHOG_PROJECT_API_KEY",
+        "POSTHOG_HOST",
+        "POSTHOG_SECRET_KEY",
+        "POSTHOG_PERSONAL_API_KEY",
+        "POSTHOG_PROJECT_SECRET_API_KEY",
+        "POSTHOG_PROJECT_ID"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-posthog#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"]
     }
   }
 }
