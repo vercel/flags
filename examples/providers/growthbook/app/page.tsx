@@ -10,14 +10,14 @@ export default async function Home() {
       <FlagValues
         values={{ [welcomeMessage.key]: message, [showBanner.key]: banner }}
       />
-      <p>Flags SDK + Flagsmith</p>
+      <p>Flags SDK + GrowthBook</p>
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}
       <p>
         Change <code>welcome_message</code> or <code>show_banner</code> in
-        Flagsmith, then refresh this page.
+        GrowthBook, then refresh this page.
       </p>
-      <a href="https://flags-sdk.dev/providers/flagsmith">
+      <a href="https://flags-sdk.dev/providers/growthbook">
         Adapter documentation
       </a>
     </main>

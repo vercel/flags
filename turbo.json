@@ -65,20 +65,24 @@
     "flags-sdk-launchdarkly#dev": {
       "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
       "env": [
-        "EXPERIMENTATION_CONFIG",
         "FLAGS_SECRET",
+        "EXPERIMENTATION_CONFIG",
+        "LAUNCHDARKLY_PROJECT_SLUG",
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
-        "LAUNCHDARKLY_PROJECT_SLUG"
+        "LAUNCHDARKLY_API_KEY",
+        "LAUNCHDARKLY_ENVIRONMENT"
       ],
       "cache": false
     },
     "flags-sdk-launchdarkly#build": {
       "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
       "env": [
-        "EXPERIMENTATION_CONFIG",
         "FLAGS_SECRET",
+        "EXPERIMENTATION_CONFIG",
+        "LAUNCHDARKLY_PROJECT_SLUG",
         "LAUNCHDARKLY_CLIENT_SIDE_ID",
-        "LAUNCHDARKLY_PROJECT_SLUG"
+        "LAUNCHDARKLY_API_KEY",
+        "LAUNCHDARKLY_ENVIRONMENT"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
@@ -89,12 +93,24 @@
     "biome:check": {},
     "flags-sdk-flagsmith#build": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "env": [
+        "FLAGS_SECRET",
+        "FLAGSMITH_ENVIRONMENT_KEY",
+        "FLAGSMITH_ENVIRONMENT_ID",
+        "FLAGSMITH_PROJECT_ID"
+      ],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
     },
     "flags-sdk-flagsmith#dev": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "cache": false
+      "cache": false,
+      "env": [
+        "FLAGS_SECRET",
+        "FLAGSMITH_ENVIRONMENT_KEY",
+        "FLAGSMITH_ENVIRONMENT_ID",
+        "FLAGSMITH_PROJECT_ID"
+      ]
     },
     "flags-sdk-flagsmith#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
@@ -196,6 +212,44 @@
     },
     "flags-sdk-openfeature#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"]
+    },
+    "flags-sdk-growthbook#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"],
+      "env": [
+        "FLAGS_SECRET",
+        "GROWTHBOOK_CLIENT_KEY",
+        "GROWTHBOOK_API_KEY",
+        "GROWTHBOOK_API_HOST",
+        "GROWTHBOOK_APP_API_HOST",
+        "GROWTHBOOK_APP_ORIGIN",
+        "EXPERIMENTATION_CONFIG",
+        "GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING",
+        "GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY",
+        "GROWTHBOOK_EDGE_CONNECTION_STRING",
+        "GROWTHBOOK_EDGE_CONFIG_ITEM_KEY"
+      ],
+      "cache": false
+    },
+    "flags-sdk-growthbook#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"],
+      "env": [
+        "FLAGS_SECRET",
+        "GROWTHBOOK_CLIENT_KEY",
+        "GROWTHBOOK_API_KEY",
+        "GROWTHBOOK_API_HOST",
+        "GROWTHBOOK_APP_API_HOST",
+        "GROWTHBOOK_APP_ORIGIN",
+        "EXPERIMENTATION_CONFIG",
+        "GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING",
+        "GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY",
+        "GROWTHBOOK_EDGE_CONNECTION_STRING",
+        "GROWTHBOOK_EDGE_CONFIG_ITEM_KEY"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "flags-sdk-growthbook#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"]
     }
   }
 }
