@@ -71,6 +71,20 @@ function mockDatafileResponse(timestamp: number, enabled = false) {
   dataFetch.mockResolvedValueOnce(Response.json(datafile(timestamp, enabled)));
 }
 
+function rejectDatafileOnce(error: Error) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    dataFetch.mockRejectedValueOnce(error);
+  }
+}
+
+function mockDatafileHttpFailure(statusText = '') {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    dataFetch.mockResolvedValueOnce(
+      new Response(null, { status: 503, statusText }),
+    );
+  }
+}
+
 function setVersion(timestamp?: number | string) {
   cleanupContext();
   cleanupContext = setRequestContext(
@@ -407,11 +421,13 @@ describe('Vercel mode (black-box)', () => {
       disableMetrics: true,
     });
     setVersion(undefined);
-    dataFetch.mockRejectedValueOnce(new Error('poll failed'));
-    await expect(instance.evaluate('feature')).rejects.toThrow(
+    rejectDatafileOnce(new Error('poll failed'));
+    const failure = expect(instance.evaluate('feature')).rejects.toThrow(
       'No flag definitions available',
     );
-    expect(dataFetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(300);
+    await failure;
+    expect(dataFetch).toHaveBeenCalledTimes(3);
 
     setVersion(TIMESTAMP + 100);
     mockDatafileResponse(TIMESTAMP + 1, true);
@@ -419,7 +435,7 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: { mode: 'polling' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
     expect(streamFetch).not.toHaveBeenCalled();
   });
 
@@ -435,15 +451,21 @@ describe('Vercel mode (black-box)', () => {
     const snapshot = await instance.getDatafile();
     const firstError = new Error('header failure');
     setVersion(TIMESTAMP + 2);
-    dataFetch.mockRejectedValueOnce(firstError);
-    expect((await instance.evaluate('feature')).value).toBe(true);
+    rejectDatafileOnce(firstError);
+    const firstFailure = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await firstFailure).value).toBe(true);
 
     vi.setSystemTime(TIMESTAMP + 1_001);
     setVersion(undefined);
-    dataFetch.mockRejectedValueOnce(new Error('poll failure'));
-    await expect(instance.evaluate('feature')).rejects.toBe(firstError);
+    rejectDatafileOnce(new Error('poll failure'));
+    const secondFailure = expect(instance.evaluate('feature')).rejects.toBe(
+      firstError,
+    );
+    await vi.advanceTimersByTimeAsync(300);
+    await secondFailure;
     await expect(instance.getDatafile()).rejects.toBe(firstError);
-    expect(dataFetch).toHaveBeenCalledTimes(3);
+    expect(dataFetch).toHaveBeenCalledTimes(7);
 
     mockDatafileResponse(TIMESTAMP + 1, true);
     await vi.advanceTimersByTimeAsync(30_000);
@@ -454,7 +476,7 @@ describe('Vercel mode (black-box)', () => {
     const recovered = await instance.getDatafile();
     expect(recovered.definitions).toBe(snapshot.definitions);
     expect(recovered.fetchedAt).toBe(snapshot.fetchedAt);
-    expect(dataFetch).toHaveBeenCalledTimes(4);
+    expect(dataFetch).toHaveBeenCalledTimes(8);
     expect(streamFetch).not.toHaveBeenCalled();
   });
 
@@ -579,11 +601,13 @@ describe('Vercel mode (black-box)', () => {
     0.01,
   ])('recovers on a later read when the cold-cache fetch fails with staleIfError=%s', async (staleIfError) => {
     const instance = client({ datafile: undefined, staleIfError });
-    dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
-    await expect(instance.evaluate('feature')).rejects.toThrow(
+    mockDatafileHttpFailure();
+    const failure = expect(instance.evaluate('feature')).rejects.toThrow(
       'Failed to fetch data',
     );
-    expect(dataFetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(300);
+    await failure;
+    expect(dataFetch).toHaveBeenCalledTimes(3);
     await vi.advanceTimersByTimeAsync(11);
     mockDatafileResponse(TIMESTAMP, true);
 
@@ -591,7 +615,7 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: { mode: 'vercel', cacheStatus: 'MISS' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it.each([
@@ -935,12 +959,12 @@ describe('Vercel mode (black-box)', () => {
   it('retries a failed blocking refresh instead of poisoning subsequent evaluations', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     setVersion(TIMESTAMP + 20_000);
-    dataFetch.mockResolvedValueOnce(
-      new Response(null, { status: 503, statusText: 'Service Unavailable' }),
-    );
+    mockDatafileHttpFailure('Service Unavailable');
     const instance = client({ staleIfError: 0 });
 
-    const failed = await instance.evaluate('feature', false);
+    const failedEvaluation = instance.evaluate('feature', false);
+    await vi.advanceTimersByTimeAsync(300);
+    const failed = await failedEvaluation;
     expect(failed.value).toBe(false);
     expect(failed.reason).toBe('error');
     expect(failed.errorMessage).toContain('Service Unavailable');
@@ -952,7 +976,7 @@ describe('Vercel mode (black-box)', () => {
     const recovered = await instance.evaluate('feature');
     expect(recovered.value).toBe(true);
     expect(recovered.metrics?.cacheStatus).toBe('MISS');
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it('contains background fetch errors and retries without losing cached data', async () => {
@@ -968,8 +992,9 @@ describe('Vercel mode (black-box)', () => {
     expect((await instance.evaluate('feature')).value).toBe(false);
 
     const failure = new Error('Network unavailable');
+    dataFetch.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
     pending.reject(failure);
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(300);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Revalidation failed:',
       failure,
@@ -981,7 +1006,7 @@ describe('Vercel mode (black-box)', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect((await instance.evaluate('feature')).value).toBe(true);
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it('aborts an in-flight header refresh on shutdown', async () => {
@@ -1342,11 +1367,11 @@ describe('Vercel mode (black-box)', () => {
     await instance.evaluate('feature');
     vi.setSystemTime(TIMESTAMP + 9_000);
     setVersion(TIMESTAMP + 1);
-    dataFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    mockDatafileHttpFailure();
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'STALE',
     );
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(300);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Revalidation failed:',
       expect.any(Error),
@@ -1357,7 +1382,7 @@ describe('Vercel mode (black-box)', () => {
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'MISS',
     );
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it.each([
@@ -1419,52 +1444,62 @@ describe('Vercel mode (black-box)', () => {
     const instance = client();
     dataFetch.mockRejectedValue(new Error('service unavailable'));
 
-    expect(await instance.evaluate('feature')).toMatchObject({
+    const firstFailure = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await firstFailure).toMatchObject({
       value: false,
       metrics: { cacheStatus: 'STALE' },
     });
     vi.setSystemTime(TIMESTAMP + 365 * 24 * 60 * 60 * 1_000);
-    expect(await instance.evaluate('feature')).toMatchObject({
+    const secondFailure = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await secondFailure).toMatchObject({
       value: false,
       metrics: { cacheStatus: 'STALE' },
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(6);
   });
 
   it('shares the first-error deadline with snapshots and recovers after expiry', async () => {
     const instance = client({ staleIfError: 1 });
     setVersion(TIMESTAMP + 1);
     const firstError = new Error('first failure');
-    dataFetch.mockRejectedValueOnce(firstError);
-    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      'STALE',
-    );
+    rejectDatafileOnce(firstError);
+    const firstFailure = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await firstFailure).metrics?.cacheStatus).toBe('STALE');
 
     vi.setSystemTime(TIMESTAMP + 1_000);
-    dataFetch.mockRejectedValueOnce(new Error('second failure'));
-    expect((await instance.evaluate('feature')).value).toBe(false);
+    rejectDatafileOnce(new Error('second failure'));
+    const secondFailure = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await secondFailure).value).toBe(false);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
 
-    vi.setSystemTime(TIMESTAMP + 1_001);
+    vi.setSystemTime(TIMESTAMP + 1_301);
     // Older/malformed evidence must not reset the first-error deadline or fetch.
     for (const version of ['invalid', TIMESTAMP - 1, TIMESTAMP]) {
       setVersion(version);
       await expect(instance.evaluate('feature')).rejects.toBe(firstError);
       await expect(instance.getDatafile()).rejects.toBe(firstError);
     }
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(6);
 
     setVersion(TIMESTAMP + 1);
-    dataFetch.mockRejectedValueOnce(new Error('third failure'));
-    await expect(instance.evaluate('feature')).rejects.toBe(firstError);
+    rejectDatafileOnce(new Error('third failure'));
+    const thirdFailure = expect(instance.evaluate('feature')).rejects.toBe(
+      firstError,
+    );
+    await vi.advanceTimersByTimeAsync(300);
+    await thirdFailure;
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect(await instance.evaluate('feature')).toMatchObject({
       value: true,
       metrics: { cacheStatus: 'MISS' },
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
-    expect(dataFetch).toHaveBeenCalledTimes(4);
+    expect(dataFetch).toHaveBeenCalledTimes(10);
   });
 
   it.each([
@@ -1477,9 +1512,9 @@ describe('Vercel mode (black-box)', () => {
     });
     setVersion(TIMESTAMP + 1);
     const failure = new Error('background failure');
-    dataFetch.mockRejectedValueOnce(failure);
+    rejectDatafileOnce(failure);
     expect((await instance.evaluate('feature')).value).toBe(false);
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(300);
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Revalidation failed:',
       failure,
@@ -1500,7 +1535,7 @@ describe('Vercel mode (black-box)', () => {
           });
     await vi.advanceTimersByTimeAsync(0);
     expect(settled).not.toHaveBeenCalled();
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
 
     pending.resolve(Response.json(datafile(TIMESTAMP + delta, true)));
     await outcome;
