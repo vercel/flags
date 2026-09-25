@@ -35,6 +35,9 @@ jobs:
       - name: Run Biome Check
         run: pnpm biome ci
 
+      - name: Check dependency versions
+        run: pnpm check:deps
+
   types:
     name: "TypeScript"
     runs-on: ubuntu-latest
