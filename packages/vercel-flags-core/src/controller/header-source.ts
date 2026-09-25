@@ -26,8 +26,8 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     );
   }
 
-  hasVersionHeader(): boolean {
-    return Boolean(this.getVersionHeader());
+  isAvailable(): boolean {
+    return this.isEnabled() && Boolean(this.getVersionHeader());
   }
 
   /** Capture the header now so a shared fetch cannot switch the request being assessed. */
@@ -78,7 +78,7 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     this.emit('data', data);
   };
 
-  isAvailable(): boolean {
+  isEnabled(): boolean {
     // Explicit offline mode disables header-driven refreshes too.
     return (
       this.options.vercel &&

@@ -130,9 +130,8 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   start streaming if enabled, otherwise polling, using the existing startup timeouts.
   Concurrent reads share source startup. Pending header fetches are cancelled without
   clearing stored data or the failure deadline; their readers resume through the new source.
-  Missing-header reads use the shared `resolveDataWithFallbacks()` path. Its pending
-  promise is cleared on completion; a separate flag keeps header mode disabled.
-  Source startup falls back to the current cache before provided/bundled definitions.
+  `resolveData()` checks header availability and uses `resolveDataWithFallbacks()`
+  to start the configured source. Handover retains cached data before considering seeds.
 - Present malformed/unrelated headers use cached data without fetching, subject to stale-if-error.
 - `getDatafile()` remains a snapshot read: it enforces the same failure policy but does
   not inspect request headers. Disabling both stream and polling selects offline mode.
