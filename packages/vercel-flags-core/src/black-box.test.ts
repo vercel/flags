@@ -792,9 +792,11 @@ describe('Controller (black-box)', () => {
         buildStep: true,
       });
 
-      await expect(client.evaluate('flagA')).rejects.toThrow(
+      const rejection = expect(client.evaluate('flagA')).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available during build',
       );
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
     });
 
     it('should cache data after first build step read', async () => {
@@ -2632,9 +2634,11 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await expect(client.getDatafile()).rejects.toThrow(
+      const rejection = expect(client.getDatafile()).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
 
       await client.shutdown();
     });
@@ -3778,11 +3782,11 @@ describe('Controller (black-box)', () => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
           fetchCallCount++;
-          if (fetchCallCount === 1) {
-            // First fetch fails
+          if (fetchCallCount <= 3) {
+            // Exhaust all attempts for the first initialization
             return Promise.resolve(new Response(null, { status: 500 }));
           }
-          // Second fetch succeeds
+          // The next initialization succeeds
           return Promise.resolve(Response.json(makeBundled()));
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -3796,8 +3800,10 @@ describe('Controller (black-box)', () => {
       });
 
       // First initialize fails (no bundled, fetch returns 500)
-      await expect(client.initialize()).rejects.toThrow();
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const rejection = expect(client.initialize()).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/datafile',
         {
@@ -3808,7 +3814,7 @@ describe('Controller (black-box)', () => {
 
       // Second initialize should retry — fetch now succeeds
       await client.initialize();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/datafile',
         {
@@ -3820,9 +3826,9 @@ describe('Controller (black-box)', () => {
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.value).toBe(true);
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -3831,7 +3837,7 @@ describe('Controller (black-box)', () => {
           body: JSON.stringify([
             {
               type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
+              ts: date.getTime() + 300,
               payload: {
                 invocationHost: 'example.com',
                 configOrigin: 'in-memory',
@@ -3848,13 +3854,13 @@ describe('Controller (black-box)', () => {
             },
             {
               type: 'FLAG_EVALUATION',
-              ts: date.getTime(),
+              ts: date.getTime() + 300,
               payload: {
                 flagKey: 'flagA',
                 variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: minuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime() + 300),
               },
             },
           ]),
@@ -3953,7 +3959,10 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      const result = await client.evaluate('flagA', false);
+      const evaluation = client.evaluate('flagA', false);
+      // Initialization and the subsequent read each exhaust their fetch retries.
+      await vi.advanceTimersByTimeAsync(600);
+      const result = await evaluation;
 
       expect(result).toEqual({
         value: false,
@@ -3978,9 +3987,12 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await expect(client.evaluate('flagA')).rejects.toThrow(
+      const rejection = expect(client.evaluate('flagA')).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
+      // Initialization and the subsequent read each exhaust their fetch retries.
+      await vi.advanceTimersByTimeAsync(600);
+      await rejection;
     });
 
     it('should use bundled definitions when stream and polling are disabled', async () => {

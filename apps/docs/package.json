@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
-    "@vercel/geistdocs": "1.23.0",
+    "@vercel/geistdocs": "2.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "@vercel/toolbar": "0.2.7",
     "class-variance-authority": "^0.7.1",
@@ -24,10 +24,10 @@
     "fumadocs-ui": "16.2.2",
     "lucide-react": "^0.555.0",
     "motion": "^12.23.25",
-    "next": "16.3.1",
+    "next": "16.3.6",
     "radix-ui": "latest",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "shiki": "^3.22.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"

@@ -1,112 +1,94 @@
-import type { IState } from 'flagsmith';
+import type { FlagsmithValue } from '@flagsmith/nodejs';
+
+type FlagState = {
+  flags: Record<string, { enabled: boolean; value: FlagsmithValue }>;
+};
 
 // Mock flag states for testing
-export const stringFlag: IState<string> = {
+export const stringFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'raw-string-value' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const numberFlag: IState<string> = {
+export const numberFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 42 } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const booleanTrueFlag: IState<string> = {
+export const booleanTrueFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: true } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const booleanFalseFlag: IState<string> = {
+export const booleanFalseFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: false } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const emptyStringFlag: IState<string> = {
+export const emptyStringFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: '' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const nullFlag: IState<string> = {
+export const nullFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: null } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const nanFlag: IState<string> = {
+export const nanFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: NaN } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const stringNumberFlag: IState<string> = {
+export const stringNumberFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: '123' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const stringInvalidNumberFlag: IState<string> = {
+export const stringInvalidNumberFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'not-a-number' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const stringTrueFlag: IState<string> = {
+export const stringTrueFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'true' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const stringFalseFlag: IState<string> = {
+export const stringFalseFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'false' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const numberOneFlag: IState<string> = {
+export const numberOneFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 1 } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const numberZeroFlag: IState<string> = {
+export const numberZeroFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 0 } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const stringInvalidBooleanFlag: IState<string> = {
+export const stringInvalidBooleanFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'invalid' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const numberInvalidBooleanFlag: IState<string> = {
+export const numberInvalidBooleanFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 42 } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const emptyFlags: IState<string> = {
+export const emptyFlags: FlagState = {
   flags: {},
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const disabledStringFlag: IState<string> = {
+export const disabledStringFlag: FlagState = {
   flags: { 'test-flag': { enabled: false, value: 'test-value' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const disabledNumberFlag: IState<string> = {
+export const disabledNumberFlag: FlagState = {
   flags: { 'test-flag': { enabled: false, value: 42 } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const someValueFlag: IState<string> = {
+export const someValueFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'some-value' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const testValueFlag: IState<string> = {
+export const testValueFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'test-value' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const nonBooleanValueEnabledFlag: IState<string> = {
+export const nonBooleanValueEnabledFlag: FlagState = {
   flags: { 'test-flag': { enabled: true, value: 'some-random-string' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };
 
-export const nonBooleanValueDisabledFlag: IState<string> = {
+export const nonBooleanValueDisabledFlag: FlagState = {
   flags: { 'test-flag': { enabled: false, value: 'some-random-string' } },
-  api: 'https://api.flagsmith.com/api/v1/',
 };

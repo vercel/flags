@@ -1,0 +1,110 @@
+{
+  "$schema": "./node_modules/syncpack/schema.json",
+  "dependencyGroups": [
+    {
+      "dependencies": ["next", "eslint-config-next", "@next/**"],
+      "aliasName": "next"
+    },
+    {
+      "dependencies": ["react", "react-dom"],
+      "aliasName": "react"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Standalone provider templates consume published SDK releases",
+      "packages": ["flags-sdk-flagsmith", "flags-sdk-launchdarkly"],
+      "dependencies": [
+        "flags",
+        "@flags-sdk/flagsmith",
+        "@flags-sdk/launchdarkly"
+      ],
+      "range": "^"
+    },
+    {
+      "label": "Do not impose a global semver range style",
+      "isIgnored": true
+    }
+  ],
+  "versionGroups": [
+    {
+      "label": "Peer compatibility ranges and security overrides are independent",
+      "dependencyTypes": ["peer", "pnpmOverrides", "overrides", "resolutions"],
+      "isIgnored": true
+    },
+    {
+      "label": "Provider templates must remain installable outside this workspace",
+      "packages": ["flags-sdk-flagsmith", "flags-sdk-launchdarkly"],
+      "dependencies": ["@types/react", "@types/react-dom"],
+      "pinVersion": "^19"
+    },
+    {
+      "label": "Geistdocs deliberately follows the Radix UI latest tag",
+      "packages": ["docs"],
+      "dependencies": ["radix-ui"],
+      "pinVersion": "latest"
+    },
+    {
+      "label": "Next.js 15 compatibility fixture must stay on 15.x",
+      "packages": ["next-15"],
+      "dependencies": ["next"],
+      "pinVersion": "15.5.26"
+    },
+    {
+      "label": "Next.js 15 fixture keeps its original React release candidate",
+      "packages": ["next-15"],
+      "dependencies": ["react"],
+      "pinVersion": "19.0.0-rc-02c0e824-20241028"
+    },
+    {
+      "label": "Next.js 15 fixture uses React 18 types",
+      "packages": ["next-15"],
+      "dependencies": ["@types/react", "@types/react-dom"],
+      "pinVersion": "^18"
+    },
+    {
+      "label": "Root tooling deliberately tests React canary",
+      "packages": ["vercel-flags"],
+      "dependencies": ["react"],
+      "pinVersion": "canary"
+    },
+    {
+      "label": "Node 20 application and compatibility fixture types",
+      "packages": ["playground", "shirt-shop-api", "next-15", "next-16"],
+      "dependencies": ["@types/node"]
+    },
+    {
+      "label": "Geistdocs uses Node 24 types",
+      "packages": ["docs"],
+      "dependencies": ["@types/node"]
+    },
+    {
+      "label": "Legacy stylesheets and fixtures use Tailwind 3",
+      "packages": ["snippets", "next-15", "next-16"],
+      "dependencies": ["tailwindcss"]
+    },
+    {
+      "label": "Tailwind 3 snippets need tailwind-merge 2 and retain Shiki 1",
+      "packages": ["snippets"],
+      "dependencies": ["tailwind-merge", "shiki"]
+    },
+    {
+      "label": "Legacy provider adapters retain Vercel Functions 1",
+      "packages": ["@flags-sdk/growthbook", "@flags-sdk/statsig"],
+      "dependencies": ["@vercel/functions"]
+    },
+    {
+      "label": "Use root versions for shared Next.js, TypeScript and Node 22 tooling",
+      "dependencies": ["next", "typescript", "@types/node"],
+      "snapTo": ["vercel-flags"]
+    },
+    {
+      "label": "Use the SDK version of Vite across test tooling",
+      "dependencies": ["vite"],
+      "snapTo": ["flags"]
+    },
+    {
+      "label": "Synchronize all other shared dependencies"
+    }
+  ]
+}

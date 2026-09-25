@@ -1,6 +1,6 @@
 'use client';
 import { track } from '@vercel/analytics';
-import { Switch } from '@vercel/geistdocs/components/switch';
+import { TriangleAlertIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 const oneYearInSeconds = 31_536_000;
 
@@ -37,6 +38,7 @@ function useInitSlowConnectionWarning() {
       if (sessionStorage.getItem('toast')) {
         toast.warning(
           'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
+          { icon: <TriangleAlertIcon className="size-4" /> },
         );
       }
     }, 1150);

@@ -1,14 +1,14 @@
 'use client';
 
 import { Button } from '@vercel/geistdocs/components/button';
-import { Input } from '@vercel/geistdocs/components/input';
+import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Input } from '@/components/ui/input';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@vercel/geistdocs/components/tooltip';
-import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
-import { useCallback, useState } from 'react';
+} from '@/components/ui/tooltip';
 
 export function IframeBrowser({
   src,
@@ -44,8 +44,9 @@ export function IframeBrowser({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="outline"
-              size="icon-sm"
+              variant="secondary"
+              size="small"
+              svgOnly
               aria-label="Refresh"
               onClick={refresh}
             >
@@ -56,30 +57,34 @@ export function IframeBrowser({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="icon-sm" asChild>
-              <a
-                href={codeSrc}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Show source code"
-              >
-                <CodeXml className="size-3.5" />
-              </a>
+            <Button
+              variant="secondary"
+              size="small"
+              svgOnly
+              Component="a"
+              href={codeSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Show source code"
+            >
+              <CodeXml className="size-3.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Show source code</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="icon-sm" asChild>
-              <a
-                href={resolvedSrc}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open in new tab"
-              >
-                <ExternalLink className="size-3.5" />
-              </a>
+            <Button
+              variant="secondary"
+              size="small"
+              svgOnly
+              Component="a"
+              href={resolvedSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open in new tab"
+            >
+              <ExternalLink className="size-3.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Open in new tab</TooltipContent>

@@ -37,14 +37,17 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    */
   async poll(): Promise<void> {
     if (this.abortController?.signal.aborted) return;
+    this.abortController ??= new AbortController();
+    const controller = this.abortController;
 
     try {
       const data = await fetchDatafile({
         ...this.config,
-        signal: this.abortController?.signal,
+        signal: controller.signal,
       });
       this.emit('data', data);
     } catch (error) {
+      controller.signal.throwIfAborted();
       const err =
         error instanceof Error ? error : new Error('Unknown poll error');
       this.emit('error', err);
@@ -59,11 +62,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   startInterval(): void {
     if (this.intervalId) return;
 
-    this.abortController = new AbortController();
-
     // Start interval
     this.intervalId = setInterval(
-      () => void this.poll(),
+      () => void this.poll().catch(() => {}),
       this.config.polling.intervalMs,
     );
   }
