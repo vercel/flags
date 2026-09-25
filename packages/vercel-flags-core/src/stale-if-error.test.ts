@@ -141,7 +141,10 @@ describe('polling stale-if-error through the public API', () => {
     rejectPollOnce(first);
     poll.mockRejectedValue(repeated);
     await vi.advanceTimersByTimeAsync(30_300);
-    expect(await instance.evaluate('flagA')).toEqual(initial);
+    expect(await instance.evaluate('flagA')).toEqual({
+      ...initial,
+      metrics: { ...initial.metrics, cacheStatus: 'STALE' },
+    });
     await vi.advanceTimersByTimeAsync(30_000);
     expect(await instance.evaluate('flagA')).toEqual({
       ...initial,

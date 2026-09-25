@@ -133,10 +133,7 @@ describe('datafile retries through the public API', () => {
     dataFetch.mockReset().mockRejectedValue(failure);
     await vi.advanceTimersByTimeAsync(30_300);
 
-    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Poll failed:',
-      failure,
-    );
+    expect(errorSpy).not.toHaveBeenCalled();
     expect(dataFetch).toHaveBeenCalledTimes(3);
     expect((await instance.evaluate('feature')).value).toBe(true);
 
