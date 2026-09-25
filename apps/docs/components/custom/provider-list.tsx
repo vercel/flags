@@ -188,7 +188,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
                 <div className="mt-2 flex h-12 flex-col justify-end">
                   <div className="flex w-full flex-row flex-wrap gap-2 text-gray-900">
                     {provider.badges.map((badge) => (
-                      <Badge key={badge} variant="secondary">
+                      <Badge key={badge} variant="gray">
                         <span className="sr-only">{'Has badge: '}</span>
                         {badge}
                       </Badge>

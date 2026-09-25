@@ -30,8 +30,8 @@ export const HighlightedCode = async ({
     engine: 'js',
     theme: geistShikiTheme,
     components: {
-      pre: ({ children, className, style }: ComponentProps<'pre'>) => (
-        <CodeBlock className={className} style={style} title={filename}>
+      pre: ({ children, className }: ComponentProps<'pre'>) => (
+        <CodeBlock className={className} title={filename}>
           {children}
         </CodeBlock>
       ),
@@ -40,7 +40,7 @@ export const HighlightedCode = async ({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="*:mb-0 *:h-full flex-1 [&_[data-slot=card-header]>div:first-child]:hidden">
+      <div className="*:my-0 *:flex *:h-full *:flex-col flex-1 [&_[data-section=content]]:flex-1 [&_[data-section=content]>pre]:h-full">
         {rendered}
       </div>
       <span className="mt-2 block text-copy-14 text-gray-900">{caption}</span>
