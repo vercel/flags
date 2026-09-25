@@ -36,10 +36,14 @@ describe('parseFlagsConnectionString', () => {
     ).toEqual({ sdkKey: 'vf_server_abc', projectId: 'prj_abc' });
   });
 
-  it('drops invalid sdkKey values and empty projectId values', () => {
+  it('returns sdkKey as written and drops empty values', () => {
     expect(
       parseFlagsConnectionString('flags:sdkKey=vf_abc&projectId='),
-    ).toEqual({ sdkKey: null, projectId: null });
+    ).toEqual({ sdkKey: 'vf_abc', projectId: null });
+    expect(parseFlagsConnectionString('flags:sdkKey=&projectId=')).toEqual({
+      sdkKey: null,
+      projectId: null,
+    });
   });
 
   it('returns null for values that are neither', () => {

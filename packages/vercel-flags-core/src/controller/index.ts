@@ -177,6 +177,7 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollError = (error: Error) => {
+    this.noteUnauthorized(error);
     console.error('@vercel/flags-core: Poll failed:', error);
   };
 
@@ -464,9 +465,7 @@ export class Controller implements ControllerInterface {
         await this.streamSource.start();
         return true;
       } catch (error) {
-        if (error instanceof UnauthorizedError) {
-          this.unauthorized = true;
-        }
+        this.noteUnauthorized(error);
         return false;
       }
     }
@@ -501,9 +500,7 @@ export class Controller implements ControllerInterface {
       return true;
     } catch (error) {
       clearTimeout(timeoutId!);
-      if (error instanceof Error && error.message.includes('401')) {
-        this.unauthorized = true;
-      }
+      this.noteUnauthorized(error);
       return false;
     }
   }
@@ -565,6 +562,15 @@ export class Controller implements ControllerInterface {
     }
   }
 
+  private noteUnauthorized(error: unknown): void {
+    if (
+      error instanceof UnauthorizedError ||
+      (error instanceof Error && error.message.includes('401'))
+    ) {
+      this.unauthorized = true;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Build step helpers
   // ---------------------------------------------------------------------------
@@ -621,13 +627,12 @@ export class Controller implements ControllerInterface {
         fetch: this.options.fetch,
       });
       return tagData(fetched, 'fetched');
-    } catch {
-      // fetch failed — fall through to throw
+    } catch (error) {
+      this.noteUnauthorized(error);
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available during build. ' +
-        'Provide a datafile or bundled definitions.',
+    throw this.noDefinitionsError(
+      ' during build. Provide a datafile or bundled definitions.',
     );
   }
 
@@ -669,17 +674,21 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw this.noDefinitionsError('Bundled definitions not found.');
+    throw this.noDefinitionsError('. Bundled definitions not found.');
   }
 
-  private noDefinitionsError(hint: string): Error {
+  /**
+   * `detail` continues the sentence "No flag definitions available", so it
+   * starts with either "." or " during build.".
+   */
+  private noDefinitionsError(detail: string): Error {
     const { sourceProjectId } = this.options.auth;
     const reason =
       this.unauthorized && sourceProjectId
         ? ` Request was ${unauthorizedMessage(sourceProjectId)}`
         : '';
     return new Error(
-      `@vercel/flags-core: No flag definitions available. ${hint}${reason}`,
+      `@vercel/flags-core: No flag definitions available${detail}${reason}`,
     );
   }
 
@@ -742,7 +751,9 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw this.noDefinitionsError('Provide a datafile or bundled definitions.');
+    throw this.noDefinitionsError(
+      '. Provide a datafile or bundled definitions.',
+    );
   }
 
   // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import { version } from '../../package.json';
 import { type Auth, authHeaders } from '../controller/auth';
 import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
-import { getRuntimeIngest } from './runtime-ingest';
+import { getRuntimeIngestFor } from './runtime-ingest';
 import type { FlushReason } from './scheduler';
 import type { IngestEvent, UsageEvent } from './usage/events';
 
@@ -105,12 +105,7 @@ export async function sendIngestEvents(
 ): Promise<void> {
   let eventsToSend = events.map((event) => event.ingestEvent());
 
-  // The runtime transport attributes events to the calling deployment's own
-  // project. Events for another project's flags must carry the source header,
-  // so they always go over HTTP.
-  const runtimeIngest = options.auth.sourceProjectId
-    ? undefined
-    : getRuntimeIngest();
+  const runtimeIngest = getRuntimeIngestFor(options.auth);
   if (runtimeIngest) {
     const headers = getRuntimeIngestHeaders(options, flushReason);
     // Events the runtime does not accept fall through to the HTTP transport.

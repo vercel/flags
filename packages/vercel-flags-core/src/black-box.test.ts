@@ -282,6 +282,18 @@ describe('Controller (black-box)', () => {
       );
     });
 
+    it('should reject an invalid sdkKey even when projectId is present', () => {
+      expect(() =>
+        createClient('flags:sdkKey=vf_bad&projectId=prj_source', {
+          fetch: fetchMock,
+          stream: false,
+          polling: false,
+        }),
+      ).toThrow(
+        '@vercel/flags-core: A connection string must contain either sdkKey or projectId, not both',
+      );
+    });
+
     it('should send the OIDC token and the source project header on the stream', async () => {
       vi.useRealTimers();
       const stream = createMockStream();
@@ -424,6 +436,62 @@ describe('Controller (black-box)', () => {
       );
       await vi.advanceTimersByTimeAsync(100);
       await expectation;
+
+      await client.shutdown();
+    });
+
+    it('should name the source project when polling is unauthorized and no fallback exists', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient(connectionString, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'No flag definitions available. Provide a datafile or bundled definitions. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Poll failed:',
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'not allowed to read the flags of project "prj_source"',
+          ),
+        }),
+      );
+
+      await client.shutdown();
+    });
+
+    it('should name the source project when the build-step fetch is unauthorized', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(connectionString, {
+        fetch: fetchMock,
+        buildStep: true,
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'No flag definitions available during build. Provide a datafile or bundled definitions. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
 
       await client.shutdown();
     });
