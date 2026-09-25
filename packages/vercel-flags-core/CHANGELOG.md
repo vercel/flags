@@ -1,5 +1,13 @@
 # @vercel/flags-core
 
+## 1.8.3
+
+### Patch Changes
+
+- [#507](https://github.com/vercel/flags/pull/507) [`c43b9d9`](https://github.com/vercel/flags/commit/c43b9d9076009a6a70ca2de55020ebcb15b1a4cc) Thanks [@luismeyer](https://github.com/luismeyer)! - Retry transient datafile fetch failures across polling, build loading, and offline fallback reads. Fetches use up to three attempts within a shared ten-second deadline that includes authentication, backoff, and body parsing. Shutdown also cancels retries during polling initialization.
+
+- [#533](https://github.com/vercel/flags/pull/533) [`7027cb2`](https://github.com/vercel/flags/commit/7027cb271183566ee224c6a96d36cb12ce7cf2fa) Thanks [@dferber90](https://github.com/dferber90)! - Strip all occurrences of the `g` and `y` flags from regex conditions so cached regular expressions produce consistent results across users and repeated evaluations, including when both flags are present.
+
 ## 1.8.2
 
 ### Patch Changes

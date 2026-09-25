@@ -2057,53 +2057,65 @@ describe('evaluate', () => {
       });
     });
 
-    it('returns a stable result for repeated global regex evaluation', () => {
-      const regex = {
-        type: 'regex' as const,
-        pattern: '^uid',
-        flags: 'g' as const,
-      };
-
-      const definition: Packed.FlagDefinition = {
-        seed: undefined,
-        environments: {
-          production: {
-            rules: [
-              {
-                conditions: [[['user', 'id'], Comparator.REGEX, regex]],
-                outcome: 1,
-              },
-            ],
-            fallthrough: 0,
+    describe.each([
+      Comparator.REGEX,
+      Comparator.NOT_REGEX,
+    ])('%s cached evaluation', (comparator) => {
+      it.each([
+        '',
+        'g',
+        'y',
+        'gy',
+        'yg',
+        'gg',
+        'yy',
+        'giy',
+        'yig',
+      ])('returns stable results across users and retries with flags "%s"', (flags) => {
+        const regex = { type: 'regex' as const, pattern: '^banned-', flags };
+        const definition: Packed.FlagDefinition = {
+          seed: undefined,
+          environments: {
+            production: {
+              rules: [
+                {
+                  conditions: [[['user', 'id'], comparator, regex]],
+                  outcome: 1,
+                },
+              ],
+              fallthrough: 0,
+            },
           },
-        },
-        variants: [false, true],
-      };
+          variants: [false, true],
+        };
 
-      const first = evaluate({
-        definition,
-        environment: 'production',
-        entities: { user: { id: 'uid1' } },
-      });
-
-      const second = evaluate({
-        definition,
-        environment: 'production',
-        entities: { user: { id: 'uid2' } },
-      });
-
-      expect(first).toEqual({
-        value: true,
-        variantId: null,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
-      });
-
-      expect(second).toEqual({
-        value: true,
-        variantId: null,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
+        for (const id of [
+          'banned-alice',
+          'banned-bob',
+          'banned-bob',
+          'allowed-carol',
+          'banned-alice',
+          'BANNED-dave',
+        ]) {
+          const matches =
+            id.startsWith('banned-') ||
+            (flags.includes('i') && id.startsWith('BANNED-'));
+          const value = comparator === Comparator.REGEX ? matches : !matches;
+          expect(
+            evaluate({
+              definition,
+              environment: 'production',
+              entities: { user: { id } },
+            }),
+          ).toEqual({
+            value,
+            variantId: null,
+            reason: value
+              ? ResolutionReason.RULE_MATCH
+              : ResolutionReason.FALLTHROUGH,
+            outcomeType: OutcomeType.VALUE,
+          });
+        }
       });
     });
 

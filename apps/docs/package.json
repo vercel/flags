@@ -27,8 +27,8 @@
     "motion": "^12.23.25",
     "next": "16.3.6",
     "radix-ui": "latest",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "shiki": "^3.22.0",
     "tailwind-merge": "^3.4.0"
   },
