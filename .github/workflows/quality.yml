@@ -36,7 +36,7 @@ jobs:
         run: pnpm biome ci
 
       - name: Check dependency versions
-        run: pnpm check:deps
+        run: pnpm deps:check
 
   types:
     name: "TypeScript"
