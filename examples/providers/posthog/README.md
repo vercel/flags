@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags, adapted from the [PostHog example](https://github.com/vercel/examples/tree/main/flags-sdk/posthog).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog&env=POSTHOG_PROJECT_API_KEY,POSTHOG_HOST,FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog%23setup&project-name=flags-sdk-posthog&repository-name=flags-sdk-posthog)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog&env=POSTHOG_PROJECT_API_KEY,POSTHOG_HOST,FLAGS_SECRET,POSTHOG_PROJECT_SECRET_API_KEY,POSTHOG_PROJECT_ID&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog%23setup&project-name=flags-sdk-posthog&repository-name=flags-sdk-posthog)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
@@ -21,6 +21,8 @@ Copy `.env.example` to `.env.local` and set:
 
 - `POSTHOG_PROJECT_API_KEY`: your project API key (`phc_...`), from PostHog project settings.
 - `POSTHOG_HOST`: your regional API host, `https://us.i.posthog.com` or `https://eu.i.posthog.com`.
+- `POSTHOG_PROJECT_SECRET_API_KEY`: a project secret API key (`phs_...`) with `feature_flag:read` scope, used only to load metadata in Flags Explorer.
+- `POSTHOG_PROJECT_ID`: your numeric PostHog project ID, used by Flags Explorer.
 - `FLAGS_SECRET`: generate a random secret with the command below. Add it to both `.env.local` and the matching environment in your Vercel project settings. For Development, use a regular environment variable (Config), rather than a Secret.
 
 ```sh
@@ -33,7 +35,9 @@ The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Chan
 
 ## Flags Explorer
 
-The example exposes both flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`, and reports their evaluated values to the toolbar.
+The discovery endpoint at `/.well-known/vercel/flags` uses the PostHog adapter to load flag metadata from your PostHog project, including descriptions, options, and dashboard links. It is protected by `FLAGS_SECRET`. The page reports the evaluated values of its two flags to the toolbar.
+
+Metadata requires `POSTHOG_PROJECT_SECRET_API_KEY` and `POSTHOG_PROJECT_ID`; missing configuration is reported as hints in Flags Explorer. The adapter derives the app host from `POSTHOG_HOST`. The project secret API key used for metadata does not enable local evaluation.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link`, sign in to the toolbar, and open Flags Explorer to override `welcome_message` or `show_banner` for your session without changing their values in PostHog. The local `FLAGS_SECRET` must match the linked project's Development value. Vercel injects the toolbar on preview deployments when enabled in project settings.
 

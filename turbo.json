@@ -159,7 +159,10 @@
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
         "POSTHOG_HOST",
-        "POSTHOG_SECRET_KEY"
+        "POSTHOG_SECRET_KEY",
+        "POSTHOG_PERSONAL_API_KEY",
+        "POSTHOG_PROJECT_SECRET_API_KEY",
+        "POSTHOG_PROJECT_ID"
       ],
       "cache": false
     },
@@ -169,7 +172,10 @@
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
         "POSTHOG_HOST",
-        "POSTHOG_SECRET_KEY"
+        "POSTHOG_SECRET_KEY",
+        "POSTHOG_PERSONAL_API_KEY",
+        "POSTHOG_PROJECT_SECRET_API_KEY",
+        "POSTHOG_PROJECT_ID"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
