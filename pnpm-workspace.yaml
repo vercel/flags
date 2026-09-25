@@ -46,3 +46,5 @@ overrides:
   "flags-sdk-flagsmith>@flags-sdk/flagsmith": "workspace:*"
   "flags-sdk-statsig>flags": "workspace:*"
   "flags-sdk-statsig>@flags-sdk/statsig": "workspace:*"
+  "flags-sdk-vercel>flags": "workspace:*"
+  "flags-sdk-vercel>@flags-sdk/vercel": "workspace:*"

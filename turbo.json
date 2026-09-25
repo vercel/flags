@@ -122,6 +122,22 @@
     },
     "flags-sdk-statsig#type-check": {
       "dependsOn": ["flags#build", "@flags-sdk/statsig#build"]
+    },
+    "flags-sdk-vercel#dev": {
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "env": ["FLAGS", "FLAGS_SECRET"],
+      "cache": false,
+      "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
+    },
+    "flags-sdk-vercel#build": {
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "env": ["FLAGS", "FLAGS_SECRET"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
+    },
+    "flags-sdk-vercel#type-check": {
+      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"]
     }
   }
 }
