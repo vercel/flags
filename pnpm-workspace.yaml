@@ -48,3 +48,5 @@ overrides:
   "flags-sdk-statsig>@flags-sdk/statsig": "workspace:*"
   "flags-sdk-vercel>flags": "workspace:*"
   "flags-sdk-vercel>@flags-sdk/vercel": "workspace:*"
+  "flags-sdk-reflag>flags": "workspace:*"
+  "flags-sdk-reflag>@flags-sdk/reflag": "workspace:*"
