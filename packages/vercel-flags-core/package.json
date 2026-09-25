@@ -1,6 +1,6 @@
 {
   "name": "@vercel/flags-core",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "A server-side client for Vercel Flags",
   "keywords": [
     "vercel",
