@@ -1,3 +1,4 @@
+import type { Auth } from '../controller/auth';
 import type { IngestEvent } from './usage/events';
 
 export type RuntimeIngest = (payload: {
@@ -6,6 +7,16 @@ export type RuntimeIngest = (payload: {
 }) => boolean;
 
 const FLAGS_CONTEXT_SYMBOL = Symbol.for('@vercel/flags-context');
+
+/**
+ * Returns the runtime ingest transport when it can carry events for this
+ * auth. The runtime attributes events to the calling deployment's own
+ * project, so events for another project's flags always go over HTTP with
+ * the source header.
+ */
+export function getRuntimeIngestFor(auth: Auth): RuntimeIngest | undefined {
+  return auth.sourceProjectId ? undefined : getRuntimeIngest();
+}
 
 /**
  * Returns the ingest transport provided by the runtime, if available.

@@ -14,22 +14,40 @@ export function isValidSdkKey(value: string): boolean {
 }
 
 /**
- * Parses sdk keys from connection strings with the following format:
- * `flags:edgeConfigId=ecfg_abcd&edgeConfigToken=xxx&sdkKey=xxx`
+ * Project ids are `prj_` followed by alphanumerics, or legacy IPFS-style
+ * `Qm…` ids. Both fit this shape; it also keeps the value header-safe.
  */
-export function parseSdkKeyFromFlagsConnectionString(
+const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
+
+export function isValidProjectId(value: string): boolean {
+  return PROJECT_ID_REGEX.test(value);
+}
+
+export type FlagsConnectionString = {
+  sdkKey: string | null;
+  projectId: string | null;
+};
+
+/**
+ * Parses connection strings such as
+ * `flags:edgeConfigId=ecfg_abcd&edgeConfigToken=xxx&sdkKey=vf_server_xxx` or
+ * `flags:projectId=prj_xxx`. A bare SDK key is accepted as well.
+ * The sdkKey is returned as written; validate it with `isValidSdkKey`.
+ * Returns null when the value is neither.
+ */
+export function parseFlagsConnectionString(
   text: string,
-): string | null {
-  if (SDK_KEY_REGEX.test(text)) return text;
+): FlagsConnectionString | null {
+  if (SDK_KEY_REGEX.test(text)) return { sdkKey: text, projectId: null };
+  if (!text.startsWith('flags:')) return null;
 
   try {
-    if (!text.startsWith('flags:')) return null;
     const params = new URLSearchParams(text.slice(6));
-    const sdkKey = params.get('sdkKey');
-    if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) return sdkKey;
+    return {
+      sdkKey: params.get('sdkKey') || null,
+      projectId: params.get('projectId') || null,
+    };
   } catch {
-    // no-op
+    return null;
   }
-
-  return null;
 }

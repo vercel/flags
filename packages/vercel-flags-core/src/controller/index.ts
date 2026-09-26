@@ -9,6 +9,7 @@ import { readBundledDefinitions } from '../utils/read-bundled-definitions';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
+import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { fetchDatafile } from './fetch-datafile';
 import {
@@ -117,7 +118,8 @@ export class Controller implements ControllerInterface {
   private buildDataPromise: Promise<TaggedData> | null = null;
   private buildReadTracked = false;
 
-  // Suppresses usage tracking when the SDK key is unauthorized
+  // Suppresses usage tracking while the credential is rejected. Set on a 401
+  // from any source, cleared as soon as a source delivers data again.
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
@@ -149,11 +151,13 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
+    this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.data = tagData(data, 'stream');
     }
   };
   private onStreamPrimed = () => {
+    this.unauthorized = false;
     // The server confirmed our revision is current — no new data needed.
     // Transition to streaming like a normal connected event.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -171,11 +175,13 @@ export class Controller implements ControllerInterface {
     }
   };
   private onPollData = (data: DatafileInput) => {
+    this.unauthorized = false;
     if (this.isNewerData(data)) {
       this.data = tagData(data, 'poll');
     }
   };
   private onPollError = (error: Error) => {
+    this.noteUnauthorized(error);
     console.error('@vercel/flags-core: Poll failed:', error);
   };
 
@@ -386,10 +392,10 @@ export class Controller implements ControllerInterface {
           this.data = tagData(fetched, 'fetched');
           result = this.data;
           cacheStatus = 'MISS';
-        } catch {
-          throw new Error(
-            '@vercel/flags-core: No flag definitions available. ' +
-              'Initialize the client or provide a datafile.',
+        } catch (error) {
+          this.noteUnauthorized(error);
+          throw this.noDefinitionsError(
+            '. Initialize the client or provide a datafile.',
           );
         }
       }
@@ -463,9 +469,7 @@ export class Controller implements ControllerInterface {
         await this.streamSource.start();
         return true;
       } catch (error) {
-        if (error instanceof UnauthorizedError) {
-          this.unauthorized = true;
-        }
+        this.noteUnauthorized(error);
         return false;
       }
     }
@@ -500,9 +504,7 @@ export class Controller implements ControllerInterface {
       return true;
     } catch (error) {
       clearTimeout(timeoutId!);
-      if (error instanceof Error && error.message.includes('401')) {
-        this.unauthorized = true;
-      }
+      this.noteUnauthorized(error);
       return false;
     }
   }
@@ -564,6 +566,15 @@ export class Controller implements ControllerInterface {
     }
   }
 
+  private noteUnauthorized(error: unknown): void {
+    if (
+      error instanceof UnauthorizedError ||
+      (error instanceof Error && error.message.includes('401'))
+    ) {
+      this.unauthorized = true;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Build step helpers
   // ---------------------------------------------------------------------------
@@ -620,13 +631,12 @@ export class Controller implements ControllerInterface {
         fetch: this.options.fetch,
       });
       return tagData(fetched, 'fetched');
-    } catch {
-      // fetch failed — fall through to throw
+    } catch (error) {
+      this.noteUnauthorized(error);
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available during build. ' +
-        'Provide a datafile or bundled definitions.',
+    throw this.noDefinitionsError(
+      ' during build. Provide a datafile or bundled definitions.',
     );
   }
 
@@ -668,9 +678,21 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Bundled definitions not found.',
+    throw this.noDefinitionsError('. Bundled definitions not found.');
+  }
+
+  /**
+   * `detail` continues the sentence "No flag definitions available", so it
+   * starts with either "." or " during build.".
+   */
+  private noDefinitionsError(detail: string): Error {
+    const { sourceProjectId } = this.options.auth;
+    const reason =
+      this.unauthorized && sourceProjectId
+        ? ` Request was ${unauthorizedMessage(sourceProjectId)}`
+        : '';
+    return new Error(
+      `@vercel/flags-core: No flag definitions available${detail}${reason}`,
     );
   }
 
@@ -733,9 +755,8 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    throw new Error(
-      '@vercel/flags-core: No flag definitions available. ' +
-        'Provide a datafile or bundled definitions.',
+    throw this.noDefinitionsError(
+      '. Provide a datafile or bundled definitions.',
     );
   }
 

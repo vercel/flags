@@ -193,10 +193,12 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
   /**
    * Origin information for this client.
    * sdkKey is only present when the client was explicitly created with one.
+   * projectId is only present when the client reads another project's flags.
    */
   origin?: {
     provider: string;
     sdkKey?: string;
+    projectId?: string;
   };
   /**
    * Evaluate a feature flag.

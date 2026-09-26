@@ -1,14 +1,41 @@
 import { getVercelOidcToken } from '@vercel/oidc';
-import { parseSdkKeyFromFlagsConnectionString } from '../utils/sdk-keys';
+import {
+  isValidProjectId,
+  isValidSdkKey,
+  parseFlagsConnectionString,
+} from '../utils/sdk-keys';
 
 export type BundledDefinitionsLookup =
   | { type: 'sdk-key'; sdkKey: string }
   | { type: 'project-id'; projectId: string };
 
+/**
+ * Names the project whose flags are read when it is not the project the OIDC
+ * token belongs to. Only sent together with an OIDC token.
+ */
+export const SOURCE_PROJECT_HEADER = 'X-Vercel-Flags-Project-Id';
+
 export interface Auth {
   sdkKey?: string;
+  /** Set when reading another project's flags with this deployment's OIDC token. */
+  sourceProjectId?: string;
   resolveToken(): Promise<string>;
   resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup>;
+}
+
+export function authHeaders(
+  token: string,
+  sourceProjectId?: string,
+): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    ...(sourceProjectId ? { [SOURCE_PROJECT_HEADER]: sourceProjectId } : null),
+  };
+}
+
+export function unauthorizedMessage(sourceProjectId?: string): string {
+  if (!sourceProjectId) return 'unauthorized (401)';
+  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check the connection string and that the project is connected.`;
 }
 
 async function getOidcToken(): Promise<string> {
@@ -46,6 +73,7 @@ function getProjectIdFromOidcToken(oidcToken: string): string {
 
 export class Authentication implements Auth {
   public readonly sdkKey?: string;
+  public readonly sourceProjectId?: string;
 
   constructor(sdkKeyOrConnectionString: string | undefined) {
     // validate sdk key format
@@ -57,14 +85,27 @@ export class Authentication implements Auth {
       }
 
       // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
-      const parsed = parseSdkKeyFromFlagsConnectionString(
-        sdkKeyOrConnectionString,
-      );
-      if (!parsed) {
+      const parsed = parseFlagsConnectionString(sdkKeyOrConnectionString);
+      if (parsed?.sdkKey && parsed.projectId) {
+        throw new Error(
+          '@vercel/flags-core: A connection string must contain either sdkKey or projectId, not both',
+        );
+      }
+      if (parsed?.sdkKey) {
+        if (!isValidSdkKey(parsed.sdkKey)) {
+          throw new Error('@vercel/flags-core: Missing sdkKey');
+        }
+        this.sdkKey = parsed.sdkKey;
+      } else if (parsed?.projectId) {
+        if (!isValidProjectId(parsed.projectId)) {
+          throw new Error(
+            '@vercel/flags-core: Invalid projectId in connection string',
+          );
+        }
+        this.sourceProjectId = parsed.projectId;
+      } else {
         throw new Error('@vercel/flags-core: Missing sdkKey');
       }
-
-      this.sdkKey = parsed;
     }
   }
 
@@ -79,6 +120,10 @@ export class Authentication implements Auth {
   public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
     if (this.sdkKey) {
       return { type: 'sdk-key', sdkKey: this.sdkKey };
+    }
+
+    if (this.sourceProjectId) {
+      return { type: 'project-id', projectId: this.sourceProjectId };
     }
 
     const oidcToken = await this.resolveToken();
