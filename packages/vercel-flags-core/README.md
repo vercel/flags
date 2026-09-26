@@ -12,17 +12,40 @@ npm i @vercel/flags-core
 
 ## Usage
 
+Create a shared client at module scope, but evaluate flags inside a request handler when using Vercel OIDC authentication. `evaluate()` and `bulkEvaluate()` initialize the client automatically on first use; you do not need to call `initialize()` first.
+
+For example, in an Express app deployed to Vercel:
+
 ```ts
+import express from 'express';
 import { createClient } from '@vercel/flags-core';
 
-const client = createClient(process.env.FLAGS!);
+const app = express();
+const client = createClient(); // Uses Vercel OIDC; does not initialize yet.
 
-await client.initialize();
+app.get('/api/feature', async (_req, res) => {
+  const result = await client.evaluate<boolean>('show-new-feature', false);
+  res.json({ enabled: result.value });
+});
 
-const result = await client.evaluate<boolean>('show-new-feature', false, {
-  user: { id: 'user-123' },
+export default app;
+```
+
+Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
+
+## Evaluation Metrics
+
+To associate evaluation metrics with an environment, pass the
+`metricEnvironment` option:
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  metricEnvironment: 'preview',
 });
 ```
+
+This option is sent only to the metrics ingestion endpoint. It does not select
+the environment used for flag evaluation.
 
 ## OpenFeature
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { LogoNextjs } from '@vercel/geistdocs/assets/logos/logo-nextjs';
+import { LogoNextJs } from '@vercel/geistdocs/assets/logos/logo-next-js';
 import { LogoSvelteKit } from '@vercel/geistdocs/assets/logos/logo-svelte-kit';
 import {
   GeistdocsRouteSelect,
@@ -13,7 +13,7 @@ const frameworks = [
     id: 'next',
     label: 'Next.js',
     href: '/docs/frameworks/next',
-    icon: <LogoNextjs className="size-4 text-gray-1000" height={16} />,
+    icon: <LogoNextJs className="size-4 text-gray-1000" height={16} />,
     description: 'Flags SDK for Next.js',
   },
   {

@@ -5,8 +5,49 @@
 @source "../**/*.{ts,tsx,mdx}";
 @source "../../components/**/*.{ts,tsx}";
 
+:root {
+  --font-sans: var(--font-geist-sans);
+}
+
 @layer base {
   body {
-    @apply bg-background-200;
+    @apply bg-background-200 text-gray-1000;
   }
+}
+
+/* Geistdocs 2.x transitions only transform and color on the navigation-menu
+   chevron, but Tailwind v4's rotate-180 sets the `rotate` property, so the
+   navbar caret snaps open instead of turning. Restore the 1.x animation. */
+[data-slot="navigation-menu-trigger"] > svg {
+  transition-property: transform, rotate, color;
+}
+
+/* Align docs content with navbar on mobile */
+/*
+ * On mobile the sticky MobileDocsBar abuts the navbar via a negative top
+ * margin, which would otherwise overlap and clip the page breadcrumb rendered
+ * above it. Hide the breadcrumb on mobile so the bar sits flush under the
+ * navbar; it stays visible on desktop, where the bar is hidden.
+ */
+@container (max-width: 960px) {
+  #nd-page {
+    @apply px-6;
+  }
+
+  #nd-page > .text-gray-900:first-child {
+    @apply hidden;
+  }
+}
+
+/* TOC and footer links use gray-1000 */
+#nd-toc {
+  @apply text-gray-1000 md:pl-6;
+}
+
+#nd-toc a {
+  @apply text-gray-900 hover:text-gray-1000;
+}
+
+#nd-toc a[data-active="true"] {
+  @apply text-gray-1000;
 }

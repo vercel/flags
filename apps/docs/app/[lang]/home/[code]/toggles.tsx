@@ -1,9 +1,9 @@
 'use client';
 import { track } from '@vercel/analytics';
-import { Switch } from '@vercel/geistdocs/components/switch';
+import { useToasts } from '@vercel/geistdocs/components/toasts';
+import { Toggle } from '@vercel/geistdocs/components/toggle';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -27,6 +27,7 @@ function message(flagKey: string) {
  * multiple times.
  */
 function useInitSlowConnectionWarning() {
+  const { warning } = useToasts();
   const pair = useState(false);
   const [shown, setShown] = pair;
 
@@ -35,16 +36,16 @@ function useInitSlowConnectionWarning() {
 
     const timeout = setTimeout(() => {
       if (sessionStorage.getItem('toast')) {
-        toast.warning(
-          'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
-        );
+        warning({
+          text: 'You appear to be on a slow connection. This flag will apply after the page finishes reloading.',
+        });
       }
     }, 1150);
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [shown]);
+  }, [shown, warning]);
 
   const show = useCallback(() => {
     setShown(true);
@@ -78,17 +79,15 @@ export const FlagToggle = ({
   return (
     <div className="flex items-center justify-between px-2 py-4">
       <div className="flex flex-col gap-y-0.5">
-        <Label htmlFor={flagKey} className="font-mono text-sm">
-          {label}
-        </Label>
+        <Label className="font-mono text-sm">{label}</Label>
         {description ? (
           <span className="text-gray-900 text-sm">{description}</span>
         ) : null}
       </div>
-      <Switch
-        id={flagKey}
+      <Toggle
         checked={override === null ? value : override}
-        onCheckedChange={(nextValue) => {
+        size="medium"
+        onChange={(nextValue: boolean) => {
           document.cookie = `${flagKey}=${nextValue ? '1' : '0'}; max-age=${oneYearInSeconds}; path=/`;
           sessionStorage.setItem('toast', message(flagKey));
           setOverride(nextValue);
@@ -99,7 +98,9 @@ export const FlagToggle = ({
           }
           router.refresh();
         }}
-      />
+      >
+        <span className="sr-only">{label}</span>
+      </Toggle>
     </div>
   );
 };
@@ -138,7 +139,7 @@ export const FlagSelect = ({
 
         <Select
           value={override === null ? value : override}
-          onValueChange={(nextValue) => {
+          onValueChange={(nextValue: string) => {
             document.cookie = `${flagKey}=${encodeURIComponent(nextValue)}; max-age=${oneYearInSeconds}; path=/`;
             sessionStorage.setItem('toast', message(flagKey));
             setOverride(nextValue);

@@ -1,5 +1,7 @@
 # Flags SDK — Hypertune Provider
 
+> **Deprecated.** This adapter no longer receives updates. Use [Vercel Flags](https://flags-sdk.dev/providers/vercel) or another [featured provider](https://flags-sdk.dev/providers) for new projects.
+
 The [Hypertune adapter](https://flags-sdk.dev/docs/api-reference/adapters/hypertune) for the [Flags SDK](https://flags-sdk.dev/)
 
 ## Setup

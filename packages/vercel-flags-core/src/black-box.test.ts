@@ -236,6 +236,61 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Metric environment option
+  // ---------------------------------------------------------------------------
+  describe('metricEnvironment option', () => {
+    it.each([
+      'development',
+      'preview',
+      'production',
+    ] as const)('should include the %s environment with evaluation metrics', async (metricEnvironment) => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        metricEnvironment,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+      cleanupCtx();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({
+          headers: {
+            ...ingestRequestHeaders,
+            'X-Vercel-Env': metricEnvironment,
+          },
+        }),
+      );
+    });
+
+    it('should use the deployment environment for evaluation metrics when unspecified', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+      cleanupCtx();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({ headers: ingestRequestHeaders }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Build step detection
   // ---------------------------------------------------------------------------
   describe('build step detection', () => {
@@ -475,9 +530,11 @@ describe('Controller (black-box)', () => {
         buildStep: true,
       });
 
-      await expect(client.evaluate('flagA')).rejects.toThrow(
+      const rejection = expect(client.evaluate('flagA')).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available during build',
       );
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
     });
 
     it('should cache data after first build step read', async () => {
@@ -2315,9 +2372,11 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await expect(client.getDatafile()).rejects.toThrow(
+      const rejection = expect(client.getDatafile()).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
 
       await client.shutdown();
     });
@@ -3461,11 +3520,11 @@ describe('Controller (black-box)', () => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
           fetchCallCount++;
-          if (fetchCallCount === 1) {
-            // First fetch fails
+          if (fetchCallCount <= 3) {
+            // Exhaust all attempts for the first initialization
             return Promise.resolve(new Response(null, { status: 500 }));
           }
-          // Second fetch succeeds
+          // The next initialization succeeds
           return Promise.resolve(Response.json(makeBundled()));
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -3479,8 +3538,10 @@ describe('Controller (black-box)', () => {
       });
 
       // First initialize fails (no bundled, fetch returns 500)
-      await expect(client.initialize()).rejects.toThrow();
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const rejection = expect(client.initialize()).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(300);
+      await rejection;
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/datafile',
         {
@@ -3491,7 +3552,7 @@ describe('Controller (black-box)', () => {
 
       // Second initialize should retry — fetch now succeeds
       await client.initialize();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://flags.vercel.com/v1/datafile',
         {
@@ -3503,9 +3564,9 @@ describe('Controller (black-box)', () => {
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.value).toBe(true);
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -3514,7 +3575,7 @@ describe('Controller (black-box)', () => {
           body: JSON.stringify([
             {
               type: 'FLAGS_CONFIG_READ',
-              ts: date.getTime(),
+              ts: date.getTime() + 300,
               payload: {
                 invocationHost: 'example.com',
                 configOrigin: 'in-memory',
@@ -3531,13 +3592,13 @@ describe('Controller (black-box)', () => {
             },
             {
               type: 'FLAG_EVALUATION',
-              ts: date.getTime(),
+              ts: date.getTime() + 300,
               payload: {
                 flagKey: 'flagA',
                 variant: undefined,
                 reason: 'paused',
                 evaluationCount: 1,
-                periodStartedAt: minuteBucketTs(date.getTime()),
+                periodStartedAt: minuteBucketTs(date.getTime() + 300),
               },
             },
           ]),
@@ -3636,7 +3697,10 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      const result = await client.evaluate('flagA', false);
+      const evaluation = client.evaluate('flagA', false);
+      // Initialization and the subsequent read each exhaust their fetch retries.
+      await vi.advanceTimersByTimeAsync(600);
+      const result = await evaluation;
 
       expect(result).toEqual({
         value: false,
@@ -3661,9 +3725,12 @@ describe('Controller (black-box)', () => {
         polling: false,
       });
 
-      await expect(client.evaluate('flagA')).rejects.toThrow(
+      const rejection = expect(client.evaluate('flagA')).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
+      // Initialization and the subsequent read each exhaust their fetch retries.
+      await vi.advanceTimersByTimeAsync(600);
+      await rejection;
     });
 
     it('should use bundled definitions when stream and polling are disabled', async () => {
@@ -3688,9 +3755,376 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Experiment exposure reporting
+  // ---------------------------------------------------------------------------
+  describe('experiment exposure reporting', () => {
+    const definitions: BundledDefinitions['definitions'] = {
+      flagA: {
+        environments: {
+          production: {
+            fallthrough: {
+              type: 'experiment',
+            },
+          },
+        },
+        variants: ['control-a', 'treatment-a'],
+        variantIds: ['control-a', 'treatment-a'],
+        seed: 101,
+        experiment: {
+          id: 'exp_a',
+          base: ['user', 'key'],
+          weights: [0, 1],
+          defaultVariant: 0,
+          enrollmentSeed: 101,
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+        },
+      },
+      flagB: {
+        environments: {
+          production: {
+            fallthrough: { type: 'experiment' },
+          },
+        },
+        variants: ['control-b', 'treatment-b'],
+        variantIds: ['control-b', 'treatment-b'],
+        seed: 202,
+        experiment: {
+          id: 'exp_b',
+          base: ['session', 'key'],
+          weights: [1, 0],
+          defaultVariant: 0,
+          enrollmentSeed: 202,
+        },
+      },
+    };
+
+    const entity = {
+      user: { key: 'user_123' },
+      session: { key: 'session_123' },
+    };
+
+    it('reports one exposure with the exact evaluation entity', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result).toMatchObject({
+        value: 'treatment-a',
+        outcomeType: 'experiment',
+        experiment: {
+          id: 'exp_a',
+          variantId: 'treatment-a',
+          base: ['user', 'key'],
+          rampId: 'ramp_a',
+          rampPercentage: 50,
+          assignmentReason: 'experiment',
+        },
+      });
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'experiment',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('does not block evaluation and drains exposure reporting on shutdown', async () => {
+      let finishReporting: () => void = () => {};
+      const reporting = new Promise<void>((resolve) => {
+        finishReporting = resolve;
+      });
+      const reportExposures = vi.fn(() => reporting);
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await expect(
+        client.evaluate('flagA', undefined, entity),
+      ).resolves.toMatchObject({ value: 'treatment-a' });
+      expect(reportExposures).toHaveBeenCalledOnce();
+
+      let shutdownComplete = false;
+      const shutdown = Promise.resolve(client.shutdown()).then(() => {
+        shutdownComplete = true;
+      });
+      await Promise.resolve();
+      expect(shutdownComplete).toBe(false);
+
+      finishReporting();
+      await shutdown;
+      expect(shutdownComplete).toBe(true);
+    });
+
+    it('registers exposure reporting with a custom waitUntil', async () => {
+      let finishReporting: () => void = () => {};
+      const reporting = new Promise<void>((resolve) => {
+        finishReporting = resolve;
+      });
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: () => reporting,
+        waitUntil,
+      });
+
+      await client.evaluate('flagA', undefined, entity);
+
+      expect(waitUntil).toHaveBeenCalledTimes(2);
+      expect(waitUntil).toHaveBeenNthCalledWith(1, expect.any(Promise));
+      expect(waitUntil).toHaveBeenNthCalledWith(2, expect.any(Promise));
+
+      finishReporting();
+      await client.shutdown();
+    });
+
+    it('reports cookie overrides without evaluating the flag', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: 'treatment-a',
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'override',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('does not initialize override reporting without a reporter', async () => {
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: true,
+        entities: entity,
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('matches object override values regardless of key order', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({
+          definitions: {
+            flagA: {
+              ...definitions.flagA!,
+              variants: [
+                { enabled: true, theme: { color: 'blue', contrast: 'high' } },
+              ],
+              variantIds: ['treatment-a'],
+            },
+          },
+        }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: {
+          theme: { contrast: 'high', color: 'blue' },
+          enabled: true,
+        },
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledWith(
+        [expect.objectContaining({ variantId: 'treatment-a' })],
+        entity,
+      );
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a single evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity, {
+        experimental_exposureLogging: false,
+      });
+
+      expect(result.experiment?.id).toBe('exp_a');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('reports all bulk exposures in one callback', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.bulkEvaluate([{ key: 'flagA' }, { key: 'flagB' }], entity);
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            assignmentReason: 'experiment',
+          },
+          {
+            flagKey: 'flagB',
+            experimentId: 'exp_b',
+            variantId: 'control-b',
+            base: ['session', 'key'],
+            assignmentReason: 'experiment',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('can disable exposure logging for a bulk evaluation', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const results = await client.bulkEvaluate(
+        [{ key: 'flagA' }, { key: 'flagB' }],
+        entity,
+        { experimental_exposureLogging: false },
+      );
+
+      expect(results.flagA?.experiment?.id).toBe('exp_a');
+      expect(results.flagB?.experiment?.id).toBe('exp_b');
+      expect(reportExposures).not.toHaveBeenCalled();
+      await client.shutdown();
+    });
+
+    it('does not fail evaluation when the exposure reporter fails', async () => {
+      const error = new Error('analytics unavailable');
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions }),
+        experimental_reportExposures: () => Promise.reject(error),
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result.value).toBe('treatment-a');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '@vercel/flags-core: Failed to report experiment exposures',
+        error,
+      );
+      await client.shutdown();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Usage tracking
   // ---------------------------------------------------------------------------
   describe('usage tracking', () => {
+    it('should use a custom waitUntil function for usage tracking', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const client = createClient(sdkKey, {
+        datafile: makeBundled(),
+        fetch: fetchMock,
+        polling: false,
+        stream: false,
+        waitUntil,
+      });
+
+      await client.evaluate('flagA');
+
+      expect(waitUntil).toHaveBeenCalledOnce();
+      expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+
+      await client.shutdown();
+      cleanupCtx();
+    });
+
     it('should report counted FLAG_EVALUATION events', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       fetchMock.mockImplementation((input) => {

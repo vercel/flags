@@ -1,5 +1,11 @@
 # @flags-sdk/posthog
 
+## 1.1.0
+
+### Minor Changes
+
+- [#525](https://github.com/vercel/flags/pull/525) [`b922828`](https://github.com/vercel/flags/commit/b9228286aa1c9c31ba3d990908d7cb7bd345e2ec) Thanks [@dferber90](https://github.com/dferber90)! - Add project secret API key support to `getProviderData` using PostHog's definitions endpoint, while retaining the existing personal API key mode. Preserve payload options and expose boolean and multivariate options when payloads are empty.
+
 ## 1.0.1
 
 ### Patch Changes

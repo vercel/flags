@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "flags": "workspace:*",
-    "next": "15.5.22",
+    "next": "15.5.26",
     "react": "19.0.0-rc-02c0e824-20241028",
     "react-dom": "19.0.0-rc-02c0e824-20241028"
   },
@@ -22,6 +22,6 @@
     "@types/react-dom": "^18",
     "postcss": "^8.5.12",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

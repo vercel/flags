@@ -54,12 +54,23 @@ export const agent = {
       "Precompute feature flags in supported frameworks",
     ],
   },
+  api: {
+    siteOpenApiUrl: "/openapi.json",
+  },
   links: [
     {
       label: "Flags SDK source",
       href: `https://github.com/${github.owner}/${github.repo}`,
       description: "Source repository for Flags SDK",
     },
+    {
+      label: "Flags SDK on npm",
+      href: "https://www.npmjs.com/package/flags",
+      description: "Install the flags package from npm",
+    },
+  ],
+  instructions: [
+    "Flags SDK is a library, not a hosted service. Install it from npm and follow the framework guides; there is no runtime API to call.",
   ],
 } satisfies GeistdocsAgentReadinessConfig;
 

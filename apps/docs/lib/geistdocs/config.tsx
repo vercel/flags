@@ -11,6 +11,7 @@ import {
   title,
   translations,
 } from "@/geistdocs";
+import { isSiteUrlConfigured, siteUrl } from "./site-url";
 
 export const config = defineConfig({
   title,
@@ -23,6 +24,7 @@ export const config = defineConfig({
   navbarActiveProduct: "flags-sdk",
   basePath,
   siteId,
+  siteUrl: isSiteUrlConfigured ? siteUrl.toString() : undefined,
   translations,
   content: [{ id: "docs", label: "Docs", dir: "content/docs", route: "/docs" }],
   ai: {

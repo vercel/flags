@@ -1,6 +1,7 @@
 import { CodeBlock } from '@vercel/geistdocs/components/code-block';
 import { geistShikiTheme } from '@vercel/geistdocs/shiki-theme';
 import { highlight } from 'fumadocs-core/highlight';
+import { cacheLife } from 'next/cache';
 import type { ComponentProps } from 'react';
 import type { BundledLanguage } from 'shiki';
 
@@ -17,6 +18,11 @@ export const HighlightedCode = async ({
   filename,
   caption,
 }: HighlightedCodeProps) => {
+  // Shiki reads Date.now() internally, so Cache Components requires the
+  // highlight to be cached rather than re-run during prerendering.
+  'use cache';
+  cacheLife('max');
+
   // Highlight with the same theme the docs use and render through the
   // geistdocs CodeBlock so the home page blocks match the documentation.
   const rendered = await highlight(code, {
@@ -24,8 +30,8 @@ export const HighlightedCode = async ({
     engine: 'js',
     theme: geistShikiTheme,
     components: {
-      pre: ({ children, className, style }: ComponentProps<'pre'>) => (
-        <CodeBlock className={className} style={style} title={filename}>
+      pre: ({ children, className }: ComponentProps<'pre'>) => (
+        <CodeBlock className={className} title={filename}>
           {children}
         </CodeBlock>
       ),
@@ -34,7 +40,7 @@ export const HighlightedCode = async ({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="*:mb-0 *:h-full flex-1 [&_[data-slot=card-header]>div:first-child]:hidden">
+      <div className="flex-1 [&_[data-geist-code-block]]:my-0! [&_[data-geist-code-block]]:flex [&_[data-geist-code-block]]:h-full [&_[data-geist-code-block]]:flex-col [&_[data-section=content]]:flex-1 [&_[data-section=content]>pre]:h-full">
         {rendered}
       </div>
       <span className="mt-2 block text-copy-14 text-gray-900">{caption}</span>

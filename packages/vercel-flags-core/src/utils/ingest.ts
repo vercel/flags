@@ -1,7 +1,9 @@
 import { getVercelOidcToken } from '@vercel/oidc';
 import { version } from '../../package.json';
 import type { Auth } from '../controller/auth';
+import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
+import { getRuntimeIngest } from './runtime-ingest';
 import type { FlushReason } from './scheduler';
 import type { IngestEvent, UsageEvent } from './usage/events';
 
@@ -31,6 +33,7 @@ export interface IngestOptions {
   auth: Auth;
   host: string;
   fetch: typeof fetch;
+  metricEnvironment?: MetricEnvironment;
 }
 
 async function getEvaluatingOidcToken(auth: Auth): Promise<string | undefined> {
@@ -55,11 +58,40 @@ async function getIngestHeaders(
     Authorization: `Bearer ${token}`,
     'User-Agent': `VercelFlagsCore/${version}`,
     [FLUSH_REASON_HEADER]: flushReason,
-    ...(process.env.VERCEL_ENV
-      ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
+    ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
+      ? {
+          'X-Vercel-Env':
+            options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
+        }
       : null),
     ...(evaluatingOidcToken
       ? { [EVALUATING_OIDC_TOKEN_HEADER]: evaluatingOidcToken }
+      : null),
+    ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+  };
+}
+
+/**
+ * Headers for the runtime-provided ingest transport. The runtime attributes
+ * the caller itself, so OIDC tokens are omitted; only an SDK key is included
+ * when configured.
+ */
+function getRuntimeIngestHeaders(
+  options: IngestOptions,
+  flushReason: FlushReason,
+): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(options.auth.sdkKey
+      ? { Authorization: `Bearer ${options.auth.sdkKey}` }
+      : null),
+    'User-Agent': `VercelFlagsCore/${version}`,
+    [FLUSH_REASON_HEADER]: flushReason,
+    ...((options.metricEnvironment ?? process.env.VERCEL_ENV)
+      ? {
+          'X-Vercel-Env':
+            options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
+        }
       : null),
     ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
   };
@@ -71,7 +103,17 @@ export async function sendIngestEvents(
   flushId: number,
   flushReason: FlushReason,
 ): Promise<void> {
-  const eventsToSend = events.map((event) => event.ingestEvent());
+  let eventsToSend = events.map((event) => event.ingestEvent());
+
+  const runtimeIngest = getRuntimeIngest();
+  if (runtimeIngest) {
+    const headers = getRuntimeIngestHeaders(options, flushReason);
+    // Events the runtime does not accept fall through to the HTTP transport.
+    eventsToSend = eventsToSend.filter(
+      (event) => !runtimeIngest({ headers, body: [event] }),
+    );
+    if (eventsToSend.length === 0) return;
+  }
 
   for (let i = 0; i < eventsToSend.length; i += MAX_EVENTS_PER_REQUEST) {
     await sendIngestChunk(

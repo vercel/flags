@@ -1,4 +1,11 @@
-import type { DatafileInput, PollingOptions, StreamOptions } from '../types';
+import { waitUntil as defaultWaitUntil } from '@vercel/functions';
+import type {
+  DatafileInput,
+  MetricEnvironment,
+  PollingOptions,
+  StreamOptions,
+  WaitUntil,
+} from '../types';
 import type { Auth } from './auth';
 
 const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
@@ -54,6 +61,20 @@ export type ControllerOptions = {
   fetch?: typeof globalThis.fetch;
 
   /**
+   * Custom function for keeping background work alive after a response has
+   * been sent.
+   * @default waitUntil from `@vercel/functions`
+   */
+  waitUntil?: WaitUntil;
+
+  /**
+   * Environment included with evaluation metrics sent to the ingest endpoint.
+   * Falls back to the `VERCEL_ENV` environment variable when not set.
+   * This does not select the environment used for flag evaluation.
+   */
+  metricEnvironment?: MetricEnvironment;
+
+  /**
    * Custom client name included in evaluation telemetry.
    */
   clientName?: string;
@@ -72,7 +93,9 @@ export type NormalizedOptions = {
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
+  waitUntil: WaitUntil;
   host: string;
+  metricEnvironment: MetricEnvironment | undefined;
   clientName: string | undefined;
   disableMetrics: boolean;
 };
@@ -123,7 +146,9 @@ export function normalizeOptions(
     polling,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
+    waitUntil: options.waitUntil ?? defaultWaitUntil,
     host: 'https://flags.vercel.com',
+    metricEnvironment: options.metricEnvironment,
     clientName: options.clientName,
     disableMetrics: options.disableMetrics ?? false,
   };

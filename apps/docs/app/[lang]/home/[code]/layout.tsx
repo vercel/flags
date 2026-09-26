@@ -2,19 +2,21 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { HomeLayout } from '@/components/geistdocs/home-layout';
 import { enableBannerFlag, rootFlags } from '@/flags';
+import { getRootLang } from '@/lib/geistdocs/root-params';
 import { source } from '@/lib/geistdocs/source';
 
 export default async function Layout({
   children,
   params,
 }: LayoutProps<'/[lang]/home/[code]'>) {
-  const { lang, code } = await params;
+  const [{ code }, lang] = await Promise.all([params, getRootLang()]);
   const bannerFlag = await enableBannerFlag(code, rootFlags);
   return (
     <>
       {bannerFlag ? (
         <Link
           href="/providers/vercel"
+          prefetch={true}
           className="group flex items-center justify-center gap-x-2 gap-y-1 bg-gray-1000 px-4 py-3 text-center text-background-100 text-xs md:text-sm"
         >
           <span className="inline-flex shrink-0 items-center rounded-full bg-background-100/15 px-2 py-0.5 font-medium text-[10px] uppercase tracking-wide md:text-[11px]">

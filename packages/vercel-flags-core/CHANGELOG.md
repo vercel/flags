@@ -1,5 +1,54 @@
 # @vercel/flags-core
 
+## 1.8.3
+
+### Patch Changes
+
+- [#507](https://github.com/vercel/flags/pull/507) [`c43b9d9`](https://github.com/vercel/flags/commit/c43b9d9076009a6a70ca2de55020ebcb15b1a4cc) Thanks [@luismeyer](https://github.com/luismeyer)! - Retry transient datafile fetch failures across polling, build loading, and offline fallback reads. Fetches use up to three attempts within a shared ten-second deadline that includes authentication, backoff, and body parsing. Shutdown also cancels retries during polling initialization.
+
+- [#533](https://github.com/vercel/flags/pull/533) [`7027cb2`](https://github.com/vercel/flags/commit/7027cb271183566ee224c6a96d36cb12ce7cf2fa) Thanks [@dferber90](https://github.com/dferber90)! - Strip all occurrences of the `g` and `y` flags from regex conditions so cached regular expressions produce consistent results across users and repeated evaluations, including when both flags are present.
+
+## 1.8.2
+
+### Patch Changes
+
+- [#497](https://github.com/vercel/flags/pull/497) [`4848877`](https://github.com/vercel/flags/commit/4848877ca60c8595745b7759e351e936d7fe5889) Thanks [@feugy](https://github.com/feugy)! - Allow passing a custom `waitUntil` function to `createClient` for background
+  usage and exposure reporting. Pending exposure reports are drained by
+  `client.shutdown()`. The Next.js conditional export uses `after` from
+  `next/server` by default.
+
+- [#490](https://github.com/vercel/flags/pull/490) [`186ea50`](https://github.com/vercel/flags/commit/186ea5092b22cd3eadf136824ecb2d7293a047fd) Thanks [@AndyBitz](https://github.com/AndyBitz)! - Use the runtime-provided ingest transport when available
+
+## 1.8.1
+
+### Patch Changes
+
+- [#486](https://github.com/vercel/flags/pull/486) [`c9d2811`](https://github.com/vercel/flags/commit/c9d28116ebca661f4e3c73f301d4b2d35310c823) Thanks [@dferber90](https://github.com/dferber90)! - Add APIs for reporting flag exposures and override values.
+  
+  - The `experimental_reportExposures` client option for supplying an exposure
+    reporter.
+  - The `experimental_reportOverride` client method for reporting values set by
+    the Flags SDK override cookie.
+  - The `experimental_exposureLogging` option on `evaluate()` and
+    `bulkEvaluate()` for disabling exposure reporting for an individual call.
+  - Experiment assignment metadata on `EvaluationResult.experiment`.
+  - The `experimental_EvaluationOptions`,
+    `experimental_ExperimentAssignment`, `experimental_Exposure`, and
+    `experimental_ReportExposures` types.
+  
+  These APIs are not supported for general use yet. Do not use them unless
+  Vercel has explicitly enabled them for you.
+
+- [#494](https://github.com/vercel/flags/pull/494) [`e0eebe6`](https://github.com/vercel/flags/commit/e0eebe6fbc296636761eb3dc31f2c4be01a398bf) Thanks [@luismeyer](https://github.com/luismeyer)! - Request an uncompressed `/v1/stream` body when running on Bun.
+  
+  Bun's `fetch` negotiates brotli or gzip by default, but its streaming decoder withholds small decoded output until more compressed input arrives. The stream's first datafile is followed by silence until the next ping, so on Bun the initial datafile never surfaced, init timed out, and every flag fell back to its default. Sending `Accept-Encoding: identity` on Bun avoids the decoder entirely; other runtimes are unchanged.
+
+## 1.8.0
+
+### Minor Changes
+
+- [#453](https://github.com/vercel/flags/pull/453) [`cc8c266`](https://github.com/vercel/flags/commit/cc8c26648cb499a2c191c58a5354d5da5d359dcd) Thanks [@luismeyer](https://github.com/luismeyer)! - Add a `metricEnvironment` client option for associating evaluation metrics with an environment when sending them to the ingestion endpoint.
+
 ## 1.7.1
 
 ### Patch Changes

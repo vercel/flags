@@ -1,5 +1,7 @@
+import type { WaitUntil } from '../types';
 import { type IngestOptions, sendIngestEvents } from './ingest';
 import { getRequestContext } from './request-context';
+import { getRuntimeIngest } from './runtime-ingest';
 import { type FlushReason, Scheduler } from './scheduler';
 import {
   FlagsConfigReadEvent,
@@ -20,15 +22,21 @@ export class UsageTracker {
 
   private options: IngestOptions;
   private scheduler: Scheduler;
+  private waitUntil: WaitUntil;
+  private inflightFlushes = new Set<Promise<void>>();
 
   private trackedRequests = new WeakSet<object>();
 
   private readEvents: FlagsConfigReadEvent[] = [];
   private evaluationEvents = new Map<string, FlagsEvaluationEvent>();
 
-  constructor(options: IngestOptions) {
+  constructor(options: IngestOptions & { waitUntil: WaitUntil }) {
     this.options = options;
-    this.scheduler = new Scheduler((reason) => this.flushEvents(reason));
+    this.waitUntil = options.waitUntil;
+    this.scheduler = new Scheduler(
+      (reason) => this.flushEvents(reason),
+      options.waitUntil,
+    );
   }
 
   /**
@@ -42,6 +50,11 @@ export class UsageTracker {
     // Safety net for events tracked after the drained batch reset; if the
     // drained flush already sent everything this returns early (maps cleared).
     await this.flushEvents('shutdown');
+
+    // Drain immediate flushes whose events fell back to the HTTP transport;
+    // their events left the maps before the async send started, so the flush
+    // above cannot cover them.
+    await Promise.all([...this.inflightFlushes]);
   }
 
   /**
@@ -60,7 +73,7 @@ export class UsageTracker {
 
       this.readEvents.push(new FlagsConfigReadEvent(headers, options));
 
-      this.scheduler.scheduleFlush();
+      this.requestFlush();
     } catch (error) {
       // trackRead should never throw, but log the error
       console.error('@vercel/flags-core: Failed to record event:', error);
@@ -90,12 +103,37 @@ export class UsageTracker {
       }
 
       // always schedule to reset the timer
-      this.scheduler.scheduleFlush();
+      this.requestFlush();
     } catch (error) {
       console.error(
         '@vercel/flags-core: Failed to record evaluation event:',
         error,
       );
+    }
+  }
+
+  /**
+   * Flushes immediately when the runtime provides an ingest transport,
+   * otherwise falls back to the time-based scheduler.
+   */
+  private requestFlush(): void {
+    if (getRuntimeIngest()) {
+      // Track the flush so shutdown() can drain it: events the runtime does
+      // not accept fall back to the async HTTP transport, which outlives this
+      // synchronous call. When the runtime accepts everything the promise is
+      // already settled, so neither waitUntil nor shutdown() waits on it.
+      const flush = this.flushEvents('immediate').catch((error) => {
+        console.error('@vercel/flags-core: Failed to flush events:', error);
+      });
+      this.inflightFlushes.add(flush);
+      void flush.finally(() => this.inflightFlushes.delete(flush));
+      try {
+        this.waitUntil?.(flush);
+      } catch {
+        // waitUntil is best-effort; shutdown() still drains the flush.
+      }
+    } else {
+      this.scheduler.scheduleFlush();
     }
   }
 

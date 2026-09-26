@@ -1,7 +1,8 @@
 {
   "name": "@flags-sdk/hypertune",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "A HyperTune adapter for the Flags SDK",
+  "deprecated": "The Hypertune adapter is deprecated and no longer receives updates. See https://flags-sdk.dev/providers for alternatives.",
   "keywords": [
     "hypertune",
     "flags",
@@ -54,7 +55,7 @@
     "msw": "2.6.4",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",
-    "typescript": "5.6.3",
+    "typescript": "^5.9.3",
     "vite": "8.1.5",
     "vitest": "4.1.10"
   },

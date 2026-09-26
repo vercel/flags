@@ -2,6 +2,7 @@ packages:
   - packages/*
   - tests/*
   - examples/*
+  - examples/providers/*
   - apps/*
 
 catalog:
@@ -23,3 +24,35 @@ minimumReleaseAgeExclude:
   - '@next/*'
   - '@flags-sdk/*'
   - '@vercel/*'
+
+overrides:
+  "postcss": "^8.5.23"
+  "esbuild": "^0.28.1"
+  "uuid": "^11.1.1"
+  "brace-expansion@>=4": "^5.0.9"
+  "dompurify": "^3.4.13"
+  "fast-uri": "^3.1.5"
+  "js-yaml@3": "^3.15.1"
+  "js-yaml@4": "^4.3.1"
+  "mermaid": "^11.16.1"
+  "nanoid@3": "^3.3.18"
+  "nanoid@>=4": "^5.1.16"
+  "@sveltejs/kit": "^2.70.2"
+
+  # Use local SDKs in this repo while keeping the template independently installable.
+  "flags-sdk-launchdarkly>flags": "workspace:*"
+  "flags-sdk-launchdarkly>@flags-sdk/launchdarkly": "workspace:*"
+  "flags-sdk-flagsmith>flags": "workspace:*"
+  "flags-sdk-flagsmith>@flags-sdk/flagsmith": "workspace:*"
+  "flags-sdk-statsig>flags": "workspace:*"
+  "flags-sdk-statsig>@flags-sdk/statsig": "workspace:*"
+  "flags-sdk-vercel>flags": "workspace:*"
+  "flags-sdk-vercel>@flags-sdk/vercel": "workspace:*"
+  "flags-sdk-reflag>flags": "workspace:*"
+  "flags-sdk-reflag>@flags-sdk/reflag": "workspace:*"
+  "flags-sdk-posthog>flags": "workspace:*"
+  "flags-sdk-posthog>@flags-sdk/posthog": "workspace:*"
+  "flags-sdk-openfeature>flags": "workspace:*"
+  "flags-sdk-openfeature>@flags-sdk/openfeature": "workspace:*"
+  "flags-sdk-growthbook>flags": "workspace:*"
+  "flags-sdk-growthbook>@flags-sdk/growthbook": "workspace:*"

@@ -5,32 +5,34 @@ This documentation is intended for maintainers of this repository.
 ## Checking out a branch of a fork
 
 Follow the following steps to review a pull request from a fork.
-The example uses hypertunehq.
+Replace `<fork-owner>` and `<branch>` with the GitHub user and branch of the pull request.
 
-- `git remote add hypertunehq git@github.com:hypertunehq/flags.git`
-- `git fetch hypertunehq`
-- `git checkout hypertunehq/update-hypertune-adapter`
+- `git remote add <fork-owner> git@github.com:<fork-owner>/flags.git`
+- `git fetch <fork-owner>`
+- `git checkout <fork-owner>/<branch>`
 
 Or replace the last step with:
 
-- `git checkout -b update-hypertune-adapter hypertunehq:update-hypertune-adapter`
+- `git checkout -b <branch> <fork-owner>/<branch>`
 
 ## Testing with examples
 
-You can try an updates to adapters with the existing examples in [vercel/examples](https://github.com/vercel/examples/tree/main/flags-sdk).
+You can test SDK and adapter changes with the apps in [examples](../examples). Choose an example that uses the package you are reviewing and follow its README for setup.
 
-1. Build the adapter
+In the commands below, replace `<example-folder>` with the path under `examples/` (including `providers/` for provider examples) and `<example-package>` with the `name` from that example's `package.json`.
 
-- `cd packages/adapter-hypertune`
-- `pnpm build`
+1. From the repository root, run `pnpm install`.
+2. Configure the environment variables described in `examples/<example-folder>/README.md`. If the example provides `.env.example`, copy it to `.env.local` in that folder and fill in the values. For an existing Vercel project, run `vc link` and `vc env pull` from the example folder.
+3. From the repository root, start the example:
 
-2. Try it out
+   ```sh
+   pnpm exec turbo run dev --filter=<example-package>
+   ```
 
-- Clone https://github.com/vercel/examples/
-- Change into `flags-sdk/hypertune`
-- Run `pnpm install`
-- Run `vc link` and link to `Vercel Examples` team and `flags-sdk-hypertune` package
-- Run `vc env pull`
-- Change the `@flags-sdk/launchdarkly` dependency of `flags-sdk/hypertune/package.json` to a relative path
-  - `"@flags-sdk/launchdarkly": "file:../../../flags/packages/adapter-hypertune"`
-- Run `pnpm install`
+Workspace dependencies and overrides in `pnpm-workspace.yaml` link examples to the local SDK and adapter packages. Turbo builds the configured dependencies before starting the app. After changing SDK or adapter code, restart this command to rebuild the packages.
+
+The root `pnpm build` builds only `packages/*`, so contributors do not need example credentials. Use `pnpm build:all` to build the entire workspace, including all examples and apps, after configuring their environments. To build only a selected example and its dependencies, run:
+
+```sh
+pnpm exec turbo run build --filter=<example-package>
+```

@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { FlagsmithLogo } from './logos/flagsmith';
 import { GrowthbookLogo } from './logos/growthbook';
-import { HypertuneLogo } from './logos/hypertune';
 import { LaunchDarklyLogo } from './logos/launchdarkly';
 import { OpenFeatureLogo } from './logos/openfeature';
 import { OptimizelyLogo } from './logos/optimizely';
@@ -55,14 +54,6 @@ const providers: Provider[] = [
     logo: StatsigLogo,
     badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
     glowColor: '#1b63d2',
-  },
-  {
-    key: 'hypertune',
-    name: 'Hypertune',
-    href: '/providers/hypertune',
-    logo: HypertuneLogo,
-    badges: ['Adapter', 'Global Config', 'Flags Explorer', 'Marketplace'],
-    glowColor: '#000000',
   },
   {
     key: 'launchdarkly',
@@ -133,12 +124,7 @@ const providers: Provider[] = [
 ];
 
 type ProvidersList = (typeof providers)[number]['key'];
-const featuredProviders: ProvidersList[] = [
-  'vercel',
-  'statsig',
-  'hypertune',
-  'growthbook',
-];
+const featuredProviders: ProvidersList[] = ['vercel', 'statsig', 'growthbook'];
 
 export function ProviderList({ featured }: { featured?: boolean }) {
   return (
@@ -155,7 +141,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
             key={provider.key}
             data-replacement={provider.name}
           >
-            <Link href={provider.href} className="no-underline">
+            <Link href={provider.href} prefetch={true} className="no-underline">
               <div className="dark:bg-neutral-950 not-prose hover:shadow-neutral-800/5 relative rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-lg">
                 <span className="text-neutral-800 dark:text-neutral-100 text-lg font-semibold leading-tight tracking-tight">
                   {provider.name}
@@ -202,7 +188,7 @@ export function ProviderList({ featured }: { featured?: boolean }) {
                 <div className="mt-2 flex h-12 flex-col justify-end">
                   <div className="flex w-full flex-row flex-wrap gap-2 text-gray-900">
                     {provider.badges.map((badge) => (
-                      <Badge key={badge} variant="secondary">
+                      <Badge key={badge} variant="gray">
                         <span className="sr-only">{'Has badge: '}</span>
                         {badge}
                       </Badge>

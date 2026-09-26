@@ -2057,53 +2057,65 @@ describe('evaluate', () => {
       });
     });
 
-    it('returns a stable result for repeated global regex evaluation', () => {
-      const regex = {
-        type: 'regex' as const,
-        pattern: '^uid',
-        flags: 'g' as const,
-      };
-
-      const definition: Packed.FlagDefinition = {
-        seed: undefined,
-        environments: {
-          production: {
-            rules: [
-              {
-                conditions: [[['user', 'id'], Comparator.REGEX, regex]],
-                outcome: 1,
-              },
-            ],
-            fallthrough: 0,
+    describe.each([
+      Comparator.REGEX,
+      Comparator.NOT_REGEX,
+    ])('%s cached evaluation', (comparator) => {
+      it.each([
+        '',
+        'g',
+        'y',
+        'gy',
+        'yg',
+        'gg',
+        'yy',
+        'giy',
+        'yig',
+      ])('returns stable results across users and retries with flags "%s"', (flags) => {
+        const regex = { type: 'regex' as const, pattern: '^banned-', flags };
+        const definition: Packed.FlagDefinition = {
+          seed: undefined,
+          environments: {
+            production: {
+              rules: [
+                {
+                  conditions: [[['user', 'id'], comparator, regex]],
+                  outcome: 1,
+                },
+              ],
+              fallthrough: 0,
+            },
           },
-        },
-        variants: [false, true],
-      };
+          variants: [false, true],
+        };
 
-      const first = evaluate({
-        definition,
-        environment: 'production',
-        entities: { user: { id: 'uid1' } },
-      });
-
-      const second = evaluate({
-        definition,
-        environment: 'production',
-        entities: { user: { id: 'uid2' } },
-      });
-
-      expect(first).toEqual({
-        value: true,
-        variantId: null,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
-      });
-
-      expect(second).toEqual({
-        value: true,
-        variantId: null,
-        reason: ResolutionReason.RULE_MATCH,
-        outcomeType: OutcomeType.VALUE,
+        for (const id of [
+          'banned-alice',
+          'banned-bob',
+          'banned-bob',
+          'allowed-carol',
+          'banned-alice',
+          'BANNED-dave',
+        ]) {
+          const matches =
+            id.startsWith('banned-') ||
+            (flags.includes('i') && id.startsWith('BANNED-'));
+          const value = comparator === Comparator.REGEX ? matches : !matches;
+          expect(
+            evaluate({
+              definition,
+              environment: 'production',
+              entities: { user: { id } },
+            }),
+          ).toEqual({
+            value,
+            variantId: null,
+            reason: value
+              ? ResolutionReason.RULE_MATCH
+              : ResolutionReason.FALLTHROUGH,
+            outcomeType: OutcomeType.VALUE,
+          });
+        }
       });
     });
 
@@ -2697,6 +2709,216 @@ describe('evaluate', () => {
         }
       }
     });
+  });
+});
+
+describe('experiment metadata', () => {
+  const definition = {
+    environments: {
+      production: {
+        rules: [
+          {
+            conditions: [[['user', 'country'], Comparator.EQ, 'DE']],
+            outcome: { type: 'experiment' },
+          },
+        ],
+        fallthrough: 0,
+      },
+    },
+    variants: ['control', 'treatment'],
+    variantIds: ['flag-control', 'flag-treatment'],
+    seed: 123,
+    experiment: {
+      id: 'exp_checkout',
+      base: ['user', 'key'],
+      weights: [0, 1],
+      defaultVariant: 0,
+      enrollmentSeed: 456,
+      rampId: 'ramp_1',
+      rampPercentage: 100,
+    },
+  } satisfies Packed.FlagDefinition;
+
+  it('randomizes an enrolled experiment outcome', () => {
+    expect(
+      evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { key: 'user_123', country: 'DE' } },
+      }),
+    ).toEqual({
+      value: 'treatment',
+      variantId: 'flag-treatment',
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.EXPERIMENT,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'flag-treatment',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 100,
+        assignmentReason: 'experiment',
+      },
+    });
+  });
+
+  it('marks a missing experiment base as not enrolled', () => {
+    expect(
+      evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { country: 'DE' } },
+      }),
+    ).toEqual({
+      value: 'control',
+      variantId: 'flag-control',
+      reason: ResolutionReason.RULE_MATCH,
+      outcomeType: OutcomeType.EXPERIMENT,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'flag-control',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 100,
+        assignmentReason: 'not-enrolled',
+      },
+    });
+  });
+
+  it('marks a fixed outcome as a non-randomized variant exposure', () => {
+    expect(
+      evaluate({
+        definition,
+        environment: 'production',
+        entities: { user: { key: 'user_123', country: 'US' } },
+      }),
+    ).toEqual({
+      value: 'control',
+      variantId: 'flag-control',
+      reason: ResolutionReason.FALLTHROUGH,
+      outcomeType: OutcomeType.VALUE,
+      experiment: {
+        id: 'exp_checkout',
+        variantId: 'flag-control',
+        base: ['user', 'key'],
+        rampId: 'ramp_1',
+        rampPercentage: 100,
+        assignmentReason: 'variant',
+      },
+    });
+  });
+
+  it('marks an ordinary split as a non-experiment split exposure', () => {
+    expect(
+      evaluate({
+        definition: {
+          ...definition,
+          environments: {
+            production: {
+              fallthrough: {
+                type: 'split',
+                base: ['user', 'key'],
+                weights: [1, 0],
+                defaultVariant: 0,
+              },
+            },
+          },
+        },
+        environment: 'production',
+        entities: { user: { key: 'user_123' } },
+      }),
+    ).toMatchObject({
+      value: 'control',
+      outcomeType: OutcomeType.SPLIT,
+      experiment: { assignmentReason: 'split' },
+    });
+  });
+
+  it('marks direct targets as targeted exposures', () => {
+    expect(
+      evaluate({
+        definition: {
+          ...definition,
+          environments: {
+            production: {
+              targets: [{ user: { key: ['user_123'] } }],
+              fallthrough: { type: 'experiment' },
+            },
+          },
+        },
+        environment: 'production',
+        entities: { user: { key: 'user_123' } },
+      }),
+    ).toMatchObject({
+      value: 'control',
+      experiment: { assignmentReason: 'targeted' },
+    });
+  });
+
+  it('preserves enrolled assignments as ramp percentage increases', () => {
+    const makeExperimentDefinition = (
+      rampPercentage: number,
+    ): Packed.FlagDefinition => ({
+      ...definition,
+      environments: {
+        production: { fallthrough: { type: 'experiment' } },
+      },
+      experiment: {
+        ...definition.experiment,
+        weights: [1, 1],
+        rampPercentage,
+      },
+    });
+    const splitDefinition: Packed.FlagDefinition = {
+      ...definition,
+      environments: {
+        production: {
+          fallthrough: {
+            type: 'split',
+            base: definition.experiment.base,
+            weights: [1, 1],
+            defaultVariant: 0,
+          },
+        },
+      },
+      experiment: undefined,
+    };
+    let enrolledAtTwenty = 0;
+    let newlyEnrolled = 0;
+
+    for (let index = 0; index < 500; index++) {
+      const entities = { user: { key: `user_${index}` } };
+      const atTwenty = evaluate({
+        definition: makeExperimentDefinition(20),
+        environment: 'production',
+        entities,
+      });
+      const atEighty = evaluate({
+        definition: makeExperimentDefinition(80),
+        environment: 'production',
+        entities,
+      });
+
+      if (atTwenty.experiment?.assignmentReason === 'experiment') {
+        enrolledAtTwenty++;
+        expect(atEighty.experiment?.assignmentReason).toBe('experiment');
+        expect(atEighty.variantId).toBe(atTwenty.variantId);
+      } else if (atEighty.experiment?.assignmentReason === 'experiment') {
+        newlyEnrolled++;
+      }
+
+      if (atEighty.experiment?.assignmentReason === 'experiment') {
+        const withoutExperiment = evaluate({
+          definition: splitDefinition,
+          environment: 'production',
+          entities,
+        });
+        expect(atEighty.variantId).toBe(withoutExperiment.variantId);
+      }
+    }
+
+    expect(enrolledAtTwenty).toBeGreaterThan(0);
+    expect(newlyEnrolled).toBeGreaterThan(0);
   });
 });
 

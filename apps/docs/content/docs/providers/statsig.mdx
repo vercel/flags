@@ -358,7 +358,7 @@ Read more about initialization strategies in the [Statsig Docs](https://docs.sta
 
 The Statsig adapter can either load the experiment configuration over the network or bootstrap from [Global Config](https://vercel.com/storage/global-config).
 
-Using [Global Config](https://vercel.com/docs/storage/global-config) is optional but recommended for the best latency. Global Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
+Using [Global Config](https://vercel.com/docs/global-config) is optional but recommended for the best latency. Global Config is a global, ultra-low latency store which uses active replication and is specifically designed for serving feature flag configuration.
 
 The default Statsig adapter, exported as `statsigAdapter`, will automatically connect to Global Config if the `EXPERIMENTATION_CONFIG` and `EXPERIMENTATION_CONFIG_ITEM_KEY` environment variables are set. If you are using the [Statsig integration on Vercel marketplace](https://vercel.com/marketplace/statsig) these environment variables will be provided automatically, and the default Statsig adapter will read from Global Config automatically.
 

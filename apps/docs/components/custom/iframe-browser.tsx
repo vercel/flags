@@ -2,11 +2,7 @@
 
 import { Button } from '@vercel/geistdocs/components/button';
 import { Input } from '@vercel/geistdocs/components/input';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@vercel/geistdocs/components/tooltip';
+import { Tooltip } from '@vercel/geistdocs/components/tooltip';
 import { CodeXml, ExternalLink, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
@@ -34,55 +30,52 @@ export function IframeBrowser({
       <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-background-100 p-2">
         <div className="flex-grow">
           <Input
+            aria-label="Preview URL"
+            className="w-full cursor-default bg-white dark:bg-background-100"
             defaultValue={resolvedSrc}
             placeholder="Enter URL"
-            className="w-full cursor-default bg-white dark:bg-background-100"
             readOnly
-            aria-labelledby="input-label"
+            width="100%"
           />
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Refresh"
-              onClick={refresh}
-            >
-              <RefreshCw className="size-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Refresh</TooltipContent>
+        <Tooltip delay={false} text="Refresh">
+          <Button
+            aria-label="Refresh"
+            onClick={refresh}
+            size="small"
+            svgOnly
+            variant="secondary"
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon-sm" asChild>
-              <a
-                href={codeSrc}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Show source code"
-              >
-                <CodeXml className="size-3.5" />
-              </a>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Show source code</TooltipContent>
+        <Tooltip delay={false} text="Show source code">
+          <Button
+            aria-label="Show source code"
+            Component="a"
+            href={codeSrc}
+            rel="noopener noreferrer"
+            size="small"
+            svgOnly
+            target="_blank"
+            variant="secondary"
+          >
+            <CodeXml className="size-3.5" />
+          </Button>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon-sm" asChild>
-              <a
-                href={resolvedSrc}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open in new tab"
-              >
-                <ExternalLink className="size-3.5" />
-              </a>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Open in new tab</TooltipContent>
+        <Tooltip delay={false} text="Open in new tab">
+          <Button
+            aria-label="Open in new tab"
+            Component="a"
+            href={resolvedSrc}
+            rel="noopener noreferrer"
+            size="small"
+            svgOnly
+            target="_blank"
+            variant="secondary"
+          >
+            <ExternalLink className="size-3.5" />
+          </Button>
         </Tooltip>
       </div>
       <div
