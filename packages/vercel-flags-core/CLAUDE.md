@@ -42,7 +42,7 @@ src/
 
 ```
 createClient(sdkKey, options)
-  → Controller (state machine, owns all data tagging and source coordination)
+  → Controller (state machine, selects data origin and coordinates sources/cache)
     → StreamSource / PollingSource / BundledSource (emit raw DatafileInput)
   → create-raw-client (ID-based indirection for 'use cache' support)
     → controller-fns (lookup by ID, evaluate, report)
@@ -51,7 +51,7 @@ createClient(sdkKey, options)
 
 ### Design principles
 
-- **Sources emit raw data** — StreamSource, PollingSource, and BundledSource return/emit raw `DatafileInput`. The Controller is solely responsible for tagging data with its origin (`tagData(data, 'stream')` etc.).
+- **Sources emit raw data** — StreamSource, PollingSource, and BundledSource return/emit raw `DatafileInput`. The Controller selects the source origin. For live updates, `DatafileCache.updateFromSource()` checks version acceptance before tagging and storing data; the Controller tags initial/fallback snapshots passed to `seed()`.
 - **BundledSource is a plain class** — unlike StreamSource and PollingSource which extend TypedEmitter, BundledSource has no event listeners. The Controller calls its methods directly and uses return values.
 - **Tests are black-box** — all behavioral tests go through the public API (`createClient` from `./index.default`). Mock `readBundledDefinitions` and `internalReportValue` as observable I/O. Use `fetchMock` for network assertions.
 - **ID-based indirection** — `controller-fns.ts` holds a `controllerInstanceMap` (Map<number, ControllerInstance>) so that `'use cache'` wrappers in Next.js can pass serializable IDs instead of function references.
@@ -88,6 +88,7 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
+  staleIfError?: number;  // Seconds of fallback after stream/poll failure; default: Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -231,7 +232,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`, and `onError` (failure evidence for cache policy)
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
 - The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
@@ -255,7 +256,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 
 ### Data Origin Tagging
 
-The Controller tags all data with its origin using `tagData(data, origin)` from `tagged-data.ts`. Origins map to public `metrics.source` values:
+The Controller selects the origin. Initial/fallback snapshots are tagged before `cache.seed()`; live stream/poll updates are tagged inside `cache.updateFromSource()` only after acceptance. Both use `tagData(data, origin)` from `tagged-data.ts`. Origins map to public `metrics.source` values:
 - `'stream'`, `'poll'`, `'provided'` → `'in-memory'`
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
@@ -284,17 +285,29 @@ The Controller tags all data with its origin using `tagData(data, origin)` from 
 
 ### configUpdatedAt Guard
 
-The Controller rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
+The DatafileCache rejects incoming data (from stream or poll) if its `configUpdatedAt` is older than or equal to the current in-memory data. This prevents stale updates from overwriting newer data. Accepts the update if either side lacks a `configUpdatedAt`.
 
 ### Evaluation Reporting
 
 - `internalReportValue` (defined in `lib/report-value.ts`, called from `controller-fns.ts`) reports flag evaluations to the Vercel request context
 - Reports are sent for all evaluations where `datafile.projectId` exists, including error cases (e.g., FLAG_NOT_FOUND)
 
+### Cache read policy
+
+`DatafileCache.read()` is the only full-entry read. The cache is configured once
+with the internal `staleIfErrorMs`, normalized from the public `staleIfError`
+option in seconds. Evaluations and `getDatafile()` share the same serving
+boundary. `hasData` and `revision` expose coordination metadata even after expiry,
+so retained data is not replaced by fallback and stream reconnects can still send
+`X-Revision`. `seed()` never clears failure. Accepted source updates or valid
+version/revision confirmations clear it; repeated errors/disconnects do not renew
+the first-error deadline. Stream opening/pings and initialization timeout alone
+are not recovery/failure evidence respectively.
+
 ### Evaluation Safety
 
 - Regex comparators (`REGEX`, `NOT_REGEX`) limit input string length to 10,000 characters to prevent ReDoS
-- `read()` and `getDatafile()` return new objects with spread (never mutate `this.data`)
+- `read()` and `getDatafile()` apply the same cache read policy and each return new objects with spread (never mutate cached data)
 
 ### Debug Mode
 
