@@ -35,6 +35,12 @@ export type DatafileInput = Packed.Data & {
    * Some older responses might return a string instead of a number. Both will be timestamps.
    */
   configUpdatedAt?: number | string;
+  /**
+   * When this datafile was successfully fetched, as Unix epoch milliseconds.
+   * Preserved when bundled, serialized, or supplied to another client.
+   * Omit when the original fetch time is unknown; loading data does not reset it.
+   */
+  fetchedAt?: number;
   /** Version number of the data */
   revision?: number;
 };
@@ -73,7 +79,7 @@ export type Metrics = {
   /** Whether the stream is currently connected */
   connectionState: 'connected' | 'disconnected';
   /** The current operating mode of the client */
-  mode: 'streaming' | 'polling' | 'build' | 'offline';
+  mode: 'streaming' | 'polling' | 'build' | 'vercel' | 'offline';
   /** Time in ms for the pure flag evaluation logic (only present on EvaluationResult) */
   evaluationMs?: number;
 };

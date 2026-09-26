@@ -46,6 +46,7 @@ class TokenResolutionError extends Error {
 export type StreamCallbacks = {
   onDatafile: (data: BundledDefinitions) => void;
   onPrimed?: (message: PrimedMessage) => void;
+  onPing?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
 };
@@ -69,11 +70,12 @@ export async function connectStream(
   callbacks: StreamCallbacks,
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
-  const { onDatafile, onPrimed, onDisconnect, onError } = callbacks;
+  const { onDatafile, onPrimed, onPing, onDisconnect, onError } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
   const reportError = (error: unknown): void => {
+    // Deliberate shutdown must not start a stale-if-error deadline.
     if (abortController.signal.aborted) return;
     onError?.(
       error instanceof Error
@@ -244,6 +246,7 @@ export async function connectStream(
               // Pings prove the connection is alive — reset retry count
               // once initial data has been received
               if (message.type === 'ping' && initialDataReceived) {
+                onPing?.();
                 retryCount = 0;
                 resetPingTimeout();
               }
@@ -273,6 +276,7 @@ export async function connectStream(
         if (abortController.signal.aborted) {
           break;
         }
+        // Ping timeouts report failure through onDisconnect below, not an abort error.
         if (!connectionAbort.signal.aborted) {
           reportError(error);
         }

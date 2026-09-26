@@ -10,8 +10,13 @@ import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { BundledSource } from './bundled-source';
-import { DatafileCache } from './datafile-cache';
+import {
+  type CacheMetadata,
+  type CacheReadPolicy,
+  DatafileCache,
+} from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
+import { HeaderSource } from './header-source';
 import {
   type ControllerOptions,
   type NormalizedOptions,
@@ -41,6 +46,7 @@ type State =
   | 'initializing:fallback'
   | 'streaming'
   | 'polling'
+  | 'vercel'
   | 'degraded'
   | 'build:loading'
   | 'build:ready'
@@ -69,6 +75,12 @@ type State =
  * - Uses polling exclusively
  * - Same fallback chains as streaming mode
  *
+ * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
+ * - Loads provided/bundled data before selecting the mode; no startup network
+ * - HeaderSource checks request versions and refreshes when needed
+ * - An evaluation without a version header permanently starts stream/poll
+ * - Cache applies version acceptance and stale-if-error to all served data
+ *
  * **Runtime — offline mode** (neither stream nor polling):
  * - Init fallback: constructor datafile → bundled → one-time fetch → throw
  * - Read fallback: in-memory value → constructor datafile → bundled → one-time fetch → throw
@@ -92,6 +104,11 @@ export class Controller implements ControllerInterface {
   private streamSource: StreamSource;
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
+  private headerSource: HeaderSource;
+  private headerModeDisabled = false;
+  private sourceStartup:
+    | Promise<[TaggedData, Metrics['cacheStatus']]>
+    | undefined;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -106,7 +123,10 @@ export class Controller implements ControllerInterface {
 
   constructor(options: ControllerOptions) {
     this.options = normalizeOptions(options);
-    this.cache = new DatafileCache(this.options.staleIfErrorMs);
+    this.cache = new DatafileCache(
+      this.options.staleIfErrorMs,
+      this.options.waitUntil,
+    );
 
     // Create source modules
     this.streamSource = new StreamSource(
@@ -115,6 +135,7 @@ export class Controller implements ControllerInterface {
     );
 
     this.pollingSource = new PollingSource(this.options);
+    this.headerSource = new HeaderSource(this.options);
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -138,11 +159,14 @@ export class Controller implements ControllerInterface {
   };
   private onStreamPrimed = (message: PrimedMessage) => {
     this.cache.tryConfirm(message, 'revision');
-    // The server confirmed our revision is current — no new data needed.
-    // Transition to streaming like a normal connected event.
+    // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
     }
+  };
+  private onStreamPing = () => {
+    // Each connection sends primed/datafile before pings, so a ping confirms recovery.
+    this.cache.confirm();
   };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -155,15 +179,17 @@ export class Controller implements ControllerInterface {
       this.transition('degraded');
     }
   };
-  private onStreamError = (error: Error) => {
+  private onSourceError = (error: Error) => {
     this.cache.fail(error);
   };
   private onPollData = (data: DatafileInput) => {
     this.cache.updateFromSource(data, 'poll');
   };
-  private onPollError = (error: Error) => {
-    this.cache.fail(error);
-    console.error('@vercel/flags-core: Poll failed:', error);
+  private onHeaderData = (data: DatafileInput) => {
+    this.cache.updateFromSource(data, 'fetched');
+  };
+  private onHeaderConfirmed = (data: CacheMetadata) => {
+    this.cache.tryConfirm(data);
   };
 
   // ---------------------------------------------------------------------------
@@ -173,21 +199,27 @@ export class Controller implements ControllerInterface {
   private wireSourceEvents(): void {
     this.streamSource.on('data', this.onStreamData);
     this.streamSource.on('primed', this.onStreamPrimed);
+    this.streamSource.on('ping', this.onStreamPing);
     this.streamSource.on('connected', this.onStreamConnected);
     this.streamSource.on('disconnected', this.onStreamDisconnected);
-    this.streamSource.on('error', this.onStreamError);
+    this.streamSource.on('error', this.onSourceError);
     this.pollingSource.on('data', this.onPollData);
-    this.pollingSource.on('error', this.onPollError);
+    this.pollingSource.on('error', this.onSourceError);
+    this.headerSource.on('data', this.onHeaderData);
+    this.headerSource.on('confirmed', this.onHeaderConfirmed);
   }
 
   private unwireSourceEvents(): void {
     this.streamSource.off('data', this.onStreamData);
     this.streamSource.off('primed', this.onStreamPrimed);
+    this.streamSource.off('ping', this.onStreamPing);
     this.streamSource.off('connected', this.onStreamConnected);
     this.streamSource.off('disconnected', this.onStreamDisconnected);
-    this.streamSource.off('error', this.onStreamError);
+    this.streamSource.off('error', this.onSourceError);
     this.pollingSource.off('data', this.onPollData);
-    this.pollingSource.off('error', this.onPollError);
+    this.pollingSource.off('error', this.onSourceError);
+    this.headerSource.off('data', this.onHeaderData);
+    this.headerSource.off('confirmed', this.onHeaderConfirmed);
   }
 
   // ---------------------------------------------------------------------------
@@ -198,10 +230,6 @@ export class Controller implements ControllerInterface {
     this.state = to;
   }
 
-  private get isConnected(): boolean {
-    return this.state === 'streaming';
-  }
-
   private get mode(): Metrics['mode'] {
     if (this.options.buildStep) return 'build';
     switch (this.state) {
@@ -209,6 +237,8 @@ export class Controller implements ControllerInterface {
         return 'streaming';
       case 'polling':
         return 'polling';
+      case 'vercel':
+        return 'vercel';
       default:
         return 'offline';
     }
@@ -224,6 +254,7 @@ export class Controller implements ControllerInterface {
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
    * Polling mode (no stream): poll → datafile → bundled
+   * Vercel mode: datafile → bundled; fetch only on a read
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
@@ -245,12 +276,16 @@ export class Controller implements ControllerInterface {
     if (!this.cache.hasData) {
       try {
         const bundled = await this.bundledSource.tryLoad();
-        if (bundled) {
-          this.cache.seed(tagData(bundled, 'bundled'));
-        }
+        if (bundled) this.cache.seed(tagData(bundled, 'bundled'));
       } catch {
         // Bundled definitions not available — proceed without revision
       }
+    }
+
+    // Select header mode after hydration so provided/bundled data avoids a cold fetch.
+    if (this.headerSource.isEnabled() && !this.headerModeDisabled) {
+      this.transition('vercel');
+      return;
     }
 
     // If we already have data (from provided datafile or bundled definitions),
@@ -314,9 +349,10 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState: this.isConnected
-          ? ('connected' as const)
-          : ('disconnected' as const),
+        connectionState:
+          this.state === 'streaming'
+            ? ('connected' as const)
+            : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -332,6 +368,7 @@ export class Controller implements ControllerInterface {
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
+    this.headerSource.stop();
     this.cache.clear();
     if (this.options.datafile) {
       this.cache.seed(tagData(this.options.datafile, 'provided'));
@@ -355,7 +392,14 @@ export class Controller implements ControllerInterface {
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (result) {
-      cacheStatus = this.isConnected ? 'HIT' : 'STALE';
+      const metadata = this.cache.metadata;
+      // Snapshots must not turn request headers into freshness evidence.
+      const status =
+        metadata && this.state !== 'vercel'
+          ? this.cacheReadPolicy.getStatus(metadata)
+          : 'unknown';
+
+      cacheStatus = status === 'fresh' ? 'HIT' : 'STALE';
     } else {
       // Preserve snapshot loading without starting stream/poll initialization.
       const bundled = await this.bundledSource.tryLoad();
@@ -392,9 +436,10 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState: this.isConnected
-          ? ('connected' as const)
-          : ('disconnected' as const),
+        connectionState:
+          this.state === 'streaming'
+            ? ('connected' as const)
+            : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -408,7 +453,7 @@ export class Controller implements ControllerInterface {
   }
 
   // ---------------------------------------------------------------------------
-  // Data resolution (shared by read() and getDatafile())
+  // Data resolution
   // ---------------------------------------------------------------------------
 
   /**
@@ -416,21 +461,68 @@ export class Controller implements ControllerInterface {
    * current mode. Returns tagged data and cache status.
    *
    * Build step: cached → bundled → one-time fetch
-   * Runtime with cache: return cached data
-   * Runtime without cache: stream/poll → datafile → bundled → fetch → throw
+   * Runtime: source policy chooses cached data or refresh; fall back if empty.
    */
   private async resolveData(): Promise<[TaggedData, Metrics['cacheStatus']]> {
     if (this.options.buildStep) {
       return this.resolveDataForBuildStep();
     }
 
-    const data = this.cache.read();
-    if (data) {
-      const cacheStatus = this.isConnected ? 'HIT' : 'STALE';
-      return [data, cacheStatus];
+    const usingHeaders = this.state === 'vercel';
+    if (usingHeaders && !this.headerSource.isAvailable()) {
+      this.headerModeDisabled = true;
+      this.cache.cancelFetch();
+      this.headerSource.stop();
+      // The existing fallback chain starts stream/poll; concurrent reads share it.
+      this.sourceStartup = this.resolveDataWithFallbacks().finally(() => {
+        this.sourceStartup = undefined;
+      });
+    }
+    if (this.sourceStartup) {
+      await this.sourceStartup;
+      if (this.state === 'shutdown') {
+        throw new Error('@vercel/flags-core: Client is shut down');
+      }
     }
 
+    let result: [TaggedData, Metrics['cacheStatus']] | undefined;
+    try {
+      result = await this.cache.resolve(this.cacheReadPolicy);
+    } catch (error) {
+      if (
+        !usingHeaders ||
+        !this.headerModeDisabled ||
+        this.state === 'shutdown'
+      ) {
+        throw error;
+      }
+      // An old header fetch may finish after handover; read from the new source.
+      if (this.sourceStartup) await this.sourceStartup;
+      result = await this.cache.resolve(this.cacheReadPolicy);
+    }
+    if (result) return result;
+
     return this.resolveDataWithFallbacks();
+  }
+
+  private get cacheReadPolicy(): CacheReadPolicy {
+    if (this.state === 'vercel') {
+      return {
+        getStatus: this.headerSource.getStatusCheck(),
+        fetch: this.headerSource.fetch,
+      };
+    }
+
+    if (this.state === 'streaming') {
+      return { getStatus: this.streamSource.getStatus };
+    }
+
+    // Seeded initialization can leave the active poller in 'initializing:polling'.
+    if (this.state === 'polling' || this.state === 'initializing:polling') {
+      return { getStatus: this.pollingSource.getStatus };
+    }
+
+    return { getStatus: () => 'unknown' };
   }
 
   // ---------------------------------------------------------------------------
@@ -507,7 +599,7 @@ export class Controller implements ControllerInterface {
     if (this.options.polling.initTimeoutMs <= 0) {
       try {
         await pollPromise;
-        if (this.cache.hasData) {
+        if (this.state !== 'shutdown' && this.cache.hasData) {
           this.pollingSource.startInterval();
           return true;
         }
@@ -537,7 +629,7 @@ export class Controller implements ControllerInterface {
         return false;
       }
 
-      if (this.cache.hasData) {
+      if (this.state !== 'shutdown' && this.cache.hasData) {
         this.pollingSource.startInterval();
         return true;
       }
@@ -660,7 +752,7 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Retrieves data using the fallback chain (called when no cached data exists).
+   * Retrieves data when the cache is empty or header mode is unavailable.
    * Streaming mode: stream → datafile → bundled.
    * Polling mode: poll → datafile → bundled.
    * Offline mode: datafile → bundled → one-time fetch.
@@ -668,6 +760,7 @@ export class Controller implements ControllerInterface {
   private async resolveDataWithFallbacks(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
+    const switchingFromHeaders = this.state === 'vercel';
     // Try the configured primary source
     if (this.options.stream.enabled) {
       this.transition('initializing:stream');
@@ -679,11 +772,20 @@ export class Controller implements ControllerInterface {
     } else if (this.options.polling.enabled) {
       this.transition('initializing:polling');
       const pollingSuccess = await this.tryInitializePolling();
+      if (switchingFromHeaders && this.state !== 'shutdown') {
+        // Missing headers must not leave the client without updates after a timeout.
+        this.pollingSource.startInterval();
+        this.transition('polling');
+      }
       if (pollingSuccess && this.cache.hasData) {
         this.transition('polling');
         return [this.cache.read()!, 'MISS'];
       }
     }
+
+    // Handover can start with newer cached data; do not replace it with the seed.
+    const cached = this.cache.read();
+    if (cached) return [cached, 'STALE'];
 
     // Fallback chain: datafile → bundled → one-time fetch
     this.transition('initializing:fallback');

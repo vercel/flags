@@ -38,6 +38,151 @@ afterEach(() => {
 });
 
 describe('DatafileCache', () => {
+  describe('freshness age', () => {
+    it.each([
+      undefined,
+      500,
+    ])('resets age without changing stored fetchedAt %s or data', (fetchedAt) => {
+      const cache = new DatafileCache();
+      const original = Object.freeze({ ...data('bundled'), fetchedAt });
+      cache.seed(original);
+      vi.setSystemTime(2_000);
+      cache.resetAge();
+      expect(cache.ageMs).toBe(0);
+      expect(cache.read()).toBe(original);
+      expect(original.fetchedAt).toBe(fetchedAt);
+      expect(original._origin).toBe('bundled');
+      vi.setSystemTime(2_100);
+      expect(cache.ageMs).toBe(100);
+    });
+
+    it.each([
+      0, 100,
+    ])('preserves the first failure and deadline when resetting age with SIE %s, including after expiry', (staleIfErrorMs) => {
+      const cache = new DatafileCache(staleIfErrorMs);
+      const original = Object.freeze({ ...data(), fetchedAt: 500 });
+      cache.seed(original);
+      const firstError = new Error('first outage');
+      cache.fail(firstError);
+      vi.setSystemTime(1_050);
+      cache.resetAge();
+      expect(cache.ageMs).toBe(0);
+      if (staleIfErrorMs === 0) {
+        expect(() => cache.read()).toThrow(firstError);
+      } else {
+        expect(cache.read()).toBe(original);
+      }
+
+      cache.fail(new Error('later outage'));
+      vi.setSystemTime(1_100);
+      cache.resetAge();
+      expect(cache.ageMs).toBe(0);
+      if (staleIfErrorMs === 0) {
+        expect(() => cache.read()).toThrow(firstError);
+      } else {
+        expect(cache.read()).toBe(original);
+      }
+
+      vi.setSystemTime(1_101);
+      expect(() => cache.read()).toThrow(firstError);
+      cache.resetAge();
+      expect(cache.ageMs).toBe(0);
+      expect(() => cache.read()).toThrow(firstError);
+      expect(original.fetchedAt).toBe(500);
+      vi.setSystemTime(1_200);
+      expect(cache.ageMs).toBe(99);
+      expect(() => cache.read()).toThrow(firstError);
+    });
+
+    it('does not establish age while empty or make a later unknown-age seed fresh', () => {
+      const cache = new DatafileCache();
+      cache.resetAge();
+      expect(cache.ageMs).toBe(Infinity);
+      expect(cache.read()).toBeUndefined();
+      vi.setSystemTime(1_100);
+      const original = Object.freeze(data());
+      cache.seed(original);
+      expect(cache.ageMs).toBe(Infinity);
+      expect(cache.read()).toBe(original);
+    });
+
+    it.each([
+      0, 500, 1_000, 2_000,
+    ])('restores age from persisted fetchedAt %s without changing storage', (fetchedAt) => {
+      const cache = new DatafileCache();
+      const original = Object.freeze({ ...data(), fetchedAt });
+      cache.seed(original);
+      expect(cache.ageMs).toBe(Math.max(0, 1_000 - fetchedAt));
+      expect(cache.read()).toBe(original);
+
+      vi.setSystemTime(3_000);
+      expect(cache.ageMs).toBe(3_000 - fetchedAt);
+      expect(original.fetchedAt).toBe(fetchedAt);
+    });
+
+    it.each([
+      undefined,
+      -1,
+      NaN,
+      Infinity,
+      -Infinity,
+      '500',
+      null,
+    ])('treats invalid or missing fetchedAt %s as unknown age', (fetchedAt) => {
+      const cache = new DatafileCache();
+      cache.updateFromSource(response(), 'fetched');
+      expect(cache.ageMs).toBe(0);
+      const original = Object.freeze({ ...data(), fetchedAt }) as TaggedData;
+      cache.seed(original);
+      expect(cache.ageMs).toBe(Infinity);
+      vi.setSystemTime(2_000);
+      expect(cache.ageMs).toBe(Infinity);
+      expect(cache.read()).toBe(original);
+      expect(original.fetchedAt).toBe(fetchedAt);
+    });
+
+    it.each([
+      'configUpdatedAt',
+      'revision',
+    ] as const)('resets age on valid %s confirmation while retaining fetchedAt and origin', (version) => {
+      const cache = new DatafileCache();
+      const original = Object.freeze({
+        ...data('bundled'),
+        revision: 42,
+        fetchedAt: 500,
+      });
+      cache.seed(original);
+      vi.setSystemTime(2_000);
+      expect(cache.ageMs).toBe(1_500);
+      expect(cache.tryConfirm(original, version)).toBe(true);
+      expect(cache.ageMs).toBe(0);
+      expect(cache.read()).toBe(original);
+      expect(original.fetchedAt).toBe(500);
+      expect(original._origin).toBe('bundled');
+      vi.setSystemTime(2_100);
+      expect(cache.ageMs).toBe(100);
+    });
+
+    it('clears storage and age without clearing the first failure', () => {
+      const cache = new DatafileCache(100);
+      cache.updateFromSource(response(), 'fetched');
+      const error = new Error('first outage');
+      cache.fail(error);
+      vi.setSystemTime(1_050);
+      expect(cache.ageMs).toBe(50);
+      cache.clear();
+      expect(cache.ageMs).toBe(Infinity);
+      expect(cache.read()).toBeUndefined();
+      expect(cache.tryConfirm(response())).toBe(false);
+      expect(cache.ageMs).toBe(Infinity);
+      cache.seed(Object.freeze({ ...data(), fetchedAt: 1_050 }));
+      expect(cache.ageMs).toBe(0);
+      vi.setSystemTime(1_101);
+      expect(cache.ageMs).toBe(51);
+      expect(() => cache.read()).toThrow(error);
+    });
+  });
+
   it.each([
     0,
     100,
@@ -48,6 +193,7 @@ describe('DatafileCache', () => {
     });
     const cache = new DatafileCache(staleIfErrorMs);
     expect(cache.hasData).toBe(false);
+    expect(cache.ageMs).toBe(Infinity);
     expect(cache.revision).toBeUndefined();
     expect(cache.read()).toBeUndefined();
 
@@ -230,18 +376,20 @@ describe('DatafileCache', () => {
     Partial<DatafileInput>,
   ][])('rejects %s without changing storage or the failure deadline', (_, overrides) => {
     const cache = new DatafileCache(100);
-    const original = data();
+    const original = Object.freeze({ ...data(), fetchedAt: 500 });
     cache.seed(original);
     const error = new Error('first outage');
     cache.fail(error);
     vi.setSystemTime(1_050);
 
     expect(cache.tryConfirm(response(overrides))).toBe(false);
+    expect(cache.ageMs).toBe(550);
     expect(cache.read()).toBe(original);
     vi.setSystemTime(1_100);
     expect(cache.read()).toBe(original);
     vi.setSystemTime(1_101);
     expect(() => cache.read()).toThrow(error);
+    expect(cache.ageMs).toBe(601);
   });
 
   it.each([
@@ -262,6 +410,7 @@ describe('DatafileCache', () => {
     expect(cache.tryConfirm(response())).toBe(false);
     expect(cache.tryConfirm(response({ configUpdatedAt }))).toBe(false);
     expect(cache.tryConfirm(original)).toBe(false);
+    expect(cache.ageMs).toBe(Infinity);
     expect(cache.read()).toBe(original);
     vi.setSystemTime(1_101);
     expect(() => cache.read()).toThrow(error);
@@ -337,6 +486,7 @@ describe('DatafileCache', () => {
       expect(cache.tryConfirm(incoming)).toBe(false);
       expect(() => cache.read()).toThrow(firstError);
       expect(cache.tryConfirm(incoming, 'revision')).toBe(true);
+      expect(cache.ageMs).toBe(0);
       expect(cache.read()).toBe(original);
       expect(original._origin).toBe('bundled');
       expect(incoming).toEqual({
@@ -368,7 +518,11 @@ describe('DatafileCache', () => {
       ['negative infinite revision', { revision: -Infinity }],
     ])('rejects %s without replacing data or changing the failure deadline', (_, overrides) => {
       const cache = new DatafileCache(100);
-      const original = Object.freeze({ ...data('bundled'), revision: 42 });
+      const original = Object.freeze({
+        ...data('bundled'),
+        revision: 42,
+        fetchedAt: 500,
+      });
       cache.seed(original);
       // Network payloads can contain malformed revisions despite the static type.
       const incoming = Object.freeze({
@@ -383,6 +537,7 @@ describe('DatafileCache', () => {
       vi.setSystemTime(1_050);
 
       expect(cache.tryConfirm(incoming, 'revision')).toBe(false);
+      expect(cache.ageMs).toBe(550);
       expect(cache.read()).toBe(original);
       vi.setSystemTime(1_100);
       expect(cache.read()).toBe(original);
@@ -390,9 +545,12 @@ describe('DatafileCache', () => {
       expect(() => cache.read()).toThrow(error);
       expect(cache.revision).toBe(42);
       expect(cache.tryConfirm(incoming, 'revision')).toBe(false);
+      expect(cache.ageMs).toBe(601);
       expect(() => cache.read()).toThrow(error);
 
       expect(cache.tryConfirm(original, 'revision')).toBe(true);
+      expect(cache.ageMs).toBe(0);
+      expect(original.fetchedAt).toBe(500);
       expect(cache.read()).toBe(original);
     });
 
@@ -419,6 +577,7 @@ describe('DatafileCache', () => {
         false,
       );
       expect(cache.tryConfirm(original, 'revision')).toBe(false);
+      expect(cache.ageMs).toBe(Infinity);
       expect(cache.read()).toBe(original);
       vi.setSystemTime(1_101);
       expect(cache.tryConfirm(original, 'revision')).toBe(false);
@@ -431,6 +590,7 @@ describe('DatafileCache', () => {
     it.each([
       'poll',
       'stream',
+      'fetched',
     ] as const)('accepts the first %s response and clears a failure recorded while empty', (origin) => {
       const cache = new DatafileCache(0);
       cache.fail(new Error('failed before data arrived'));
@@ -439,8 +599,14 @@ describe('DatafileCache', () => {
       const snapshot = { ...incoming };
 
       expect(cache.updateFromSource(incoming, origin)).toBeUndefined();
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({ ...snapshot, _origin: origin });
+      expect(cache.ageMs).toBe(0);
+      expect(cache.read()).not.toBe(incoming);
+      expect(cache.read()).toEqual({
+        ...snapshot,
+        _origin: origin,
+        fetchedAt: 2_000,
+      });
+      expect(incoming).toEqual(snapshot);
       expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -475,14 +641,22 @@ describe('DatafileCache', () => {
       const snapshot = { ...incoming };
 
       expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({ ...snapshot, _origin: 'poll' });
+      expect(cache.ageMs).toBe(0);
+      const accepted = cache.read();
+      expect(accepted).not.toBe(incoming);
+      expect(accepted).toEqual({
+        ...snapshot,
+        _origin: 'poll',
+        fetchedAt: 2_000,
+      });
+      expect(incoming).toEqual(snapshot);
       expect(cache.read()?.definitions).toBe(incoming.definitions);
 
       const nextError = new Error('second outage');
       cache.fail(nextError);
       vi.setSystemTime(2_100);
-      expect(cache.read()).toBe(incoming);
+      expect(cache.ageMs).toBe(100);
+      expect(cache.read()).toBe(accepted);
       vi.setSystemTime(2_101);
       expect(() => cache.read()).toThrow(nextError);
     });
@@ -497,11 +671,13 @@ describe('DatafileCache', () => {
       const incoming = response({ ...overrides, configUpdatedAt: 2 });
 
       cache.updateFromSource(incoming, 'stream');
-      expect(cache.read()).toBe(incoming);
-      expect(incoming).toEqual({
-        ...response({ ...overrides, configUpdatedAt: 2 }),
+      expect(cache.read()).not.toBe(incoming);
+      expect(cache.read()).toEqual({
+        ...incoming,
         _origin: 'stream',
+        fetchedAt: 1_000,
       });
+      expect(incoming).toEqual(response({ ...overrides, configUpdatedAt: 2 }));
     });
 
     it.each([
@@ -516,6 +692,7 @@ describe('DatafileCache', () => {
       const original = Object.freeze({
         ...data('bundled'),
         configUpdatedAt: current,
+        fetchedAt: 500,
       });
       cache.seed(original);
       const incoming = Object.freeze(response({ configUpdatedAt: next }));
@@ -526,6 +703,8 @@ describe('DatafileCache', () => {
       expect(() => cache.read()).toThrow(error);
 
       expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
+      expect(cache.ageMs).toBe(0);
+      expect(original.fetchedAt).toBe(500);
       expect(cache.read()).toBe(original);
       expect(original._origin).toBe('bundled');
       expect(incoming).toEqual(snapshot);
@@ -646,29 +825,36 @@ describe('DatafileCache', () => {
         cache.seed(oldResponse);
         const replacement = response({ configUpdatedAt: 2 });
         cache.updateFromSource(replacement, 'poll');
-        expect(cache.read()).toBe(replacement);
-        expect(cache.read()?._origin).toBe('poll');
+        const accepted = cache.read();
+        expect(accepted).not.toBe(replacement);
+        expect(accepted).toEqual({
+          ...replacement,
+          _origin: 'poll',
+          fetchedAt: 1_000,
+        });
         const error = new Error('replacement outage');
         cache.fail(error);
         vi.setSystemTime(1_050);
 
         cache.updateFromSource(oldResponse, 'stream');
+        expect(cache.ageMs).toBe(50);
         if (staleIfErrorMs === 0) {
           expect(() => cache.read()).toThrow(error);
         } else {
-          expect(cache.read()).toBe(replacement);
+          expect(cache.read()).toBe(accepted);
         }
         expect(oldResponse._origin).toBe('bundled');
         vi.setSystemTime(1_100);
         if (staleIfErrorMs === 0) {
           expect(() => cache.read()).toThrow(error);
         } else {
-          expect(cache.read()).toBe(replacement);
+          expect(cache.read()).toBe(accepted);
         }
         vi.setSystemTime(1_101);
         expect(() => cache.read()).toThrow(error);
         expect(cache.tryConfirm(replacement)).toBe(true);
-        expect(cache.read()).toBe(replacement);
+        expect(cache.ageMs).toBe(0);
+        expect(cache.read()).toBe(accepted);
       });
     });
   });
