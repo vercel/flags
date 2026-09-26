@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.8.4
+
+### Patch Changes
+
+- [#396](https://github.com/vercel/flags/pull/396) [`c3026fe`](https://github.com/vercel/flags/commit/c3026fe78b527f8c4300f444751ef4f9325db50e) Thanks [@Nexory](https://github.com/Nexory)! - fix(typed-emitter): clean up empty Set from Map on last off() call
+
 ## 1.8.3
 
 ### Patch Changes
