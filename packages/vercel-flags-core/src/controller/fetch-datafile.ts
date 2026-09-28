@@ -1,6 +1,6 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
-import type { Auth } from './auth';
+import { type Auth, authHeaders, unauthorizedMessage } from './auth';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -60,7 +60,7 @@ export async function fetchDatafile(options: {
     signal.throwIfAborted();
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...authHeaders(token, options.auth.sourceProjectId),
         'User-Agent': `VercelFlagsCore/${version}`,
         ...(process.env.VERCEL_ENV
           ? { 'X-Vercel-Env': process.env.VERCEL_ENV }
@@ -71,7 +71,12 @@ export async function fetchDatafile(options: {
     signal.throwIfAborted();
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
-      throw new DatafileHttpError(res.status, res.statusText);
+      throw new DatafileHttpError(
+        res.status,
+        res.status === 401 && options.auth.sourceProjectId
+          ? unauthorizedMessage(options.auth.sourceProjectId)
+          : res.statusText,
+      );
     }
 
     const data = (await res.json()) as BundledDefinitions;

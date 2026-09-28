@@ -2,6 +2,7 @@ import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
+import { authHeaders, unauthorizedMessage } from './auth';
 
 export type PrimedMessage = {
   type: 'primed';
@@ -30,8 +31,8 @@ function backoff(retryCount: number): number {
 }
 
 export class UnauthorizedError extends Error {
-  constructor() {
-    super('stream: unauthorized (401)');
+  constructor(sourceProjectId?: string) {
+    super(`stream: ${unauthorizedMessage(sourceProjectId)}`);
     this.name = 'UnauthorizedError';
   }
 }
@@ -56,6 +57,8 @@ export type StreamConfig = {
   /** Returns the current revision number to send as X-Revision header */
   revision?: () => number | undefined;
   resolveToken: () => Promise<string>;
+  /** Sent as X-Vercel-Flags-Project-Id when reading another project's flags */
+  sourceProjectId?: string;
 };
 
 /**
@@ -125,7 +128,7 @@ export async function connectStream(
           throw new TokenResolutionError(error);
         });
         const headers: Record<string, string> = {
-          Authorization: `Bearer ${token}`,
+          ...authHeaders(token, config.sourceProjectId),
           'User-Agent': `VercelFlagsCore/${version}`,
           'X-Retry-Attempt': String(retryCount),
         };
@@ -155,7 +158,7 @@ export async function connectStream(
         if (!response.ok) {
           if (response.status === 401) {
             if (!initialDataReceived) {
-              rejectInit!(new UnauthorizedError());
+              rejectInit!(new UnauthorizedError(config.sourceProjectId));
             }
             abortController.abort();
             break;

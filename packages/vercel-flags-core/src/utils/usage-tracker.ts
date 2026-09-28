@@ -1,7 +1,7 @@
 import type { WaitUntil } from '../types';
 import { type IngestOptions, sendIngestEvents } from './ingest';
 import { getRequestContext } from './request-context';
-import { getRuntimeIngest } from './runtime-ingest';
+import { getRuntimeIngestFor } from './runtime-ingest';
 import { type FlushReason, Scheduler } from './scheduler';
 import {
   FlagsConfigReadEvent,
@@ -117,7 +117,7 @@ export class UsageTracker {
    * otherwise falls back to the time-based scheduler.
    */
   private requestFlush(): void {
-    if (getRuntimeIngest()) {
+    if (getRuntimeIngestFor(this.options.auth)) {
       // Track the flush so shutdown() can drain it: events the runtime does
       // not accept fall back to the async HTTP transport, which outlives this
       // synchronous call. When the runtime accepts everything the promise is

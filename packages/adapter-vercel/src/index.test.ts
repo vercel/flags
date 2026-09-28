@@ -272,6 +272,36 @@ describe('when used with getProviderData', () => {
       hints: [],
     } satisfies ProviderData);
   });
+
+  it('uses the project named by the origin without fetching', async () => {
+    const datafileRequests = vi.fn();
+    server.use(
+      http.get('https://flags.vercel.com/v1/datafile', () => {
+        datafileRequests();
+        return HttpResponse.json({
+          projectId: 'prj_xxx',
+          definitions: {},
+          segments: {},
+        });
+      }),
+    );
+
+    const connectedClient = {
+      origin: { provider: 'vercel', projectId: 'prj_source' },
+    } as unknown as FlagsClient;
+    const testFlag = flag({
+      key: 'test-flag',
+      adapter: createVercelAdapter(connectedClient)(),
+    });
+
+    const providerData = await getProviderData({ testFlag });
+
+    expect(datafileRequests).not.toHaveBeenCalled();
+    expect(providerData.definitions['test-flag']?.origin).toEqual({
+      provider: 'vercel',
+      projectId: 'prj_source',
+    });
+  });
 });
 
 describe('vercelAdapter', () => {

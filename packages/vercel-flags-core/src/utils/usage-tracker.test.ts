@@ -1399,4 +1399,44 @@ describe('runtime ingest transport', () => {
     await tracker.shutdown();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('batches over HTTP for another project even when the runtime provides a transport', async () => {
+    ingestMock.mockReturnValue(true);
+    fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+    const tracker = new UsageTracker({
+      waitUntil,
+      auth: {
+        sourceProjectId: 'prj_source',
+        resolveToken: () => Promise.resolve('oidc-token'),
+        resolveBundledDefinitionsLookup: () =>
+          Promise.resolve({
+            type: 'project-id' as const,
+            projectId: 'prj_source',
+          }),
+      },
+      host: 'https://example.com',
+      fetch: fetchMock,
+    });
+    for (let i = 0; i < 5; i++) {
+      tracker.trackEvaluation({
+        flagKey: `flag-${i}`,
+        variant: 'on',
+        reason: ResolutionReason.RULE_MATCH,
+      });
+    }
+
+    expect(ingestMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await tracker.shutdown();
+
+    expect(ingestMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getBody()).toHaveLength(5);
+    expect(getHeaders()).toMatchObject({
+      Authorization: 'Bearer oidc-token',
+      'X-Vercel-Flags-Project-Id': 'prj_source',
+    });
+  });
 });
