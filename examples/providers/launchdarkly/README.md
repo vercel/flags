@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=FLAGS_SECRET,LAUNCHDARKLY_API_KEY,LAUNCHDARKLY_ENVIRONMENT&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
@@ -31,6 +31,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 For a linked Vercel project, `vercel env pull` can populate `.env.local`.
 
 The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change their values in LaunchDarkly and refresh the page once Global Config has synced. Every visitor uses the same `demo-user` context; replace `identify` in `flags.ts` to add user targeting.
+
+## Flags Explorer
+
+The discovery endpoint at `/.well-known/vercel/flags` loads flag metadata from LaunchDarkly using `getProviderData` from `@flags-sdk/launchdarkly`, protected by `FLAGS_SECRET`. The page reports evaluated values to the toolbar.
+
+Set `LAUNCHDARKLY_API_KEY` to a LaunchDarkly REST API access token with read access to flags, and `LAUNCHDARKLY_ENVIRONMENT` to your environment key (for example, `test`). These are separate from the client-side ID and Global Config connection string. Discovery uses `LAUNCHDARKLY_PROJECT_SLUG` to load flags from the project and the environment key for dashboard links.
+
+The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment as a regular environment variable (Config). Alternatively, pull an existing value with `vercel env pull .env.local`. Restart the dev server after linking.
+
+Sign in to the toolbar and open Flags Explorer to override the greeting or banner for your session. Vercel injects the toolbar on preview deployments when enabled in project settings; configure the credentials and a matching `FLAGS_SECRET` for that environment.
 
 ## Run as a standalone project
 

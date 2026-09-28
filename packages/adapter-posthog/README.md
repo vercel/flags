@@ -44,11 +44,43 @@ POSTHOG_SECRET_KEY=phs_...
 For the Flags Explorer, read by `getProviderData` only:
 
 ```bash
-# Settings > User > Personal API keys
-POSTHOG_PERSONAL_API_KEY=phx_...
+# Settings > Project > Project secret API keys (feature_flag:read scope)
+POSTHOG_PROJECT_SECRET_API_KEY=phs_...
+# Alternatively: Settings > User > Personal API keys (feature_flag:read scope)
+# POSTHOG_PERSONAL_API_KEY=phx_...
 # Settings > Project > Project ID
 POSTHOG_PROJECT_ID=521742
 ```
+
+## Flags Explorer metadata
+
+`getProviderData` supports either a project secret API key or a personal API key.
+Existing personal-key calls continue to use the paginated management API:
+
+```ts
+import { getProviderData } from "@flags-sdk/posthog";
+
+await getProviderData({
+  personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
+  projectId: process.env.POSTHOG_PROJECT_ID!,
+});
+```
+
+To use a project-scoped key with `feature_flag:read`, select the definitions API:
+
+```ts
+await getProviderData({
+  projectSecretApiKey: process.env.POSTHOG_PROJECT_SECRET_API_KEY!,
+  projectId: process.env.POSTHOG_PROJECT_ID!,
+});
+```
+
+Both modes read `POSTHOG_HOST` by default. `appHost` overrides the dashboard host;
+project-key mode also accepts `apiHost` to override the ingestion host. The project
+ID supplies dashboard links in project-key mode; authentication needs only the key.
+Definitions include descriptions (`name`), boolean or multivariate options, and
+payload options. As before, nonempty payloads take precedence over flag values.
+Creation timestamps are available only from the personal-key management API.
 
 ## Evaluation modes
 
@@ -60,8 +92,8 @@ POSTHOG_PROJECT_ID=521742
   warm server process** and counts against your PostHog feature flag request quota
   regardless of user traffic.
 
-`POSTHOG_PERSONAL_API_KEY` is used only by the Flags Explorer (`getProviderData`) and
-does not enable local evaluation.
+`POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_SECRET_API_KEY` are used only by the
+Flags Explorer (`getProviderData`) and do not enable local evaluation.
 
 ## Runtimes
 

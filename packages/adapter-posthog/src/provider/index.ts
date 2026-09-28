@@ -1,44 +1,65 @@
 import type { FlagDefinitionsType, ProviderData } from 'flags';
 
-// See: https://posthog.com/docs/api/feature-flags#get-api-projects-project_id-feature_flags
-interface ApiData {
-  count: number;
-  next?: string | null;
-  previous?: string | null;
-  results: {
-    id: number;
-    key: string;
-    name: string;
-    created_at: string;
-    description: string;
-    deleted: boolean;
-    active: boolean;
-    is_simple_flag: boolean;
-    filters: {
-      payloads?: Record<string, string>;
-      multivariate?: Record<string, unknown>;
-    };
-  }[];
+interface PostHogFlag {
+  id: number;
+  key: string;
+  name: string;
+  created_at?: string;
+  filters: {
+    payloads?: Record<string, string>;
+    multivariate?: {
+      variants?: { key: string; name?: string }[];
+    } | null;
+  };
 }
 
-export async function getProviderData(options: {
-  personalApiKey: string;
+// Management API response (personal API keys).
+interface ApiData {
+  count: number;
+  results: PostHogFlag[];
+}
+
+// Definitions API response (project secret API keys).
+interface DefinitionsData {
+  flags: PostHogFlag[];
+}
+
+type ProviderOptions = {
   projectId: string;
   appHost?: string;
-}): Promise<ProviderData> {
+} & (
+  | { personalApiKey: string; projectSecretApiKey?: never; apiHost?: never }
+  | { projectSecretApiKey: string; personalApiKey?: never; apiHost?: string }
+);
+
+export async function getProviderData(
+  options: ProviderOptions,
+): Promise<ProviderData> {
+  const apiKeyMode: 'personal' | 'project' =
+    'projectSecretApiKey' in options ? 'project' : 'personal';
+  const apiKey =
+    apiKeyMode === 'project'
+      ? options.projectSecretApiKey
+      : options.personalApiKey;
   const hints: Exclude<ProviderData['hints'], undefined> = [];
 
-  if (!options.personalApiKey) {
+  if (!apiKey) {
     hints.push({
-      key: 'posthog/missing-personal-api-key',
-      text: 'Missing PostHog Personal API Key',
+      key:
+        apiKeyMode === 'project'
+          ? 'posthog/missing-project-secret-api-key'
+          : 'posthog/missing-personal-api-key',
+      text:
+        apiKeyMode === 'project'
+          ? 'Missing PostHog Project Secret API Key'
+          : 'Missing PostHog Personal API Key',
     });
   }
 
   let host = options.appHost;
   if (!host) {
     try {
-      host = getAppHost();
+      host = getAppHost(options.apiHost);
     } catch {
       hints.push({
         key: 'posthog/missing-app-host',
@@ -59,17 +80,23 @@ export async function getProviderData(options: {
   }
 
   const headers = {
-    Authorization: `Bearer ${options.personalApiKey}`,
+    Authorization: `Bearer ${apiKey}`,
   };
 
-  const res = await fetch(
-    `${host}/api/projects/${options.projectId}/feature_flags`,
-    {
-      method: 'GET',
-      headers,
-      cache: 'no-store',
-    },
-  );
+  // Definitions are served by the ingestion host, not the management API.
+  const apiHost =
+    apiKeyMode === 'project'
+      ? (options.apiHost ?? getApiHost(host!)).replace(/\/$/, '')
+      : undefined;
+  const endpoint =
+    apiKeyMode === 'project'
+      ? `${apiHost}/flags/definitions/`
+      : `${host}/api/projects/${options.projectId}/feature_flags`;
+  const res = await fetch(endpoint, {
+    method: 'GET',
+    headers,
+    cache: 'no-store',
+  });
 
   if (res.status !== 200) {
     return {
@@ -84,11 +111,15 @@ export async function getProviderData(options: {
   }
 
   try {
-    const data = (await res.json()) as ApiData;
-    const items: ApiData['results'] = [...data.results];
+    const data = (await res.json()) as ApiData | DefinitionsData;
+    const items =
+      apiKeyMode === 'project'
+        ? [...(data as DefinitionsData).flags]
+        : [...(data as ApiData).results];
 
-    // paginate in a parallel request
-    for (let offset = 100; offset < data.count; offset += 100) {
+    // Only the management API paginates its response.
+    const count = apiKeyMode === 'project' ? 0 : (data as ApiData).count;
+    for (let offset = 100; offset < count; offset += 100) {
       const paginatedRes = await fetch(
         `${host}/api/projects/${options.projectId}/feature_flags?offset=${offset}&limit=100`,
         {
@@ -114,15 +145,10 @@ export async function getProviderData(options: {
         acc[item.key] = {
           origin: `${host}/project/${options.projectId}/feature_flags/${item.id}`,
           description: item.name,
-          createdAt: new Date(item.created_at).getTime(),
-          options: !item.filters.payloads
-            ? [{ value: false }, { value: true }]
-            : Object.entries(item.filters.payloads ?? {}).map(
-                ([key, value]) => ({
-                  value: JSON.parse(value),
-                  label: key,
-                }),
-              ),
+          ...(item.created_at
+            ? { createdAt: new Date(item.created_at).getTime() }
+            : {}),
+          options: getFlagOptions(item),
         };
         return acc;
       }, {}),
@@ -165,3 +191,34 @@ export const getAppHost = (apiHost?: string) => {
 
   return host;
 };
+
+function getApiHost(host: string): string {
+  const appHost = host.replace(/\/$/, '');
+  if (appHost === 'https://us.posthog.com') return 'https://us.i.posthog.com';
+  if (appHost === 'https://eu.posthog.com') return 'https://eu.i.posthog.com';
+  return host;
+}
+
+function getFlagOptions(item: PostHogFlag) {
+  const payloads = Object.entries(item.filters.payloads ?? {});
+  // Preserve the existing payload-based options for payload adapters.
+  if (payloads.length > 0) {
+    return payloads.map(([key, value]) => ({
+      value: JSON.parse(value),
+      label: key,
+    }));
+  }
+
+  const variants = item.filters.multivariate?.variants;
+  if (variants?.length) {
+    return [
+      { value: false },
+      ...variants.map((variant) => ({
+        value: variant.key,
+        label: variant.name || variant.key,
+      })),
+    ];
+  }
+
+  return [{ value: false }, { value: true }];
+}
