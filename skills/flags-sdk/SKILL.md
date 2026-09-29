@@ -244,7 +244,7 @@ export const dashboardFlag = flag<boolean, Entities>({
 });
 ```
 
-With `vercelAdapter`, the entity and attribute names in the returned object (`user.id` here) are what dashboard rules and `vercel flags split|rollout|rules --by` target. They must match the entities configured in the dashboard. See [references/providers.md — User targeting](references/providers.md#user-targeting).
+With `vercelAdapter`, the entity and attribute names in the returned object (`user.id` here) are what dashboard rules and `vercel flags split|rollout|rules --by` target. They must match the entities and attribute types configured in the dashboard. See [references/providers.md — User targeting](references/providers.md#user-targeting) and [Attribute types](references/providers.md#attribute-types).
 
 ### Flag with another adapter
 
