@@ -632,9 +632,15 @@ export namespace Original {
          *   1_000 =     1%
          * 100_000 =   100%
          *
-         * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
+         * Once all slots are exhausted, serve finalPromille (100% by default).
          */
         slots: { promille: number; durationMs: number }[];
+        /**
+         * Traffic for rollToVariant after all slots are exhausted (0-100_000).
+         * Defaults to 100_000 (100%). For example, 50_000 ends at 50%.
+         * Before the start or when slots is empty, serve rollFromVariant.
+         */
+        finalPromille?: number;
       }
     | {
         type: 'experiment';
@@ -874,9 +880,15 @@ export namespace Packed {
      *   1_000 =     1%
      * 100_000 =   100%
      *
-     * Once all slots are exhausted, the rollout is complete (100% rollToVariant).
+     * Once all slots are exhausted, serve finalPromille (100% by default).
      */
     slots: [number, number][];
+    /**
+     * Traffic for rollToVariant after all slots are exhausted (0-100_000).
+     * Defaults to 100_000 (100%). For example, 50_000 ends at 50%.
+     * Before the start or when slots is empty, serve rollFromVariant.
+     */
+    finalPromille?: number;
   };
 
   export type experimental_ExperimentDefinition = {

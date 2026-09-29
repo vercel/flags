@@ -9,7 +9,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { version } from '../package.json';
 import type { StreamMessage } from './controller/stream-connection';
-import { type BundledDefinitions, createClient } from './index.default';
+import {
+  type BundledDefinitions,
+  createClient,
+  type Packed,
+} from './index.default';
 import { internalReportValue } from './lib/report-value';
 import { setRequestContext } from './test-utils';
 import { readBundledDefinitions } from './utils/read-bundled-definitions';
@@ -191,6 +195,156 @@ describe('Controller (black-box)', () => {
     // Clean up any request context set during the test
     const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
     delete (globalThis as any)[SYMBOL_FOR_REQ_CONTEXT];
+  });
+
+  describe('progressive rollout final percentages', () => {
+    const HOUR = 60 * 60 * 1000;
+    const startTimestamp = 1_000_000_000_000;
+
+    function makeRolloutClient(outcome: Packed.RolloutOutcome, asRule = false) {
+      const weights = [0, 0];
+      const finalPromille = outcome.finalPromille ?? 100_000;
+      weights[outcome.rollToVariant] = finalPromille;
+      weights[outcome.rollFromVariant] = 100_000 - finalPromille;
+      return createClient(sdkKey, {
+        stream: false,
+        polling: false,
+        fetch: fetchMock,
+        datafile: makeBundled({
+          definitions: {
+            rollout: {
+              seed: 7,
+              variants: ['from', 'to'],
+              environments: {
+                production: asRule
+                  ? { rules: [{ conditions: [], outcome }], fallthrough: 0 }
+                  : { fallthrough: outcome },
+              },
+            },
+            split: {
+              seed: 7,
+              variants: ['from', 'to'],
+              environments: {
+                production: {
+                  fallthrough: {
+                    type: 'split',
+                    base: outcome.base,
+                    weights,
+                    defaultVariant: outcome.defaultVariant,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      });
+    }
+
+    const makeOutcome = (
+      overrides: Partial<Packed.RolloutOutcome> = {},
+    ): Packed.RolloutOutcome => ({
+      type: 'rollout',
+      base: ['user', 'id'],
+      startTimestamp,
+      rollFromVariant: 0,
+      rollToVariant: 1,
+      defaultVariant: 0,
+      slots: [[10_000, HOUR]],
+      ...overrides,
+    });
+
+    for (const asRule of [false, true]) {
+      for (const rollToVariant of [0, 1]) {
+        it.each([
+          0,
+          25_000,
+          50_000,
+          100_000,
+          undefined,
+        ])(`ends at %s promille (asRule=${asRule}, rollToVariant=${rollToVariant})`, async (finalPromille) => {
+          const client = makeRolloutClient(
+            makeOutcome({
+              rollToVariant,
+              rollFromVariant: 1 - rollToVariant,
+              finalPromille,
+            }),
+            asRule,
+          );
+          try {
+            const finalValues = new Set<unknown>();
+            for (const elapsed of [HOUR, 100 * HOUR]) {
+              vi.setSystemTime(startTimestamp + elapsed);
+              for (let i = 0; i < 100; i++) {
+                const entities = { user: { id: `uid${i}` } };
+                const result = await client.evaluate('rollout', null, entities);
+                const split = await client.evaluate('split', null, entities);
+                expect(result.value).toBe(split.value);
+                expect(result.reason).toBe(
+                  asRule ? 'rule_match' : 'fallthrough',
+                );
+                expect(result.outcomeType).toBe('rollout');
+                finalValues.add(result.value);
+              }
+            }
+            if (finalPromille === 25_000 || finalPromille === 50_000) {
+              expect(finalValues).toEqual(new Set(['from', 'to']));
+            } else {
+              const index =
+                finalPromille === 0 ? 1 - rollToVariant : rollToVariant;
+              expect(finalValues).toEqual(new Set([['from', 'to'][index]]));
+            }
+          } finally {
+            await client.shutdown();
+          }
+        });
+      }
+    }
+
+    it('applies the final percentage only after the last slot ends', async () => {
+      const client = makeRolloutClient(
+        makeOutcome({
+          slots: [
+            [0, HOUR],
+            [100_000, HOUR],
+          ],
+          finalPromille: 0,
+        }),
+      );
+      try {
+        for (const [elapsed, value] of [
+          [-1, 'from'],
+          [0, 'from'],
+          [HOUR - 1, 'from'],
+          [HOUR, 'to'],
+          [2 * HOUR - 1, 'to'],
+          [2 * HOUR, 'from'],
+        ] as const) {
+          vi.setSystemTime(startTimestamp + elapsed);
+          expect(
+            (await client.evaluate('rollout', null, { user: { id: 'uid1' } }))
+              .value,
+          ).toBe(value);
+        }
+      } finally {
+        await client.shutdown();
+      }
+    });
+
+    it('preserves the empty schedule and missing attribute fallbacks', async () => {
+      vi.setSystemTime(startTimestamp + 100 * HOUR);
+      const client = makeRolloutClient(
+        makeOutcome({ slots: [], finalPromille: 50_000, defaultVariant: 1 }),
+      );
+      try {
+        expect(
+          (await client.evaluate('rollout', null, { user: { id: 'uid1' } }))
+            .value,
+        ).toBe('from');
+        expect((await client.evaluate('rollout', null, {})).value).toBe('to');
+      } finally {
+        await client.shutdown();
+      }
+    });
   });
 
   // ---------------------------------------------------------------------------

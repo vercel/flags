@@ -578,8 +578,8 @@ function resolveOutcome<T>(
 
       // Walk slots to find current promille.
       // Each slot's durationMs is how long that slot is served before
-      // moving to the next one. Once all slots are exhausted the
-      // rollout is complete (100% to rollToVariant).
+      // moving to the next one. Once all slots are exhausted, serve
+      // finalPromille (100% to rollToVariant by default).
       let cumulativeDuration = 0;
       let currentPromille = 0;
       let exhausted = true;
@@ -591,7 +591,7 @@ function resolveOutcome<T>(
           break;
         }
       }
-      if (exhausted) currentPromille = PROMILLE_SCALE;
+      if (exhausted) currentPromille = outcome.finalPromille ?? PROMILLE_SCALE;
 
       // short-circuit common edges
       if (currentPromille <= 0) {
