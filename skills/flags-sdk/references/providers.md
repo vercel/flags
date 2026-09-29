@@ -70,6 +70,22 @@ export const exampleFlag = flag<boolean, Entities>({
 
 Define the entities and attributes under Flags → Entities in the dashboard before you use them in rules or segments, and return the same names from `identify` ([Entities](https://vercel.com/docs/flags/vercel-flags/dashboard/entities)). The example above allows `--by user.id` / `--by team.id` in `vercel flags split`, `rollout`, and `rules add`, and the matching conditions in dashboard rules. Entities are evaluated fresh on every call; a rule whose attribute is missing from the context is skipped. See [How the CLI connects to the SDK](#how-the-cli-connects-to-the-sdk).
 
+#### Attribute types
+
+Each attribute has a type: String, Number, Boolean, String Array, or Timestamp. The value `identify` returns must match it.
+
+- **Timestamp** is a Unix epoch in **milliseconds** as a `number` (`Date.now()`, `user.createdAt.getTime()`, `1719792000000`). Do not pass a `Date`, an ISO string, or seconds.
+- Timestamp rules only compare: is after / is before / is at or after / is at or before (`gt` / `lt` / `gte` / `lte`). Equality, one-of, and exists operators are not available for Timestamp attributes.
+- Timestamp attributes cannot bucket a split or rollout (`--by`); use them in rule conditions only.
+- To release at a certain time, pass the current time as `system.time` and compare against it in a rule. Keep `Date.now()` inside `dedupe` so every flag in the request sees the same time:
+
+```ts
+const identify = dedupe(async () => ({
+  system: { time: Date.now() },
+  user: { id: 'user-456', signupAt: 1719792000000 },
+}));
+```
+
 ### Flags Explorer
 
 ```ts
@@ -146,6 +162,7 @@ For the current subcommand list and options, run `vercel flags --help` or `verce
 - **Variants → `options`**: `options` on the declaration are optional. They give Flags Explorer a dropdown, pre-fill the dashboard when a draft is promoted, and let precompute serialize values and `generatePermutations` enumerate them ([Declaring options](https://vercel.com/docs/flags/vercel-flags/sdks/flags-sdk#declaring-options)). When you declare them, keep them equal to the variants `inspect` shows.
 - **`defaultValue`**: a flag that is archived, or declared in code but not created on Vercel (a draft), evaluates to `defaultValue`. Without `defaultValue`, evaluation throws ([Archive](https://vercel.com/docs/flags/vercel-flags/dashboard/archive#what-happens-when-you-archive), [Drafts](https://vercel.com/docs/flags/vercel-flags/dashboard/drafts#draft-behavior)).
 - **Targeting attributes**: `split`, `rollout`, and `rules add` take `--by <entity>.<attribute>` (and `--condition <entity>.<attribute>:<op>:<value>`). Define the entity and attribute under Flags → Entities first, and return the same names from `identify()`; the docs use a `User` entity with an `id` attribute and `--by user.id` ([Roll out a feature](https://vercel.com/docs/flags/vercel-flags/cli/roll-out-feature), [Entities](https://vercel.com/docs/flags/vercel-flags/dashboard/entities)). When the attribute is missing from the context, a split or rollout serves its fallback variant (`--default-variant` in the CLI) and a rule that references it is skipped. Verify with `evaluations`.
+- **Timestamp conditions**: for Timestamp attributes, `--condition` accepts `gt`, `lt`, `gte`, `lte` or the aliases `after`, `before`, `at-or-after`, `at-or-before` with an ISO 8601 date-time or epoch milliseconds, for example `--condition system.time:at-or-after:2026-04-16T09:00:00Z`. `after` and `before` are exclusive; other operators are rejected. A date-time without a timezone uses the machine's local timezone, so include `Z` or an offset. `--by` rejects Timestamp attributes. See [Attribute types](#attribute-types).
 - **Authentication**: on Vercel, `vercelAdapter()` authenticates with the project's OIDC token and uses the configuration of the current environment; `vercel env pull` brings that credential to `.env.local` for local development. SDK keys (`FLAGS`) are for manual authentication: apps outside Vercel, custom environments, or flags owned by another project. Each SDK key is scoped to one environment and its full value is shown once, at creation ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials), [SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)).
 - **Overrides**: Flags Explorer stores overrides in a cookie signed with `FLAGS_SECRET`; flags declared with the SDK honour it automatically ([Handling overrides](https://vercel.com/docs/flags/flags-explorer/getting-started#handling-overrides)). `vercel flags override <key>=<value>` produces the same token for the `vercel-flag-overrides` cookie and reads `FLAGS_SECRET` from the environment or `.env.local`, so use the secret of the environment you test against (see [FLAGS_SECRET](../SKILL.md#flags_secret)).
 - **Embedded definitions**: Vercel builds fetch the flag definitions once and bundle them into the deployment when the project uses `@flags-sdk/vercel` or `@vercel/flags-core` and the build can authenticate. This keeps every function on one snapshot and serves as the runtime fallback when the service is unreachable; opt out with `VERCEL_FLAGS_DISABLE_DEFINITION_EMBEDDING=1` ([Embedded definitions](https://vercel.com/docs/flags/vercel-flags/sdks/core#embedded-definitions)). `vercel flags prepare` is the same step for builds that run outside Vercel.
