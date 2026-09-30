@@ -1,22 +1,12 @@
-import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import type { CacheReadPolicy } from './datafile-cache';
-import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
-import { TypedEmitter } from './typed-emitter';
 
-export type HeaderSourceEvents = {
-  data: (data: DatafileInput) => void;
-  error: (error: Error) => void;
-};
-
-/** Request version evidence and fetching; the cache decides how to serve reads. */
-export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
+/** Request version evidence; the cache decides how to serve reads. */
+export class HeaderSource {
   private highestObserved = 0;
 
-  constructor(private readonly options: NormalizedOptions) {
-    super();
-  }
+  constructor(private readonly options: NormalizedOptions) {}
 
   private getVersionHeader(): string | undefined {
     const { headers } = getRequestContext();
@@ -76,21 +66,6 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
     const timestamp = Number(value);
     return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
   }
-
-  fetch = async (signal: AbortSignal): Promise<void> => {
-    try {
-      const data = await fetchDatafile({ ...this.options, signal });
-      // Transports can finish after cancellation; never publish that response.
-      signal.throwIfAborted();
-      this.emit('data', data);
-    } catch (error) {
-      signal.throwIfAborted();
-      const err =
-        error instanceof Error ? error : new Error('Unknown header error');
-      this.emit('error', err);
-      throw err;
-    }
-  };
 
   isEnabled(): boolean {
     // Explicit offline mode disables header-driven refreshes too.

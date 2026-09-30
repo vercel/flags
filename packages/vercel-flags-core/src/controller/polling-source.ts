@@ -1,20 +1,15 @@
-import type { DatafileInput } from '../types';
-import type { Auth } from './auth';
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
-import { fetchDatafile } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
-  host: string;
-  auth: Auth;
   polling: {
     intervalMs: number;
   };
-  fetch: typeof globalThis.fetch;
+  staleWhileRevalidateMs: number;
+  refresh: () => Promise<void>;
 };
 
 export type PollingSourceEvents = {
-  data: (data: DatafileInput) => void;
   error: (error: Error) => void;
 };
 
@@ -26,37 +21,50 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   private config: PollingSourceConfig;
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private abortController: AbortController | undefined;
+  private polling: Promise<void> | undefined;
 
   constructor(config: PollingSourceConfig) {
     super();
     this.config = config;
   }
 
-  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => ({
-    status: ageMs <= this.config.polling.intervalMs ? 'fresh' : 'stale',
-  });
+  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
+    const staleAt = this.config.polling.intervalMs;
+    return {
+      status:
+        ageMs <= staleAt
+          ? 'fresh'
+          : this.config.staleWhileRevalidateMs > 0 &&
+              ageMs <= staleAt + this.config.staleWhileRevalidateMs
+            ? 'stale'
+            : 'expired',
+    };
+  };
 
   /**
    * Perform a single poll request.
    * Emits 'data' on success, 'error' on failure.
    */
   async poll(): Promise<void> {
+    if (this.polling) return this.polling;
     if (this.abortController?.signal.aborted) return;
     this.abortController ??= new AbortController();
     const controller = this.abortController;
 
-    try {
-      const data = await fetchDatafile({
-        ...this.config,
-        signal: controller.signal,
-      });
-      this.emit('data', data);
-    } catch (error) {
-      controller.signal.throwIfAborted();
-      const err =
-        error instanceof Error ? error : new Error('Unknown poll error');
-      this.emit('error', err);
-    }
+    this.polling = (async () => {
+      try {
+        await this.config.refresh();
+        controller.signal.throwIfAborted();
+      } catch (error) {
+        controller.signal.throwIfAborted();
+        const err =
+          error instanceof Error ? error : new Error('Unknown poll error');
+        this.emit('error', err);
+      }
+    })().finally(() => {
+      if (this.abortController === controller) this.polling = undefined;
+    });
+    return this.polling;
   }
 
   /**
@@ -84,5 +92,6 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     }
     this.abortController?.abort();
     this.abortController = undefined;
+    this.polling = undefined;
   }
 }

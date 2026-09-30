@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatafileInput } from '../types';
+import type { CacheFetch } from './datafile-cache';
 import { DatafileCache } from './datafile-cache';
 import type { TaggedData } from './tagged-data';
 
@@ -17,6 +18,10 @@ function response(overrides: Partial<DatafileInput> = {}): DatafileInput {
 function data(_origin: TaggedData['_origin'] = 'provided'): TaggedData {
   return { ...response(), _origin };
 }
+
+const unexpectedFetch: CacheFetch = async () => {
+  throw new Error('Unexpected cache fetch');
+};
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
 let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -43,7 +48,7 @@ describe('DatafileCache', () => {
       undefined,
       500,
     ])('resets age without changing stored fetchedAt %s or data', (fetchedAt) => {
-      const cache = new DatafileCache();
+      const cache = new DatafileCache(unexpectedFetch);
       const original = Object.freeze({ ...data('bundled'), fetchedAt });
       cache.seed(original);
       vi.setSystemTime(2_000);
@@ -59,7 +64,7 @@ describe('DatafileCache', () => {
     it.each([
       0, 100,
     ])('preserves the first failure and deadline when resetting age with SIE %s, including after expiry', (staleIfErrorMs) => {
-      const cache = new DatafileCache(staleIfErrorMs);
+      const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
       const original = Object.freeze({ ...data(), fetchedAt: 500 });
       cache.seed(original);
       const firstError = new Error('first outage');
@@ -95,7 +100,7 @@ describe('DatafileCache', () => {
     });
 
     it('does not establish age while empty or make a later unknown-age seed fresh', () => {
-      const cache = new DatafileCache();
+      const cache = new DatafileCache(unexpectedFetch);
       cache.resetAge();
       expect(cache.ageMs).toBe(Infinity);
       expect(cache.read()).toBeUndefined();
@@ -109,7 +114,7 @@ describe('DatafileCache', () => {
     it.each([
       0, 500, 1_000, 2_000,
     ])('restores age from persisted fetchedAt %s without changing storage', (fetchedAt) => {
-      const cache = new DatafileCache();
+      const cache = new DatafileCache(unexpectedFetch);
       const original = Object.freeze({ ...data(), fetchedAt });
       cache.seed(original);
       expect(cache.ageMs).toBe(Math.max(0, 1_000 - fetchedAt));
@@ -129,7 +134,7 @@ describe('DatafileCache', () => {
       '500',
       null,
     ])('treats invalid or missing fetchedAt %s as unknown age', (fetchedAt) => {
-      const cache = new DatafileCache();
+      const cache = new DatafileCache(unexpectedFetch);
       cache.updateFromSource(response(), 'fetched');
       expect(cache.ageMs).toBe(0);
       const original = Object.freeze({ ...data(), fetchedAt }) as TaggedData;
@@ -145,7 +150,7 @@ describe('DatafileCache', () => {
       'configUpdatedAt',
       'revision',
     ] as const)('resets age on valid %s confirmation while retaining fetchedAt and origin', (version) => {
-      const cache = new DatafileCache();
+      const cache = new DatafileCache(unexpectedFetch);
       const original = Object.freeze({
         ...data('bundled'),
         revision: 42,
@@ -164,7 +169,7 @@ describe('DatafileCache', () => {
     });
 
     it('clears storage and age without clearing the first failure', () => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       cache.updateFromSource(response(), 'fetched');
       const error = new Error('first outage');
       cache.fail(error);
@@ -191,7 +196,7 @@ describe('DatafileCache', () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
       throw new Error('Unexpected fetch');
     });
-    const cache = new DatafileCache(staleIfErrorMs);
+    const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
     expect(cache.hasData).toBe(false);
     expect(cache.ageMs).toBe(Infinity);
     expect(cache.revision).toBeUndefined();
@@ -216,7 +221,7 @@ describe('DatafileCache', () => {
   });
 
   it('stores data without an age-based expiry when no failure exists', () => {
-    const cache = new DatafileCache(0);
+    const cache = new DatafileCache(unexpectedFetch, 0);
     const original = data();
     expect(cache.seed(original)).toBeUndefined();
     expect(cache.read()).toBe(original);
@@ -226,7 +231,7 @@ describe('DatafileCache', () => {
   });
 
   it('starts the inclusive allowance at the first failure, not storage time', () => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     const original = { ...data('poll'), revision: 42 };
     cache.seed(original);
     vi.setSystemTime(2_000);
@@ -249,7 +254,7 @@ describe('DatafileCache', () => {
   });
 
   it.each([0, -1])('fails immediately with policy %s', (staleIfErrorMs) => {
-    const cache = new DatafileCache(staleIfErrorMs);
+    const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
     const original = data();
     cache.seed(original);
     expect(cache.read()).toBe(original);
@@ -265,7 +270,7 @@ describe('DatafileCache', () => {
     undefined,
     Infinity,
   ])('allows unlimited stale reads with policy %s', (staleIfErrorMs) => {
-    const cache = new DatafileCache(staleIfErrorMs);
+    const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
     const original = data();
     cache.seed(original);
     cache.fail(new Error('poll failed'));
@@ -277,7 +282,7 @@ describe('DatafileCache', () => {
   });
 
   it('does not clear or renew failure when seeding network data', () => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     cache.seed(data('poll'));
     const error = new Error('poll failed');
     cache.fail(error);
@@ -293,7 +298,7 @@ describe('DatafileCache', () => {
     'provided',
     'bundled',
   ] as const)('restores %s seeds only within the original failure deadline', (origin) => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     const seed = data(origin);
     cache.seed(seed);
     const firstError = new Error('first poll failed');
@@ -318,7 +323,7 @@ describe('DatafileCache', () => {
   });
 
   it('clears failure on a matching raw source response without replacing data', () => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     const original = data();
     cache.seed(original);
     const incoming = response();
@@ -346,7 +351,7 @@ describe('DatafileCache', () => {
     ['1', '1'],
     [0, '0'],
   ])('confirms equal finite versions (%s and %s)', (current, incoming) => {
-    const cache = new DatafileCache(0);
+    const cache = new DatafileCache(unexpectedFetch, 0);
     const original = { ...data(), configUpdatedAt: current };
     cache.seed(original);
     const error = new Error('poll failed');
@@ -375,7 +380,7 @@ describe('DatafileCache', () => {
     string,
     Partial<DatafileInput>,
   ][])('rejects %s without changing storage or the failure deadline', (_, overrides) => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     const original = Object.freeze({ ...data(), fetchedAt: 500 });
     cache.seed(original);
     const error = new Error('first outage');
@@ -401,7 +406,7 @@ describe('DatafileCache', () => {
     'Infinity',
     -Infinity,
   ])('never confirms invalid current version %s, even for the same object', (configUpdatedAt) => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     const original = { ...data(), configUpdatedAt };
     cache.seed(original);
     const error = new Error('poll failed');
@@ -425,7 +430,7 @@ describe('DatafileCache', () => {
       NaN,
       Infinity,
     ])('retains failure when seeding a replacement with version %s', (configUpdatedAt) => {
-      const cache = new DatafileCache(staleIfErrorMs);
+      const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
       cache.seed(data());
       const error = new Error('poll failed');
       cache.fail(error);
@@ -449,7 +454,7 @@ describe('DatafileCache', () => {
   });
 
   it('rejects an old response after storing a newer replacement', () => {
-    const cache = new DatafileCache(100);
+    const cache = new DatafileCache(unexpectedFetch, 100);
     cache.seed(data());
     const oldResponse = response();
     const replacement = { ...data('poll'), configUpdatedAt: 2 };
@@ -467,7 +472,7 @@ describe('DatafileCache', () => {
     it.each([
       0, 42,
     ])('confirms revision %s after expiry without replacing data and starts a fresh allowance', (revision) => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       const original = Object.freeze({ ...data('bundled'), revision });
       cache.seed(original);
       expect(cache.read()).toBe(original);
@@ -517,7 +522,7 @@ describe('DatafileCache', () => {
       ['infinite revision', { revision: Infinity }],
       ['negative infinite revision', { revision: -Infinity }],
     ])('rejects %s without replacing data or changing the failure deadline', (_, overrides) => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       const original = Object.freeze({
         ...data('bundled'),
         revision: 42,
@@ -563,7 +568,7 @@ describe('DatafileCache', () => {
       Infinity,
       -Infinity,
     ])('never confirms invalid stored revision %s, even for the same object', (revision) => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       const original = Object.freeze({
         ...data('bundled'),
         revision,
@@ -592,7 +597,7 @@ describe('DatafileCache', () => {
       'stream',
       'fetched',
     ] as const)('accepts the first %s response and clears a failure recorded while empty', (origin) => {
-      const cache = new DatafileCache(0);
+      const cache = new DatafileCache(unexpectedFetch, 0);
       cache.fail(new Error('failed before data arrived'));
       vi.setSystemTime(2_000);
       const incoming = response({ configUpdatedAt: NaN });
@@ -631,7 +636,7 @@ describe('DatafileCache', () => {
       [-Infinity, 0],
       [Infinity, undefined],
     ])('accepts version %s → %s and automatically starts a fresh allowance on the next failure', (current, next) => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       cache.seed({ ...data('bundled'), configUpdatedAt: current });
       const firstError = new Error('first outage');
       cache.fail(firstError);
@@ -665,7 +670,7 @@ describe('DatafileCache', () => {
       { projectId: 'prj_other' },
       { environment: 'preview' },
     ])('preserves acceptance of a newer version despite mismatched identity %j', (overrides) => {
-      const cache = new DatafileCache(0);
+      const cache = new DatafileCache(unexpectedFetch, 0);
       cache.seed(data('bundled'));
       cache.fail(new Error('outage'));
       const incoming = response({ ...overrides, configUpdatedAt: 2 });
@@ -688,7 +693,7 @@ describe('DatafileCache', () => {
       [0, '0'],
       ['0', 0],
     ])('confirms equal finite versions %s and %s without tagging or replacing either object', (current, next) => {
-      const cache = new DatafileCache(100);
+      const cache = new DatafileCache(unexpectedFetch, 100);
       const original = Object.freeze({
         ...data('bundled'),
         configUpdatedAt: current,
@@ -715,7 +720,7 @@ describe('DatafileCache', () => {
       'reused',
       'distinct',
     ])('confirms a %s tagged response without changing its origin', (kind) => {
-      const cache = new DatafileCache(0);
+      const cache = new DatafileCache(unexpectedFetch, 0);
       const original = Object.freeze(data('bundled'));
       cache.seed(original);
       const incoming =
@@ -744,7 +749,7 @@ describe('DatafileCache', () => {
         string,
         Partial<DatafileInput>,
       ][])('rejects %s without mutation or clearing the original error/deadline', (_, overrides) => {
-        const cache = new DatafileCache(staleIfErrorMs);
+        const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const original = Object.freeze(data('bundled'));
         cache.seed(original);
         expect(cache.read()).toBe(original);
@@ -786,7 +791,7 @@ describe('DatafileCache', () => {
         [-Infinity, -Infinity],
         [-Infinity, '-Infinity'],
       ])('cannot recover from a rejected response with nonfinite current version %s and incoming version %s', (current, next) => {
-        const cache = new DatafileCache(staleIfErrorMs);
+        const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const original = Object.freeze({
           ...data('bundled'),
           configUpdatedAt: current,
@@ -820,7 +825,7 @@ describe('DatafileCache', () => {
       });
 
       it('rejects an old response after an accepted replacement without renewing its failure deadline', () => {
-        const cache = new DatafileCache(staleIfErrorMs);
+        const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const oldResponse = Object.freeze(data('bundled'));
         cache.seed(oldResponse);
         const replacement = response({ configUpdatedAt: 2 });
