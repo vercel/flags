@@ -16,17 +16,14 @@ export type CacheAssessment = {
   confirmed?: boolean;
 };
 
-type Fetch = (signal: AbortSignal) => Promise<void>;
+export type CacheFetch = (signal: AbortSignal) => Promise<DatafileInput>;
 type CacheResult = [TaggedData, Metrics['cacheStatus']];
 
 export type CacheReadPolicy = {
   /** Unknown adds no freshness evidence and keeps cached-read behavior. */
   assess: (data: CacheMetadata) => CacheAssessment;
-  /**
-   * Source events must report data/failure before this settles.
-   * Omit for modes whose stream/poll loop already maintains the cache.
-   */
-  fetch?: Fetch;
+  /** Header reads can provide new recovery evidence before a source update. */
+  retryOnFailure?: boolean;
 };
 
 /**
@@ -51,10 +48,13 @@ export class DatafileCache {
 
   private abortController = new AbortController();
   private fetching: Promise<void> | undefined;
+  private timedOutFetch: Promise<void> | undefined;
 
   constructor(
+    private readonly fetch: CacheFetch,
     private readonly staleIfErrorMs = Infinity,
     private readonly waitUntil: WaitUntil = () => {},
+    private readonly fetchTimeoutMs = 0,
   ) {}
 
   /** Expired data still exists; fallback loading must not bypass its failure policy. */
@@ -106,7 +106,7 @@ export class DatafileCache {
   /** Accepts a source update or confirms the current version without replacing it. */
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
-      this.data = tagData(incoming, origin);
+      this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
       this.resetAge();
       this.failure = undefined;
       return;
@@ -189,31 +189,76 @@ export class DatafileCache {
       const { status, confirmed } = policy.assess(metadata);
       // Apply recovery evidence before read() enforces the failure deadline.
       if (confirmed) this.confirm();
-      if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
-        // Stream/poll omit fetch because they maintain the cache independently.
+      if (status === 'fresh' || status === 'unknown') {
         // read() still enforces stale-if-error, even for a fresh assessment.
         return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
+      }
+
+      if (this.failure) {
+        if (!policy.retryOnFailure) return [this.read()!, 'STALE'];
+        if (this.canServe()) {
+          const stale = this.read()!;
+          this.fetchInBackground();
+          return [stale, 'STALE'];
+        }
+      }
+
+      // A blocking refresh that already timed out keeps running in the
+      // background. Do not repeatedly block on the same request.
+      if (this.fetching && this.timedOutFetch === this.fetching) {
+        return [this.read()!, 'STALE'];
       }
 
       // If stale-if-error has expired, fall through to a blocking recovery fetch.
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read()!;
-        this.fetchInBackground(policy.fetch);
+        this.fetchInBackground();
         return [stale, 'STALE'];
       }
     }
 
-    if (!policy.fetch) return;
-
-    const { promise, signal } = this.startFetch(policy.fetch);
+    const { promise, signal } = this.startFetch('fetched');
     try {
-      await promise;
+      if (this.fetchTimeoutMs > 0) {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () =>
+              reject(new Error('@vercel/flags-core: Datafile refresh timeout')),
+            this.fetchTimeoutMs,
+          );
+        });
+        try {
+          await Promise.race([promise, timeout]);
+        } finally {
+          clearTimeout(timeoutId!);
+        }
+      } else {
+        await promise;
+      }
       signal.throwIfAborted();
     } catch (error) {
       if (signal.aborted) throw error;
       const stale = this.read();
       if (!stale) throw error;
+      if (
+        error instanceof Error &&
+        error.message === '@vercel/flags-core: Datafile refresh timeout'
+      ) {
+        this.timedOutFetch = this.fetching;
+        console.warn(
+          '@vercel/flags-core: Datafile refresh timeout, serving stale while refresh continues in the background',
+        );
+      }
+      if (this.fetching) {
+        const background = this.fetching.catch(() => {});
+        try {
+          this.waitUntil(background);
+        } catch {
+          // Registration is best-effort; the handled refresh continues.
+        }
+      }
       return [stale, 'STALE'];
     }
 
@@ -229,7 +274,12 @@ export class DatafileCache {
     return [data, 'MISS'];
   }
 
-  private startFetch(fetch: Fetch) {
+  /** Runs the one shared datafile refresh used by reads and polling. */
+  refresh(origin: DataOrigin = 'fetched'): Promise<void> {
+    return this.startFetch(origin).promise;
+  }
+
+  private startFetch(origin: DataOrigin) {
     const { signal } = this.abortController;
     // Share the fetch, but let each caller assess its own request's headers.
     if (this.fetching) return { promise: this.fetching, signal };
@@ -237,19 +287,32 @@ export class DatafileCache {
     const promise = Promise.resolve()
       .then(() => {
         signal.throwIfAborted();
-        return fetch(signal);
+        return this.fetch(signal);
       })
-      .then(() => signal.throwIfAborted())
+      .then((data) => {
+        signal.throwIfAborted();
+        this.updateFromSource(data, origin);
+      })
+      .catch((error) => {
+        signal.throwIfAborted();
+        const err =
+          error instanceof Error ? error : new Error('Unknown fetch error');
+        this.fail(err);
+        throw err;
+      })
       .finally(() => {
         // An old, aborted operation must not clear a newer one.
-        if (this.abortController.signal === signal) this.fetching = undefined;
+        if (this.abortController.signal === signal) {
+          if (this.timedOutFetch === promise) this.timedOutFetch = undefined;
+          this.fetching = undefined;
+        }
       });
     this.fetching = promise;
     return { promise, signal };
   }
 
-  private fetchInBackground(fetch: Fetch): void {
-    const { promise, signal } = this.startFetch(fetch);
+  private fetchInBackground(): void {
+    const { promise, signal } = this.startFetch('fetched');
     const background = promise.catch((error) => {
       if (!signal.aborted) {
         console.error('@vercel/flags-core: Revalidation failed:', error);
@@ -267,6 +330,7 @@ export class DatafileCache {
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
+    this.timedOutFetch = undefined;
     this.data = undefined;
     this.freshAt = undefined;
   }
