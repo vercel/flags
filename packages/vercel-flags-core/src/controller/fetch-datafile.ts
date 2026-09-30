@@ -1,6 +1,7 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { type Auth, authHeaders, unauthorizedMessage } from './auth';
+import { type DebugLogger, noopDebug } from './debug';
 
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -29,7 +30,10 @@ export async function fetchDatafile(options: {
   signal?: AbortSignal;
   /** Total attempts, including the initial request. Defaults to three. */
   maxAttempts?: number;
+  debug?: DebugLogger;
 }): Promise<BundledDefinitions> {
+  const debug = options.debug ?? noopDebug;
+  debug('datafile.fetch.start');
   options.signal?.throwIfAborted();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
@@ -46,17 +50,19 @@ export async function fetchDatafile(options: {
   signal.addEventListener('abort', onAbort, { once: true });
   const onExternalAbort = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', onExternalAbort, { once: true });
-  const timeoutId = setTimeout(
-    () =>
-      controller.abort(
-        new Error('@vercel/flags-core: Datafile fetch deadline exceeded'),
-      ),
-    DEFAULT_FETCH_TIMEOUT_MS,
-  );
+  const timeoutId = setTimeout(() => {
+    debug('datafile.fetch.timeout');
+    controller.abort(
+      new Error('@vercel/flags-core: Datafile fetch deadline exceeded'),
+    );
+  }, DEFAULT_FETCH_TIMEOUT_MS);
   let delay: ReturnType<typeof setTimeout> | undefined;
 
   const fetchAttempt = async (): Promise<BundledDefinitions> => {
-    const token = await options.auth.resolveToken();
+    const token = await options.auth.resolveToken().catch((error) => {
+      debug('datafile.auth.failed');
+      throw error;
+    });
     signal.throwIfAborted();
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
@@ -69,6 +75,7 @@ export async function fetchDatafile(options: {
       signal,
     });
     signal.throwIfAborted();
+    debug('datafile.fetch.response', () => ({ status: res.status }));
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
       throw new DatafileHttpError(
@@ -109,6 +116,9 @@ export async function fetchDatafile(options: {
         }
       }
     }
+  } catch (error) {
+    debug(signal.aborted ? 'datafile.fetch.aborted' : 'datafile.fetch.failed');
+    throw error;
   } finally {
     clearTimeout(timeoutId);
     clearTimeout(delay);
