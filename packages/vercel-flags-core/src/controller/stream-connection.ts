@@ -3,7 +3,7 @@ import type { BundledDefinitions } from '../types';
 import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
 import { authHeaders, unauthorizedMessage } from './auth';
-import { type DebugLogger, noopDebug } from './debug';
+import { debug } from './debug';
 
 export type PrimedMessage = {
   type: 'primed';
@@ -56,7 +56,6 @@ export type StreamCallbacks = {
 };
 
 export type StreamConfig = {
-  debug?: DebugLogger;
   host: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
@@ -78,7 +77,6 @@ export async function connectStream(
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
   const { onDatafile, onPrimed, onPing, onDisconnect, onError } = callbacks;
-  const debug = config.debug ?? noopDebug;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
