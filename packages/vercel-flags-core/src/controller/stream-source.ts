@@ -1,6 +1,6 @@
 import type { DatafileInput } from '../types';
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
-import { type DebugLogger, noopDebug } from './debug';
+import { debug } from './debug';
 import type { NormalizedOptions } from './normalized-options';
 import {
   connectStream,
@@ -28,11 +28,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   private abortController: AbortController | undefined;
   private promise: Promise<void> | undefined;
 
-  constructor(
-    options: NormalizedOptions,
-    revision: () => number | undefined,
-    private readonly debug: DebugLogger = noopDebug,
-  ) {
+  constructor(options: NormalizedOptions, revision: () => number | undefined) {
     super();
     this.options = options;
     this.revision = revision;
@@ -57,7 +53,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
-    this.debug('stream.start');
+    debug('stream.start');
     const abortController = new AbortController();
     this.abortController = abortController;
 
@@ -79,7 +75,6 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       const promise = connectStream(
         {
           host: this.options.host,
-          debug: this.debug,
           resolveToken: () => this.options.auth.resolveToken(),
           sourceProjectId: this.options.auth.sourceProjectId,
           abortController,
@@ -118,7 +113,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Stop the stream connection.
    */
   stop(): void {
-    this.debug('stream.stop');
+    debug('stream.stop');
     this.abortController?.abort();
     this.abortController = undefined;
     this.promise = undefined;

@@ -11,7 +11,7 @@ import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { Authentication } from './auth';
 import { DatafileCache } from './datafile-cache';
-import { createDebugLogger } from './debug';
+import { debug } from './debug';
 import { Controller } from './index';
 import { tagData } from './tagged-data';
 
@@ -70,7 +70,7 @@ describe('client debug logging', () => {
   ])('is silent for DEBUG=%s and does not compute details', async (value) => {
     vi.stubEnv('DEBUG', value);
     const details = vi.fn(() => ({ value: 1 }));
-    createDebugLogger()('test', details);
+    debug('test', details);
     const client = controller();
     await client.initialize();
     await client.getDatafile();
@@ -79,7 +79,7 @@ describe('client debug logging', () => {
     expect(output).not.toHaveBeenCalled();
   });
 
-  it('supports the existing DEBUG namespace and distinguishes clients', async () => {
+  it('uses the shared logger across client lifecycles', async () => {
     vi.stubEnv('DEBUG', 'other,@vercel/flags-core');
     const first = controller();
     const second = controller({ buildStep: true });
@@ -92,19 +92,16 @@ describe('client debug logging', () => {
       (record) => record.event === 'client.created',
     );
     expect(created).toHaveLength(2);
-    expect(created[0].clientId).not.toBe(created[1].clientId);
     expect(events()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           event: 'client.state',
           from: 'idle',
           to: 'degraded',
-          clientId: created[0].clientId,
         }),
         expect.objectContaining({
           event: 'client.state',
           to: 'build:ready',
-          clientId: created[1].clientId,
         }),
         expect.objectContaining({
           event: 'client.snapshot',
@@ -116,6 +113,25 @@ describe('client debug logging', () => {
     expect(
       output.mock.calls.every(([prefix]) => prefix === '@vercel/flags-core'),
     ).toBe(true);
+  });
+
+  it('reads DEBUG at call time for existing clients', async () => {
+    vi.stubEnv('DEBUG', '');
+    const client = controller();
+    await client.initialize();
+    expect(output).not.toHaveBeenCalled();
+
+    vi.stubEnv('DEBUG', '@vercel/flags-core');
+    await client.getDatafile();
+    expect(events()).toContainEqual(
+      expect.objectContaining({ event: 'client.snapshot' }),
+    );
+
+    output.mockClear();
+    vi.stubEnv('DEBUG', '');
+    await client.getDatafile();
+    await client.shutdown();
+    expect(output).not.toHaveBeenCalled();
   });
 
   it('keeps reads working when console.debug throws', async () => {
@@ -193,7 +209,6 @@ describe('client debug logging', () => {
     ]) {
       expect(serialized).not.toContain(secret);
     }
-    expect(new Set(events().map((record) => record.clientId)).size).toBe(1);
   });
 
   it('explains the permanent fallback when a Vercel read has no version header', async () => {
@@ -305,13 +320,9 @@ describe('client debug logging', () => {
       finish = resolve;
     });
     const background: Promise<unknown>[] = [];
-    const cache = new DatafileCache(
-      Infinity,
-      (promise) => {
-        background.push(promise);
-      },
-      createDebugLogger(),
-    );
+    const cache = new DatafileCache(Infinity, (promise) => {
+      background.push(promise);
+    });
     cache.seed(tagData(data, 'provided'));
     const fetch = vi.fn(() => pending);
     const policy = { getStatus: () => 'stale' as const, fetch };
@@ -331,7 +342,7 @@ describe('client debug logging', () => {
   });
 
   it('explains stale-if-error expiry and recovery without replacing an equal version', async () => {
-    const cache = new DatafileCache(100, undefined, createDebugLogger());
+    const cache = new DatafileCache(100);
     cache.seed(tagData(data, 'provided'));
     const outage = new Error('private error body');
     const policy = {
