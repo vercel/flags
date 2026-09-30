@@ -1,13 +1,12 @@
 import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
-import type { CacheMetadata, CacheReadPolicy } from './datafile-cache';
+import type { CacheReadPolicy } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
 import { TypedEmitter } from './typed-emitter';
 
 export type HeaderSourceEvents = {
   data: (data: DatafileInput) => void;
-  confirmed: (data: CacheMetadata) => void;
   error: (error: Error) => void;
 };
 
@@ -32,30 +31,36 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   /** Capture the header now so a shared fetch cannot switch the request being assessed. */
-  getStatusCheck(): CacheReadPolicy['getStatus'] {
+  getAssessment(): CacheReadPolicy['assess'] {
     const header = this.getVersionHeader();
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-      if (headerTs === undefined) return 'unknown';
+      if (headerTs === undefined) return { status: 'unknown' };
 
       const currentTs = Number(data.configUpdatedAt);
       this.highestObserved = Math.max(this.highestObserved, headerTs);
 
-      if (!Number.isFinite(currentTs) || currentTs <= 0) return 'unknown';
-
-      // An older matching request cannot undo a newer request's invalidation.
-      if (headerTs === currentTs && headerTs === this.highestObserved) {
-        this.emit('confirmed', data);
+      if (!Number.isFinite(currentTs) || currentTs <= 0) {
+        return { status: 'unknown' };
       }
 
-      // This request is satisfied; only confirmation above can renew age or clear failure.
-      if (headerTs <= currentTs) return 'fresh';
+      if (headerTs <= currentTs) {
+        // Older requests are satisfied without undoing a newer request's invalidation.
+        return {
+          status: 'fresh',
+          confirmed:
+            headerTs === currentTs && headerTs === this.highestObserved,
+        };
+      }
 
       const { staleWhileRevalidateMs } = this.options;
-      return staleWhileRevalidateMs > 0 && data.ageMs <= staleWhileRevalidateMs
-        ? 'stale'
-        : 'expired';
+      return {
+        status:
+          staleWhileRevalidateMs > 0 && data.ageMs <= staleWhileRevalidateMs
+            ? 'stale'
+            : 'expired',
+      };
     };
   }
 
