@@ -301,20 +301,18 @@ describe('Vercel mode (black-box)', () => {
   });
 
   it.each([
-    ['success', 'before'],
-    ['failure', 'before'],
-    ['success', 'after'],
-    ['failure', 'after'],
-  ] as const)('discards a cancelled header refresh ending in %s %s polling is ready', async (outcome, timing) => {
+    ['newer', 'before'],
+    ['older', 'before'],
+    ['401', 'before'],
+    ['newer', 'after'],
+    ['older', 'after'],
+    ['401', 'after'],
+  ] as const)('lets a pending header refresh return %s %s polling is ready', async (outcome, timing) => {
     const pendingHeader = deferred<Response>();
     dataFetch.mockReturnValueOnce(pendingHeader.promise);
     const instance = client({ stream: false, staleIfError: 0 });
     setVersion(TIMESTAMP + 1);
-    const settled = vi.fn();
-    const originalRead = instance.evaluate('feature').then((result) => {
-      settled();
-      return result;
-    });
+    const originalRead = instance.evaluate('feature');
     await vi.advanceTimersByTimeAsync(0);
     const signal = dataFetch.mock.calls[0]?.[1]?.signal;
 
@@ -322,32 +320,89 @@ describe('Vercel mode (black-box)', () => {
     const pendingPoll = deferred<Response>();
     dataFetch.mockReturnValueOnce(pendingPoll.promise);
     const switchingRead = instance.evaluate('feature');
+    const switched = vi.fn();
+    void switchingRead.then(switched);
     await vi.advanceTimersByTimeAsync(0);
-    expect(signal?.aborted).toBe(true);
+    expect(signal?.aborted).toBe(false);
     expect(dataFetch).toHaveBeenCalledTimes(2);
     if (timing === 'after') {
       pendingPoll.resolve(Response.json(datafile(TIMESTAMP + 2, true)));
-      await switchingRead;
-    }
-    if (outcome === 'success') {
-      pendingHeader.resolve(Response.json(datafile(TIMESTAMP + 3)));
-    } else {
-      pendingHeader.reject(new Error('late header failure'));
-    }
-    await vi.advanceTimersByTimeAsync(0);
-    if (timing === 'before') {
-      expect(settled).not.toHaveBeenCalled();
-      pendingPoll.resolve(Response.json(datafile(TIMESTAMP + 2, true)));
-    }
-
-    for (const result of await Promise.all([originalRead, switchingRead])) {
-      expect(result).toMatchObject({
+      expect(await switchingRead).toMatchObject({
         value: true,
         metrics: { mode: 'polling' },
       });
     }
-    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
+
+    pendingHeader.resolve(
+      outcome === '401'
+        ? new Response(null, { status: 401, statusText: 'Unauthorized' })
+        : Response.json(datafile(TIMESTAMP + (outcome === 'newer' ? 3 : 1))),
+    );
+    // The original read finishes without waiting for polling or being replayed.
+    expect(await originalRead).toMatchObject({
+      value: timing === 'after' && outcome !== 'newer',
+      metrics: { cacheStatus: outcome === '401' ? 'STALE' : 'MISS' },
+    });
+    if (timing === 'before') {
+      expect(switched).not.toHaveBeenCalled();
+      pendingPoll.resolve(Response.json(datafile(TIMESTAMP + 2, true)));
+      expect(await switchingRead).toMatchObject({
+        value: outcome !== 'newer',
+        metrics: { mode: 'polling' },
+      });
+    }
+
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(
+      TIMESTAMP + (outcome === 'newer' ? 3 : 2),
+    );
     expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(streamFetch).not.toHaveBeenCalled();
+
+    await instance.shutdown();
+    clients.delete(instance);
+    const events = transport.mock.calls
+      .filter(([url]) => String(url).endsWith('/v1/ingest'))
+      .flatMap(([, init]) => JSON.parse(String(init?.body))) as Array<{
+      type: string;
+      payload: { evaluationCount?: number };
+    }>;
+    // A late header 401 must not suppress usage for the active poller.
+    expect(
+      events.find(({ type }) => type === 'FLAG_EVALUATION')?.payload
+        .evaluationCount,
+    ).toBe(2);
+  });
+
+  it('lets a cold header read fail while streaming starts independently', async () => {
+    const pendingHeader = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pendingHeader.promise);
+    const instance = client({ datafile: undefined, staleIfError: 0 });
+    const originalRead = instance.evaluate('feature');
+    const rejected = expect(originalRead).rejects.toThrow(
+      'Failed to fetch data: Unauthorized',
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    const signal = dataFetch.mock.calls[0]?.[1]?.signal;
+
+    const stream = mockStream();
+    streamFetch.mockResolvedValueOnce(stream.response);
+    setVersion(undefined);
+    const switchingRead = instance.evaluate('feature');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signal?.aborted).toBe(false);
+    pendingHeader.resolve(
+      new Response(null, { status: 401, statusText: 'Unauthorized' }),
+    );
+    await rejected;
+
+    stream.push({ type: 'datafile', data: datafile(TIMESTAMP + 1, true) });
+    expect(await switchingRead).toMatchObject({
+      value: true,
+      metrics: { mode: 'streaming' },
+    });
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    expect(streamFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([

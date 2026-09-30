@@ -191,6 +191,10 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     this.cache.updateFromSource(data, 'fetched');
   };
+  private onHeaderError = (error: Error) => {
+    // A pending header fetch can finish after stream/poll has taken over.
+    if (this.state === 'vercel') this.onSourceError(error);
+  };
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -206,7 +210,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onSourceError);
     this.headerSource.on('data', this.onHeaderData);
-    this.headerSource.on('error', this.onSourceError);
+    this.headerSource.on('error', this.onHeaderError);
   }
 
   private unwireSourceEvents(): void {
@@ -219,7 +223,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onSourceError);
     this.headerSource.off('data', this.onHeaderData);
-    this.headerSource.off('error', this.onSourceError);
+    this.headerSource.off('error', this.onHeaderError);
   }
 
   // ---------------------------------------------------------------------------
@@ -468,12 +472,9 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
-    const usingHeaders = this.state === 'vercel';
-    if (usingHeaders && !this.headerSource.isAvailable()) {
+    if (this.state === 'vercel' && !this.headerSource.isAvailable()) {
       this.headerModeDisabled = true;
-      this.cache.cancelFetch();
-      this.headerSource.stop();
-      // The existing fallback chain starts stream/poll; concurrent reads share it.
+      // New reads share startup; existing header reads finish against the same cache.
       this.sourceStartup = this.resolveDataWithFallbacks().finally(() => {
         this.sourceStartup = undefined;
       });
@@ -485,21 +486,7 @@ export class Controller implements ControllerInterface {
       }
     }
 
-    let result: [TaggedData, Metrics['cacheStatus']] | undefined;
-    try {
-      result = await this.cache.resolve(this.cacheReadPolicy);
-    } catch (error) {
-      if (
-        !usingHeaders ||
-        !this.headerModeDisabled ||
-        this.state === 'shutdown'
-      ) {
-        throw error;
-      }
-      // An old header fetch may finish after handover; read from the new source.
-      if (this.sourceStartup) await this.sourceStartup;
-      result = await this.cache.resolve(this.cacheReadPolicy);
-    }
+    const result = await this.cache.resolve(this.cacheReadPolicy);
     if (result) return result;
 
     return this.resolveDataWithFallbacks();
