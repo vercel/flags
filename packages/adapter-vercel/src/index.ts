@@ -18,17 +18,45 @@ export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   'decide' | 'origin'
 >;
 
+export interface CreateVercelAdapterOptions {
+  /**
+   * Reads the flags of another project in the same team with this
+   * deployment's OIDC token. The other project must have connected this
+   * project first.
+   */
+  projectId: string;
+}
+
+function isAdapterOptions(
+  value: FlagsClient | CreateVercelAdapterOptions,
+): value is CreateVercelAdapterOptions {
+  return 'projectId' in value;
+}
+
+function resolveFlagsClient(
+  input: string | FlagsClient | CreateVercelAdapterOptions | undefined,
+): FlagsClient {
+  if (input === undefined || typeof input === 'string') {
+    return createClient(input);
+  }
+  if (isAdapterOptions(input)) {
+    return createClient({ projectId: input.projectId });
+  }
+  return input;
+}
+
 /**
  * Allows creating a custom Vercel adapter for feature flags
  */
 export function createVercelAdapter(
-  // usually a connection string, but can also be a pre-configured FlagsClient
-  sdkKeyOrFlagsClient?: string | FlagsClient,
+  // an SDK key, a pre-configured FlagsClient, or `{ projectId }` to read a
+  // connected project's flags with this deployment's OIDC token
+  sdkKeyOrFlagsClientOrOptions?:
+    | string
+    | FlagsClient
+    | CreateVercelAdapterOptions,
 ) {
-  const flagsClient =
-    typeof sdkKeyOrFlagsClient === 'string' || sdkKeyOrFlagsClient === undefined
-      ? createClient(sdkKeyOrFlagsClient)
-      : sdkKeyOrFlagsClient;
+  const flagsClient = resolveFlagsClient(sdkKeyOrFlagsClientOrOptions);
 
   // Stable identity for this adapter's underlying flagsClient. Captured in
   // the closure so every adapter object the factory below returns shares it,

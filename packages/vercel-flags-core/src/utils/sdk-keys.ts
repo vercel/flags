@@ -14,6 +14,16 @@ export function isValidSdkKey(value: string): boolean {
 }
 
 /**
+ * Project ids are `prj_` followed by alphanumerics, or legacy IPFS-style
+ * `Qm…` ids. Both fit this shape; it also keeps the value header-safe.
+ */
+const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
+
+export function isValidProjectId(value: string): boolean {
+  return PROJECT_ID_REGEX.test(value);
+}
+
+/**
  * Parses sdk keys from connection strings with the following format:
  * `flags:edgeConfigId=ecfg_abcd&edgeConfigToken=xxx&sdkKey=xxx`
  */
