@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { version as PACKAGE_VERSION } from '../package.json';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
+const API_HOST = 'https://api.vercel.com';
+const CONNECTED_SOURCES_PATH = '/v1/feature-flags/connections/sources';
 const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 
 /** Number of retry attempts for transient datafile fetch failures. */
@@ -275,12 +277,61 @@ const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
 const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
 
 /**
- * Collect all possible flag entries the need embedding from the environment
+ * Asks the API which projects granted this deployment's project access to
+ * their flags. Best effort: a connection that is not embedded still works at
+ * runtime, so any failure only costs the offline fallback.
  */
-function collectFlagEntries(
-  env: Record<string, string | undefined>,
+async function fetchConnectedSourceProjectIds(
+  oidcToken: string,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix: string | undefined,
   output: Output | undefined,
-): FlagEntry[] {
+): Promise<string[]> {
+  try {
+    const res = await fetchFn(`${API_HOST}${CONNECTED_SOURCES_PATH}`, {
+      headers: {
+        authorization: `Bearer ${oidcToken}`,
+        'user-agent': [
+          `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
+          userAgentSuffix,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      },
+    });
+    if (!res.ok) {
+      output?.debug(
+        `vercel-flags: could not list connected projects (${res.status})`,
+      );
+      return [];
+    }
+    const body = (await res.json()) as {
+      data?: { sourceProjectId?: unknown }[];
+    };
+    return (body.data ?? [])
+      .map((c) => c.sourceProjectId)
+      .filter(
+        (id): id is string =>
+          typeof id === 'string' && PROJECT_ID_REGEX.test(id),
+      );
+  } catch (error) {
+    output?.debug(
+      `vercel-flags: could not list connected projects (${error instanceof Error ? error.message : String(error)})`,
+    );
+    return [];
+  }
+}
+
+/**
+ * Collect all possible flag entries the need embedding from the environment
+ * and from the project's connections.
+ */
+async function collectFlagEntries(
+  env: Record<string, string | undefined>,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix: string | undefined,
+  output: Output | undefined,
+): Promise<FlagEntry[]> {
   const entries: FlagEntry[] = [];
 
   // Collect unique SDK keys and source projects from environment variables.
@@ -321,6 +372,15 @@ function collectFlagEntries(
     output?.debug(`vercel-flags: found OIDC token`);
 
     entries.push({ type: 'oidcToken', key: oidcToken });
+
+    for (const projectId of await fetchConnectedSourceProjectIds(
+      oidcToken,
+      fetchFn,
+      userAgentSuffix,
+      output,
+    )) {
+      sourceProjectIds.add(projectId);
+    }
 
     const ownProjectId = getProjectIdFromOidcToken(oidcToken);
     for (const projectId of Array.from(sourceProjectIds)) {
@@ -367,7 +427,12 @@ export async function prepareFlagsDefinitions(options: {
 
   output?.debug('vercel-flags: checking env vars for SDK Keys and OIDC Token');
 
-  const entries = collectFlagEntries(env, output);
+  const entries = await collectFlagEntries(
+    env,
+    fetchFn,
+    userAgentSuffix,
+    output,
+  );
   if (entries.length === 0) {
     return { created: false, reason: 'no-flags-entries' };
   }

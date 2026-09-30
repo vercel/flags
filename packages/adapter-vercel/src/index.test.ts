@@ -108,6 +108,22 @@ describe('createVercelAdapter', () => {
     } satisfies Origin);
   });
 
+  it('returns origin when created with a connected projectId', () => {
+    const adapter = createVercelAdapter({ projectId: 'prj_source' });
+
+    expect(adapter()).toHaveProperty('origin', {
+      provider: 'vercel',
+      sdkKey: undefined,
+      projectId: 'prj_source',
+    } satisfies Origin);
+  });
+
+  it('rejects an invalid projectId', () => {
+    expect(() => createVercelAdapter({ projectId: 'prj_a/b' })).toThrow(
+      '@vercel/flags-core: Invalid projectId',
+    );
+  });
+
   it('forwards override observations to the flags client', async () => {
     const reportOverride = vi.fn();
     const fakeClient = {

@@ -19,6 +19,12 @@ export type CreateClientOptions<Entity = Record<string, unknown>> = Omit<
   'auth'
 > & {
   /**
+   * Reads the flags of another project in the same team with this
+   * deployment's OIDC token. The other project must have connected this
+   * project first. Cannot be combined with an SDK key.
+   */
+  projectId?: string;
+  /**
    * Reports experiment exposures produced by evaluation calls.
    *
    * @remarks This API is not supported for general use yet. Do not use it
@@ -71,9 +77,9 @@ export function make(
       ? sdkKeyOrConnectionStringOrOptions
       : options;
 
-    const { experimental_reportExposures, ...controllerOptions } =
+    const { experimental_reportExposures, projectId, ...controllerOptions } =
       createClientOptions ?? {};
-    const auth = new Authentication(sdkKeyOrConnectionString);
+    const auth = new Authentication(sdkKeyOrConnectionString, { projectId });
     const waitUntil = controllerOptions.waitUntil ?? defaults.waitUntil;
 
     // sdk key contains the environment

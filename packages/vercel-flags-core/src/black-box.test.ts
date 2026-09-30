@@ -458,6 +458,63 @@ describe('Controller (black-box)', () => {
       ).toThrow('@vercel/flags-core: Invalid projectId in connection string');
     });
 
+    describe('projectId option', () => {
+      it('reads the named project with the OIDC token and the source header', async () => {
+        fetchMock.mockImplementation((input) => {
+          const url = typeof input === 'string' ? input : input.toString();
+          if (url.includes('/v1/datafile')) {
+            return Promise.resolve(
+              Response.json(makeBundled({ projectId: 'prj_source' })),
+            );
+          }
+          return Promise.resolve(new Response());
+        });
+
+        const client = createClient({
+          projectId: 'prj_source',
+          fetch: fetchMock,
+          stream: false,
+          polling: false,
+        });
+
+        expect(client.origin).toEqual({
+          provider: 'vercel',
+          sdkKey: undefined,
+          projectId: 'prj_source',
+        });
+        await client.initialize();
+
+        const datafileCall = fetchMock.mock.calls.find(([input]) =>
+          String(input).includes('/v1/datafile'),
+        );
+        expect(datafileCall?.[1]?.headers).toMatchObject(sourceHeaders);
+      });
+
+      it('rejects a projectId together with an SDK key', () => {
+        expect(() =>
+          createClient('vf_server_key', {
+            projectId: 'prj_source',
+            fetch: fetchMock,
+            stream: false,
+            polling: false,
+          }),
+        ).toThrow(
+          '@vercel/flags-core: projectId cannot be combined with an SDK key',
+        );
+      });
+
+      it('rejects an invalid projectId', () => {
+        expect(() =>
+          createClient({
+            projectId: 'prj_a/b',
+            fetch: fetchMock,
+            stream: false,
+            polling: false,
+          }),
+        ).toThrow('@vercel/flags-core: Invalid projectId');
+      });
+    });
+
     it('should resume usage tracking once polling recovers from a 401', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       let datafileCalls = 0;

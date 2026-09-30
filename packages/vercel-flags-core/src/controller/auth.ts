@@ -71,11 +71,38 @@ function getProjectIdFromOidcToken(oidcToken: string): string {
   return payload.project_id;
 }
 
+export interface AuthenticationOptions {
+  /**
+   * Reads the flags of another project in the same team with this
+   * deployment's OIDC token. Requires a connection on that project.
+   */
+  projectId?: string;
+}
+
 export class Authentication implements Auth {
   public readonly sdkKey?: string;
   public readonly sourceProjectId?: string;
 
-  constructor(sdkKeyOrConnectionString: string | undefined) {
+  constructor(
+    sdkKeyOrConnectionString: string | undefined,
+    options: AuthenticationOptions = {},
+  ) {
+    if (options.projectId !== undefined) {
+      if (
+        typeof options.projectId !== 'string' ||
+        !isValidProjectId(options.projectId)
+      ) {
+        throw new Error('@vercel/flags-core: Invalid projectId');
+      }
+      if (sdkKeyOrConnectionString !== undefined) {
+        throw new Error(
+          '@vercel/flags-core: projectId cannot be combined with an SDK key. Connected projects are read with the OIDC token of this deployment.',
+        );
+      }
+      this.sourceProjectId = options.projectId;
+      return;
+    }
+
     // validate sdk key format
     if (sdkKeyOrConnectionString !== undefined) {
       if (typeof sdkKeyOrConnectionString !== 'string') {

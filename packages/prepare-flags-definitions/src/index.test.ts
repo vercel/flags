@@ -18,6 +18,12 @@ function createOidcToken(projectId: string): string {
   return `${header}.${payload}.signature`;
 }
 
+function datafileCalls(mockFetch: ReturnType<typeof vi.fn>) {
+  return mockFetch.mock.calls.filter((call) =>
+    String(call[0]).includes('/v1/datafile'),
+  );
+}
+
 describe('hashSdkKey', () => {
   it('returns a SHA-256 hex digest', () => {
     const hash = hashSdkKey('vf_server_test_key');
@@ -174,7 +180,7 @@ describe('prepareFlagsDefinitions', () => {
       fetch: mockFetch,
     });
 
-    const headers = mockFetch.mock.calls[0]?.[1]?.headers;
+    const headers = datafileCalls(mockFetch)[0]?.[1]?.headers;
     expect(headers['user-agent']).toBe(
       `@vercel/prepare-flags-definitions/${pkgVersion}`,
     );
@@ -193,7 +199,7 @@ describe('prepareFlagsDefinitions', () => {
       fetch: mockFetch,
     });
 
-    const headers = mockFetch.mock.calls[0]?.[1]?.headers;
+    const headers = datafileCalls(mockFetch)[0]?.[1]?.headers;
     expect(headers['user-agent']).toBe(
       `@vercel/prepare-flags-definitions/${pkgVersion} vercel-cli/35.0.0`,
     );
@@ -232,8 +238,8 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    const headers = mockFetch.mock.calls[0]?.[1]?.headers;
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
+    const headers = datafileCalls(mockFetch)[0]?.[1]?.headers;
     expect(headers.authorization).toBe('Bearer vf_server_my_key');
     const definitionsJs = await readFile(
       `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
@@ -297,8 +303,8 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    const sourceCall = mockFetch.mock.calls.find(
+    expect(datafileCalls(mockFetch)).toHaveLength(2);
+    const sourceCall = datafileCalls(mockFetch).find(
       (call) => call[1]?.headers?.['x-vercel-flags-project-id'],
     );
     expect(sourceCall?.[1]?.headers).toMatchObject({
@@ -327,6 +333,80 @@ describe('prepareFlagsDefinitions', () => {
 
       export const version = "1.0.1";"
     `);
+  });
+
+  it('embeds the sources listed by the API for the token project', async () => {
+    const oidcToken = createOidcToken('prj_consumer');
+    const mockFetch = vi.fn().mockImplementation((url, init) => {
+      if (String(url).includes('/connections/sources')) {
+        expect(init?.headers?.authorization).toBe(`Bearer ${oidcToken}`);
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  sourceProjectId: 'prj_source',
+                  consumerProjectId: 'prj_consumer',
+                },
+                { sourceProjectId: 'prj_consumer', consumerProjectId: 'prj_x' },
+                { sourceProjectId: 'bad/id' },
+              ],
+            }),
+        });
+      }
+      const source = init?.headers?.['x-vercel-flags-project-id'];
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            source
+              ? { flag_b: { value: 'from-source' } }
+              : { flag_a: { value: true } },
+          ),
+      });
+    });
+
+    const cwd = '/tmp/test-connected-sources-api';
+    const result = await prepareFlagsDefinitions({
+      cwd,
+      env: { VERCEL_OIDC_TOKEN: oidcToken },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, entryCount: 2 });
+    expect(
+      datafileCalls(mockFetch).map(
+        (call) => call[1]?.headers?.['x-vercel-flags-project-id'],
+      ),
+    ).toEqual([undefined, 'prj_source']);
+
+    const definitionsJs = await readFile(
+      `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
+      'utf8',
+    );
+    expect(definitionsJs).toContain('"prj_source": _d1');
+  });
+
+  it('still embeds own definitions when the sources lookup fails', async () => {
+    const mockFetch = vi.fn().mockImplementation((url) => {
+      if (String(url).includes('/connections/sources')) {
+        return Promise.reject(new Error('network down'));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ flag_a: { value: true } }),
+      });
+    });
+
+    const result = await prepareFlagsDefinitions({
+      cwd: '/tmp/test-connected-sources-api-down',
+      env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_consumer') },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, entryCount: 1 });
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
   });
 
   it('skips connected projects without an OIDC token', async () => {
@@ -358,9 +438,9 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
     expect(
-      mockFetch.mock.calls[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
+      datafileCalls(mockFetch)[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
     ).toBeUndefined();
   });
 
@@ -382,9 +462,9 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
     expect(
-      mockFetch.mock.calls[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
+      datafileCalls(mockFetch)[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
     ).toBeUndefined();
     expect(debug).toHaveBeenCalledWith(
       'vercel-flags: skipping FLAGS, connection string has both sdkKey and projectId',
@@ -407,7 +487,7 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
   });
 
   it('stores OIDC definitions under the token project_id', async () => {
@@ -424,8 +504,8 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    const headers = mockFetch.mock.calls[0]?.[1]?.headers;
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
+    const headers = datafileCalls(mockFetch)[0]?.[1]?.headers;
     expect(headers.authorization).toBe(
       `Bearer ${createOidcToken('prj_oidc_test')}`,
     );
@@ -468,7 +548,7 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(datafileCalls(mockFetch)).toHaveLength(2);
 
     const definitionsJs = await readFile(
       `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
@@ -509,7 +589,7 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(datafileCalls(mockFetch)).toHaveLength(3);
   });
 
   it('gives up after exhausting retries on persistent failures', async () => {
@@ -526,7 +606,7 @@ describe('prepareFlagsDefinitions', () => {
     ).rejects.toThrow(/500 boom/);
 
     // 1 initial attempt + FETCH_MAX_RETRIES retries
-    expect(mockFetch).toHaveBeenCalledTimes(4);
+    expect(datafileCalls(mockFetch)).toHaveLength(4);
   });
 
   it('does not retry non-retryable client errors', async () => {
@@ -544,20 +624,29 @@ describe('prepareFlagsDefinitions', () => {
       }),
     ).rejects.toThrow(/401 unauthorized/);
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(datafileCalls(mockFetch)).toHaveLength(1);
   });
 
   it('stores OIDC definitions alongside SDK Keys with different datafiles', async () => {
-    const mockFetch = vi
-      .fn()
-      .mockResolvedValueOnce({
+    const mockFetch = vi.fn().mockImplementation((url, init) => {
+      if (String(url).includes('/connections/sources')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+      }
+      const isSdkKey =
+        init?.headers?.authorization === 'Bearer vf_server_test_key_123';
+      return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ flag_a: { value: true } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ flag_b: { value: true } }),
+        json: () =>
+          Promise.resolve(
+            isSdkKey
+              ? { flag_a: { value: true } }
+              : { flag_b: { value: true } },
+          ),
       });
+    });
 
     const cwd = '/tmp/test-oidc-sdk-key-mix';
     const result = await prepareFlagsDefinitions({
@@ -570,7 +659,7 @@ describe('prepareFlagsDefinitions', () => {
     });
 
     expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(datafileCalls(mockFetch)).toHaveLength(2);
 
     const definitionsJs = await readFile(
       `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
