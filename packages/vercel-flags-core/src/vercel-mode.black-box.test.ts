@@ -1634,4 +1634,45 @@ describe('Vercel mode (black-box)', () => {
       ]),
     );
   });
+
+  it('suppresses usage after a header 401 and resumes after recovery', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const instance = client({ staleWhileRevalidate: 0 });
+    await instance.initialize();
+
+    setVersion(TIMESTAMP + 1);
+    dataFetch.mockResolvedValueOnce(
+      new Response(null, { status: 401, statusText: 'Unauthorized' }),
+    );
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { mode: 'vercel', cacheStatus: 'STALE' },
+    });
+
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode: 'vercel', cacheStatus: 'MISS' },
+    });
+
+    await instance.shutdown();
+    clients.delete(instance);
+
+    const events = transport.mock.calls
+      .filter(([url]) => String(url).endsWith('/v1/ingest'))
+      .flatMap(([, init]) => JSON.parse(String(init?.body))) as Array<{
+      type: string;
+      payload: { evaluationCount?: number };
+    }>;
+    expect(
+      events.filter(({ type }) => type === 'FLAGS_CONFIG_READ'),
+    ).toHaveLength(1);
+    expect(
+      events.find(({ type }) => type === 'FLAG_EVALUATION')?.payload
+        .evaluationCount,
+    ).toBe(1);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
 });

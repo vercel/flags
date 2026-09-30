@@ -8,6 +8,7 @@ import { TypedEmitter } from './typed-emitter';
 export type HeaderSourceEvents = {
   data: (data: DatafileInput) => void;
   confirmed: (data: CacheMetadata) => void;
+  error: (error: Error) => void;
 };
 
 /** Request version evidence and fetching; the cache decides how to serve reads. */
@@ -72,10 +73,18 @@ export class HeaderSource extends TypedEmitter<HeaderSourceEvents> {
   }
 
   fetch = async (signal: AbortSignal): Promise<void> => {
-    const data = await fetchDatafile({ ...this.options, signal });
-    // Transports can finish after cancellation; never publish that response.
-    signal.throwIfAborted();
-    this.emit('data', data);
+    try {
+      const data = await fetchDatafile({ ...this.options, signal });
+      // Transports can finish after cancellation; never publish that response.
+      signal.throwIfAborted();
+      this.emit('data', data);
+    } catch (error) {
+      signal.throwIfAborted();
+      const err =
+        error instanceof Error ? error : new Error('Unknown header error');
+      this.emit('error', err);
+      throw err;
+    }
   };
 
   isEnabled(): boolean {
