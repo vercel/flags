@@ -192,6 +192,7 @@ export class Controller implements ControllerInterface {
     this.cache.updateFromSource(data, 'poll');
   };
   private onHeaderData = (data: DatafileInput) => {
+    this.unauthorized = false;
     this.cache.updateFromSource(data, 'fetched');
   };
   private onHeaderConfirmed = (data: CacheMetadata) => {
@@ -213,6 +214,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.on('error', this.onSourceError);
     this.headerSource.on('data', this.onHeaderData);
     this.headerSource.on('confirmed', this.onHeaderConfirmed);
+    this.headerSource.on('error', this.onSourceError);
   }
 
   private unwireSourceEvents(): void {
@@ -226,6 +228,7 @@ export class Controller implements ControllerInterface {
     this.pollingSource.off('error', this.onSourceError);
     this.headerSource.off('data', this.onHeaderData);
     this.headerSource.off('confirmed', this.onHeaderConfirmed);
+    this.headerSource.off('error', this.onSourceError);
   }
 
   // ---------------------------------------------------------------------------
@@ -645,7 +648,9 @@ export class Controller implements ControllerInterface {
   private noteUnauthorized(error: unknown): void {
     if (
       error instanceof UnauthorizedError ||
-      (error instanceof Error && error.message.includes('401'))
+      (error instanceof Error &&
+        (error.message.includes('401') ||
+          ('status' in error && error.status === 401)))
     ) {
       this.unauthorized = true;
     }
