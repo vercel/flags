@@ -11,11 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import {
-  type CacheMetadata,
-  type CacheReadPolicy,
-  DatafileCache,
-} from './datafile-cache';
+import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -195,9 +191,6 @@ export class Controller implements ControllerInterface {
     this.unauthorized = false;
     this.cache.updateFromSource(data, 'fetched');
   };
-  private onHeaderConfirmed = (data: CacheMetadata) => {
-    this.cache.tryConfirm(data);
-  };
 
   // ---------------------------------------------------------------------------
   // Source event wiring
@@ -213,7 +206,6 @@ export class Controller implements ControllerInterface {
     this.pollingSource.on('data', this.onPollData);
     this.pollingSource.on('error', this.onSourceError);
     this.headerSource.on('data', this.onHeaderData);
-    this.headerSource.on('confirmed', this.onHeaderConfirmed);
     this.headerSource.on('error', this.onSourceError);
   }
 
@@ -227,7 +219,6 @@ export class Controller implements ControllerInterface {
     this.pollingSource.off('data', this.onPollData);
     this.pollingSource.off('error', this.onSourceError);
     this.headerSource.off('data', this.onHeaderData);
-    this.headerSource.off('confirmed', this.onHeaderConfirmed);
     this.headerSource.off('error', this.onSourceError);
   }
 
@@ -405,7 +396,7 @@ export class Controller implements ControllerInterface {
       // Snapshots must not turn request headers into freshness evidence.
       const status =
         metadata && this.state !== 'vercel'
-          ? this.cacheReadPolicy.getStatus(metadata)
+          ? this.cacheReadPolicy.assess(metadata).status
           : 'unknown';
 
       cacheStatus = status === 'fresh' ? 'HIT' : 'STALE';
@@ -517,21 +508,21 @@ export class Controller implements ControllerInterface {
   private get cacheReadPolicy(): CacheReadPolicy {
     if (this.state === 'vercel') {
       return {
-        getStatus: this.headerSource.getStatusCheck(),
+        assess: this.headerSource.getAssessment(),
         fetch: this.headerSource.fetch,
       };
     }
 
     if (this.state === 'streaming') {
-      return { getStatus: this.streamSource.getStatus };
+      return { assess: this.streamSource.assess };
     }
 
     // Seeded initialization can leave the active poller in 'initializing:polling'.
     if (this.state === 'polling' || this.state === 'initializing:polling') {
-      return { getStatus: this.pollingSource.getStatus };
+      return { assess: this.pollingSource.assess };
     }
 
-    return { getStatus: () => 'unknown' };
+    return { assess: () => ({ status: 'unknown' }) };
   }
 
   // ---------------------------------------------------------------------------

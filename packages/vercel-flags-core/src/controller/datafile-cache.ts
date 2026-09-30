@@ -10,12 +10,18 @@ export type CacheMetadata = Confirmation & { ageMs: number };
 
 export type Freshness = 'fresh' | 'stale' | 'expired' | 'unknown';
 
+export type CacheAssessment = {
+  status: Freshness;
+  /** Positive evidence that renews age and clears the current failure. */
+  confirmed?: boolean;
+};
+
 type Fetch = (signal: AbortSignal) => Promise<void>;
 type CacheResult = [TaggedData, Metrics['cacheStatus']];
 
 export type CacheReadPolicy = {
   /** Unknown adds no freshness evidence and keeps cached-read behavior. */
-  getStatus: (data: CacheMetadata) => Freshness;
+  assess: (data: CacheMetadata) => CacheAssessment;
   /** Omit for modes whose stream/poll loop already maintains the cache. */
   fetch?: Fetch;
 };
@@ -177,8 +183,9 @@ export class DatafileCache {
   async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
     const metadata = this.metadata;
     if (metadata) {
-      // The assessment may confirm recovery, so run it before read() checks failure.
-      const status = policy.getStatus(metadata);
+      const { status, confirmed } = policy.assess(metadata);
+      // Apply recovery evidence before read() enforces the failure deadline.
+      if (confirmed) this.confirm();
       if (status === 'fresh' || status === 'unknown' || !policy.fetch) {
         // Stream/poll omit fetch because they maintain the cache independently.
         // read() still enforces stale-if-error, even for a fresh assessment.
@@ -208,7 +215,10 @@ export class DatafileCache {
     }
 
     // A cold fetch discovers the project; assess the original request's header.
-    if (!metadata && this.metadata) policy.getStatus(this.metadata);
+    if (!metadata && this.metadata) {
+      const { confirmed } = policy.assess(this.metadata);
+      if (confirmed) this.confirm();
+    }
     // Serve the accepted cache entry; the response may have contained older data.
     const data = this.read();
     if (!data)

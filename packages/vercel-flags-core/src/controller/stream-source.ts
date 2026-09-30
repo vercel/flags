@@ -1,5 +1,5 @@
 import type { DatafileInput } from '../types';
-import type { CacheMetadata, Freshness } from './datafile-cache';
+import type { CacheAssessment, CacheMetadata } from './datafile-cache';
 import type { NormalizedOptions } from './normalized-options';
 import { connectStream, type PrimedMessage } from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
@@ -29,8 +29,9 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     this.revision = revision;
   }
 
-  getStatus = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): Freshness =>
-    ageMs <= 30_000 ? 'fresh' : 'stale';
+  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => ({
+    status: ageMs <= 30_000 ? 'fresh' : 'stale',
+  });
 
   /**
    * Start the stream connection.

@@ -131,7 +131,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - Do not start stream/poll; the first read fetches if the cache is empty.
 - HeaderSource parses the request's project version and owns `highestObserved`. The cache owns freshness age.
 - A matching header confirms freshness only when no newer version has been observed.
-- The controller passes `getStatus` and `fetch` callbacks to `cache.resolve()`.
+- The controller passes `assess` and `fetch` callbacks to `cache.resolve()`.
   The cache selects cached/background/blocking behavior and shares refresh work.
 - A newer header permits background refresh within `staleWhileRevalidate` seconds of the
   latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
@@ -343,11 +343,12 @@ version/revision confirmations clear it; repeated errors/disconnects do not rene
 the first-error deadline. Stream opening and initialization timeout alone
 are not recovery/failure evidence respectively.
 
-`cache.resolve(policy)` receives a mode-specific `getStatus` callback returning
-`fresh`, `stale`, `expired`, or `unknown`, and an optional `fetch` callback.
+`cache.resolve(policy)` receives a mode-specific `assess` callback returning
+`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`,
+and an optional `fetch` callback.
 It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation on clear. HeaderSource supplies small version/age
-checks and a fetch callback; it does not read the cache. Header confirmations are
-forwarded through controller event wiring. Stream/poll modes omit on-read revalidation
+checks and a fetch callback; it does not read the cache. Header assessments return confirmation evidence explicitly; the cache applies it
+before enforcing stale-if-error, without a controller event round trip. Stream/poll modes omit on-read revalidation
 and retain their existing schedules. New public time windows use seconds; internal
 normalized durations, cache age, and `fetchedAt` use milliseconds. Polling is fresh
 through its interval; streaming through 30 seconds. Accepted updates, valid confirmations,
