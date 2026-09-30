@@ -22,7 +22,10 @@ type CacheResult = [TaggedData, Metrics['cacheStatus']];
 export type CacheReadPolicy = {
   /** Unknown adds no freshness evidence and keeps cached-read behavior. */
   assess: (data: CacheMetadata) => CacheAssessment;
-  /** Omit for modes whose stream/poll loop already maintains the cache. */
+  /**
+   * Source events must report data/failure before this settles.
+   * Omit for modes whose stream/poll loop already maintains the cache.
+   */
   fetch?: Fetch;
 };
 
@@ -237,14 +240,6 @@ export class DatafileCache {
         return fetch(signal);
       })
       .then(() => signal.throwIfAborted())
-      .catch((error) => {
-        if (!signal.aborted) {
-          this.fail(
-            error instanceof Error ? error : new Error('Unknown fetch error'),
-          );
-        }
-        throw error;
-      })
       .finally(() => {
         // An old, aborted operation must not clear a newer one.
         if (this.abortController.signal === signal) this.fetching = undefined;
@@ -267,16 +262,11 @@ export class DatafileCache {
     }
   }
 
-  /** Switching sources cancels revalidation without changing storage or failure. */
-  cancelFetch(): void {
+  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
+  clear(): void {
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
-  }
-
-  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
-  clear(): void {
-    this.cancelFetch();
     this.data = undefined;
     this.freshAt = undefined;
   }

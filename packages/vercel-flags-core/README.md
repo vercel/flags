@@ -39,8 +39,10 @@ When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads pro
 or bundled definitions without starting a stream or polling. Request version headers
 indicate when cached definitions need refreshing. If an evaluation has no version
 header (or an empty one), the client permanently switches to streaming when enabled,
-otherwise polling. Concurrent evaluations share that startup and later headers do
-not switch the client back. A present but malformed or unrelated header keeps the
+otherwise polling. Concurrent new evaluations share that startup and later headers do
+not switch the client back. Header reads already in progress finish independently;
+successful responses can still update the cache, while their errors do not mark the
+active stream or poller as failed. A present but malformed or unrelated header keeps the
 existing cached-read behavior, fetching only when the cache is empty.
 
 ```ts

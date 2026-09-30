@@ -139,8 +139,9 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
 - Evaluations without a version header (including an empty header) permanently
   start streaming if enabled, otherwise polling, using the existing startup timeouts.
-  Concurrent reads share source startup. Pending header fetches are cancelled without
-  clearing stored data or the failure deadline; their readers resume through the new source.
+  Concurrent new reads share source startup. Pending header reads finish independently;
+  successful responses still pass the cache version guard, while errors from the retired
+  header source do not change cache failure or authorization state.
   `resolveData()` checks header availability and uses `resolveDataWithFallbacks()`
   to start the configured source. Handover retains cached data before considering seeds.
 - Present malformed/unrelated headers use cached data without fetching, subject to stale-if-error.
@@ -346,9 +347,12 @@ are not recovery/failure evidence respectively.
 `cache.resolve(policy)` receives a mode-specific `assess` callback returning
 `{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`,
 and an optional `fetch` callback.
-It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation on clear. HeaderSource supplies small version/age
-checks and a fetch callback; it does not read the cache. Header assessments return confirmation evidence explicitly; the cache applies it
-before enforcing stale-if-error, without a controller event round trip. Stream/poll modes omit on-read revalidation
+It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation
+on clear. HeaderSource supplies small version/age checks and a fetch callback; it does
+not read the cache. Header assessments return confirmation evidence explicitly; the
+cache applies it before enforcing stale-if-error, without a controller event round trip.
+Source data/error events update the cache before the fetch promise settles; rejecting
+the promise does not record a second failure. Stream/poll modes omit on-read revalidation
 and retain their existing schedules. New public time windows use seconds; internal
 normalized durations, cache age, and `fetchedAt` use milliseconds. Polling is fresh
 through its interval; streaming through 30 seconds. Accepted updates, valid confirmations,
