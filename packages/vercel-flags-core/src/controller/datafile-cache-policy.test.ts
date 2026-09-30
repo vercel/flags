@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatafileInput } from '../types';
 import { getRequestContext } from '../utils/request-context';
 import { Authentication } from './auth';
-import {
-  type CacheReadPolicy,
-  DatafileCache,
-  type Freshness,
-} from './datafile-cache';
+import { type CacheFetch, DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import { normalizeOptions } from './normalized-options';
@@ -23,6 +19,8 @@ function data(configUpdatedAt = 1): DatafileInput {
     configUpdatedAt,
   };
 }
+
+const neverSettlingFetch: CacheFetch = () => new Promise(() => {});
 
 function deferred() {
   let resolve!: () => void;
@@ -59,42 +57,15 @@ afterEach(() => {
 
 describe('cache read callbacks', () => {
   it.each([
-    'expired',
-    'fresh',
-    'stale',
-    'unknown',
-  ] satisfies Freshness[])('serves %s without fetching when fetch is omitted, subject to SIE', async (status) => {
-    const cache = new DatafileCache(0);
-    const original = tagData(data(), 'provided');
-    cache.seed(original);
-    const policy = { assess: vi.fn(() => ({ status })) };
-    expect(await cache.resolve(policy)).toEqual([
-      original,
-      status === 'fresh' ? 'HIT' : 'STALE',
-    ]);
-    const error = new Error('outage');
-    cache.fail(error);
-    await expect(cache.resolve(policy)).rejects.toBe(error);
-    expect(policy.assess).toHaveBeenCalledTimes(2);
-  });
-
-  it('returns undefined without assessing an empty cache when fetch is omitted', async () => {
-    const cache = new DatafileCache();
-    const assess = vi.fn(() => ({ status: 'fresh' as const }));
-    expect(await cache.resolve({ assess })).toBeUndefined();
-    expect(assess).not.toHaveBeenCalled();
-  });
-
-  it.each([
     'fresh',
     'unknown',
   ] as const)('serves a %s assessment without fetching or clearing a failure', async (status) => {
-    const cache = new DatafileCache(0);
+    const fetch = vi.fn<CacheFetch>();
+    const cache = new DatafileCache(fetch, 0);
     const original = tagData(data(), 'provided');
     cache.seed(original);
     const policy = {
       assess: vi.fn(() => ({ status })),
-      fetch: vi.fn(async () => {}),
     };
 
     expect(await cache.resolve(policy)).toEqual([
@@ -112,21 +83,21 @@ describe('cache read callbacks', () => {
     cache.fail(failure);
     await expect(cache.resolve(policy)).rejects.toBe(failure);
     expect(policy.assess).toHaveBeenCalledTimes(2);
-    expect(policy.fetch).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('blocks expired reads even when no failure exists', async () => {
     const waitUntil = vi.fn();
-    const cache = new DatafileCache(Infinity, waitUntil);
-    cache.seed(tagData(data(), 'provided'));
     const pending = deferred();
     const fetch = vi.fn(async () => {
       await pending.promise;
-      cache.updateFromSource(data(2), 'fetched');
+      return data(2);
     });
+    const cache = new DatafileCache(fetch, Infinity, waitUntil);
+    cache.seed(tagData(data(), 'provided'));
     const settled = vi.fn();
     const reading = cache
-      .resolve({ assess: () => ({ status: 'expired' as const }), fetch })
+      .resolve({ assess: () => ({ status: 'expired' as const }) })
       .then(settled);
     await vi.advanceTimersByTimeAsync(0);
     expect(settled).not.toHaveBeenCalled();
@@ -138,17 +109,17 @@ describe('cache read callbacks', () => {
     expect(cache.read()?.configUpdatedAt).toBe(2);
   });
 
-  it('keeps the first source failure and its inclusive deadline across later attempts', async () => {
-    const cache = new DatafileCache(100);
-    const original = tagData(data(), 'provided');
-    cache.seed(original);
+  it('keeps the first source failure and its inclusive deadline without extra attempts', async () => {
     const firstError = new Error('first outage');
     const laterError = new Error('later outage');
     const fetch = vi
-      .fn<NonNullable<CacheReadPolicy['fetch']>>()
+      .fn<CacheFetch>()
       .mockRejectedValueOnce(firstError)
       .mockRejectedValue(laterError);
-    const policy = { assess: () => ({ status: 'expired' as const }), fetch };
+    const cache = new DatafileCache(fetch, 100);
+    const original = tagData(data(), 'provided');
+    cache.seed(original);
+    const policy = { assess: () => ({ status: 'expired' as const }) };
     cache.fail(firstError);
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     vi.setSystemTime(1_100);
@@ -156,21 +127,19 @@ describe('cache read callbacks', () => {
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     vi.setSystemTime(1_101);
     await expect(cache.resolve(policy)).rejects.toBe(firstError);
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('does not record a rejected fetch as failure without source evidence', async () => {
-    const cache = new DatafileCache(0);
+  it('records a rejected cache fetch as source failure', async () => {
+    const failure = new Error('retired source');
+    const fetch = vi.fn().mockRejectedValue(failure);
+    const cache = new DatafileCache(fetch, 0);
     const original = tagData(data(), 'provided');
     cache.seed(original);
-    const fetch = vi.fn().mockRejectedValue(new Error('retired source'));
-    expect(
-      await cache.resolve({
-        assess: () => ({ status: 'expired' as const }),
-        fetch,
-      }),
-    ).toEqual([original, 'STALE']);
-    expect(cache.read()).toBe(original);
+    await expect(
+      cache.resolve({ assess: () => ({ status: 'expired' as const }) }),
+    ).rejects.toBe(failure);
+    expect(() => cache.read()).toThrow(failure);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -178,19 +147,13 @@ describe('cache read callbacks', () => {
     const waitUntil = vi.fn<(promise: Promise<unknown>) => void>(() => {
       throw new Error('registration failed');
     });
-    const cache = new DatafileCache(0, waitUntil);
+    const failure = new Error('fetch failed');
+    const fetch = vi.fn().mockRejectedValue(failure);
+    const cache = new DatafileCache(fetch, 0, waitUntil);
     const original = tagData(data(), 'provided');
     cache.seed(original);
-    const failure = new Error('fetch failed');
-    const fetch = vi.fn(async () => {
-      cache.fail(failure);
-      throw failure;
-    });
     expect(
-      await cache.resolve({
-        assess: () => ({ status: 'stale' as const }),
-        fetch,
-      }),
+      await cache.resolve({ assess: () => ({ status: 'stale' as const }) }),
     ).toEqual([original, 'STALE']);
     await waitUntil.mock.calls[0]?.[0];
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
@@ -205,15 +168,15 @@ describe('cache read callbacks', () => {
 
   it('shares a background refresh with a later blocking read', async () => {
     const waitUntil = vi.fn();
-    const cache = new DatafileCache(Infinity, waitUntil);
-    const original = tagData(data(), 'provided');
-    cache.seed(original);
     const pending = deferred();
     const fetch = vi.fn(async () => {
       await pending.promise;
-      cache.updateFromSource(data(2), 'fetched');
+      return data(2);
     });
-    const policy = { assess: () => ({ status: 'stale' as const }), fetch };
+    const cache = new DatafileCache(fetch, Infinity, waitUntil);
+    const original = tagData(data(), 'provided');
+    cache.seed(original);
+    const policy = { assess: () => ({ status: 'stale' as const }) };
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
     const settled = vi.fn();
@@ -235,16 +198,11 @@ describe('cache read callbacks', () => {
 
   it('uses the failure deadline even when the callback still permits stale serving', async () => {
     const waitUntil = vi.fn();
-    const cache = new DatafileCache(0, waitUntil);
-    cache.seed(tagData(data(), 'provided'));
     const failure = new Error('refresh failed');
-    const fetch = vi
-      .fn<NonNullable<CacheReadPolicy['fetch']>>()
-      .mockImplementationOnce(async () => {
-        cache.fail(failure);
-        throw failure;
-      });
-    const policy = { assess: () => ({ status: 'stale' as const }), fetch };
+    const fetch = vi.fn<CacheFetch>().mockRejectedValueOnce(failure);
+    const cache = new DatafileCache(fetch, 0, waitUntil);
+    cache.seed(tagData(data(), 'provided'));
+    const policy = { assess: () => ({ status: 'stale' as const }) };
 
     expect((await cache.resolve(policy))?.[1]).toBe('STALE');
     await waitUntil.mock.calls[0]?.[0];
@@ -255,36 +213,30 @@ describe('cache read callbacks', () => {
     errorSpy.mockClear();
     expect(() => cache.read()).toThrow(failure);
 
-    fetch.mockImplementationOnce(async () =>
-      cache.updateFromSource(data(2), 'fetched'),
-    );
-    expect((await cache.resolve(policy))?.[1]).toBe('MISS');
-    expect(cache.read()?.configUpdatedAt).toBe(2);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    fetch.mockResolvedValueOnce(data(2));
+    await expect(cache.resolve(policy)).rejects.toBe(failure);
+    expect(fetch).toHaveBeenCalledTimes(1);
     expect(waitUntil).toHaveBeenCalledTimes(1);
   });
 
   it('contains synchronous fetch failures and permits a later retry', async () => {
-    const cache = new DatafileCache();
     const failure = new Error('synchronous failure');
-    const fetch = vi.fn<NonNullable<CacheReadPolicy['fetch']>>(() => {
+    const fetch = vi.fn<CacheFetch>(() => {
       throw failure;
     });
-    const policy = { assess: () => ({ status: 'expired' as const }), fetch };
+    const cache = new DatafileCache(fetch);
+    const policy = { assess: () => ({ status: 'expired' as const }) };
     await expect(cache.resolve(policy)).rejects.toBe(failure);
-    fetch.mockImplementationOnce(async () =>
-      cache.updateFromSource(data(), 'fetched'),
-    );
+    fetch.mockResolvedValueOnce(data());
     expect((await cache.resolve(policy))?.[1]).toBe('MISS');
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('cancels queued fetch without invoking the callback', async () => {
-    const cache = new DatafileCache();
-    const fetch = vi.fn(async () => {});
+    const fetch = vi.fn<CacheFetch>();
+    const cache = new DatafileCache(fetch);
     const reading = cache.resolve({
       assess: () => ({ status: 'expired' as const }),
-      fetch,
     });
     const outcome = expect(reading).rejects.toThrow();
     cache.clear();
@@ -293,21 +245,24 @@ describe('cache read callbacks', () => {
   });
 
   it('does not let cancelled work fail or clear a newer fetch', async () => {
-    const cache = new DatafileCache(0);
-    cache.seed(tagData(data(), 'provided'));
     const oldPending = deferred();
     const nextPending = deferred();
     const fetch = vi
-      .fn<NonNullable<CacheReadPolicy['fetch']>>()
-      .mockImplementationOnce(() => oldPending.promise)
+      .fn<CacheFetch>()
+      .mockImplementationOnce(async () => {
+        await oldPending.promise;
+        return data(2);
+      })
       .mockImplementationOnce(async (signal) => {
         await nextPending.promise;
         signal.throwIfAborted();
-        cache.updateFromSource(data(2), 'fetched');
+        return data(2);
       });
-    const policy = { assess: () => ({ status: 'expired' as const }), fetch };
+    const cache = new DatafileCache(fetch, 0);
+    cache.seed(tagData(data(), 'provided'));
+    const policy = { assess: () => ({ status: 'expired' as const }) };
     const oldRead = cache.resolve(policy);
-    const cancelled = expect(oldRead).rejects.toThrow('cancelled transport');
+    const cancelled = expect(oldRead).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(0);
     const oldSignal = fetch.mock.calls[0]?.[0];
     cache.clear();
@@ -414,7 +369,7 @@ describe('header freshness policy', () => {
   });
 
   it('resets cache age on an equal highest-observed header, then blocks older confirmations until stop', async () => {
-    const cache = new DatafileCache(0);
+    const cache = new DatafileCache(neverSettlingFetch, 0);
     const original = Object.freeze(
       tagData({ ...data(), fetchedAt: 500 }, 'bundled'),
     );
@@ -465,7 +420,6 @@ describe('header freshness policy', () => {
   });
 
   it('assesses the captured raw header after a shared cold fetch discovers the project', async () => {
-    const cache = new DatafileCache(0);
     const headerSource = source();
     const headers = { 'x-vercel-flags-config-versions': 'flags_prj_policy=2' };
     vi.mocked(getRequestContext).mockReturnValue({ ctx: undefined, headers });
@@ -473,12 +427,13 @@ describe('header freshness policy', () => {
     const pending = deferred();
     const fetch = vi.fn(async () => {
       await pending.promise;
-      cache.updateFromSource(data(), 'fetched');
+      return data();
     });
-    const firstRead = cache.resolve({ assess: originalCheck, fetch });
+    const cache = new DatafileCache(fetch, 0);
+    const firstRead = cache.resolve({ assess: originalCheck });
     headers['x-vercel-flags-config-versions'] = 'flags_prj_policy=1';
     const laterCheck = vi.fn(headerSource.getAssessment());
-    const secondRead = cache.resolve({ assess: laterCheck, fetch });
+    const secondRead = cache.resolve({ assess: laterCheck });
     await vi.advanceTimersByTimeAsync(0);
     expect(originalCheck).not.toHaveBeenCalled();
     expect(laterCheck).not.toHaveBeenCalled();
@@ -525,15 +480,23 @@ describe('header freshness policy', () => {
     ).toEqual({ status: 'expired' });
   });
 
-  it('emits raw fetched data and confirms equal responses without changing fetchedAt', async () => {
-    const cache = new DatafileCache();
+  it('accepts fetched data directly and confirms equal responses without changing fetchedAt', async () => {
+    const cache = new DatafileCache(
+      (signal) =>
+        fetchDatafile({
+          ...normalizeOptions({
+            auth: new Authentication(undefined),
+            vercel: true,
+          }),
+          signal,
+        }),
+      Infinity,
+    );
     const original = Object.freeze(
       tagData({ ...data(), fetchedAt: 500 }, 'bundled'),
     );
     cache.seed(original);
     const headerSource = source();
-    const onData = vi.fn((raw) => cache.updateFromSource(raw, 'fetched'));
-    headerSource.on('data', onData);
     const incoming = Object.freeze({
       ...data(),
       configUpdatedAt: 1,
@@ -541,14 +504,12 @@ describe('header freshness policy', () => {
       digest: 'test',
     });
     vi.mocked(fetchDatafile).mockResolvedValue(incoming);
-    const fetch = headerSource.fetch;
-    const signal = new AbortController().signal;
     vi.setSystemTime(2_000);
-    await fetch(signal);
-    expect(onData).toHaveBeenCalledExactlyOnceWith(incoming);
-    expect(onData.mock.calls[0]?.[0]).toBe(incoming);
+    expect(
+      await cache.resolve({ assess: () => ({ status: 'expired' }) }),
+    ).toEqual([original, 'MISS']);
     expect(fetchDatafile).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ signal }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(cache.read()).toBe(original);
     expect(cache.ageMs).toBe(0);
@@ -564,18 +525,25 @@ describe('header freshness policy', () => {
   });
 
   it('suppresses a successful transport response after cache clear cancels the fetch', async () => {
-    const cache = new DatafileCache(0);
     const headerSource = source();
     const pending = deferred();
     vi.mocked(fetchDatafile).mockImplementation(async () => {
       await pending.promise;
       return { ...data(2), configUpdatedAt: 2, revision: 2, digest: 'test' };
     });
-    const onData = vi.fn((raw) => cache.updateFromSource(raw, 'fetched'));
-    headerSource.on('data', onData);
+    const cache = new DatafileCache(
+      (signal) =>
+        fetchDatafile({
+          ...normalizeOptions({
+            auth: new Authentication(undefined),
+            vercel: true,
+          }),
+          signal,
+        }),
+      0,
+    );
     const reading = cache.resolve({
       assess: assessment(headerSource, 'flags_prj_policy=2'),
-      fetch: headerSource.fetch,
     });
     const outcome = expect(reading).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(0);
@@ -585,7 +553,6 @@ describe('header freshness policy', () => {
     pending.resolve();
     await outcome;
     expect(signal?.aborted).toBe(true);
-    expect(onData).not.toHaveBeenCalled();
     expect(cache.read()).toBeUndefined();
     expect(cache.ageMs).toBe(Infinity);
     const replacement = tagData(data(), 'provided');

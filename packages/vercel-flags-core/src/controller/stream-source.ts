@@ -30,7 +30,13 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   }
 
   assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => ({
-    status: ageMs <= 30_000 ? 'fresh' : 'stale',
+    status:
+      ageMs <= 30_000
+        ? 'fresh'
+        : this.options.staleWhileRevalidateMs > 0 &&
+            ageMs <= 30_000 + this.options.staleWhileRevalidateMs
+          ? 'stale'
+          : 'expired',
   });
 
   /**
