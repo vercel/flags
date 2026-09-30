@@ -1,5 +1,11 @@
 # @vercel/prepare-flags-definitions
 
+## 0.5.0
+
+### Minor Changes
+
+- [#517](https://github.com/vercel/flags/pull/517) [`d03e4f6`](https://github.com/vercel/flags/commit/d03e4f63ed645339c6a3a312f26ee77eb4cf03ef) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Embed definitions for `flags:projectId=<id>` connection strings found in the environment.
+
 ## 0.4.0
 
 ### Minor Changes

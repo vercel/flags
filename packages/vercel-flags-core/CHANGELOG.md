@@ -1,5 +1,17 @@
 # @vercel/flags-core
 
+## 1.9.0
+
+### Minor Changes
+
+- [#517](https://github.com/vercel/flags/pull/517) [`d03e4f6`](https://github.com/vercel/flags/commit/d03e4f63ed645339c6a3a312f26ee77eb4cf03ef) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Accept `flags:projectId=<id>` connection strings.
+
+- [#537](https://github.com/vercel/flags/pull/537) [`c49aab6`](https://github.com/vercel/flags/commit/c49aab65a8d5f4327552c18179b3f8d761b0f53e) Thanks [@dferber90](https://github.com/dferber90)! - Allow progressive rollouts to end at a configurable percentage using `finalPromille` (for example, `50_000` for 50%). Rollouts without this field continue to end at 100%.
+
+### Patch Changes
+
+- [#396](https://github.com/vercel/flags/pull/396) [`c3026fe`](https://github.com/vercel/flags/commit/c3026fe78b527f8c4300f444751ef4f9325db50e) Thanks [@Nexory](https://github.com/Nexory)! - fix(typed-emitter): clean up empty Set from Map on last off() call
+
 ## 1.8.3
 
 ### Patch Changes
