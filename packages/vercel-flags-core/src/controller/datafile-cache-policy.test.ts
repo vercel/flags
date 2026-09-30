@@ -138,32 +138,39 @@ describe('cache read callbacks', () => {
     expect(cache.read()?.configUpdatedAt).toBe(2);
   });
 
-  it('keeps the first fetch failure and its inclusive deadline across later attempts', async () => {
+  it('keeps the first source failure and its inclusive deadline across later attempts', async () => {
     const cache = new DatafileCache(100);
     const original = tagData(data(), 'provided');
     cache.seed(original);
     const firstError = new Error('first outage');
+    const laterError = new Error('later outage');
     const fetch = vi
       .fn<NonNullable<CacheReadPolicy['fetch']>>()
       .mockRejectedValueOnce(firstError)
-      .mockRejectedValue(new Error('later outage'));
+      .mockRejectedValue(laterError);
     const policy = { assess: () => ({ status: 'expired' as const }), fetch };
+    cache.fail(firstError);
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     vi.setSystemTime(1_100);
+    cache.fail(laterError);
     expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
     vi.setSystemTime(1_101);
     await expect(cache.resolve(policy)).rejects.toBe(firstError);
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
-  it('normalizes non-Error failures retained by the cache', async () => {
+  it('does not record a rejected fetch as failure without source evidence', async () => {
     const cache = new DatafileCache(0);
-    cache.seed(tagData(data(), 'provided'));
-    const fetch = vi.fn().mockRejectedValue('transport failed');
-    await expect(
-      cache.resolve({ assess: () => ({ status: 'expired' as const }), fetch }),
-    ).rejects.toThrow('Unknown fetch error');
-    expect(() => cache.read()).toThrow('Unknown fetch error');
+    const original = tagData(data(), 'provided');
+    cache.seed(original);
+    const fetch = vi.fn().mockRejectedValue(new Error('retired source'));
+    expect(
+      await cache.resolve({
+        assess: () => ({ status: 'expired' as const }),
+        fetch,
+      }),
+    ).toEqual([original, 'STALE']);
+    expect(cache.read()).toBe(original);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -175,7 +182,10 @@ describe('cache read callbacks', () => {
     const original = tagData(data(), 'provided');
     cache.seed(original);
     const failure = new Error('fetch failed');
-    const fetch = vi.fn().mockRejectedValue(failure);
+    const fetch = vi.fn(async () => {
+      cache.fail(failure);
+      throw failure;
+    });
     expect(
       await cache.resolve({
         assess: () => ({ status: 'stale' as const }),
@@ -230,7 +240,10 @@ describe('cache read callbacks', () => {
     const failure = new Error('refresh failed');
     const fetch = vi
       .fn<NonNullable<CacheReadPolicy['fetch']>>()
-      .mockRejectedValueOnce(failure);
+      .mockImplementationOnce(async () => {
+        cache.fail(failure);
+        throw failure;
+      });
     const policy = { assess: () => ({ status: 'stale' as const }), fetch };
 
     expect((await cache.resolve(policy))?.[1]).toBe('STALE');
