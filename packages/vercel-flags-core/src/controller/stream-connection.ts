@@ -3,6 +3,7 @@ import type { BundledDefinitions } from '../types';
 import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
 import { authHeaders, unauthorizedMessage } from './auth';
+import { type DebugLogger, noopDebug } from './debug';
 
 export type PrimedMessage = {
   type: 'primed';
@@ -55,6 +56,7 @@ export type StreamCallbacks = {
 };
 
 export type StreamConfig = {
+  debug?: DebugLogger;
   host: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
@@ -76,6 +78,7 @@ export async function connectStream(
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
   const { onDatafile, onPrimed, onPing, onDisconnect, onError } = callbacks;
+  const debug = config.debug ?? noopDebug;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
@@ -102,6 +105,7 @@ export async function connectStream(
 
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
+        debug('stream.retries.exhausted', () => ({ retryCount }));
         console.error(
           '@vercel/flags-core: Max retry count exceeded',
           lastError ?? 'stream closed repeatedly without an error',
@@ -131,12 +135,14 @@ export async function connectStream(
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
+          debug('stream.ping.timeout');
           lastError = PING_TIMEOUT;
           connectionAbort.abort(PING_TIMEOUT);
         }, PING_TIMEOUT_MS);
       };
 
       try {
+        debug('stream.connect', () => ({ retryCount }));
         lastAttemptTime = Date.now();
         const token = await config.resolveToken().catch((error) => {
           throw new TokenResolutionError(error);
@@ -169,6 +175,7 @@ export async function connectStream(
           signal: connectionAbort.signal,
         });
 
+        debug('stream.response', () => ({ status: response.status, revision }));
         if (!response.ok && response.status === 401) {
           const error = new UnauthorizedError(config.sourceProjectId);
           reportError(error);
@@ -280,7 +287,9 @@ export async function connectStream(
           retryCount++;
           const elapsed = Date.now() - lastAttemptTime;
           const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-          await sleep(Math.max(backoff(retryCount), minGap));
+          const delayMs = Math.max(backoff(retryCount), minGap);
+          debug('stream.reconnect', () => ({ retryCount, delayMs }));
+          await sleep(delayMs);
           continue;
         }
       } catch (error) {
@@ -308,7 +317,9 @@ export async function connectStream(
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
         const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-        await sleep(Math.max(backoff(retryCount), minGap));
+        const delayMs = Math.max(backoff(retryCount), minGap);
+        debug('stream.reconnect', () => ({ retryCount, delayMs }));
+        await sleep(delayMs);
       }
     }
 
