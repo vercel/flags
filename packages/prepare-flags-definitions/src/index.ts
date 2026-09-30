@@ -12,9 +12,20 @@ const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 const FETCH_MAX_RETRIES = 3;
 /** Base delay in milliseconds used for exponential backoff between retries. */
 const FETCH_RETRY_BASE_DELAY_MS = 200;
+/** Upper bound for the best-effort connections lookup. */
+const CONNECTED_SOURCES_TIMEOUT_MS = 5_000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildUserAgent(userAgentSuffix: string | undefined): string {
+  return [
+    `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
+    userAgentSuffix,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 type BundledDefinitions = Record<string, unknown>;
@@ -142,12 +153,7 @@ async function fetchDatafile(
 ): Promise<BundledDefinitions | undefined> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
-    'user-agent': [
-      `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
-      userAgentSuffix,
-    ]
-      .filter(Boolean)
-      .join(' '),
+    'user-agent': buildUserAgent(userAgentSuffix),
   };
 
   if (sourceProjectId) {
@@ -291,13 +297,9 @@ async function fetchConnectedSourceProjectIds(
     const res = await fetchFn(`${API_HOST}${CONNECTED_SOURCES_PATH}`, {
       headers: {
         authorization: `Bearer ${oidcToken}`,
-        'user-agent': [
-          `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
-          userAgentSuffix,
-        ]
-          .filter(Boolean)
-          .join(' '),
+        'user-agent': buildUserAgent(userAgentSuffix),
       },
+      signal: AbortSignal.timeout(CONNECTED_SOURCES_TIMEOUT_MS),
     });
     if (!res.ok) {
       output?.debug(
@@ -305,10 +307,11 @@ async function fetchConnectedSourceProjectIds(
       );
       return [];
     }
-    const body = (await res.json()) as {
-      data?: { sourceProjectId?: unknown }[];
-    };
-    return (body.data ?? [])
+    const body = (await res.json()) as { data?: unknown };
+    const rows: { sourceProjectId?: unknown }[] = Array.isArray(body.data)
+      ? body.data
+      : [];
+    return rows
       .map((c) => c.sourceProjectId)
       .filter(
         (id): id is string =>

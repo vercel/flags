@@ -24,6 +24,26 @@ function datafileCalls(mockFetch: ReturnType<typeof vi.fn>) {
   );
 }
 
+/** Answers `/connections/sources` with `sources`; everything else goes to `datafile`. */
+function mockFetchWithSources(
+  datafile: (url: unknown, init?: RequestInit) => Promise<unknown>,
+  sources: unknown[] = [],
+) {
+  return vi.fn().mockImplementation((url, init) => {
+    if (String(url).includes('/connections/sources')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: sources }),
+      });
+    }
+    return datafile(url, init);
+  });
+}
+
+function okJson(body: unknown) {
+  return () => Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
+}
+
 describe('hashSdkKey', () => {
   it('returns a SHA-256 hex digest', () => {
     const hash = hashSdkKey('vf_server_test_key');
@@ -278,8 +298,10 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('fetches connected projects with the OIDC token and the source project header', async () => {
-    const mockFetch = vi.fn().mockImplementation((_url, init) => {
-      const source = init?.headers?.['x-vercel-flags-project-id'];
+    const mockFetch = mockFetchWithSources((_url, init) => {
+      const source = (init?.headers as Record<string, string> | undefined)?.[
+        'x-vercel-flags-project-id'
+      ];
       return Promise.resolve({
         ok: true,
         json: () =>
@@ -337,35 +359,27 @@ describe('prepareFlagsDefinitions', () => {
 
   it('embeds the sources listed by the API for the token project', async () => {
     const oidcToken = createOidcToken('prj_consumer');
-    const mockFetch = vi.fn().mockImplementation((url, init) => {
-      if (String(url).includes('/connections/sources')) {
-        expect(init?.headers?.authorization).toBe(`Bearer ${oidcToken}`);
+    const mockFetch = mockFetchWithSources(
+      (_url, init) => {
+        const source = (init?.headers as Record<string, string> | undefined)?.[
+          'x-vercel-flags-project-id'
+        ];
         return Promise.resolve({
           ok: true,
           json: () =>
-            Promise.resolve({
-              data: [
-                {
-                  sourceProjectId: 'prj_source',
-                  consumerProjectId: 'prj_consumer',
-                },
-                { sourceProjectId: 'prj_consumer', consumerProjectId: 'prj_x' },
-                { sourceProjectId: 'bad/id' },
-              ],
-            }),
+            Promise.resolve(
+              source
+                ? { flag_b: { value: 'from-source' } }
+                : { flag_a: { value: true } },
+            ),
         });
-      }
-      const source = init?.headers?.['x-vercel-flags-project-id'];
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(
-            source
-              ? { flag_b: { value: 'from-source' } }
-              : { flag_a: { value: true } },
-          ),
-      });
-    });
+      },
+      [
+        { sourceProjectId: 'prj_source' },
+        { sourceProjectId: 'prj_consumer' },
+        { sourceProjectId: 'bad/id' },
+      ],
+    );
 
     const cwd = '/tmp/test-connected-sources-api';
     const result = await prepareFlagsDefinitions({
@@ -373,6 +387,14 @@ describe('prepareFlagsDefinitions', () => {
       env: { VERCEL_OIDC_TOKEN: oidcToken },
       fetch: mockFetch,
     });
+
+    const sourcesCall = mockFetch.mock.calls.find((call) =>
+      String(call[0]).includes('/connections/sources'),
+    );
+    expect(sourcesCall?.[1]?.headers?.authorization).toBe(
+      `Bearer ${oidcToken}`,
+    );
+    expect(sourcesCall?.[1]?.signal).toBeInstanceOf(AbortSignal);
 
     expect(result).toEqual({ created: true, entryCount: 2 });
     expect(
@@ -423,10 +445,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('does not fetch a connected project twice when it is the token project', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const result = await prepareFlagsDefinitions({
       cwd: '/tmp/test-connected-project-self',
@@ -445,10 +464,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('skips a connection string with both sdkKey and projectId', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
     const debug = vi.fn();
 
     const result = await prepareFlagsDefinitions({
@@ -472,10 +488,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('ignores connected project ids that are not valid project ids', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const result = await prepareFlagsDefinitions({
       cwd: '/tmp/test-connected-project-invalid-id',
@@ -491,10 +504,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('stores OIDC definitions under the token project_id', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const cwd = '/tmp/test-oidc-definitions';
     const result = await prepareFlagsDefinitions({
@@ -532,10 +542,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('stores OIDC definitions alongside SDK Keys', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const cwd = '/tmp/test-oidc-sdk-key-mix';
     const result = await prepareFlagsDefinitions({
@@ -628,15 +635,10 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('stores OIDC definitions alongside SDK Keys with different datafiles', async () => {
-    const mockFetch = vi.fn().mockImplementation((url, init) => {
-      if (String(url).includes('/connections/sources')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ data: [] }),
-        });
-      }
+    const mockFetch = mockFetchWithSources((_url, init) => {
       const isSdkKey =
-        init?.headers?.authorization === 'Bearer vf_server_test_key_123';
+        (init?.headers as Record<string, string> | undefined)?.authorization ===
+        'Bearer vf_server_test_key_123';
       return Promise.resolve({
         ok: true,
         json: () =>
