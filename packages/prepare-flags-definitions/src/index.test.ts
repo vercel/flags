@@ -24,6 +24,26 @@ function datafileCalls(mockFetch: ReturnType<typeof vi.fn>) {
   );
 }
 
+/** Answers `/connections/sources` with `sources`; everything else goes to `datafile`. */
+function mockFetchWithSources(
+  datafile: (url: unknown, init?: RequestInit) => Promise<unknown>,
+  sources: unknown[] = [],
+) {
+  return vi.fn().mockImplementation((url, init) => {
+    if (String(url).includes('/connections/sources')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: sources }),
+      });
+    }
+    return datafile(url, init);
+  });
+}
+
+function okJson(body: unknown) {
+  return () => Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
+}
+
 describe('hashSdkKey', () => {
   it('returns a SHA-256 hex digest', () => {
     const hash = hashSdkKey('vf_server_test_key');
@@ -277,36 +297,52 @@ describe('prepareFlagsDefinitions', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('fetches connected projects with the OIDC token and the source project header', async () => {
-    const mockFetch = vi.fn().mockImplementation((_url, init) => {
-      const source = init?.headers?.['x-vercel-flags-project-id'];
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(
-            source
-              ? { flag_b: { value: 'from-source' } }
-              : { flag_a: { value: true } },
-          ),
-      });
-    });
-
+  it('embeds the sources listed by the API for the token project', async () => {
     const oidcToken = createOidcToken('prj_consumer');
-    const cwd = '/tmp/test-connected-project';
+    const mockFetch = mockFetchWithSources(
+      (_url, init) => {
+        const source = (init?.headers as Record<string, string> | undefined)?.[
+          'x-vercel-flags-project-id'
+        ];
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              source
+                ? { flag_b: { value: 'from-source' } }
+                : { flag_a: { value: true } },
+            ),
+        });
+      },
+      [
+        { sourceProjectId: 'prj_source' },
+        { sourceProjectId: 'prj_consumer' },
+        { sourceProjectId: 'bad/id' },
+      ],
+    );
+
+    const cwd = '/tmp/test-connected-sources-api';
     const result = await prepareFlagsDefinitions({
       cwd,
-      env: {
-        VERCEL_OIDC_TOKEN: oidcToken,
-        MARKETING_FLAGS: 'flags:projectId=prj_source',
-      },
+      env: { VERCEL_OIDC_TOKEN: oidcToken },
       fetch: mockFetch,
     });
 
-    expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(datafileCalls(mockFetch)).toHaveLength(2);
-    const sourceCall = datafileCalls(mockFetch).find(
-      (call) => call[1]?.headers?.['x-vercel-flags-project-id'],
+    const sourcesCall = mockFetch.mock.calls.find((call) =>
+      String(call[0]).includes('/connections/sources'),
     );
+    expect(sourcesCall?.[1]?.headers?.authorization).toBe(
+      `Bearer ${oidcToken}`,
+    );
+    expect(sourcesCall?.[1]?.signal).toBeInstanceOf(AbortSignal);
+
+    expect(result).toEqual({ created: true, entryCount: 2 });
+    expect(
+      datafileCalls(mockFetch).map(
+        (call) => call[1]?.headers?.['x-vercel-flags-project-id'],
+      ),
+    ).toEqual([undefined, 'prj_source']);
+    const sourceCall = datafileCalls(mockFetch)[1];
     expect(sourceCall?.[1]?.headers).toMatchObject({
       authorization: `Bearer ${oidcToken}`,
       'x-vercel-flags-project-id': 'prj_source',
@@ -335,59 +371,6 @@ describe('prepareFlagsDefinitions', () => {
     `);
   });
 
-  it('embeds the sources listed by the API for the token project', async () => {
-    const oidcToken = createOidcToken('prj_consumer');
-    const mockFetch = vi.fn().mockImplementation((url, init) => {
-      if (String(url).includes('/connections/sources')) {
-        expect(init?.headers?.authorization).toBe(`Bearer ${oidcToken}`);
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              data: [
-                {
-                  sourceProjectId: 'prj_source',
-                  consumerProjectId: 'prj_consumer',
-                },
-                { sourceProjectId: 'prj_consumer', consumerProjectId: 'prj_x' },
-                { sourceProjectId: 'bad/id' },
-              ],
-            }),
-        });
-      }
-      const source = init?.headers?.['x-vercel-flags-project-id'];
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(
-            source
-              ? { flag_b: { value: 'from-source' } }
-              : { flag_a: { value: true } },
-          ),
-      });
-    });
-
-    const cwd = '/tmp/test-connected-sources-api';
-    const result = await prepareFlagsDefinitions({
-      cwd,
-      env: { VERCEL_OIDC_TOKEN: oidcToken },
-      fetch: mockFetch,
-    });
-
-    expect(result).toEqual({ created: true, entryCount: 2 });
-    expect(
-      datafileCalls(mockFetch).map(
-        (call) => call[1]?.headers?.['x-vercel-flags-project-id'],
-      ),
-    ).toEqual([undefined, 'prj_source']);
-
-    const definitionsJs = await readFile(
-      `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
-      'utf8',
-    );
-    expect(definitionsJs).toContain('"prj_source": _d1');
-  });
-
   it('still embeds own definitions when the sources lookup fails', async () => {
     const mockFetch = vi.fn().mockImplementation((url) => {
       if (String(url).includes('/connections/sources')) {
@@ -409,92 +392,8 @@ describe('prepareFlagsDefinitions', () => {
     expect(datafileCalls(mockFetch)).toHaveLength(1);
   });
 
-  it('skips connected projects without an OIDC token', async () => {
-    const mockFetch = vi.fn();
-
-    const result = await prepareFlagsDefinitions({
-      cwd: '/tmp/test-connected-project-no-oidc',
-      env: { MARKETING_FLAGS: 'flags:projectId=prj_source' },
-      fetch: mockFetch,
-    });
-
-    expect(result).toEqual({ created: false, reason: 'no-flags-entries' });
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('does not fetch a connected project twice when it is the token project', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
-
-    const result = await prepareFlagsDefinitions({
-      cwd: '/tmp/test-connected-project-self',
-      env: {
-        VERCEL_OIDC_TOKEN: createOidcToken('prj_self'),
-        OWN_FLAGS: 'flags:projectId=prj_self',
-      },
-      fetch: mockFetch,
-    });
-
-    expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(datafileCalls(mockFetch)).toHaveLength(1);
-    expect(
-      datafileCalls(mockFetch)[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
-    ).toBeUndefined();
-  });
-
-  it('skips a connection string with both sdkKey and projectId', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
-    const debug = vi.fn();
-
-    const result = await prepareFlagsDefinitions({
-      cwd: '/tmp/test-connected-project-both',
-      env: {
-        VERCEL_OIDC_TOKEN: createOidcToken('prj_consumer'),
-        FLAGS: 'flags:sdkKey=vf_server_my_key&projectId=prj_source',
-      },
-      fetch: mockFetch,
-      output: { debug, time: (_label, promise) => promise },
-    });
-
-    expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(datafileCalls(mockFetch)).toHaveLength(1);
-    expect(
-      datafileCalls(mockFetch)[0]?.[1]?.headers?.['x-vercel-flags-project-id'],
-    ).toBeUndefined();
-    expect(debug).toHaveBeenCalledWith(
-      'vercel-flags: skipping FLAGS, connection string has both sdkKey and projectId',
-    );
-  });
-
-  it('ignores connected project ids that are not valid project ids', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
-
-    const result = await prepareFlagsDefinitions({
-      cwd: '/tmp/test-connected-project-invalid-id',
-      env: {
-        VERCEL_OIDC_TOKEN: createOidcToken('prj_consumer'),
-        FLAGS: 'flags:projectId=prj_a/b',
-      },
-      fetch: mockFetch,
-    });
-
-    expect(result).toEqual({ created: true, entryCount: 1 });
-    expect(datafileCalls(mockFetch)).toHaveLength(1);
-  });
-
   it('stores OIDC definitions under the token project_id', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const cwd = '/tmp/test-oidc-definitions';
     const result = await prepareFlagsDefinitions({
@@ -532,10 +431,7 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('stores OIDC definitions alongside SDK Keys', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ flag_a: { value: true } }),
-    });
+    const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
     const cwd = '/tmp/test-oidc-sdk-key-mix';
     const result = await prepareFlagsDefinitions({
@@ -628,15 +524,10 @@ describe('prepareFlagsDefinitions', () => {
   });
 
   it('stores OIDC definitions alongside SDK Keys with different datafiles', async () => {
-    const mockFetch = vi.fn().mockImplementation((url, init) => {
-      if (String(url).includes('/connections/sources')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ data: [] }),
-        });
-      }
+    const mockFetch = mockFetchWithSources((_url, init) => {
       const isSdkKey =
-        init?.headers?.authorization === 'Bearer vf_server_test_key_123';
+        (init?.headers as Record<string, string> | undefined)?.authorization ===
+        'Bearer vf_server_test_key_123';
       return Promise.resolve({
         ok: true,
         json: () =>

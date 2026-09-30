@@ -400,9 +400,9 @@ describe('Controller (black-box)', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Connection strings naming another project
+  // Reading another project's flags via the projectId option
   // ---------------------------------------------------------------------------
-  describe('flags:projectId= connection strings', () => {
+  describe('projectId option', () => {
     const oidcToken = [
       'header',
       Buffer.from(JSON.stringify({ project_id: 'prj_consumer' })).toString(
@@ -410,7 +410,6 @@ describe('Controller (black-box)', () => {
       ),
       'signature',
     ].join('.');
-    const connectionString = 'flags:projectId=prj_source';
     const sourceHeaders = Object.freeze({
       Authorization: `Bearer ${oidcToken}`,
       'X-Vercel-Flags-Project-Id': 'prj_source',
@@ -424,95 +423,59 @@ describe('Controller (black-box)', () => {
       getVercelOidcTokenMock.mockReset();
     });
 
-    it('should reject connection strings with both sdkKey and projectId', () => {
+    it('reads the named project with the OIDC token and the source header', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            Response.json(makeBundled({ projectId: 'prj_source' })),
+          );
+        }
+        return Promise.resolve(new Response());
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      expect(client.origin).toEqual({
+        provider: 'vercel',
+        sdkKey: undefined,
+        projectId: 'prj_source',
+      });
+      await client.initialize();
+
+      const datafileCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/datafile'),
+      );
+      expect(datafileCall?.[1]?.headers).toMatchObject(sourceHeaders);
+    });
+
+    it('rejects a projectId together with an SDK key', () => {
       expect(() =>
-        createClient('flags:sdkKey=vf_server_x&projectId=prj_source', {
+        createClient('vf_server_key', {
+          projectId: 'prj_source',
           fetch: fetchMock,
           stream: false,
           polling: false,
         }),
       ).toThrow(
-        '@vercel/flags-core: A connection string must contain either sdkKey or projectId, not both',
+        '@vercel/flags-core: projectId cannot be combined with an SDK key',
       );
     });
 
-    it('should reject an invalid sdkKey even when projectId is present', () => {
+    it('rejects an invalid projectId', () => {
       expect(() =>
-        createClient('flags:sdkKey=vf_bad&projectId=prj_source', {
+        createClient({
+          projectId: 'prj_a/b',
           fetch: fetchMock,
           stream: false,
           polling: false,
         }),
-      ).toThrow(
-        '@vercel/flags-core: A connection string must contain either sdkKey or projectId, not both',
-      );
-    });
-
-    it('should reject a projectId that is not a valid project id', () => {
-      expect(() =>
-        createClient('flags:projectId=prj_a/b', {
-          fetch: fetchMock,
-          stream: false,
-          polling: false,
-        }),
-      ).toThrow('@vercel/flags-core: Invalid projectId in connection string');
-    });
-
-    describe('projectId option', () => {
-      it('reads the named project with the OIDC token and the source header', async () => {
-        fetchMock.mockImplementation((input) => {
-          const url = typeof input === 'string' ? input : input.toString();
-          if (url.includes('/v1/datafile')) {
-            return Promise.resolve(
-              Response.json(makeBundled({ projectId: 'prj_source' })),
-            );
-          }
-          return Promise.resolve(new Response());
-        });
-
-        const client = createClient({
-          projectId: 'prj_source',
-          fetch: fetchMock,
-          stream: false,
-          polling: false,
-        });
-
-        expect(client.origin).toEqual({
-          provider: 'vercel',
-          sdkKey: undefined,
-          projectId: 'prj_source',
-        });
-        await client.initialize();
-
-        const datafileCall = fetchMock.mock.calls.find(([input]) =>
-          String(input).includes('/v1/datafile'),
-        );
-        expect(datafileCall?.[1]?.headers).toMatchObject(sourceHeaders);
-      });
-
-      it('rejects a projectId together with an SDK key', () => {
-        expect(() =>
-          createClient('vf_server_key', {
-            projectId: 'prj_source',
-            fetch: fetchMock,
-            stream: false,
-            polling: false,
-          }),
-        ).toThrow(
-          '@vercel/flags-core: projectId cannot be combined with an SDK key',
-        );
-      });
-
-      it('rejects an invalid projectId', () => {
-        expect(() =>
-          createClient({
-            projectId: 'prj_a/b',
-            fetch: fetchMock,
-            stream: false,
-            polling: false,
-          }),
-        ).toThrow('@vercel/flags-core: Invalid projectId');
-      });
+      ).toThrow('@vercel/flags-core: Invalid projectId');
     });
 
     it('should resume usage tracking once polling recovers from a 401', async () => {
@@ -533,7 +496,8 @@ describe('Controller (black-box)', () => {
       });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
@@ -577,7 +541,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         datafile: makeBundled({ projectId: 'prj_source' }),
       });
@@ -620,7 +585,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
@@ -642,7 +608,8 @@ describe('Controller (black-box)', () => {
     it('should send the OIDC token and the source project header on ingest', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: false,
@@ -669,7 +636,8 @@ describe('Controller (black-box)', () => {
         definitions: makeBundled({ projectId: 'prj_source' }),
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: false,
@@ -698,7 +666,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         polling: false,
       });
@@ -724,7 +693,8 @@ describe('Controller (black-box)', () => {
       });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
@@ -756,7 +726,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         stream: false,
         polling: false,
@@ -780,7 +751,8 @@ describe('Controller (black-box)', () => {
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
 
-      const client = createClient(connectionString, {
+      const client = createClient({
+        projectId: 'prj_source',
         fetch: fetchMock,
         buildStep: true,
       });
