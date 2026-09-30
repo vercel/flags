@@ -337,27 +337,18 @@ async function collectFlagEntries(
 ): Promise<FlagEntry[]> {
   const entries: FlagEntry[] = [];
 
-  // Collect unique SDK keys and source projects from environment variables.
-  // Supports direct SDK keys (vf_server_*/vf_client_*) and the flags: format
-  // with either sdkKey= or projectId=.
+  // Collect unique SDK keys from environment variables
+  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
   const sdkKeys = new Set<string>();
-  const sourceProjectIds = new Set<string>();
-  for (const [name, value] of Object.entries(env)) {
+  for (const value of Object.values(env)) {
     if (typeof value !== 'string') continue;
     if (SDK_KEY_REGEX.test(value)) {
       sdkKeys.add(value);
     } else if (value.startsWith('flags:')) {
       const params = new URLSearchParams(value.slice('flags:'.length));
       const sdkKey = params.get('sdkKey');
-      const projectId = params.get('projectId');
-      if (sdkKey && projectId) {
-        output?.debug(
-          `vercel-flags: skipping ${name}, connection string has both sdkKey and projectId`,
-        );
-      } else if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
+      if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
         sdkKeys.add(sdkKey);
-      } else if (projectId && PROJECT_ID_REGEX.test(projectId)) {
-        sourceProjectIds.add(projectId);
       }
     }
   }
@@ -376,18 +367,17 @@ async function collectFlagEntries(
 
     entries.push({ type: 'oidcToken', key: oidcToken });
 
-    for (const projectId of await fetchConnectedSourceProjectIds(
-      oidcToken,
-      fetchFn,
-      userAgentSuffix,
-      output,
-    )) {
-      sourceProjectIds.add(projectId);
-    }
-
     const ownProjectId = getProjectIdFromOidcToken(oidcToken);
+    const sourceProjectIds = new Set(
+      await fetchConnectedSourceProjectIds(
+        oidcToken,
+        fetchFn,
+        userAgentSuffix,
+        output,
+      ),
+    );
+    if (ownProjectId) sourceProjectIds.delete(ownProjectId);
     for (const projectId of Array.from(sourceProjectIds)) {
-      if (projectId === ownProjectId) continue;
       entries.push({ type: 'sourceProject', key: oidcToken, projectId });
     }
     if (sourceProjectIds.size > 0) {
@@ -395,10 +385,6 @@ async function collectFlagEntries(
         `vercel-flags: found ${sourceProjectIds.size} connected projects`,
       );
     }
-  } else if (sourceProjectIds.size > 0) {
-    output?.debug(
-      `vercel-flags: skipping ${sourceProjectIds.size} connected projects, no OIDC token`,
-    );
   }
 
   return entries;

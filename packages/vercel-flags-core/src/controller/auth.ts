@@ -1,9 +1,5 @@
 import { getVercelOidcToken } from '@vercel/oidc';
-import {
-  isValidProjectId,
-  isValidSdkKey,
-  parseFlagsConnectionString,
-} from '../utils/sdk-keys';
+import { parseSdkKeyFromFlagsConnectionString } from '../utils/sdk-keys';
 
 export type BundledDefinitionsLookup =
   | { type: 'sdk-key'; sdkKey: string }
@@ -35,7 +31,7 @@ export function authHeaders(
 
 export function unauthorizedMessage(sourceProjectId?: string): string {
   if (!sourceProjectId) return 'unauthorized (401)';
-  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check the connection string and that the project is connected.`;
+  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected.`;
 }
 
 async function getOidcToken(): Promise<string> {
@@ -85,27 +81,14 @@ export class Authentication implements Auth {
       }
 
       // Parse connection string if needed (e.g., "flags:edgeConfigId=...&sdkKey=vf_xxx")
-      const parsed = parseFlagsConnectionString(sdkKeyOrConnectionString);
-      if (parsed?.sdkKey && parsed.projectId) {
-        throw new Error(
-          '@vercel/flags-core: A connection string must contain either sdkKey or projectId, not both',
-        );
-      }
-      if (parsed?.sdkKey) {
-        if (!isValidSdkKey(parsed.sdkKey)) {
-          throw new Error('@vercel/flags-core: Missing sdkKey');
-        }
-        this.sdkKey = parsed.sdkKey;
-      } else if (parsed?.projectId) {
-        if (!isValidProjectId(parsed.projectId)) {
-          throw new Error(
-            '@vercel/flags-core: Invalid projectId in connection string',
-          );
-        }
-        this.sourceProjectId = parsed.projectId;
-      } else {
+      const parsed = parseSdkKeyFromFlagsConnectionString(
+        sdkKeyOrConnectionString,
+      );
+      if (!parsed) {
         throw new Error('@vercel/flags-core: Missing sdkKey');
       }
+
+      this.sdkKey = parsed;
     }
   }
 
