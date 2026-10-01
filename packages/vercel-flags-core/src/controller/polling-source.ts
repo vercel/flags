@@ -46,8 +46,12 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * Emits 'data' on success, 'error' on failure.
    */
   async poll(): Promise<void> {
-    if (this.polling) return this.polling;
-    if (this.abortController?.signal.aborted) return;
+    if (this.polling) {
+      return this.polling;
+    }
+    if (this.abortController?.signal.aborted) {
+      return;
+    }
     this.abortController ??= new AbortController();
     const controller = this.abortController;
 
@@ -62,7 +66,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
         this.emit('error', err);
       }
     })().finally(() => {
-      if (this.abortController === controller) this.polling = undefined;
+      if (this.abortController === controller) {
+        this.polling = undefined;
+      }
     });
     return this.polling;
   }
@@ -73,7 +79,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * callers should call poll() first if an immediate poll is needed.
    */
   startInterval(): void {
-    if (this.intervalId) return;
+    if (this.intervalId) {
+      return;
+    }
 
     // Start interval
     this.intervalId = setInterval(
