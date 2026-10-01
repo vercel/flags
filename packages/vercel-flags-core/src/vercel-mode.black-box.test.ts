@@ -219,11 +219,23 @@ describe('Vercel mode (black-box)', () => {
     }
     const stream = mockStream();
     streamFetch.mockResolvedValueOnce(stream.response);
+    if (cache === 'empty') {
+      mockDatafileResponse(TIMESTAMP);
+    }
     mockDatafileResponse(TIMESTAMP + 1, true);
     const instance = client({
       stream: mode === 'streaming',
       datafile: cache === 'provided' ? datafile() : undefined,
     });
+
+    if (cache === 'empty') {
+      expect(await instance.evaluate('feature')).toMatchObject({
+        value: false,
+        metrics: { mode: 'vercel', source: 'remote', cacheStatus: 'MISS' },
+      });
+      expect(dataFetch).toHaveBeenCalledTimes(1);
+      expect(streamFetch).not.toHaveBeenCalled();
+    }
 
     const reading = instance.evaluate('feature');
     stream.push({ type: 'datafile', data: datafile(TIMESTAMP + 1, true) });
@@ -237,7 +249,9 @@ describe('Vercel mode (black-box)', () => {
       },
     });
     expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+    const initialFetches =
+      (cache === 'empty' ? 1 : 0) + (mode === 'polling' ? 1 : 0);
+    expect(dataFetch).toHaveBeenCalledTimes(initialFetches);
     expect(readBundledDefinitions).toHaveBeenCalledTimes(
       cache === 'provided' ? 0 : 1,
     );
@@ -249,7 +263,7 @@ describe('Vercel mode (black-box)', () => {
       metrics: { mode, cacheStatus: 'HIT' },
     });
     expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+    expect(dataFetch).toHaveBeenCalledTimes(initialFetches);
 
     if (mode === 'streaming') {
       stream.push({ type: 'datafile', data: datafile(TIMESTAMP + 2) });
@@ -262,7 +276,9 @@ describe('Vercel mode (black-box)', () => {
       value: false,
       metrics: { mode, cacheStatus: 'HIT' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 2 : 0);
+    expect(dataFetch).toHaveBeenCalledTimes(
+      initialFetches + (mode === 'polling' ? 1 : 0),
+    );
   });
 
   it.each([
@@ -464,20 +480,21 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 2);
   });
 
-  it('retries an empty-cache fallback after startup fails', async () => {
+  it('retries an empty-cache fallback after the cold fetch and polling startup fail', async () => {
     const instance = client({
       stream: false,
       datafile: undefined,
       disableMetrics: true,
     });
     setVersion(undefined);
+    rejectDatafileOnce(new Error('cold fetch failed'));
     rejectDatafileOnce(new Error('poll failed'));
     const failure = expect(instance.evaluate('feature')).rejects.toThrow(
       'poll failed',
     );
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(600);
     await failure;
-    expect(dataFetch).toHaveBeenCalledTimes(3);
+    expect(dataFetch).toHaveBeenCalledTimes(6);
 
     setVersion(TIMESTAMP + 100);
     mockDatafileResponse(TIMESTAMP + 1, true);
@@ -485,7 +502,7 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: { mode: 'polling' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(4);
+    expect(dataFetch).toHaveBeenCalledTimes(7);
     expect(streamFetch).not.toHaveBeenCalled();
   });
 

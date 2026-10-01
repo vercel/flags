@@ -56,6 +56,54 @@ afterEach(() => {
 });
 
 describe('cache read callbacks', () => {
+  it('reports a source error without fetching, confirming, or starting a failure deadline', async () => {
+    const fetch = vi.fn<CacheFetch>();
+    const cache = new DatafileCache(fetch, 0);
+    const original = tagData({ ...data(), fetchedAt: 500 }, 'provided');
+    cache.seed(original);
+    expect(
+      await cache.resolve({ assess: () => ({ status: 'error' }) }),
+    ).toEqual([original, 'STALE', true]);
+    expect(cache.read()).toBe(original);
+    expect(cache.ageMs).toBe(500);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('reports a source error after stale-if-error expires without serving retained data', async () => {
+    const fetch = vi.fn<CacheFetch>();
+    const cache = new DatafileCache(fetch, 100);
+    const original = tagData({ ...data(), fetchedAt: 500 }, 'provided');
+    cache.seed(original);
+    const failure = new Error('original outage');
+    cache.fail(failure);
+    const policy = { assess: () => ({ status: 'error' as const }) };
+    expect(await cache.resolve(policy)).toEqual([original, 'STALE', true]);
+    vi.setSystemTime(1_101);
+    expect(await cache.resolve(policy)).toEqual([undefined, 'STALE', true]);
+    expect(() => cache.read()).toThrow(failure);
+    expect(cache.ageMs).toBe(601);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('serves a shared cold fetch before returning the assessment error on the next read', async () => {
+    const fetch = vi.fn(async () => data());
+    const cache = new DatafileCache(fetch, 0);
+    const assess = vi.fn(() => ({ status: 'error' as const }));
+    expect(
+      await Promise.all([cache.resolve({ assess }), cache.resolve({ assess })]),
+    ).toEqual([
+      [cache.read(), 'MISS'],
+      [cache.read(), 'MISS'],
+    ]);
+    expect(await cache.resolve({ assess })).toEqual([
+      cache.read(),
+      'STALE',
+      true,
+    ]);
+    expect(assess).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     'fresh',
     'unknown',
@@ -316,10 +364,10 @@ describe('header freshness policy', () => {
     'flags_prj_policy=0',
     'flags_prj_policy=-1',
     'flags_prj_policy=Infinity',
-  ])('treats missing or malformed header %s as unknown', (header) => {
+  ])('treats missing or malformed header %s as a source error', (header) => {
     const headerSource = source();
     expect(assessment(headerSource, header)({ ...data(), ageMs: 0 })).toEqual({
-      status: 'unknown',
+      status: 'error',
     });
   });
 
