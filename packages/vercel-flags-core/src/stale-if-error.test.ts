@@ -504,26 +504,22 @@ describe('polling stale-if-error through the public API', () => {
     );
   });
 
-  it('does not start SIE at initialization timeout; a late actual error does', async () => {
+  it('uses the datafile fetch deadline for a blocking refresh', async () => {
     const pending = deferred<Response>();
     poll.mockReturnValue(pending.promise);
     const instance = client({ staleIfError: 0, datafile: data() });
     const evaluation = instance.evaluate('flagA');
-    await vi.advanceTimersByTimeAsync(3_000);
-    expect((await evaluation).value).toBe(true);
-    expect(warnSpy.mock.calls).toEqual([
-      [
-        '@vercel/flags-core: Datafile refresh timeout, serving stale while refresh continues in the background',
-      ],
-    ]);
-    warnSpy.mockClear();
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
-    const failure = new Error('late failure');
-    pending.reject(failure);
-    await vi.advanceTimersByTimeAsync(300);
-    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
-    expect(poll).toHaveBeenCalledTimes(3);
+    const settled = vi.fn();
+    void evaluation.then(settled, settled);
+    const outcome = expect(evaluation).rejects.toThrow(
+      '@vercel/flags-core: Datafile fetch deadline exceeded',
+    );
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(settled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await outcome;
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(poll).toHaveBeenCalledTimes(1);
   });
 
   it.each([

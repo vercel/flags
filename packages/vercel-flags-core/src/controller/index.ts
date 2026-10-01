@@ -136,9 +136,6 @@ export class Controller implements ControllerInterface {
       },
       this.options.staleIfErrorMs,
       this.options.waitUntil,
-      this.options.polling.enabled
-        ? this.options.polling.initTimeoutMs
-        : this.options.stream.initTimeoutMs,
     );
 
     // Create source modules

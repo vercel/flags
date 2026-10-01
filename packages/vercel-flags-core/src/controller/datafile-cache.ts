@@ -50,13 +50,11 @@ export class DatafileCache {
 
   private abortController = new AbortController();
   private fetching: Promise<void> | undefined;
-  private timedOutFetch: Promise<void> | undefined;
 
   constructor(
     private readonly fetch: CacheFetch,
     private readonly staleIfErrorMs = Infinity,
     private readonly waitUntil: WaitUntil = () => {},
-    private readonly fetchTimeoutMs = 0,
   ) {}
 
   /** Expired data still exists; fallback loading must not bypass its failure policy. */
@@ -223,12 +221,6 @@ export class DatafileCache {
         }
       }
 
-      // A blocking refresh that already timed out keeps running in the
-      // background. Do not repeatedly block on the same request.
-      if (this.fetching && this.timedOutFetch === this.fetching) {
-        return [this.read()!, 'STALE'];
-      }
-
       // If stale-if-error has expired, fall through to a blocking recovery fetch.
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
@@ -240,23 +232,7 @@ export class DatafileCache {
 
     const { promise, signal } = this.startFetch('fetched');
     try {
-      if (this.fetchTimeoutMs > 0) {
-        let timeoutId: ReturnType<typeof setTimeout>;
-        const timeout = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(
-            () =>
-              reject(new Error('@vercel/flags-core: Datafile refresh timeout')),
-            this.fetchTimeoutMs,
-          );
-        });
-        try {
-          await Promise.race([promise, timeout]);
-        } finally {
-          clearTimeout(timeoutId!);
-        }
-      } else {
-        await promise;
-      }
+      await promise;
       signal.throwIfAborted();
     } catch (error) {
       if (signal.aborted) {
@@ -265,23 +241,6 @@ export class DatafileCache {
       const stale = this.read();
       if (!stale) {
         throw error;
-      }
-      if (
-        error instanceof Error &&
-        error.message === '@vercel/flags-core: Datafile refresh timeout'
-      ) {
-        this.timedOutFetch = this.fetching;
-        console.warn(
-          '@vercel/flags-core: Datafile refresh timeout, serving stale while refresh continues in the background',
-        );
-      }
-      if (this.fetching) {
-        const background = this.fetching.catch(() => {});
-        try {
-          this.waitUntil(background);
-        } catch {
-          // Registration is best-effort; the handled refresh continues.
-        }
       }
       return [stale, 'STALE'];
     }
@@ -332,9 +291,6 @@ export class DatafileCache {
       .finally(() => {
         // An old, aborted operation must not clear a newer one.
         if (this.abortController.signal === signal) {
-          if (this.timedOutFetch === promise) {
-            this.timedOutFetch = undefined;
-          }
           this.fetching = undefined;
         }
       });
@@ -361,7 +317,6 @@ export class DatafileCache {
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
-    this.timedOutFetch = undefined;
     this.data = undefined;
     this.freshAt = undefined;
   }
