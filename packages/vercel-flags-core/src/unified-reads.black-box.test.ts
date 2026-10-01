@@ -160,20 +160,72 @@ it.each([
 it.each([
   'flags_prj_a=1',
   'flags_prj_b=1',
-])('discovers a cold client project before accepting header %s', async (header) => {
+  'flags_prj_a=invalid',
+  '',
+  undefined,
+])('serves a shared cold fetch and selects the source on the next read for header %s', async (header) => {
   context(header);
   dataFetch.mockResolvedValueOnce(Response.json(data()));
   const connection = stream();
   streamFetch.mockResolvedValueOnce(connection.response);
   const instance = client('prj_a', { datafile: undefined });
+  const [file, evaluation] = await Promise.all([
+    instance.getDatafile(),
+    instance.evaluate('feature'),
+  ]);
+  expect(file).toMatchObject({
+    projectId: 'prj_a',
+    metrics: { mode: 'vercel', cacheStatus: 'MISS' },
+  });
+  expect(evaluation).toMatchObject({
+    value: true,
+    metrics: { mode: 'vercel', cacheStatus: 'MISS' },
+  });
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(streamFetch).not.toHaveBeenCalled();
+
   const reading = instance.getDatafile();
   connection.push({ type: 'datafile', data: data() });
   expect(await reading).toMatchObject({
     projectId: 'prj_a',
-    metrics: { mode: header === 'flags_prj_a=1' ? 'vercel' : 'streaming' },
+    metrics: {
+      mode: header === 'flags_prj_a=1' ? 'vercel' : 'streaming',
+      cacheStatus: 'HIT',
+    },
   });
   expect(dataFetch).toHaveBeenCalledTimes(1);
   expect(streamFetch).toHaveBeenCalledTimes(header === 'flags_prj_a=1' ? 0 : 1);
+});
+
+it.each([
+  'streaming',
+  'polling',
+] as const)('a source assessment error allows %s recovery after stale-if-error expires', async (mode) => {
+  context('flags_prj_a=2');
+  const instance = client('prj_a', {
+    stream: mode === 'streaming',
+    staleWhileRevalidate: 0,
+    staleIfError: 0,
+  });
+  dataFetch.mockResolvedValueOnce(new Response(null, { status: 403 }));
+  await expect(instance.getDatafile()).rejects.toThrow('Failed to fetch data');
+  context('flags_other=2');
+  const connection = stream();
+  streamFetch.mockResolvedValueOnce(connection.response);
+  dataFetch.mockResolvedValueOnce(Response.json(data('prj_a', 2)));
+  const reading = instance.getDatafile();
+  const evaluation = instance.evaluate('feature');
+  connection.push({ type: 'datafile', data: data('prj_a', 2) });
+  expect(await reading).toMatchObject({
+    revision: 2,
+    metrics: { mode, cacheStatus: 'HIT' },
+  });
+  expect(await evaluation).toMatchObject({
+    value: false,
+    metrics: { mode, cacheStatus: 'HIT' },
+  });
+  expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 2 : 1);
+  expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
 });
 
 it('shares lazy initialization and returns header-aware HITs without fetching', async () => {

@@ -16,25 +16,15 @@ export class HeaderSource {
     );
   }
 
-  hasHeader(): boolean {
-    return Boolean(this.getVersionHeader());
-  }
-
-  isAvailable(projectId: string | undefined): boolean {
-    return (
-      this.isEnabled() &&
-      projectId !== undefined &&
-      this.getUpdatedAtHeader(projectId, this.getVersionHeader()) !== undefined
-    );
-  }
-
   /** Capture the header now so a shared fetch cannot switch the request being assessed. */
   getAssessment(): CacheReadPolicy['assess'] {
     const header = this.getVersionHeader();
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-      if (headerTs === undefined) return { status: 'unknown' };
+      if (headerTs === undefined) {
+        return { status: 'error' };
+      }
 
       const currentTs = Number(data.configUpdatedAt);
       this.highestObserved = Math.max(this.highestObserved, headerTs);

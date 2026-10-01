@@ -11,7 +11,11 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
+import {
+  type CacheReadPolicy,
+  type CacheResult,
+  DatafileCache,
+} from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -443,37 +447,7 @@ export class Controller implements ControllerInterface {
   private async resolveRuntimeData(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
-    // A cold header read first discovers its own project through the shared fetch.
-    // Never infer ownership from another project's entry in the request header.
-    if (
-      this.state === 'vercel' &&
-      !this.cache.hasData &&
-      this.headerSource.hasHeader()
-    ) {
-      try {
-        const result = await this.cache.resolve(this.cacheReadPolicy);
-        if (
-          result &&
-          (this.state !== 'vercel' ||
-            this.headerSource.isAvailable(result[0].projectId))
-        ) {
-          return result;
-        }
-      } catch (error) {
-        if (this.isShutdown) {
-          throw error;
-        }
-        // Without an identified project, headers cannot drive recovery.
-        // Continue through the same stream/poll fallback as a missing entry.
-      }
-    }
-
-    if (
-      this.state === 'vercel' &&
-      !this.headerSource.isAvailable(this.cache.metadata?.projectId)
-    ) {
-      await this.activateFallbackSource('header');
-    } else if (this.sourceStartup) {
+    if (this.sourceStartup) {
       await this.sourceStartup;
     }
 
@@ -491,8 +465,26 @@ export class Controller implements ControllerInterface {
       return this.resolveStaticFallbackData();
     }
 
-    const result = await this.cache.resolve(this.cacheReadPolicy);
-    if (result) return result;
+    const headerMode = this.state === 'vercel';
+    let result: CacheResult | undefined;
+    try {
+      result = await this.cache.resolve(this.cacheReadPolicy);
+    } catch (error) {
+      if (!headerMode || this.cache.hasData || this.isShutdown) {
+        throw error;
+      }
+      // A failed cold fetch leaves headers unable to identify this client's project.
+    }
+
+    if (result?.[2] || (!result && headerMode)) {
+      if (this.state === 'vercel') {
+        await this.activateFallbackSource('header');
+      }
+      return this.resolveRuntimeData();
+    }
+    if (result) {
+      return [result[0], result[1]];
+    }
 
     return this.resolveStaticFallbackData();
   }
