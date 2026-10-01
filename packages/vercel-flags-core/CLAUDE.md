@@ -275,7 +275,8 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
-- On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
+- A ping timeout reconnects the transport internally without emitting a disconnect or starting polling, including when a suspended runtime resumes. Replacement streams keep a watchdog before their first message. Reconnecting alone does not renew cache age or clear failures; stale/expired reads still refresh through HTTP.
+- On connection errors, server closure, or retry exhaustion: state transitions to `'degraded'`, falls back to polling if enabled
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 - Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
@@ -288,6 +289,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Stops automatically when stream reconnects
 - `PollingSource` shares the cache's HTTP refresh for initialization and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
 - Initialization waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback without renewing cache age or failure allowance; the pending poll and recurring interval continue.
+- After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
 - Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
 

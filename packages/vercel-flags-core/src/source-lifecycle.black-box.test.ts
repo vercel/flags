@@ -73,6 +73,9 @@ function stream() {
     close() {
       controller.close();
     },
+    fail(error: Error) {
+      controller.error(error);
+    },
   };
 }
 
@@ -100,6 +103,7 @@ function client(options: Parameters<typeof createClient>[1] = {}) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
+  vi.spyOn(Math, 'random').mockReturnValue(0);
   vi.stubEnv('VERCEL', '0');
   vi.mocked(readBundledDefinitions).mockResolvedValue({
     definitions: null,
@@ -196,6 +200,204 @@ it('tolerates a delayed stream ping without starting an early HTTP refresh', asy
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
   expect(observed).toEqual({ requests: 0, completed: 1 });
+});
+
+it.each([
+  'reader cancellation',
+  'transport abort error',
+] as const)('reconnects an overdue stream internally after suspension: %s', async (abortPath) => {
+  const first = stream();
+  const second = stream();
+  streamFetch
+    .mockImplementationOnce(async (_input, init) => {
+      if (abortPath === 'transport abort error') {
+        init?.signal?.addEventListener('abort', () => {
+          first.fail(new Error('transport aborted'));
+        });
+      }
+      return first.response;
+    })
+    .mockResolvedValueOnce(second.response);
+  const instance = client({ staleIfError: 0 });
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  const snapshot = await instance.getDatafile();
+
+  // Wall-clock age advances without any source messages while suspended.
+  vi.setSystemTime(now + 600_000);
+  await vi.advanceTimersByTimeAsync(90_001);
+  expect(streamFetch).toHaveBeenCalledTimes(2);
+  expect(streamFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  expect(streamFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(false);
+  expect(
+    new Headers(streamFetch.mock.calls[1]?.[1]?.headers).get('X-Revision'),
+  ).toBe('2');
+  expect(await instance.getDatafile()).toMatchObject({
+    fetchedAt: snapshot.fetchedAt,
+    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
+  });
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).not.toHaveBeenCalled();
+
+  const pending = deferred<Response>();
+  dataFetch.mockReturnValueOnce(pending.promise);
+  const settled = vi.fn();
+  const reading = instance.evaluate('feature').then((result) => {
+    settled();
+    return result;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(settled).not.toHaveBeenCalled();
+  second.push({
+    type: 'primed',
+    revision: 2,
+    projectId: 'prj_review',
+    environment: 'production',
+  });
+  expect(await reading).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
+  expect(dataFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  expect((await instance.getDatafile()).fetchedAt).toBe(snapshot.fetchedAt);
+  pending.resolve(Response.json(data(1, false)));
+  await vi.advanceTimersByTimeAsync(0);
+  expect((await instance.getDatafile()).configUpdatedAt).toBe(2);
+});
+
+it('keeps a watchdog on silent replacement streams without starting polling', async () => {
+  const first = stream();
+  streamFetch
+    .mockResolvedValueOnce(first.response)
+    .mockImplementation(async () => stream().response);
+  const instance = client({ staleIfError: 0 });
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  await vi.advanceTimersByTimeAsync(180_002);
+  // The second connection times out too; its next retry has one second of backoff.
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(streamFetch).toHaveBeenCalledTimes(3);
+  expect(streamFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+  expect(dataFetch).not.toHaveBeenCalled();
+  expect(await instance.getDatafile()).toMatchObject({
+    fetchedAt: now,
+    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
+  });
+});
+
+it.each([
+  503, 401,
+])('falls back to polling when the replacement stream returns %i', async (status) => {
+  const first = stream();
+  streamFetch
+    .mockResolvedValueOnce(first.response)
+    .mockResolvedValueOnce(new Response(null, { status }))
+    .mockImplementation(async () => stream().response);
+  const instance = client();
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  await vi.advanceTimersByTimeAsync(90_001);
+  expect((await instance.getDatafile()).metrics.mode).toBe('polling');
+  dataFetch.mockResolvedValueOnce(Response.json(data(3, false)));
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: false,
+    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+  });
+});
+
+it('falls back to polling if silent reconnects exhaust the stream retry budget', async () => {
+  const first = stream();
+  streamFetch
+    .mockResolvedValueOnce(first.response)
+    .mockImplementation(async () => stream().response);
+  const instance = client();
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  await vi.advanceTimersByTimeAsync(3_000_000);
+  expect(streamFetch).toHaveBeenCalledTimes(16);
+  expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+    '@vercel/flags-core: Max retry count exceeded',
+    expect.objectContaining({ message: 'stream: ping timeout' }),
+  );
+  errorSpy.mockClear();
+  expect((await instance.getDatafile()).metrics.mode).toBe('polling');
+  const previousPolls = dataFetch.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(previousPolls + 1);
+  expect(streamFetch).toHaveBeenCalledTimes(16);
+});
+
+it('does not reconnect or start polling when shutdown races a ping timeout', async () => {
+  const first = stream();
+  streamFetch.mockResolvedValueOnce(first.response);
+  const instance = client();
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  // Trigger cancellation, then shut down before its asynchronous retry runs.
+  vi.advanceTimersByTime(90_000);
+  await instance.shutdown();
+  clients.delete(instance);
+  await vi.advanceTimersByTimeAsync(90_000);
+  expect(streamFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('resumes polling after suspension and shares the pending poll with expired reads', async () => {
+  const instance = client({ stream: false, staleIfError: 0 });
+  await instance.initialize();
+  const pending = deferred<Response>();
+  dataFetch.mockReturnValueOnce(pending.promise);
+  vi.setSystemTime(now + 600_000);
+  await vi.advanceTimersByTimeAsync(30_000);
+  const settled = vi.fn();
+  const reading = instance.evaluate('feature').then((result) => {
+    settled();
+    return result;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(dataFetch).toHaveBeenCalledTimes(2);
+  expect(settled).not.toHaveBeenCalled();
+  pending.resolve(Response.json(data(2, false)));
+  expect(await reading).toMatchObject({
+    value: false,
+    metrics: { mode: 'polling', cacheStatus: 'MISS' },
+  });
+  expect(dataFetch).toHaveBeenCalledTimes(2);
+  expect(streamFetch).not.toHaveBeenCalled();
+});
+
+it('continues scheduled polling after an in-flight fetch times out across suspension', async () => {
+  const instance = client({ stream: false, staleIfError: 0 });
+  await instance.initialize();
+  const pending = deferred<Response>();
+  dataFetch.mockReturnValueOnce(pending.promise);
+  await vi.advanceTimersByTimeAsync(30_000);
+  vi.setSystemTime(now + 600_000);
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(dataFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+  await expect(instance.getDatafile()).rejects.toThrow(
+    '@vercel/flags-core: Datafile fetch deadline exceeded',
+  );
+  dataFetch.mockResolvedValueOnce(Response.json(data(2, false)));
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(dataFetch).toHaveBeenCalledTimes(3);
+  pending.resolve(new Response(null, { status: 401 }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: false,
+    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+  });
+  expect((await instance.getDatafile()).configUpdatedAt).toBe(2);
+  expect(streamFetch).not.toHaveBeenCalled();
 });
 
 it('does not invalidate a healthy stream when a retired header fetch fails late', async () => {
