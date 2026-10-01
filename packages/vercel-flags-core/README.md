@@ -198,6 +198,7 @@ Read and cache events include the project, revision, and cache age when availabl
 | Event | What it explains |
 | --- | --- |
 | `cache.freshness` | The source's age/version assessment and whether failure policy permits serving the entry. |
+| `cache.source-error` / `header.fallback` | The source cannot assess this project or its cached version; the controller starts fallback without changing the fetch-failure deadline. |
 | `cache.refresh.background` / `.blocking` | Why a read returns stale data immediately or waits for refresh. |
 | `cache.fetch.shared` | A caller joins an existing HTTP refresh instead of starting another. |
 | `datafile.fetch.complete` / `cache.fetch.applied` | The response has been parsed / processed by the cache version guard. Only the latter finishes cache refresh work; an older response may be ignored. |
