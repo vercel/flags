@@ -3,6 +3,7 @@ import type { BundledDefinitions } from '../types';
 import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
 import { authHeaders, unauthorizedMessage } from './auth';
+import { debug } from './debug';
 
 export type PrimedMessage = {
   type: 'primed';
@@ -54,6 +55,7 @@ export type StreamCallbacks = {
 };
 
 export type StreamConfig = {
+  clientName?: string;
   host: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
@@ -101,6 +103,9 @@ export async function connectStream(
 
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
+        debug(config.clientName, 'stream.retries.exhausted', () => ({
+          retryCount,
+        }));
         console.error(
           '@vercel/flags-core: Max retry count exceeded',
           lastError ?? 'stream closed repeatedly without an error',
@@ -130,14 +135,19 @@ export async function connectStream(
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
+          debug(config.clientName, 'stream.ping.timeout', () => ({
+            timeoutMs: PING_TIMEOUT_MS,
+          }));
           lastError = PING_TIMEOUT;
           connectionAbort.abort(PING_TIMEOUT);
         }, PING_TIMEOUT_MS);
       };
 
       try {
+        debug(config.clientName, 'stream.connect', () => ({ retryCount }));
         lastAttemptTime = Date.now();
         const token = await config.resolveToken().catch((error) => {
+          debug(config.clientName, 'stream.auth.failed');
           throw new TokenResolutionError(error);
         });
         const headers: Record<string, string> = {
@@ -168,6 +178,10 @@ export async function connectStream(
           signal: connectionAbort.signal,
         });
 
+        debug(config.clientName, 'stream.response', () => ({
+          status: response.status,
+          revision,
+        }));
         if (!response.ok && response.status === 401) {
           const error = new UnauthorizedError(config.sourceProjectId);
           reportError(error);
@@ -279,7 +293,16 @@ export async function connectStream(
           retryCount++;
           const elapsed = Date.now() - lastAttemptTime;
           const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-          await sleep(Math.max(backoff(retryCount), minGap));
+          const delayMs = Math.max(backoff(retryCount), minGap);
+          debug(config.clientName, 'stream.reconnect', () => ({
+            retryCount,
+            delayMs,
+            reason:
+              connectionAbort.signal.reason === PING_TIMEOUT
+                ? 'ping-timeout'
+                : 'connection-closed',
+          }));
+          await sleep(delayMs);
           continue;
         }
       } catch (error) {
@@ -307,7 +330,16 @@ export async function connectStream(
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
         const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-        await sleep(Math.max(backoff(retryCount), minGap));
+        const delayMs = Math.max(backoff(retryCount), minGap);
+        debug(config.clientName, 'stream.reconnect', () => ({
+          retryCount,
+          delayMs,
+          reason:
+            connectionAbort.signal.reason === PING_TIMEOUT
+              ? 'ping-timeout'
+              : 'connection-error',
+        }));
+        await sleep(delayMs);
       }
     }
 

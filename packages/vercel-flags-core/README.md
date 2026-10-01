@@ -159,3 +159,64 @@ const client = OpenFeature.getClient();
 - [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
 - [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
 - [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
+
+### Client debug logging
+
+Set `DEBUG=@vercel/flags-core` to enable detailed diagnostics. This reuses the
+existing ingest debug switch:
+
+```sh
+DEBUG=@vercel/flags-core pnpm dev
+```
+
+Client diagnostics use `console.debug` with the `@vercel/flags-core` prefix and
+an object containing an `event`, the configured `clientName`, and its diagnostic
+details. Set `clientName` when creating each client to distinguish their logs:
+
+```ts
+const client = createClient(undefined, { clientName: 'checkout' });
+```
+
+The controller, cache, and network sources all use the same global logging
+function, including the client name on background work and reconnects. For example:
+
+```text
+@vercel/flags-core { event: 'client.state', clientName: 'checkout', from: 'idle', to: 'vercel', reason: 'header-mode-enabled', ... }
+@vercel/flags-core { event: 'cache.freshness', clientName: 'checkout', status: 'expired', revision: 42, ageMs: 15000, ... }
+@vercel/flags-core { event: 'cache.refresh.blocking', clientName: 'checkout', reason: 'expired', ... }
+@vercel/flags-core { event: 'datafile.fetch.attempt', clientName: 'checkout', attempt: 1, maxAttempts: 3 }
+@vercel/flags-core { event: 'datafile.fetch.response', clientName: 'checkout', attempt: 1, status: 200 }
+@vercel/flags-core { event: 'cache.update.accepted', clientName: 'checkout', revision: 43, ... }
+@vercel/flags-core { event: 'cache.fetch.applied', clientName: 'checkout', revision: 43, ... }
+@vercel/flags-core { event: 'client.read', clientName: 'checkout', state: 'vercel', cacheStatus: 'MISS', ... }
+```
+
+Follow `client.state` for the previous state, next state, and transition reason.
+`state` describes the internal lifecycle; `mode` is the public operating mode.
+Read and cache events include the project, revision, and cache age when available.
+
+| Event | What it explains |
+| --- | --- |
+| `cache.freshness` | The source's age/version assessment and whether failure policy permits serving the entry. |
+| `cache.source-error` / `header.fallback` | The source cannot assess this project or its cached version; the controller starts fallback without changing the fetch-failure deadline. |
+| `cache.refresh.background` / `.blocking` | Why a read returns stale data immediately or waits for refresh. |
+| `cache.fetch.shared` | A caller joins an existing HTTP refresh instead of starting another. |
+| `datafile.fetch.complete` / `cache.fetch.applied` | The response has been parsed / processed by the cache version guard. Only the latter finishes cache refresh work; an older response may be ignored. |
+| `cache.fetch.cancel` / `cache.refresh.superseded` | A stream update or confirmation supersedes HTTP work / releases a waiting read using the confirmed cache. |
+| `cache.fetch.aborted` | `source-confirmed` distinguishes superseded work from `cache-cleared` during shutdown. |
+| `cache.stale-if-error.expired` / `cache.recovered` | The failure allowance prevents serving data / an actual failure has cleared. Ordinary confirmations do not log recovery. |
+| `stream.initialize.timeout` / `poll.initialize.timeout` | Startup reached its deadline; `hasData` and `startupFallback` show whether cached fallback is available. |
+
+Events cover initialization and shutdown, selected modes and state transitions,
+evaluation/getDatafile results, cache versions and age, version acceptance/confirmation,
+header timestamps, background/blocking/shared refreshes, stale-if-error expiry,
+HTTP attempts and retry delays, polling, stream pings, timeouts, and reconnect reasons.
+Stream/poll startup events include their stale and expired age thresholds.
+Cache ages and delays are in milliseconds; `Infinity` denotes unknown age or an
+unlimited stale-if-error window. The new client diagnostics omit credentials,
+raw headers, flag definitions, evaluation entities, and raw error messages.
+
+Logging is off by default. The logger checks `DEBUG` on each call; removing the
+namespace disables client diagnostics, including for existing clients. Diagnostics
+are verbose, including an event for each read, and event names/fields are internal
+rather than a stable API. Configure your log collector to include `console.debug` output.
