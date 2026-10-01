@@ -595,38 +595,6 @@ export class Controller implements ControllerInterface {
     this.transition('degraded');
   }
 
-  private async initializePolling(): Promise<void> {
-    const poll = this.pollingSource.poll().catch((error) => {
-      // Initialization can finish with retained data; serving still enforces SIE.
-      if (!this.cache.hasData || this.isShutdown) {
-        throw error;
-      }
-    });
-    const timeoutMs = this.options.polling.initTimeoutMs;
-    if (timeoutMs <= 0) {
-      await poll;
-      return;
-    }
-
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const outcome = await Promise.race([
-        poll,
-        new Promise<'timeout'>((resolve) => {
-          timeoutId = setTimeout(() => resolve('timeout'), timeoutMs);
-        }),
-      ]);
-      if (outcome === 'timeout') {
-        this.startupFallback = true;
-        console.warn(
-          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
-        );
-      }
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // Stream initialization
   // ---------------------------------------------------------------------------
@@ -679,6 +647,48 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
       this.noteUnauthorized(error);
       return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Polling initialization
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Waits for the first poll when polling is the primary runtime source.
+   * On timeout, initialization falls back while the pending poll and interval
+   * continue in the background. Poll errors propagate if no data is cached or
+   * the client is shutting down.
+   */
+  private async initializePolling(): Promise<void> {
+    const poll = this.pollingSource.poll().catch((error) => {
+      // Initialization can finish with retained data; serving still enforces SIE.
+      if (!this.cache.hasData || this.isShutdown) {
+        throw error;
+      }
+    });
+    const timeoutMs = this.options.polling.initTimeoutMs;
+    if (timeoutMs <= 0) {
+      await poll;
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const outcome = await Promise.race([
+        poll,
+        new Promise<'timeout'>((resolve) => {
+          timeoutId = setTimeout(() => resolve('timeout'), timeoutMs);
+        }),
+      ]);
+      if (outcome === 'timeout') {
+        this.startupFallback = true;
+        console.warn(
+          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
