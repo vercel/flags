@@ -753,10 +753,10 @@ describe('connectStream', () => {
       await vi.advanceTimersByTimeAsync(1_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(onDisconnect).toHaveBeenCalled();
+      expect(onDisconnect).not.toHaveBeenCalled();
 
       // Should have attempted reconnection
-      expect(requestCount).toBeGreaterThanOrEqual(2);
+      expect(requestCount).toBe(2);
 
       abortController.abort();
     });
