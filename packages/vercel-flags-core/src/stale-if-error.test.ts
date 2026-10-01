@@ -74,9 +74,7 @@ beforeEach(() => {
   clients = [];
   poll.mockReset().mockImplementation(async () => response(data()));
   fetchMock.mockReset().mockImplementation((input) => {
-    if (String(input).endsWith('/v1/datafile')) {
-      return poll();
-    }
+    if (String(input).endsWith('/v1/datafile')) return poll();
     return Promise.resolve(new Response());
   });
   vi.mocked(readBundledDefinitions).mockReset().mockResolvedValue({
@@ -89,9 +87,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   try {
-    for (const instance of clients) {
-      await instance.shutdown();
-    }
+    for (const instance of clients) await instance.shutdown();
     expect(errorSpy).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
   } finally {
@@ -591,9 +587,7 @@ describe('polling stale-if-error through the public API', () => {
     fetchMock
       .mockResolvedValueOnce(new Response(body))
       .mockImplementation((input) => {
-        if (String(input).endsWith('/v1/datafile')) {
-          return poll();
-        }
+        if (String(input).endsWith('/v1/datafile')) return poll();
         return Promise.resolve(new Response());
       });
     const instance = client({ stream: true, staleIfError: 0 });

@@ -21,9 +21,7 @@ function createNdjsonStream(
   return new ReadableStream({
     async start(controller) {
       for (const message of messages) {
-        if (delayMs > 0) {
-          await new Promise((r) => setTimeout(r, delayMs));
-        }
+        if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
         controller.enqueue(
           new TextEncoder().encode(`${JSON.stringify(message)}\n`),
         );

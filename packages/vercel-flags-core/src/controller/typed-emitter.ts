@@ -18,9 +18,7 @@ export class TypedEmitter<
 
   off<E extends keyof Events>(event: E, handler: Events[E]): void {
     const set = this.handlers.get(event);
-    if (!set) {
-      return;
-    }
+    if (!set) return;
     set.delete(handler as Events[keyof Events]);
     if (set.size === 0) {
       this.handlers.delete(event);

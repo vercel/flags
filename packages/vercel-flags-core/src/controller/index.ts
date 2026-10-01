@@ -11,7 +11,11 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
+import {
+  type CacheAssessment,
+  type CacheReadPolicy,
+  DatafileCache,
+} from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -243,10 +247,12 @@ export class Controller implements ControllerInterface {
     return this.state === 'shutdown';
   }
 
+  private get isConnected(): boolean {
+    return this.state === 'streaming';
+  }
+
   private get mode(): Metrics['mode'] {
-    if (this.options.buildStep) {
-      return 'build';
-    }
+    if (this.options.buildStep) return 'build';
     switch (this.state) {
       case 'streaming':
         return 'streaming';
@@ -291,9 +297,7 @@ export class Controller implements ControllerInterface {
     if (!this.cache.hasData) {
       try {
         const bundled = await this.bundledSource.tryLoad();
-        if (bundled) {
-          this.cache.seed(tagData({ ...bundled }, 'bundled'));
-        }
+        if (bundled) this.cache.seed(tagData({ ...bundled }, 'bundled'));
       } catch {
         // Bundled definitions not available — proceed without revision
       }
@@ -306,15 +310,11 @@ export class Controller implements ControllerInterface {
     }
 
     await this.activateFallbackSource('header');
-    if (this.cache.hasData) {
-      return;
-    }
+    if (this.cache.hasData) return;
 
     // All update sources share the same final blocking datafile fetch.
     const fetched = await this.cache.resolve(this.cacheReadPolicy);
-    if (!fetched) {
-      await this.initializeFromFallbacks();
-    }
+    if (!fetched) await this.initializeFromFallbacks();
   }
 
   /**
@@ -340,10 +340,9 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState:
-          this.state === 'streaming'
-            ? ('connected' as const)
-            : ('disconnected' as const),
+        connectionState: this.isConnected
+          ? ('connected' as const)
+          : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -383,12 +382,7 @@ export class Controller implements ControllerInterface {
     if (this.options.buildStep) {
       [result, cacheStatus] = await this.resolveDataForBuildStep();
     } else if (result) {
-      const metadata = this.cache.metadata;
-      // Snapshots must not turn request headers into freshness evidence.
-      const status =
-        metadata && this.state !== 'vercel'
-          ? this.cacheReadPolicy.assess(metadata).status
-          : 'unknown';
+      const status = this.assessSnapshot();
 
       cacheStatus = status === 'fresh' ? 'HIT' : 'STALE';
     } else {
@@ -427,10 +421,9 @@ export class Controller implements ControllerInterface {
         readMs: Date.now() - startTime,
         source: originToMetricsSource(result._origin),
         cacheStatus,
-        connectionState:
-          this.state === 'streaming'
-            ? ('connected' as const)
-            : ('disconnected' as const),
+        connectionState: this.isConnected
+          ? ('connected' as const)
+          : ('disconnected' as const),
         mode: this.mode,
       },
     } satisfies Datafile;
@@ -459,6 +452,13 @@ export class Controller implements ControllerInterface {
       return this.resolveDataForBuildStep();
     }
 
+    return this.resolveRuntimeData();
+  }
+
+  /** Initializes the active runtime source, then resolves through its policy. */
+  private async resolveRuntimeData(): Promise<
+    [TaggedData, Metrics['cacheStatus']]
+  > {
     if (this.state === 'vercel' && !this.headerSource.isAvailable()) {
       await this.activateFallbackSource('header');
     } else if (this.state === 'initializing:stream') {
@@ -468,11 +468,22 @@ export class Controller implements ControllerInterface {
     }
 
     const result = await this.cache.resolve(this.cacheReadPolicy);
-    if (result) {
-      return result;
+    if (result) return result;
+
+    return this.resolveStaticFallbackData();
+  }
+
+  /**
+   * Assesses a snapshot without consuming request-header freshness evidence.
+   * Header assessment belongs to resolveData(), where it can trigger refreshes.
+   */
+  private assessSnapshot(): CacheAssessment['status'] {
+    const metadata = this.cache.metadata;
+    if (!metadata || this.state === 'vercel') {
+      return 'unknown';
     }
 
-    return this.resolveDataWithFallbacks();
+    return this.cacheReadPolicy.assess(metadata).status;
   }
 
   private get cacheReadPolicy(): CacheReadPolicy {
@@ -507,9 +518,7 @@ export class Controller implements ControllerInterface {
     if (after === 'header' && this.options.stream.enabled) {
       this.transition('initializing:stream');
       if (await this.tryInitializeStream()) {
-        if (!this.isShutdown) {
-          this.transition('streaming');
-        }
+        if (!this.isShutdown) this.transition('streaming');
         return;
       }
       after = 'stream';
@@ -600,9 +609,7 @@ export class Controller implements ControllerInterface {
    * Initializes data for build step environments.
    */
   private async initializeForBuildStep(): Promise<void> {
-    if (this.cache.hasData) {
-      return;
-    }
+    if (this.cache.hasData) return;
 
     if (!this.buildDataPromise) {
       this.buildDataPromise = this.loadBuildData();
@@ -641,9 +648,7 @@ export class Controller implements ControllerInterface {
    */
   private async loadBuildData(): Promise<TaggedData> {
     const bundled = await this.bundledSource.tryLoad();
-    if (bundled) {
-      return tagData({ ...bundled }, 'bundled');
-    }
+    if (bundled) return tagData({ ...bundled }, 'bundled');
 
     // Fallback: one-time fetch
     try {
@@ -724,14 +729,12 @@ export class Controller implements ControllerInterface {
    * Polling mode: poll → datafile → bundled.
    * Offline mode: datafile → bundled → one-time fetch.
    */
-  private async resolveDataWithFallbacks(): Promise<
+  private async resolveStaticFallbackData(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
     // Handover can start with newer cached data; do not replace it with a seed.
     const cached = this.cache.read();
-    if (cached) {
-      return [cached, 'STALE'];
-    }
+    if (cached) return [cached, 'STALE'];
 
     // Fallback chain: datafile → bundled → one-time fetch
     this.transition('initializing:fallback');
@@ -788,15 +791,9 @@ export class Controller implements ControllerInterface {
     isFirstRead: boolean,
     datafile: Datafile,
   ): void {
-    if (this.unauthorized) {
-      return;
-    }
-    if (this.options.buildStep && this.buildReadTracked) {
-      return;
-    }
-    if (this.options.buildStep) {
-      this.buildReadTracked = true;
-    }
+    if (this.unauthorized) return;
+    if (this.options.buildStep && this.buildReadTracked) return;
+    if (this.options.buildStep) this.buildReadTracked = true;
 
     const configOrigin: 'in-memory' | 'embedded' =
       datafile.metrics.source === 'embedded' ? 'embedded' : 'in-memory';
@@ -834,9 +831,7 @@ export class Controller implements ControllerInterface {
    * Tracks a flag evaluation for usage analytics.
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
-    if (this.unauthorized || this.options.disableMetrics) {
-      return;
-    }
+    if (this.unauthorized || this.options.disableMetrics) return;
 
     this.usageTracker.trackEvaluation({
       ...options,
