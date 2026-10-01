@@ -4,15 +4,28 @@ import { join } from 'node:path';
 import { version as PACKAGE_VERSION } from '../package.json';
 
 const FLAGS_HOST = 'https://flags.vercel.com';
+const API_HOST = 'https://api.vercel.com';
+const CONNECTED_SOURCES_PATH = '/v1/feature-flags/connections/sources';
 const FLAGS_DEFINITIONS_VERSION = '1.0.1';
 
 /** Number of retry attempts for transient datafile fetch failures. */
 const FETCH_MAX_RETRIES = 3;
 /** Base delay in milliseconds used for exponential backoff between retries. */
 const FETCH_RETRY_BASE_DELAY_MS = 200;
+/** Upper bound for the best-effort connections lookup. */
+const CONNECTED_SOURCES_TIMEOUT_MS = 5_000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildUserAgent(userAgentSuffix: string | undefined): string {
+  return [
+    `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
+    userAgentSuffix,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 type BundledDefinitions = Record<string, unknown>;
@@ -140,12 +153,7 @@ async function fetchDatafile(
 ): Promise<BundledDefinitions | undefined> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
-    'user-agent': [
-      `@vercel/prepare-flags-definitions/${PACKAGE_VERSION}`,
-      userAgentSuffix,
-    ]
-      .filter(Boolean)
-      .join(' '),
+    'user-agent': buildUserAgent(userAgentSuffix),
   };
 
   if (sourceProjectId) {
@@ -275,35 +283,72 @@ const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
 const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
 
 /**
- * Collect all possible flag entries the need embedding from the environment
+ * Asks the API which projects granted this deployment's project access to
+ * their flags. Best effort: a connection that is not embedded still works at
+ * runtime, so any failure only costs the offline fallback.
  */
-function collectFlagEntries(
-  env: Record<string, string | undefined>,
+async function fetchConnectedSourceProjectIds(
+  oidcToken: string,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix: string | undefined,
   output: Output | undefined,
-): FlagEntry[] {
+): Promise<string[]> {
+  try {
+    const res = await fetchFn(`${API_HOST}${CONNECTED_SOURCES_PATH}`, {
+      headers: {
+        authorization: `Bearer ${oidcToken}`,
+        'user-agent': buildUserAgent(userAgentSuffix),
+      },
+      signal: AbortSignal.timeout(CONNECTED_SOURCES_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      output?.debug(
+        `vercel-flags: could not list connected projects (${res.status})`,
+      );
+      return [];
+    }
+    const body = (await res.json()) as { data?: unknown };
+    const rows: { sourceProjectId?: unknown }[] = Array.isArray(body.data)
+      ? body.data
+      : [];
+    return rows
+      .map((c) => c.sourceProjectId)
+      .filter(
+        (id): id is string =>
+          typeof id === 'string' && PROJECT_ID_REGEX.test(id),
+      );
+  } catch (error) {
+    output?.debug(
+      `vercel-flags: could not list connected projects (${error instanceof Error ? error.message : String(error)})`,
+    );
+    return [];
+  }
+}
+
+/**
+ * Collect all possible flag entries the need embedding from the environment
+ * and from the project's connections.
+ */
+async function collectFlagEntries(
+  env: Record<string, string | undefined>,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix: string | undefined,
+  output: Output | undefined,
+): Promise<FlagEntry[]> {
   const entries: FlagEntry[] = [];
 
-  // Collect unique SDK keys and source projects from environment variables.
-  // Supports direct SDK keys (vf_server_*/vf_client_*) and the flags: format
-  // with either sdkKey= or projectId=.
+  // Collect unique SDK keys from environment variables
+  // Supports both direct SDK keys (vf_server_*/vf_client_*) and flags: format
   const sdkKeys = new Set<string>();
-  const sourceProjectIds = new Set<string>();
-  for (const [name, value] of Object.entries(env)) {
+  for (const value of Object.values(env)) {
     if (typeof value !== 'string') continue;
     if (SDK_KEY_REGEX.test(value)) {
       sdkKeys.add(value);
     } else if (value.startsWith('flags:')) {
       const params = new URLSearchParams(value.slice('flags:'.length));
       const sdkKey = params.get('sdkKey');
-      const projectId = params.get('projectId');
-      if (sdkKey && projectId) {
-        output?.debug(
-          `vercel-flags: skipping ${name}, connection string has both sdkKey and projectId`,
-        );
-      } else if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
+      if (sdkKey && SDK_KEY_REGEX.test(sdkKey)) {
         sdkKeys.add(sdkKey);
-      } else if (projectId && PROJECT_ID_REGEX.test(projectId)) {
-        sourceProjectIds.add(projectId);
       }
     }
   }
@@ -323,8 +368,16 @@ function collectFlagEntries(
     entries.push({ type: 'oidcToken', key: oidcToken });
 
     const ownProjectId = getProjectIdFromOidcToken(oidcToken);
+    const sourceProjectIds = new Set(
+      await fetchConnectedSourceProjectIds(
+        oidcToken,
+        fetchFn,
+        userAgentSuffix,
+        output,
+      ),
+    );
+    if (ownProjectId) sourceProjectIds.delete(ownProjectId);
     for (const projectId of Array.from(sourceProjectIds)) {
-      if (projectId === ownProjectId) continue;
       entries.push({ type: 'sourceProject', key: oidcToken, projectId });
     }
     if (sourceProjectIds.size > 0) {
@@ -332,10 +385,6 @@ function collectFlagEntries(
         `vercel-flags: found ${sourceProjectIds.size} connected projects`,
       );
     }
-  } else if (sourceProjectIds.size > 0) {
-    output?.debug(
-      `vercel-flags: skipping ${sourceProjectIds.size} connected projects, no OIDC token`,
-    );
   }
 
   return entries;
@@ -367,7 +416,12 @@ export async function prepareFlagsDefinitions(options: {
 
   output?.debug('vercel-flags: checking env vars for SDK Keys and OIDC Token');
 
-  const entries = collectFlagEntries(env, output);
+  const entries = await collectFlagEntries(
+    env,
+    fetchFn,
+    userAgentSuffix,
+    output,
+  );
   if (entries.length === 0) {
     return { created: false, reason: 'no-flags-entries' };
   }
