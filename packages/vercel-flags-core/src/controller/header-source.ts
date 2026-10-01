@@ -30,7 +30,7 @@ export class HeaderSource {
       this.highestObserved = Math.max(this.highestObserved, headerTs);
 
       if (!Number.isFinite(currentTs) || currentTs <= 0) {
-        return { status: 'unknown' };
+        return { status: 'error' };
       }
 
       if (headerTs <= currentTs) {
