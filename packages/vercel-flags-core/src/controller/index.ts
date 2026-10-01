@@ -11,11 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import {
-  type CacheAssessment,
-  type CacheReadPolicy,
-  DatafileCache,
-} from './datafile-cache';
+import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -85,7 +81,7 @@ type RuntimeSource = 'header' | 'stream' | 'polling';
  * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
  * - Loads provided/bundled data before selecting the mode; no startup network
  * - HeaderSource checks request versions and refreshes when needed
- * - An evaluation without a version header permanently starts stream/poll
+ * - A read without a valid project version header permanently starts stream/poll
  * - Cache applies version acceptance and stale-if-error to all served data
  *
  * **Runtime — offline mode** (neither stream nor polling):
@@ -388,46 +384,14 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Returns the datafile with metrics.
-   * Uses in-memory data if available, otherwise falls back to bundled,
-   * then to a one-time fetch if called without prior initialization.
+   * Resolves the datafile through the same freshness and source policy as reads.
+   * Builds the response without recording an evaluation read event.
    */
   async getDatafile(): Promise<Datafile> {
     const startTime = Date.now();
     this.isFirstGetData = false;
 
-    let result = this.cache.read();
-    let cacheStatus: Metrics['cacheStatus'];
-
-    if (this.options.buildStep) {
-      [result, cacheStatus] = await this.resolveDataForBuildStep();
-    } else if (result) {
-      const status = this.assessSnapshot();
-
-      cacheStatus = status === 'fresh' ? 'HIT' : 'STALE';
-    } else {
-      // Preserve snapshot loading without starting stream/poll initialization.
-      const bundled = await this.bundledSource.tryLoad();
-      if (bundled) {
-        this.cache.seed(tagData({ ...bundled }, 'bundled'));
-      } else {
-        try {
-          const fetched = await fetchDatafile({
-            host: this.options.host,
-            auth: this.options.auth,
-            fetch: this.options.fetch,
-          });
-          this.cache.seed(tagFetchedData(fetched));
-        } catch (error) {
-          this.noteUnauthorized(error);
-          throw this.noDefinitionsError(
-            '. Initialize the client or provide a datafile.',
-          );
-        }
-      }
-      cacheStatus = 'MISS';
-      result = this.cache.read()!;
-    }
+    const [result, cacheStatus] = await this.resolveData();
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -479,7 +443,35 @@ export class Controller implements ControllerInterface {
   private async resolveRuntimeData(): Promise<
     [TaggedData, Metrics['cacheStatus']]
   > {
-    if (this.state === 'vercel' && !this.headerSource.isAvailable()) {
+    // A cold header read first discovers its own project through the shared fetch.
+    // Never infer ownership from another project's entry in the request header.
+    if (
+      this.state === 'vercel' &&
+      !this.cache.hasData &&
+      this.headerSource.hasHeader()
+    ) {
+      try {
+        const result = await this.cache.resolve(this.cacheReadPolicy);
+        if (
+          result &&
+          (this.state !== 'vercel' ||
+            this.headerSource.isAvailable(result[0].projectId))
+        ) {
+          return result;
+        }
+      } catch (error) {
+        if (this.isShutdown) {
+          throw error;
+        }
+        // Without an identified project, headers cannot drive recovery.
+        // Continue through the same stream/poll fallback as a missing entry.
+      }
+    }
+
+    if (
+      this.state === 'vercel' &&
+      !this.headerSource.isAvailable(this.cache.metadata?.projectId)
+    ) {
       await this.activateFallbackSource('header');
     } else if (this.sourceStartup) {
       await this.sourceStartup;
@@ -503,19 +495,6 @@ export class Controller implements ControllerInterface {
     if (result) return result;
 
     return this.resolveStaticFallbackData();
-  }
-
-  /**
-   * Assesses a snapshot without consuming request-header freshness evidence.
-   * Header assessment belongs to resolveData(), where it can trigger refreshes.
-   */
-  private assessSnapshot(): CacheAssessment['status'] {
-    const metadata = this.cache.metadata;
-    if (!metadata || this.state === 'vercel') {
-      return 'unknown';
-    }
-
-    return this.cacheReadPolicy.assess(metadata).status;
   }
 
   private get cacheReadPolicy(): CacheReadPolicy {
@@ -582,9 +561,11 @@ export class Controller implements ControllerInterface {
     ) {
       this.pollingSource.startInterval();
       this.transition('polling');
-      // Stream fallback keeps its interval schedule; primary polling starts now.
+      // Repair a disconnected stream immediately; reads share this background poll.
       if (after === 'header') {
         await this.initializePolling();
+      } else {
+        void this.pollingSource.poll().catch(() => {});
       }
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');

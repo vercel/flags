@@ -37,14 +37,17 @@ Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
 When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
 or bundled definitions without starting a stream or polling. Request version headers
-indicate when cached definitions need refreshing. If an evaluation has no version
-header (or an empty one), the client permanently switches to streaming when enabled,
-otherwise polling. Concurrent new evaluations share that startup and later headers do
+indicate when cached definitions need refreshing. Header mode requires a valid positive
+version for the client’s own `projectId`. Missing, empty, malformed, or unrelated entries
+permanently switch that client to streaming when enabled, otherwise polling. Clients
+with different projects select their sources independently within the same request.
+Concurrent reads share that startup and later headers do
 not switch the client back. Pending HTTP refreshes remain shared until the stream
 delivers current data or confirms the cached version. That confirmation cancels the
 superseded refresh, and waiting reads use the confirmed cache; late responses cannot
-change cache or authorization state. A present but malformed or unrelated header keeps the
-existing cached-read behavior, fetching only when the cache is empty.
+change cache or authorization state. With an empty cache and a nonempty header, the first
+shared fetch discovers the client’s project before checking its header entry; if discovery
+fails or the entry is unavailable, the client starts the stream/poll fallback.
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
@@ -62,8 +65,10 @@ preserve their original `fetchedAt`; unknown or expired cache age requires a blo
 refresh when a newer request version arrives. Refresh failures use `staleIfError`.
 A newer-header read attempts blocking recovery after that failure allowance expires.
 
-`getDatafile()` remains a snapshot read: it applies stale-if-error but does not inspect
-headers. Use `vercel: false` to select the existing stream/poll behavior. Disabling both
+`getDatafile()` uses the same lazy initialization and resolution path as evaluations,
+including header checks, background revalidation, blocking refresh, stale-if-error, and
+source fallback. Concurrent calls share HTTP refreshes across both APIs.
+Use `vercel: false` to select the stream/poll behavior. Disabling both
 stream and polling still selects offline mode, and builds retain their existing loading.
 
 ## Cached reads after errors
@@ -97,16 +102,18 @@ throws the first failure when no default is supplied. `bulkEvaluate()` returns
 an error result for each requested flag, with its default value when provided.
 `getDatafile()` follows the same allowance and throws after expiry. The entry is
 retained for recovery, including its revision for stream reconnection. A clean
-stream close or ping timeout records `stream: disconnected` if no earlier failure
-exists. `getFallbackDatafile()` remains an independent bundled-data export.
+stream close records `stream: disconnected` if no earlier failure exists. Ping timeouts
+reconnect quietly without recording a failure or starting polling, including after runtime
+suspension. Genuine disconnections start an immediate background poll, sharing pending
+read refreshes, then continue at the configured interval. Stream recovery stops polling. `getFallbackDatafile()` remains an independent bundled-data export.
 
 Streaming data becomes stale after 60 seconds and expires after 90 seconds, allowing
-one missed 30-second ping before revalidation and matching the stream's disconnect
+one missed 30-second ping before revalidation and matching the stream's ping
 timeout. Polling data becomes stale after its interval plus the 10-second fetch
 deadline, and expires after two intervals plus that deadline (40 and 70 seconds with
 the default 30-second interval). These windows are independent of `staleWhileRevalidate`.
-Stale evaluations refresh in the background; expired evaluations wait for the shared
-refresh. Refresh failures still follow `staleIfError`.
+Stale evaluations and `getDatafile()` calls refresh in the background; expired reads
+wait for the shared refresh. Refresh failures still follow `staleIfError`.
 
 Accepted updates and valid confirmations reset cache age without rewriting `fetchedAt`.
 Stream pings also reset age and clear any failure. Poll errors feed the shared failure

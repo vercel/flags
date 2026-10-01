@@ -231,7 +231,8 @@ describe('Controller (black-box)', () => {
       expect((await client.getDatafile()).configUpdatedAt).toBe(
         expectedVersion,
       );
-      const readRefreshes = configUpdatedAt < 2 ? 1 : 0;
+      // Each API refreshes the still-expired seed after an older response.
+      const readRefreshes = configUpdatedAt < 2 ? 2 : 0;
       expect(fetchMock).toHaveBeenCalledTimes(1 + readRefreshes);
       expect(dataFetch).toHaveBeenCalledTimes(
         (source === 'poll' ? 1 : 0) + readRefreshes,
@@ -1044,7 +1045,7 @@ describe('Controller (black-box)', () => {
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/v1/stream')) {
+        if (url.includes('/v1/stream') || url.includes('/v1/datafile')) {
           return Promise.resolve(new Response(null, { status: 401 }));
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1065,11 +1066,13 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
 
-      // Only one stream call — 401 does not trigger retries
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      // One stream call and one immediate fallback poll; neither retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: {
@@ -1082,8 +1085,9 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: { ...streamRequestHeaders, 'X-Revision': '1' },
@@ -1093,8 +1097,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // still only one call, no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Still only the stream and immediate poll, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1470,7 +1474,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1494,6 +1498,9 @@ describe('Controller (black-box)', () => {
       expect(result.metrics?.source).toBe('embedded');
       expect(pollCount).toBe(1);
 
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       warnSpy.mockRestore();
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -1556,7 +1563,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1581,9 +1588,13 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // No polling should have started
-      expect(pollCount).toBe(0);
+      // Fallback starts one immediate poll.
+      expect(pollCount).toBe(1);
 
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       errorSpy.mockRestore();
       warnSpy.mockRestore();
 
@@ -1975,10 +1986,16 @@ describe('Controller (black-box)', () => {
 
       // Stream retries with backoff; advance timers so the init timeout fires
       const initPromise = client.initialize();
-      await vi.advanceTimersByTimeAsync(5100);
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(pollCount).toBe(0);
+      await vi.advanceTimersByTimeAsync(101);
       await initPromise;
 
-      expect(pollCount).toBe(0);
+      expect(pollCount).toBe(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
 
       await client.shutdown();
       errorSpy.mockRestore();
@@ -2119,12 +2136,11 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       // Renew the zombie transport without degrading the selected source.
-      const snapshot = await client.getDatafile();
-      expect(snapshot.metrics).toMatchObject({
-        mode: 'streaming',
-        connectionState: 'connected',
-        cacheStatus: 'STALE',
-      });
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith('/v1/datafile'),
+        ),
+      ).toHaveLength(0);
       expect(streamCount).toBe(2);
 
       streams[1]!.push({ type: 'datafile', data: datafile });
@@ -2137,6 +2153,7 @@ describe('Controller (black-box)', () => {
         cacheStatus: 'HIT',
       });
 
+      expect(errorSpy).not.toHaveBeenCalled();
       await client.shutdown();
       expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
@@ -2543,7 +2560,7 @@ describe('Controller (black-box)', () => {
 
       const result = await client.getDatafile();
       expect(result.metrics.source).toBe('embedded');
-      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.cacheStatus).toBe('STALE');
       expect(result.metrics.connectionState).toBe('disconnected');
 
       await client.shutdown();
@@ -2574,7 +2591,7 @@ describe('Controller (black-box)', () => {
 
       const result = await client.getDatafile();
       expect(result.metrics.source).toBe('remote');
-      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.cacheStatus).toBe('STALE');
 
       await client.shutdown();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -2611,7 +2628,8 @@ describe('Controller (black-box)', () => {
       const rejection = expect(client.getDatafile()).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
-      await vi.advanceTimersByTimeAsync(300);
+      // Lazy initialization and the read use the same fallback sequence as evaluate.
+      await vi.advanceTimersByTimeAsync(600);
       await rejection;
 
       await client.shutdown();
@@ -2665,7 +2683,7 @@ describe('Controller (black-box)', () => {
       const result = await client.getDatafile();
 
       expect(result.metrics.source).toBe('embedded');
-      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.cacheStatus).toBe('HIT');
 
       await client.shutdown();
     });
@@ -2684,7 +2702,7 @@ describe('Controller (black-box)', () => {
 
       const result1 = await client.getDatafile();
       expect(result1.metrics).toEqual({
-        cacheStatus: 'MISS',
+        cacheStatus: 'STALE',
         connectionState: 'disconnected',
         mode: 'offline',
         readMs: 0,
