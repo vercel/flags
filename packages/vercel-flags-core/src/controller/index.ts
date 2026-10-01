@@ -247,7 +247,9 @@ export class Controller implements ControllerInterface {
   }
 
   private get mode(): Metrics['mode'] {
-    if (this.options.buildStep) return 'build';
+    if (this.options.buildStep) {
+      return 'build';
+    }
     switch (this.state) {
       case 'streaming':
         return 'streaming';
@@ -292,7 +294,9 @@ export class Controller implements ControllerInterface {
     if (!this.cache.hasData) {
       try {
         const bundled = await this.bundledSource.tryLoad();
-        if (bundled) this.cache.seed(tagData({ ...bundled }, 'bundled'));
+        if (bundled) {
+          this.cache.seed(tagData({ ...bundled }, 'bundled'));
+        }
       } catch {
         // Bundled definitions not available — proceed without revision
       }
@@ -305,11 +309,15 @@ export class Controller implements ControllerInterface {
     }
 
     await this.activateFallbackSource('header');
-    if (this.cache.hasData) return;
+    if (this.cache.hasData) {
+      return;
+    }
 
     // All update sources share the same final blocking datafile fetch.
     const fetched = await this.cache.resolve(this.cacheReadPolicy);
-    if (!fetched) await this.initializeFromFallbacks();
+    if (!fetched) {
+      await this.initializeFromFallbacks();
+    }
   }
 
   /**
@@ -463,7 +471,9 @@ export class Controller implements ControllerInterface {
     }
 
     const result = await this.cache.resolve(this.cacheReadPolicy);
-    if (result) return result;
+    if (result) {
+      return result;
+    }
 
     return this.resolveDataWithFallbacks();
   }
@@ -500,7 +510,9 @@ export class Controller implements ControllerInterface {
     if (after === 'header' && this.options.stream.enabled) {
       this.transition('initializing:stream');
       if (await this.tryInitializeStream()) {
-        if (!this.isShutdown) this.transition('streaming');
+        if (!this.isShutdown) {
+          this.transition('streaming');
+        }
         return;
       }
       after = 'stream';
@@ -591,7 +603,9 @@ export class Controller implements ControllerInterface {
    * Initializes data for build step environments.
    */
   private async initializeForBuildStep(): Promise<void> {
-    if (this.cache.hasData) return;
+    if (this.cache.hasData) {
+      return;
+    }
 
     if (!this.buildDataPromise) {
       this.buildDataPromise = this.loadBuildData();
@@ -630,7 +644,9 @@ export class Controller implements ControllerInterface {
    */
   private async loadBuildData(): Promise<TaggedData> {
     const bundled = await this.bundledSource.tryLoad();
-    if (bundled) return tagData({ ...bundled }, 'bundled');
+    if (bundled) {
+      return tagData({ ...bundled }, 'bundled');
+    }
 
     // Fallback: one-time fetch
     try {
@@ -716,7 +732,9 @@ export class Controller implements ControllerInterface {
   > {
     // Handover can start with newer cached data; do not replace it with a seed.
     const cached = this.cache.read();
-    if (cached) return [cached, 'STALE'];
+    if (cached) {
+      return [cached, 'STALE'];
+    }
 
     // Fallback chain: datafile → bundled → one-time fetch
     this.transition('initializing:fallback');
@@ -773,9 +791,15 @@ export class Controller implements ControllerInterface {
     isFirstRead: boolean,
     datafile: Datafile,
   ): void {
-    if (this.unauthorized) return;
-    if (this.options.buildStep && this.buildReadTracked) return;
-    if (this.options.buildStep) this.buildReadTracked = true;
+    if (this.unauthorized) {
+      return;
+    }
+    if (this.options.buildStep && this.buildReadTracked) {
+      return;
+    }
+    if (this.options.buildStep) {
+      this.buildReadTracked = true;
+    }
 
     const configOrigin: 'in-memory' | 'embedded' =
       datafile.metrics.source === 'embedded' ? 'embedded' : 'in-memory';
@@ -813,7 +837,9 @@ export class Controller implements ControllerInterface {
    * Tracks a flag evaluation for usage analytics.
    */
   trackEvaluation(options: TrackEvaluationOptions): void {
-    if (this.unauthorized || this.options.disableMetrics) return;
+    if (this.unauthorized || this.options.disableMetrics) {
+      return;
+    }
 
     this.usageTracker.trackEvaluation({
       ...options,
