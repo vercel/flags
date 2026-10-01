@@ -141,6 +141,7 @@ it('refreshes provided data before polling initialize resolves', async () => {
     requests: dataFetch.mock.calls.length,
     version: snapshot.configUpdatedAt,
   }).toEqual({ requests: 1, version: 2 });
+  expect(dataFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
 });
 
 it('serves cached fallback at the configured polling startup timeout', async () => {
@@ -257,6 +258,75 @@ it('cancels pending polling work when a stream reconnects', async () => {
     abortedOnReconnect: true,
     value: true,
   });
+});
+
+it.each([
+  ['equal datafile', { type: 'datafile', data: data(2) }, true],
+  [
+    'matching revision',
+    {
+      type: 'primed',
+      revision: 2,
+      projectId: 'prj_review',
+      environment: 'production',
+    },
+    true,
+  ],
+  ['ping', { type: 'ping' }, true],
+  ['older datafile', { type: 'datafile', data: data(1) }, false],
+  [
+    'mismatched revision',
+    {
+      type: 'primed',
+      revision: 1,
+      projectId: 'prj_review',
+      environment: 'production',
+    },
+    false,
+  ],
+] as const)('only supersedes a pending refresh with valid stream evidence: %s', async (_kind, message, confirms) => {
+  const live = stream();
+  streamFetch.mockResolvedValueOnce(live.response);
+  const instance = client({ polling: false, staleIfError: 0 });
+  const initial = instance.evaluate('feature');
+  live.push({ type: 'datafile', data: data(2) });
+  await initial;
+
+  const pending = deferred<Response>();
+  dataFetch.mockReturnValueOnce(pending.promise);
+  vi.setSystemTime(now + 90_001);
+  const settled = vi.fn();
+  const reading = instance.evaluate('feature').then((result) => {
+    settled();
+    return result;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(settled).not.toHaveBeenCalled();
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  const signal = dataFetch.mock.calls[0]?.[1]?.signal;
+
+  live.push(message);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(signal?.aborted).toBe(confirms);
+  if (confirms) {
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(await reading).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'HIT' },
+    });
+    pending.resolve(new Response(null, { status: 401 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await instance.evaluate('feature')).value).toBe(true);
+  } else {
+    expect(settled).not.toHaveBeenCalled();
+    pending.resolve(Response.json(data(3, false)));
+    expect(await reading).toMatchObject({
+      value: false,
+      metrics: { cacheStatus: 'MISS' },
+    });
+    expect(signal?.aborted).toBe(false);
+  }
+  expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
 it('does not restart polling after shutdown during missing-header stream startup', async () => {
