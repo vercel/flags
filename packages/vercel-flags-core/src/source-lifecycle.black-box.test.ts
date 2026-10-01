@@ -233,16 +233,13 @@ it.each([
   expect(
     new Headers(streamFetch.mock.calls[1]?.[1]?.headers).get('X-Revision'),
   ).toBe('2');
-  expect(await instance.getDatafile()).toMatchObject({
-    fetchedAt: snapshot.fetchedAt,
-    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
-  });
   await vi.advanceTimersByTimeAsync(30_000);
   expect(dataFetch).not.toHaveBeenCalled();
 
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
   const settled = vi.fn();
+  const snapshotRead = instance.getDatafile();
   const reading = instance.evaluate('feature').then((result) => {
     settled();
     return result;
@@ -258,6 +255,10 @@ it.each([
   });
   expect(await reading).toMatchObject({
     value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
+  expect(await snapshotRead).toMatchObject({
+    fetchedAt: snapshot.fetchedAt,
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
   expect(dataFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
@@ -282,10 +283,12 @@ it('keeps a watchdog on silent replacement streams without starting polling', as
   expect(streamFetch).toHaveBeenCalledTimes(3);
   expect(streamFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
   expect(dataFetch).not.toHaveBeenCalled();
+  dataFetch.mockResolvedValueOnce(Response.json(data(2)));
   expect(await instance.getDatafile()).toMatchObject({
     fetchedAt: now,
-    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
+    metrics: { mode: 'streaming', cacheStatus: 'MISS' },
   });
+  expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
 it.each([
@@ -301,10 +304,11 @@ it.each([
   first.push({ type: 'datafile', data: data(2) });
   await initial;
   await vi.advanceTimersByTimeAsync(90_001);
+  expect(dataFetch).toHaveBeenCalledTimes(1);
   expect((await instance.getDatafile()).metrics.mode).toBe('polling');
   dataFetch.mockResolvedValueOnce(Response.json(data(3, false)));
   await vi.advanceTimersByTimeAsync(30_000);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).toHaveBeenCalledTimes(2);
   expect(await instance.evaluate('feature')).toMatchObject({
     value: false,
     metrics: { mode: 'polling', cacheStatus: 'HIT' },
@@ -440,7 +444,7 @@ it('cancels pending polling work when a stream reconnects', async () => {
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
   first.close();
-  await vi.advanceTimersByTimeAsync(30_000);
+  await vi.advanceTimersByTimeAsync(1_000);
   const signal = dataFetch.mock.calls[0]?.[1]?.signal;
   expect(dataFetch).toHaveBeenCalledTimes(1);
   second.push({

@@ -357,18 +357,20 @@ describe('polling stale-if-error through the public API', () => {
       staleIfError: 0,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
-    const snapshot = await instance.getDatafile();
+    const snapshotRead = expect(instance.getDatafile()).rejects.toBe(failure);
     const evaluation = instance.evaluate('flagA');
     const evaluationOutcome = expect(evaluation).rejects.toBe(failure);
     await vi.advanceTimersByTimeAsync(301);
     await evaluationOutcome;
     await expect(instance.getDatafile()).rejects.toBe(failure);
     expect(Date.now()).toBe(301);
+    await snapshotRead;
+    await vi.advanceTimersByTimeAsync(30_000);
+    const snapshot = await instance.getDatafile();
     expect(snapshot.definitions).toBe(supplied.definitions);
     expect(snapshot.metrics.source).toBe(
       seed === 'provided' ? 'in-memory' : 'embedded',
     );
-    await vi.advanceTimersByTimeAsync(30_000);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     expect((await instance.getDatafile()).definitions).toBe(
       snapshot.definitions,
@@ -630,7 +632,7 @@ describe('polling stale-if-error through the public API', () => {
     await expect(instance.getDatafile()).rejects.toThrow(
       'stream: unauthorized (401)',
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(poll).not.toHaveBeenCalled();
   });
 

@@ -137,16 +137,20 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
 - Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
   `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
-- Evaluations without a version header (including an empty header) permanently
-  start streaming if enabled, otherwise polling, using the existing startup timeouts.
+- Reads without a valid positive version for this client’s project (missing, empty,
+  malformed, or unrelated headers) permanently start streaming if enabled, otherwise
+  polling, using the existing startup timeouts. Clients select independently. A cold
+  cache with a nonempty header first discovers project identity via a shared HTTP fetch;
+  failed discovery also uses the stream/poll fallback.
   Concurrent new reads share source startup and pending HTTP refreshes. Accepted stream
   updates and valid confirmations cancel superseded HTTP work; waiting reads use the
   confirmed cache, and late responses cannot change failure or authorization state.
   `resolveData()` checks header availability and uses `resolveDataWithFallbacks()`
   to start the configured source. Handover retains cached data before considering seeds.
-- Present malformed/unrelated headers use cached data without fetching, subject to stale-if-error.
-- `getDatafile()` remains a snapshot read: it enforces the same failure policy but does
-  not inspect request headers. Disabling both stream and polling selects offline mode.
+- `getDatafile()` shares lazy initialization and `resolveData()` with evaluations, including
+  header assessment, SWR, blocking refresh, stale-if-error, and source fallback.
+  It only adds response construction and metrics, without evaluation telemetry.
+  Disabling both stream and polling selects offline mode.
 
 **Other runtime** (default outside Vercel, or `vercel: false`):
 1. **Stream** - Real-time updates via NDJSON streaming, wait up to `initTimeoutMs`
@@ -161,7 +165,8 @@ Key behaviors:
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
-- If stream disconnects → start polling (if enabled)
+- If stream disconnects → start an immediate background poll (if enabled), then interval polling.
+  Ping timeouts reconnect quietly without starting polling.
 - Use `buildStep: true` to force static-only mode (e.g., serverless cold starts)
 - Use `buildStep: false` to force runtime mode (e.g., custom build environments)
 
@@ -287,7 +292,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `initTimeoutMs`: 3000ms (3s)
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
 - Stops automatically when stream reconnects
-- `PollingSource` shares the cache's HTTP refresh for initialization and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
+- `PollingSource` shares the cache's HTTP refresh for initialization, immediate fallback, and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
 - Initialization waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback without renewing cache age or failure allowance; the pending poll and recurring interval continue.
 - After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.

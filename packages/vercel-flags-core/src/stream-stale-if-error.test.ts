@@ -129,7 +129,8 @@ beforeEach(() => {
   fetchMock.mockReset().mockImplementation((input, init) => {
     if (String(input).endsWith('/v1/stream')) return streamFetch(input, init);
     if (String(input).endsWith('/v1/datafile')) {
-      return Promise.resolve(Response.json(data()));
+      // Keep fallback HTTP pending so only the tested stream evidence can recover.
+      return new Promise<Response>(() => {});
     }
     return Promise.reject(new Error(`Unexpected fetch: ${String(input)}`));
   });
@@ -193,21 +194,21 @@ describe('stream stale-if-error through the public API', () => {
     const { instance, stream } = await start();
     const snapshot = await instance.getDatafile();
     await vi.advanceTimersByTimeAsync(60_001);
-    for (const [index, override] of [
+    for (const override of [
       { revision: 6 },
       { projectId: 'other' },
       { environment: 'preview' },
-    ].entries()) {
+    ]) {
       stream.push(primed(override));
       await vi.advanceTimersByTimeAsync(0);
       expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe(
-        index === 0 ? 'STALE' : 'HIT',
+        'STALE',
       );
       expect(await instance.getDatafile()).toEqual({
         ...snapshot,
         metrics: {
           ...snapshot.metrics,
-          cacheStatus: index === 0 ? 'STALE' : 'HIT',
+          cacheStatus: 'STALE',
         },
       });
     }
@@ -419,7 +420,7 @@ describe('stream stale-if-error through the public API', () => {
     undefined,
     Infinity,
   ])('cannot confirm a retained nonnumeric or nonfinite revision %s', async (revision) => {
-    const supplied = data({ revision: revision as number });
+    const supplied = data({ revision: revision as number, fetchedAt: 0 });
     const stream = mockStream();
     const reconnect = mockStream();
     streamFetch
@@ -539,12 +540,10 @@ describe('stream stale-if-error through the public API', () => {
     await initialization;
     expect(initialized).toHaveBeenCalledOnce();
     expectInitTimeout();
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(9_999);
     expect((await instance.evaluate('flagA')).value).toBe(true);
-    // Finish the read-triggered refresh before introducing a stream failure.
-    // Otherwise its successful response can recover the cache after the failure.
+    // The immediate fallback poll is still pending; no response has confirmed recovery.
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
-    await waitUntil.mock.calls[0]![0];
     expect((await instance.getDatafile()).definitions).toBe(
       supplied.definitions,
     );
@@ -664,7 +663,7 @@ describe('stream stale-if-error through the public API', () => {
     await expectExpired(instance, failure as Error);
     expect(Date.now()).toBe(0);
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(5);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(8);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

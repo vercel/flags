@@ -144,9 +144,9 @@ export function createCreateRawClient(fns: {
       },
       getDatafile: async () => {
         const instance = controllerInstanceMap.get(id);
-        if (instance?.initPromise) {
+        if (!instance?.initialized) {
           try {
-            await instance.initPromise;
+            await api.initialize();
           } catch {
             // Initialization failed — let getDatafile handle its own fallbacks
           }
