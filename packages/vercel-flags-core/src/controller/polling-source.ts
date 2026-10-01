@@ -1,4 +1,5 @@
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
+import { debug } from './debug';
 import { DEFAULT_FETCH_TIMEOUT_MS } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
@@ -49,16 +50,22 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * Updates the cache on success; emits 'error' and rejects on failure.
    */
   async poll(): Promise<void> {
-    if (this.polling) return this.polling;
+    if (this.polling) {
+      debug('poll.shared');
+      return this.polling;
+    }
     if (this.abortController?.signal.aborted) return;
     this.abortController ??= new AbortController();
     const controller = this.abortController;
 
+    debug('poll.start');
     this.polling = (async () => {
       try {
         await this.config.refresh();
         controller.signal.throwIfAborted();
+        debug('poll.complete');
       } catch (error) {
+        debug(controller.signal.aborted ? 'poll.aborted' : 'poll.failed');
         controller.signal.throwIfAborted();
         const err =
           error instanceof Error ? error : new Error('Unknown poll error');
@@ -79,6 +86,12 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   startInterval(): void {
     if (this.intervalId) return;
 
+    debug('poll.interval.start', () => ({
+      intervalMs: this.config.polling.intervalMs,
+      staleAfterMs: this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS,
+      expiresAfterMs:
+        2 * this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS,
+    }));
     // Start interval
     this.intervalId = setInterval(
       () => void this.poll().catch(() => {}),
@@ -90,6 +103,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    * Stop interval-based polling.
    */
   stop(): void {
+    if (this.intervalId || this.polling) {
+      debug('poll.stop', () => ({ pendingPoll: this.polling !== undefined }));
+    }
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = undefined;

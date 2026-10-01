@@ -174,15 +174,36 @@ an object containing an `event` and its diagnostic details. The controller, cach
 and network sources all use the same global logging function. For example:
 
 ```text
-@vercel/flags-core { event: 'client.state', from: 'idle', to: 'vercel', hasData: true }
+@vercel/flags-core { event: 'client.state', from: 'idle', to: 'vercel', reason: 'header-mode-enabled', ... }
 @vercel/flags-core { event: 'cache.freshness', status: 'expired', revision: 42, ageMs: 15000, ... }
-@vercel/flags-core { event: 'cache.refresh.blocking', ... }
+@vercel/flags-core { event: 'cache.refresh.blocking', reason: 'expired', ... }
+@vercel/flags-core { event: 'datafile.fetch.attempt', attempt: 1, maxAttempts: 3 }
+@vercel/flags-core { event: 'datafile.fetch.response', attempt: 1, status: 200 }
+@vercel/flags-core { event: 'cache.update.accepted', revision: 43, ... }
+@vercel/flags-core { event: 'cache.fetch.applied', revision: 43, ... }
+@vercel/flags-core { event: 'client.read', state: 'vercel', cacheStatus: 'MISS', ... }
 ```
+
+Follow `client.state` for the previous state, next state, and transition reason.
+`state` describes the internal lifecycle; `mode` is the public operating mode.
+Read and cache events include the project, revision, and cache age when available.
+
+| Event | What it explains |
+| --- | --- |
+| `cache.freshness` | The source's age/version assessment and whether failure policy permits serving the entry. |
+| `cache.refresh.background` / `.blocking` | Why a read returns stale data immediately or waits for refresh. |
+| `cache.fetch.shared` | A caller joins an existing HTTP refresh instead of starting another. |
+| `datafile.fetch.complete` / `cache.fetch.applied` | The response has been parsed / processed by the cache version guard. Only the latter finishes cache refresh work; an older response may be ignored. |
+| `cache.fetch.cancel` / `cache.refresh.superseded` | A stream update or confirmation supersedes HTTP work / releases a waiting read using the confirmed cache. |
+| `cache.fetch.aborted` | `source-confirmed` distinguishes superseded work from `cache-cleared` during shutdown. |
+| `cache.stale-if-error.expired` / `cache.recovered` | The failure allowance prevents serving data / an actual failure has cleared. Ordinary confirmations do not log recovery. |
+| `stream.initialize.timeout` / `poll.initialize.timeout` | Startup reached its deadline; `hasData` and `startupFallback` show whether cached fallback is available. |
 
 Events cover initialization and shutdown, selected modes and state transitions,
 read/snapshot results, cache versions and age, version acceptance/confirmation,
 header timestamps, background/blocking/shared refreshes, stale-if-error expiry,
-HTTP response status, polling, stream pings, timeouts, and reconnect delays.
+HTTP attempts and retry delays, polling, stream pings, timeouts, and reconnect reasons.
+Stream/poll startup events include their stale and expired age thresholds.
 Cache ages and delays are in milliseconds; `Infinity` denotes unknown age or an
 unlimited stale-if-error window. The new client diagnostics omit credentials,
 raw headers, flag definitions, evaluation entities, and raw error messages.
