@@ -22,7 +22,9 @@ const MAX_RETRY_DELAY_MS = 60_000;
 const PING_TIMEOUT_MS = 90_000;
 
 function backoff(retryCount: number): number {
-  if (retryCount === 1) return 0;
+  if (retryCount === 1) {
+    return 0;
+  }
   const delay = Math.min(
     BASE_RETRY_DELAY_MS * 2 ** (retryCount - 2),
     MAX_RETRY_DELAY_MS,
@@ -79,7 +81,9 @@ export async function connectStream(
 
   const reportError = (error: unknown): void => {
     // Deliberate shutdown must not start a stale-if-error deadline.
-    if (abortController.signal.aborted) return;
+    if (abortController.signal.aborted) {
+      return;
+    }
     onError?.(
       error instanceof Error
         ? error
@@ -126,8 +130,12 @@ export async function connectStream(
       // to break out of the for-await loop.
       let responseBody: ReadableStream<Uint8Array> | undefined;
       const resetPingTimeout = (): void => {
-        if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
-        if (!initialDataReceived) return;
+        if (pingTimeoutId !== undefined) {
+          clearTimeout(pingTimeoutId);
+        }
+        if (!initialDataReceived) {
+          return;
+        }
         pingTimeoutId = setTimeout(() => {
           responseBody?.cancel().catch(() => {});
           connectionAbort.abort();
@@ -202,7 +210,9 @@ export async function connectStream(
         try {
           while (true) {
             const { done, value: chunk } = await reader.read();
-            if (done || abortController.signal.aborted) break;
+            if (done || abortController.signal.aborted) {
+              break;
+            }
 
             bufferChunks.push(decoder.decode(chunk, { stream: true }));
             const combined = bufferChunks.join('');
@@ -211,7 +221,9 @@ export async function connectStream(
             bufferChunks.push(lines.pop()!);
 
             for (const line of lines) {
-              if (line === '') continue;
+              if (line === '') {
+                continue;
+              }
 
               let message: StreamMessage;
               try {

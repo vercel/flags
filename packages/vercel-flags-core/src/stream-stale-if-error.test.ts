@@ -127,7 +127,9 @@ beforeEach(() => {
     .mockReset()
     .mockRejectedValue(new Error('unexpected stream fetch'));
   fetchMock.mockReset().mockImplementation((input, init) => {
-    if (String(input).endsWith('/v1/stream')) return streamFetch(input, init);
+    if (String(input).endsWith('/v1/stream')) {
+      return streamFetch(input, init);
+    }
     if (String(input).endsWith('/v1/datafile')) {
       return Promise.resolve(Response.json(data()));
     }
@@ -146,7 +148,9 @@ beforeEach(() => {
 
 afterEach(async () => {
   try {
-    for (const instance of clients) await instance.shutdown();
+    for (const instance of clients) {
+      await instance.shutdown();
+    }
     expect(errorSpy).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
   } finally {

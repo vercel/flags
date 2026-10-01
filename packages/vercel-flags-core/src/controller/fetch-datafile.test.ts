@@ -100,8 +100,9 @@ describe('fetchDatafile', () => {
     'body parsing',
   ])('retries a failed %s attempt', async (phase) => {
     const failure = new Error('Temporary failure');
-    if (phase === 'authentication') resolveToken.mockRejectedValueOnce(failure);
-    else {
+    if (phase === 'authentication') {
+      resolveToken.mockRejectedValueOnce(failure);
+    } else {
       const response = Response.json(data);
       vi.spyOn(response, 'json').mockRejectedValueOnce(failure);
       transport.mockResolvedValueOnce(response);
@@ -193,9 +194,12 @@ describe('fetchDatafile', () => {
       const body = deferred<BundledDefinitions>();
       const resolvedResponse = Response.json(data);
       const parse = vi.spyOn(resolvedResponse, 'json');
-      if (phase === 'authentication')
+      if (phase === 'authentication') {
         resolveToken.mockReturnValueOnce(token.promise);
-      if (phase === 'fetch') transport.mockReturnValueOnce(response.promise);
+      }
+      if (phase === 'fetch') {
+        transport.mockReturnValueOnce(response.promise);
+      }
       if (phase === 'body parsing') {
         parse.mockReturnValueOnce(body.promise);
         transport.mockResolvedValueOnce(resolvedResponse);
@@ -217,14 +221,19 @@ describe('fetchDatafile', () => {
       expect(settled).not.toHaveBeenCalled();
 
       const reason = new Error('Stopped');
-      if (cause === 'external abort') abort.abort(reason);
-      else await vi.advanceTimersByTimeAsync(1);
+      if (cause === 'external abort') {
+        abort.abort(reason);
+      } else {
+        await vi.advanceTimersByTimeAsync(1);
+      }
       const error = await result;
-      if (cause === 'external abort') expect(error).toBe(reason);
-      else
+      if (cause === 'external abort') {
+        expect(error).toBe(reason);
+      } else {
         expect(error.message).toBe(
           '@vercel/flags-core: Datafile fetch deadline exceeded',
         );
+      }
       if (phase !== 'authentication') {
         expect(transport.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
       }
@@ -284,8 +293,11 @@ describe('fetchDatafile', () => {
     pending.reject(new Error('Retry'));
     await vi.advanceTimersByTimeAsync(0);
 
-    if (cause === 'external abort') abort.abort();
-    else await vi.advanceTimersByTimeAsync(50);
+    if (cause === 'external abort') {
+      abort.abort();
+    } else {
+      await vi.advanceTimersByTimeAsync(50);
+    }
     expect(await result).toBeInstanceOf(Error);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(transport).toHaveBeenCalledTimes(1);

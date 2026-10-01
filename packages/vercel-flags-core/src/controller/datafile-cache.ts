@@ -31,7 +31,9 @@ export type CacheReadPolicy = {
  * Returns undefined if the value is missing or cannot be parsed.
  */
 function parseConfigUpdatedAt(value: unknown): number | undefined {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    return value;
+  }
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isNaN(parsed) ? undefined : parsed;
@@ -76,12 +78,16 @@ export class DatafileCache {
 
   /** Records freshness evidence without confirming recovery from a failure. */
   resetAge(): void {
-    if (this.data) this.freshAt = Date.now();
+    if (this.data) {
+      this.freshAt = Date.now();
+    }
   }
 
   /** Freshness checks can inspect retained metadata even after serving expires. */
   public get metadata(): CacheMetadata | undefined {
-    if (!this.data) return undefined;
+    if (!this.data) {
+      return undefined;
+    }
     const { projectId, environment, configUpdatedAt, revision } = this.data;
     return {
       projectId,
@@ -119,7 +125,9 @@ export class DatafileCache {
     incoming: Confirmation,
     version: 'configUpdatedAt' | 'revision' = 'configUpdatedAt',
   ): boolean {
-    if (!this.data) return false;
+    if (!this.data) {
+      return false;
+    }
 
     const currentTs =
       version === 'revision'
@@ -151,7 +159,9 @@ export class DatafileCache {
 
   /** Preserves existing acceptance, including missing or unparseable versions. */
   private isNewerData(incoming: DatafileInput): boolean {
-    if (!this.data) return true;
+    if (!this.data) {
+      return true;
+    }
 
     const currentTs = parseConfigUpdatedAt(this.data.configUpdatedAt);
     const incomingTs = parseConfigUpdatedAt(incoming.configUpdatedAt);
@@ -169,7 +179,9 @@ export class DatafileCache {
   }
 
   private canServe(): boolean {
-    if (!this.failure || this.staleIfErrorMs === Infinity) return true;
+    if (!this.failure || this.staleIfErrorMs === Infinity) {
+      return true;
+    }
     return (
       this.staleIfErrorMs > 0 &&
       Date.now() - this.failure.startedAt <= this.staleIfErrorMs
@@ -178,8 +190,12 @@ export class DatafileCache {
 
   /** The serving boundary for both snapshot and policy-driven reads. */
   read(): TaggedData | undefined {
-    if (!this.data) return undefined;
-    if (!this.canServe()) throw this.failure!.error;
+    if (!this.data) {
+      return undefined;
+    }
+    if (!this.canServe()) {
+      throw this.failure!.error;
+    }
     return this.data;
   }
 
@@ -188,14 +204,18 @@ export class DatafileCache {
     if (metadata) {
       const { status, confirmed } = policy.assess(metadata);
       // Apply recovery evidence before read() enforces the failure deadline.
-      if (confirmed) this.confirm();
+      if (confirmed) {
+        this.confirm();
+      }
       if (status === 'fresh' || status === 'unknown') {
         // read() still enforces stale-if-error, even for a fresh assessment.
         return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
       }
 
       if (this.failure) {
-        if (!policy.retryOnFailure) return [this.read()!, 'STALE'];
+        if (!policy.retryOnFailure) {
+          return [this.read()!, 'STALE'];
+        }
         if (this.canServe()) {
           const stale = this.read()!;
           this.fetchInBackground();
@@ -239,9 +259,13 @@ export class DatafileCache {
       }
       signal.throwIfAborted();
     } catch (error) {
-      if (signal.aborted) throw error;
+      if (signal.aborted) {
+        throw error;
+      }
       const stale = this.read();
-      if (!stale) throw error;
+      if (!stale) {
+        throw error;
+      }
       if (
         error instanceof Error &&
         error.message === '@vercel/flags-core: Datafile refresh timeout'
@@ -265,12 +289,15 @@ export class DatafileCache {
     // A cold fetch discovers the project; assess the original request's header.
     if (!metadata && this.metadata) {
       const { confirmed } = policy.assess(this.metadata);
-      if (confirmed) this.confirm();
+      if (confirmed) {
+        this.confirm();
+      }
     }
     // Serve the accepted cache entry; the response may have contained older data.
     const data = this.read();
-    if (!data)
+    if (!data) {
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
+    }
     return [data, 'MISS'];
   }
 
@@ -282,7 +309,9 @@ export class DatafileCache {
   private startFetch(origin: DataOrigin) {
     const { signal } = this.abortController;
     // Share the fetch, but let each caller assess its own request's headers.
-    if (this.fetching) return { promise: this.fetching, signal };
+    if (this.fetching) {
+      return { promise: this.fetching, signal };
+    }
 
     const promise = Promise.resolve()
       .then(() => {
@@ -303,7 +332,9 @@ export class DatafileCache {
       .finally(() => {
         // An old, aborted operation must not clear a newer one.
         if (this.abortController.signal === signal) {
-          if (this.timedOutFetch === promise) this.timedOutFetch = undefined;
+          if (this.timedOutFetch === promise) {
+            this.timedOutFetch = undefined;
+          }
           this.fetching = undefined;
         }
       });
