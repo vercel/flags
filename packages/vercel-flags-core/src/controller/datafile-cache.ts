@@ -1,4 +1,5 @@
 import type { DatafileInput, Metrics, WaitUntil } from '../types';
+import { debug } from './debug';
 import { type DataOrigin, type TaggedData, tagData } from './tagged-data';
 
 type Confirmation = Pick<
@@ -64,6 +65,23 @@ export class DatafileCache {
   private abortController = new AbortController();
   private fetching: Promise<void> | undefined;
 
+  private debugState = () => ({
+    projectId: this.data?.projectId,
+    environment: this.data?.environment,
+    hasData: this.hasData,
+    origin: this.data?._origin,
+    revision: this.revision,
+    configUpdatedAt: parseConfigUpdatedAt(this.data?.configUpdatedAt),
+    ageMs: this.ageMs,
+    failed: this.failure !== undefined,
+    failureAgeMs: this.failure
+      ? Date.now() - this.failure.startedAt
+      : undefined,
+    staleIfErrorMs: this.staleIfErrorMs,
+    canServe: this.hasData && this.canServe(),
+    fetching: this.fetching !== undefined,
+  });
+
   constructor(
     private readonly fetch: CacheFetch,
     private readonly staleIfErrorMs = Infinity,
@@ -114,6 +132,7 @@ export class DatafileCache {
       data.fetchedAt >= 0
         ? data.fetchedAt
         : undefined;
+    debug('cache.seed', this.debugState);
   }
 
   /** Stores data and returns it through the serving boundary. */
@@ -135,9 +154,16 @@ export class DatafileCache {
     if (this.isNewerData(incoming)) {
       this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
       this.confirm(origin);
+      debug('cache.update.accepted', this.debugState);
       return;
     }
     this.confirm(origin);
+    debug('cache.update.ignored', () => ({
+      ...this.debugState(),
+      incomingOrigin: origin,
+      incomingRevision: incoming.revision,
+      incomingConfigUpdatedAt: parseConfigUpdatedAt(incoming.configUpdatedAt),
+    }));
   }
 
   /** Confirms a same-version message without replacing stored data. */
@@ -151,6 +177,7 @@ export class DatafileCache {
     }
 
     this.confirm(source);
+    debug('cache.confirmed', () => ({ version, source, ...this.debugState() }));
     return true;
   }
 
@@ -182,10 +209,18 @@ export class DatafileCache {
 
   /** Renews freshness and retires HTTP work superseded by stream evidence. */
   confirm(source: ConfirmationSource = 'header'): void {
+    const recovered = this.failure !== undefined;
     this.resetAge();
     this.failure = undefined;
+    if (recovered) {
+      debug('cache.recovered', this.debugState);
+    }
     // HTTP responses must finish their own refresh; headers may be older requests.
     if (source === 'stream' && this.fetching) {
+      debug('cache.fetch.cancel', () => ({
+        reason: 'source-confirmed',
+        ...this.debugState(),
+      }));
       this.abortController.abort(SOURCE_CONFIRMED);
       this.abortController = new AbortController();
       this.fetching = undefined;
@@ -207,8 +242,10 @@ export class DatafileCache {
   }
 
   fail(error: Error): void {
+    const repeated = this.failure !== undefined;
     // Repeated failures must not keep extending the stale-if-error allowance.
     this.failure ??= { error, startedAt: Date.now() };
+    debug('cache.failure', () => ({ repeated, ...this.debugState() }));
   }
 
   private canServe(): boolean {
@@ -222,7 +259,10 @@ export class DatafileCache {
   /** The serving boundary for both snapshot and policy-driven reads. */
   read(): TaggedData | undefined {
     if (!this.data) return undefined;
-    if (!this.canServe()) throw this.failure!.error;
+    if (!this.canServe()) {
+      debug('cache.stale-if-error.expired', this.debugState);
+      throw this.failure!.error;
+    }
     return this.data;
   }
 
@@ -241,6 +281,11 @@ export class DatafileCache {
       }
       // Apply recovery evidence before read() enforces the failure deadline.
       if (confirmed) this.confirm();
+      debug('cache.freshness', () => ({
+        status,
+        confirmed: confirmed === true,
+        ...this.debugState(),
+      }));
       if (
         status === 'fresh' ||
         status === 'unknown' ||
@@ -255,10 +300,18 @@ export class DatafileCache {
 
       if (this.failure) {
         if (!policy.retryOnFailure) {
+          debug('cache.stale-if-error', () => ({
+            ...this.debugState(),
+            recovery: 'scheduled-source-update',
+          }));
           return { data: this.read(), status: 'STALE' };
         }
         if (this.canServe()) {
           const stale = this.read();
+          debug('cache.refresh.background', () => ({
+            ...this.debugState(),
+            reason: 'retry-after-failure',
+          }));
           this.fetchInBackground();
           return { data: stale, status: 'STALE' };
         }
@@ -268,11 +321,19 @@ export class DatafileCache {
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read();
+        debug('cache.refresh.background', () => ({
+          ...this.debugState(),
+          reason: 'stale',
+        }));
         this.fetchInBackground();
         return { data: stale, status: 'STALE' };
       }
     }
 
+    debug('cache.refresh.blocking', () => ({
+      ...this.debugState(),
+      reason: !metadata ? 'empty-cache' : 'expired',
+    }));
     const { promise, signal } = this.startFetch('fetched');
     try {
       await promise;
@@ -282,6 +343,7 @@ export class DatafileCache {
         // A live source supplied current data while this read awaited HTTP.
         // Shutdown uses a different reason and must still reject the read.
         if (signal.reason === SOURCE_CONFIRMED && this.data) {
+          debug('cache.refresh.superseded', this.debugState);
           return { data: this.read(), status: 'HIT' };
         }
         throw error;
@@ -290,6 +352,10 @@ export class DatafileCache {
       if (!stale) {
         throw error;
       }
+      debug('cache.stale-if-error', () => ({
+        ...this.debugState(),
+        recovery: 'refresh-failed',
+      }));
       return { data: stale, status: 'STALE' };
     }
 
@@ -315,7 +381,17 @@ export class DatafileCache {
   private startFetch(origin: DataOrigin) {
     const { signal } = this.abortController;
     // Share the fetch, but let each caller assess its own request's headers.
-    if (this.fetching) return { promise: this.fetching, signal };
+    if (this.fetching) {
+      debug('cache.fetch.shared', () => ({
+        requestedOrigin: origin,
+        ...this.debugState(),
+      }));
+      return { promise: this.fetching, signal };
+    }
+    debug('cache.fetch.start', () => ({
+      requestedOrigin: origin,
+      ...this.debugState(),
+    }));
 
     const promise = Promise.resolve()
       .then(() => {
@@ -325,12 +401,22 @@ export class DatafileCache {
       .then((data) => {
         signal.throwIfAborted();
         this.updateFromSource(data, origin);
+        debug('cache.fetch.applied', this.debugState);
       })
       .catch((error) => {
+        if (signal.aborted) {
+          debug('cache.fetch.aborted', () => ({
+            reason:
+              signal.reason === SOURCE_CONFIRMED
+                ? 'source-confirmed'
+                : 'cache-cleared',
+          }));
+        }
         signal.throwIfAborted();
         const err =
           error instanceof Error ? error : new Error('Unknown fetch error');
         this.fail(err);
+        debug('cache.fetch.failed', this.debugState);
         throw err;
       })
       .finally(() => {
@@ -359,6 +445,7 @@ export class DatafileCache {
 
   /** Resets storage, age, and the failure deadline so a restarted client begins clean. */
   clear(): void {
+    debug('cache.clear', this.debugState);
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;

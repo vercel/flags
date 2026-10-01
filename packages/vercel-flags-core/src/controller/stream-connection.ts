@@ -133,7 +133,7 @@ export async function connectStream(
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
-          debug('stream.ping.timeout');
+          debug('stream.ping.timeout', () => ({ timeoutMs: PING_TIMEOUT_MS }));
           lastError = PING_TIMEOUT;
           connectionAbort.abort(PING_TIMEOUT);
         }, PING_TIMEOUT_MS);
@@ -143,6 +143,7 @@ export async function connectStream(
         debug('stream.connect', () => ({ retryCount }));
         lastAttemptTime = Date.now();
         const token = await config.resolveToken().catch((error) => {
+          debug('stream.auth.failed');
           throw new TokenResolutionError(error);
         });
         const headers: Record<string, string> = {
@@ -286,7 +287,14 @@ export async function connectStream(
           const elapsed = Date.now() - lastAttemptTime;
           const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
           const delayMs = Math.max(backoff(retryCount), minGap);
-          debug('stream.reconnect', () => ({ retryCount, delayMs }));
+          debug('stream.reconnect', () => ({
+            retryCount,
+            delayMs,
+            reason:
+              connectionAbort.signal.reason === PING_TIMEOUT
+                ? 'ping-timeout'
+                : 'connection-closed',
+          }));
           await sleep(delayMs);
           continue;
         }
@@ -316,7 +324,14 @@ export async function connectStream(
         const elapsed = Date.now() - lastAttemptTime;
         const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
         const delayMs = Math.max(backoff(retryCount), minGap);
-        debug('stream.reconnect', () => ({ retryCount, delayMs }));
+        debug('stream.reconnect', () => ({
+          retryCount,
+          delayMs,
+          reason:
+            connectionAbort.signal.reason === PING_TIMEOUT
+              ? 'ping-timeout'
+              : 'connection-error',
+        }));
         await sleep(delayMs);
       }
     }

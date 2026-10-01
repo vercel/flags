@@ -70,7 +70,11 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
-    debug('stream.start');
+    debug('stream.start', () => ({
+      revision: this.revision(),
+      staleAfterMs: (PING_TIMEOUT_MS * 2) / 3,
+      expiresAfterMs: PING_TIMEOUT_MS,
+    }));
     const abortController = new AbortController();
     this.abortController = abortController;
 
@@ -132,7 +136,9 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Stop the stream connection.
    */
   stop(): void {
-    debug('stream.stop');
+    if (this.abortController) {
+      debug('stream.stop');
+    }
     const abortController = this.abortController;
     this.abortController = undefined;
     this.promise = undefined;

@@ -1,5 +1,6 @@
 import { getRequestContext } from '../utils/request-context';
 import type { CacheReadPolicy } from './datafile-cache';
+import { debug } from './debug';
 import type { NormalizedOptions } from './normalized-options';
 
 /** Request version evidence; the cache decides how to serve reads. */
@@ -22,6 +23,14 @@ export class HeaderSource {
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
+      debug('header.observed', () => ({
+        projectId: data.projectId,
+        hasHeader: Boolean(header),
+        headerTimestamp: headerTs,
+        configUpdatedAt: Number(data.configUpdatedAt),
+        previousHighestObserved: this.highestObserved,
+        staleWhileRevalidateMs: this.options.staleWhileRevalidateMs,
+      }));
       if (headerTs === undefined) {
         return { status: 'error' };
       }
