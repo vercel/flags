@@ -4,6 +4,7 @@ import { DEFAULT_FETCH_TIMEOUT_MS } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
+  clientName?: string;
   polling: {
     intervalMs: number;
   };
@@ -51,21 +52,24 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    */
   async poll(): Promise<void> {
     if (this.polling) {
-      debug('poll.shared');
+      debug(this.config.clientName, 'poll.shared');
       return this.polling;
     }
     if (this.abortController?.signal.aborted) return;
     this.abortController ??= new AbortController();
     const controller = this.abortController;
 
-    debug('poll.start');
+    debug(this.config.clientName, 'poll.start');
     this.polling = (async () => {
       try {
         await this.config.refresh();
         controller.signal.throwIfAborted();
-        debug('poll.complete');
+        debug(this.config.clientName, 'poll.complete');
       } catch (error) {
-        debug(controller.signal.aborted ? 'poll.aborted' : 'poll.failed');
+        debug(
+          this.config.clientName,
+          controller.signal.aborted ? 'poll.aborted' : 'poll.failed',
+        );
         controller.signal.throwIfAborted();
         const err =
           error instanceof Error ? error : new Error('Unknown poll error');
@@ -86,7 +90,7 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   startInterval(): void {
     if (this.intervalId) return;
 
-    debug('poll.interval.start', () => ({
+    debug(this.config.clientName, 'poll.interval.start', () => ({
       intervalMs: this.config.polling.intervalMs,
       staleAfterMs: this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS,
       expiresAfterMs:
@@ -104,7 +108,9 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
    */
   stop(): void {
     if (this.intervalId || this.polling) {
-      debug('poll.stop', () => ({ pendingPoll: this.polling !== undefined }));
+      debug(this.config.clientName, 'poll.stop', () => ({
+        pendingPoll: this.polling !== undefined,
+      }));
     }
     if (this.intervalId) {
       clearInterval(this.intervalId);

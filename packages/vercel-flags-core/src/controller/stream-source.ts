@@ -53,7 +53,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
-    debug('stream.start', () => ({
+    debug(this.options.clientName, 'stream.start', () => ({
       revision: this.revision(),
       staleAfterMs: (PING_TIMEOUT_MS * 2) / 3,
       expiresAfterMs: PING_TIMEOUT_MS,
@@ -79,6 +79,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       const promise = connectStream(
         {
           host: this.options.host,
+          clientName: this.options.clientName,
           resolveToken: () => this.options.auth.resolveToken(),
           sourceProjectId: this.options.auth.sourceProjectId,
           abortController,
@@ -118,7 +119,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    */
   stop(): void {
     if (this.abortController) {
-      debug('stream.stop');
+      debug(this.options.clientName, 'stream.stop');
     }
     this.abortController?.abort();
     this.abortController = undefined;

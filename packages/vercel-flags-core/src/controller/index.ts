@@ -144,6 +144,7 @@ export class Controller implements ControllerInterface {
       },
       this.options.staleIfErrorMs,
       this.options.waitUntil,
+      this.options.clientName,
     );
 
     // Create source modules
@@ -153,6 +154,7 @@ export class Controller implements ControllerInterface {
     );
 
     this.pollingSource = new PollingSource({
+      clientName: this.options.clientName,
       polling: this.options.polling,
       refresh: () => this.cache.refresh('poll'),
     });
@@ -172,7 +174,7 @@ export class Controller implements ControllerInterface {
     }
 
     this.usageTracker = new UsageTracker(this.options);
-    debug('client.created', () => ({
+    debug(this.options.clientName, 'client.created', () => ({
       ...this.debugState(),
       buildStep: this.options.buildStep,
       vercel: this.options.vercel,
@@ -188,7 +190,7 @@ export class Controller implements ControllerInterface {
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
-    debug('stream.data', () => ({
+    debug(this.options.clientName, 'stream.data', () => ({
       projectId: data.projectId,
       revision: data.revision,
       configUpdatedAt: Number(data.configUpdatedAt),
@@ -200,7 +202,7 @@ export class Controller implements ControllerInterface {
   private onStreamPrimed = (message: PrimedMessage) => {
     this.unauthorized = false;
     const confirmed = this.cache.tryConfirm(message, 'revision', 'stream');
-    debug('stream.primed', () => ({
+    debug(this.options.clientName, 'stream.primed', () => ({
       ...this.debugState(),
       incomingRevision: message.revision,
       confirmed,
@@ -214,7 +216,7 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamPing = () => {
-    debug('stream.ping', this.debugState);
+    debug(this.options.clientName, 'stream.ping', this.debugState);
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
     this.cache.confirm('stream');
     this.startupFallback = false;
@@ -231,7 +233,7 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamDisconnected = () => {
-    debug('stream.disconnected', this.debugState);
+    debug(this.options.clientName, 'stream.disconnected', this.debugState);
     this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded', 'stream-disconnected');
@@ -288,7 +290,7 @@ export class Controller implements ControllerInterface {
     const from = this.state;
     this.state = to;
     if (from !== to) {
-      debug('client.state', () => ({
+      debug(this.options.clientName, 'client.state', () => ({
         ...this.debugState(),
         from,
         to,
@@ -333,7 +335,7 @@ export class Controller implements ControllerInterface {
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
   async initialize(): Promise<void> {
-    debug('client.initialize', this.debugState);
+    debug(this.options.clientName, 'client.initialize', this.debugState);
     if (this.options.buildStep) {
       this.transition('build:loading', 'build-initialize');
       await this.initializeForBuildStep();
@@ -393,9 +395,9 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    debug('client.read.start', this.debugState);
+    debug(this.options.clientName, 'client.read.start', this.debugState);
     const [result, cacheStatus] = await this.resolveData().catch((error) => {
-      debug('client.read.failed', this.debugState);
+      debug(this.options.clientName, 'client.read.failed', this.debugState);
       throw error;
     });
 
@@ -418,7 +420,7 @@ export class Controller implements ControllerInterface {
       },
     } satisfies Datafile;
 
-    debug('client.read', () => ({
+    debug(this.options.clientName, 'client.read', () => ({
       ...this.debugState(),
       ...datafile.metrics,
     }));
@@ -430,7 +432,7 @@ export class Controller implements ControllerInterface {
    * Shuts down the data source and releases resources.
    */
   async shutdown(): Promise<void> {
-    debug('client.shutdown.start', this.debugState);
+    debug(this.options.clientName, 'client.shutdown.start', this.debugState);
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
@@ -441,7 +443,7 @@ export class Controller implements ControllerInterface {
     }
     this.transition('shutdown', 'shutdown');
     await this.usageTracker.shutdown();
-    debug('client.shutdown.complete', this.debugState);
+    debug(this.options.clientName, 'client.shutdown.complete', this.debugState);
   }
 
   /**
@@ -449,11 +451,18 @@ export class Controller implements ControllerInterface {
    * Builds the response without recording an evaluation read event.
    */
   async getDatafile(): Promise<Datafile> {
-    debug('client.snapshot.start', this.debugState);
+    debug(this.options.clientName, 'client.getDatafile.start', this.debugState);
     const startTime = Date.now();
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveData();
+    const [result, cacheStatus] = await this.resolveData().catch((error) => {
+      debug(
+        this.options.clientName,
+        'client.getDatafile.failed',
+        this.debugState,
+      );
+      throw error;
+    });
 
     if (this.dataViewSource !== result) {
       const { _origin, ...rest } = result;
@@ -461,7 +470,7 @@ export class Controller implements ControllerInterface {
       this.dataViewSource = result;
     }
 
-    debug('client.snapshot', () => ({
+    debug(this.options.clientName, 'client.getDatafile', () => ({
       ...this.debugState(),
       cacheStatus,
       origin: result._origin,
@@ -511,7 +520,7 @@ export class Controller implements ControllerInterface {
     [TaggedData, Metrics['cacheStatus']]
   > {
     if (this.sourceStartup) {
-      debug('source.startup.shared', this.debugState);
+      debug(this.options.clientName, 'source.startup.shared', this.debugState);
       await this.sourceStartup;
     }
 
@@ -532,7 +541,7 @@ export class Controller implements ControllerInterface {
     const result = await this.cache.resolve(this.cacheReadPolicy);
 
     if (result.hasError || !result.data) {
-      debug('header.fallback', () => ({
+      debug(this.options.clientName, 'header.fallback', () => ({
         ...this.debugState(),
         reason: 'source-assessment-error',
       }));
@@ -572,15 +581,18 @@ export class Controller implements ControllerInterface {
    */
   private activateFallbackSource(after: RuntimeSource): Promise<void> {
     if (this.sourceStartup) {
-      debug('source.startup.shared', this.debugState);
+      debug(this.options.clientName, 'source.startup.shared', this.debugState);
       return this.sourceStartup;
     }
-    debug('source.startup', () => ({ after, ...this.debugState() }));
+    debug(this.options.clientName, 'source.startup', () => ({
+      after,
+      ...this.debugState(),
+    }));
     const startup = this.startFallbackSource(after).finally(() => {
       if (this.sourceStartup === startup) {
         this.sourceStartup = undefined;
       }
-      debug('source.startup.settled', this.debugState);
+      debug(this.options.clientName, 'source.startup.settled', this.debugState);
     });
     this.sourceStartup = startup;
     return startup;
@@ -629,7 +641,7 @@ export class Controller implements ControllerInterface {
    * Returns true if stream connected successfully within timeout.
    */
   private async tryInitializeStream(): Promise<boolean> {
-    debug('stream.initialize', () => ({
+    debug(this.options.clientName, 'stream.initialize', () => ({
       timeoutMs: this.options.stream.initTimeoutMs,
       ...this.debugState(),
     }));
@@ -661,7 +673,7 @@ export class Controller implements ControllerInterface {
 
       if (result === 'timeout') {
         this.startupFallback = true;
-        debug('stream.initialize.timeout', () => ({
+        debug(this.options.clientName, 'stream.initialize.timeout', () => ({
           timeoutMs: this.options.stream.initTimeoutMs,
           ...this.debugState(),
         }));
@@ -694,7 +706,7 @@ export class Controller implements ControllerInterface {
    * the client is shutting down.
    */
   private async initializePolling(): Promise<void> {
-    debug('poll.initialize', () => ({
+    debug(this.options.clientName, 'poll.initialize', () => ({
       timeoutMs: this.options.polling.initTimeoutMs,
       ...this.debugState(),
     }));
@@ -703,7 +715,11 @@ export class Controller implements ControllerInterface {
       if (!this.cache.hasData || this.isShutdown) {
         throw error;
       }
-      debug('poll.initialize.fallback', this.debugState);
+      debug(
+        this.options.clientName,
+        'poll.initialize.fallback',
+        this.debugState,
+      );
     });
     const timeoutMs = this.options.polling.initTimeoutMs;
     if (timeoutMs <= 0) {
@@ -721,7 +737,7 @@ export class Controller implements ControllerInterface {
       ]);
       if (outcome === 'timeout') {
         this.startupFallback = true;
-        debug('poll.initialize.timeout', () => ({
+        debug(this.options.clientName, 'poll.initialize.timeout', () => ({
           timeoutMs,
           ...this.debugState(),
         }));
@@ -742,7 +758,7 @@ export class Controller implements ControllerInterface {
           ('status' in error && error.status === 401)))
     ) {
       this.unauthorized = true;
-      debug('client.unauthorized', this.debugState);
+      debug(this.options.clientName, 'client.unauthorized', this.debugState);
     }
   }
 
@@ -799,6 +815,7 @@ export class Controller implements ControllerInterface {
     try {
       const fetched = await fetchDatafile({
         host: this.options.host,
+        clientName: this.options.clientName,
         auth: this.options.auth,
         fetch: this.options.fetch,
       });
@@ -839,6 +856,7 @@ export class Controller implements ControllerInterface {
       try {
         const fetched = await fetchDatafile({
           host: this.options.host,
+          clientName: this.options.clientName,
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
@@ -858,7 +876,7 @@ export class Controller implements ControllerInterface {
    * starts with either "." or " during build.".
    */
   private noDefinitionsError(detail: string): Error {
-    debug('client.no-definitions', this.debugState);
+    debug(this.options.clientName, 'client.no-definitions', this.debugState);
     const { sourceProjectId } = this.options.auth;
     const reason =
       this.unauthorized && sourceProjectId
@@ -905,6 +923,7 @@ export class Controller implements ControllerInterface {
       try {
         fetched = await fetchDatafile({
           host: this.options.host,
+          clientName: this.options.clientName,
           auth: this.options.auth,
           fetch: this.options.fetch,
         });
