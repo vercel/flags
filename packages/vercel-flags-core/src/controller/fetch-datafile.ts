@@ -24,6 +24,7 @@ class DatafileHttpError extends Error {
  * body parsing. Cancellation also settles transports that ignore the signal.
  */
 export async function fetchDatafile(options: {
+  clientName?: string;
   host: string;
   auth: Auth;
   fetch: typeof globalThis.fetch;
@@ -36,7 +37,7 @@ export async function fetchDatafile(options: {
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new Error('maxAttempts must be a positive integer');
   }
-  debug('datafile.fetch.start', () => ({
+  debug(options.clientName, 'datafile.fetch.start', () => ({
     maxAttempts,
     timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
   }));
@@ -52,7 +53,7 @@ export async function fetchDatafile(options: {
   const onExternalAbort = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', onExternalAbort, { once: true });
   const timeoutId = setTimeout(() => {
-    debug('datafile.fetch.timeout', () => ({
+    debug(options.clientName, 'datafile.fetch.timeout', () => ({
       timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
     }));
     controller.abort(
@@ -62,9 +63,12 @@ export async function fetchDatafile(options: {
   let delay: ReturnType<typeof setTimeout> | undefined;
 
   const fetchAttempt = async (attempt: number): Promise<BundledDefinitions> => {
-    debug('datafile.fetch.attempt', () => ({ attempt, maxAttempts }));
+    debug(options.clientName, 'datafile.fetch.attempt', () => ({
+      attempt,
+      maxAttempts,
+    }));
     const token = await options.auth.resolveToken().catch((error) => {
-      debug('datafile.auth.failed', () => ({ attempt }));
+      debug(options.clientName, 'datafile.auth.failed', () => ({ attempt }));
       throw error;
     });
     signal.throwIfAborted();
@@ -79,7 +83,10 @@ export async function fetchDatafile(options: {
       signal,
     });
     signal.throwIfAborted();
-    debug('datafile.fetch.response', () => ({ attempt, status: res.status }));
+    debug(options.clientName, 'datafile.fetch.response', () => ({
+      attempt,
+      status: res.status,
+    }));
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
       throw new DatafileHttpError(
@@ -92,7 +99,7 @@ export async function fetchDatafile(options: {
 
     const data = (await res.json()) as BundledDefinitions;
     signal.throwIfAborted();
-    debug('datafile.fetch.complete', () => ({
+    debug(options.clientName, 'datafile.fetch.complete', () => ({
       attempt,
       projectId: data.projectId,
       revision: data.revision,
@@ -124,7 +131,7 @@ export async function fetchDatafile(options: {
             ? error
             : new Error('Unknown fetch error');
         }
-        debug('datafile.fetch.retry', () => ({
+        debug(options.clientName, 'datafile.fetch.retry', () => ({
           nextAttempt: attempt + 2,
           delayMs: 100 * 2 ** attempt,
           status: error instanceof DatafileHttpError ? error.status : undefined,
@@ -133,6 +140,7 @@ export async function fetchDatafile(options: {
     }
   } catch (error) {
     debug(
+      options.clientName,
       signal.aborted ? 'datafile.fetch.aborted' : 'datafile.fetch.failed',
       () => ({
         status: error instanceof DatafileHttpError ? error.status : undefined,

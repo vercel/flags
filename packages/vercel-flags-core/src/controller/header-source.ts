@@ -23,7 +23,7 @@ export class HeaderSource {
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-      debug('header.observed', () => ({
+      debug(this.options.clientName, 'header.observed', () => ({
         projectId: data.projectId,
         hasHeader: Boolean(header),
         headerTimestamp: headerTs,
