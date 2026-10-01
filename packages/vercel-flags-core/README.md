@@ -45,9 +45,10 @@ Concurrent reads share that startup and later headers do
 not switch the client back. Pending HTTP refreshes remain shared until the stream
 delivers current data or confirms the cached version. That confirmation cancels the
 superseded refresh, and waiting reads use the confirmed cache; late responses cannot
-change cache or authorization state. With an empty cache and a nonempty header, the first
-shared fetch discovers the client’s project before checking its header entry; if discovery
-fails or the entry is unavailable, the client starts the stream/poll fallback.
+change cache or authorization state. With an empty cache, the first read uses a shared
+fetch to load definitions and discover the client’s project. The next read assesses
+that project’s header entry and starts the stream/poll fallback if it is unavailable.
+If the cold fetch fails, the client starts fallback immediately.
 
 ```ts
 const client = createClient(process.env.FLAGS!, {

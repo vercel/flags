@@ -12,13 +12,16 @@ export type CacheMetadata = Confirmation & { ageMs: number };
 export type Freshness = 'fresh' | 'stale' | 'expired' | 'unknown';
 
 export type CacheAssessment = {
-  status: Freshness;
+  /** Error means the source cannot assess this entry; the controller must fall back. */
+  status: Freshness | 'error';
   /** Positive evidence that renews age and clears the current failure. */
   confirmed?: boolean;
 };
 
 export type CacheFetch = (signal: AbortSignal) => Promise<DatafileInput>;
-type CacheResult = [TaggedData, Metrics['cacheStatus']];
+export type CacheResult =
+  | [TaggedData, Metrics['cacheStatus'], sourceError?: undefined]
+  | [TaggedData | undefined, 'STALE', sourceError: true];
 const SOURCE_CONFIRMED = new Error(
   'Refresh superseded by a source confirmation',
 );
@@ -195,6 +198,11 @@ export class DatafileCache {
     const metadata = this.metadata;
     if (metadata) {
       const { status, confirmed } = policy.assess(metadata);
+      if (status === 'error') {
+        // Source availability is not a fetch failure. Preserve the failure deadline
+        // and report the source error even when retained data can no longer be served.
+        return [this.canServe() ? this.read() : undefined, 'STALE', true];
+      }
       // Apply recovery evidence before read() enforces the failure deadline.
       if (confirmed) this.confirm();
       if (status === 'fresh' || status === 'unknown') {
@@ -243,7 +251,8 @@ export class DatafileCache {
       return [stale, 'STALE'];
     }
 
-    // A cold fetch discovers the project; assess the original request's header.
+    // Record the original request's evidence once a cold fetch discovers metadata.
+    // The fetched data serves this read; source availability is checked on the next.
     if (!metadata && this.metadata) {
       const { confirmed } = policy.assess(this.metadata);
       if (confirmed) this.confirm();

@@ -140,13 +140,16 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - Reads without a valid positive version for this client’s project (missing, empty,
   malformed, or unrelated headers) permanently start streaming if enabled, otherwise
   polling, using the existing startup timeouts. Clients select independently. A cold
-  cache with a nonempty header first discovers project identity via a shared HTTP fetch;
-  failed discovery also uses the stream/poll fallback.
+  cache first loads definitions and discovers project identity via a shared HTTP fetch.
+  The next read checks source availability through the cache assessment; failed discovery
+  starts the stream/poll fallback immediately.
   Concurrent new reads share source startup and pending HTTP refreshes. Accepted stream
   updates and valid confirmations cancel superseded HTTP work; waiting reads use the
   confirmed cache, and late responses cannot change failure or authorization state.
-  `resolveData()` checks header availability and uses `resolveDataWithFallbacks()`
-  to start the configured source. Handover retains cached data before considering seeds.
+  An assessment with status `error` returns a STALE cache result and a source-error
+  indicator without starting or clearing a fetch-failure deadline. Unservable data is
+  omitted, allowing the controller to start fallback even after stale-if-error expires.
+  Handover retains cached data before considering seeds.
 - `getDatafile()` shares lazy initialization and `resolveData()` with evaluations, including
   header assessment, SWR, blocking refresh, stale-if-error, and source fallback.
   It only adds response construction and metrics, without evaluation telemetry.
