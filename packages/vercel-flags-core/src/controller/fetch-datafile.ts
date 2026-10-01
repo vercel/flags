@@ -31,12 +31,15 @@ export async function fetchDatafile(options: {
   /** Total attempts, including the initial request. Defaults to three. */
   maxAttempts?: number;
 }): Promise<BundledDefinitions> {
-  debug('datafile.fetch.start');
   options.signal?.throwIfAborted();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new Error('maxAttempts must be a positive integer');
   }
+  debug('datafile.fetch.start', () => ({
+    maxAttempts,
+    timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+  }));
 
   const controller = new AbortController();
   const { signal } = controller;
@@ -49,16 +52,19 @@ export async function fetchDatafile(options: {
   const onExternalAbort = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', onExternalAbort, { once: true });
   const timeoutId = setTimeout(() => {
-    debug('datafile.fetch.timeout');
+    debug('datafile.fetch.timeout', () => ({
+      timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+    }));
     controller.abort(
       new Error('@vercel/flags-core: Datafile fetch deadline exceeded'),
     );
   }, DEFAULT_FETCH_TIMEOUT_MS);
   let delay: ReturnType<typeof setTimeout> | undefined;
 
-  const fetchAttempt = async (): Promise<BundledDefinitions> => {
+  const fetchAttempt = async (attempt: number): Promise<BundledDefinitions> => {
+    debug('datafile.fetch.attempt', () => ({ attempt, maxAttempts }));
     const token = await options.auth.resolveToken().catch((error) => {
-      debug('datafile.auth.failed');
+      debug('datafile.auth.failed', () => ({ attempt }));
       throw error;
     });
     signal.throwIfAborted();
@@ -73,7 +79,7 @@ export async function fetchDatafile(options: {
       signal,
     });
     signal.throwIfAborted();
-    debug('datafile.fetch.response', () => ({ status: res.status }));
+    debug('datafile.fetch.response', () => ({ attempt, status: res.status }));
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
       throw new DatafileHttpError(
@@ -86,6 +92,12 @@ export async function fetchDatafile(options: {
 
     const data = (await res.json()) as BundledDefinitions;
     signal.throwIfAborted();
+    debug('datafile.fetch.complete', () => ({
+      attempt,
+      projectId: data.projectId,
+      revision: data.revision,
+      configUpdatedAt: Number(data.configUpdatedAt),
+    }));
     return data;
   };
 
@@ -101,7 +113,7 @@ export async function fetchDatafile(options: {
       }
       signal.throwIfAborted();
       try {
-        return await Promise.race([fetchAttempt(), aborted]);
+        return await Promise.race([fetchAttempt(attempt + 1), aborted]);
       } catch (error) {
         signal.throwIfAborted();
         if (
@@ -112,10 +124,20 @@ export async function fetchDatafile(options: {
             ? error
             : new Error('Unknown fetch error');
         }
+        debug('datafile.fetch.retry', () => ({
+          nextAttempt: attempt + 2,
+          delayMs: 100 * 2 ** attempt,
+          status: error instanceof DatafileHttpError ? error.status : undefined,
+        }));
       }
     }
   } catch (error) {
-    debug(signal.aborted ? 'datafile.fetch.aborted' : 'datafile.fetch.failed');
+    debug(
+      signal.aborted ? 'datafile.fetch.aborted' : 'datafile.fetch.failed',
+      () => ({
+        status: error instanceof DatafileHttpError ? error.status : undefined,
+      }),
+    );
     throw error;
   } finally {
     clearTimeout(timeoutId);

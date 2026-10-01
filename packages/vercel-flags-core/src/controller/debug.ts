@@ -3,7 +3,9 @@ export function debug(
   event: string,
   details?: () => Record<string, string | number | boolean | undefined>,
 ): void {
-  if (!process.env.DEBUG?.includes('@vercel/flags-core')) return;
+  if (!process.env.DEBUG?.includes('@vercel/flags-core')) {
+    return;
+  }
 
   // Diagnostics must not affect initialization, reads, or background work.
   try {
