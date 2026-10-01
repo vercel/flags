@@ -59,7 +59,8 @@ export type ControllerOptions = {
    * How long header-driven reads may serve cached data while refreshing in the
    * background, measured from its last fetch or matching version header.
    * Accepts finite, non-negative seconds, including fractional seconds.
-   * Set to 0 to always block on refresh.
+   * Set to 0 to always block on header-driven refreshes.
+   * Streaming and polling use freshness windows based on their update schedules.
    * @default 10
    */
   staleWhileRevalidate?: number;
