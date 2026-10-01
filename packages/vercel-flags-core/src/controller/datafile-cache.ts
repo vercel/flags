@@ -111,8 +111,7 @@ export class DatafileCache {
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
       this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
-      this.resetAge();
-      this.failure = undefined;
+      this.confirm();
       return;
     }
     this.tryConfirm(incoming);
