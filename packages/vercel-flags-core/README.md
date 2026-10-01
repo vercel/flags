@@ -189,18 +189,25 @@ DEBUG=@vercel/flags-core pnpm dev
 ```
 
 Client diagnostics use `console.debug` with the `@vercel/flags-core` prefix and
-an object containing an `event` and its diagnostic details. The controller, cache,
-and network sources all use the same global logging function. For example:
+an object containing an `event`, the configured `clientName`, and its diagnostic
+details. Set `clientName` when creating each client to distinguish their logs:
+
+```ts
+const client = createClient(undefined, { clientName: 'checkout' });
+```
+
+The controller, cache, and network sources all use the same global logging
+function, including the client name on background work and reconnects. For example:
 
 ```text
-@vercel/flags-core { event: 'client.state', from: 'idle', to: 'vercel', reason: 'header-mode-enabled', ... }
-@vercel/flags-core { event: 'cache.freshness', status: 'expired', revision: 42, ageMs: 15000, ... }
-@vercel/flags-core { event: 'cache.refresh.blocking', reason: 'expired', ... }
-@vercel/flags-core { event: 'datafile.fetch.attempt', attempt: 1, maxAttempts: 3 }
-@vercel/flags-core { event: 'datafile.fetch.response', attempt: 1, status: 200 }
-@vercel/flags-core { event: 'cache.update.accepted', revision: 43, ... }
-@vercel/flags-core { event: 'cache.fetch.applied', revision: 43, ... }
-@vercel/flags-core { event: 'client.read', state: 'vercel', cacheStatus: 'MISS', ... }
+@vercel/flags-core { event: 'client.state', clientName: 'checkout', from: 'idle', to: 'vercel', reason: 'header-mode-enabled', ... }
+@vercel/flags-core { event: 'cache.freshness', clientName: 'checkout', status: 'expired', revision: 42, ageMs: 15000, ... }
+@vercel/flags-core { event: 'cache.refresh.blocking', clientName: 'checkout', reason: 'expired', ... }
+@vercel/flags-core { event: 'datafile.fetch.attempt', clientName: 'checkout', attempt: 1, maxAttempts: 3 }
+@vercel/flags-core { event: 'datafile.fetch.response', clientName: 'checkout', attempt: 1, status: 200 }
+@vercel/flags-core { event: 'cache.update.accepted', clientName: 'checkout', revision: 43, ... }
+@vercel/flags-core { event: 'cache.fetch.applied', clientName: 'checkout', revision: 43, ... }
+@vercel/flags-core { event: 'client.read', clientName: 'checkout', state: 'vercel', cacheStatus: 'MISS', ... }
 ```
 
 Follow `client.state` for the previous state, next state, and transition reason.
@@ -219,7 +226,7 @@ Read and cache events include the project, revision, and cache age when availabl
 | `stream.initialize.timeout` / `poll.initialize.timeout` | Startup reached its deadline; `hasData` and `startupFallback` show whether cached fallback is available. |
 
 Events cover initialization and shutdown, selected modes and state transitions,
-read/snapshot results, cache versions and age, version acceptance/confirmation,
+evaluation/getDatafile results, cache versions and age, version acceptance/confirmation,
 header timestamps, background/blocking/shared refreshes, stale-if-error expiry,
 HTTP attempts and retry delays, polling, stream pings, timeouts, and reconnect reasons.
 Stream/poll startup events include their stale and expired age thresholds.
