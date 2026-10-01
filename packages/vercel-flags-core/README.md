@@ -40,9 +40,10 @@ or bundled definitions without starting a stream or polling. Request version hea
 indicate when cached definitions need refreshing. If an evaluation has no version
 header (or an empty one), the client permanently switches to streaming when enabled,
 otherwise polling. Concurrent new evaluations share that startup and later headers do
-not switch the client back. Header reads already in progress finish independently;
-successful responses can still update the cache, while their errors do not mark the
-active stream or poller as failed. A present but malformed or unrelated header keeps the
+not switch the client back. Pending HTTP refreshes remain shared until the stream
+delivers current data or confirms the cached version. That confirmation cancels the
+superseded refresh, and waiting reads use the confirmed cache; late responses cannot
+change cache or authorization state. A present but malformed or unrelated header keeps the
 existing cached-read behavior, fetching only when the cache is empty.
 
 ```ts
@@ -54,7 +55,7 @@ const client = createClient(process.env.FLAGS!, {
 ```
 
 `staleWhileRevalidate` defaults to 10 seconds and accepts finite, nonnegative values,
-including fractions. `0` makes refreshes block. The window starts at the latest
+including fractions. `0` makes header-driven refreshes block. The window starts at the latest
 accepted fetch or valid confirmation, including an equal-version fetch response.
 The cache tracks this age independently of `fetchedAt`. Bundled/provided definitions
 preserve their original `fetchedAt`; unknown or expired cache age requires a blocking
@@ -99,15 +100,19 @@ retained for recovery, including its revision for stream reconnection. A clean
 stream close or ping timeout records `stream: disconnected` if no earlier failure
 exists. `getFallbackDatafile()` remains an independent bundled-data export.
 
-Polling data is marked stale after the polling interval; streaming data after 30
-seconds. Accepted updates and valid confirmations reset cache age without rewriting
-`fetchedAt`. Stream pings also reset age and clear any failure.
-Age alone does not prevent stream/poll reads or trigger extra requests. Source scheduling,
-retries, timeouts, and build/offline behavior remain unchanged. Poll errors feed the
-shared failure handler without logging each failed poll. An initialization timeout
-alone does not start the allowance. Existing startup limitations remain: when
-initial polling times out, no recurring interval is started, even if that in-flight
-request later completes.
+Streaming data becomes stale after 60 seconds and expires after 90 seconds, allowing
+one missed 30-second ping before revalidation and matching the stream's disconnect
+timeout. Polling data becomes stale after its interval plus the 10-second fetch
+deadline, and expires after two intervals plus that deadline (40 and 70 seconds with
+the default 30-second interval). These windows are independent of `staleWhileRevalidate`.
+Stale evaluations refresh in the background; expired evaluations wait for the shared
+refresh. Refresh failures still follow `staleIfError`.
+
+Accepted updates and valid confirmations reset cache age without rewriting `fetchedAt`.
+Stream pings also reset age and clear any failure. Poll errors feed the shared failure
+handler without logging each failed poll. An initialization timeout alone does not
+start the failure allowance or reset cache age. It permits cached fallback while
+the pending update continues; polling intervals remain active after startup timeout.
 
 ## Evaluation Metrics
 

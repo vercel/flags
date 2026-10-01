@@ -74,9 +74,9 @@ type RuntimeSource = 'header' | 'stream' | 'polling';
  * - No streaming or polling
  *
  * **Runtime — streaming mode** (stream enabled):
- * - Uses streaming exclusively; polling is never started, even if configured
- * - Init fallback (no data yet): constructor datafile → bundled → throw
- * - Read fallback (post-init): in-memory value → constructor datafile → bundled → throw
+ * - Uses streaming with polling fallback when enabled
+ * - Retains provided/bundled data during startup; fetches if the cache remains empty
+ * - Stale reads refresh in the background; expired reads wait for refresh
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
  * - Uses polling exclusively
@@ -112,6 +112,9 @@ export class Controller implements ControllerInterface {
   private pollingSource: PollingSource;
   private bundledSource: BundledSource;
   private headerSource: HeaderSource;
+  private sourceStartup: Promise<void> | undefined;
+  // A startup timeout permits cached reads while the first update continues.
+  private startupFallback = false;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -131,9 +134,13 @@ export class Controller implements ControllerInterface {
       async (signal) => {
         try {
           const data = await fetchDatafile({ ...this.options, signal });
+          signal.throwIfAborted();
+          this.startupFallback = false;
           this.unauthorized = false;
           return data;
         } catch (error) {
+          signal.throwIfAborted();
+          this.startupFallback = false;
           this.noteUnauthorized(error);
           throw error;
         }
@@ -150,7 +157,6 @@ export class Controller implements ControllerInterface {
 
     this.pollingSource = new PollingSource({
       polling: this.options.polling,
-      staleWhileRevalidateMs: this.options.staleWhileRevalidateMs,
       refresh: () => this.cache.refresh('poll'),
     });
     this.headerSource = new HeaderSource(this.options);
@@ -174,11 +180,15 @@ export class Controller implements ControllerInterface {
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
     this.unauthorized = false;
+    this.startupFallback = false;
     this.cache.updateFromSource(data, 'stream');
   };
   private onStreamPrimed = (message: PrimedMessage) => {
     this.unauthorized = false;
-    this.cache.tryConfirm(message, 'revision');
+    if (this.cache.tryConfirm(message, 'revision')) {
+      this.startupFallback = false;
+      this.cache.cancelFetch();
+    }
     // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
       this.transition('streaming');
@@ -187,6 +197,8 @@ export class Controller implements ControllerInterface {
   private onStreamPing = () => {
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
     this.cache.confirm();
+    this.startupFallback = false;
+    this.cache.cancelFetch();
   };
   private onStreamConnected = () => {
     if (this.state === 'polling') {
@@ -309,8 +321,18 @@ export class Controller implements ControllerInterface {
       return;
     }
 
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
+      await this.initializeFromFallbacks();
+      return;
+    }
+
     await this.activateFallbackSource('header');
     if (this.cache.hasData) return;
+    if (this.unauthorized) {
+      throw this.noDefinitionsError(
+        '. Provide a datafile or bundled definitions.',
+      );
+    }
 
     // All update sources share the same final blocking datafile fetch.
     const fetched = await this.cache.resolve(this.cacheReadPolicy);
@@ -461,10 +483,22 @@ export class Controller implements ControllerInterface {
   > {
     if (this.state === 'vercel' && !this.headerSource.isAvailable()) {
       await this.activateFallbackSource('header');
-    } else if (this.state === 'initializing:stream') {
-      await this.activateFallbackSource('header');
-    } else if (this.state === 'initializing:polling') {
-      await this.activateFallbackSource('stream');
+    } else if (this.sourceStartup) {
+      await this.sourceStartup;
+    }
+
+    if (!this.cache.hasData && this.unauthorized) {
+      throw this.noDefinitionsError(
+        '. Provide a datafile or bundled definitions.',
+      );
+    }
+
+    if (
+      !this.cache.hasData &&
+      !this.options.stream.enabled &&
+      !this.options.polling.enabled
+    ) {
+      return this.resolveStaticFallbackData();
     }
 
     const result = await this.cache.resolve(this.cacheReadPolicy);
@@ -494,11 +528,14 @@ export class Controller implements ControllerInterface {
       };
     }
 
+    if (this.startupFallback) {
+      return { assess: () => ({ status: 'stale' }) };
+    }
+
     if (this.state === 'streaming') {
       return { assess: this.streamSource.assess };
     }
 
-    // Seeded initialization can leave the active poller in 'initializing:polling'.
     if (this.state === 'polling' || this.state === 'initializing:polling') {
       return { assess: this.pollingSource.assess };
     }
@@ -510,15 +547,32 @@ export class Controller implements ControllerInterface {
    * Advances through the runtime source chain. Every caller uses the same path:
    * request headers → stream → polling → direct cache refresh.
    */
-  private async activateFallbackSource(after: RuntimeSource): Promise<void> {
+  private activateFallbackSource(after: RuntimeSource): Promise<void> {
+    if (this.sourceStartup) {
+      return this.sourceStartup;
+    }
+    const startup = this.startFallbackSource(after).finally(() => {
+      if (this.sourceStartup === startup) {
+        this.sourceStartup = undefined;
+      }
+    });
+    this.sourceStartup = startup;
+    return startup;
+  }
+
+  private async startFallbackSource(after: RuntimeSource): Promise<void> {
     if (this.state === 'shutdown') {
       throw new Error('@vercel/flags-core: Client is shut down');
     }
 
     if (after === 'header' && this.options.stream.enabled) {
       this.transition('initializing:stream');
-      if (await this.tryInitializeStream()) {
-        if (!this.isShutdown) this.transition('streaming');
+      const connected = await this.tryInitializeStream();
+      if (this.isShutdown) {
+        throw new Error('@vercel/flags-core: Client is shut down');
+      }
+      if (connected) {
+        this.transition('streaming');
         return;
       }
       after = 'stream';
@@ -530,10 +584,49 @@ export class Controller implements ControllerInterface {
     ) {
       this.pollingSource.startInterval();
       this.transition('polling');
+      // Stream fallback keeps its interval schedule; primary polling starts now.
+      if (after === 'header') {
+        await this.initializePolling();
+      }
+      if (this.isShutdown) {
+        throw new Error('@vercel/flags-core: Client is shut down');
+      }
       return;
     }
 
     this.transition('degraded');
+  }
+
+  private async initializePolling(): Promise<void> {
+    const poll = this.pollingSource.poll().catch((error) => {
+      // Initialization can finish with retained data; serving still enforces SIE.
+      if (!this.cache.hasData || this.isShutdown) {
+        throw error;
+      }
+    });
+    const timeoutMs = this.options.polling.initTimeoutMs;
+    if (timeoutMs <= 0) {
+      await poll;
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const outcome = await Promise.race([
+        poll,
+        new Promise<'timeout'>((resolve) => {
+          timeoutId = setTimeout(() => resolve('timeout'), timeoutMs);
+        }),
+      ]);
+      if (outcome === 'timeout') {
+        this.startupFallback = true;
+        console.warn(
+          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -572,6 +665,7 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        this.startupFallback = true;
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );

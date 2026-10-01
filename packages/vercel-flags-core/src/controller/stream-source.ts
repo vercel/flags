@@ -1,7 +1,11 @@
 import type { DatafileInput } from '../types';
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
 import type { NormalizedOptions } from './normalized-options';
-import { connectStream, type PrimedMessage } from './stream-connection';
+import {
+  connectStream,
+  PING_TIMEOUT_MS,
+  type PrimedMessage,
+} from './stream-connection';
 import { TypedEmitter } from './typed-emitter';
 
 export type StreamSourceEvents = {
@@ -29,15 +33,16 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     this.revision = revision;
   }
 
-  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => ({
-    status:
-      ageMs <= 30_000
-        ? 'fresh'
-        : this.options.staleWhileRevalidateMs > 0 &&
-            ageMs <= 30_000 + this.options.staleWhileRevalidateMs
-          ? 'stale'
-          : 'expired',
-  });
+  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
+    // Pings arrive every 30s; tolerate one missed ping before revalidating.
+    if (ageMs <= (PING_TIMEOUT_MS * 2) / 3) {
+      return { status: 'fresh' };
+    }
+    if (ageMs <= PING_TIMEOUT_MS) {
+      return { status: 'stale' };
+    }
+    return { status: 'expired' };
+  };
 
   /**
    * Start the stream connection.

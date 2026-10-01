@@ -231,8 +231,11 @@ describe('Controller (black-box)', () => {
       expect((await client.getDatafile()).configUpdatedAt).toBe(
         expectedVersion,
       );
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
+      const readRefreshes = configUpdatedAt < 2 ? 1 : 0;
+      expect(fetchMock).toHaveBeenCalledTimes(1 + readRefreshes);
+      expect(dataFetch).toHaveBeenCalledTimes(
+        (source === 'poll' ? 1 : 0) + readRefreshes,
+      );
     } finally {
       cleanupContext();
       try {
@@ -1449,7 +1452,7 @@ describe('Controller (black-box)', () => {
   // Stream/polling coordination
   // ---------------------------------------------------------------------------
   describe('stream/polling coordination', () => {
-    it('should fall back to bundled when stream times out (skip polling)', async () => {
+    it('should fall back to bundled when stream times out (refresh in background)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1489,13 +1492,13 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      expect(pollCount).toBe(0);
+      expect(pollCount).toBe(1);
 
       warnSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      await client.shutdown();
       expect(fetchMock).toHaveBeenCalledTimes(2);
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -1507,12 +1510,12 @@ describe('Controller (black-box)', () => {
                 invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
-                cacheAction: 'NONE',
+                cacheAction: 'REFRESHING',
                 cacheIsFirstRead: true,
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
-                mode: 'offline',
+                mode: 'poll',
                 revision: '1',
                 environment: 'production',
               },
@@ -1536,7 +1539,7 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should use bundled definitions when stream fails after init timeout (skip polling)', async () => {
+    it('should use bundled definitions when stream fails after init timeout (polling fallback)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1596,12 +1599,12 @@ describe('Controller (black-box)', () => {
                 invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
-                cacheAction: 'NONE',
+                cacheAction: 'REFRESHING',
                 cacheIsFirstRead: true,
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
-                mode: 'offline',
+                mode: 'poll',
                 revision: '1',
                 environment: 'production',
               },
