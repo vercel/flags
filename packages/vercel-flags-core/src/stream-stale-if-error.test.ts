@@ -580,19 +580,15 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0', '1']);
   });
 
-  it('starts a new SIE allowance when a recovered stream times out again', async () => {
-    const { instance } = await start({ staleIfError: 0.1 });
+  it('starts a new SIE allowance when a recovered stream closes again', async () => {
+    const { instance, stream } = await start({ staleIfError: 0.1 });
     const reconnect = mockStream();
     const third = mockStream();
     streamFetch
       .mockResolvedValueOnce(reconnect.response)
       .mockResolvedValueOnce(third.response);
-    await vi.advanceTimersByTimeAsync(89_999);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
-    expectRequests(['0']);
-    await vi.advanceTimersByTimeAsync(2);
-    expectRequests(['0', '1']);
-    await vi.advanceTimersByTimeAsync(99);
+    stream.close();
+    await vi.advanceTimersByTimeAsync(100);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
     const failure = await instance
@@ -602,12 +598,11 @@ describe('stream stale-if-error through the public API', () => {
     expect(failure).toMatchObject({ message: 'stream: disconnected' });
     await expectExpired(instance, failure as Error);
 
+    await vi.advanceTimersByTimeAsync(899);
     reconnect.push(primed());
-    reconnect.push({ type: 'ping' });
     await vi.advanceTimersByTimeAsync(0);
     expect((await instance.evaluate('flagA')).value).toBe(true);
-    await vi.advanceTimersByTimeAsync(90_000);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
+    reconnect.close();
     await vi.advanceTimersByTimeAsync(100);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
@@ -618,6 +613,7 @@ describe('stream stale-if-error through the public API', () => {
     expect(second).toMatchObject({ message: 'stream: disconnected' });
     expect(second).not.toBe(failure);
     await expectExpired(instance, second as Error);
+    await vi.advanceTimersByTimeAsync(899);
     expectRequests(['0', '1', '1']);
   });
 
