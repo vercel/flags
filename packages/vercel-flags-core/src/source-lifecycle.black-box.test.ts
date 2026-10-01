@@ -447,6 +447,13 @@ it('cancels pending polling work when a stream reconnects', async () => {
   await vi.advanceTimersByTimeAsync(1_000);
   const signal = dataFetch.mock.calls[0]?.[1]?.signal;
   expect(dataFetch).toHaveBeenCalledTimes(1);
+  const settled = vi.fn();
+  const reading = instance.evaluate('feature').then((result) => {
+    settled();
+    return result;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(settled).not.toHaveBeenCalled();
   second.push({
     type: 'primed',
     revision: 2,
@@ -455,6 +462,11 @@ it('cancels pending polling work when a stream reconnects', async () => {
   });
   await vi.advanceTimersByTimeAsync(0);
   const abortedOnReconnect = signal?.aborted;
+  expect(settled).toHaveBeenCalledTimes(1);
+  expect(await reading).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
   pending.resolve(
     new Response(null, { status: 401, statusText: 'Unauthorized' }),
   );
@@ -464,6 +476,8 @@ it('cancels pending polling work when a stream reconnects', async () => {
     abortedOnReconnect: true,
     value: true,
   });
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
 it.each([

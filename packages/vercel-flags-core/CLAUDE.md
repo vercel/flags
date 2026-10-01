@@ -141,8 +141,9 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   malformed, or unrelated headers) permanently start streaming if enabled, otherwise
   polling, using the existing startup timeouts. Clients select independently. A cold
   cache first loads definitions and discovers project identity via a shared HTTP fetch.
-  The next read checks source availability through the cache assessment; failed discovery
-  starts the stream/poll fallback immediately.
+  The next read checks source availability through the cache assessment. Missing or invalid
+  cached config versions also produce assessment errors. A failed cold fetch rejects
+  without switching sources; subsequent reads can retry the fetch.
   Concurrent new reads share source startup and pending HTTP refreshes. Accepted stream
   updates and valid confirmations cancel superseded HTTP work; waiting reads use the
   confirmed cache, and late responses cannot change failure or authorization state.
@@ -168,7 +169,9 @@ Key behaviors:
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - If stream reconnects while polling → stop polling
-- If stream disconnects → start an immediate background poll (if enabled), then interval polling.
+- If stream disconnects → start an immediate poll (if enabled), then interval polling.
+  Reads share polling initialization and wait for the poll or its initialization timeout.
+  The detached disconnect handler catches startup rejection; waiting reads still receive it.
   Ping timeouts reconnect quietly without starting polling.
 - Use `buildStep: true` to force static-only mode (e.g., serverless cold starts)
 - Use `buildStep: false` to force runtime mode (e.g., custom build environments)
@@ -296,7 +299,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
 - Stops automatically when stream reconnects
 - `PollingSource` shares the cache's HTTP refresh for initialization, immediate fallback, and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
-- Initialization waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback without renewing cache age or failure allowance; the pending poll and recurring interval continue.
+- Every transition to polling waits for the first poll up to `initTimeoutMs`, including stream disconnections with retained data. A timeout permits cached fallback subject to stale-if-error without renewing cache age or failure allowance; the pending poll and recurring interval continue. Zero waits for the poll, subject to its ten-second fetch deadline.
 - After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
 - Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
@@ -361,7 +364,9 @@ superseded HTTP work only after data is accepted or validated. HTTP responses fi
 their own refresh, and request-header confirmations do not cancel pending work.
 
 `cache.resolve(policy)` receives a mode-specific `assess` callback returning
-`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`.
+`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, `unknown`, or `error`.
+It returns `{ data, status, hasError? }`; `hasError` signals an assessment error to the
+controller. Fetch failures still throw when no cached data can be served.
 The shared fetch callback is configured once on the cache.
 It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation
 on clear. HeaderSource supplies small version/age checks; it does

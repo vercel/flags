@@ -40,7 +40,8 @@ or bundled definitions without starting a stream or polling. Request version hea
 indicate when cached definitions need refreshing. Header mode requires a valid positive
 version for the client’s own `projectId`. Missing, empty, malformed, or unrelated entries
 permanently switch that client to streaming when enabled, otherwise polling. Clients
-with different projects select their sources independently within the same request.
+also switch when cached definitions have no valid positive config version to compare.
+Clients with different projects select their sources independently within the same request.
 Concurrent reads share that startup and later headers do
 not switch the client back. Pending HTTP refreshes remain shared until the stream
 delivers current data or confirms the cached version. That confirmation cancels the
@@ -48,7 +49,8 @@ superseded refresh, and waiting reads use the confirmed cache; late responses ca
 change cache or authorization state. With an empty cache, the first read uses a shared
 fetch to load definitions and discover the client’s project. The next read assesses
 that project’s header entry and starts the stream/poll fallback if it is unavailable.
-If the cold fetch fails, the client starts fallback immediately.
+If the cold fetch fails, the read rejects without switching sources. Fetch failures
+use cached data only while stale-if-error permits it; source assessment errors start fallback.
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
@@ -105,8 +107,12 @@ an error result for each requested flag, with its default value when provided.
 retained for recovery, including its revision for stream reconnection. A clean
 stream close records `stream: disconnected` if no earlier failure exists. Ping timeouts
 reconnect quietly without recording a failure or starting polling, including after runtime
-suspension. Genuine disconnections start an immediate background poll, sharing pending
-read refreshes, then continue at the configured interval. Stream recovery stops polling. `getFallbackDatafile()` remains an independent bundled-data export.
+suspension. Genuine disconnections start an immediate poll, sharing pending read
+refreshes, then continue at the configured interval. Every transition to polling
+waits for the first poll or `polling.initTimeoutMs`, including reads with cached data.
+On timeout, reads follow `staleIfError` while polling continues. A zero initialization
+timeout waits for the poll, which still has a ten-second fetch deadline. Stream
+recovery stops polling. `getFallbackDatafile()` remains an independent bundled-data export.
 
 Streaming data becomes stale after 60 seconds and expires after 90 seconds, allowing
 one missed 30-second ping before revalidation and matching the stream's ping
