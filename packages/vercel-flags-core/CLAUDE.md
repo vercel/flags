@@ -286,7 +286,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `initTimeoutMs`: 3000ms (3s)
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
 - Stops automatically when stream reconnects
-- `PollingSource` shares the cache's HTTP refresh for initialization and scheduled polls. The controller cancels superseded refreshes on stream confirmation and clears them on shutdown; stopping the poller suppresses errors from its pending work.
+- `PollingSource` shares the cache's HTTP refresh for initialization and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
 - Initialization waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback without renewing cache age or failure allowance; the pending poll and recurring interval continue.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
 - Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
@@ -344,6 +344,11 @@ so retained data is not replaced by fallback and stream reconnects can still sen
 version/revision confirmations clear it; repeated errors/disconnects do not renew
 the first-error deadline. Stream opening and initialization timeout alone
 are not recovery/failure evidence respectively.
+
+`tryConfirm()` validates version and identity, then delegates to `confirm(source)`.
+Confirmation owns freshness, recovery, and cancellation: stream evidence cancels
+superseded HTTP work only after data is accepted or validated. HTTP responses finish
+their own refresh, and request-header confirmations do not cancel pending work.
 
 `cache.resolve(policy)` receives a mode-specific `assess` callback returning
 `{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`.

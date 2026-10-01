@@ -185,9 +185,8 @@ export class Controller implements ControllerInterface {
   };
   private onStreamPrimed = (message: PrimedMessage) => {
     this.unauthorized = false;
-    if (this.cache.tryConfirm(message, 'revision')) {
+    if (this.cache.tryConfirm(message, 'revision', 'stream')) {
       this.startupFallback = false;
-      this.cache.cancelFetch();
     }
     // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
@@ -196,9 +195,8 @@ export class Controller implements ControllerInterface {
   };
   private onStreamPing = () => {
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
-    this.cache.confirm();
+    this.cache.confirm('stream');
     this.startupFallback = false;
-    this.cache.cancelFetch();
   };
   private onStreamConnected = () => {
     if (this.state === 'polling') {
