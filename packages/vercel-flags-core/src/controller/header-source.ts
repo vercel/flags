@@ -16,8 +16,16 @@ export class HeaderSource {
     );
   }
 
-  isAvailable(): boolean {
-    return this.isEnabled() && Boolean(this.getVersionHeader());
+  hasHeader(): boolean {
+    return Boolean(this.getVersionHeader());
+  }
+
+  isAvailable(projectId: string | undefined): boolean {
+    return (
+      this.isEnabled() &&
+      projectId !== undefined &&
+      this.getUpdatedAtHeader(projectId, this.getVersionHeader()) !== undefined
+    );
   }
 
   /** Capture the header now so a shared fetch cannot switch the request being assessed. */
