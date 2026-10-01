@@ -45,9 +45,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * If already started, returns the existing promise.
    */
   start(): Promise<void> {
-    if (this.promise) {
-      return this.promise;
-    }
+    if (this.promise) return this.promise;
 
     const abortController = new AbortController();
     this.abortController = abortController;

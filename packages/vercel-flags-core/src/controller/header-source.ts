@@ -26,9 +26,7 @@ export class HeaderSource {
 
     return (data) => {
       const headerTs = this.getUpdatedAtHeader(data.projectId, header);
-      if (headerTs === undefined) {
-        return { status: 'unknown' };
-      }
+      if (headerTs === undefined) return { status: 'unknown' };
 
       const currentTs = Number(data.configUpdatedAt);
       this.highestObserved = Math.max(this.highestObserved, headerTs);
@@ -57,9 +55,7 @@ export class HeaderSource {
   }
 
   private getUpdatedAtHeader(projectId: string, header: string | undefined) {
-    if (!header) {
-      return;
-    }
+    if (!header) return;
 
     const prefix = `flags_${projectId}=`;
     const value = header
