@@ -63,7 +63,7 @@ describe('cache read callbacks', () => {
     cache.seed(original);
     expect(
       await cache.resolve({ assess: () => ({ status: 'error' }) }),
-    ).toEqual([original, 'STALE', true]);
+    ).toEqual({ data: original, status: 'STALE', hasError: true });
     expect(cache.read()).toBe(original);
     expect(cache.ageMs).toBe(500);
     expect(fetch).not.toHaveBeenCalled();
@@ -77,9 +77,17 @@ describe('cache read callbacks', () => {
     const failure = new Error('original outage');
     cache.fail(failure);
     const policy = { assess: () => ({ status: 'error' as const }) };
-    expect(await cache.resolve(policy)).toEqual([original, 'STALE', true]);
+    expect(await cache.resolve(policy)).toEqual({
+      data: original,
+      status: 'STALE',
+      hasError: true,
+    });
     vi.setSystemTime(1_101);
-    expect(await cache.resolve(policy)).toEqual([undefined, 'STALE', true]);
+    expect(await cache.resolve(policy)).toEqual({
+      data: undefined,
+      status: 'STALE',
+      hasError: true,
+    });
     expect(() => cache.read()).toThrow(failure);
     expect(cache.ageMs).toBe(601);
     expect(fetch).not.toHaveBeenCalled();
@@ -92,14 +100,14 @@ describe('cache read callbacks', () => {
     expect(
       await Promise.all([cache.resolve({ assess }), cache.resolve({ assess })]),
     ).toEqual([
-      [cache.read(), 'MISS'],
-      [cache.read(), 'MISS'],
+      { data: cache.read(), status: 'MISS' },
+      { data: cache.read(), status: 'MISS' },
     ]);
-    expect(await cache.resolve({ assess })).toEqual([
-      cache.read(),
-      'STALE',
-      true,
-    ]);
+    expect(await cache.resolve({ assess })).toEqual({
+      data: cache.read(),
+      status: 'STALE',
+      hasError: true,
+    });
     expect(assess).toHaveBeenCalledTimes(3);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -116,10 +124,10 @@ describe('cache read callbacks', () => {
       assess: vi.fn(() => ({ status })),
     };
 
-    expect(await cache.resolve(policy)).toEqual([
-      original,
-      status === 'fresh' ? 'HIT' : 'STALE',
-    ]);
+    expect(await cache.resolve(policy)).toEqual({
+      data: original,
+      status: status === 'fresh' ? 'HIT' : 'STALE',
+    });
     expect(policy.assess).toHaveBeenCalledExactlyOnceWith({
       projectId: 'prj_policy',
       environment: 'production',
@@ -153,7 +161,10 @@ describe('cache read callbacks', () => {
     expect(waitUntil).not.toHaveBeenCalled();
     pending.resolve();
     await reading;
-    expect(settled).toHaveBeenCalledExactlyOnceWith([cache.read(), 'MISS']);
+    expect(settled).toHaveBeenCalledExactlyOnceWith({
+      data: cache.read(),
+      status: 'MISS',
+    });
     expect(cache.read()?.configUpdatedAt).toBe(2);
   });
 
@@ -169,10 +180,16 @@ describe('cache read callbacks', () => {
     cache.seed(original);
     const policy = { assess: () => ({ status: 'expired' as const }) };
     cache.fail(firstError);
-    expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
+    expect(await cache.resolve(policy)).toEqual({
+      data: original,
+      status: 'STALE',
+    });
     vi.setSystemTime(1_100);
     cache.fail(laterError);
-    expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
+    expect(await cache.resolve(policy)).toEqual({
+      data: original,
+      status: 'STALE',
+    });
     vi.setSystemTime(1_101);
     await expect(cache.resolve(policy)).rejects.toBe(firstError);
     expect(fetch).not.toHaveBeenCalled();
@@ -202,7 +219,7 @@ describe('cache read callbacks', () => {
     cache.seed(original);
     expect(
       await cache.resolve({ assess: () => ({ status: 'stale' as const }) }),
-    ).toEqual([original, 'STALE']);
+    ).toEqual({ data: original, status: 'STALE' });
     await waitUntil.mock.calls[0]?.[0];
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -225,7 +242,10 @@ describe('cache read callbacks', () => {
     const original = tagData(data(), 'provided');
     cache.seed(original);
     const policy = { assess: () => ({ status: 'stale' as const }) };
-    expect(await cache.resolve(policy)).toEqual([original, 'STALE']);
+    expect(await cache.resolve(policy)).toEqual({
+      data: original,
+      status: 'STALE',
+    });
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
     const settled = vi.fn();
     const blocking = cache
@@ -239,7 +259,7 @@ describe('cache read callbacks', () => {
     expect(fetch).toHaveBeenCalledExactlyOnceWith(expect.any(AbortSignal));
 
     pending.resolve();
-    expect(await blocking).toEqual([cache.read(), 'MISS']);
+    expect(await blocking).toEqual({ data: cache.read(), status: 'MISS' });
     await expect(waitUntil.mock.calls[0]?.[0]).resolves.toBeUndefined();
     expect(cache.read()?.configUpdatedAt).toBe(2);
   });
@@ -252,7 +272,7 @@ describe('cache read callbacks', () => {
     cache.seed(tagData(data(), 'provided'));
     const policy = { assess: () => ({ status: 'stale' as const }) };
 
-    expect((await cache.resolve(policy))?.[1]).toBe('STALE');
+    expect((await cache.resolve(policy)).status).toBe('STALE');
     await waitUntil.mock.calls[0]?.[0];
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Revalidation failed:',
@@ -276,7 +296,7 @@ describe('cache read callbacks', () => {
     const policy = { assess: () => ({ status: 'expired' as const }) };
     await expect(cache.resolve(policy)).rejects.toBe(failure);
     fetch.mockResolvedValueOnce(data());
-    expect((await cache.resolve(policy))?.[1]).toBe('MISS');
+    expect((await cache.resolve(policy)).status).toBe('MISS');
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -327,8 +347,8 @@ describe('cache read callbacks', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     nextPending.resolve();
     expect(await Promise.all([nextRead, sharedRead])).toEqual([
-      [cache.read(), 'MISS'],
-      [cache.read(), 'MISS'],
+      { data: cache.read(), status: 'MISS' },
+      { data: cache.read(), status: 'MISS' },
     ]);
     expect(cache.read()?.configUpdatedAt).toBe(2);
   });
@@ -378,7 +398,7 @@ describe('header freshness policy', () => {
     NaN,
     Infinity,
     0,
-  ])('treats missing or invalid cached timestamp %s as unknown', (configUpdatedAt) => {
+  ])('treats missing or invalid cached timestamp %s as a source error', (configUpdatedAt) => {
     const headerSource = source();
     expect(
       assessment(
@@ -389,7 +409,7 @@ describe('header freshness policy', () => {
         configUpdatedAt,
         ageMs: 0,
       }),
-    ).toEqual({ status: 'unknown' });
+    ).toEqual({ status: 'error' });
   });
 
   it.each([
@@ -437,7 +457,7 @@ describe('header freshness policy', () => {
       await cache.resolve({
         assess: matching,
       }),
-    ).toEqual([original, 'HIT']);
+    ).toEqual({ data: original, status: 'HIT' });
     expect(cache.ageMs).toBe(0);
     expect(original.fetchedAt).toBe(500);
     expect(original._origin).toBe('bundled');
@@ -447,7 +467,7 @@ describe('header freshness policy', () => {
       await cache.resolve({
         assess: assessment(headerSource, 'flags_prj_policy=2'),
       }),
-    ).toEqual([original, 'STALE']);
+    ).toEqual({ data: original, status: 'STALE' });
     const error = new Error('outage');
     cache.fail(error);
     await expect(
@@ -462,7 +482,7 @@ describe('header freshness policy', () => {
       await cache.resolve({
         assess: assessment(headerSource, 'flags_prj_policy=1'),
       }),
-    ).toEqual([original, 'HIT']);
+    ).toEqual({ data: original, status: 'HIT' });
     expect(cache.ageMs).toBe(0);
     expect(original.fetchedAt).toBe(500);
   });
@@ -487,8 +507,8 @@ describe('header freshness policy', () => {
     expect(laterCheck).not.toHaveBeenCalled();
     pending.resolve();
     expect(await Promise.all([firstRead, secondRead])).toEqual([
-      [cache.read(), 'MISS'],
-      [cache.read(), 'MISS'],
+      { data: cache.read(), status: 'MISS' },
+      { data: cache.read(), status: 'MISS' },
     ]);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(originalCheck).toHaveReturnedWith({ status: 'stale' });
@@ -555,7 +575,7 @@ describe('header freshness policy', () => {
     vi.setSystemTime(2_000);
     expect(
       await cache.resolve({ assess: () => ({ status: 'expired' }) }),
-    ).toEqual([original, 'MISS']);
+    ).toEqual({ data: original, status: 'MISS' });
     expect(fetchDatafile).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
@@ -569,7 +589,7 @@ describe('header freshness policy', () => {
       await cache.resolve({
         assess: assessment(headerSource, 'flags_prj_policy=2'),
       }),
-    ).toEqual([original, 'STALE']);
+    ).toEqual({ data: original, status: 'STALE' });
   });
 
   it('suppresses a successful transport response after cache clear cancels the fetch', async () => {

@@ -368,40 +368,28 @@ describe('Vercel mode (black-box)', () => {
     expect(streamFetch).not.toHaveBeenCalled();
   });
 
-  it('shares stream startup after a concurrent cold header discovery fails', async () => {
+  it('shares a failed cold fetch across requests without switching sources', async () => {
     const pendingHeader = deferred<Response>();
     dataFetch.mockReturnValueOnce(pendingHeader.promise);
     const instance = client({ datafile: undefined, staleIfError: 0 });
-    const settled = vi.fn();
-    const originalRead = instance.evaluate('feature').then((result) => {
-      settled();
-      return result;
-    });
+    const originalRead = expect(instance.evaluate('feature')).rejects.toThrow(
+      'Failed to fetch data: Unauthorized',
+    );
     await vi.advanceTimersByTimeAsync(0);
     const signal = dataFetch.mock.calls[0]?.[1]?.signal;
 
-    const stream = mockStream();
-    streamFetch.mockResolvedValueOnce(stream.response);
     setVersion(undefined);
-    const switchingRead = instance.evaluate('feature');
+    const otherRead = expect(instance.getDatafile()).rejects.toThrow(
+      'Failed to fetch data: Unauthorized',
+    );
     await vi.advanceTimersByTimeAsync(0);
     expect(signal?.aborted).toBe(false);
     pendingHeader.resolve(
       new Response(null, { status: 401, statusText: 'Unauthorized' }),
     );
-    await vi.advanceTimersByTimeAsync(0);
-    expect(settled).not.toHaveBeenCalled();
-
-    stream.push({ type: 'datafile', data: datafile(TIMESTAMP + 1, true) });
-    for (const result of await Promise.all([originalRead, switchingRead])) {
-      expect(result).toMatchObject({
-        value: true,
-        metrics: { mode: 'streaming', cacheStatus: 'HIT' },
-      });
-    }
-    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
+    await Promise.all([originalRead, otherRead]);
     expect(dataFetch).toHaveBeenCalledTimes(1);
-    expect(streamFetch).toHaveBeenCalledTimes(1);
+    expect(streamFetch).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -436,6 +424,10 @@ describe('Vercel mode (black-box)', () => {
     const settled = vi.fn();
     void reading.then(settled);
     await vi.advanceTimersByTimeAsync(3_000);
+    if (mode === 'streaming') {
+      expect(settled).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(3_000);
+    }
     expect(settled).toHaveBeenCalledTimes(1);
     pendingPoll.resolve(Response.json(datafile()));
     expect(await reading).toMatchObject({
@@ -446,9 +438,14 @@ describe('Vercel mode (black-box)', () => {
       },
     });
     if (mode === 'streaming') {
-      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
-        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
-      );
+      expect(warnSpy.mock.calls).toEqual([
+        [
+          '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+        ],
+        [
+          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+        ],
+      ]);
     } else {
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
@@ -480,7 +477,7 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 2);
   });
 
-  it('retries an empty-cache fallback after the cold fetch and polling startup fail', async () => {
+  it('retries a failed cold fetch on the next read without switching sources', async () => {
     const instance = client({
       stream: false,
       datafile: undefined,
@@ -488,21 +485,20 @@ describe('Vercel mode (black-box)', () => {
     });
     setVersion(undefined);
     rejectDatafileOnce(new Error('cold fetch failed'));
-    rejectDatafileOnce(new Error('poll failed'));
     const failure = expect(instance.evaluate('feature')).rejects.toThrow(
-      'poll failed',
+      'cold fetch failed',
     );
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(300);
     await failure;
-    expect(dataFetch).toHaveBeenCalledTimes(6);
+    expect(dataFetch).toHaveBeenCalledTimes(3);
 
     setVersion(TIMESTAMP + 100);
     mockDatafileResponse(TIMESTAMP + 1, true);
     expect(await instance.evaluate('feature')).toMatchObject({
       value: true,
-      metrics: { mode: 'polling' },
+      metrics: { mode: 'vercel', cacheStatus: 'MISS' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(7);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
     expect(streamFetch).not.toHaveBeenCalled();
   });
 
@@ -594,7 +590,7 @@ describe('Vercel mode (black-box)', () => {
     await vi.advanceTimersByTimeAsync(3_000);
     expect(await reading).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'STALE' },
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
     });
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
@@ -675,28 +671,23 @@ describe('Vercel mode (black-box)', () => {
     undefined,
     0,
     0.01,
-  ])('recovers via streaming when cold project discovery fails with staleIfError=%s', async (staleIfError) => {
-    const stream = mockStream();
-    streamFetch.mockResolvedValueOnce(stream.response);
+  ])('rejects a failed cold fetch without cached fallback with staleIfError=%s', async (staleIfError) => {
     const instance = client({ datafile: undefined, staleIfError });
     mockDatafileHttpFailure();
-    const settled = vi.fn();
-    const reading = instance.evaluate('feature').then((result) => {
-      settled();
-      return result;
-    });
+    const reading = expect(instance.evaluate('feature')).rejects.toThrow(
+      'Failed to fetch data',
+    );
     await vi.advanceTimersByTimeAsync(300);
-    expect(settled).not.toHaveBeenCalled();
+    await reading;
     expect(dataFetch).toHaveBeenCalledTimes(3);
-    expect(streamFetch).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(11);
-    stream.push({ type: 'datafile', data: datafile(TIMESTAMP, true) });
-    expect(await reading).toMatchObject({
+    expect(streamFetch).not.toHaveBeenCalled();
+    mockDatafileResponse(TIMESTAMP, true);
+    expect(await instance.evaluate('feature')).toMatchObject({
       value: true,
-      metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+      metrics: { mode: 'vercel', cacheStatus: 'MISS' },
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP);
-    expect(dataFetch).toHaveBeenCalledTimes(3);
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it.each([
@@ -1699,13 +1690,27 @@ describe('Vercel mode (black-box)', () => {
     expect(dataFetch).not.toHaveBeenCalled();
   });
 
-  it('keeps cached definitions without a config version', async () => {
+  it.each([
+    'streaming',
+    'polling',
+  ] as const)('replaces an unversioned cache through %s even with a valid project header', async (mode) => {
     setVersion(TIMESTAMP + 1);
+    const stream = mockStream();
+    streamFetch.mockResolvedValueOnce(stream.response);
+    mockDatafileResponse(TIMESTAMP + 1, true);
     const instance = client({
       datafile: { ...datafile(), configUpdatedAt: undefined },
+      stream: mode === 'streaming',
     });
-    expect((await instance.evaluate('feature')).value).toBe(false);
-    expect(dataFetch).not.toHaveBeenCalled();
+    const reading = instance.evaluate('feature');
+    stream.push({ type: 'datafile', data: datafile(TIMESTAMP + 1, true) });
+    expect(await reading).toMatchObject({
+      value: true,
+      metrics: { mode, cacheStatus: 'HIT' },
+    });
+    expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
+    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+    expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
   });
 
   it('rejects a blocking read on shutdown even if the transport ignores cancellation', async () => {

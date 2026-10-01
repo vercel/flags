@@ -1296,6 +1296,9 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
+        }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -1333,6 +1336,9 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
         }
         return Promise.resolve(new Response('', { status: 200 }));
       });

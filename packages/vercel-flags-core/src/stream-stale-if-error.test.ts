@@ -61,6 +61,7 @@ function mockStream() {
 
 const streamFetch = vi.fn<typeof fetch>();
 const fetchMock = vi.fn<typeof fetch>();
+const dataFetch = vi.fn<typeof fetch>();
 let clients: FlagsClient[];
 let errorSpy: ReturnType<typeof vi.spyOn>;
 let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -109,12 +110,18 @@ async function expectExpired(instance: FlagsClient, error: Error) {
   await expect(instance.getDatafile()).rejects.toBe(error);
 }
 
-function expectInitTimeout() {
-  expect(warnSpy.mock.calls).toEqual([
+function expectInitTimeout(pollTimedOut = false) {
+  const warnings = [
     [
       '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
     ],
-  ]);
+  ];
+  if (pollTimedOut) {
+    warnings.push([
+      '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+    ]);
+  }
+  expect(warnSpy.mock.calls).toEqual(warnings);
   warnSpy.mockClear();
 }
 
@@ -126,11 +133,14 @@ beforeEach(() => {
   streamFetch
     .mockReset()
     .mockRejectedValue(new Error('unexpected stream fetch'));
+  // A failed fallback poll settles startup without confirming stream recovery.
+  dataFetch
+    .mockReset()
+    .mockImplementation(async () => new Response(null, { status: 403 }));
   fetchMock.mockReset().mockImplementation((input, init) => {
     if (String(input).endsWith('/v1/stream')) return streamFetch(input, init);
     if (String(input).endsWith('/v1/datafile')) {
-      // Keep fallback HTTP pending so only the tested stream evidence can recover.
-      return new Promise<Response>(() => {});
+      return dataFetch(input, init);
     }
     return Promise.reject(new Error(`Unexpected fetch: ${String(input)}`));
   });
@@ -161,6 +171,7 @@ describe('stream stale-if-error through the public API', () => {
     'ping',
     'primed',
   ] as const)('resets stream freshness on %s without changing the fetched snapshot', async (type) => {
+    dataFetch.mockImplementation(() => new Promise<Response>(() => {}));
     const { instance, stream } = await start({ staleIfError: 0 });
     const initial = await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
@@ -191,6 +202,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('does not renew stream freshness on an invalid confirmation', async () => {
+    dataFetch.mockImplementation(() => new Promise<Response>(() => {}));
     const { instance, stream } = await start();
     const snapshot = await instance.getDatafile();
     await vi.advanceTimersByTimeAsync(60_001);
@@ -523,6 +535,7 @@ describe('stream stale-if-error through the public API', () => {
   });
 
   it('does not start SIE on initialization timeout or ping, but does on a late failure', async () => {
+    dataFetch.mockImplementation(() => new Promise<Response>(() => {}));
     const stream = mockStream();
     streamFetch.mockResolvedValueOnce(stream.response);
     const supplied = data();
@@ -537,10 +550,12 @@ describe('stream stale-if-error through the public API', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(initialized).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
+    expect(initialized).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3_000);
     await initialization;
     expect(initialized).toHaveBeenCalledOnce();
-    expectInitTimeout();
-    await vi.advanceTimersByTimeAsync(9_999);
+    expectInitTimeout(true);
+    await vi.advanceTimersByTimeAsync(6_999);
     expect((await instance.evaluate('flagA')).value).toBe(true);
     // The immediate fallback poll is still pending; no response has confirmed recovery.
     expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
@@ -643,14 +658,16 @@ describe('stream stale-if-error through the public API', () => {
     expect(streamFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards initial OIDC resolution failure without fetching or waiting for initialization timeout', async () => {
+  it('forwards initial OIDC resolution failure after fallback polling exhausts its token retries', async () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
       new Error('OIDC unavailable'),
     );
     const instance = client({ datafile: data(), staleIfError: 0 }, true);
-    const failure = await instance
+    const evaluation = instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(300);
+    const failure = await evaluation;
     expect(failure).toBeInstanceOf(Error);
     expect(failure).toMatchObject({
       message: 'stream: token resolution failed',
@@ -661,8 +678,10 @@ describe('stream stale-if-error through the public API', () => {
       }),
     });
     await expectExpired(instance, failure as Error);
-    expect(Date.now()).toBe(0);
-    await vi.advanceTimersByTimeAsync(60_000);
+    expect(Date.now()).toBe(300);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(59_700);
+    expect(Date.now()).toBe(60_000);
     expect(getVercelOidcToken).toHaveBeenCalledTimes(8);
     expect(fetchMock).not.toHaveBeenCalled();
   });

@@ -19,9 +19,12 @@ export type CacheAssessment = {
 };
 
 export type CacheFetch = (signal: AbortSignal) => Promise<DatafileInput>;
-export type CacheResult =
-  | [TaggedData, Metrics['cacheStatus'], sourceError?: undefined]
-  | [TaggedData | undefined, 'STALE', sourceError: true];
+export type CacheResult = {
+  data: TaggedData | undefined;
+  status: Metrics['cacheStatus'];
+  hasError?: boolean;
+};
+
 const SOURCE_CONFIRMED = new Error(
   'Refresh superseded by a source confirmation',
 );
@@ -194,31 +197,37 @@ export class DatafileCache {
     return this.data;
   }
 
-  async resolve(policy: CacheReadPolicy): Promise<CacheResult | undefined> {
+  async resolve(policy: CacheReadPolicy): Promise<CacheResult> {
     const metadata = this.metadata;
     if (metadata) {
       const { status, confirmed } = policy.assess(metadata);
       if (status === 'error') {
         // Source availability is not a fetch failure. Preserve the failure deadline
         // and report the source error even when retained data can no longer be served.
-        return [this.canServe() ? this.read() : undefined, 'STALE', true];
+        return {
+          data: this.canServe() ? this.read() : undefined,
+          status: 'STALE',
+          hasError: true,
+        };
       }
       // Apply recovery evidence before read() enforces the failure deadline.
       if (confirmed) this.confirm();
       if (status === 'fresh' || status === 'unknown') {
         // read() still enforces stale-if-error, even for a fresh assessment.
-        return [
-          this.read()!,
-          status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
-        ];
+        return {
+          data: this.read()!,
+          status: status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
+        };
       }
 
       if (this.failure) {
-        if (!policy.retryOnFailure) return [this.read()!, 'STALE'];
+        if (!policy.retryOnFailure) {
+          return { data: this.read()!, status: 'STALE' };
+        }
         if (this.canServe()) {
           const stale = this.read()!;
           this.fetchInBackground();
-          return [stale, 'STALE'];
+          return { data: stale, status: 'STALE' };
         }
       }
 
@@ -227,7 +236,7 @@ export class DatafileCache {
       if (status === 'stale' && this.canServe()) {
         const stale = this.read()!;
         this.fetchInBackground();
-        return [stale, 'STALE'];
+        return { data: stale, status: 'STALE' };
       }
     }
 
@@ -240,7 +249,7 @@ export class DatafileCache {
         // A live source supplied current data while this read awaited HTTP.
         // Shutdown uses a different reason and must still reject the read.
         if (signal.reason === SOURCE_CONFIRMED && this.data) {
-          return [this.read()!, 'HIT'];
+          return { data: this.read()!, status: 'HIT' };
         }
         throw error;
       }
@@ -248,7 +257,7 @@ export class DatafileCache {
       if (!stale) {
         throw error;
       }
-      return [stale, 'STALE'];
+      return { data: stale, status: 'STALE' };
     }
 
     // Record the original request's evidence once a cold fetch discovers metadata.
@@ -261,7 +270,7 @@ export class DatafileCache {
     const data = this.read();
     if (!data)
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
-    return [data, 'MISS'];
+    return { data, status: 'MISS' };
   }
 
   /** Runs the one shared datafile refresh used by reads and polling. */

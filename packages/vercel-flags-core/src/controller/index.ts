@@ -11,11 +11,7 @@ import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
-import {
-  type CacheReadPolicy,
-  type CacheResult,
-  DatafileCache,
-} from './datafile-cache';
+import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -213,7 +209,9 @@ export class Controller implements ControllerInterface {
     this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
       this.transition('degraded');
-      void this.activateFallbackSource('stream');
+      // Reads can await this shared startup, but the event handler has no caller.
+      // Handle its rejection too, including cancellation during shutdown.
+      void this.activateFallbackSource('stream').catch(() => {});
     }
   };
   private onSourceError = (error: Error) => {
@@ -334,7 +332,9 @@ export class Controller implements ControllerInterface {
 
     // All update sources share the same final blocking datafile fetch.
     const fetched = await this.cache.resolve(this.cacheReadPolicy);
-    if (!fetched) await this.initializeFromFallbacks();
+    if (!fetched.data) {
+      await this.initializeFromFallbacks();
+    }
   }
 
   /**
@@ -465,28 +465,14 @@ export class Controller implements ControllerInterface {
       return this.resolveStaticFallbackData();
     }
 
-    const headerMode = this.state === 'vercel';
-    let result: CacheResult | undefined;
-    try {
-      result = await this.cache.resolve(this.cacheReadPolicy);
-    } catch (error) {
-      if (!headerMode || this.cache.hasData || this.isShutdown) {
-        throw error;
-      }
-      // A failed cold fetch leaves headers unable to identify this client's project.
-    }
+    const result = await this.cache.resolve(this.cacheReadPolicy);
 
-    if (result?.[2] || (!result && headerMode)) {
-      if (this.state === 'vercel') {
-        await this.activateFallbackSource('header');
-      }
+    if (result.hasError || !result.data) {
+      await this.activateFallbackSource('header');
       return this.resolveRuntimeData();
     }
-    if (result) {
-      return [result[0], result[1]];
-    }
 
-    return this.resolveStaticFallbackData();
+    return [result.data, result.status];
   }
 
   private get cacheReadPolicy(): CacheReadPolicy {
@@ -553,12 +539,7 @@ export class Controller implements ControllerInterface {
     ) {
       this.pollingSource.startInterval();
       this.transition('polling');
-      // Repair a disconnected stream immediately; reads share this background poll.
-      if (after === 'header') {
-        await this.initializePolling();
-      } else {
-        void this.pollingSource.poll().catch(() => {});
-      }
+      await this.initializePolling();
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');
       }
@@ -628,7 +609,7 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Waits for the first poll when polling is the primary runtime source.
+   * Waits for the first poll whenever polling becomes the active runtime source.
    * On timeout, initialization falls back while the pending poll and interval
    * continue in the background. Poll errors propagate if no data is cached or
    * the client is shutting down.
