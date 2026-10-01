@@ -525,7 +525,8 @@ describe('stream stale-if-error through the public API', () => {
     const stream = mockStream();
     streamFetch.mockResolvedValueOnce(stream.response);
     const supplied = data();
-    const instance = client({ datafile: supplied, staleIfError: 0 });
+    const waitUntil = vi.fn();
+    const instance = client({ datafile: supplied, staleIfError: 0, waitUntil });
     const initialized = vi.fn();
     const initialization = Promise.resolve(instance.initialize()).then(
       initialized,
@@ -540,6 +541,10 @@ describe('stream stale-if-error through the public API', () => {
     expectInitTimeout();
     await vi.advanceTimersByTimeAsync(10_000);
     expect((await instance.evaluate('flagA')).value).toBe(true);
+    // Finish the read-triggered refresh before introducing a stream failure.
+    // Otherwise its successful response can recover the cache after the failure.
+    expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
+    await waitUntil.mock.calls[0]![0];
     expect((await instance.getDatafile()).definitions).toBe(
       supplied.definitions,
     );
