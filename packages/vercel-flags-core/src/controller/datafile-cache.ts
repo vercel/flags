@@ -5,6 +5,7 @@ type Confirmation = Pick<
   DatafileInput,
   'configUpdatedAt' | 'revision' | 'projectId' | 'environment'
 >;
+type ConfirmationSource = DataOrigin | 'header';
 
 export type CacheMetadata = Confirmation & { ageMs: number };
 
@@ -108,21 +109,17 @@ export class DatafileCache {
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
       this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
-      this.confirm();
-      if (origin === 'stream') {
-        this.cancelFetch();
-      }
+      this.confirm(origin);
       return;
     }
-    if (this.tryConfirm(incoming) && origin === 'stream') {
-      this.cancelFetch();
-    }
+    this.tryConfirm(incoming, 'configUpdatedAt', origin);
   }
 
   /** Confirms a same-version source response without replacing stored data. */
   tryConfirm(
     incoming: Confirmation,
     version: 'configUpdatedAt' | 'revision' = 'configUpdatedAt',
+    source: ConfirmationSource = 'header',
   ): boolean {
     if (!this.data) return false;
 
@@ -144,14 +141,20 @@ export class DatafileCache {
       return false;
     }
 
-    this.confirm();
+    this.confirm(source);
     return true;
   }
 
-  /** Confirms the current cache state by clearing failures and resetting age. */
-  confirm(): void {
+  /** Renews freshness and retires HTTP work superseded by stream evidence. */
+  confirm(source: ConfirmationSource = 'header'): void {
     this.resetAge();
     this.failure = undefined;
+    // HTTP responses must finish their own refresh; headers may be older requests.
+    if (source === 'stream' && this.fetching) {
+      this.abortController.abort(SOURCE_CONFIRMED);
+      this.abortController = new AbortController();
+      this.fetching = undefined;
+    }
   }
 
   /** Preserves existing acceptance, including missing or unparseable versions. */
@@ -309,14 +312,5 @@ export class DatafileCache {
     this.fetching = undefined;
     this.data = undefined;
     this.freshAt = undefined;
-  }
-
-  /** Retire superseded HTTP work without discarding the accepted snapshot. */
-  cancelFetch(): void {
-    if (this.fetching) {
-      this.abortController.abort(SOURCE_CONFIRMED);
-      this.abortController = new AbortController();
-      this.fetching = undefined;
-    }
   }
 }
