@@ -131,7 +131,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 - Do not start stream/poll; the first read fetches if the cache is empty.
 - HeaderSource parses the request's project version and owns `highestObserved`. The cache owns freshness age.
 - A matching header confirms freshness only when no newer version has been observed.
-- The controller passes `assess` and `fetch` callbacks to `cache.resolve()`.
+- The controller configures one shared fetch callback and passes `assess` to `cache.resolve()`.
   The cache selects cached/background/blocking behavior and shares refresh work.
 - A newer header permits background refresh within `staleWhileRevalidate` seconds of the
   latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
@@ -139,9 +139,9 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
   `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
 - Evaluations without a version header (including an empty header) permanently
   start streaming if enabled, otherwise polling, using the existing startup timeouts.
-  Concurrent new reads share source startup. Pending header reads finish independently;
-  successful responses still pass the cache version guard, while errors from the retired
-  header source do not change cache failure or authorization state.
+  Concurrent new reads share source startup and pending HTTP refreshes. Accepted stream
+  updates and valid confirmations cancel superseded HTTP work; waiting reads use the
+  confirmed cache, and late responses cannot change failure or authorization state.
   `resolveData()` checks header availability and uses `resolveDataWithFallbacks()`
   to start the configured source. Handover retains cached data before considering seeds.
 - Present malformed/unrelated headers use cached data without fetching, subject to stale-if-error.
@@ -286,7 +286,8 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `initTimeoutMs`: 3000ms (3s)
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
 - Stops automatically when stream reconnects
-- `PollingSource` passes its abort signal to `fetchDatafile` for both initialization and scheduled polls, so calling `stop()` cancels pending requests and backoff without emitting a shutdown error.
+- `PollingSource` shares the cache's HTTP refresh for initialization and scheduled polls. The controller cancels superseded refreshes on stream confirmation and clears them on shutdown; stopping the poller suppresses errors from its pending work.
+- Initialization waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback without renewing cache age or failure allowance; the pending poll and recurring interval continue.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
 - Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
 
@@ -345,17 +346,20 @@ the first-error deadline. Stream opening and initialization timeout alone
 are not recovery/failure evidence respectively.
 
 `cache.resolve(policy)` receives a mode-specific `assess` callback returning
-`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`,
-and an optional `fetch` callback.
+`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, or `unknown`.
+The shared fetch callback is configured once on the cache.
 It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation
-on clear. HeaderSource supplies small version/age checks and a fetch callback; it does
+on clear. HeaderSource supplies small version/age checks; it does
 not read the cache. Header assessments return confirmation evidence explicitly; the
 cache applies it before enforcing stale-if-error, without a controller event round trip.
-Source data/error events update the cache before the fetch promise settles; rejecting
-the promise does not record a second failure. Stream/poll modes omit on-read revalidation
-and retain their existing schedules. New public time windows use seconds; internal
-normalized durations, cache age, and `fetchedAt` use milliseconds. Polling is fresh
-through its interval; streaming through 30 seconds. Accepted updates, valid confirmations,
+HTTP results update the cache before the shared fetch promise settles. Stream/poll
+evaluations refresh stale data in the background and block on expired data, sharing
+scheduled HTTP work. New public time windows use seconds; internal normalized durations,
+cache age, and `fetchedAt` use milliseconds. Polling is fresh through its interval plus
+the 10-second fetch deadline and expires after two intervals plus that deadline.
+Streaming is fresh through 60 seconds and expires after the 90-second ping timeout.
+These windows are independent of the header-only `staleWhileRevalidate` option.
+Accepted updates, valid confirmations,
 and stream pings reset cache age. Pings also clear failures: each connection sends
 `primed` or a datafile before pings, so they confirm recovery without rewriting `fetchedAt`.
 Polling errors use the shared source-error handler without logging each failed poll.

@@ -232,8 +232,8 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: {
         mode,
-        source: mode === 'streaming' ? 'in-memory' : 'remote',
-        cacheStatus: mode === 'streaming' ? 'HIT' : 'MISS',
+        source: 'in-memory',
+        cacheStatus: 'HIT',
       },
     });
     expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
@@ -269,7 +269,8 @@ describe('Vercel mode (black-box)', () => {
     'absent',
     'empty',
     'no context',
-  ])('serves a fresh cache while switching to polling after a header becomes %s', async (header) => {
+  ])('shares bounded polling startup while switching after a header becomes %s', async (header) => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const instance = client({ stream: false });
     expect((await instance.evaluate('feature')).metrics?.mode).toBe('vercel');
     cleanupContext();
@@ -285,17 +286,20 @@ describe('Vercel mode (black-box)', () => {
     setVersion(TIMESTAMP + 100);
     const second = instance.bulkEvaluate([{ key: 'feature' }]);
     await vi.advanceTimersByTimeAsync(0);
-    expect(dataFetch).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+    );
     expect(await first).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'HIT' },
+      metrics: { mode: 'polling', cacheStatus: 'STALE' },
     });
     expect((await second).feature).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'HIT' },
+      metrics: { mode: 'polling', cacheStatus: 'STALE' },
     });
 
-    await vi.advanceTimersByTimeAsync(30_000);
     pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
     await vi.advanceTimersByTimeAsync(0);
     expect(await instance.evaluate('feature')).toMatchObject({
@@ -312,7 +316,12 @@ describe('Vercel mode (black-box)', () => {
   ] as const)('shares a pending %s cache refresh while switching to polling', async (outcome) => {
     const pending = deferred<Response>();
     dataFetch.mockReturnValueOnce(pending.promise);
-    const instance = client({ stream: false, staleIfError: 0 });
+    const instance = client({
+      stream: false,
+      staleIfError: 0,
+      staleWhileRevalidate: 0,
+      datafile: { ...datafile(), fetchedAt: TIMESTAMP },
+    });
     setVersion(TIMESTAMP + 1);
     const originalRead = instance.evaluate('feature');
     await vi.advanceTimersByTimeAsync(0);
@@ -333,7 +342,7 @@ describe('Vercel mode (black-box)', () => {
     });
     expect(await switchingRead).toMatchObject({
       value: outcome === 'newer',
-      metrics: { mode: 'polling', cacheStatus: 'MISS' },
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
     });
 
     expect((await instance.getDatafile()).configUpdatedAt).toBe(
@@ -380,7 +389,7 @@ describe('Vercel mode (black-box)', () => {
     ['streaming', 'bundled'],
     ['polling', 'provided'],
     ['polling', 'bundled'],
-  ] as const)('refreshes after %s becomes too old and retains newer data over the original %s seed', async (mode, seed) => {
+  ] as const)('retains newer data over the original %s %s seed at the startup timeout', async (mode, seed) => {
     vi.mocked(readBundledDefinitions).mockResolvedValue({
       definitions: datafile(),
       state: 'ok',
@@ -407,13 +416,13 @@ describe('Vercel mode (black-box)', () => {
     const settled = vi.fn();
     void reading.then(settled);
     await vi.advanceTimersByTimeAsync(3_000);
-    expect(settled).not.toHaveBeenCalled();
+    expect(settled).toHaveBeenCalledTimes(1);
     pendingPoll.resolve(Response.json(datafile()));
     expect(await reading).toMatchObject({
       value: true,
       metrics: {
         source: 'remote',
-        cacheStatus: 'MISS',
+        cacheStatus: 'STALE',
       },
     });
     if (mode === 'streaming') {
@@ -421,7 +430,9 @@ describe('Vercel mode (black-box)', () => {
         '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
     } else {
-      expect(warnSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+      );
     }
     const retained = await instance.getDatafile();
     expect(retained.configUpdatedAt).toBe(TIMESTAMP + 1);
@@ -494,13 +505,14 @@ describe('Vercel mode (black-box)', () => {
     // The shared cache records the failure after transport retries finish.
     vi.setSystemTime(TIMESTAMP + 1_301);
     setVersion(undefined);
+    rejectDatafileOnce(new Error('fallback poll failure'));
     const secondFailure = expect(instance.evaluate('feature')).rejects.toBe(
       firstError,
     );
     await vi.advanceTimersByTimeAsync(300);
     await secondFailure;
     await expect(instance.getDatafile()).rejects.toBe(firstError);
-    expect(dataFetch).toHaveBeenCalledTimes(4);
+    expect(dataFetch).toHaveBeenCalledTimes(7);
 
     mockDatafileResponse(TIMESTAMP + 1, true);
     await vi.advanceTimersByTimeAsync(30_000);
@@ -511,11 +523,12 @@ describe('Vercel mode (black-box)', () => {
     const recovered = await instance.getDatafile();
     expect(recovered.definitions).toBe(snapshot.definitions);
     expect(recovered.fetchedAt).toBe(snapshot.fetchedAt);
-    expect(dataFetch).toHaveBeenCalledTimes(5);
+    expect(dataFetch).toHaveBeenCalledTimes(8);
     expect(streamFetch).not.toHaveBeenCalled();
   });
 
   it('continues polling after the first fallback poll reaches its fetch deadline', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const firstPoll = deferred<Response>();
     dataFetch.mockReturnValueOnce(firstPoll.promise);
@@ -527,7 +540,15 @@ describe('Vercel mode (black-box)', () => {
       value: false,
       metrics: { mode: 'polling', cacheStatus: 'STALE' },
     });
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+    );
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+      '@vercel/flags-core: Revalidation failed:',
+      expect.objectContaining({
+        message: '@vercel/flags-core: Datafile fetch deadline exceeded',
+      }),
+    );
 
     mockDatafileResponse(TIMESTAMP + 2, true);
     await vi.advanceTimersByTimeAsync(20_000);
@@ -552,7 +573,7 @@ describe('Vercel mode (black-box)', () => {
     await vi.advanceTimersByTimeAsync(3_000);
     expect(await reading).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'MISS' },
+      metrics: { mode: 'polling', cacheStatus: 'STALE' },
     });
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
@@ -956,15 +977,16 @@ describe('Vercel mode (black-box)', () => {
     setVersion();
     mockDatafileResponse(TIMESTAMP + 60_000, true);
     expect(await instance.evaluate('feature')).toMatchObject({
-      value: false,
-      metrics: { mode: 'polling', cacheStatus: 'HIT' },
-    });
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(await instance.evaluate('feature')).toMatchObject({
       value: true,
       metrics: { mode: 'polling', cacheStatus: 'HIT' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(3);
+    mockDatafileResponse(TIMESTAMP + 80_000, false);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(4);
   });
 
   it('does not make a fresh request wait on another requests blocking refresh', async () => {

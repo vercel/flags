@@ -163,7 +163,7 @@ describe('stream stale-if-error through the public API', () => {
     const { instance, stream } = await start({ staleIfError: 0 });
     const initial = await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(60_000);
     expect(await instance.evaluate('flagA')).toEqual(initial);
     expect((await instance.getDatafile()).metrics.cacheStatus).toBe('HIT');
     await vi.advanceTimersByTimeAsync(1);
@@ -180,7 +180,7 @@ describe('stream stale-if-error through the public API', () => {
     expect(confirmed).toEqual(snapshot);
     expect(confirmed.definitions).toBe(snapshot.definitions);
     expect(confirmed.fetchedAt).toBe(0);
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(60_000);
     expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe('HIT');
     await vi.advanceTimersByTimeAsync(1);
     expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe(
@@ -192,7 +192,7 @@ describe('stream stale-if-error through the public API', () => {
   it('does not renew stream freshness on an invalid confirmation', async () => {
     const { instance, stream } = await start();
     const snapshot = await instance.getDatafile();
-    await vi.advanceTimersByTimeAsync(30_001);
+    await vi.advanceTimersByTimeAsync(60_001);
     for (const [index, override] of [
       { revision: 6 },
       { projectId: 'other' },
@@ -260,7 +260,7 @@ describe('stream stale-if-error through the public API', () => {
       metrics: {
         mode: 'streaming',
         connectionState: 'connected',
-        cacheStatus: 'HIT',
+        cacheStatus: 'STALE',
       },
     });
     expect((await instance.getDatafile()).configUpdatedAt).toBe(10);

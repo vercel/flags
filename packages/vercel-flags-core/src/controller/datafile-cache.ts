@@ -18,6 +18,9 @@ export type CacheAssessment = {
 
 export type CacheFetch = (signal: AbortSignal) => Promise<DatafileInput>;
 type CacheResult = [TaggedData, Metrics['cacheStatus']];
+const SOURCE_CONFIRMED = new Error(
+  'Refresh superseded by a source confirmation',
+);
 
 export type CacheReadPolicy = {
   /** Unknown adds no freshness evidence and keeps cached-read behavior. */
@@ -106,9 +109,14 @@ export class DatafileCache {
     if (this.isNewerData(incoming)) {
       this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
       this.confirm();
+      if (origin === 'stream') {
+        this.cancelFetch();
+      }
       return;
     }
-    this.tryConfirm(incoming);
+    if (this.tryConfirm(incoming) && origin === 'stream') {
+      this.cancelFetch();
+    }
   }
 
   /** Confirms a same-version source response without replacing stored data. */
@@ -188,7 +196,10 @@ export class DatafileCache {
       if (confirmed) this.confirm();
       if (status === 'fresh' || status === 'unknown') {
         // read() still enforces stale-if-error, even for a fresh assessment.
-        return [this.read()!, status === 'fresh' ? 'HIT' : 'STALE'];
+        return [
+          this.read()!,
+          status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
+        ];
       }
 
       if (this.failure) {
@@ -214,7 +225,14 @@ export class DatafileCache {
       await promise;
       signal.throwIfAborted();
     } catch (error) {
-      if (signal.aborted) throw error;
+      if (signal.aborted) {
+        // A live source supplied current data while this read awaited HTTP.
+        // Shutdown uses a different reason and must still reject the read.
+        if (signal.reason === SOURCE_CONFIRMED && this.data) {
+          return [this.read()!, 'HIT'];
+        }
+        throw error;
+      }
       const stale = this.read();
       if (!stale) {
         throw error;
@@ -291,5 +309,14 @@ export class DatafileCache {
     this.fetching = undefined;
     this.data = undefined;
     this.freshAt = undefined;
+  }
+
+  /** Retire superseded HTTP work without discarding the accepted snapshot. */
+  cancelFetch(): void {
+    if (this.fetching) {
+      this.abortController.abort(SOURCE_CONFIRMED);
+      this.abortController = new AbortController();
+      this.fetching = undefined;
+    }
   }
 }

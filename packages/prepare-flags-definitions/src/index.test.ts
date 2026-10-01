@@ -397,8 +397,8 @@ describe('prepareFlagsDefinitions', () => {
     expect(definitionsJs).toMatchInlineSnapshot(`
       "const memo = (fn) => { let cached; return () => (cached ??= fn()); };
 
-      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true}}"));
-      const _d1 = memo(() => JSON.parse("{\\"flag_b\\":{\\"value\\":\\"from-source\\"}}"));
+      const _d0 = memo(() => JSON.parse("{\\"flag_a\\":{\\"value\\":true},\\"fetchedAt\\":1700000000000}"));
+      const _d1 = memo(() => JSON.parse("{\\"flag_b\\":{\\"value\\":\\"from-source\\"},\\"fetchedAt\\":1700000000000}"));
 
       const map = {
         "prj_consumer": _d0,
