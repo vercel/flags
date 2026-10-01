@@ -2118,14 +2118,27 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(90_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should have transitioned to degraded
-      const result2 = await client.evaluate('flagA');
-      expect(result2.metrics?.connectionState).toBe('disconnected');
+      // Renew the zombie transport without degrading the selected source.
+      const snapshot = await client.getDatafile();
+      expect(snapshot.metrics).toMatchObject({
+        mode: 'streaming',
+        connectionState: 'connected',
+        cacheStatus: 'STALE',
+      });
+      expect(streamCount).toBe(2);
 
-      // Should have attempted reconnection
-      expect(streamCount).toBeGreaterThanOrEqual(2);
+      streams[1]!.push({ type: 'datafile', data: datafile });
+      await vi.advanceTimersByTimeAsync(0);
+      const result2 = await client.evaluate('flagA');
+      expect(result2.value).toBe(result1.value);
+      expect(result2.metrics).toMatchObject({
+        mode: 'streaming',
+        connectionState: 'connected',
+        cacheStatus: 'HIT',
+      });
 
       await client.shutdown();
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 
