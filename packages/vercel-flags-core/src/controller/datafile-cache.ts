@@ -279,6 +279,7 @@ export class DatafileCache {
     if (metadata) {
       const { status, confirmed } = policy.assess(metadata);
       if (status === 'error') {
+        debug(this.clientName, 'cache.source-error', this.debugState);
         // Source availability is not a fetch failure. Preserve the failure deadline
         // and report the source error even when retained data can no longer be served.
         return {
