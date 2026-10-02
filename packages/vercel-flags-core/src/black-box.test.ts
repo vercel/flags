@@ -231,12 +231,10 @@ describe('Controller (black-box)', () => {
       expect((await client.getDatafile()).configUpdatedAt).toBe(
         expectedVersion,
       );
-      // Each API refreshes the still-expired seed after an older response.
-      const readRefreshes = configUpdatedAt < 2 ? 2 : 0;
-      expect(fetchMock).toHaveBeenCalledTimes(1 + readRefreshes);
-      expect(dataFetch).toHaveBeenCalledTimes(
-        (source === 'poll' ? 1 : 0) + readRefreshes,
-      );
+      // An older response keeps the seed but still renews its freshness, so
+      // neither API starts a refresh of its own.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
     } finally {
       cleanupContext();
       try {
@@ -1462,7 +1460,7 @@ describe('Controller (black-box)', () => {
   // Stream/polling coordination
   // ---------------------------------------------------------------------------
   describe('stream/polling coordination', () => {
-    it('should fall back to bundled when stream times out (refresh in background)', async () => {
+    it('should fall back to bundled when stream times out (skip polling)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1502,16 +1500,17 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      expect(pollCount).toBe(1);
+      // The stream keeps connecting in the background; polling never starts.
+      expect(pollCount).toBe(0);
 
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       warnSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
       await client.shutdown();
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -1523,12 +1522,12 @@ describe('Controller (black-box)', () => {
                 invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
-                cacheAction: 'REFRESHING',
+                cacheAction: 'NONE',
                 cacheIsFirstRead: true,
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
-                mode: 'poll',
+                mode: 'offline',
                 revision: '1',
                 environment: 'production',
               },
@@ -1552,7 +1551,7 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
-    it('should use bundled definitions when stream fails after init timeout (polling fallback)', async () => {
+    it('should use bundled definitions when stream fails after init timeout (skip polling)', async () => {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
         state: 'ok',
         definitions: makeBundled({ projectId: 'bundled' }),
@@ -1594,8 +1593,8 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // Fallback starts one immediate poll.
-      expect(pollCount).toBe(1);
+      // The stream is still retrying, so polling has not taken over.
+      expect(pollCount).toBe(0);
 
       expect(errorSpy).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
@@ -1616,12 +1615,12 @@ describe('Controller (black-box)', () => {
                 invocationHost: 'example.com',
                 configOrigin: 'embedded',
                 cacheStatus: 'HIT',
-                cacheAction: 'REFRESHING',
+                cacheAction: 'NONE',
                 cacheIsFirstRead: true,
                 cacheIsBlocking: false,
                 duration: 0,
                 configUpdatedAt: 1,
-                mode: 'poll',
+                mode: 'offline',
                 revision: '1',
                 environment: 'production',
               },
@@ -1997,7 +1996,8 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(101);
       await initPromise;
 
-      expect(pollCount).toBe(1);
+      // Disconnects during retries never start polling; only an exhausted stream does.
+      expect(pollCount).toBe(0);
       expect(errorSpy).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
@@ -2597,7 +2597,7 @@ describe('Controller (black-box)', () => {
 
       const result = await client.getDatafile();
       expect(result.metrics.source).toBe('remote');
-      expect(result.metrics.cacheStatus).toBe('STALE');
+      expect(result.metrics.cacheStatus).toBe('MISS');
 
       await client.shutdown();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -2689,7 +2689,7 @@ describe('Controller (black-box)', () => {
       const result = await client.getDatafile();
 
       expect(result.metrics.source).toBe('embedded');
-      expect(result.metrics.cacheStatus).toBe('HIT');
+      expect(result.metrics.cacheStatus).toBe('MISS');
 
       await client.shutdown();
     });

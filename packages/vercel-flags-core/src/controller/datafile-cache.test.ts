@@ -168,11 +168,10 @@ describe('DatafileCache', () => {
       expect(cache.ageMs).toBe(100);
     });
 
-    it('clears storage and age without clearing the first failure', () => {
+    it('clears storage, age, and the first failure', () => {
       const cache = new DatafileCache(unexpectedFetch, 100);
       cache.updateFromSource(response(), 'fetched');
-      const error = new Error('first outage');
-      cache.fail(error);
+      cache.fail(new Error('first outage'));
       vi.setSystemTime(1_050);
       expect(cache.ageMs).toBe(50);
       cache.clear();
@@ -180,11 +179,13 @@ describe('DatafileCache', () => {
       expect(cache.read()).toBeUndefined();
       expect(cache.tryConfirm(response())).toBe(false);
       expect(cache.ageMs).toBe(Infinity);
-      cache.seed(Object.freeze({ ...data(), fetchedAt: 1_050 }));
+      const restored = Object.freeze({ ...data(), fetchedAt: 1_050 });
+      cache.seed(restored);
       expect(cache.ageMs).toBe(0);
       vi.setSystemTime(1_101);
       expect(cache.ageMs).toBe(51);
-      expect(() => cache.read()).toThrow(error);
+      // A restarted cache starts without the previous deadline.
+      expect(cache.read()).toBe(restored);
     });
   });
 
@@ -238,8 +239,10 @@ describe('DatafileCache', () => {
     const failure = new Error('first outage');
     cache.fail(failure);
     vi.setSystemTime(1_101);
-    cache.clear();
     expect(() => cache.seedAndRead(data())).toThrow(failure);
+    cache.clear();
+    const restored = data();
+    expect(cache.seedAndRead(restored)).toBe(restored);
   });
 
   it('starts the inclusive allowance at the first failure, not storage time', () => {
@@ -309,29 +312,28 @@ describe('DatafileCache', () => {
   it.each([
     'provided',
     'bundled',
-  ] as const)('restores %s seeds only within the original failure deadline', (origin) => {
+  ] as const)('restores %s seeds with a clean failure deadline after clear', (origin) => {
     const cache = new DatafileCache(unexpectedFetch, 100);
     const seed = data(origin);
     cache.seed(seed);
-    const firstError = new Error('first poll failed');
-    cache.fail(firstError);
+    cache.fail(new Error('first poll failed'));
 
     vi.setSystemTime(1_050);
     cache.clear();
     expect(cache.hasData).toBe(false);
     expect(cache.read()).toBeUndefined();
     expect(cache.tryConfirm(response())).toBe(false);
-    cache.fail(new Error('poll still failing'));
     cache.seed(seed);
     expect(cache.read()).toBe(seed);
-    vi.setSystemTime(1_100);
-    expect(cache.read()).toBe(seed);
-
     vi.setSystemTime(1_101);
-    cache.clear();
-    cache.seed(seed);
-    cache.fail(new Error('poll failed again'));
-    expect(() => cache.read()).toThrow(firstError);
+    // The cleared deadline no longer applies; only a new failure starts one.
+    expect(cache.read()).toBe(seed);
+    const nextError = new Error('poll still failing');
+    cache.fail(nextError);
+    vi.setSystemTime(1_201);
+    expect(cache.read()).toBe(seed);
+    vi.setSystemTime(1_202);
+    expect(() => cache.read()).toThrow(nextError);
   });
 
   it('clears failure on a matching raw source response without replacing data', () => {
@@ -760,7 +762,7 @@ describe('DatafileCache', () => {
       ] satisfies [
         string,
         Partial<DatafileInput>,
-      ][])('rejects %s without mutation or clearing the original error/deadline', (_, overrides) => {
+      ][])('keeps the stored data for %s but treats the response as recovery', (_, overrides) => {
         const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const original = Object.freeze(data('bundled'));
         cache.seed(original);
@@ -770,25 +772,26 @@ describe('DatafileCache', () => {
         const error = new Error('first outage');
         cache.fail(error);
         vi.setSystemTime(1_050);
-
-        expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
         if (staleIfErrorMs === 0) {
           expect(() => cache.read()).toThrow(error);
-        } else {
-          expect(cache.read()).toBe(original);
         }
+
+        // The version guard rejects the data, but the response proves the source is reachable.
+        expect(cache.updateFromSource(incoming, 'poll')).toBeUndefined();
+        expect(cache.read()).toBe(original);
+        expect(cache.ageMs).toBe(0);
         expect(original._origin).toBe('bundled');
         expect(incoming).toEqual(snapshot);
         expect(incoming).not.toHaveProperty('_origin');
-        cache.fail(new Error('repeated outage'));
-        vi.setSystemTime(1_100);
-        if (staleIfErrorMs === 0) {
-          expect(() => cache.read()).toThrow(error);
-        } else {
+
+        const nextError = new Error('repeated outage');
+        cache.fail(nextError);
+        if (staleIfErrorMs > 0) {
+          vi.setSystemTime(1_050 + staleIfErrorMs);
           expect(cache.read()).toBe(original);
         }
-        vi.setSystemTime(1_101);
-        expect(() => cache.read()).toThrow(error);
+        vi.setSystemTime(1_051 + staleIfErrorMs);
+        expect(() => cache.read()).toThrow(nextError);
         expect(cache.tryConfirm(original)).toBe(true);
         expect(cache.read()).toBe(original);
       });
@@ -802,7 +805,7 @@ describe('DatafileCache', () => {
         ['Infinity', Infinity],
         [-Infinity, -Infinity],
         [-Infinity, '-Infinity'],
-      ])('cannot recover from a rejected response with nonfinite current version %s and incoming version %s', (current, next) => {
+      ])('recovers from a rejected response with nonfinite current version %s and incoming version %s without replacing data', (current, next) => {
         const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const original = Object.freeze({
           ...data('bundled'),
@@ -818,25 +821,16 @@ describe('DatafileCache', () => {
 
         cache.updateFromSource(incoming, 'poll');
         cache.updateFromSource(original, 'poll');
-        if (staleIfErrorMs === 0) {
-          expect(() => cache.read()).toThrow(error);
-        } else {
-          expect(cache.read()).toBe(original);
-        }
+        expect(cache.read()).toBe(original);
+        expect(cache.ageMs).toBe(0);
         expect(original._origin).toBe('bundled');
         expect(incoming).toEqual(snapshot);
         expect(incoming).not.toHaveProperty('_origin');
-        vi.setSystemTime(1_100);
-        if (staleIfErrorMs === 0) {
-          expect(() => cache.read()).toThrow(error);
-        } else {
-          expect(cache.read()).toBe(original);
-        }
-        vi.setSystemTime(1_101);
-        expect(() => cache.read()).toThrow(error);
+        vi.setSystemTime(1_101 + staleIfErrorMs);
+        expect(cache.read()).toBe(original);
       });
 
-      it('rejects an old response after an accepted replacement without renewing its failure deadline', () => {
+      it('keeps an accepted replacement after an old response while renewing its freshness', () => {
         const cache = new DatafileCache(unexpectedFetch, staleIfErrorMs);
         const oldResponse = Object.freeze(data('bundled'));
         cache.seed(oldResponse);
@@ -852,23 +846,16 @@ describe('DatafileCache', () => {
         const error = new Error('replacement outage');
         cache.fail(error);
         vi.setSystemTime(1_050);
+        if (staleIfErrorMs === 0) {
+          expect(() => cache.read()).toThrow(error);
+        }
 
         cache.updateFromSource(oldResponse, 'stream');
-        expect(cache.ageMs).toBe(50);
-        if (staleIfErrorMs === 0) {
-          expect(() => cache.read()).toThrow(error);
-        } else {
-          expect(cache.read()).toBe(accepted);
-        }
+        expect(cache.ageMs).toBe(0);
+        expect(cache.read()).toBe(accepted);
         expect(oldResponse._origin).toBe('bundled');
-        vi.setSystemTime(1_100);
-        if (staleIfErrorMs === 0) {
-          expect(() => cache.read()).toThrow(error);
-        } else {
-          expect(cache.read()).toBe(accepted);
-        }
-        vi.setSystemTime(1_101);
-        expect(() => cache.read()).toThrow(error);
+        vi.setSystemTime(1_101 + staleIfErrorMs);
+        expect(cache.read()).toBe(accepted);
         expect(cache.tryConfirm(replacement)).toBe(true);
         expect(cache.ageMs).toBe(0);
         expect(cache.read()).toBe(accepted);
