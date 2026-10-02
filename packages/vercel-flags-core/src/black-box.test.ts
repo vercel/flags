@@ -188,6 +188,63 @@ describe('Controller (black-box)', () => {
     delete process.env.NEXT_PHASE;
   });
 
+  it.each([
+    ['poll', 3, false, 3],
+    ['poll', 2, true, 2],
+    ['poll', 1, true, 2],
+    ['stream', 3, false, 3],
+    ['stream', 2, true, 2],
+    ['stream', 1, true, 2],
+  ] as const)('applies the version guard to %s version %i', async (source, configUpdatedAt, expectedValue, expectedVersion) => {
+    const stream = createMockStream();
+    const incoming = makeBundled({
+      configUpdatedAt,
+      definitions: {
+        flagA: {
+          environments: { production: 0 },
+          variants: [false, true],
+        },
+      },
+    });
+    const dataFetch = vi.fn<typeof fetch>(async () => Response.json(incoming));
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith('/v1/stream')) return stream.response;
+      if (url.endsWith('/v1/datafile')) return dataFetch(input, init);
+      if (url.endsWith('/v1/ingest')) return Promise.resolve(new Response());
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    const client = createClient(sdkKey, {
+      datafile: makeBundled({ configUpdatedAt: 2 }),
+      fetch: fetchMock,
+      buildStep: false,
+      stream: source === 'stream',
+      polling: source === 'poll',
+    });
+    const cleanupContext = setRequestContext({});
+    try {
+      const initial = client.evaluate('flagA');
+      if (source === 'stream') {
+        stream.push({ type: 'datafile', data: incoming });
+      }
+      expect((await initial).value).toBe(expectedValue);
+      expect((await client.getDatafile()).configUpdatedAt).toBe(
+        expectedVersion,
+      );
+      // An older response keeps the seed but still renews its freshness, so
+      // neither API starts a refresh of its own.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
+    } finally {
+      cleanupContext();
+      try {
+        await client.shutdown();
+      } finally {
+        stream.close();
+      }
+    }
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -986,7 +1043,7 @@ describe('Controller (black-box)', () => {
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/v1/stream')) {
+        if (url.includes('/v1/stream') || url.includes('/v1/datafile')) {
           return Promise.resolve(new Response(null, { status: 401 }));
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1007,11 +1064,13 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
 
-      // Only one stream call — 401 does not trigger retries
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      // One stream call and one immediate fallback poll; neither retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: {
@@ -1024,8 +1083,9 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: { ...streamRequestHeaders, 'X-Revision': '1' },
@@ -1035,8 +1095,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // still only one call, no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Still only the stream and immediate poll, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1234,6 +1294,9 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
+        }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -1271,6 +1334,9 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
         }
         return Promise.resolve(new Response('', { status: 200 }));
       });
@@ -1412,7 +1478,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1434,8 +1500,12 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
+      // The stream keeps connecting in the background; polling never starts.
       expect(pollCount).toBe(0);
 
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       warnSpy.mockRestore();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -1498,7 +1568,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1523,9 +1593,13 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // No polling should have started
+      // The stream is still retrying, so polling has not taken over.
       expect(pollCount).toBe(0);
 
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       errorSpy.mockRestore();
       warnSpy.mockRestore();
 
@@ -1917,10 +1991,17 @@ describe('Controller (black-box)', () => {
 
       // Stream retries with backoff; advance timers so the init timeout fires
       const initPromise = client.initialize();
-      await vi.advanceTimersByTimeAsync(5100);
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(pollCount).toBe(0);
+      await vi.advanceTimersByTimeAsync(101);
       await initPromise;
 
+      // Disconnects during retries never start polling; only an exhausted stream does.
       expect(pollCount).toBe(0);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
 
       await client.shutdown();
       errorSpy.mockRestore();
@@ -2060,14 +2141,27 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(90_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should have transitioned to degraded
+      // Renew the zombie transport without degrading the selected source.
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith('/v1/datafile'),
+        ),
+      ).toHaveLength(0);
+      expect(streamCount).toBe(2);
+
+      streams[1]!.push({ type: 'datafile', data: datafile });
+      await vi.advanceTimersByTimeAsync(0);
       const result2 = await client.evaluate('flagA');
-      expect(result2.metrics?.connectionState).toBe('disconnected');
+      expect(result2.value).toBe(result1.value);
+      expect(result2.metrics).toMatchObject({
+        mode: 'streaming',
+        connectionState: 'connected',
+        cacheStatus: 'HIT',
+      });
 
-      // Should have attempted reconnection
-      expect(streamCount).toBeGreaterThanOrEqual(2);
-
+      expect(errorSpy).not.toHaveBeenCalled();
       await client.shutdown();
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 
@@ -2358,10 +2452,11 @@ describe('Controller (black-box)', () => {
       streams[1]!.push({ type: 'datafile', data: olderData });
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should still have newer data (configUpdatedAt guard rejected older)
+      // The version guard rejects the older response after reconnection.
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(true); // still variant 1
       expect(result2.metrics?.connectionState).toBe('connected');
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       await client.shutdown();
     });
@@ -2471,7 +2566,7 @@ describe('Controller (black-box)', () => {
 
       const result = await client.getDatafile();
       expect(result.metrics.source).toBe('embedded');
-      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.cacheStatus).toBe('STALE');
       expect(result.metrics.connectionState).toBe('disconnected');
 
       await client.shutdown();
@@ -2539,7 +2634,8 @@ describe('Controller (black-box)', () => {
       const rejection = expect(client.getDatafile()).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
-      await vi.advanceTimersByTimeAsync(300);
+      // Lazy initialization and the read use the same fallback sequence as evaluate.
+      await vi.advanceTimersByTimeAsync(600);
       await rejection;
 
       await client.shutdown();
@@ -2612,7 +2708,7 @@ describe('Controller (black-box)', () => {
 
       const result1 = await client.getDatafile();
       expect(result1.metrics).toEqual({
-        cacheStatus: 'MISS',
+        cacheStatus: 'STALE',
         connectionState: 'disconnected',
         mode: 'offline',
         readMs: 0,
@@ -2781,9 +2877,10 @@ describe('Controller (black-box)', () => {
       stream.push({ type: 'datafile', data: olderDatafile });
       await vi.advanceTimersByTimeAsync(50);
 
-      // Should still have newer data (older message was rejected)
+      // Keep the newer data; the older message was rejected.
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       stream.close();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -2838,8 +2935,6 @@ describe('Controller (black-box)', () => {
     });
 
     it('should skip stream data with equal configUpdatedAt', async () => {
-      vi.useRealTimers();
-
       const data1 = makeBundled({
         configUpdatedAt: 1000,
         definitions: {
@@ -2877,15 +2972,17 @@ describe('Controller (black-box)', () => {
       const initPromise = client.initialize();
 
       stream.push({ type: 'datafile', data: data1 });
-      await new Promise((r) => setTimeout(r, 10));
+      await vi.advanceTimersByTimeAsync(0);
       await initPromise;
+      expect((await client.evaluate('flagA')).value).toBe(false);
 
       stream.push({ type: 'datafile', data: data2 });
-      await new Promise((r) => setTimeout(r, 50));
+      await vi.advanceTimersByTimeAsync(0);
 
-      // Should have kept first data (equal configUpdatedAt is not newer)
+      // Keep the first data; equal configUpdatedAt is not newer.
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(false); // variant 0 = data1
+      expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
 
       stream.close();
       await client.shutdown();
@@ -2944,9 +3041,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should handle configUpdatedAt as string', async () => {
-      vi.useRealTimers();
-
+    it('should reject older stream responses with string configUpdatedAt', async () => {
       const newerDatafile = {
         ...makeBundled({
           definitions: {
@@ -2988,15 +3083,16 @@ describe('Controller (black-box)', () => {
       const initPromise = client.initialize();
 
       stream.push({ type: 'datafile', data: newerDatafile });
-      await new Promise((r) => setTimeout(r, 10));
+      await vi.advanceTimersByTimeAsync(0);
       await initPromise;
+      expect((await client.evaluate('flagA')).value).toBe(true);
 
       stream.push({ type: 'datafile', data: olderDatafile });
-      await new Promise((r) => setTimeout(r, 50));
+      await vi.advanceTimersByTimeAsync(0);
 
-      // Should still have newer data
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe('2000');
 
       stream.close();
       await client.shutdown();

@@ -144,6 +144,7 @@ export function createCreateRawClient(fns: {
       },
       getDatafile: async () => {
         const instance = controllerInstanceMap.get(id);
+        // A snapshot shares initialization already in flight but never starts it.
         if (instance?.initPromise) {
           try {
             await instance.initPromise;

@@ -1,57 +1,83 @@
-import type { DatafileInput } from '../types';
-import type { Auth } from './auth';
-import { fetchDatafile } from './fetch-datafile';
+import type { CacheAssessment, CacheMetadata } from './datafile-cache';
+import { DEFAULT_FETCH_TIMEOUT_MS } from './fetch-datafile';
 import { TypedEmitter } from './typed-emitter';
 
 export type PollingSourceConfig = {
-  host: string;
-  auth: Auth;
   polling: {
     intervalMs: number;
   };
-  fetch: typeof globalThis.fetch;
+  staleWhileRevalidateMs: number;
+  refresh: () => Promise<void>;
 };
 
 export type PollingSourceEvents = {
-  data: (data: DatafileInput) => void;
   error: (error: Error) => void;
 };
 
 /**
  * Manages interval-based polling for flag data.
- * Wraps fetchDatafile() and emits typed events.
+ * Shares the cache's HTTP refresh and emits errors.
  */
 export class PollingSource extends TypedEmitter<PollingSourceEvents> {
   private config: PollingSourceConfig;
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private abortController: AbortController | undefined;
+  private polling: Promise<void> | undefined;
 
   constructor(config: PollingSourceConfig) {
     super();
     this.config = config;
   }
 
+  /** Allow the scheduled poll its entire fetch deadline before revalidating. */
+  get staleAfterMs(): number {
+    return this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS;
+  }
+
+  /** Age after which reads block on a refresh. */
+  get expiresAfterMs(): number {
+    return this.staleAfterMs + this.config.staleWhileRevalidateMs;
+  }
+
+  assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
+    if (ageMs === Infinity) {
+      // Nothing has confirmed this entry yet; keep serving it until a poll does.
+      return { status: 'unknown' };
+    }
+    if (ageMs <= this.staleAfterMs) {
+      return { status: 'fresh' };
+    }
+    if (ageMs <= this.expiresAfterMs) {
+      return { status: 'stale' };
+    }
+    return { status: 'expired' };
+  };
+
   /**
    * Perform a single poll request.
-   * Emits 'data' on success, 'error' on failure.
+   * Updates the cache on success; emits 'error' and rejects on failure.
    */
   async poll(): Promise<void> {
+    if (this.polling) return this.polling;
     if (this.abortController?.signal.aborted) return;
     this.abortController ??= new AbortController();
     const controller = this.abortController;
 
-    try {
-      const data = await fetchDatafile({
-        ...this.config,
-        signal: controller.signal,
-      });
-      this.emit('data', data);
-    } catch (error) {
-      controller.signal.throwIfAborted();
-      const err =
-        error instanceof Error ? error : new Error('Unknown poll error');
-      this.emit('error', err);
-    }
+    this.polling = (async () => {
+      try {
+        await this.config.refresh();
+        controller.signal.throwIfAborted();
+      } catch (error) {
+        controller.signal.throwIfAborted();
+        const err =
+          error instanceof Error ? error : new Error('Unknown poll error');
+        this.emit('error', err);
+        throw err;
+      }
+    })().finally(() => {
+      if (this.abortController === controller) this.polling = undefined;
+    });
+    return this.polling;
   }
 
   /**
@@ -79,5 +105,6 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     }
     this.abortController?.abort();
     this.abortController = undefined;
+    this.polling = undefined;
   }
 }

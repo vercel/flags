@@ -2,7 +2,7 @@ import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { type Auth, authHeaders, unauthorizedMessage } from './auth';
 
-const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_ATTEMPTS = 3;
 
 class DatafileHttpError extends Error {
