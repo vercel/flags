@@ -296,26 +296,21 @@ describe('polling stale-if-error through the public API', () => {
     { configUpdatedAt: 9 },
     { projectId: 'other' },
     { environment: 'preview' },
-  ])('does not renew polling freshness for a rejected response %j', async (override) => {
+  ])('renews polling freshness for a rejected response %j without replacing the snapshot', async (override) => {
     const instance = client({
       polling: { intervalMs: 45_000, initTimeoutMs: 3_000 },
     });
     await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
-    const revalidation = deferred<Response>();
     poll.mockResolvedValueOnce(response(data(override)));
-    poll.mockReturnValueOnce(revalidation.promise);
     await vi.advanceTimersByTimeAsync(55_001);
-    expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe(
-      'STALE',
+    // The response at 45s proves the source is reachable even though its data is rejected.
+    expect((await instance.evaluate('flagA')).metrics?.cacheStatus).toBe('HIT');
+    expect(await instance.getDatafile()).toEqual(snapshot);
+    expect((await instance.getDatafile()).definitions).toBe(
+      snapshot.definitions,
     );
-    expect(await instance.getDatafile()).toEqual({
-      ...snapshot,
-      metrics: { ...snapshot.metrics, cacheStatus: 'STALE' },
-    });
-    expect(poll).toHaveBeenCalledTimes(3);
-    revalidation.resolve(response(data()));
-    await vi.advanceTimersByTimeAsync(0);
+    expect(poll).toHaveBeenCalledTimes(2);
   });
 
   it('accepts fractional seconds and expires just after the inclusive millisecond deadline', async () => {
@@ -357,14 +352,15 @@ describe('polling stale-if-error through the public API', () => {
       staleIfError: 0,
       ...(seed === 'provided' ? { datafile: supplied } : {}),
     });
-    const snapshotRead = expect(instance.getDatafile()).rejects.toBe(failure);
+    // A snapshot never starts polling; it serves the seed before any failure exists.
+    const snapshotRead = instance.getDatafile();
     const evaluation = instance.evaluate('flagA');
     const evaluationOutcome = expect(evaluation).rejects.toBe(failure);
     await vi.advanceTimersByTimeAsync(301);
     await evaluationOutcome;
     await expect(instance.getDatafile()).rejects.toBe(failure);
     expect(Date.now()).toBe(301);
-    await snapshotRead;
+    expect((await snapshotRead).definitions).toBe(supplied.definitions);
     await vi.advanceTimersByTimeAsync(30_000);
     const snapshot = await instance.getDatafile();
     expect(snapshot.definitions).toBe(supplied.definitions);
@@ -455,37 +451,41 @@ describe('polling stale-if-error through the public API', () => {
     { environment: 'preview' },
     { configUpdatedAt: NaN },
     { configUpdatedAt: -Infinity },
-  ])('does not confirm rejected data %j', async (override) => {
+  ])('recovers on rejected data %j without replacing the snapshot', async (override) => {
     const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const snapshot = await instance.getDatafile();
     const failure = new Error('offline');
     rejectPollOnce(failure);
     poll.mockResolvedValue(response(data(override)));
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(30_300);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     await expect(instance.getDatafile()).rejects.toBe(failure);
+    expect(poll).toHaveBeenCalledTimes(4);
+    // The next poll returns data the version guard rejects; the source is back anyway.
+    await vi.advanceTimersByTimeAsync(29_700);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    const recovered = await instance.getDatafile();
+    expect(recovered).toEqual(snapshot);
+    expect(recovered.definitions).toBe(snapshot.definitions);
     expect(poll).toHaveBeenCalledTimes(5);
-    poll.mockResolvedValueOnce(response(data()));
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect((await instance.getDatafile()).definitions).toBe(
-      snapshot.definitions,
-    );
-    expect(poll).toHaveBeenCalledTimes(6);
   });
 
   it.each([
     NaN,
     Infinity,
     -Infinity,
-  ])('does not confirm equal nonfinite version %s', async (configUpdatedAt) => {
+  ])('recovers on an equal nonfinite version %s', async (configUpdatedAt) => {
     poll.mockResolvedValue(response(data({ configUpdatedAt })));
     const instance = client({ staleIfError: 0 });
     await instance.evaluate('flagA');
     const failure = new Error('offline');
     rejectPollOnce(failure);
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(30_300);
     await expect(instance.evaluate('flagA')).rejects.toBe(failure);
+    await vi.advanceTimersByTimeAsync(29_700);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    expect(poll).toHaveBeenCalledTimes(5);
   });
 
   it('retains main acceptance of a newer mismatched identity and positive Infinity', async () => {
@@ -517,24 +517,20 @@ describe('polling stale-if-error through the public API', () => {
       '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
     );
     warnSpy.mockClear();
-    await vi.advanceTimersByTimeAsync(7_000);
+    // Cached reads do not start their own refresh while the first poll is pending.
+    await vi.advanceTimersByTimeAsync(6_999);
+    expect((await instance.evaluate('flagA')).value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
     await expect(instance.evaluate('flagA')).rejects.toThrow(
       '@vercel/flags-core: Datafile fetch deadline exceeded',
     );
-    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Revalidation failed:',
-      expect.objectContaining({
-        message: '@vercel/flags-core: Datafile fetch deadline exceeded',
-      }),
-    );
-    errorSpy.mockClear();
     expect(poll).toHaveBeenCalledTimes(1);
   });
 
   it.each([
     'provided',
     'bundled',
-  ] as const)('does not renew an expired allowance when restoring a %s seed', async (seed) => {
+  ] as const)('starts a clean allowance after shutdown and reinitialization with a %s seed', async (seed) => {
     const supplied = data();
     if (seed === 'bundled') {
       vi.mocked(readBundledDefinitions).mockResolvedValue({
@@ -552,15 +548,21 @@ describe('polling stale-if-error through the public API', () => {
     await vi.advanceTimersByTimeAsync(300);
     expect((await initial).value).toBe(true);
     await vi.advanceTimersByTimeAsync(101);
+    await expect(instance.evaluate('flagA')).rejects.toBe(failure);
     await instance.shutdown();
-    // Main permits reinitialization but does not rewire source events.
-    // Restoring a seed must not turn that limitation into a policy bypass.
-    const restored = instance.evaluate('flagA');
-    const restoredOutcome = expect(restored).rejects.toBe(failure);
-    await vi.advanceTimersByTimeAsync(300);
-    await restoredOutcome;
-    await expect(instance.getDatafile()).rejects.toBe(failure);
-    expect(poll).toHaveBeenCalledTimes(3);
+
+    // Reinitialization rewires the sources and clears the previous deadline.
+    poll.mockResolvedValue(response(supplied));
+    expect(await instance.evaluate('flagA')).toMatchObject({
+      value: true,
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
+    });
+    const restored = await instance.getDatafile();
+    expect(restored.definitions).toBe(supplied.definitions);
+    expect(restored.metrics.source).toBe(
+      seed === 'provided' ? 'in-memory' : 'embedded',
+    );
+    expect(poll).toHaveBeenCalledTimes(4);
   });
 
   it('settles a timed-out poll before the next interval can recover', async () => {

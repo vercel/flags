@@ -121,23 +121,42 @@ export class DatafileCache {
     return seeded;
   }
 
-  /** Accepts a source update or confirms the current version without replacing it. */
+  /**
+   * Accepts a newer source response, or keeps the stored data when the version
+   * guard rejects it. Every successful response proves the source is reachable,
+   * so it renews cache age and clears the failure either way.
+   */
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
       this.data = tagData({ ...incoming, fetchedAt: Date.now() }, origin);
       this.confirm(origin);
       return;
     }
-    this.tryConfirm(incoming, 'configUpdatedAt', origin);
+    this.confirm(origin);
   }
 
-  /** Confirms a same-version source response without replacing stored data. */
+  /** Confirms a same-version message without replacing stored data. */
   tryConfirm(
     incoming: Confirmation,
     version: 'configUpdatedAt' | 'revision' = 'configUpdatedAt',
     source: ConfirmationSource = 'header',
   ): boolean {
-    if (!this.data) return false;
+    if (!this.matchesStored(incoming, version)) {
+      return false;
+    }
+
+    this.confirm(source);
+    return true;
+  }
+
+  /** Whether a message refers to the stored entry: finite equal version and same identity. */
+  private matchesStored(
+    incoming: Confirmation,
+    version: 'configUpdatedAt' | 'revision',
+  ): boolean {
+    if (!this.data) {
+      return false;
+    }
 
     const currentTs =
       version === 'revision'
@@ -147,18 +166,13 @@ export class DatafileCache {
       version === 'revision'
         ? incoming.revision
         : parseConfigUpdatedAt(incoming.configUpdatedAt);
-    if (
-      !Number.isFinite(currentTs) ||
-      !Number.isFinite(incomingTs) ||
-      currentTs !== incomingTs ||
-      this.data.projectId !== incoming.projectId ||
-      this.data.environment !== incoming.environment
-    ) {
-      return false;
-    }
-
-    this.confirm(source);
-    return true;
+    return (
+      Number.isFinite(currentTs) &&
+      Number.isFinite(incomingTs) &&
+      currentTs === incomingTs &&
+      this.data.projectId === incoming.projectId &&
+      this.data.environment === incoming.environment
+    );
   }
 
   /** Renews freshness and retires HTTP work superseded by stream evidence. */
@@ -334,12 +348,13 @@ export class DatafileCache {
     }
   }
 
-  /** Clearing storage is not recovery; restored seeds keep the failure deadline. */
+  /** Resets storage, age, and the failure deadline so a restarted client begins clean. */
   clear(): void {
     this.abortController.abort();
     this.abortController = new AbortController();
     this.fetching = undefined;
     this.data = undefined;
     this.freshAt = undefined;
+    this.failure = undefined;
   }
 }
