@@ -139,13 +139,16 @@ export async function fetchDatafile(options: {
       }
     }
   } catch (error) {
-    debug(
-      options.clientName,
-      signal.aborted ? 'datafile.fetch.aborted' : 'datafile.fetch.failed',
-      () => ({
+    if (signal.aborted) {
+      debug(options.clientName, 'datafile.fetch.aborted', () => ({
+        // The internal deadline aborts too; only the caller's signal is external.
+        reason: options.signal?.aborted ? 'external' : 'timeout',
+      }));
+    } else {
+      debug(options.clientName, 'datafile.fetch.failed', () => ({
         status: error instanceof DatafileHttpError ? error.status : undefined,
-      }),
-    );
+      }));
+    }
     throw error;
   } finally {
     clearTimeout(timeoutId);

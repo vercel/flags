@@ -1,10 +1,12 @@
+import { isDebugEnabled } from '../utils/debug-enabled';
+
 /** Internal diagnostics only: never pass credentials, payloads, or raw errors. */
 export function debug(
   clientName: string | undefined,
   event: string,
   details?: () => Record<string, string | number | boolean | undefined>,
 ): void {
-  if (!process.env.DEBUG?.includes('@vercel/flags-core')) {
+  if (!isDebugEnabled()) {
     return;
   }
 

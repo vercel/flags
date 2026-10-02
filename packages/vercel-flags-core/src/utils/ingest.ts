@@ -3,6 +3,7 @@ import { version } from '../../package.json';
 import { type Auth, authHeaders } from '../controller/auth';
 import type { MetricEnvironment } from '../types';
 import { getRetryDelayMs } from './backoff';
+import { isDebugEnabled } from './debug-enabled';
 import { getRuntimeIngestFor } from './runtime-ingest';
 import type { FlushReason } from './scheduler';
 import type { IngestEvent, UsageEvent } from './usage/events';
@@ -22,10 +23,8 @@ export const MAX_EVENTS_PER_REQUEST = 2000;
 export const EVALUATING_OIDC_TOKEN_HEADER = 'X-Vercel-Flags-OIDC-Token';
 export const FLUSH_REASON_HEADER = 'X-Vercel-Flags-Flush-Reason';
 
-const isDebugMode = process.env.DEBUG?.includes('@vercel/flags-core');
-
 const debugLog = (...args: any[]) => {
-  if (!isDebugMode) return;
+  if (!isDebugEnabled()) return;
   console.log(...args);
 };
 
@@ -67,7 +66,7 @@ async function getIngestHeaders(
     ...(evaluatingOidcToken
       ? { [EVALUATING_OIDC_TOKEN_HEADER]: evaluatingOidcToken }
       : null),
-    ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+    ...(isDebugEnabled() ? { 'x-vercel-debug-ingest': '1' } : null),
   };
 }
 
@@ -93,7 +92,7 @@ function getRuntimeIngestHeaders(
             options.metricEnvironment ?? (process.env.VERCEL_ENV as string),
         }
       : null),
-    ...(isDebugMode ? { 'x-vercel-debug-ingest': '1' } : null),
+    ...(isDebugEnabled() ? { 'x-vercel-debug-ingest': '1' } : null),
   };
 }
 
