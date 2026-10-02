@@ -53,8 +53,6 @@ type State =
   | 'build:ready'
   | 'shutdown';
 
-type RuntimeSource = 'header' | 'stream' | 'polling';
-
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -208,10 +206,9 @@ export class Controller implements ControllerInterface {
   private onStreamDisconnected = () => {
     this.cache.fail(new Error('stream: disconnected'));
     if (this.state === 'streaming') {
-      this.transition('degraded');
       // Reads can await this shared startup, but the event handler has no caller.
       // Handle its rejection too, including cancellation during shutdown.
-      void this.activateFallbackSource('stream').catch(() => {});
+      void this.activateFallbackSource().catch(() => {});
     }
   };
   private onSourceError = (error: Error) => {
@@ -322,7 +319,7 @@ export class Controller implements ControllerInterface {
       return;
     }
 
-    await this.activateFallbackSource('header');
+    await this.activateFallbackSource();
     if (this.cache.hasData) return;
     if (this.unauthorized) {
       throw this.noDefinitionsError(
@@ -468,7 +465,7 @@ export class Controller implements ControllerInterface {
     const result = await this.cache.resolve(this.cacheReadPolicy);
 
     if (result.hasError || !result.data) {
-      await this.activateFallbackSource('header');
+      await this.activateFallbackSource();
       return this.resolveRuntimeData();
     }
 
@@ -502,11 +499,11 @@ export class Controller implements ControllerInterface {
    * Advances through the runtime source chain. Every caller uses the same path:
    * request headers → stream → polling → direct cache refresh.
    */
-  private activateFallbackSource(after: RuntimeSource): Promise<void> {
+  private activateFallbackSource(): Promise<void> {
     if (this.sourceStartup) {
       return this.sourceStartup;
     }
-    const startup = this.startFallbackSource(after).finally(() => {
+    const startup = this.startFallbackSource().finally(() => {
       if (this.sourceStartup === startup) {
         this.sourceStartup = undefined;
       }
@@ -515,26 +512,31 @@ export class Controller implements ControllerInterface {
     return startup;
   }
 
-  private async startFallbackSource(after: RuntimeSource): Promise<void> {
+  private async startFallbackSource(): Promise<void> {
     if (this.state === 'shutdown') {
       throw new Error('@vercel/flags-core: Client is shut down');
     }
 
-    if (after === 'header' && this.options.stream.enabled) {
+    if (
+      (this.state === 'idle' || this.state === 'vercel') &&
+      this.options.stream.enabled
+    ) {
       this.transition('initializing:stream');
       const connected = await this.tryInitializeStream();
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');
       }
-      if (connected) {
+      if (connected || this.isConnected) {
         this.transition('streaming');
         return;
       }
-      after = 'stream';
     }
 
     if (
-      (after === 'header' || after === 'stream') &&
+      (this.state === 'idle' ||
+        this.state === 'vercel' ||
+        this.state === 'streaming' ||
+        this.state === 'initializing:stream') &&
       this.options.polling.enabled
     ) {
       this.pollingSource.startInterval();
@@ -691,12 +693,11 @@ export class Controller implements ControllerInterface {
     }
 
     const data = await this.buildDataPromise;
-
-    if (!this.cache.hasData) {
-      this.cache.seed(data);
-      return [this.cache.read()!, 'MISS'];
+    const loaded = this.cache.read();
+    if (loaded) {
+      return [loaded, 'HIT'];
     }
-    return [this.cache.read()!, 'HIT'];
+    return [this.cache.seedAndRead(data), 'MISS'];
   }
 
   /**
@@ -796,17 +797,21 @@ export class Controller implements ControllerInterface {
     this.transition('initializing:fallback');
 
     if (this.options.datafile) {
-      this.cache.seed(tagData({ ...this.options.datafile }, 'provided'));
+      const provided = this.cache.seedAndRead(
+        tagData({ ...this.options.datafile }, 'provided'),
+      );
       this.transition('degraded');
-      return [this.cache.read()!, 'STALE'];
+      return [provided, 'STALE'];
     }
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       console.warn('@vercel/flags-core: Using bundled definitions as fallback');
-      this.cache.seed(tagData({ ...bundled }, 'bundled'));
+      const embedded = this.cache.seedAndRead(
+        tagData({ ...bundled }, 'bundled'),
+      );
       this.transition('degraded');
-      return [this.cache.read()!, 'STALE'];
+      return [embedded, 'STALE'];
     }
 
     // Last resort: one-time fetch (only when no stream/poll configured)
@@ -822,9 +827,9 @@ export class Controller implements ControllerInterface {
         // fetch failed — fall through to throw
       }
       if (fetched) {
-        this.cache.seed(tagFetchedData(fetched));
+        const remote = this.cache.seedAndRead(tagFetchedData(fetched));
         this.transition('degraded');
-        return [this.cache.read()!, 'MISS'];
+        return [remote, 'MISS'];
       }
     }
 

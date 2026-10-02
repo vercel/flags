@@ -3,6 +3,7 @@ import type { CacheAssessment, CacheMetadata } from './datafile-cache';
 import type { NormalizedOptions } from './normalized-options';
 import {
   connectStream,
+  PING_MS,
   PING_TIMEOUT_MS,
   type PrimedMessage,
 } from './stream-connection';
@@ -35,7 +36,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
 
   assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
     // Pings arrive every 30s; tolerate one missed ping before revalidating.
-    if (ageMs <= (PING_TIMEOUT_MS * 2) / 3) {
+    if (ageMs <= PING_MS * 2) {
       return { status: 'fresh' };
     }
     if (ageMs <= PING_TIMEOUT_MS) {
