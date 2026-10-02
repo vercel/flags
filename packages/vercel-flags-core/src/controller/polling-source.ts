@@ -6,6 +6,7 @@ export type PollingSourceConfig = {
   polling: {
     intervalMs: number;
   };
+  staleWhileRevalidateMs: number;
   refresh: () => Promise<void>;
 };
 
@@ -28,19 +29,27 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
     this.config = config;
   }
 
+  /** Allow the scheduled poll its entire fetch deadline before revalidating. */
+  get staleAfterMs(): number {
+    return this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS;
+  }
+
+  /** Age after which reads block on a refresh. */
+  get expiresAfterMs(): number {
+    return this.staleAfterMs + this.config.staleWhileRevalidateMs;
+  }
+
   assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
-    // Allow the scheduled poll its entire fetch deadline before revalidating.
-    const staleAt = this.config.polling.intervalMs + DEFAULT_FETCH_TIMEOUT_MS;
-    if (ageMs <= staleAt) {
+    if (ageMs === Infinity) {
+      // Nothing has confirmed this entry yet; keep serving it until a poll does.
+      return { status: 'unknown' };
+    }
+    if (ageMs <= this.staleAfterMs) {
       return { status: 'fresh' };
     }
-
-    // Give the next scheduled poll a chance before making reads block.
-    const expiresAt = staleAt + this.config.polling.intervalMs;
-    if (ageMs <= expiresAt) {
+    if (ageMs <= this.expiresAfterMs) {
       return { status: 'stale' };
     }
-
     return { status: 'expired' };
   };
 

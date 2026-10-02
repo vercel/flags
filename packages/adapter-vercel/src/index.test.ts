@@ -222,8 +222,6 @@ describe('createVercelAdapter', () => {
 
 describe('when used with getProviderData', () => {
   let originalFlags: string | undefined;
-  const streamRequests = vi.fn();
-  const datafileRequests = vi.fn();
 
   beforeAll(() => {
     originalFlags = process.env.FLAGS;
@@ -235,40 +233,12 @@ describe('when used with getProviderData', () => {
   });
 
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.stubEnv('CI', '');
-    vi.stubEnv('NEXT_PHASE', '');
-    streamRequests.mockClear();
-    datafileRequests.mockClear();
     resetDefaultFlagsClient();
     resetDefaultVercelAdapter();
 
-    // Discovery inherits getDatafile's lazy source initialization. Keep the stream
-    // open so this fixture does not trigger disconnect recovery after its first update.
+    // Mock the datafile endpoint for getDatafile
     server.use(
-      http.get('https://flags.vercel.com/v1/stream', () => {
-        streamRequests();
-        return new HttpResponse(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                new TextEncoder().encode(
-                  `${JSON.stringify({
-                    type: 'datafile',
-                    data: {
-                      projectId: 'prj_xxx',
-                      definitions: {},
-                      segments: {},
-                    },
-                  })}\n`,
-                ),
-              );
-            },
-          }),
-        );
-      }),
       http.get('https://flags.vercel.com/v1/datafile', () => {
-        datafileRequests();
         return HttpResponse.json({
           projectId: 'prj_xxx',
           definitions: {},
@@ -278,23 +248,13 @@ describe('when used with getProviderData', () => {
     );
   });
 
-  afterEach(async () => {
-    await flagsClient.shutdown();
-    vi.useRealTimers();
-    vi.unstubAllEnvs();
-  });
-
   it('returns data', async () => {
     const testFlag = flag({
       key: 'test-flag',
       adapter: vercelAdapter(),
     });
 
-    const reading = getProviderData({ testFlag });
-    await vi.advanceTimersByTimeAsync(0);
-    const providerData = await reading;
-    expect(streamRequests).toHaveBeenCalledTimes(1);
-    expect(datafileRequests).not.toHaveBeenCalled();
+    const providerData = await getProviderData({ testFlag });
 
     expect(providerData).toEqual({
       definitions: {

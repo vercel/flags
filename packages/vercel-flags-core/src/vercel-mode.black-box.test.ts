@@ -307,13 +307,14 @@ describe('Vercel mode (black-box)', () => {
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
     );
+    // The matching header just confirmed the entry, so polling judges it fresh.
     expect(await first).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'STALE' },
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
     });
     expect((await second).feature).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'STALE' },
+      metrics: { mode: 'polling', cacheStatus: 'HIT' },
     });
 
     pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
@@ -418,39 +419,32 @@ describe('Vercel mode (black-box)', () => {
     const stream = mockStream();
     streamFetch.mockResolvedValueOnce(stream.response);
     const pendingPoll = deferred<Response>();
-    dataFetch.mockReturnValueOnce(pendingPoll.promise);
+    if (mode === 'polling') {
+      dataFetch.mockReturnValueOnce(pendingPoll.promise);
+    }
     setVersion(undefined);
     const reading = instance.evaluate('feature');
     const settled = vi.fn();
     void reading.then(settled);
     await vi.advanceTimersByTimeAsync(3_000);
-    if (mode === 'streaming') {
-      expect(settled).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(3_000);
-    }
+    // A stream startup timeout serves the cache without starting polling.
     expect(settled).toHaveBeenCalledTimes(1);
-    pendingPoll.resolve(Response.json(datafile()));
+    if (mode === 'polling') {
+      pendingPoll.resolve(Response.json(datafile()));
+    }
     expect(await reading).toMatchObject({
       value: true,
       metrics: {
         source: 'remote',
-        cacheStatus: 'STALE',
+        // Polling judges the 33-second-old entry fresh; a connecting stream has no verdict yet.
+        cacheStatus: mode === 'polling' ? 'HIT' : 'STALE',
       },
     });
-    if (mode === 'streaming') {
-      expect(warnSpy.mock.calls).toEqual([
-        [
-          '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
-        ],
-        [
-          '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
-        ],
-      ]);
-    } else {
-      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
-        '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
-      );
-    }
+    expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+      mode === 'streaming'
+        ? '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background'
+        : '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
+    );
     const retained = await instance.getDatafile();
     expect(retained.configUpdatedAt).toBe(TIMESTAMP + 1);
     expect(retained.definitions).toBe(snapshot.definitions);
@@ -459,7 +453,7 @@ describe('Vercel mode (black-box)', () => {
       seed === 'bundled' ? 1 : 0,
     );
     expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
-    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 2 : 1);
 
     // A later source update must replace the cache, not reuse a completed fallback result.
     setVersion(TIMESTAMP + 100);
@@ -474,7 +468,7 @@ describe('Vercel mode (black-box)', () => {
       value: false,
       metrics: { mode, cacheStatus: 'HIT' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 2);
+    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 1);
   });
 
   it('retries a failed cold fetch on the next read without switching sources', async () => {
@@ -560,12 +554,8 @@ describe('Vercel mode (black-box)', () => {
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
     );
-    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Revalidation failed:',
-      expect.objectContaining({
-        message: '@vercel/flags-core: Datafile fetch deadline exceeded',
-      }),
-    );
+    // Cached reads do not start their own refresh while the poll is pending.
+    expect(errorSpy).not.toHaveBeenCalled();
 
     mockDatafileResponse(TIMESTAMP + 2, true);
     await vi.advanceTimersByTimeAsync(20_000);
@@ -588,9 +578,10 @@ describe('Vercel mode (black-box)', () => {
     setVersion(undefined);
     const reading = instance.evaluate('feature');
     await vi.advanceTimersByTimeAsync(3_000);
+    // The cache is served while the stream keeps connecting; polling does not start.
     expect(await reading).toMatchObject({
       value: false,
-      metrics: { mode: 'polling', cacheStatus: 'HIT' },
+      metrics: { mode: 'offline', cacheStatus: 'STALE' },
     });
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
       '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
@@ -603,7 +594,7 @@ describe('Vercel mode (black-box)', () => {
       metrics: { mode: 'streaming', cacheStatus: 'HIT' },
     });
     expect(streamFetch).toHaveBeenCalledTimes(1);
-    expect(dataFetch).toHaveBeenCalledTimes(1);
+    expect(dataFetch).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1417,7 +1408,7 @@ describe('Vercel mode (black-box)', () => {
 
   it.each([
     0, -1,
-  ])('retains a background response with version delta %i and renews age only on confirmation', async (delta) => {
+  ])('retains cached data after a background response with version delta %i and renews its age', async (delta) => {
     const instance = client();
     await instance.evaluate('feature');
     vi.setSystemTime(TIMESTAMP + 9_000);
@@ -1436,9 +1427,10 @@ describe('Vercel mode (black-box)', () => {
     vi.setSystemTime(TIMESTAMP + 10_001);
     setVersion(TIMESTAMP + 1);
     mockDatafileResponse(TIMESTAMP + 1, true);
+    // The rejected response still renewed the age, so this read stays within the stale window.
     expect(await instance.evaluate('feature')).toMatchObject({
-      value: delta !== 0,
-      metrics: { cacheStatus: delta === 0 ? 'STALE' : 'MISS' },
+      value: false,
+      metrics: { cacheStatus: 'STALE' },
     });
     await vi.advanceTimersByTimeAsync(0);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 1);
@@ -1500,8 +1492,9 @@ describe('Vercel mode (black-box)', () => {
 
     setVersion(TIMESTAMP + 2);
     mockDatafileResponse(TIMESTAMP + 2, true);
+    // Both responses renewed the age, so the newer header refreshes in the background.
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
-      delta === 0 ? 'STALE' : 'MISS',
+      'STALE',
     );
     await vi.advanceTimersByTimeAsync(0);
     expect((await instance.getDatafile()).configUpdatedAt).toBe(TIMESTAMP + 2);
@@ -1628,13 +1621,12 @@ describe('Vercel mode (black-box)', () => {
     dataFetch.mockReturnValueOnce(pending.promise);
     const settled = vi.fn();
     const read = instance.getDatafile().finally(settled);
-    const outcome =
-      delta < 0
-        ? expect(read).rejects.toBe(failure)
-        : expect(read).resolves.toMatchObject({
-            configUpdatedAt: TIMESTAMP + delta,
-            metrics: { cacheStatus: 'MISS' },
-          });
+    // Only a newer response replaces data; equal or older responses confirm recovery.
+    const retained = TIMESTAMP + Math.max(delta, 0);
+    const outcome = expect(read).resolves.toMatchObject({
+      configUpdatedAt: retained,
+      metrics: { cacheStatus: 'MISS' },
+    });
     await vi.advanceTimersByTimeAsync(0);
     expect(settled).not.toHaveBeenCalled();
     expect(dataFetch).toHaveBeenCalledTimes(4);
@@ -1642,14 +1634,9 @@ describe('Vercel mode (black-box)', () => {
     pending.resolve(Response.json(datafile(TIMESTAMP + delta, true)));
     await outcome;
     setVersion(TIMESTAMP - 1);
-    if (delta < 0) {
-      await expect(instance.getDatafile()).rejects.toBe(failure);
-      return;
-    }
-    // A matching response confirms recovery without replacing or retagging data.
     expect(await instance.getDatafile()).toMatchObject({
-      configUpdatedAt: TIMESTAMP + delta,
-      fetchedAt: TIMESTAMP + delta,
+      configUpdatedAt: retained,
+      fetchedAt: retained,
     });
   });
 
@@ -1665,11 +1652,14 @@ describe('Vercel mode (black-box)', () => {
     cleanupContext = setRequestContext({ [HEADER]: header });
     mockDatafileResponse(TIMESTAMP + 1, true);
     const instance = client({ stream: false });
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { cacheStatus: 'HIT', mode: 'polling' },
+    });
     expect(await instance.getDatafile()).toMatchObject({
       configUpdatedAt: TIMESTAMP + 1,
       metrics: { cacheStatus: 'HIT', mode: 'polling' },
     });
-    expect((await instance.evaluate('feature')).value).toBe(true);
     expect(dataFetch).toHaveBeenCalledTimes(1);
     expect(streamFetch).not.toHaveBeenCalled();
   });

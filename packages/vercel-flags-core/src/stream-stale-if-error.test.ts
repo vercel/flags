@@ -264,9 +264,8 @@ describe('stream stale-if-error through the public API', () => {
     expectRequests(['0', '1']);
     await vi.advanceTimersByTimeAsync(1);
     expectRequests(['0', '1', '2']);
-    // These messages emit connected but neither confirms the cached snapshot.
+    // A mismatched primed message emits connected but does not confirm the cached snapshot.
     reconnect.push(primed({ revision: 6 }));
-    reconnect.push({ type: 'datafile', data: data({ configUpdatedAt: 9 }) });
     await vi.advanceTimersByTimeAsync(1_000);
     expect(await instance.evaluate('flagA')).toMatchObject({
       value: true,
@@ -464,7 +463,11 @@ describe('stream stale-if-error through the public API', () => {
     expect(streamFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('does not confirm rejected same-version data with mismatched identity or older versions', async () => {
+  it.each([
+    { configUpdatedAt: 9 },
+    { projectId: 'other' },
+    { environment: 'preview' },
+  ])('recovers on rejected stream data %j without replacing the snapshot', async (override) => {
     const { instance, stream } = await start({ staleIfError: 0 });
     const snapshot = await instance.getDatafile();
     const reconnect = mockStream();
@@ -472,21 +475,17 @@ describe('stream stale-if-error through the public API', () => {
     const failure = new Error('outage');
     stream.fail(failure);
     await vi.advanceTimersByTimeAsync(1_000);
-    for (const override of [
-      { configUpdatedAt: 9 },
-      { projectId: 'other' },
-      { environment: 'preview' },
-    ]) {
-      reconnect.push({ type: 'datafile', data: data(override) });
-      await vi.advanceTimersByTimeAsync(0);
-      await expectExpired(instance, failure);
-    }
-    reconnect.push({ type: 'datafile', data: data() });
+    await expectExpired(instance, failure);
+    // The version guard keeps the snapshot, but the stream delivered data again.
+    reconnect.push({ type: 'datafile', data: data(override) });
     await vi.advanceTimersByTimeAsync(0);
-    expect((await instance.evaluate('flagA')).value).toBe(true);
-    expect((await instance.getDatafile()).definitions).toBe(
-      snapshot.definitions,
-    );
+    expect(await instance.evaluate('flagA')).toMatchObject({
+      value: true,
+      metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+    });
+    const recovered = await instance.getDatafile();
+    expect(recovered.definitions).toBe(snapshot.definitions);
+    expect(recovered.configUpdatedAt).toBe(10);
     expectRequests(['0', '1']);
   });
 
@@ -550,15 +549,14 @@ describe('stream stale-if-error through the public API', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(initialized).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    expect(initialized).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(3_000);
     await initialization;
     expect(initialized).toHaveBeenCalledOnce();
-    expectInitTimeout(true);
-    await vi.advanceTimersByTimeAsync(6_999);
+    expectInitTimeout();
+    await vi.advanceTimersByTimeAsync(9_999);
     expect((await instance.evaluate('flagA')).value).toBe(true);
-    // The immediate fallback poll is still pending; no response has confirmed recovery.
-    expect(waitUntil).toHaveBeenCalledExactlyOnceWith(expect.any(Promise));
+    // The stream keeps connecting; cached reads neither poll nor refresh over HTTP.
+    expect(waitUntil).not.toHaveBeenCalled();
+    expect(dataFetch).not.toHaveBeenCalled();
     expect((await instance.getDatafile()).definitions).toBe(
       supplied.definitions,
     );

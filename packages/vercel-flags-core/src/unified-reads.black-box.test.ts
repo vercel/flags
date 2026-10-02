@@ -134,13 +134,17 @@ it.each([
   dataFetch.mockResolvedValueOnce(Response.json(data('prj_b', 2)));
   const first = client();
   const second = client('prj_b', { stream: mode === 'streaming' });
-  const reading = second.getDatafile();
+  const reading = second.evaluate('feature');
   connection.push({ type: 'datafile', data: data('prj_b', 2) });
   expect(await first.evaluate('feature')).toMatchObject({
     value: true,
     metrics: { mode: 'vercel', cacheStatus: 'HIT' },
   });
   expect(await reading).toMatchObject({
+    value: false,
+    metrics: { mode, cacheStatus: 'HIT' },
+  });
+  expect(await second.getDatafile()).toMatchObject({
     projectId: 'prj_b',
     revision: 2,
     metrics: { mode, cacheStatus: 'HIT' },
@@ -184,14 +188,17 @@ it.each([
   expect(dataFetch).toHaveBeenCalledTimes(1);
   expect(streamFetch).not.toHaveBeenCalled();
 
-  const reading = instance.getDatafile();
+  // Only evaluations switch sources; snapshots follow the selected source.
+  const reading = instance.evaluate('feature');
   connection.push({ type: 'datafile', data: data() });
+  const mode = header === 'flags_prj_a=1' ? 'vercel' : 'streaming';
   expect(await reading).toMatchObject({
+    value: true,
+    metrics: { mode, cacheStatus: 'HIT' },
+  });
+  expect(await instance.getDatafile()).toMatchObject({
     projectId: 'prj_a',
-    metrics: {
-      mode: header === 'flags_prj_a=1' ? 'vercel' : 'streaming',
-      cacheStatus: 'HIT',
-    },
+    metrics: { mode, cacheStatus: 'HIT' },
   });
   expect(dataFetch).toHaveBeenCalledTimes(1);
   expect(streamFetch).toHaveBeenCalledTimes(header === 'flags_prj_a=1' ? 0 : 1);
@@ -213,8 +220,10 @@ it.each([
   const connection = stream();
   streamFetch.mockResolvedValueOnce(connection.response);
   dataFetch.mockResolvedValueOnce(Response.json(data('prj_a', 2)));
-  const reading = instance.getDatafile();
   const evaluation = instance.evaluate('feature');
+  await vi.advanceTimersByTimeAsync(0);
+  // The snapshot shares the startup the evaluation began without starting its own.
+  const reading = instance.getDatafile();
   connection.push({ type: 'datafile', data: data('prj_a', 2) });
   expect(await reading).toMatchObject({
     revision: 2,
@@ -341,7 +350,7 @@ it('getDatafile enforces the first failure deadline and performs blocking recove
   expect(dataFetch).toHaveBeenCalledTimes(3);
 });
 
-it('a missing project header starts streaming and a real disconnect starts exactly one immediate shared poll', async () => {
+it('a missing project header starts streaming and a disconnect reconnects without polling', async () => {
   context('flags_other=1');
   const first = stream();
   const second = stream();
@@ -349,48 +358,27 @@ it('a missing project header starts streaming and a real disconnect starts exact
     .mockResolvedValueOnce(first.response)
     .mockResolvedValueOnce(second.response);
   const instance = client('prj_a', { staleIfError: 0 });
-  const reading = instance.getDatafile();
+  const reading = instance.evaluate('feature');
   first.push({ type: 'datafile', data: data() });
-  expect((await reading).metrics.mode).toBe('streaming');
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
+  expect((await reading).metrics?.mode).toBe('streaming');
+  expect((await instance.getDatafile()).metrics.mode).toBe('streaming');
   first.close();
   await vi.advanceTimersByTimeAsync(0);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  const signal = dataFetch.mock.calls[0]?.[1]?.signal;
-  const settled = vi.fn();
-  const recoveryReads = Promise.all([
-    instance.getDatafile(),
-    instance.evaluate('feature'),
-  ]).then((results) => {
-    settled();
-    return results;
-  });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(settled).not.toHaveBeenCalled();
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  pending.resolve(Response.json(data('prj_a', 2)));
-  for (const result of await recoveryReads) {
-    expect(result.metrics).toMatchObject({
-      mode: 'polling',
-      cacheStatus: 'HIT',
-    });
-  }
+  // The disconnect is failure evidence, but recovery is left to the reconnecting stream.
+  await expect(instance.evaluate('feature')).rejects.toThrow(
+    'stream: disconnected',
+  );
+  await expect(instance.getDatafile()).rejects.toThrow('stream: disconnected');
+  expect(dataFetch).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1_000);
+  second.push({ type: 'datafile', data: data('prj_a', 2) });
   await vi.advanceTimersByTimeAsync(0);
   expect(await instance.getDatafile()).toMatchObject({
     revision: 2,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
-  });
-  expect(signal?.aborted).toBe(false);
-  await vi.advanceTimersByTimeAsync(1_000);
-  second.push({ type: 'datafile', data: data('prj_a', 3) });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(await instance.getDatafile()).toMatchObject({
-    revision: 3,
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
   await vi.advanceTimersByTimeAsync(30_000);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
   expect(streamFetch).toHaveBeenCalledTimes(2);
 });
 
@@ -403,83 +391,68 @@ it('rejects a failed cold fetch without switching sources', async () => {
   expect(streamFetch).not.toHaveBeenCalled();
 });
 
-it.each([
-  0, 3_000,
-])('waits for the immediate disconnect poll even with usable cache and timeout %i', async (initTimeoutMs) => {
-  context();
-  const connection = stream();
-  streamFetch.mockResolvedValueOnce(connection.response);
-  const instance = client('prj_a', {
-    polling: { intervalMs: 30_000, initTimeoutMs },
-  });
-  const initial = instance.getDatafile();
-  connection.push({ type: 'datafile', data: data() });
-  await initial;
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
-  connection.close();
-  await vi.advanceTimersByTimeAsync(0);
-
-  const settled = vi.fn();
-  const reading = Promise.all([
-    instance.getDatafile(),
-    instance.evaluate('feature'),
-  ]).then((results) => {
-    settled();
-    return results;
-  });
-  await vi.advanceTimersByTimeAsync(0);
-  const settledBeforePoll = settled.mock.calls.length;
-  pending.resolve(Response.json(data('prj_a', 2)));
-  const [file, evaluation] = await reading;
-  expect(settledBeforePoll).toBe(0);
-  expect(file).toMatchObject({
-    revision: 2,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
-  });
-  expect(evaluation).toMatchObject({
-    value: false,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
-  });
-  await vi.advanceTimersByTimeAsync(0);
-  expect((await instance.getDatafile()).revision).toBe(2);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-});
-
-it.each([
-  Infinity,
-  0,
-])('enforces staleIfError %s after the disconnect poll initialization times out', async (staleIfError) => {
+it('serves cached data immediately after a disconnect instead of waiting for a poll', async () => {
   context();
   const connection = stream();
   const reconnect = stream();
   streamFetch
     .mockResolvedValueOnce(connection.response)
     .mockResolvedValueOnce(reconnect.response);
-  const instance = client('prj_a', {
-    staleIfError,
-    polling: { intervalMs: 30_000, initTimeoutMs: 3_000 },
-  });
-  const initial = instance.getDatafile();
+  const instance = client();
+  const initial = instance.evaluate('feature');
   connection.push({ type: 'datafile', data: data() });
   await initial;
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
   connection.close();
   await vi.advanceTimersByTimeAsync(0);
 
-  const settled = vi.fn();
-  const reading = Promise.allSettled([
+  const [file, evaluation] = await Promise.all([
     instance.getDatafile(),
     instance.evaluate('feature'),
-  ]).then((results) => {
-    settled();
-    return results;
+  ]);
+  expect(file).toMatchObject({
+    revision: 1,
+    metrics: {
+      mode: 'offline',
+      cacheStatus: 'STALE',
+      connectionState: 'disconnected',
+    },
   });
-  await vi.advanceTimersByTimeAsync(2_999);
-  expect(settled).not.toHaveBeenCalled();
-  await vi.advanceTimersByTimeAsync(1);
-  const results = await reading;
+  expect(evaluation).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  expect(dataFetch).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1_000);
+  reconnect.push({ type: 'datafile', data: data('prj_a', 2) });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.getDatafile()).toMatchObject({
+    revision: 2,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
+  expect(dataFetch).not.toHaveBeenCalled();
+});
+
+it.each([
+  Infinity,
+  0,
+])('enforces staleIfError %s on reads after a disconnect', async (staleIfError) => {
+  context();
+  const connection = stream();
+  const reconnect = stream();
+  streamFetch
+    .mockResolvedValueOnce(connection.response)
+    .mockResolvedValueOnce(reconnect.response);
+  const instance = client('prj_a', { staleIfError });
+  const initial = instance.evaluate('feature');
+  connection.push({ type: 'datafile', data: data() });
+  await initial;
+  connection.close();
+  await vi.advanceTimersByTimeAsync(0);
+
+  const results = await Promise.allSettled([
+    instance.getDatafile(),
+    instance.evaluate('feature'),
+  ]);
   if (staleIfError === 0) {
     expect(results).toEqual([
       { status: 'rejected', reason: new Error('stream: disconnected') },
@@ -491,84 +464,55 @@ it.each([
         status: 'fulfilled',
         value: {
           revision: 1,
-          metrics: { mode: 'polling', cacheStatus: 'STALE' },
+          metrics: { mode: 'offline', cacheStatus: 'STALE' },
         },
       },
       {
         status: 'fulfilled',
         value: {
           value: true,
-          metrics: { mode: 'polling', cacheStatus: 'STALE' },
+          metrics: { mode: 'offline', cacheStatus: 'STALE' },
         },
       },
     ]);
   }
-  expect(warnSpy.mock.calls).toEqual([
-    [
-      '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
-    ],
-  ]);
-  warnSpy.mockClear();
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  expect(dataFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
-  pending.resolve(Response.json(data('prj_a', 2)));
+  expect(dataFetch).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1_000);
+  reconnect.push({ type: 'datafile', data: data('prj_a', 2) });
   await vi.advanceTimersByTimeAsync(0);
   expect(await instance.getDatafile()).toMatchObject({
     revision: 2,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
 });
 
-it.each([
-  { initTimeoutMs: 0, withRead: false },
-  { initTimeoutMs: 3_000, withRead: false },
-  { initTimeoutMs: 0, withRead: true },
-  { initTimeoutMs: 3_000, withRead: true },
-])('shuts down safely during the disconnect poll with timeout $initTimeoutMs and waiting read $withRead', async ({
-  initTimeoutMs,
-  withRead,
-}) => {
+it('shuts down safely while the stream reconnects after a disconnect', async () => {
   context();
   const connection = stream();
   streamFetch.mockResolvedValueOnce(connection.response);
-  const instance = client('prj_a', {
-    polling: { intervalMs: 30_000, initTimeoutMs },
-  });
-  const initial = instance.getDatafile();
+  const instance = client();
+  const initial = instance.evaluate('feature');
   connection.push({ type: 'datafile', data: data() });
   await initial;
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
   connection.close();
   await vi.advanceTimersByTimeAsync(0);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  const signal = dataFetch.mock.calls[0]?.[1]?.signal;
-  const reading = withRead
-    ? expect(instance.getDatafile()).rejects.toMatchObject({
-        name: 'AbortError',
-      })
-    : undefined;
-  await vi.advanceTimersByTimeAsync(0);
   await instance.shutdown();
-  await reading;
   clients.delete(instance);
-  expect(signal?.aborted).toBe(true);
-  pending.resolve(Response.json(data('prj_a', 2)));
   await vi.advanceTimersByTimeAsync(30_001);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
   expect(streamFetch).toHaveBeenCalledTimes(1);
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it('starts an immediate poll and waits when a missing project header falls back to a failing stream', async () => {
+it('starts polling and waits when a missing project header falls back to a stream that gives up', async () => {
   context('flags_other=1');
   streamFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
   const instance = client();
   const settled = vi.fn();
-  const reading = instance.getDatafile().then((result) => {
+  const reading = instance.evaluate('feature').then((result) => {
     settled();
     return result;
   });
@@ -579,7 +523,7 @@ it('starts an immediate poll and waits when a missing project header falls back 
   expect(streamFetch).toHaveBeenCalledTimes(1);
   pending.resolve(Response.json(data('prj_a', 2)));
   expect(await reading).toMatchObject({
-    revision: 2,
+    value: false,
     metrics: { mode: 'polling', cacheStatus: 'HIT' },
   });
   await vi.advanceTimersByTimeAsync(0);
@@ -590,7 +534,7 @@ it('starts an immediate poll and waits when a missing project header falls back 
   expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
-it('shares an existing read refresh with the immediate disconnect poll', async () => {
+it('finishes a pending read refresh across a disconnect without polling', async () => {
   context();
   const connection = stream();
   const reconnect = stream();
@@ -598,7 +542,7 @@ it('shares an existing read refresh with the immediate disconnect poll', async (
     .mockResolvedValueOnce(connection.response)
     .mockResolvedValueOnce(reconnect.response);
   const instance = client();
-  const reading = instance.getDatafile();
+  const reading = instance.evaluate('feature');
   connection.push({ type: 'datafile', data: data() });
   await reading;
   await vi.advanceTimersByTimeAsync(60_001);
@@ -611,18 +555,21 @@ it('shares an existing read refresh with the immediate disconnect poll', async (
   expect(dataFetch).toHaveBeenCalledTimes(1);
   connection.close();
   await vi.advanceTimersByTimeAsync(0);
-  const recoveryRead = instance.getDatafile();
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  pending.resolve(Response.json(data('prj_a', 2)));
-  expect((await recoveryRead).metrics.mode).toBe('polling');
-  await vi.advanceTimersByTimeAsync(0);
-  expect(await instance.getDatafile()).toMatchObject({
-    revision: 2,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+  // Reads keep serving the cache while the stream reconnects; no poll starts.
+  expect((await instance.getDatafile()).metrics).toMatchObject({
+    mode: 'offline',
+    cacheStatus: 'STALE',
   });
   expect(dataFetch).toHaveBeenCalledTimes(1);
+  pending.resolve(Response.json(data('prj_a', 2)));
+  await vi.advanceTimersByTimeAsync(0);
+  expect((await instance.getDatafile()).revision).toBe(2);
+  await vi.advanceTimersByTimeAsync(1_000);
   reconnect.push({ type: 'datafile', data: data('prj_a', 3) });
   await vi.advanceTimersByTimeAsync(30_000);
-  expect((await instance.getDatafile()).metrics.mode).toBe('streaming');
+  expect(await instance.getDatafile()).toMatchObject({
+    revision: 3,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
   expect(dataFetch).toHaveBeenCalledTimes(1);
 });
