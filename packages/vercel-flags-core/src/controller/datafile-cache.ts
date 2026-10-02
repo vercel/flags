@@ -111,6 +111,16 @@ export class DatafileCache {
         : undefined;
   }
 
+  /** Stores data and returns it through the serving boundary. */
+  seedAndRead(data: TaggedData): TaggedData {
+    this.seed(data);
+    const seeded = this.read();
+    if (!seeded) {
+      throw new Error('@vercel/flags-core: Seeded definitions unavailable');
+    }
+    return seeded;
+  }
+
   /** Accepts a source update or confirms the current version without replacing it. */
   updateFromSource(incoming: DatafileInput, origin: DataOrigin): void {
     if (this.isNewerData(incoming)) {
@@ -215,17 +225,17 @@ export class DatafileCache {
       if (status === 'fresh' || status === 'unknown') {
         // read() still enforces stale-if-error, even for a fresh assessment.
         return {
-          data: this.read()!,
+          data: this.read(),
           status: status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
         };
       }
 
       if (this.failure) {
         if (!policy.retryOnFailure) {
-          return { data: this.read()!, status: 'STALE' };
+          return { data: this.read(), status: 'STALE' };
         }
         if (this.canServe()) {
-          const stale = this.read()!;
+          const stale = this.read();
           this.fetchInBackground();
           return { data: stale, status: 'STALE' };
         }
@@ -234,7 +244,7 @@ export class DatafileCache {
       // If stale-if-error has expired, fall through to a blocking recovery fetch.
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
-        const stale = this.read()!;
+        const stale = this.read();
         this.fetchInBackground();
         return { data: stale, status: 'STALE' };
       }
@@ -249,7 +259,7 @@ export class DatafileCache {
         // A live source supplied current data while this read awaited HTTP.
         // Shutdown uses a different reason and must still reject the read.
         if (signal.reason === SOURCE_CONFIRMED && this.data) {
-          return { data: this.read()!, status: 'HIT' };
+          return { data: this.read(), status: 'HIT' };
         }
         throw error;
       }
@@ -268,8 +278,9 @@ export class DatafileCache {
     }
     // Serve the accepted cache entry; the response may have contained older data.
     const data = this.read();
-    if (!data)
+    if (!data) {
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
+    }
     return { data, status: 'MISS' };
   }
 

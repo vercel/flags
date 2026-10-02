@@ -230,6 +230,18 @@ describe('DatafileCache', () => {
     expect(cache.read()).toBe(original);
   });
 
+  it('seeds and returns data through the serving boundary', () => {
+    const cache = new DatafileCache(unexpectedFetch, 100);
+    const original = data();
+    expect(cache.seedAndRead(original)).toBe(original);
+
+    const failure = new Error('first outage');
+    cache.fail(failure);
+    vi.setSystemTime(1_101);
+    cache.clear();
+    expect(() => cache.seedAndRead(data())).toThrow(failure);
+  });
+
   it('starts the inclusive allowance at the first failure, not storage time', () => {
     const cache = new DatafileCache(unexpectedFetch, 100);
     const original = { ...data('poll'), revision: 42 };

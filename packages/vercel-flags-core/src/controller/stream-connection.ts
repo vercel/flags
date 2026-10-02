@@ -19,7 +19,8 @@ export type StreamMessage =
 const MAX_RETRY_COUNT = 15;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60_000;
-export const PING_TIMEOUT_MS = 90_000;
+export const PING_MS = 30_000;
+export const PING_TIMEOUT_MS = PING_MS * 3;
 const PING_TIMEOUT = new Error('stream: ping timeout');
 
 function backoff(retryCount: number): number {
