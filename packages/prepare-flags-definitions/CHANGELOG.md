@@ -1,5 +1,11 @@
 # @vercel/prepare-flags-definitions
 
+## 0.6.0
+
+### Minor Changes
+
+- [#540](https://github.com/vercel/flags/pull/540) [`1a38dee`](https://github.com/vercel/flags/commit/1a38dee43b41030496bd63290816e06e5d5890ae) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Embed definitions for every project connected to the deployment's project. `flags:projectId=` values in the environment are no longer read.
+
 ## 0.5.0
 
 ### Minor Changes

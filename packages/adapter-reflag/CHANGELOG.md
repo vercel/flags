@@ -1,5 +1,11 @@
 # @flags-sdk/reflag
 
+## 1.0.3
+
+### Patch Changes
+
+- [#543](https://github.com/vercel/flags/pull/543) [`afcfecb`](https://github.com/vercel/flags/commit/afcfecbc74fa52018e060f67a663b5136de4899e) Thanks [@dferber90](https://github.com/dferber90)! - Include a Reflag dashboard link in adapter and discovery metadata. Omit missing provider descriptions so merging discovery data preserves descriptions declared in code.
+
 ## 1.0.2
 
 ### Patch Changes
