@@ -427,7 +427,10 @@ Polling errors use the shared source-error handler without logging each failed p
 
 ### Debug Mode
 
-Enable debug logging with `DEBUG=@vercel/flags-core` environment variable.
+Enable debug logging with the `DEBUG=@vercel/flags-core` environment variable.
+`utils/debug-enabled.ts` parses `DEBUG` with the `debug` package conventions
+(comma/space separation, `*` wildcards, `-` exclusions) and caches the parse by raw
+value; the controller logger and the ingest debug header both use it.
 
 ## Dependencies
 
