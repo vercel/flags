@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.10.0
+
+### Minor Changes
+
+- [#540](https://github.com/vercel/flags/pull/540) [`1a38dee`](https://github.com/vercel/flags/commit/1a38dee43b41030496bd63290816e06e5d5890ae) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Remove `projectId` from connection strings.
+
 ## 1.9.0
 
 ### Minor Changes
