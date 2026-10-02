@@ -344,6 +344,35 @@ it('keeps reconnecting without polling when the replacement stream returns 503',
   expect(dataFetch).not.toHaveBeenCalled();
 });
 
+it('revalidates over HTTP once the stream gives up and polling is disabled', async () => {
+  const first = stream();
+  streamFetch
+    .mockResolvedValueOnce(first.response)
+    .mockResolvedValueOnce(new Response(null, { status: 401 }));
+  const instance = client({ polling: false });
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+  await vi.advanceTimersByTimeAsync(90_001);
+  expect(streamFetch).toHaveBeenCalledTimes(2);
+  expect(dataFetch).not.toHaveBeenCalled();
+  // No live source remains, so the read itself refreshes the entry over HTTP.
+  dataFetch.mockResolvedValueOnce(Response.json(data(3, false)));
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: false,
+    metrics: { mode: 'offline', cacheStatus: 'HIT' },
+  });
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe('HIT');
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(streamFetch).toHaveBeenCalledTimes(2);
+});
+
 it('falls back to polling if silent reconnects exhaust the stream retry budget', async () => {
   const first = stream();
   streamFetch
