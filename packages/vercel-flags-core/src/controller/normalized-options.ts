@@ -49,18 +49,19 @@ export type ControllerOptions = {
   /**
    * Use request version headers instead of streaming or polling at runtime.
    * Initialization starts no network activity; reads fetch only when needed.
-   * A read without a version header permanently falls back to stream/poll.
+   * An evaluation without a version header permanently falls back to stream/poll.
    * Disabling both stream and polling still selects offline mode.
    * @default process.env.VERCEL === '1'
    */
   vercel?: boolean;
 
   /**
-   * How long header-driven reads may serve cached data while refreshing in the
-   * background, measured from its last fetch or matching version header.
-   * Accepts finite, non-negative seconds, including fractional seconds.
-   * Set to 0 to always block on header-driven refreshes.
-   * Streaming and polling use freshness windows based on their update schedules.
+   * How long reads may serve stale cached data while refreshing in the background.
+   * Header-driven reads measure from the last fetch or matching version header.
+   * Streaming data is fresh for 60 seconds after the last message and polling data
+   * for its interval plus the 10-second fetch deadline; this window follows, after
+   * which reads wait for the refresh. Accepts finite, non-negative seconds,
+   * including fractional seconds. Set to 0 to block as soon as data is no longer fresh.
    * @default 10
    */
   staleWhileRevalidate?: number;
@@ -70,8 +71,9 @@ export type ControllerOptions = {
    * stream/poll/header failure or stream disconnect. Accepts nonnegative seconds or Infinity.
    * Fractional seconds are supported.
    * Zero disables fallback immediately; positive windows include the deadline.
-   * Accepted updates, matching versions, or matching stream primed revisions
-   * reset the allowance. Applies to evaluations and getDatafile().
+   * Any successful source response, or a matching stream primed revision, resets the
+   * allowance. A routine stream reconnect takes about a second, so keep this above
+   * the reconnect delay. Applies to evaluations and getDatafile().
    * Build/offline behavior is unchanged.
    * @default Infinity
    */
