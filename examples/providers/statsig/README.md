@@ -14,7 +14,7 @@ Create these two entities in your Statsig project:
 
 | Name | Type | Configuration |
 | --- | --- | --- |
-| `welcome_message` | Dynamic Config | Add a string parameter `message` with the value `Hello from Statsig` to the default value. |
+| `welcome_message_text` | Dynamic Config | Set the default value to `{ "text": "Welcome to the Statsig example" }`. |
 | `show_banner` | Feature Gate | Add a rule that passes for everyone (100%). |
 
 Copy `.env.example` to `.env.local` and set:
@@ -36,7 +36,7 @@ The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Chan
 
 The example exposes its flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`. The Vercel Toolbar is included during local development; link the project with `vercel link` from this folder and sign in to the toolbar to use Flags Explorer. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
-Open Flags Explorer in the toolbar to override `welcome_message` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
+Open Flags Explorer in the toolbar to override `welcome_message_text` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
 
 ## Run as a standalone project
 

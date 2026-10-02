@@ -30,7 +30,7 @@ The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Chan
 
 ## Flags Explorer
 
-The example exposes both flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`, and reports their evaluated values to the toolbar.
+The discovery endpoint at `/.well-known/vercel/flags` merges the code-defined flags with metadata from Reflag using `getProviderData` from `@flags-sdk/reflag` and the existing `REFLAG_SECRET_KEY`. Reflag descriptions take precedence when present; otherwise, the descriptions in `flags.ts` are preserved. Flags defined only in Reflag also appear in Flags Explorer. The adapter supplies boolean options and a link to the Reflag dashboard. The endpoint is protected by `FLAGS_SECRET`, and the page reports evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link`, sign in to the toolbar, and open Flags Explorer to override `welcome_message` or `show_banner` for your session without changing their values in Reflag. The local `FLAGS_SECRET` must match the linked project's Development value. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
