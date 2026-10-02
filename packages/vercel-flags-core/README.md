@@ -173,20 +173,18 @@ await OpenFeature.setProviderAndWait(new VercelProvider());
 const client = OpenFeature.getClient();
 ```
 
-## Documentation
+## Client debug logging
 
-- [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
-- [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
-- [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
-
-### Client debug logging
-
-Set `DEBUG=@vercel/flags-core` to enable detailed diagnostics. This reuses the
-existing ingest debug switch:
+Set `DEBUG=@vercel/flags-core` to enable detailed diagnostics:
 
 ```sh
 DEBUG=@vercel/flags-core pnpm dev
 ```
+
+`DEBUG` follows the usual conventions: patterns are separated by commas or spaces,
+`*` is a wildcard (`DEBUG=*` or `DEBUG=@vercel/*` enable the logs), and a leading `-`
+excludes a pattern (`DEBUG=*,-@vercel/flags-core` keeps them off). The same switch
+also marks usage ingestion requests with an `x-vercel-debug-ingest: 1` header.
 
 Client diagnostics use `console.debug` with the `@vercel/flags-core` prefix and
 an object containing an `event`, the configured `clientName`, and its diagnostic
@@ -223,6 +221,8 @@ Read and cache events include the project, revision, and cache age when availabl
 | `datafile.fetch.complete` / `cache.fetch.applied` | The response has been parsed / processed by the cache version guard. Only the latter finishes cache refresh work; an older response may be ignored. |
 | `cache.fetch.cancel` / `cache.refresh.superseded` | A stream update or confirmation supersedes HTTP work / releases a waiting read using the confirmed cache. |
 | `cache.fetch.aborted` | `source-confirmed` distinguishes superseded work from `cache-cleared` during shutdown. |
+| `datafile.fetch.aborted` | `timeout` is the fetch's own ten-second deadline; `external` is a cancellation by its caller. |
+| `stream.exhausted` | The stream gave up for good (retries exhausted, 401, or token failure) and polling takes over when enabled. |
 | `cache.stale-if-error.expired` / `cache.recovered` | The failure allowance prevents serving data / an actual failure has cleared. Ordinary confirmations do not log recovery. |
 | `stream.initialize.timeout` / `poll.initialize.timeout` | Startup reached its deadline; `hasData` and `startupFallback` show whether cached fallback is available. |
 
@@ -239,3 +239,9 @@ Logging is off by default. The logger checks `DEBUG` on each call; removing the
 namespace disables client diagnostics, including for existing clients. Diagnostics
 are verbose, including an event for each read, and event names/fields are internal
 rather than a stable API. Configure your log collector to include `console.debug` output.
+
+## Documentation
+
+- [Core Library Docs](https://vercel.com/docs/flags/vercel-flags/sdks/core)
+- [OpenFeature Provider Docs](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)
+- [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
