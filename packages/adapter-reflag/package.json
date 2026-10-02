@@ -45,6 +45,7 @@
     "build": "rimraf dist && tsup",
     "dev": "tsup --watch --clean=false",
     "check": "biome check",
+    "test": "vitest --run",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

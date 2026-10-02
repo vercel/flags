@@ -18,6 +18,8 @@ type AdapterResponse = {
 
 let defaultReflagAdapter: ReturnType<typeof createReflagAdapter> | undefined;
 
+const dashboardUrl = 'https://app.reflag.com';
+
 function assertEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -48,6 +50,7 @@ export function createReflagAdapter(
 
   function isEnabled(options?: AdapterOptions): Adapter<boolean, Context> {
     return {
+      origin: dashboardUrl,
       async decide({ key, entities }): Promise<boolean> {
         await initialize();
 
@@ -141,11 +144,12 @@ export async function getProviderData({
   return {
     definitions: features.reduce<FlagDefinitionsType>((acc, item) => {
       acc[item.key] = {
+        origin: dashboardUrl,
         options: [
           { label: 'Disabled', value: false },
           { label: 'Enabled', value: true },
         ],
-        description: item.description ?? undefined,
+        ...(item.description == null ? {} : { description: item.description }),
       };
       return acc;
     }, {}),
