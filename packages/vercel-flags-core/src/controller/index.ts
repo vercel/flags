@@ -538,8 +538,9 @@ export class Controller implements ControllerInterface {
     }
 
     if (this.state === 'degraded' && this.streamExhausted) {
-      // No live source remains, so reads revalidate over HTTP on the stream's schedule.
-      return { assess: this.streamSource.assess };
+      // No live source remains to recover from a failure, so reads revalidate
+      // over HTTP on the stream's schedule, including after a failed refresh.
+      return { assess: this.streamSource.assess, retryOnFailure: true };
     }
 
     // Startup and reconnects in progress: serve cached data until the source confirms it.
