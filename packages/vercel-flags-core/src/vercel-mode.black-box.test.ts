@@ -436,8 +436,8 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: {
         source: 'remote',
-        // Polling judges the 33-second-old entry fresh; a connecting stream has no verdict yet.
-        cacheStatus: mode === 'polling' ? 'HIT' : 'STALE',
+        // Both schedules judge the 33-second-old entry fresh, so nothing revalidates it.
+        cacheStatus: 'HIT',
       },
     });
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
@@ -578,7 +578,8 @@ describe('Vercel mode (black-box)', () => {
     setVersion(undefined);
     const reading = instance.evaluate('feature');
     await vi.advanceTimersByTimeAsync(3_000);
-    // The cache is served while the stream keeps connecting; polling does not start.
+    // The cache is served while the stream keeps connecting; polling does not
+    // start, and the unconfirmed seed is revalidated once in the background.
     expect(await reading).toMatchObject({
       value: false,
       metrics: { mode: 'offline', cacheStatus: 'STALE' },
@@ -594,7 +595,7 @@ describe('Vercel mode (black-box)', () => {
       metrics: { mode: 'streaming', cacheStatus: 'HIT' },
     });
     expect(streamFetch).toHaveBeenCalledTimes(1);
-    expect(dataFetch).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([

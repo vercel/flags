@@ -121,8 +121,11 @@ cannot be resolved. A stream startup timeout keeps connecting in the background 
 polling. Whenever polling starts, reads wait for the first poll or `polling.initTimeoutMs`;
 on timeout, reads follow `staleIfError` while polling continues at the configured
 interval. A zero initialization timeout waits for the poll, which still has a ten-second
-fetch deadline. If the stream gives up and polling is disabled, reads revalidate over
-HTTP on the streaming schedule below. `getFallbackDatafile()` remains an independent
+fetch deadline. Polling gives up on a 401 as well. Whenever no live source is active,
+because the stream is reconnecting or the stream or polling gave up, reads apply
+stale-while-revalidate over HTTP on the schedule below: the streaming windows when
+streaming is enabled, otherwise the polling windows. Data without a known age is
+revalidated like stale data in that case. `getFallbackDatafile()` remains an independent
 bundled-data export.
 
 **Cached definitions now expire by age.** Streaming data is fresh for 60 seconds after
@@ -133,7 +136,8 @@ evaluations and `getDatafile()` calls serve it and refresh over HTTP in the back
 Once that window passes, the data is expired and reads wait for the shared refresh.
 `staleWhileRevalidate: 0` makes reads block as soon as the fresh window ends. Data
 without a known age, such as a provided datafile without `fetchedAt`, is served until the
-source first confirms it. Refresh failures still follow `staleIfError`.
+active source first confirms it; without a live source it is revalidated like stale data.
+Refresh failures still follow `staleIfError`.
 
 Accepted updates, source responses, and valid confirmations reset cache age without
 rewriting `fetchedAt`. Stream pings also reset age and clear any failure. Poll errors

@@ -48,6 +48,11 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     return STREAM_FRESH_MS + this.options.staleWhileRevalidateMs;
   }
 
+  /** The connection loop is connecting or connected; false once it gave up or was stopped. */
+  get active(): boolean {
+    return this.abortController !== undefined;
+  }
+
   assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
     if (ageMs === Infinity) {
       // Nothing has confirmed this entry yet; keep serving it until the stream does.
