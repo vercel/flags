@@ -33,9 +33,24 @@ const UNKNOWN_FRESHNESS: CacheReadPolicy = {
   assess: () => ({ status: 'unknown' }),
 };
 
+function isUnauthorizedError(error: unknown): boolean {
+  if (error instanceof UnauthorizedError) {
+    return true;
+  }
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return (
+    error.message.includes('401') || ('status' in error && error.status === 401)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
+
+/** How a stream startup attempt ended; `connecting` keeps trying in the background. */
+type StreamStartup = 'connected' | 'connecting' | 'failed';
 
 /**
  * Explicit states for the controller state machine.
@@ -70,10 +85,11 @@ type State =
  * - Streams exclusively; a startup timeout keeps connecting in the background
  * - Retains provided/bundled data during startup; fetches if the cache remains empty
  * - Stale reads refresh in the background; expired reads wait for refresh
- * - Polling starts only once the stream gives up (retries exhausted or 401)
+ * - Polling starts only once the stream gives up (retries exhausted, 401, or token failure)
+ * - Without a live source (`degraded`), reads apply stale-while-revalidate over HTTP
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
- * - Uses polling exclusively
+ * - Uses polling exclusively; a 401 stops polling and reads revalidate over HTTP
  * - Same fallback chains as streaming mode
  *
  * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
@@ -107,8 +123,8 @@ export class Controller implements ControllerInterface {
   private bundledSource: BundledSource;
   private headerSource: HeaderSource;
   private sourceStartup: Promise<void> | undefined;
-  // The stream gave up for good; polling (if enabled) or HTTP reads take over.
-  private streamExhausted = false;
+  // Read policy while no live source confirms the cache; derived once from the options.
+  private readonly degradedReadPolicy: CacheReadPolicy;
 
   // Usage tracking
   private usageTracker: UsageTracker;
@@ -153,6 +169,7 @@ export class Controller implements ControllerInterface {
       refresh: () => this.cache.refresh('poll'),
     });
     this.headerSource = new HeaderSource(this.options);
+    this.degradedReadPolicy = this.createDegradedReadPolicy();
 
     this.bundledSource = new BundledSource({
       auth: this.options.auth,
@@ -200,8 +217,10 @@ export class Controller implements ControllerInterface {
     }
   };
   private onStreamExhausted = () => {
-    this.streamExhausted = true;
-    if (this.isShutdown) {
+    // Startup handles a stream that gives up before it connects. Later the
+    // client is streaming (silent reconnects) or degraded (after a disconnect),
+    // and the source chain continues with polling or HTTP revalidation.
+    if (this.state !== 'streaming' && this.state !== 'degraded') {
       return;
     }
     // Reads can await this shared startup, but the event handler has no caller.
@@ -211,6 +230,15 @@ export class Controller implements ControllerInterface {
   private onSourceError = (error: Error) => {
     this.noteUnauthorized(error);
     this.cache.fail(error);
+  };
+  private onPollingError = (error: Error) => {
+    this.onSourceError(error);
+    // Polling again will not fix a rejected credential. Give up like the
+    // stream does; degraded reads revalidate over HTTP once it is fixed.
+    if (this.state === 'polling' && isUnauthorizedError(error)) {
+      this.pollingSource.stop();
+      this.transition('degraded');
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -225,7 +253,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.on('disconnected', this.onStreamDisconnected);
     this.streamSource.on('exhausted', this.onStreamExhausted);
     this.streamSource.on('error', this.onSourceError);
-    this.pollingSource.on('error', this.onSourceError);
+    this.pollingSource.on('error', this.onPollingError);
   }
 
   private unwireSourceEvents(): void {
@@ -236,7 +264,7 @@ export class Controller implements ControllerInterface {
     this.streamSource.off('disconnected', this.onStreamDisconnected);
     this.streamSource.off('exhausted', this.onStreamExhausted);
     this.streamSource.off('error', this.onSourceError);
-    this.pollingSource.off('error', this.onSourceError);
+    this.pollingSource.off('error', this.onPollingError);
   }
 
   // ---------------------------------------------------------------------------
@@ -293,7 +321,6 @@ export class Controller implements ControllerInterface {
     if (this.isShutdown) {
       // Reinitialization after shutdown rewires the sources it stopped.
       this.wireSourceEvents();
-      this.streamExhausted = false;
       this.transition('idle');
     }
 
@@ -537,14 +564,40 @@ export class Controller implements ControllerInterface {
       return { assess: this.pollingSource.assess };
     }
 
-    if (this.state === 'degraded' && this.streamExhausted) {
-      // No live source remains to recover from a failure, so reads revalidate
-      // over HTTP on the stream's schedule, including after a failed refresh.
-      return { assess: this.streamSource.assess, retryOnFailure: true };
+    if (this.state === 'degraded') {
+      return this.degradedReadPolicy;
     }
 
-    // Startup and reconnects in progress: serve cached data until the source confirms it.
+    // Startup in progress: serve cached data until the source confirms it.
     return UNKNOWN_FRESHNESS;
+  }
+
+  /**
+   * Without a live source, reads apply stale-while-revalidate over HTTP on the
+   * configured source's schedule, including recovery after a failed refresh.
+   * Nothing will confirm an entry of unknown age here, so it revalidates like
+   * stale data. Offline clients have no source to follow and never refresh.
+   */
+  private createDegradedReadPolicy(): CacheReadPolicy {
+    let schedule: Pick<StreamSource, 'assess'> | undefined;
+    if (this.options.stream.enabled) {
+      schedule = this.streamSource;
+    } else if (this.options.polling.enabled) {
+      schedule = this.pollingSource;
+    }
+    if (!schedule) {
+      return UNKNOWN_FRESHNESS;
+    }
+    const source = schedule;
+    return {
+      assess: (metadata) => {
+        if (metadata.ageMs === Infinity) {
+          return { status: 'stale' };
+        }
+        return source.assess(metadata);
+      },
+      retryOnFailure: true,
+    };
   }
 
   /**
@@ -574,25 +627,27 @@ export class Controller implements ControllerInterface {
       this.options.stream.enabled
     ) {
       this.transition('initializing:stream');
-      this.streamExhausted = false;
-      const connected = await this.tryInitializeStream();
+      const outcome = await this.tryInitializeStream();
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');
       }
-      if (connected || this.isConnected) {
+      if (outcome === 'connected' || this.isConnected) {
         this.transition('streaming');
         return;
       }
-      if (!this.streamExhausted) {
+      if (outcome === 'connecting' && this.streamSource.active) {
         // The stream keeps connecting in the background; polling waits until it gives up.
         this.transition('degraded');
         return;
       }
     }
 
-    if (this.options.polling.enabled && this.state !== 'polling') {
-      this.transition('polling');
-      this.pollingSource.startInterval();
+    if (this.options.polling.enabled) {
+      // A retried initialization keeps the active polling source and waits for its poll again.
+      if (this.state !== 'polling') {
+        this.transition('polling');
+        this.pollingSource.startInterval();
+      }
       await this.initializePolling();
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');
@@ -608,17 +663,17 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Attempts to initialize via stream with timeout.
-   * Returns true if stream connected successfully within timeout.
+   * Attempts to initialize via stream with timeout. A timeout leaves the
+   * stream connecting in the background; a rejection means it gave up.
    */
-  private async tryInitializeStream(): Promise<boolean> {
+  private async tryInitializeStream(): Promise<StreamStartup> {
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
         await this.streamSource.start();
-        return true;
+        return 'connected';
       } catch (error) {
         this.noteUnauthorized(error);
-        return false;
+        return 'failed';
       }
     }
 
@@ -645,15 +700,17 @@ export class Controller implements ControllerInterface {
         // Don't stop stream - let it continue trying in background.
         // Swallow the rejection from the background stream promise to
         // avoid unhandled promise rejections when it is eventually aborted.
-        void this.streamSource.start().catch(() => {});
-        return false;
+        if (this.streamSource.active) {
+          void this.streamSource.start().catch(() => {});
+        }
+        return 'connecting';
       }
 
-      return true;
+      return 'connected';
     } catch (error) {
       clearTimeout(timeoutId!);
       this.noteUnauthorized(error);
-      return false;
+      return 'failed';
     }
   }
 
@@ -699,12 +756,7 @@ export class Controller implements ControllerInterface {
   }
 
   private noteUnauthorized(error: unknown): void {
-    if (
-      error instanceof UnauthorizedError ||
-      (error instanceof Error &&
-        (error.message.includes('401') ||
-          ('status' in error && error.status === 401)))
-    ) {
+    if (isUnauthorizedError(error)) {
       this.unauthorized = true;
     }
   }

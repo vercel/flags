@@ -238,9 +238,16 @@ describe('stream stale-if-error through the public API', () => {
     stream.fail(failure);
     await vi.advanceTimersByTimeAsync(70_000);
     expect(await instance.evaluate('flagA')).toMatchObject({ value: true });
+    await vi.advanceTimersByTimeAsync(0);
     expect((await instance.getDatafile()).definitions).toBe(
       snapshot.definitions,
     );
+    await vi.advanceTimersByTimeAsync(0);
+    // Each degraded read revalidates the stale entry over HTTP. The attempts
+    // fail and are logged while the unlimited allowance keeps serving the cache.
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    errorSpy.mockClear();
     expectRequests(['0', '1', '2', '3', '4', '5', '6', '7']);
   });
 
@@ -553,13 +560,18 @@ describe('stream stale-if-error through the public API', () => {
     expect(initialized).toHaveBeenCalledOnce();
     expectInitTimeout();
     await vi.advanceTimersByTimeAsync(9_999);
+    // Pings before the first datafile do not confirm the seed, so the degraded
+    // read revalidates it once in the background. A same-version response
+    // confirms the cache without replacing it or starting the allowance.
+    dataFetch.mockResolvedValueOnce(Response.json(data()));
     expect((await instance.evaluate('flagA')).value).toBe(true);
-    // The stream keeps connecting; cached reads neither poll nor refresh over HTTP.
-    expect(waitUntil).not.toHaveBeenCalled();
-    expect(dataFetch).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
     expect((await instance.getDatafile()).definitions).toBe(
       supplied.definitions,
     );
+    expect(dataFetch).toHaveBeenCalledTimes(1);
     const reconnect = mockStream();
     streamFetch.mockResolvedValueOnce(reconnect.response);
     const failure = new Error('late stream failure');

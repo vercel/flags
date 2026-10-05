@@ -1064,11 +1064,17 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
-      expect(errorSpy).not.toHaveBeenCalled();
+      // Polling gave up on the 401 as well, so the read revalidates the
+      // unconfirmed bundled entry once in the background and logs the failure.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Revalidation failed:',
+        expect.objectContaining({ status: 401 }),
+      );
       errorSpy.mockRestore();
 
-      // One stream call and one immediate fallback poll; neither retries a 401
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // One stream call, one immediate fallback poll, one read revalidation; none retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1083,7 +1089,7 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1095,8 +1101,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // Still only the stream and immediate poll, with no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // Still only the stream, the poll, and the revalidation, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1500,17 +1506,18 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // The stream keeps connecting in the background; polling never starts.
-      expect(pollCount).toBe(0);
+      // The stream keeps connecting in the background; polling never starts, but
+      // the read revalidates the unconfirmed bundled entry once over HTTP.
+      expect(pollCount).toBe(1);
 
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
       );
       warnSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      await client.shutdown();
       expect(fetchMock).toHaveBeenCalledTimes(2);
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -1593,8 +1600,9 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // The stream is still retrying, so polling has not taken over.
-      expect(pollCount).toBe(0);
+      // The stream is still retrying, so polling has not taken over; the read
+      // revalidates the unconfirmed bundled entry once over HTTP.
+      expect(pollCount).toBe(1);
 
       expect(errorSpy).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledExactlyOnceWith(

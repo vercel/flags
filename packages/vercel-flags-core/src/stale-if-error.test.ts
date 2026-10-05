@@ -634,7 +634,8 @@ describe('polling stale-if-error through the public API', () => {
     await expect(instance.getDatafile()).rejects.toThrow(
       'stream: unauthorized (401)',
     );
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Polling gave up on its 401; each degraded read then attempts HTTP recovery.
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(poll).not.toHaveBeenCalled();
   });
 

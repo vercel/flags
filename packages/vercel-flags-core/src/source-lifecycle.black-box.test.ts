@@ -327,7 +327,8 @@ it('keeps reconnecting without polling when the replacement stream returns 503',
   await initial;
   await vi.advanceTimersByTimeAsync(90_001);
   expect(streamFetch).toHaveBeenCalledTimes(2);
-  // The failed replacement is retried with backoff; the cache is served meanwhile.
+  // The failed replacement is retried with backoff; the expired cache is served
+  // meanwhile and revalidated once over HTTP.
   expect(await instance.evaluate('feature')).toMatchObject({
     value: true,
     metrics: { mode: 'offline', cacheStatus: 'STALE' },
@@ -341,7 +342,7 @@ it('keeps reconnecting without polling when the replacement stream returns 503',
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
   await vi.advanceTimersByTimeAsync(30_000);
-  expect(dataFetch).not.toHaveBeenCalled();
+  expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
 it('revalidates over HTTP once the stream gives up and polling is disabled', async () => {
@@ -666,4 +667,74 @@ it.each([
     metrics: { cacheStatus: 'MISS' },
   });
   expect(dataFetch).toHaveBeenCalledTimes(initialRequests + 1);
+});
+
+it('revalidates unconfirmed data over HTTP once the stream gives up and polling is disabled', async () => {
+  // The provided definitions carry no fetchedAt, so nothing knows their age.
+  streamFetch.mockResolvedValue(new Response(null, { status: 401 }));
+  dataFetch.mockResolvedValue(Response.json(data(2, false)));
+  const instance = client({ polling: false });
+  // Startup fails on the 401 and no live source remains. The read serves the
+  // seed and revalidates it in the background instead of trusting it forever.
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: false,
+    metrics: { mode: 'offline', cacheStatus: 'HIT' },
+  });
+  expect(streamFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+});
+
+it('keeps polling when initialization is retried after the first poll fails', async () => {
+  const instance = client({
+    stream: false,
+    datafile: undefined,
+    polling: { intervalMs: 30_000, initTimeoutMs: 3_000 },
+  });
+  dataFetch.mockResolvedValueOnce(new Response(null, { status: 403 }));
+  await expect(instance.initialize()).rejects.toThrow('Failed to fetch data');
+  // The polling source stays active; retrying only waits for its next poll.
+  await instance.initialize();
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+  });
+  expect(dataFetch).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(3);
+  expect((await instance.evaluate('feature')).metrics?.mode).toBe('polling');
+});
+
+it('stops polling after a 401 and revalidates over HTTP once the cache is stale', async () => {
+  const instance = client({
+    stream: false,
+    polling: { intervalMs: 30_000, initTimeoutMs: 3_000 },
+  });
+  expect((await instance.evaluate('feature')).metrics?.mode).toBe('polling');
+  dataFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
+  await vi.advanceTimersByTimeAsync(30_000);
+  // Polling gave up; the still-fresh cache is served without further polls.
+  expect(dataFetch).toHaveBeenCalledTimes(2);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(2);
+  // Past the polling schedule the read revalidates the entry over HTTP itself.
+  dataFetch.mockResolvedValueOnce(Response.json(data(2, false)));
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: false,
+    metrics: { mode: 'offline', cacheStatus: 'HIT' },
+  });
+  expect(dataFetch).toHaveBeenCalledTimes(3);
 });
