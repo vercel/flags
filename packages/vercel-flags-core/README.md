@@ -122,10 +122,11 @@ polling. Whenever polling starts, reads wait for the first poll or `polling.init
 on timeout, reads follow `staleIfError` while polling continues at the configured
 interval. A zero initialization timeout waits for the poll, which still has a ten-second
 fetch deadline. Polling gives up on a 401 as well. Whenever no live source is active,
-because the stream is reconnecting or the stream or polling gave up, reads apply
-stale-while-revalidate over HTTP on the schedule below: the streaming windows when
-streaming is enabled, otherwise the polling windows. Data without a known age is
-revalidated like stale data in that case. `getFallbackDatafile()` remains an independent
+because the stream is reconnecting or the stream or polling gave up, reads apply plain
+stale-while-revalidate over HTTP: data refreshed within `staleWhileRevalidate` is served
+as is, older data is served while a background refresh runs, and data older than
+`staleWhileRevalidate` plus `staleIfError` waits for the refresh. Data without a known
+age refreshes in the background. `getFallbackDatafile()` remains an independent
 bundled-data export.
 
 **Cached definitions now expire by age.** Streaming data is fresh for 60 seconds after
