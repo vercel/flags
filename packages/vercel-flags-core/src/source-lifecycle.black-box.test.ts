@@ -368,9 +368,15 @@ it('revalidates over HTTP once the stream gives up and polling is disabled', asy
     value: false,
     metrics: { mode: 'offline', cacheStatus: 'HIT' },
   });
-  await vi.advanceTimersByTimeAsync(60_000);
+  // The refreshed entry is fresh for staleWhileRevalidate, then revalidates again.
+  await vi.advanceTimersByTimeAsync(10_000);
   expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe('HIT');
   expect(dataFetch).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1);
+  expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+    'STALE',
+  );
+  expect(dataFetch).toHaveBeenCalledTimes(2);
   expect(streamFetch).toHaveBeenCalledTimes(2);
 });
 
@@ -717,15 +723,9 @@ it('stops polling after a 401 and revalidates over HTTP once the cache is stale'
   expect((await instance.evaluate('feature')).metrics?.mode).toBe('polling');
   dataFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
   await vi.advanceTimersByTimeAsync(30_000);
-  // Polling gave up; the still-fresh cache is served without further polls.
+  // Polling gave up. The 30-second-old entry is stale, so the read serves it
+  // and revalidates over HTTP itself instead of waiting for another poll.
   expect(dataFetch).toHaveBeenCalledTimes(2);
-  expect(await instance.evaluate('feature')).toMatchObject({
-    value: true,
-    metrics: { mode: 'offline', cacheStatus: 'STALE' },
-  });
-  await vi.advanceTimersByTimeAsync(30_000);
-  expect(dataFetch).toHaveBeenCalledTimes(2);
-  // Past the polling schedule the read revalidates the entry over HTTP itself.
   dataFetch.mockResolvedValueOnce(Response.json(data(2, false)));
   expect(await instance.evaluate('feature')).toMatchObject({
     value: true,
@@ -737,4 +737,36 @@ it('stops polling after a 401 and revalidates over HTTP once the cache is stale'
     metrics: { mode: 'offline', cacheStatus: 'HIT' },
   });
   expect(dataFetch).toHaveBeenCalledTimes(3);
+  // The interval no longer runs.
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).toHaveBeenCalledTimes(3);
+});
+
+it('waits for the refresh when degraded data is older than staleWhileRevalidate plus staleIfError', async () => {
+  const live = stream();
+  streamFetch.mockResolvedValueOnce(live.response);
+  const pending = deferred<Response>();
+  dataFetch.mockReturnValueOnce(pending.promise);
+  const instance = client({
+    polling: false,
+    staleIfError: 30,
+    datafile: { ...data(), fetchedAt: now - 100_000 },
+  });
+  const reading = instance.evaluate('feature');
+  const settled = vi.fn();
+  void reading.then(settled, settled);
+  await vi.advanceTimersByTimeAsync(3_000);
+  expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+    '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+  );
+  warnSpy.mockClear();
+  // The entry is 103 seconds old, beyond the 40-second allowance, so the read
+  // waits for HTTP instead of serving it while the stream keeps connecting.
+  expect(settled).not.toHaveBeenCalled();
+  expect(dataFetch).toHaveBeenCalledTimes(1);
+  pending.resolve(Response.json(data(2, false)));
+  expect(await reading).toMatchObject({
+    value: false,
+    metrics: { mode: 'offline', cacheStatus: 'MISS' },
+  });
 });

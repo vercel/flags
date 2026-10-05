@@ -172,10 +172,11 @@ Key behaviors:
 - **Never stream AND poll simultaneously**
 - `degraded` means no live source is active: the stream is reconnecting after a startup
   timeout or disconnect, the stream gave up with polling disabled, polling gave up on a
-  401, or the client is offline with data. Degraded reads apply stale-while-revalidate
-  over HTTP (`retryOnFailure`) on the configured source's windows (stream when streaming
-  is enabled, otherwise polling); an unknown age is treated as stale because nothing else
-  will confirm it. Offline clients keep the `unknown` policy and never refresh.
+  401, or the client is offline with data. Degraded reads apply plain stale-while-revalidate
+  over HTTP (`retryOnFailure`) from the public windows only: fresh within
+  `staleWhileRevalidateMs`, stale (background refresh) until `staleWhileRevalidateMs +
+  staleIfErrorMs`, expired (blocking refresh) beyond that. An unknown age is stale because
+  nothing else will confirm it. Offline clients keep the `unknown` policy and never refresh.
 - Polling starts only when the stream gives up for good (`exhausted` event: retries
   exhausted, 401, or token failure). During startup `tryInitializeStream()` reports
   `failed` and the source chain moves on; afterwards the detached handler calls

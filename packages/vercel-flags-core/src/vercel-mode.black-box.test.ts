@@ -421,6 +421,9 @@ describe('Vercel mode (black-box)', () => {
     const pendingPoll = deferred<Response>();
     if (mode === 'polling') {
       dataFetch.mockReturnValueOnce(pendingPoll.promise);
+    } else {
+      // The degraded read revalidates the stale entry in the background.
+      mockDatafileResponse(TIMESTAMP + 1, true);
     }
     setVersion(undefined);
     const reading = instance.evaluate('feature');
@@ -436,8 +439,9 @@ describe('Vercel mode (black-box)', () => {
       value: true,
       metrics: {
         source: 'remote',
-        // Both schedules judge the 33-second-old entry fresh, so nothing revalidates it.
-        cacheStatus: 'HIT',
+        // Polling judges the 33-second-old entry fresh. With staleWhileRevalidate 0,
+        // the connecting stream's degraded read serves it stale and revalidates it.
+        cacheStatus: mode === 'polling' ? 'HIT' : 'STALE',
       },
     });
     expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
@@ -453,7 +457,7 @@ describe('Vercel mode (black-box)', () => {
       seed === 'bundled' ? 1 : 0,
     );
     expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 2 : 1);
+    expect(dataFetch).toHaveBeenCalledTimes(2);
 
     // A later source update must replace the cache, not reuse a completed fallback result.
     setVersion(TIMESTAMP + 100);
@@ -468,7 +472,7 @@ describe('Vercel mode (black-box)', () => {
       value: false,
       metrics: { mode, cacheStatus: 'HIT' },
     });
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 1);
+    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 3 : 2);
   });
 
   it('retries a failed cold fetch on the next read without switching sources', async () => {

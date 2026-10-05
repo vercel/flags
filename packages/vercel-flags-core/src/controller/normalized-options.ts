@@ -73,7 +73,8 @@ export type ControllerOptions = {
    * Zero disables fallback immediately; positive windows include the deadline.
    * Any successful source response, or a matching stream primed revision, resets the
    * allowance. A routine stream reconnect takes about a second, so keep this above
-   * the reconnect delay. Applies to evaluations and getDatafile().
+   * the reconnect delay. Applies to evaluations and getDatafile(). Without a live
+   * source, data older than staleWhileRevalidate plus this window waits for a refresh.
    * Build/offline behavior is unchanged.
    * @default Infinity
    */

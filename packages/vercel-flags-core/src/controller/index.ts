@@ -573,28 +573,29 @@ export class Controller implements ControllerInterface {
   }
 
   /**
-   * Without a live source, reads apply stale-while-revalidate over HTTP on the
-   * configured source's schedule, including recovery after a failed refresh.
-   * Nothing will confirm an entry of unknown age here, so it revalidates like
-   * stale data. Offline clients have no source to follow and never refresh.
+   * Without a live source nothing confirms the cache, so reads apply plain
+   * stale-while-revalidate over HTTP from the two public windows: data
+   * refreshed within `staleWhileRevalidateMs` is served as is, older data is
+   * served while refreshing in the background, and data older than that
+   * window plus `staleIfErrorMs` is expired and waits for the refresh. An
+   * unknown age is not known to be old, so it refreshes in the background.
+   * Offline clients never refresh.
    */
   private createDegradedReadPolicy(): CacheReadPolicy {
-    let schedule: Pick<StreamSource, 'assess'> | undefined;
-    if (this.options.stream.enabled) {
-      schedule = this.streamSource;
-    } else if (this.options.polling.enabled) {
-      schedule = this.pollingSource;
-    }
-    if (!schedule) {
+    if (!this.options.stream.enabled && !this.options.polling.enabled) {
       return UNKNOWN_FRESHNESS;
     }
-    const source = schedule;
+    const { staleWhileRevalidateMs, staleIfErrorMs } = this.options;
+    const expiresAfterMs = staleWhileRevalidateMs + staleIfErrorMs;
     return {
-      assess: (metadata) => {
-        if (metadata.ageMs === Infinity) {
+      assess: ({ ageMs }) => {
+        if (ageMs <= staleWhileRevalidateMs) {
+          return { status: 'fresh' };
+        }
+        if (ageMs === Infinity || ageMs <= expiresAfterMs) {
           return { status: 'stale' };
         }
-        return source.assess(metadata);
+        return { status: 'expired' };
       },
       retryOnFailure: true,
     };
