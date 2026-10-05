@@ -506,14 +506,16 @@ export class Controller implements ControllerInterface {
     const startTime = Date.now();
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveSnapshot().catch((error) => {
-      debug(
-        this.options.clientName,
-        'client.getDatafile.failed',
-        this.debugState,
-      );
-      throw error;
-    });
+    const [result, cacheStatus] = await this.resolveSnapshot().catch(
+      (error) => {
+        debug(
+          this.options.clientName,
+          'client.getDatafile.failed',
+          this.debugState,
+        );
+        throw error;
+      },
+    );
 
     const datafile = this.toDatafile(result, cacheStatus, startTime);
     debug(this.options.clientName, 'client.getDatafile', () => ({
