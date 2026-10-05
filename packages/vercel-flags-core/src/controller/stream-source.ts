@@ -78,8 +78,8 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
 
     debug(this.options.clientName, 'stream.start', () => ({
       revision: this.revision(),
-      staleAfterMs: (PING_TIMEOUT_MS * 2) / 3,
-      expiresAfterMs: PING_TIMEOUT_MS,
+      staleAfterMs: this.staleAfterMs,
+      expiresAfterMs: this.expiresAfterMs,
     }));
     const abortController = new AbortController();
     this.abortController = abortController;
