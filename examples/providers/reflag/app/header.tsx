@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'REFLAG_SECRET_KEY,FLAGS_SECRET',
   envDescription:
-    'FLAGS_SECRET secures Flags Explorer and must be 32 random bytes, encoded as Base64url. REFLAG_SECRET_KEY is the server-side secret key for your Reflag environment.',
+    'This example uses the automatically generated FLAGS_SECRET for Flags Explorer. REFLAG_SECRET_KEY is the server-side secret key for your Reflag environment.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-reflag',
   'repository-name': 'flags-sdk-reflag',

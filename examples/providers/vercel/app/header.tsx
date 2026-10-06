@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'FLAGS_SECRET',
   envDescription:
-    'FLAGS_SECRET secures Flags Explorer. Set FLAGS_SECRET to 32 random bytes, encoded as Base64url.',
+    'This example uses the automatically generated FLAGS_SECRET for Flags Explorer.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-vercel',
   'repository-name': 'flags-sdk-vercel',
