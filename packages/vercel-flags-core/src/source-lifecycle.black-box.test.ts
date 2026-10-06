@@ -236,8 +236,8 @@ it.each([
   await vi.advanceTimersByTimeAsync(30_000);
   expect(dataFetch).not.toHaveBeenCalled();
 
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
+  // Expired reads wait for the young replacement connection instead of
+  // dropping it or fetching over HTTP.
   const settled = vi.fn();
   const snapshotRead = instance.getDatafile();
   const reading = instance.evaluate('feature').then((result) => {
@@ -245,8 +245,8 @@ it.each([
     return result;
   });
   await vi.advanceTimersByTimeAsync(0);
-  expect(dataFetch).toHaveBeenCalledTimes(1);
   expect(settled).not.toHaveBeenCalled();
+  expect(streamFetch).toHaveBeenCalledTimes(2);
   second.push({
     type: 'primed',
     revision: 2,
@@ -261,11 +261,8 @@ it.each([
     fetchedAt: snapshot.fetchedAt,
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
-  expect(dataFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
-  expect((await instance.getDatafile()).fetchedAt).toBe(snapshot.fetchedAt);
-  pending.resolve(Response.json(data(1, false)));
-  await vi.advanceTimersByTimeAsync(0);
   expect((await instance.getDatafile()).configUpdatedAt).toBe(2);
+  expect(dataFetch).not.toHaveBeenCalled();
 });
 
 it('keeps a watchdog on silent replacement streams without starting polling', async () => {
@@ -283,12 +280,16 @@ it('keeps a watchdog on silent replacement streams without starting polling', as
   expect(streamFetch).toHaveBeenCalledTimes(3);
   expect(streamFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
   expect(dataFetch).not.toHaveBeenCalled();
-  dataFetch.mockResolvedValueOnce(Response.json(data(2)));
-  expect(await instance.getDatafile()).toMatchObject({
+  // The expired snapshot waits for the silent replacement up to the fetch
+  // deadline, then serves the cache; no HTTP request is started.
+  const snapshot = instance.getDatafile();
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(await snapshot).toMatchObject({
     fetchedAt: now,
-    metrics: { mode: 'streaming', cacheStatus: 'MISS' },
+    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
   });
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
+  expect(streamFetch).toHaveBeenCalledTimes(3);
 });
 
 it('falls back to polling when the replacement stream returns 401', async () => {
@@ -554,16 +555,17 @@ it.each([
     },
     false,
   ],
-] as const)('only supersedes a pending refresh with valid stream evidence: %s', async (_kind, message, confirms) => {
+] as const)('settles an expired read through the stream, confirming only on valid evidence: %s', async (_kind, message, confirms) => {
   const live = stream();
-  streamFetch.mockResolvedValueOnce(live.response);
+  const replacement = stream();
+  streamFetch
+    .mockResolvedValueOnce(live.response)
+    .mockResolvedValueOnce(replacement.response);
   const instance = client({ polling: false, staleIfError: 0 });
   const initial = instance.evaluate('feature');
   live.push({ type: 'datafile', data: data(2) });
   await initial;
 
-  const pending = deferred<Response>();
-  dataFetch.mockReturnValueOnce(pending.promise);
   vi.setSystemTime(now + 90_001);
   const settled = vi.fn();
   const reading = instance.evaluate('feature').then((result) => {
@@ -571,32 +573,20 @@ it.each([
     return result;
   });
   await vi.advanceTimersByTimeAsync(0);
+  // The overdue connection is dropped and the read waits for the replacement.
   expect(settled).not.toHaveBeenCalled();
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  const signal = dataFetch.mock.calls[0]?.[1]?.signal;
+  expect(streamFetch).toHaveBeenCalledTimes(2);
+  expect(streamFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  expect(dataFetch).not.toHaveBeenCalled();
 
-  live.push(message);
+  replacement.push(message);
   await vi.advanceTimersByTimeAsync(0);
-  expect(signal?.aborted).toBe(confirms);
-  if (confirms) {
-    expect(settled).toHaveBeenCalledTimes(1);
-    expect(await reading).toMatchObject({
-      value: true,
-      metrics: { cacheStatus: 'HIT' },
-    });
-    pending.resolve(new Response(null, { status: 401 }));
-    await vi.advanceTimersByTimeAsync(0);
-    expect((await instance.evaluate('feature')).value).toBe(true);
-  } else {
-    expect(settled).not.toHaveBeenCalled();
-    pending.resolve(Response.json(data(3, false)));
-    expect(await reading).toMatchObject({
-      value: false,
-      metrics: { cacheStatus: 'MISS' },
-    });
-    expect(signal?.aborted).toBe(false);
-  }
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(settled).toHaveBeenCalledTimes(1);
+  expect(await reading).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: confirms ? 'HIT' : 'STALE' },
+  });
+  expect(dataFetch).not.toHaveBeenCalled();
 });
 
 it('does not restart polling after shutdown during missing-header stream startup', async () => {
@@ -620,25 +610,17 @@ it('does not restart polling after shutdown during missing-header stream startup
 });
 
 it.each([
-  ['streaming', 30_000, 10, 60_000, 70_000],
-  ['streaming', 30_000, 0, 60_000, 60_000],
-  ['polling', 30_000, 10, 40_000, 50_000],
-  ['polling', 45_000, 5, 55_000, 60_000],
-] as const)('uses background then blocking refresh for %s at interval %i with staleWhileRevalidate %i', async (mode, intervalMs, staleWhileRevalidate, staleAt, expiresAt) => {
-  const live = stream();
-  streamFetch.mockResolvedValueOnce(live.response);
+  [30_000, 10, 40_000, 50_000],
+  [45_000, 5, 55_000, 60_000],
+] as const)('uses background then blocking HTTP refresh for polling at interval %i with staleWhileRevalidate %i', async (intervalMs, staleWhileRevalidate, staleAt, expiresAt) => {
   const instance = client({
-    stream: mode === 'streaming',
+    stream: false,
     polling: { intervalMs, initTimeoutMs: 3_000 },
-    // Scheduled sources extend their fresh window by this stale allowance.
+    // Polling extends its fresh window by this stale allowance.
     staleWhileRevalidate,
   });
-  const initial = instance.evaluate('feature');
-  if (mode === 'streaming') {
-    live.push({ type: 'datafile', data: data() });
-  }
-  await initial;
-  const initialRequests = mode === 'polling' ? 1 : 0;
+  await instance.evaluate('feature');
+  const initialRequests = 1;
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
 
@@ -673,6 +655,66 @@ it.each([
     metrics: { cacheStatus: 'MISS' },
   });
   expect(dataFetch).toHaveBeenCalledTimes(initialRequests + 1);
+});
+
+it.each([
+  10, 0,
+] as const)('revalidates through the stream instead of HTTP after a suspension with staleWhileRevalidate %i', async (staleWhileRevalidate) => {
+  const first = stream();
+  const second = stream();
+  streamFetch
+    .mockResolvedValueOnce(first.response)
+    .mockResolvedValueOnce(second.response);
+  const instance = client({ polling: false, staleWhileRevalidate });
+  const initial = instance.evaluate('feature');
+  first.push({ type: 'datafile', data: data(2) });
+  await initial;
+
+  // Wall-clock age advances without any source messages while suspended.
+  vi.setSystemTime(now + 60_000);
+  expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe('HIT');
+  if (staleWhileRevalidate > 0) {
+    // Stale: served at once; the stream owns the refresh, so no HTTP and no reconnect.
+    vi.setSystemTime(now + 60_001);
+    expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
+      'STALE',
+    );
+    expect((await instance.getDatafile()).metrics.cacheStatus).toBe('STALE');
+    expect(streamFetch).toHaveBeenCalledTimes(1);
+  }
+  expect(dataFetch).not.toHaveBeenCalled();
+
+  // Expired: the overdue connection is dropped and both reads share the wait
+  // for the replacement stream's first message.
+  vi.setSystemTime(now + 60_000 + staleWhileRevalidate * 1000 + 1);
+  const settled = vi.fn();
+  const reading = instance.evaluate('feature').then((result) => {
+    settled();
+    return result;
+  });
+  const snapshot = instance.getDatafile().then((result) => {
+    settled();
+    return result;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(settled).not.toHaveBeenCalled();
+  expect(streamFetch).toHaveBeenCalledTimes(2);
+  expect(dataFetch).not.toHaveBeenCalled();
+  second.push({
+    type: 'primed',
+    revision: 2,
+    projectId: 'prj_review',
+    environment: 'production',
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await reading).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
+  expect(await snapshot).toMatchObject({
+    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
+  });
+  expect(dataFetch).not.toHaveBeenCalled();
 });
 
 it('revalidates unconfirmed data over HTTP once the stream gives up and polling is disabled', async () => {

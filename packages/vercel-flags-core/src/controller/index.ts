@@ -84,7 +84,7 @@ type State =
  * **Runtime — streaming mode** (stream enabled):
  * - Streams exclusively; a startup timeout keeps connecting in the background
  * - Retains provided/bundled data during startup; fetches if the cache remains empty
- * - Stale reads refresh in the background; expired reads wait for refresh
+ * - Stale reads serve the cache; expired reads wait for the stream to confirm, never HTTP
  * - Polling starts only once the stream gives up (retries exhausted, 401, or token failure)
  * - Without a live source (`degraded`), reads apply stale-while-revalidate over HTTP
  *
@@ -557,7 +557,11 @@ export class Controller implements ControllerInterface {
     }
 
     if (this.state === 'streaming') {
-      return { assess: this.streamSource.assess };
+      // The stream owns refreshes: no HTTP work competes with a live connection.
+      return {
+        assess: this.streamSource.assess,
+        revalidate: () => this.streamSource.revalidate(),
+      };
     }
 
     if (this.state === 'polling') {

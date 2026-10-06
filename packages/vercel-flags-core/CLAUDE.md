@@ -391,9 +391,14 @@ It owns background/blocking decisions, `waitUntil`, shared revalidation, and can
 on clear. HeaderSource supplies small version/age checks; it does
 not read the cache. Header assessments return confirmation evidence explicitly; the
 cache applies it before enforcing stale-if-error, without a controller event round trip.
-HTTP results update the cache before the shared fetch promise settles. Stream/poll
-evaluations refresh stale data in the background and block on expired data, sharing
-scheduled HTTP work. New public time windows use seconds; internal normalized durations,
+HTTP results update the cache before the shared fetch promise settles. Polling
+evaluations refresh stale data over HTTP in the background and block on expired data,
+sharing scheduled HTTP work. Streaming evaluations start no HTTP work: stale reads serve
+the cache, and expired reads go through `CacheReadPolicy.revalidate`, which calls
+`StreamSource.revalidate()`. That drops a connection silent for over `STREAM_FRESH_MS`
+(a younger replacement is kept) and waits up to the fetch deadline for the next stream
+message; the read then serves whatever the cache holds, `HIT` once confirmed.
+New public time windows use seconds; internal normalized durations,
 cache age, and `fetchedAt` use milliseconds. Polling is fresh through its interval plus
 the 10-second fetch deadline; streaming is fresh through 60 seconds (`STREAM_FRESH_MS`).
 Both then stay stale for `staleWhileRevalidateMs` before expiring, and both report an

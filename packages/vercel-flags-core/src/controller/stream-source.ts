@@ -1,5 +1,6 @@
 import type { DatafileInput } from '../types';
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
+import { DEFAULT_FETCH_TIMEOUT_MS } from './fetch-datafile';
 import type { NormalizedOptions } from './normalized-options';
 import {
   connectStream,
@@ -31,6 +32,11 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   private revision: () => number | undefined;
   private abortController: AbortController | undefined;
   private promise: Promise<void> | undefined;
+  private reconnect: (() => void) | undefined;
+  private connectionStartedAt = 0;
+  private revalidation:
+    | { promise: Promise<void>; fail: (error: Error) => void }
+    | undefined;
 
   constructor(options: NormalizedOptions, revision: () => number | undefined) {
     super();
@@ -51,6 +57,67 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   /** The connection loop is connecting or connected; false once it gave up or was stopped. */
   get active(): boolean {
     return this.abortController !== undefined;
+  }
+
+  /**
+   * Drops a connection that has been silent beyond the fresh window and
+   * resolves once the stream delivers any message, which confirms or replaces
+   * the cache through the usual events. A younger connection, such as the
+   * replacement a ping timeout just opened, is kept and awaited instead.
+   * Rejects when the stream disconnects, gives up, is stopped, or stays silent
+   * for the fetch deadline. Concurrent callers share one wait.
+   */
+  revalidate(): Promise<void> {
+    if (this.revalidation) {
+      return this.revalidation.promise;
+    }
+    if (!this.active) {
+      return Promise.reject(new Error('stream: not active'));
+    }
+    let cleanup = (): void => {};
+    let fail = (_error: Error): void => {};
+    const promise = new Promise<void>((resolve, reject) => {
+      const confirmed = (): void => {
+        cleanup();
+        resolve();
+      };
+      fail = (error: Error): void => {
+        cleanup();
+        reject(error);
+      };
+      const interrupted = (): void => {
+        fail(new Error('stream: revalidation interrupted'));
+      };
+      const timer = setTimeout(() => {
+        fail(new Error('stream: revalidation timed out'));
+      }, DEFAULT_FETCH_TIMEOUT_MS);
+      cleanup = (): void => {
+        clearTimeout(timer);
+        this.off('data', confirmed);
+        this.off('primed', confirmed);
+        this.off('ping', confirmed);
+        this.off('disconnected', interrupted);
+        this.off('exhausted', interrupted);
+      };
+      this.on('data', confirmed);
+      this.on('primed', confirmed);
+      this.on('ping', confirmed);
+      this.on('disconnected', interrupted);
+      this.on('exhausted', interrupted);
+    });
+    const revalidation = { promise, fail };
+    this.revalidation = revalidation;
+    void promise
+      .catch(() => {})
+      .finally(() => {
+        if (this.revalidation === revalidation) {
+          this.revalidation = undefined;
+        }
+      });
+    if (Date.now() - this.connectionStartedAt >= STREAM_FRESH_MS) {
+      this.reconnect?.();
+    }
+    return promise;
   }
 
   assess = ({ ageMs }: Pick<CacheMetadata, 'ageMs'>): CacheAssessment => {
@@ -120,6 +187,10 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
           onError: (error) => {
             this.emit('error', error);
           },
+          onConnection: (reconnect) => {
+            this.reconnect = reconnect;
+            this.connectionStartedAt = Date.now();
+          },
         },
       );
 
@@ -139,6 +210,8 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     const abortController = this.abortController;
     this.abortController = undefined;
     this.promise = undefined;
+    this.reconnect = undefined;
+    this.revalidation?.fail(new Error('stream: stopped'));
     abortController?.abort();
   }
 }
