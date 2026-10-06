@@ -1,0 +1,217 @@
+---
+title: Write end-to-end tests with flag overrides
+navTitle: End-to-End Tests
+description: Test SvelteKit application behavior with the Flags SDK and Playwright.
+---
+
+Set flag values for a browser session, then check the running application's behavior. End-to-end (e2e) tests exercise the application through a browser.
+
+An override sets a flag value for a request. The Flags SDK reads these values from the encrypted `vercel-flag-overrides` cookie.
+
+Overrides work with any provider connected through the Flags SDK.
+
+## Before you start
+
+Use your application's existing `FLAGS_SECRET`, the secret that the Flags SDK uses for Flags Explorer overrides.
+
+The Playwright configuration below loads the application's environment files. The application and tests use the same secret to read and create overrides.
+
+If you have not configured the Flags SDK, complete the [SvelteKit quickstart](/docs/frameworks/sveltekit) first.
+
+Install Playwright and its Chromium browser if your project does not already have them:
+
+```sh title="Terminal"
+npm install --save-dev @playwright/test
+npx playwright install chromium
+```
+
+These commands add Playwright to your project and download Chromium for the tests.
+
+## Add a page with two flag states
+
+Use an existing page that uses a flag, or add this `/dashboard` example. The heading changes with the flag value.
+
+Declare the flag:
+
+```ts title="src/lib/flags.ts#svelte"
+import { flag } from 'flags/sveltekit';
+
+export const showNewDashboard = flag<boolean>({
+  key: 'show-new-dashboard',
+  defaultValue: false,
+  decide: () => false,
+});
+```
+
+Configure the request hook if your application does not already use `createHandle()`:
+
+```ts title="src/hooks.server.ts#svelte"
+import { createHandle } from 'flags/sveltekit';
+import { FLAGS_SECRET } from '$env/static/private';
+import * as flags from '$lib/flags';
+
+export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+```
+
+For an application with existing hooks, follow the [`createHandle()` setup instructions](/docs/api-reference/frameworks/sveltekit#createhandle).
+
+Evaluate the flag in a server load function. This function supplies data when SvelteKit renders the page:
+
+```ts title="src/routes/dashboard/+page.server.ts#svelte"
+import { showNewDashboard } from '$lib/flags';
+
+export const load = async () => ({
+  title: (await showNewDashboard()) ? 'New dashboard' : 'Old dashboard',
+});
+```
+
+Render the heading with Svelte 5:
+
+```svelte title="src/routes/dashboard/+page.svelte#svelte"
+<script lang="ts">
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
+</script>
+
+<h1>{data.title}</h1>
+```
+
+## Configure Playwright
+
+Use Vite's environment loader to read the application's existing `FLAGS_SECRET` from its development environment files:
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+import { loadEnv } from 'vite';
+
+const env = loadEnv('development', process.cwd(), 'FLAGS_SECRET');
+process.env.FLAGS_SECRET ??= env.FLAGS_SECRET;
+
+const baseURL = process.env.BASE_URL ?? 'http://localhost:5173';
+
+export default defineConfig({
+  testDir: './tests',
+  use: {
+    baseURL,
+    browserName: 'chromium',
+  },
+  webServer: process.env.BASE_URL
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: new URL('/dashboard', baseURL).toString(),
+        reuseExistingServer: !process.env.CI,
+      },
+});
+```
+
+Playwright starts the application with your existing `dev` script and waits for `/dashboard` to respond.
+
+For another page, update `webServer.url` and the test's `page.goto()` path. The override fixture uses `baseURL` to select the cookie's hostname.
+
+To test an existing server or Preview Deployment, set `BASE_URL` and supply that application's `FLAGS_SECRET`.
+
+See [Vite environment loading](https://vite.dev/guide/api-javascript.html#loadenv) and [Playwright configuration](https://playwright.dev/docs/test-configuration) for additional options.
+
+## Create an override fixture
+
+A Playwright fixture supplies tools and setup to a test. Add a `setFlagOverrides()` fixture that encrypts flag values and stores them in the override cookie:
+
+```ts title="tests/fixtures.ts"
+import { test as base } from '@playwright/test';
+import { encryptOverrides, type FlagOverridesType } from 'flags';
+
+type FlagFixtures = {
+  setFlagOverrides: (values: FlagOverridesType) => Promise<void>;
+};
+
+export const test = base.extend<FlagFixtures>({
+  setFlagOverrides: async ({ context, baseURL }, use) => {
+    const secret = process.env.FLAGS_SECRET;
+
+    if (!secret) {
+      throw new Error('FLAGS_SECRET is missing from the application environment.');
+    }
+    if (!baseURL) {
+      throw new Error('Set baseURL in the Playwright configuration.');
+    }
+
+    const target = new URL(baseURL);
+
+    await use(async (values) => {
+      const encrypted = await encryptOverrides(values, secret, '1h');
+
+      await context.addCookies([
+        {
+          name: 'vercel-flag-overrides',
+          value: encrypted,
+          domain: target.hostname,
+          path: '/',
+          httpOnly: true,
+          secure: target.protocol === 'https:',
+          sameSite: 'Lax',
+        },
+      ]);
+    });
+  },
+});
+
+export { expect } from '@playwright/test';
+```
+
+Use the declared `key`, such as `show-new-dashboard`, as the map key. The exported function name can be different.
+
+The cookie covers all paths on the target hostname. The encrypted values expire after one hour. See [`encryptOverrides()`](/docs/api-reference/core/core#encryptoverrides) and [Playwright's cookie API](https://playwright.dev/docs/api/class-browsercontext#browser-context-add-cookies) for details.
+
+## Test both flag values
+
+Import `test` and `expect` from your fixture file. Call `setFlagOverrides()` before the first page request that evaluates the flag:
+
+```ts title="tests/dashboard.spec.ts"
+import { expect, test } from './fixtures';
+
+for (const enabled of [false, true]) {
+  test(`shows the selected dashboard when enabled=${enabled}`, async ({
+    page,
+    setFlagOverrides,
+  }) => {
+    await setFlagOverrides({ 'show-new-dashboard': enabled });
+    await page.goto('/dashboard');
+
+    const selectedTitle = enabled ? 'New dashboard' : 'Old dashboard';
+    const otherTitle = enabled ? 'Old dashboard' : 'New dashboard';
+
+    await expect(
+      page.getByRole('heading', { name: selectedTitle, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: otherTitle, exact: true }),
+    ).toHaveCount(0);
+  });
+}
+```
+
+Run the tests:
+
+```sh title="Terminal"
+npx playwright test tests/dashboard.spec.ts
+```
+
+Both tests should pass. Each test checks that the page shows the heading for its flag value and hides the other heading.
+
+Playwright gives each test a separate browser context, so cookies from one test do not affect another.
+
+## Test additional values and pages
+
+Overrides support boolean, string, and numeric values, as well as arrays and objects that your flag accepts. Set all required flag values in one call. Each `setFlagOverrides()` call replaces the cookie contents.
+
+For pages that use precomputed flag values, set overrides before the request that computes those values. Check the page content to confirm that the application used the expected flag values.
+
+The override cookie applies to requests on the configured hostname. Services that evaluate flags directly through a provider need their own test setup.
+
+## Next steps
+
+<LearnMore href="/docs/frameworks/sveltekit/guides/unit-tests" icon="arrow">
+  Write unit tests with the Flags SDK
+</LearnMore>
