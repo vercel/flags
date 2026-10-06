@@ -3,9 +3,9 @@ const exampleUrl =
 
 const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
-  env: 'FLAGS_SECRET,LAUNCHDARKLY_API_KEY,LAUNCHDARKLY_ENVIRONMENT',
+  env: 'LAUNCHDARKLY_API_KEY,LAUNCHDARKLY_ENVIRONMENT,FLAGS_SECRET',
   envDescription:
-    'LaunchDarkly credentials for flag metadata and a random 32-byte, base64-encoded FLAGS_SECRET. See setup instructions.',
+    'Provide LaunchDarkly credentials for flag metadata. Set FLAGS_SECRET to 32 random bytes, encoded as Base64url. See setup instructions.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-launchdarkly',
   'repository-name': 'flags-sdk-launchdarkly',

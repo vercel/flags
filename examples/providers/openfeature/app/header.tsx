@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'FLAGS_SECRET',
   envDescription:
-    'Used by Flags Explorer to securely override feature flags. Must be 32 random bytes, base64-encoded.',
+    'FLAGS_SECRET secures Flags Explorer. Set FLAGS_SECRET to 32 random bytes, encoded as Base64url.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-openfeature',
   'repository-name': 'flags-sdk-openfeature',

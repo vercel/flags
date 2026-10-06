@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags, adapted from the [Vercel Flags example](https://github.com/vercel/examples/tree/main/flags-sdk/vercel).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel&env=FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel%23setup&project-name=flags-sdk-vercel&repository-name=flags-sdk-vercel)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel&env=FLAGS_SECRET&envDescription=FLAGS_SECRET+secures+Flags+Explorer.+Set+FLAGS_SECRET+to+32+random+bytes%2C+encoded+as+Base64url.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel%23setup&project-name=flags-sdk-vercel&repository-name=flags-sdk-vercel)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 

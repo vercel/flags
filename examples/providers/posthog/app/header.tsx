@@ -3,9 +3,9 @@ const exampleUrl =
 
 const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
-  env: 'POSTHOG_PROJECT_API_KEY,POSTHOG_HOST,FLAGS_SECRET,POSTHOG_PROJECT_SECRET_API_KEY,POSTHOG_PROJECT_ID',
+  env: 'POSTHOG_PROJECT_API_KEY,POSTHOG_HOST,POSTHOG_PROJECT_SECRET_API_KEY,POSTHOG_PROJECT_ID,FLAGS_SECRET',
   envDescription:
-    'Provide your PostHog project API key and regional API host, plus a project secret API key (phs_...) with only feature_flag:read access and a project ID for Flags Explorer. FLAGS_SECRET secures Flags Explorer and must be 32 random bytes, base64-encoded.',
+    'Provide your PostHog project API key and regional host. For Flags Explorer, provide a project ID and a project secret API key (phs_...) with only feature_flag:read access. Set FLAGS_SECRET to 32 random bytes, encoded as Base64url.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-posthog',
   'repository-name': 'flags-sdk-posthog',
