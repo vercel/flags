@@ -35,6 +35,12 @@ export type CacheReadPolicy = {
   assess: (data: CacheMetadata) => CacheAssessment;
   /** Header reads can provide new recovery evidence before a source update. */
   retryOnFailure?: boolean;
+  /**
+   * A live source that owns refreshes. Stale reads then serve the cache while
+   * the source recovers, and expired reads wait for its confirmation instead
+   * of fetching over HTTP.
+   */
+  revalidate?: () => Promise<void>;
 };
 
 /**
@@ -321,12 +327,19 @@ export class DatafileCache {
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read();
-        debug(this.clientName, 'cache.refresh.background', () => ({
-          ...this.debugState(),
-          reason: 'stale',
-        }));
-        this.fetchInBackground();
+        if (!policy.revalidate) {
+          debug(this.clientName, 'cache.refresh.background', () => ({
+            ...this.debugState(),
+            reason: 'stale',
+          }));
+          this.fetchInBackground();
+        }
         return { data: stale, status: 'STALE' };
+      }
+
+      if (policy.revalidate) {
+        debug(this.clientName, 'cache.refresh.source', this.debugState);
+        return this.resolveThroughSource(policy);
       }
     }
 
@@ -371,6 +384,27 @@ export class DatafileCache {
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
     }
     return { data, status: 'MISS' };
+  }
+
+  /**
+   * Waits for the live source to confirm or replace the cache, then serves
+   * whatever it left behind. A failed or silent source leaves the failure
+   * policy to decide; the source's own fallback path takes over from there.
+   */
+  private async resolveThroughSource(
+    policy: CacheReadPolicy,
+  ): Promise<CacheResult> {
+    await policy.revalidate?.().catch(() => {});
+    const data = this.read();
+    const metadata = this.metadata;
+    if (!data || !metadata) {
+      throw new Error('@vercel/flags-core: Definitions unavailable');
+    }
+    const { status } = policy.assess(metadata);
+    return {
+      data,
+      status: status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
+    };
   }
 
   /** Runs the one shared datafile refresh used by reads and polling. */

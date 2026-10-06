@@ -534,7 +534,7 @@ it('starts polling and waits when a missing project header falls back to a strea
   expect(dataFetch).toHaveBeenCalledTimes(1);
 });
 
-it('finishes a pending read refresh across a disconnect without polling', async () => {
+it('starts the HTTP refresh only after the stream disconnects and finishes it without polling', async () => {
   context();
   const connection = stream();
   const reconnect = stream();
@@ -548,14 +548,15 @@ it('finishes a pending read refresh across a disconnect without polling', async 
   await vi.advanceTimersByTimeAsync(60_001);
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
+  // While streaming, stale reads serve the cache and leave the refresh to the stream.
   expect((await instance.getDatafile()).metrics.cacheStatus).toBe('STALE');
   expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
     'STALE',
   );
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(dataFetch).not.toHaveBeenCalled();
   connection.close();
   await vi.advanceTimersByTimeAsync(0);
-  // Reads keep serving the cache while the stream reconnects; no poll starts.
+  // Degraded reads serve the cache and refresh over HTTP; no poll starts.
   expect((await instance.getDatafile()).metrics).toMatchObject({
     mode: 'offline',
     cacheStatus: 'STALE',

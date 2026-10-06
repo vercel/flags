@@ -132,9 +132,12 @@ bundled-data export.
 **Cached definitions now expire by age.** Streaming data is fresh for 60 seconds after
 the last message, allowing one missed 30-second ping. Polling data is fresh for its
 interval plus the 10-second fetch deadline (40 seconds with the default 30-second
-interval). After that, data is stale for `staleWhileRevalidate` seconds (10 by default):
-evaluations and `getDatafile()` calls serve it and refresh over HTTP in the background.
-Once that window passes, the data is expired and reads wait for the shared refresh.
+interval). After that, data is stale for `staleWhileRevalidate` seconds (10 by default)
+and then expired. Polling serves stale data while refreshing over HTTP in the background
+and makes expired reads wait for the shared fetch. Streaming starts no HTTP work while
+the connection is active: stale reads serve the cache, and expired reads drop a
+connection that has been silent for over 60 seconds and wait up to ten seconds for the
+replacement stream to confirm or replace the cache.
 `staleWhileRevalidate: 0` makes reads block as soon as the fresh window ends. Data
 without a known age, such as a provided datafile without `fetchedAt`, is served until the
 active source first confirms it; without a live source it is revalidated like stale data.
