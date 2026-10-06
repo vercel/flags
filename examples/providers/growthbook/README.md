@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook&env=GROWTHBOOK_CLIENT_KEY,GROWTHBOOK_API_KEY,FLAGS_SECRET&envDescription=Use%20your%20GrowthBook%20SDK%20client%20key%20and%20a%20random%2032-byte%20base64url%20FLAGS_SECRET.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook%23setup&project-name=flags-sdk-growthbook&repository-name=flags-sdk-growthbook)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook&env=GROWTHBOOK_CLIENT_KEY%2CGROWTHBOOK_API_KEY%2CFLAGS_SECRET&envDescription=Provide+GrowthBook+credentials+for+flag+metadata.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook%23setup&project-name=flags-sdk-growthbook&repository-name=flags-sdk-growthbook)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 

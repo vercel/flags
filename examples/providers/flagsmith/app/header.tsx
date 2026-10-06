@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'FLAGSMITH_ENVIRONMENT_KEY,FLAGSMITH_ENVIRONMENT_ID,FLAGSMITH_PROJECT_ID,FLAGS_SECRET',
   envDescription:
-    'Flagsmith credentials for flag metadata and a random 32-byte, base64-encoded FLAGS_SECRET. See setup instructions.',
+    'Provide Flagsmith credentials for flag metadata. This example uses the automatically generated FLAGS_SECRET for Flags Explorer. See setup instructions.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-flagsmith',
   'repository-name': 'flags-sdk-flagsmith',

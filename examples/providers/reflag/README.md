@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated boolean flags, adapted from the [original Reflag example](https://github.com/vercel/examples/tree/main/flags-sdk/reflag).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Freflag&env=FLAGS_SECRET,REFLAG_SECRET_KEY&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Freflag%23setup&project-name=flags-sdk-reflag&repository-name=flags-sdk-reflag)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Freflag&env=REFLAG_SECRET_KEY%2CFLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+REFLAG_SECRET_KEY+is+the+server-side+secret+key+for+your+Reflag+environment.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Freflag%23setup&project-name=flags-sdk-reflag&repository-name=flags-sdk-reflag)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
