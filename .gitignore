@@ -24,3 +24,4 @@ examples/shirt-shop-vercel/
 .source
 .next
 next-env.d.ts
+.env*

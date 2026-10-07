@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig&env=FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig%23setup&project-name=flags-sdk-statsig&repository-name=flags-sdk-statsig&products=%5B%7B%22integrationSlug%22%3A%22statsig%22%2C%22productSlug%22%3A%22statsig%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig&env=FLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig%23setup&project-name=flags-sdk-statsig&repository-name=flags-sdk-statsig&products=%5B%7B%22integrationSlug%22%3A%22statsig%22%2C%22productSlug%22%3A%22statsig%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
@@ -14,7 +14,7 @@ Create these two entities in your Statsig project:
 
 | Name | Type | Configuration |
 | --- | --- | --- |
-| `welcome_message` | Dynamic Config | Add a string parameter `message` with the value `Hello from Statsig` to the default value. |
+| `welcome_message_text` | Dynamic Config | Set the default value to `{ "text": "Welcome to the Statsig example" }`. |
 | `show_banner` | Feature Gate | Add a rule that passes for everyone (100%). |
 
 Copy `.env.example` to `.env.local` and set:
@@ -36,7 +36,7 @@ The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Chan
 
 The example exposes its flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`. The Vercel Toolbar is included during local development; link the project with `vercel link` from this folder and sign in to the toolbar to use Flags Explorer. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
-Open Flags Explorer in the toolbar to override `welcome_message` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
+Open Flags Explorer in the toolbar to override `welcome_message_text` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
 
 ## Run as a standalone project
 

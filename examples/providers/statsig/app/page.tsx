@@ -14,7 +14,7 @@ export default async function Home() {
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}
       <p>
-        Change <code>welcome_message</code> or <code>show_banner</code> in
+        Change <code>welcome_message_text</code> or <code>show_banner</code> in
         Statsig, then refresh this page.
       </p>
       <a href="https://flags-sdk.dev/providers/statsig">

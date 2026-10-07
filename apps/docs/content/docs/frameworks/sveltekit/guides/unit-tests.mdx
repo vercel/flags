@@ -1,0 +1,158 @@
+---
+title: Write unit tests with the Flags SDK
+navTitle: Unit Tests
+description: Test SvelteKit application behavior with the Flags SDK and Jest or Vitest.
+---
+
+Test your application with fixed flag values. Replace an exported flag function with a mock, a replacement function whose return value you control.
+
+These tests work with any flag provider connected through the Flags SDK.
+
+## Before you start
+
+Use an application with the Flags SDK. Configure [Vitest](https://vitest.dev/guide/) or [Jest](https://jestjs.io/docs/getting-started) to run the tests.
+
+These examples test a function that uses a flag. Use your framework's component testing tools when you also need to check rendered output.
+
+These tests do not require `FLAGS_SECRET` because the mock replaces flag evaluation.
+
+## Define the flag
+
+Declare a boolean flag in a separate file:
+
+```ts title="src/lib/flags.ts#svelte"
+import { flag } from 'flags/sveltekit';
+
+export const showNewDashboard = flag<boolean>({
+  key: 'show-new-dashboard',
+  defaultValue: false,
+  decide: () => false,
+});
+```
+
+An existing flag can use an adapter instead of `decide`. An adapter connects the Flags SDK to your flag provider. The tests below replace the exported function in either case.
+
+## Add application behavior
+
+Create a function that selects the dashboard title from the flag value:
+
+```ts title="src/lib/dashboard.ts"
+import { showNewDashboard } from './flags';
+
+export async function getDashboardTitle(): Promise<string> {
+  const enabled = await showNewDashboard();
+
+  return enabled ? 'New dashboard' : 'Old dashboard';
+}
+```
+
+Keep the flag in a separate file from the code under test. Vitest or Jest can then replace the imported flag function.
+
+## Test both values with Vitest
+
+Use `vi.mock()` to replace the imported flag function. Reset the mock before each test, then set the required return value:
+
+```ts title="src/lib/dashboard.test.ts"
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getDashboardTitle } from './dashboard';
+import { showNewDashboard } from './flags';
+
+vi.mock('./flags', () => ({
+  showNewDashboard: vi.fn(),
+}));
+
+const mockedShowNewDashboard = vi.mocked(showNewDashboard);
+
+beforeEach(() => {
+  mockedShowNewDashboard.mockReset();
+});
+
+describe('getDashboardTitle', () => {
+  it.each([
+    { enabled: false, title: 'Old dashboard' },
+    { enabled: true, title: 'New dashboard' },
+  ])(
+    'returns the expected title when enabled=$enabled',
+    async ({ enabled, title }) => {
+      mockedShowNewDashboard.mockImplementation(async () => enabled);
+
+      await expect(getDashboardTitle()).resolves.toBe(title);
+    },
+  );
+});
+```
+
+Run the test:
+
+```sh title="Terminal"
+npx vitest run src/lib/dashboard.test.ts
+```
+
+Both tests should pass. Each test checks the title for one flag value without reading request data or calling a provider.
+
+`mockReset()` removes the previous return value and call history. Set the required return value again in each test. `mockClear()` only removes call history and keeps the previous implementation.
+
+See [Vitest module mocking](https://vitest.dev/guide/mocking/modules) for details about module factories and import handling.
+
+## Test both values with Jest
+
+Use this version instead of the Vitest test. Configure Jest to transform TypeScript imports to CommonJS, the module format used by `require()`.
+
+```ts title="src/lib/dashboard.test.ts"
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { getDashboardTitle } from './dashboard';
+import { showNewDashboard } from './flags';
+
+jest.mock('./flags', () => ({
+  showNewDashboard: jest.fn(),
+}));
+
+const mockedShowNewDashboard =
+  jest.mocked<() => boolean | Promise<boolean>>(showNewDashboard);
+
+beforeEach(() => {
+  mockedShowNewDashboard.mockReset();
+});
+
+describe('getDashboardTitle', () => {
+  it.each([
+    { enabled: false, title: 'Old dashboard' },
+    { enabled: true, title: 'New dashboard' },
+  ])(
+    'returns the expected title when enabled=$enabled',
+    async ({ enabled, title }) => {
+      mockedShowNewDashboard.mockImplementation(async () => enabled);
+
+      await expect(getDashboardTitle()).resolves.toBe(title);
+    },
+  );
+});
+```
+
+Run the test:
+
+```sh title="Terminal"
+npx jest src/lib/dashboard.test.ts
+```
+
+The explicit function type lets the mock return a boolean or a `Promise<boolean>`.
+
+Both tests should pass. For native ECMAScript modules (ESM), follow [Jest's ESM mocking instructions](https://jestjs.io/docs/ecmascript-modules#module-mocking-in-esm).
+
+## Test additional flag values
+
+Use the same test pattern for flags that return strings or numbers. Add a test for each value that produces a different result.
+
+When several flags affect the same result, add a mock function for each flag to `vi.mock()` or `jest.mock()`. Set all required flag values before you call the application code.
+
+## When to use end-to-end tests
+
+End-to-end tests use a browser to check the running application. Use these tests to check flag values in pages that depend on request headers or cookies.
+
+The SvelteKit [`createHandle()`](/docs/api-reference/frameworks/sveltekit#createhandle) hook supplies request headers and cookies for flag evaluation. Tests that call the real flag must use this hook or pass a `Request` directly to the flag function.
+
+## Next steps
+
+<LearnMore href="/docs/frameworks/sveltekit/guides/e2e-tests" icon="arrow">
+  Write end-to-end tests with flag overrides
+</LearnMore>

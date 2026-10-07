@@ -5,12 +5,12 @@ import { flag } from 'flags/next';
 const identify = (): StatsigUser => ({ userID: 'demo-user' });
 
 export const welcomeMessage = flag<string, StatsigUser>({
-  key: 'welcome_message',
+  key: 'welcome_message_text',
   description: 'The welcome message shown on the home page.',
   defaultValue: 'Welcome to the Statsig example',
   identify,
   adapter: statsigAdapter.dynamicConfig((config) =>
-    config.get('message', 'Welcome to the Statsig example'),
+    config.get('text', 'Welcome to the Statsig example'),
   ),
 });
 

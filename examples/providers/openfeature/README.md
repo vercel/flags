@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags, adapted from the [OpenFeature example](https://github.com/vercel/examples/tree/main/flags-sdk/openfeature). It uses OpenFeature's built-in `InMemoryProvider` so no provider account or credentials are needed.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature&env=FLAGS_SECRET&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature%23setup&project-name=flags-sdk-openfeature&repository-name=flags-sdk-openfeature)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature&env=FLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature%23setup&project-name=flags-sdk-openfeature&repository-name=flags-sdk-openfeature)
 
 The Deploy button copies only this folder and installs published packages using the standard Next.js build command.
 
