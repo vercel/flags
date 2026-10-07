@@ -91,7 +91,9 @@ export class Authentication implements Auth {
         typeof options.projectId !== 'string' ||
         !isValidProjectId(options.projectId)
       ) {
-        throw new Error('@vercel/flags-core: Invalid projectId');
+        throw new Error(
+          `@vercel/flags-core: Invalid projectId "${options.projectId}". Expected a project id like "prj_…" (letters, digits and underscores, up to 64 characters)`,
+        );
       }
       if (sdkKeyOrConnectionString !== undefined) {
         throw new Error(

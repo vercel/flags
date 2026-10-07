@@ -475,7 +475,9 @@ describe('Controller (black-box)', () => {
           stream: false,
           polling: false,
         }),
-      ).toThrow('@vercel/flags-core: Invalid projectId');
+      ).toThrow(
+        '@vercel/flags-core: Invalid projectId "prj_a/b". Expected a project id like "prj_…"',
+      );
     });
 
     it('should resume usage tracking once polling recovers from a 401', async () => {
