@@ -3,9 +3,11 @@ import type {
   ControllerInterface,
   Datafile,
   DatafileInput,
+  InitializeOptions,
   Metrics,
 } from '../types';
 import { readBundledDefinitions } from '../utils/read-bundled-definitions';
+import { hasRequestHeaders } from '../utils/request-context';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
@@ -93,7 +95,9 @@ type State =
  * - Same fallback chains as streaming mode
  *
  * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
- * - Loads provided/bundled data before selecting the mode; no startup network
+ * - Loads provided/bundled data before selecting the mode
+ * - Module-scope initialization starts no network; inside a request it prepares
+ *   the cache like the first evaluation (confirm, fetch, or start stream/poll)
  * - HeaderSource checks request versions and refreshes when needed
  * - An evaluation without a valid project version header permanently starts stream/poll
  * - Cache applies version acceptance and stale-if-error to all served data
@@ -107,6 +111,8 @@ export class Controller implements ControllerInterface {
 
   // State machine
   private state: State = 'idle';
+  // Runtime sources are set up; later initialize() calls only prepare requests.
+  private runtimeInitialized = false;
 
   // Data state — tagged with origin
   private readonly cache: DatafileCache;
@@ -302,15 +308,18 @@ export class Controller implements ControllerInterface {
   // ---------------------------------------------------------------------------
 
   /**
-   * Initializes the data source.
+   * Initializes the data source. Safe to call repeatedly: runtime sources are
+   * set up once, and every call made inside a request prepares the cache for it.
    *
    * Build step: datafile → bundled → one-time fetch
    * Streaming mode: stream → datafile → bundled
    * Polling mode (no stream): poll → datafile → bundled
-   * Vercel mode: datafile → bundled; fetch only on a read
+   * Vercel mode: datafile → bundled; inside a request, resolve like a read
    * Offline mode (neither): datafile → bundled → one-time fetch
    */
-  async initialize(): Promise<void> {
+  async initialize({
+    prepareRequest = true,
+  }: InitializeOptions = {}): Promise<void> {
     if (this.options.buildStep) {
       this.transition('build:loading');
       await this.initializeForBuildStep();
@@ -318,6 +327,35 @@ export class Controller implements ControllerInterface {
       return;
     }
 
+    if (!this.runtimeInitialized) {
+      await this.initializeRuntime();
+      this.runtimeInitialized = true;
+    }
+
+    if (prepareRequest && this.state === 'vercel' && hasRequestHeaders()) {
+      await this.prepareForRequest();
+    }
+  }
+
+  /**
+   * Prepares the cache for the current request the way its first evaluation
+   * would: a matching version header confirms the cache without network, a
+   * newer version or an empty cache fetches, and a header without this
+   * project's entry starts streaming or polling. Failures reject only while no
+   * definitions are cached; later reads retry them.
+   */
+  private async prepareForRequest(): Promise<void> {
+    try {
+      await this.resolveRuntimeData();
+    } catch (error) {
+      if (!this.cache.hasData) {
+        throw error;
+      }
+    }
+  }
+
+  /** Sets up runtime sources once per lifecycle; failures are retried by the next call. */
+  private async initializeRuntime(): Promise<void> {
     if (this.isShutdown) {
       // Reinitialization after shutdown rewires the sources it stopped.
       this.wireSourceEvents();
@@ -395,6 +433,7 @@ export class Controller implements ControllerInterface {
     if (this.options.datafile) {
       this.cache.seed(tagData({ ...this.options.datafile }, 'provided'));
     }
+    this.runtimeInitialized = false;
     this.transition('shutdown');
     await this.usageTracker.shutdown();
   }

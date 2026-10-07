@@ -27,3 +27,8 @@ export function getRequestContext(): RequestContext {
     return { ctx: undefined, headers: undefined };
   }
 }
+
+/** Whether code runs inside a request; module scope sees no request headers. */
+export function hasRequestHeaders(): boolean {
+  return getRequestContext().headers !== undefined;
+}

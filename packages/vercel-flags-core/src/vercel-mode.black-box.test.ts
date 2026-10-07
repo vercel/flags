@@ -94,6 +94,12 @@ function setVersion(timestamp?: number | string) {
   );
 }
 
+/** Module scope: no request context, so initialize() starts no network. */
+function clearContext() {
+  cleanupContext();
+  cleanupContext = () => {};
+}
+
 function client(options: Parameters<typeof createClient>[1] = {}) {
   const instance = createClient(SDK_KEY, {
     datafile: datafile(),
@@ -160,8 +166,9 @@ describe('Vercel mode (black-box)', () => {
     vi.stubEnv('VERCEL', env);
     mockDatafileResponse(TIMESTAMP, true);
     const instance = client({ vercel, stream: false, datafile: undefined });
+    // Inside a request, Vercel mode prepares the empty cache just like polling startup.
     await instance.initialize();
-    expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+    expect(dataFetch).toHaveBeenCalledTimes(1);
 
     expect(await instance.evaluate('feature')).toMatchObject({
       value: true,
@@ -171,7 +178,7 @@ describe('Vercel mode (black-box)', () => {
   });
 
   it('checks the bundle during initialization without request context, then shares the first read fetch', async () => {
-    setVersion(undefined);
+    clearContext();
     const instance = client({ datafile: undefined });
     await instance.initialize();
     expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
@@ -727,7 +734,7 @@ describe('Vercel mode (black-box)', () => {
     'provided',
     'bundled',
   ] as const)('uses fresh %s definitions without opening a stream or polling', async (origin) => {
-    setVersion(undefined);
+    clearContext();
     const bundled = datafile();
     vi.mocked(readBundledDefinitions).mockResolvedValue({
       definitions: bundled,
@@ -1005,6 +1012,7 @@ describe('Vercel mode (black-box)', () => {
 
   it('does not make a fresh request wait on another requests blocking refresh', async () => {
     const instance = client();
+    clearContext();
     await instance.initialize();
     setVersion(TIMESTAMP + 20_000);
     const pending = deferred<Response>();
@@ -1794,5 +1802,130 @@ describe('Vercel mode (black-box)', () => {
     ).toBe(1);
     expect(dataFetch).toHaveBeenCalledTimes(2);
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('initialize() inside a request', () => {
+  it('confirms a matching header without network, unlike module-scope initialization', async () => {
+    clearContext();
+    const moduleScoped = client();
+    await moduleScoped.initialize();
+    const requestScoped = client();
+    setVersion(TIMESTAMP);
+    await requestScoped.initialize();
+    expect(transport).not.toHaveBeenCalled();
+
+    // Only the request-scoped client confirmed its seed, so it serves a newer
+    // request within staleWhileRevalidate while the other blocks on the fetch.
+    setVersion(TIMESTAMP + 1);
+    // The first response feeds the request-scoped background refresh.
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    expect(await requestScoped.evaluate('feature')).toMatchObject({
+      value: false,
+      metrics: { mode: 'vercel', cacheStatus: 'STALE' },
+    });
+    const settled = vi.fn();
+    const blocking = moduleScoped.evaluate('feature').then((result) => {
+      settled();
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    expect(await blocking).toMatchObject({ value: true });
+    expect(dataFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for a newer version before resolving', async () => {
+    const instance = client();
+    setVersion(TIMESTAMP + 1);
+    const pending = deferred<Response>();
+    dataFetch.mockReturnValueOnce(pending.promise);
+    const settled = vi.fn();
+    const initialization = Promise.resolve(instance.initialize()).then(settled);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    pending.resolve(Response.json(datafile(TIMESTAMP + 1, true)));
+    await initialization;
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode: 'vercel', cacheStatus: 'HIT' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts streaming when the header has no entry for the project', async () => {
+    const stream = mockStream();
+    streamFetch.mockResolvedValueOnce(stream.response);
+    const instance = client();
+    setVersion(undefined);
+    const settled = vi.fn();
+    const initialization = Promise.resolve(instance.initialize()).then(settled);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).not.toHaveBeenCalled();
+    expect(streamFetch).toHaveBeenCalledTimes(1);
+    stream.push({
+      type: 'primed',
+      revision: 1,
+      projectId: PROJECT_ID,
+      environment: 'production',
+    });
+    await initialization;
+    expect((await instance.evaluate('feature')).metrics).toMatchObject({
+      mode: 'streaming',
+      cacheStatus: 'HIT',
+    });
+    expect(dataFetch).not.toHaveBeenCalled();
+  });
+
+  it('repeats the preparation in later requests without setting the client up again', async () => {
+    clearContext();
+    const instance = client();
+    await instance.initialize();
+    expect(transport).not.toHaveBeenCalled();
+    setVersion(TIMESTAMP + 1);
+    mockDatafileResponse(TIMESTAMP + 1, true);
+    await instance.initialize();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    // The cache is now current for this version, so repeating is free.
+    await instance.initialize();
+    clearContext();
+    await instance.initialize();
+    expect(dataFetch).toHaveBeenCalledTimes(1);
+    expect(readBundledDefinitions).not.toHaveBeenCalled();
+    setVersion(TIMESTAMP + 1);
+    expect(await instance.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode: 'vercel', cacheStatus: 'HIT' },
+    });
+  });
+
+  it('rejects only while the cache is empty and retries on the next call', async () => {
+    const empty = client({ datafile: undefined, disableMetrics: true });
+    mockDatafileHttpFailure();
+    const failed = expect(empty.initialize()).rejects.toThrow(
+      'Failed to fetch data',
+    );
+    await vi.advanceTimersByTimeAsync(300);
+    await failed;
+    mockDatafileResponse(TIMESTAMP, true);
+    await empty.initialize();
+    expect(await empty.evaluate('feature')).toMatchObject({
+      value: true,
+      metrics: { mode: 'vercel', cacheStatus: 'HIT' },
+    });
+    expect(dataFetch).toHaveBeenCalledTimes(4);
+
+    // Cached definitions keep serving when the refresh fails.
+    const cached = client({ disableMetrics: true });
+    setVersion(TIMESTAMP + 1);
+    mockDatafileHttpFailure();
+    const recovered = cached.initialize();
+    await vi.advanceTimersByTimeAsync(300);
+    await expect(recovered).resolves.toBeUndefined();
+    expect(dataFetch).toHaveBeenCalledTimes(7);
   });
 });

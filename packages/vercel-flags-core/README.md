@@ -36,7 +36,12 @@ Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 ## Header-driven reads on Vercel
 
 When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
-or bundled definitions without starting a stream or polling. Request version headers
+or bundled definitions. At module scope it starts no network activity. Called inside a
+request, `initialize()` also prepares the cache for that request the way its first
+evaluation would: a matching version header confirms the cache, a newer version or an
+empty cache fetches, and a missing entry starts streaming or polling. It resolves once
+that work settles and rejects only when no definitions are available. Calling it again
+in later requests repeats the preparation without setting the client up twice. Request version headers
 indicate when cached definitions need refreshing. Header mode requires a valid positive
 version for the client’s own `projectId`. An evaluation whose request carries a missing,
 empty, malformed, or unrelated entry permanently switches that client to streaming when

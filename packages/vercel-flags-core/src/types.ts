@@ -84,6 +84,15 @@ export type Metrics = {
   evaluationMs?: number;
 };
 
+export type InitializeOptions = {
+  /**
+   * Inside a request, also prepare the cache for it. Defaults to true; the
+   * client turns it off when a read triggers initialization, because the read
+   * resolves the request itself.
+   */
+  prepareRequest?: boolean;
+};
+
 /**
  * DataSource interface for the Vercel Flags client
  */
@@ -94,7 +103,7 @@ export interface ControllerInterface {
    *
    * @see https://openfeature.dev/specification/sections/providers#requirement-241
    */
-  initialize: () => Promise<void>;
+  initialize: (options?: InitializeOptions) => Promise<void>;
 
   /**
    * Returns the in-memory data file, which was loaded from initialize and maybe updated from streams.

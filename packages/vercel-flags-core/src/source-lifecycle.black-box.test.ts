@@ -593,6 +593,9 @@ it('does not restart polling after shutdown during missing-header stream startup
   const live = stream();
   streamFetch.mockResolvedValueOnce(live.response);
   const instance = client({ vercel: true });
+  // Initialize at module scope so the evaluation below starts the stream.
+  cleanContext();
+  cleanContext = () => {};
   await instance.initialize();
   context();
   const reading = expect(instance.evaluate('feature')).rejects.toThrow(
@@ -810,5 +813,30 @@ it('waits for the refresh when degraded data is older than staleWhileRevalidate 
   expect(await reading).toMatchObject({
     value: false,
     metrics: { mode: 'offline', cacheStatus: 'MISS' },
+  });
+});
+
+it.each([
+  'streaming',
+  'polling',
+] as const)('does not set up %s again when initialize is repeated inside a request', async (mode) => {
+  const live = stream();
+  streamFetch.mockResolvedValueOnce(live.response);
+  const instance = client({
+    stream: mode === 'streaming',
+    polling: { intervalMs: 30_000, initTimeoutMs: 3_000 },
+  });
+  const initialization = instance.initialize();
+  if (mode === 'streaming') {
+    live.push({ type: 'datafile', data: data(2) });
+  }
+  await initialization;
+  await instance.initialize();
+  await instance.initialize();
+  expect(streamFetch).toHaveBeenCalledTimes(mode === 'streaming' ? 1 : 0);
+  expect(dataFetch).toHaveBeenCalledTimes(mode === 'polling' ? 1 : 0);
+  expect((await instance.evaluate('feature')).metrics).toMatchObject({
+    mode,
+    cacheStatus: 'HIT',
   });
 });

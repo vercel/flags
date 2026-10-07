@@ -128,7 +128,17 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 
 **Vercel runtime** (`vercel: true`, default when `VERCEL=1`):
 - Load provided or bundled definitions during initialization, then select Vercel mode.
-- Do not start stream/poll; the first read fetches if the cache is empty.
+- Module-scope initialization (no request headers) starts no stream/poll or fetch; the
+  first read fetches if the cache is empty.
+- Inside a request (`hasRequestHeaders()`), `initialize()` also runs `prepareForRequest()`,
+  which resolves through `resolveRuntimeData()` like a read without tracking usage: a
+  matching header confirms, a newer version or empty cache fetches, a missing entry
+  starts stream/poll. It rejects only when the cache stays empty.
+- `initialize()` is idempotent: `runtimeInitialized` gates source setup (reset by
+  `shutdown()`, left unset on failure so retries rerun it). The client wrapper sets the
+  controller up once with `{ prepareRequest: false }`, which lazy reads also use because
+  they resolve the request themselves, then calls `initialize()` again inside a request
+  so only an explicit call prepares it and read metrics stay accurate.
 - HeaderSource parses the request's project version and owns `highestObserved`. The cache owns freshness age.
 - A matching header confirms freshness only when no newer version has been observed.
 - The controller configures one shared fetch callback and passes `assess` to `cache.resolve()`.
