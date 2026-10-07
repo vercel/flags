@@ -112,6 +112,12 @@ For another page, update `webServer.url` and the test's `page.goto()` path. The 
 
 To test an existing server or Preview Deployment, set `BASE_URL` and supply that application's `FLAGS_SECRET`.
 
+<Callout type="info">
+  If you test on Vercel with Deployment Protection enabled, configure [Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation).
+
+  Pass the value of `VERCEL_AUTOMATION_BYPASS_SECRET` in the `x-vercel-protection-bypass` header on each request. This secret is separate from `FLAGS_SECRET`, which encrypts flag overrides.
+</Callout>
+
 See [Vite environment loading](https://vite.dev/guide/api-javascript.html#loadenv) and [Playwright configuration](https://playwright.dev/docs/test-configuration) for additional options.
 
 ## Create an override fixture
