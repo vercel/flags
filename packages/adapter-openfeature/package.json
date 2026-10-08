@@ -57,7 +57,7 @@
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vite": "8.1.5",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "peerDependencies": {
     "@openfeature/server-sdk": "^1.17.1"
