@@ -1,6 +1,6 @@
 import { LogoFlagsSdk } from "@vercel/geistdocs/assets/logos/logo-flags-sdk";
 import type { GeistdocsAgentReadinessConfig } from "@vercel/geistdocs/config";
-import { Flag, Layers, Plug, Zap } from "lucide-react";
+import { Sparkles, Layers, Plug, Zap, Play } from "lucide-react";
 
 export const Logo = () => <LogoFlagsSdk className="mt-0.5" height={20} />;
 
@@ -32,8 +32,12 @@ export const nav = [
 
 export const suggestions = [
   {
-    text: "What is Flags SDK?",
-    icon: <Flag aria-hidden="true" size={16} />,
+    text: "What is the Flags SDK?",
+    icon: <Sparkles aria-hidden="true" size={16} />,
+  },
+  {
+    text: "How can I get started with Next.js?",
+    icon: <Play aria-hidden="true" size={16} />,
   },
   {
     text: "What frameworks are supported by Flags SDK?",
