@@ -72,7 +72,7 @@
       "label": "Next.js 15 compatibility fixture must stay on 15.x",
       "packages": ["next-15"],
       "dependencies": ["next"],
-      "pinVersion": "15.5.26"
+      "pinVersion": "15.5.27"
     },
     {
       "label": "Next.js 15 fixture keeps its original React release candidate",
