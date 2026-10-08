@@ -566,7 +566,7 @@ it.each([
   live.push({ type: 'datafile', data: data(2) });
   await initial;
 
-  vi.setSystemTime(now + 90_001);
+  vi.setSystemTime(now + 300_001);
   const settled = vi.fn();
   const reading = instance.evaluate('feature').then((result) => {
     settled();
@@ -661,8 +661,11 @@ it.each([
 });
 
 it.each([
-  10, 0,
-] as const)('revalidates through the stream instead of HTTP after a suspension with staleWhileRevalidate %i', async (staleWhileRevalidate) => {
+  [10, 300_000],
+  [0, 300_000],
+  // A stale window longer than five minutes extends the streaming expiry.
+  [600, 660_000],
+] as const)('serves the cache after a suspension and only waits for the stream after long silence with staleWhileRevalidate %i', async (staleWhileRevalidate, expiresAt) => {
   const first = stream();
   const second = stream();
   streamFetch
@@ -676,20 +679,21 @@ it.each([
   // Wall-clock age advances without any source messages while suspended.
   vi.setSystemTime(now + 60_000);
   expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe('HIT');
-  if (staleWhileRevalidate > 0) {
-    // Stale: served at once; the stream owns the refresh, so no HTTP and no reconnect.
-    vi.setSystemTime(now + 60_001);
+  // Stale, as after an ordinary suspension: served at once without HTTP or a
+  // reconnect; the ping watchdog recovers the connection in the background.
+  for (const age of [60_001, 75_000, expiresAt]) {
+    vi.setSystemTime(now + age);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'STALE',
     );
     expect((await instance.getDatafile()).metrics.cacheStatus).toBe('STALE');
-    expect(streamFetch).toHaveBeenCalledTimes(1);
   }
+  expect(streamFetch).toHaveBeenCalledTimes(1);
   expect(dataFetch).not.toHaveBeenCalled();
 
-  // Expired: the overdue connection is dropped and both reads share the wait
-  // for the replacement stream's first message.
-  vi.setSystemTime(now + 60_000 + staleWhileRevalidate * 1000 + 1);
+  // Expired after long silence: the overdue connection is dropped and both
+  // reads share the wait for the replacement stream's first message.
+  vi.setSystemTime(now + expiresAt + 1);
   const settled = vi.fn();
   const reading = instance.evaluate('feature').then((result) => {
     settled();

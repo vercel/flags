@@ -404,14 +404,17 @@ cache applies it before enforcing stale-if-error, without a controller event rou
 HTTP results update the cache before the shared fetch promise settles. Polling
 evaluations refresh stale data over HTTP in the background and block on expired data,
 sharing scheduled HTTP work. Streaming evaluations start no HTTP work: stale reads serve
-the cache, and expired reads go through `CacheReadPolicy.revalidate`, which calls
+the cache, and expired reads (silent beyond `STREAM_EXPIRES_MS`, five minutes, or the
+fresh window plus `staleWhileRevalidateMs` if longer) go through `CacheReadPolicy.revalidate`, which calls
 `StreamSource.revalidate()`. That drops a connection silent for over `STREAM_FRESH_MS`
 (a younger replacement is kept) and waits up to the fetch deadline for the next stream
 message; the read then serves whatever the cache holds, `HIT` once confirmed.
 New public time windows use seconds; internal normalized durations,
 cache age, and `fetchedAt` use milliseconds. Polling is fresh through its interval plus
-the 10-second fetch deadline; streaming is fresh through 60 seconds (`STREAM_FRESH_MS`).
-Both then stay stale for `staleWhileRevalidateMs` before expiring, and both report an
+the 10-second fetch deadline and then stays stale for `staleWhileRevalidateMs`; streaming
+is fresh through 60 seconds (`STREAM_FRESH_MS`) and stays stale until `expiresAfterMs`
+(the longer of five minutes and the fresh window plus `staleWhileRevalidateMs`), so
+ordinary suspensions never block reads. Both report an
 unknown age (`Infinity`) as `unknown` so unconfirmed seeds are served without a refresh
 while that source is active; the degraded policy maps unknown age to `stale` instead.
 Each source exposes `staleAfterMs`/`expiresAfterMs` for its `assess()` and its logs.

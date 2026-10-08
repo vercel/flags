@@ -12,6 +12,13 @@ import { TypedEmitter } from './typed-emitter';
 /** Pings arrive every 30s; tolerate one missed ping before revalidating. */
 export const STREAM_FRESH_MS = PING_MS * 2;
 
+/**
+ * Silence after which streaming reads wait for the stream to confirm the
+ * cache. Long enough that a runtime resuming from an ordinary suspension
+ * serves the cache while the ping watchdog reconnects in the background.
+ */
+export const STREAM_EXPIRES_MS = 5 * 60_000;
+
 export type StreamSourceEvents = {
   data: (data: DatafileInput) => void;
   primed: (message: PrimedMessage) => void;
@@ -49,9 +56,12 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
     return STREAM_FRESH_MS;
   }
 
-  /** Age after which reads block on a refresh. */
+  /** Age after which reads wait for the stream; a longer stale window wins. */
   get expiresAfterMs(): number {
-    return STREAM_FRESH_MS + this.options.staleWhileRevalidateMs;
+    return Math.max(
+      STREAM_EXPIRES_MS,
+      STREAM_FRESH_MS + this.options.staleWhileRevalidateMs,
+    );
   }
 
   /** The connection loop is connecting or connected; false once it gave up or was stopped. */
