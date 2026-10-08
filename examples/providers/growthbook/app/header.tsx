@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'GROWTHBOOK_CLIENT_KEY,GROWTHBOOK_API_KEY,FLAGS_SECRET',
   envDescription:
-    'GrowthBook credentials for flag metadata and a random 32-byte, base64-encoded FLAGS_SECRET. See setup instructions.',
+    'Provide GrowthBook credentials for flag metadata. This example uses the automatically generated FLAGS_SECRET for Flags Explorer. See setup instructions.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-growthbook',
   'repository-name': 'flags-sdk-growthbook',

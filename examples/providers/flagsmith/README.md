@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY,FLAGSMITH_ENVIRONMENT_ID,FLAGSMITH_PROJECT_ID,FLAGS_SECRET&envDescription=Use%20your%20Flagsmith%20server-side%20environment%20key%20and%20a%20random%2032-byte%20base64url%20FLAGS_SECRET.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith%23setup&project-name=flags-sdk-flagsmith&repository-name=flags-sdk-flagsmith)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY%2CFLAGSMITH_ENVIRONMENT_ID%2CFLAGSMITH_PROJECT_ID%2CFLAGS_SECRET&envDescription=Provide+Flagsmith+credentials+for+flag+metadata.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith%23setup&project-name=flags-sdk-flagsmith&repository-name=flags-sdk-flagsmith)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 

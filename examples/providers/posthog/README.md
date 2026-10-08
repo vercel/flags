@@ -2,7 +2,7 @@
 
 A minimal Next.js App Router example with two server-evaluated flags, adapted from the [PostHog example](https://github.com/vercel/examples/tree/main/flags-sdk/posthog).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog&env=POSTHOG_PROJECT_API_KEY,POSTHOG_HOST,FLAGS_SECRET,POSTHOG_PROJECT_SECRET_API_KEY,POSTHOG_PROJECT_ID&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog%23setup&project-name=flags-sdk-posthog&repository-name=flags-sdk-posthog)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog&env=POSTHOG_PROJECT_API_KEY%2CPOSTHOG_HOST%2CPOSTHOG_PROJECT_SECRET_API_KEY%2CPOSTHOG_PROJECT_ID%2CFLAGS_SECRET&envDescription=Provide+your+PostHog+project+API+key+and+regional+host.+For+Flags+Explorer%2C+provide+a+project+ID+and+a+project+secret+API+key+%28phs_...%29+with+only+feature_flag%3Aread+access.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fposthog%23setup&project-name=flags-sdk-posthog&repository-name=flags-sdk-posthog)
 
 The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
 
