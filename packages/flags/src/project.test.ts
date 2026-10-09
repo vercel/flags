@@ -43,6 +43,20 @@ describe('defineProject', () => {
     expectTypeOf(project.metadata.teamId).toEqualTypeOf<string>();
   });
 
+  it('supports providers without project fields', () => {
+    const project = defineProject(new TypedInMemoryProvider(myFlags), {
+      provider: 'in-memory',
+    });
+
+    expect(project.metadata).toEqual({
+      name: 'in-memory',
+      provider: 'in-memory',
+    });
+    expectTypeOf(project.metadata.provider).toEqualTypeOf<'in-memory'>();
+    // @ts-expect-error in-memory has no projectId
+    project.metadata.projectId;
+  });
+
   it('rejects invalid options at the type level', () => {
     const provider = new TypedInMemoryProvider(myFlags);
 
@@ -58,6 +72,12 @@ describe('defineProject', () => {
       teamId: 'y',
       // @ts-expect-error unknown field
       unknownField: true,
+    });
+
+    defineProject(provider, {
+      provider: 'in-memory',
+      // @ts-expect-error in-memory has no projectId
+      projectId: 'x',
     });
   });
 

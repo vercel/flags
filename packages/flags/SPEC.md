@@ -8,6 +8,8 @@ A provider is any object structurally compatible with the OpenFeature server
 `Provider` interface. The SDK does not depend on `@openfeature/*`; it declares
 its own minimal types (`Provider`, `EvaluationContext`, `ResolutionDetails`,
 `Logger`) which OpenFeature providers satisfy as-is.
+`src/openfeature.test.ts` checks these types against `@openfeature/server-sdk`,
+which is only a dev dependency.
 
 The SDK calls providers directly instead of going through the OpenFeature
 client, so it owns initialization, evaluation and shutdown.
@@ -19,7 +21,13 @@ under `provider[Symbol.for('flags.provider-extension')]`. The SDK detects each
 capability and falls back when it is missing.
 
 ```ts
-interface ProviderExtension {
+interface ProviderExtension<K extends string = string> {
+  /**
+   * Type-only. Declares the flag keys this provider knows about. Never set
+   * at runtime.
+   */
+  readonly types?: { readonly flagKey: K };
+
   /**
    * Called once per request. Lets the provider prepare work that later
    * evaluations in the same request reuse, e.g. making sure data is fresh.
@@ -28,7 +36,7 @@ interface ProviderExtension {
 
   /** Resolves several flags in a single call. */
   resolveBatch?(
-    flags: { key: string; defaultValue?: boolean }[],
+    flags: { key: K; defaultValue?: boolean }[],
     context: EvaluationContext,
   ): Promise<ResolutionDetails<boolean>[]>;
 }
@@ -36,6 +44,15 @@ interface ProviderExtension {
 
 Fallbacks: `onInvoke` is a no-op, and `resolveBatch` becomes one
 `resolveBooleanEvaluation` call per flag.
+
+A provider that declares `types.flagKey` restricts the keys `defineFlag`
+accepts. Providers that don't accept any string key. Example:
+
+```ts
+class MyProvider implements Provider {
+  declare readonly [providerExtension]?: ProviderExtension<'a' | 'b'>;
+}
+```
 
 ## Projects
 
@@ -55,12 +72,27 @@ Fallbacks: `onInvoke` is a no-op, and `resolveBatch` becomes one
 ## Flags
 
 `defineFlag({ key, defaultValue?, provider })` returns an async function:
-`await myFlag()`.
+`await myFlag()`. The function also exposes `key`, `defaultValue` and
+`provider`, so the project metadata is available from every flag.
 
+- `provider` must be returned by `defineProject`. This is checked at the type
+  level and at runtime.
+- Defining a flag registers its provider with the runtime. Flags are usually
+  defined at module scope, so the runtime knows about their providers before
+  `onInit`. `registerProviders` is only needed for flags defined later.
+- The provider is initialized before its first evaluation. Concurrent
+  evaluations share one initialization, and a failed initialization is retried
+  on the next evaluation.
 - Boolean only for now. A `type` field will be added later.
 - Evaluation context is empty until `getEvaluationContext` is wired up.
-- Errors: a provider can throw, or return details with an `errorCode`. Both are
-  treated the same: return `defaultValue` if set, otherwise throw.
+- The logger passed to providers is `console`.
+- Errors: a provider can throw, return details with an `errorCode`, or return a
+  non-boolean value (`TYPE_MISMATCH`). All are turned into a
+  `FlagEvaluationError` with the flag key and an OpenFeature error code
+  (`GENERAL` if the error has none). If `defaultValue` is set, the error is
+  logged and `defaultValue` returned. Otherwise the error is thrown.
+- A link to the flag in the provider's dashboard (`origin`) will be added
+  later.
 
 ### Evaluating several flags
 
