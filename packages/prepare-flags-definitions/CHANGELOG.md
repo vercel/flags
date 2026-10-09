@@ -1,5 +1,17 @@
 # @vercel/prepare-flags-definitions
 
+## 0.6.0
+
+### Minor Changes
+
+- [#540](https://github.com/vercel/flags/pull/540) [`1a38dee`](https://github.com/vercel/flags/commit/1a38dee43b41030496bd63290816e06e5d5890ae) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Embed definitions for every project connected to the deployment's project. Remove the internal `flags:projectId=` environment option introduced in 0.5.0.
+
+### Patch Changes
+
+- [#511](https://github.com/vercel/flags/pull/511) [`3f925dc`](https://github.com/vercel/flags/commit/3f925dceacd7b66a90d932dfda0cb45c861c008a) Thanks [@luismeyer](https://github.com/luismeyer)! - Record `fetchedAt` when a datafile fetch completes and preserve it in generated flag definitions. Loading the bundle retains the original timestamp so the Flags SDK can determine its age.
+  
+  Expose optional `fetchedAt` metadata on datafiles. Record it for accepted live updates and preserve valid timestamps when loading provided or bundled definitions, without mutating the input.
+
 ## 0.5.0
 
 ### Minor Changes

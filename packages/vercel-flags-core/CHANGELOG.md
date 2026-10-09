@@ -1,5 +1,33 @@
 # @vercel/flags-core
 
+## 1.10.0
+
+### Minor Changes
+
+- [#511](https://github.com/vercel/flags/pull/511) [`3f925dc`](https://github.com/vercel/flags/commit/3f925dceacd7b66a90d932dfda0cb45c861c008a) Thanks [@luismeyer](https://github.com/luismeyer)! - Add a header-driven `vercel` client mode, enabled by default when `VERCEL=1`. Initialization loads provided/bundled definitions. At module scope it starts no network activity, and an empty cache fetches on its first read. Inside a request, `initialize()` prepares the cache like the first evaluation would (confirm a matching version, fetch a newer one or an empty cache, or start streaming/polling for a missing entry), and repeated calls in later requests repeat that preparation. Request versions trigger refreshes. Explicit offline/build behavior is preserved.
+  
+  Evaluations require a valid positive version header for their own project. Missing, empty, malformed, or unrelated project entries permanently start streaming when enabled, otherwise polling; multiple clients select their sources independently. Concurrent reads share startup and pending HTTP refreshes. Accepted stream updates and valid confirmations cancel superseded refreshes; waiting reads use the confirmed cache, and late responses cannot change cache or authorization state. A cold shared fetch discovers project identity before accepting header evidence; a failed cold fetch rejects without switching sources and is retried by the next read. `getDatafile()` remains a snapshot that never starts streaming or polling: it serves cached definitions through the same header checks, stale-while-revalidate, blocking refresh, and stale-if-error, and loads bundled definitions or performs a one-time fetch when the cache is empty.
+  
+  **Cached definitions now age in streaming and polling mode.** Streaming data is fresh for 60 seconds after the last message; polling data is fresh for its interval plus the 10-second fetch deadline (40 seconds by default). Polling data then stays stale for `staleWhileRevalidate` seconds (default 10) while reads refresh over HTTP in the background, and expired reads wait for the shared fetch. While streaming, reads never wait and no HTTP request competes with the connection: older data is served immediately and reported as stale while the stream's ping watchdog reconnects in the background, including right after a suspended runtime resumes. Data without a known age is served until its source first confirms it. Accepted updates, source responses, valid confirmations, and stream pings reset age without rewriting `fetchedAt`.
+  
+  Streaming and polling never run at the same time. A stream startup timeout or disconnect keeps the stream reconnecting in the background while reads serve the cache; polling starts only once the stream gives up for good (retries exhausted, 401, or token failure), waiting for its first poll up to `polling.initTimeoutMs`. Ping timeouts reconnect the stream internally, allowing suspended runtimes to resume. Polling gives up on a 401 too. Whenever no live source is active, because the stream is reconnecting or the stream or polling gave up, reads apply plain stale-while-revalidate over HTTP: fresh within `staleWhileRevalidate`, served while refreshing in the background beyond that, and waiting for the refresh once older than `staleWhileRevalidate` plus `staleIfError`; data of unknown age refreshes in the background. Shutting down and reinitializing a client rewires its sources and starts with a clean cache and failure deadline.
+  
+  Use `staleWhileRevalidate` (default 10) and `staleIfError` (default Infinity) in **seconds**, including fractions. Setting either to `0` disables its stale allowance. Datafiles preserve optional `fetchedAt` epoch-millisecond timestamps across serialization and bundled/provided reuse.
+
+- [#540](https://github.com/vercel/flags/pull/540) [`1a38dee`](https://github.com/vercel/flags/commit/1a38dee43b41030496bd63290816e06e5d5890ae) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Remove the internal `projectId` connection string option introduced in 1.9.0. SDK keys and `sdkKey=` connection strings are unchanged.
+
+- [#510](https://github.com/vercel/flags/pull/510) [`571141d`](https://github.com/vercel/flags/commit/571141da0e2a224e24e45c088c249a382fbde9b5) Thanks [@luismeyer](https://github.com/luismeyer)! - Add `staleIfError` in seconds to bound cached runtime reads after the first consecutive stream/poll failure or stream disconnect. The default `Infinity` preserves unlimited fallback; finite nonnegative durations (including fractional seconds) use existing evaluation defaults and errors after expiry, and `getDatafile()` follows the same allowance. Any successful source response resets the allowance, including one the version guard rejects as older or for a different project, as does a matching stream primed revision. Storing provided or bundled fallback data does not confirm freshness or renew the failure clock. Build/offline behavior and source scheduling remain unchanged.
+
+### Patch Changes
+
+- [#518](https://github.com/vercel/flags/pull/518) [`941e71d`](https://github.com/vercel/flags/commit/941e71df674db21a28262cfe30f2048d7a64b3b1) Thanks [@luismeyer](https://github.com/luismeyer)! - Add detailed client lifecycle, cache freshness, and network diagnostics using the `DEBUG=@vercel/flags-core` environment variable. `DEBUG` now follows the usual conventions for both the diagnostics and the ingest debug header: comma- or space-separated patterns, `*` wildcards, and `-` exclusions. A shared global logger emits events without passing logger instances through the client. Every client diagnostic includes the configured `clientName`, including cache, source, and background network activity. Logs omit credentials, definitions, and raw errors.
+  
+  State changes include their cause; refresh logs distinguish response receipt, cache application, shared work, stream confirmation, and shutdown cancellation. Startup and source logs expose timeout and freshness thresholds, and recovery is logged only when a failure clears.
+
+- [#511](https://github.com/vercel/flags/pull/511) [`3f925dc`](https://github.com/vercel/flags/commit/3f925dceacd7b66a90d932dfda0cb45c861c008a) Thanks [@luismeyer](https://github.com/luismeyer)! - Record `fetchedAt` when a datafile fetch completes and preserve it in generated flag definitions. Loading the bundle retains the original timestamp so the Flags SDK can determine its age.
+  
+  Expose optional `fetchedAt` metadata on datafiles. Record it for accepted live updates and preserve valid timestamps when loading provided or bundled definitions, without mutating the input.
+
 ## 1.9.0
 
 ### Minor Changes
