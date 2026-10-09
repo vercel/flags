@@ -8,6 +8,13 @@ export {
   type ProjectFieldsByPlatform,
 } from './connection';
 export { FlagEvaluationError } from './errors';
+export {
+  type Evaluate,
+  type EvaluateContext,
+  type EvaluateResults,
+  evaluate,
+  type FlagContext,
+} from './evaluate';
 export { defineFlag, type Flag, type FlagOptions } from './flag';
 export { registerConnections, registerFlags } from './register';
 export { type FlagDefinition, type Runtime, runtime } from './runtime';
