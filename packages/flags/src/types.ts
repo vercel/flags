@@ -3,6 +3,13 @@
  */
 export type ReadonlyHeaders = Omit<Headers, 'append' | 'delete' | 'set'>;
 
+/**
+ * The request which the runtime handles.
+ */
+export interface IncomingRequest {
+  readonly headers: ReadonlyHeaders;
+}
+
 // The types below are structurally compatible with the OpenFeature server SDK,
 // so any OpenFeature provider can be used without depending on @openfeature/*.
 
@@ -54,10 +61,12 @@ export interface ProviderExtension<K extends string = string> {
   readonly types?: { readonly flagKey: K };
 
   /**
-   * Called once per request. Lets the provider prepare work that later
-   * evaluations in the same request reuse, e.g. making sure data is fresh.
+   * Called once per request, after the provider is initialized. Lets the
+   * provider prepare work that later evaluations in the same request reuse,
+   * e.g. making sure data is fresh. Evaluations of this provider in the same
+   * request wait for it. Errors are logged, and do not stop the evaluations.
    */
-  onInvoke?(request: { headers: ReadonlyHeaders }): Promise<void> | void;
+  onInvoke?(request: IncomingRequest): Promise<void> | void;
 
   /**
    * Resolves several flags in a single call.

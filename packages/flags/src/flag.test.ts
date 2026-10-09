@@ -10,7 +10,7 @@ import {
 } from 'vitest';
 import { defineConnection } from './connection';
 import { defineFlag, FlagEvaluationError } from './flag';
-import { getRegisteredConnections } from './registry';
+import { runtime } from './runtime';
 import {
   type Provider,
   type ProviderExtension,
@@ -114,10 +114,10 @@ describe('defineFlag', () => {
 
   it('registers the connection', () => {
     const connection = inMemoryConnection();
-    expect(getRegisteredConnections()).not.toContain(connection);
+    expect(runtime.connections).not.toContain(connection);
 
     defineFlag({ key: 'v2_enabled', connection });
-    expect(getRegisteredConnections()).toContain(connection);
+    expect(runtime.connections).toContain(connection);
   });
 
   it('requires a connection returned by defineConnection', () => {
@@ -290,6 +290,21 @@ describe('defineFlag', () => {
       });
       await expect(flag()).resolves.toBe(true);
       expect(initialize).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles initialize throwing synchronously', async () => {
+      const connection = customConnection(
+        async () => ({ value: true }),
+        (() => {
+          throw new Error('Sync error');
+        }) as () => Promise<void>,
+      );
+
+      await expect(
+        defineFlag({ key: 'a', connection })(),
+      ).rejects.toMatchObject({
+        message: 'flags: Could not evaluate flag "a": Sync error',
+      });
     });
 
     it('returns the default value when initialization fails', async () => {

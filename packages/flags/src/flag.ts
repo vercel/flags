@@ -1,8 +1,18 @@
 import { type Connection, isConnection } from './connection';
-import { initializeProvider, registerConnection } from './registry';
-import type { FlagKey, Logger } from './types';
+import { logger } from './logger';
+import { runtime } from './runtime';
+import type { FlagKey } from './types';
 
-const logger: Logger = console;
+const flags = new WeakSet<object>();
+
+/**
+ * Returns whether the value was returned by `defineFlag`.
+ *
+ * @internal
+ */
+export function isFlag(value: unknown): value is Flag {
+  return typeof value === 'function' && flags.has(value);
+}
 
 export interface FlagOptions<C extends Connection, K extends string> {
   key: K;
@@ -74,18 +84,25 @@ export function defineFlag<
     );
   }
 
-  registerConnection(connection);
+  runtime.registerConnection(connection);
   const { provider } = connection;
 
   async function evaluate(): Promise<boolean> {
     try {
-      await initializeProvider(provider);
+      const scope = runtime.requestScope;
+      const [, context] = scope
+        ? await Promise.all([
+            scope.prepare(provider),
+            scope.evaluationContext(connection),
+          ])
+        : [await runtime.initializeProvider(provider), {}];
+
       const details = await provider.resolveBooleanEvaluation(
         key,
         // OpenFeature requires a default. Without one, errors are thrown, so
         // this placeholder is never returned.
         defaultValue ?? false,
-        {},
+        context,
         logger,
       );
 
@@ -112,5 +129,7 @@ export function defineFlag<
     }
   }
 
-  return Object.assign(evaluate, { key, defaultValue, connection });
+  const flag = Object.assign(evaluate, { key, defaultValue, connection });
+  flags.add(flag);
+  return flag;
 }
