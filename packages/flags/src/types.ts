@@ -1,0 +1,76 @@
+/**
+ * Headers which can be read but not modified.
+ */
+export type ReadonlyHeaders = Omit<Headers, 'append' | 'delete' | 'set'>;
+
+// The types below are structurally compatible with the OpenFeature server SDK,
+// so any OpenFeature provider can be used without depending on @openfeature/*.
+
+export type PrimitiveValue = null | boolean | string | number;
+
+export type EvaluationContextValue =
+  | PrimitiveValue
+  | Date
+  | { [key: string]: EvaluationContextValue }
+  | EvaluationContextValue[];
+
+export type EvaluationContext = {
+  targetingKey?: string;
+} & Record<string, EvaluationContextValue>;
+
+export interface Logger {
+  error(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+}
+
+export type ResolutionDetails<T> = {
+  value: T;
+  variant?: string;
+  flagMetadata?: Record<string, string | number | boolean>;
+  reason?: string;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export interface ProviderMetadata {
+  readonly name: string;
+}
+
+/**
+ * Capabilities beyond the OpenFeature spec. Providers can opt in by setting
+ * this symbol to a `ProviderExtension`.
+ */
+export const providerExtension: unique symbol = Symbol.for(
+  'flags.provider-extension',
+);
+
+export interface ProviderExtension {
+  /**
+   * Called once per request. Lets the provider prepare work that later
+   * evaluations in the same request reuse, e.g. making sure data is fresh.
+   */
+  onInvoke?(request: { headers: ReadonlyHeaders }): Promise<void> | void;
+
+  /**
+   * Resolves several flags in a single call.
+   */
+  resolveBatch?(
+    flags: { key: string; defaultValue?: boolean }[],
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<boolean>[]>;
+}
+
+export interface Provider {
+  readonly metadata: ProviderMetadata;
+  readonly [providerExtension]?: ProviderExtension;
+  initialize?(context?: EvaluationContext): Promise<void>;
+  onClose?(): Promise<void>;
+  resolveBooleanEvaluation(
+    flagKey: string,
+    defaultValue: boolean,
+    context: EvaluationContext,
+    logger: Logger,
+  ): Promise<ResolutionDetails<boolean>>;
+}

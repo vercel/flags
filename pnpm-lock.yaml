@@ -394,7 +394,7 @@ importers:
         version: link:../../../packages/adapter-openfeature
       '@openfeature/server-sdk':
         specifier: ^1.17.1
-        version: 1.20.0(@openfeature/core@1.9.1)
+        version: 1.20.0(@openfeature/core@1.12.0)
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(8bfb556003ca420cea69156308d43b0c)
@@ -929,7 +929,7 @@ importers:
     devDependencies:
       '@openfeature/server-sdk':
         specifier: ^1.17.1
-        version: 1.20.0(@openfeature/core@1.9.1)
+        version: 1.20.0(@openfeature/core@1.12.0)
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
@@ -1147,6 +1147,12 @@ importers:
       '@arethetypeswrong/cli':
         specifier: 0.18.5
         version: 0.18.5
+      '@openfeature/core':
+        specifier: 1.12.0
+        version: 1.12.0
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
@@ -1182,7 +1188,7 @@ importers:
     dependencies:
       '@openfeature/server-sdk':
         specifier: 1.18.0
-        version: 1.18.0(@openfeature/core@1.9.1)
+        version: 1.18.0(@openfeature/core@1.12.0)
       '@vercel/functions':
         specifier: ^3.4.3
         version: 3.4.3
@@ -2350,8 +2356,8 @@ packages:
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
-  '@openfeature/core@1.9.1':
-    resolution: {integrity: sha512-YySPtH4s/rKKnHRU0xyFGrqMU8XA+OIPNWDrlEFxE6DCVWCIrxE5YpiB94YD2jMFn6SSdA0cwQ8vLkCkl8lm8A==}
+  '@openfeature/core@1.12.0':
+    resolution: {integrity: sha512-7PCPzyd1OC19begz30+CRknFB0ChtyaZUhk7YWrk+Bov1fpVw0HYkTXtoxxsvPfDZB9P9WsT7uixN+Z8f9+bcA==}
 
   '@openfeature/server-sdk@1.18.0':
     resolution: {integrity: sha512-uP8nqEGBS58s3iWXx6d8vnJ6ZVt3DACJL4PWADOAuwIS4xXpID91783e9f6zQ0i1ijQpj3yx+3ZuCB2LfQMUMA==}
@@ -2364,6 +2370,12 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       '@openfeature/core': ^1.9.0
+
+  '@openfeature/server-sdk@1.23.0':
+    resolution: {integrity: sha512-JWeLvltJIV0AFgOfbw7hK9b9Rw/5wWq+RMhCIU9sJtAqarxr8hSPglG+JAGGhYdElAz3Qwe9W3ApWyPNkQEyqg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@openfeature/core': ^1.12.0
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -10897,15 +10909,19 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
-  '@openfeature/core@1.9.1': {}
+  '@openfeature/core@1.12.0': {}
 
-  '@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1)':
+  '@openfeature/server-sdk@1.18.0(@openfeature/core@1.12.0)':
     dependencies:
-      '@openfeature/core': 1.9.1
+      '@openfeature/core': 1.12.0
 
-  '@openfeature/server-sdk@1.20.0(@openfeature/core@1.9.1)':
+  '@openfeature/server-sdk@1.20.0(@openfeature/core@1.12.0)':
     dependencies:
-      '@openfeature/core': 1.9.1
+      '@openfeature/core': 1.12.0
+
+  '@openfeature/server-sdk@1.23.0(@openfeature/core@1.12.0)':
+    dependencies:
+      '@openfeature/core': 1.12.0
 
   '@opentelemetry/api@1.9.0': {}
 
@@ -15379,7 +15395,7 @@ snapshots:
       '@next/eslint-plugin-next': 16.3.8(eslint@9.38.0(jiti@2.7.0))
       eslint: 9.38.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.38.0(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0))
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.38.0(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.38.0(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.38.0(jiti@2.7.0))
@@ -15402,7 +15418,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.38.0(jiti@2.7.0)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -15417,14 +15433,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.38.0(jiti@2.7.0)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.38.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.38.0(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -15439,7 +15455,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.38.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.38.0(jiti@2.7.0))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.7.0))(typescript@5.9.3))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0)))(eslint@9.38.0(jiti@2.7.0))
       hasown: 2.0.4
       is-core-module: 2.16.1
       is-glob: 4.0.3
