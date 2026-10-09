@@ -38,8 +38,8 @@ function request(user: string): IncomingRequest {
   return { headers: new Headers({ 'x-user': user }) };
 }
 
-const getUserContext = vi.fn<GetEvaluationContext>(({ headers }) => ({
-  targetingKey: headers.get('x-user') ?? 'anonymous',
+const getUserContext = vi.fn<GetEvaluationContext>((_context, request) => ({
+  targetingKey: request?.headers.get('x-user') ?? 'anonymous',
 }));
 
 describe('request scope', () => {
@@ -97,7 +97,7 @@ describe('request scope', () => {
   describe('requests of frameworks', () => {
     async function headersFor(request: RequestLike) {
       let received: IncomingRequest | undefined;
-      const { connection } = createConnection((incoming) => {
+      const { connection } = createConnection((_context, incoming) => {
         received = incoming;
         return {};
       });
@@ -153,7 +153,7 @@ describe('request scope', () => {
       const flag = defineFlag({ key: 'a', connection });
 
       await runtime.onInvoke(request('alice'), () => flag());
-      expect(getUserContext).toHaveBeenCalledWith({
+      expect(getUserContext).toHaveBeenCalledWith(undefined, {
         headers: expect.any(Headers),
       });
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
@@ -278,16 +278,16 @@ describe('request scope', () => {
       );
     });
 
-    it('is not called outside of a request', async () => {
+    it('is called without a request outside of a request', async () => {
       const { connection, provider } = createConnection(getUserContext);
       const flag = defineFlag({ key: 'a', connection });
 
       await flag();
-      expect(getUserContext).not.toHaveBeenCalled();
+      expect(getUserContext).toHaveBeenCalledWith(undefined, undefined);
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
         false,
-        {},
+        { targetingKey: 'anonymous' },
         logger,
       );
     });

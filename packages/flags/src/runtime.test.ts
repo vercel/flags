@@ -390,8 +390,8 @@ describe('runtime', () => {
       const connection = defineConnection({
         provider,
         project: { platform: 'in-memory' },
-        getEvaluationContext: ({ headers }) => ({
-          targetingKey: headers.get('x-user') ?? 'anonymous',
+        getEvaluationContext: (_context, request) => ({
+          targetingKey: request?.headers.get('x-user') ?? 'anonymous',
         }),
       });
 

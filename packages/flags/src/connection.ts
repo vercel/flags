@@ -17,14 +17,30 @@ export type Project<N extends Platform = Platform> = {
   [K in N]: { platform: K } & ProjectFieldsByPlatform[K];
 }[N];
 
-export type GetEvaluationContext<
-  C extends EvaluationContext = EvaluationContext,
-> = (request: IncomingRequest) => C | Promise<C>;
+/**
+ * A step in the chain which creates the evaluation context. It receives the
+ * context of the step before, and the current request. `request` is
+ * `undefined` outside of `runtime.onInvoke`.
+ *
+ * The chain runs from the call side, through the flag, to the connection.
+ * The result of the connection goes to the provider.
+ */
+export type GetEvaluationContext<In = unknown, Out = EvaluationContext> = (
+  context: In,
+  request: IncomingRequest | undefined,
+) => Out | Promise<Out>;
+
+/**
+ * The context which a connection accepts from its flags. Without
+ * `getEvaluationContext`, the connection gives it to the provider as it is.
+ */
+export type DefaultConnectionInput = EvaluationContext | undefined;
 
 export interface ConnectionOptions<
   P extends Provider,
   N extends Platform,
   C extends EvaluationContext = EvaluationContext,
+  In = DefaultConnectionInput,
 > {
   /**
    * The OpenFeature provider used to evaluate flags.
@@ -32,28 +48,56 @@ export interface ConnectionOptions<
   provider: P;
   project: { platform: N } & ProjectFieldsByPlatform[N];
   /**
-   * Creates the evaluation context for a request. Called once per request,
-   * on the first evaluation of a flag of this connection. Outside of a
-   * request, flags are evaluated with an empty context.
+   * The last step of the chain. Receives the context which the flag creates,
+   * and returns the context for the provider. The type of `context` defines
+   * what the flags of this connection must give. The return type defines
+   * what the provider receives.
    *
-   * The return type defines the shape of the context of this connection.
+   * Runs once per request for each input object. Outside of a request, it
+   * runs on each evaluation, and `request` is `undefined`.
+   *
+   * @example
+   * ```ts
+   * getEvaluationContext: async (context: { teamId: string }, request) => ({
+   *   team: await loadTeam(context.teamId),
+   *   user: request?.headers.get('x-user') ?? null,
+   * }),
+   * ```
    */
-  getEvaluationContext?: GetEvaluationContext<C>;
+  getEvaluationContext?(
+    context: In,
+    request: IncomingRequest | undefined,
+  ): C | Promise<C>;
 }
 
 /**
  * Connects flags to a project on a platform, and to the provider which
  * evaluates them.
+ *
+ * `C` is the context which the provider receives. `In` is the context which
+ * the flags of this connection must give.
  */
 export interface Connection<
   P extends Provider = Provider,
   N extends Platform = Platform,
   C extends EvaluationContext = EvaluationContext,
+  In = DefaultConnectionInput,
 > {
   readonly provider: P;
   readonly project: Project<N>;
-  readonly getEvaluationContext?: GetEvaluationContext<C>;
+  getEvaluationContext?(
+    context: In,
+    request: IncomingRequest | undefined,
+  ): C | Promise<C>;
 }
+
+/**
+ * The context which the flags of a connection must give.
+ */
+export type ConnectionInput<C extends Connection> =
+  C extends Connection<Provider, Platform, EvaluationContext, infer In>
+    ? In
+    : never;
 
 const connections = new WeakSet<object>();
 
@@ -64,8 +108,9 @@ export function defineConnection<
   P extends Provider,
   N extends Platform,
   C extends EvaluationContext = EvaluationContext,
->(options: ConnectionOptions<P, N, C>): Connection<P, N, C> {
-  const connection: Connection<P, N, C> = Object.freeze({
+  In = DefaultConnectionInput,
+>(options: ConnectionOptions<P, N, C, In>): Connection<P, N, C, In> {
+  const connection: Connection<P, N, C, In> = Object.freeze({
     provider: options.provider,
     project: Object.freeze({ ...options.project }) as unknown as Project<N>,
     getEvaluationContext: options.getEvaluationContext,
