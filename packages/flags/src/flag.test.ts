@@ -8,9 +8,9 @@ import {
   it,
   vi,
 } from 'vitest';
+import { defineConnection } from './connection';
 import { defineFlag, FlagEvaluationError } from './flag';
-import { defineProject } from './project';
-import { getRegisteredProviders } from './providers';
+import { getRegisteredConnections } from './registry';
 import {
   type Provider,
   type ProviderExtension,
@@ -26,13 +26,14 @@ const myFlags = {
   },
 } as const;
 
-function inMemoryProject() {
-  return defineProject(new TypedInMemoryProvider(myFlags), {
-    provider: 'in-memory',
+function inMemoryConnection() {
+  return defineConnection({
+    provider: new TypedInMemoryProvider(myFlags),
+    project: { platform: 'in-memory' },
   });
 }
 
-function customProject(
+function customConnection(
   resolve: () => Promise<ResolutionDetails<unknown>>,
   initialize?: () => Promise<void>,
 ) {
@@ -41,7 +42,7 @@ function customProject(
     initialize,
     resolveBooleanEvaluation: vi.fn(resolve),
   } as Provider & { resolveBooleanEvaluation: ReturnType<typeof vi.fn> };
-  return defineProject(provider, { provider: 'in-memory' });
+  return defineConnection({ provider, project: { platform: 'in-memory' } });
 }
 
 describe('defineFlag', () => {
@@ -54,43 +55,44 @@ describe('defineFlag', () => {
   });
 
   it('evaluates the flag with the provider', async () => {
-    const flag = defineFlag({ key: 'v2_enabled', provider: inMemoryProject() });
+    const flag = defineFlag({
+      key: 'v2_enabled',
+      connection: inMemoryConnection(),
+    });
 
     await expect(flag()).resolves.toBe(true);
     expect(console.error).not.toHaveBeenCalled();
     expectTypeOf(flag).returns.toEqualTypeOf<Promise<boolean>>();
   });
 
-  it('exposes its definition and the project metadata', () => {
-    const provider = defineProject(new TypedInMemoryProvider(myFlags), {
-      provider: 'launchdarkly',
-      projectId: 'x',
-      teamId: 'y',
+  it('exposes its definition and the connection', () => {
+    const connection = defineConnection({
+      provider: new TypedInMemoryProvider(myFlags),
+      project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
     const flag = defineFlag({
       key: 'v2_enabled',
       defaultValue: false,
-      provider,
+      connection,
     });
 
     expect(flag.key).toBe('v2_enabled');
     expect(flag.defaultValue).toBe(false);
-    expect(flag.provider).toBe(provider);
-    expect(flag.provider.metadata).toEqual({
-      name: 'in-memory',
-      provider: 'launchdarkly',
+    expect(flag.connection).toBe(connection);
+    expect(flag.connection.project).toEqual({
+      platform: 'launchdarkly',
       projectId: 'x',
       teamId: 'y',
     });
     expectTypeOf(flag.key).toEqualTypeOf<'v2_enabled'>();
-    expectTypeOf(flag.provider.metadata.teamId).toEqualTypeOf<string>();
+    expectTypeOf(flag.connection.project.teamId).toEqualTypeOf<string>();
   });
 
   it('passes an empty context and a logger to the provider', async () => {
-    const project = customProject(async () => ({ value: true }));
-    await defineFlag({ key: 'a', provider: project })();
+    const connection = customConnection(async () => ({ value: true }));
+    await defineFlag({ key: 'a', connection })();
 
-    expect(project.resolveBooleanEvaluation).toHaveBeenCalledWith(
+    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
       false,
       {},
@@ -99,10 +101,10 @@ describe('defineFlag', () => {
   });
 
   it('passes the default value to the provider', async () => {
-    const project = customProject(async () => ({ value: true }));
-    await defineFlag({ key: 'a', defaultValue: true, provider: project })();
+    const connection = customConnection(async () => ({ value: true }));
+    await defineFlag({ key: 'a', defaultValue: true, connection })();
 
-    expect(project.resolveBooleanEvaluation).toHaveBeenCalledWith(
+    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
       true,
       {},
@@ -110,22 +112,32 @@ describe('defineFlag', () => {
     );
   });
 
-  it('registers the provider', () => {
-    const provider = inMemoryProject();
-    expect(getRegisteredProviders()).not.toContain(provider);
+  it('registers the connection', () => {
+    const connection = inMemoryConnection();
+    expect(getRegisteredConnections()).not.toContain(connection);
 
-    defineFlag({ key: 'v2_enabled', provider });
-    expect(getRegisteredProviders()).toContain(provider);
+    defineFlag({ key: 'v2_enabled', connection });
+    expect(getRegisteredConnections()).toContain(connection);
   });
 
-  it('requires a provider returned by defineProject', () => {
-    const provider = new TypedInMemoryProvider(myFlags);
+  it('requires a connection returned by defineConnection', () => {
+    const connection = {
+      provider: new TypedInMemoryProvider(myFlags),
+      project: { platform: 'in-memory' as const },
+    };
 
-    expect(() =>
-      // @ts-expect-error the provider was not passed to defineProject
-      defineFlag({ key: 'v2_enabled', provider }),
-    ).toThrow(
-      'flags: The provider of flag "v2_enabled" must be returned by defineProject.',
+    expect(() => defineFlag({ key: 'v2_enabled', connection })).toThrow(
+      'flags: The connection of flag "v2_enabled" must be returned by defineConnection.',
+    );
+  });
+
+  it('requires a connection, not a provider', () => {
+    const provider = new TypedInMemoryProvider(myFlags);
+    const options = { key: 'v2_enabled', connection: provider };
+
+    // @ts-expect-error a provider is not a connection
+    expect(() => defineFlag(options)).toThrow(
+      'flags: The connection of flag "v2_enabled" must be returned by defineConnection.',
     );
   });
 
@@ -134,7 +146,7 @@ describe('defineFlag', () => {
       const flag = defineFlag({
         key: 'missing',
         defaultValue: true,
-        provider: inMemoryProject(),
+        connection: inMemoryConnection(),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -148,7 +160,10 @@ describe('defineFlag', () => {
     });
 
     it('throws without a default value', async () => {
-      const flag = defineFlag({ key: 'missing', provider: inMemoryProject() });
+      const flag = defineFlag({
+        key: 'missing',
+        connection: inMemoryConnection(),
+      });
 
       const error = await flag().catch((e: unknown) => e);
       expect(error).toBeInstanceOf(FlagEvaluationError);
@@ -163,12 +178,12 @@ describe('defineFlag', () => {
     });
 
     it('uses GENERAL for errors without a code', async () => {
-      const project = customProject(async () => {
+      const connection = customConnection(async () => {
         throw 'oops';
       });
 
       await expect(
-        defineFlag({ key: 'a', provider: project })(),
+        defineFlag({ key: 'a', connection })(),
       ).rejects.toMatchObject({
         code: 'GENERAL',
         message: 'flags: Could not evaluate flag "a": oops',
@@ -188,7 +203,7 @@ describe('defineFlag', () => {
       const flag = defineFlag({
         key: 'a',
         defaultValue: true,
-        provider: customProject(resolve),
+        connection: customConnection(resolve),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -201,7 +216,10 @@ describe('defineFlag', () => {
     });
 
     it('throws without a default value', async () => {
-      const flag = defineFlag({ key: 'a', provider: customProject(resolve) });
+      const flag = defineFlag({
+        key: 'a',
+        connection: customConnection(resolve),
+      });
 
       await expect(flag()).rejects.toMatchObject({
         name: 'FlagEvaluationError',
@@ -213,11 +231,9 @@ describe('defineFlag', () => {
   });
 
   it('throws when the provider returns a non-boolean value', async () => {
-    const project = customProject(async () => ({ value: 'on' }));
+    const connection = customConnection(async () => ({ value: 'on' }));
 
-    await expect(
-      defineFlag({ key: 'a', provider: project })(),
-    ).rejects.toMatchObject({
+    await expect(defineFlag({ key: 'a', connection })()).rejects.toMatchObject({
       code: 'TYPE_MISMATCH',
       message:
         'flags: Could not evaluate flag "a": Expected a boolean, got string',
@@ -227,9 +243,12 @@ describe('defineFlag', () => {
   describe('initialization', () => {
     it('initializes the provider once', async () => {
       const initialize = vi.fn(async () => {});
-      const project = customProject(async () => ({ value: true }), initialize);
-      const a = defineFlag({ key: 'a', provider: project });
-      const b = defineFlag({ key: 'b', provider: project });
+      const connection = customConnection(
+        async () => ({ value: true }),
+        initialize,
+      );
+      const a = defineFlag({ key: 'a', connection });
+      const b = defineFlag({ key: 'b', connection });
 
       expect(initialize).not.toHaveBeenCalled();
       await Promise.all([a(), b(), a()]);
@@ -239,7 +258,7 @@ describe('defineFlag', () => {
 
     it('evaluates after initialization finished', async () => {
       const order: string[] = [];
-      const project = customProject(
+      const connection = customConnection(
         async () => {
           order.push('resolve');
           return { value: true };
@@ -250,7 +269,7 @@ describe('defineFlag', () => {
         },
       );
 
-      await defineFlag({ key: 'a', provider: project })();
+      await defineFlag({ key: 'a', connection })();
       expect(order).toEqual(['initialize', 'resolve']);
     });
 
@@ -259,8 +278,11 @@ describe('defineFlag', () => {
         .fn<() => Promise<void>>()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue(undefined);
-      const project = customProject(async () => ({ value: true }), initialize);
-      const flag = defineFlag({ key: 'a', provider: project });
+      const connection = customConnection(
+        async () => ({ value: true }),
+        initialize,
+      );
+      const flag = defineFlag({ key: 'a', connection });
 
       await expect(flag()).rejects.toMatchObject({
         code: 'GENERAL',
@@ -271,7 +293,7 @@ describe('defineFlag', () => {
     });
 
     it('returns the default value when initialization fails', async () => {
-      const project = customProject(
+      const connection = customConnection(
         async () => ({ value: false }),
         async () => {
           throw new Error('Network error');
@@ -279,7 +301,7 @@ describe('defineFlag', () => {
       );
 
       await expect(
-        defineFlag({ key: 'a', defaultValue: true, provider: project })(),
+        defineFlag({ key: 'a', defaultValue: true, connection })(),
       ).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -291,7 +313,10 @@ describe('defineFlag', () => {
 
   describe('flag keys', () => {
     it('accepts any key when the provider does not declare keys', () => {
-      const flag = defineFlag({ key: 'anything', provider: inMemoryProject() });
+      const flag = defineFlag({
+        key: 'anything',
+        connection: inMemoryConnection(),
+      });
       expectTypeOf(flag.key).toEqualTypeOf<'anything'>();
     });
 
@@ -303,15 +328,16 @@ describe('defineFlag', () => {
           return { value };
         }
       }
-      const provider = defineProject(new TypedProvider(), {
-        provider: 'in-memory',
+      const connection = defineConnection({
+        provider: new TypedProvider(),
+        project: { platform: 'in-memory' },
       });
 
-      const flag = defineFlag({ key: 'a', provider });
+      const flag = defineFlag({ key: 'a', connection });
       expectTypeOf(flag.key).toEqualTypeOf<'a'>();
 
       // @ts-expect-error the provider does not declare key "c"
-      defineFlag({ key: 'c', provider });
+      defineFlag({ key: 'c', connection });
     });
   });
 });

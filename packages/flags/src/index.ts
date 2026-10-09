@@ -1,18 +1,18 @@
 export {
+  type Connection,
+  type ConnectionOptions,
+  defineConnection,
+  type GetEvaluationContext,
+  type Platform,
+  type Project,
+  type ProjectFieldsByPlatform,
+} from './connection';
+export {
   defineFlag,
   type Flag,
   FlagEvaluationError,
   type FlagOptions,
 } from './flag';
-export {
-  defineProject,
-  type GetEvaluationContext,
-  type ProjectFieldsByProvider,
-  type ProjectMetadata,
-  type ProjectOptions,
-  type ProjectProvider,
-  type ProviderName,
-} from './project';
 export { Runtime } from './runtime';
 export {
   type EvaluationContext,

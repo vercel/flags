@@ -54,32 +54,39 @@ class MyProvider implements Provider {
 }
 ```
 
-## Projects
+## Connections
 
-`defineProject(provider, options)` returns the same provider instance.
+A connection links flags to a project on a platform, and to the provider which
+evaluates them. "Provider" always means the OpenFeature provider.
 
-- `options.provider` is one of a fixed list of provider names. The name
-  determines which other fields are required (`ProjectFieldsByProvider`), e.g.
-  `launchdarkly` requires `projectId` and `teamId`.
+```ts
+const launchdarkly = defineConnection({
+  provider: new LaunchDarklyProvider(),
+  project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+  getEvaluationContext, // optional
+});
+```
 
-- `provider`, `projectId` and `teamId` are merged into the existing
-  `provider.metadata` via `Object.assign`, keeping `name`. Throws if the fields
-  are not present afterwards (e.g. `metadata` is a getter returning a new
-  object).
-- `getEvaluationContext(request: { headers: ReadonlyHeaders })` is stored
-  outside of `metadata`, keyed by provider. It is called once per request.
+- `project.platform` is one of a fixed list of platforms. The platform
+  determines which other fields are required (`ProjectFieldsByPlatform`), e.g.
+  `launchdarkly` requires `projectId` and `teamId`, `in-memory` requires none.
+- The connection is a new frozen object exposing `provider`, `project` and
+  `getEvaluationContext`. The provider is not modified.
+- `getEvaluationContext(request: { headers: ReadonlyHeaders })` is called once
+  per request.
+- Several connections can share a provider. It is initialized once.
 
 ## Flags
 
-`defineFlag({ key, defaultValue?, provider })` returns an async function:
+`defineFlag({ key, defaultValue?, connection })` returns an async function:
 `await myFlag()`. The function also exposes `key`, `defaultValue` and
-`provider`, so the project metadata is available from every flag.
+`connection`, so the project is available from every flag.
 
-- `provider` must be returned by `defineProject`. This is checked at the type
-  level and at runtime.
-- Defining a flag registers its provider with the runtime. Flags are usually
-  defined at module scope, so the runtime knows about their providers before
-  `onInit`. `registerProviders` is only needed for flags defined later.
+- `connection` must be returned by `defineConnection`. This is checked at the
+  type level and at runtime.
+- Defining a flag registers its connection with the runtime. Flags are usually
+  defined at module scope, so the runtime knows about their connections before
+  `onInit`. `registerConnections` is only needed for flags defined later.
 - The provider is initialized before its first evaluation. Concurrent
   evaluations share one initialization, and a failed initialization is retried
   on the next evaluation.
@@ -105,17 +112,30 @@ as a tuple matching the input order.
 
 The lifecycle maps to AWS Lambda phases.
 
-- `registerProviders(providers)` is optional. It lets the runtime know about
-  providers before the first request.
+- `registerConnections(connections)` is optional. It lets the runtime know
+  about connections before the first request.
 - `onInit` (Lambda init phase, outside any request): awaits `initialize()` of
-  registered providers. Intended for local work like parsing an embedded
+  the providers of registered connections. Intended for local work like parsing an embedded
   fallback configuration. Failures are logged, not thrown.
 - `onInvoke({ headers })` (inside the request handler): makes sure every known
   provider is initialized, retrying failed initializations, then calls each
   provider's `onInvoke` extension.
-- Providers that were never registered are initialized lazily on their first
-  evaluation.
+- Providers of connections that were never registered are initialized lazily
+  on their first evaluation.
 - `onShutdown`: calls `onClose()` on every initialized provider.
+
+### Build tooling (planned)
+
+Modules starting with a `'use flags'` directive export only flags. Framework
+compiler plugins will make sure their connections are registered before
+startup, so nobody has to call `registerConnections` by hand. Two options:
+
+- At build time, import these modules, read the `connection` of each export and
+  generate the registration code.
+- Preferred: inject a self-import into each such module, so the module can read
+  its own exports and pass their connections to `registerConnections`.
+
+Until then, `registerConnections` is called manually.
 
 ## Deferred
 
