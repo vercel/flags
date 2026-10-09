@@ -11,6 +11,7 @@ import {
 import { defineConnection } from './connection';
 import { FlagEvaluationError } from './errors';
 import { defineFlag } from './flag';
+import { logger } from './logger';
 import { runtime } from './runtime';
 import type { Provider, ResolutionDetails } from './types';
 
@@ -92,7 +93,7 @@ describe('defineFlag', () => {
       'a',
       false,
       {},
-      console,
+      logger,
     );
   });
 
@@ -104,7 +105,7 @@ describe('defineFlag', () => {
       'a',
       true,
       {},
-      console,
+      logger,
     );
   });
 
@@ -147,11 +148,7 @@ describe('defineFlag', () => {
 
       await expect(flag()).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'FlagEvaluationError',
-          flagKey: 'missing',
-          code: 'FLAG_NOT_FOUND',
-        }),
+        'flags: Could not evaluate flag "missing": no flag found with key missing. Returned the default value: true.',
       );
     });
 
@@ -204,10 +201,7 @@ describe('defineFlag', () => {
 
       await expect(flag()).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'flags: Could not evaluate flag "a": Invalid configuration',
-          code: 'PARSE_ERROR',
-        }),
+        'flags: Could not evaluate flag "a": Invalid configuration. Returned the default value: true.',
       );
     });
 
@@ -315,9 +309,7 @@ describe('defineFlag', () => {
         defineFlag({ key: 'a', defaultValue: true, connection })(),
       ).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'flags: Could not evaluate flag "a": Network error',
-        }),
+        'flags: Could not evaluate flag "a": Network error. Returned the default value: true.',
       );
     });
   });

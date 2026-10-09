@@ -284,7 +284,11 @@ class RuntimeImpl {
     } catch (error) {
       const evaluationError = toEvaluationError(key, error);
       if (defaultValue === undefined) throw evaluationError;
-      logger.error(evaluationError);
+      // One line per evaluation, so a broken flag does not fill the logs
+      logger.error(
+        `${evaluationError.message.replace(/\.$/, '')}. Returned the default value: ${defaultValue}.`,
+      );
+      logger.debug(evaluationError);
       return defaultValue;
     }
   }

@@ -113,7 +113,7 @@ describe('evaluate', () => {
 
       await expect(evaluate([a, missing])).resolves.toEqual([true, false]);
       expect(console.error).toHaveBeenCalledWith(
-        expect.objectContaining({ flagKey: 'missing' }),
+        'flags: Could not evaluate flag "missing": Unknown flag "missing". Returned the default value: false.',
       );
     });
 
