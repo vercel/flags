@@ -4,7 +4,21 @@
 export type ReadonlyHeaders = Omit<Headers, 'append' | 'delete' | 'set'>;
 
 /**
- * The request which the runtime handles.
+ * Headers in the shape of Node.js `IncomingMessage.headers`.
+ */
+export type NodeHeaders = Record<string, string | string[] | undefined>;
+
+/**
+ * A request of any framework: a Web `Request`, a Node.js `IncomingMessage`,
+ * or any object with headers.
+ */
+export interface RequestLike {
+  readonly headers: ReadonlyHeaders | NodeHeaders;
+}
+
+/**
+ * The request which `getEvaluationContext` receives. The headers are always
+ * Web `Headers`, whatever the framework.
  */
 export interface IncomingRequest {
   readonly headers: ReadonlyHeaders;
@@ -45,41 +59,8 @@ export interface ProviderMetadata {
   readonly name: string;
 }
 
-/**
- * Capabilities beyond the OpenFeature spec. Providers can opt in by setting
- * this symbol to a `ProviderExtension`.
- */
-export const providerExtension: unique symbol = Symbol.for(
-  'flags.provider-extension',
-);
-
-export interface ProviderExtension<K extends string = string> {
-  /**
-   * Type-only. Declares the flag keys this provider knows about, so
-   * `defineFlag` can check them. Never set at runtime.
-   */
-  readonly types?: { readonly flagKey: K };
-
-  /**
-   * Called once per request, after the provider is initialized. Lets the
-   * provider prepare work that later evaluations in the same request reuse,
-   * e.g. making sure data is fresh. Evaluations of this provider in the same
-   * request wait for it. Errors are logged, and do not stop the evaluations.
-   */
-  onInvoke?(request: IncomingRequest): Promise<void> | void;
-
-  /**
-   * Resolves several flags in a single call.
-   */
-  resolveBatch?(
-    flags: { key: K; defaultValue?: boolean }[],
-    context: EvaluationContext,
-  ): Promise<ResolutionDetails<boolean>[]>;
-}
-
 export interface Provider {
   readonly metadata: ProviderMetadata;
-  readonly [providerExtension]?: ProviderExtension;
   initialize?(context?: EvaluationContext): Promise<void>;
   onClose?(): Promise<void>;
   resolveBooleanEvaluation(
@@ -89,15 +70,3 @@ export interface Provider {
     logger: Logger,
   ): Promise<ResolutionDetails<boolean>>;
 }
-
-/**
- * The flag keys a provider declares through its extension, or `string` if it
- * doesn't declare any.
- */
-export type FlagKey<P extends Provider> = P extends {
-  readonly [providerExtension]?: {
-    readonly types?: { readonly flagKey: infer K extends string };
-  };
-}
-  ? K
-  : string;

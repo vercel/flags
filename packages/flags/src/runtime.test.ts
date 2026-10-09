@@ -1,8 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from 'vitest';
 import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { registerConnections } from './register';
-import { runtime } from './runtime';
+import { type FlagDefinition, runtime } from './runtime';
 import type { Provider } from './types';
 
 function createConnection(name = 'test') {
@@ -331,6 +339,110 @@ describe('runtime', () => {
       await runtime.onShutdown();
       await flag();
       expect(connection.provider.initialize).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('evaluate', () => {
+    it('evaluates a flag returned by defineFlag', async () => {
+      const connection = createConnection();
+      const flag = defineFlag({ key: 'a', connection });
+
+      await expect(runtime.evaluate(flag)).resolves.toBe(true);
+      expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+        'a',
+        false,
+        {},
+        console,
+      );
+      expectTypeOf(flag).toExtend<FlagDefinition>();
+      expectTypeOf(runtime.evaluate).returns.toEqualTypeOf<Promise<boolean>>();
+    });
+
+    it('evaluates a key which is only known at runtime', async () => {
+      const connection = createConnection();
+      const key = ['new', 'checkout'].join('-');
+
+      await expect(
+        runtime.evaluate({ key, connection, defaultValue: false }),
+      ).resolves.toBe(true);
+      expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+        'new-checkout',
+        false,
+        {},
+        console,
+      );
+    });
+
+    it('initializes the provider of a connection which is not registered', async () => {
+      const connection = createConnection();
+      runtime.reset();
+
+      await runtime.evaluate({ key: 'a', connection });
+      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the context of the current request', async () => {
+      const provider = {
+        metadata: { name: 'test' },
+        resolveBooleanEvaluation: vi.fn(async () => ({ value: true })),
+      } satisfies Provider;
+      const connection = defineConnection({
+        provider,
+        project: { platform: 'in-memory' },
+        getEvaluationContext: ({ headers }) => ({
+          targetingKey: headers.get('x-user') ?? 'anonymous',
+        }),
+      });
+
+      await runtime.onInvoke(
+        { headers: new Headers({ 'x-user': 'alice' }) },
+        () => runtime.evaluate({ key: 'a', connection }),
+      );
+      expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+        'a',
+        false,
+        { targetingKey: 'alice' },
+        console,
+      );
+    });
+
+    it('returns the default value when the evaluation fails', async () => {
+      const connection = createConnection();
+      connection.provider.resolveBooleanEvaluation.mockRejectedValue(
+        new Error('Oops'),
+      );
+
+      await expect(
+        runtime.evaluate({ key: 'a', connection, defaultValue: false }),
+      ).resolves.toBe(false);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'FlagEvaluationError', flagKey: 'a' }),
+      );
+    });
+
+    it('rejects with a FlagEvaluationError without a default value', async () => {
+      const connection = createConnection();
+      connection.provider.resolveBooleanEvaluation.mockRejectedValue(
+        new Error('Oops'),
+      );
+
+      await expect(
+        runtime.evaluate({ key: 'a', connection }),
+      ).rejects.toMatchObject({
+        name: 'FlagEvaluationError',
+        message: 'flags: Could not evaluate flag "a": Oops',
+      });
+    });
+
+    it('requires a connection returned by defineConnection', async () => {
+      const connection = {
+        provider: createConnection().provider,
+        project: { platform: 'in-memory' as const },
+      };
+
+      await expect(runtime.evaluate({ key: 'a', connection })).rejects.toThrow(
+        'flags: The connection of flag "a" must be returned by defineConnection.',
+      );
     });
   });
 

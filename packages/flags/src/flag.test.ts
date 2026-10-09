@@ -9,14 +9,10 @@ import {
   vi,
 } from 'vitest';
 import { defineConnection } from './connection';
-import { defineFlag, FlagEvaluationError } from './flag';
+import { FlagEvaluationError } from './errors';
+import { defineFlag } from './flag';
 import { runtime } from './runtime';
-import {
-  type Provider,
-  type ProviderExtension,
-  providerExtension,
-  type ResolutionDetails,
-} from './types';
+import type { Provider, ResolutionDetails } from './types';
 
 const myFlags = {
   v2_enabled: {
@@ -326,33 +322,11 @@ describe('defineFlag', () => {
     });
   });
 
-  describe('flag keys', () => {
-    it('accepts any key when the provider does not declare keys', () => {
-      const flag = defineFlag({
-        key: 'anything',
-        connection: inMemoryConnection(),
-      });
-      expectTypeOf(flag.key).toEqualTypeOf<'anything'>();
+  it('keeps the literal type of the key', () => {
+    const flag = defineFlag({
+      key: 'anything',
+      connection: inMemoryConnection(),
     });
-
-    it('only accepts keys the provider declares', () => {
-      class TypedProvider implements Provider {
-        readonly metadata = { name: 'typed' };
-        declare readonly [providerExtension]?: ProviderExtension<'a' | 'b'>;
-        async resolveBooleanEvaluation(_key: string, value: boolean) {
-          return { value };
-        }
-      }
-      const connection = defineConnection({
-        provider: new TypedProvider(),
-        project: { platform: 'in-memory' },
-      });
-
-      const flag = defineFlag({ key: 'a', connection });
-      expectTypeOf(flag.key).toEqualTypeOf<'a'>();
-
-      // @ts-expect-error the provider does not declare key "c"
-      defineFlag({ key: 'c', connection });
-    });
+    expectTypeOf(flag.key).toEqualTypeOf<'anything'>();
   });
 });

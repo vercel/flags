@@ -1,50 +1,43 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { Connection } from './connection';
+import { type Connection, isConnection } from './connection';
+import { FlagEvaluationError, toEvaluationError } from './errors';
+import { toHeaders } from './headers';
 import { logger } from './logger';
-import {
-  type EvaluationContext,
-  type IncomingRequest,
-  type Provider,
-  providerExtension,
+import type {
+  EvaluationContext,
+  IncomingRequest,
+  Provider,
+  RequestLike,
 } from './types';
 
 /**
- * The state of one request. Each provider is prepared once, and each
- * connection creates its evaluation context once.
+ * What the runtime needs to evaluate a flag. A flag returned by `defineFlag`
+ * is a `FlagDefinition`.
+ */
+export interface FlagDefinition {
+  readonly key: string;
+  /**
+   * Returned when the evaluation fails, after logging the error. If not set,
+   * the error is thrown.
+   */
+  readonly defaultValue?: boolean;
+  /**
+   * A connection returned by `defineConnection`.
+   */
+  readonly connection: Connection;
+}
+
+/**
+ * The state of one request. Each connection creates its evaluation context
+ * once per request.
  */
 class RequestScope {
-  readonly #request: IncomingRequest;
-  readonly #runtime: RuntimeImpl;
-  readonly #preparations = new Map<Provider, Promise<void>>();
+  readonly #request: RequestLike;
+  #incomingRequest: IncomingRequest | undefined;
   readonly #contexts = new Map<Connection, Promise<EvaluationContext>>();
 
-  constructor(request: IncomingRequest, runtime: RuntimeImpl) {
+  constructor(request: RequestLike) {
     this.#request = request;
-    this.#runtime = runtime;
-  }
-
-  /**
-   * Initializes the provider, then calls its `onInvoke` extension. Rejects
-   * only if the initialization fails.
-   */
-  prepare(provider: Provider): Promise<void> {
-    const existing = this.#preparations.get(provider);
-    if (existing) return existing;
-
-    const preparation = this.#runtime
-      .initializeProvider(provider)
-      .then(async () => {
-        try {
-          await provider[providerExtension]?.onInvoke?.(this.#request);
-        } catch (error) {
-          logger.error(
-            `flags: The onInvoke extension of provider "${provider.metadata.name}" failed.`,
-            error,
-          );
-        }
-      });
-    this.#preparations.set(provider, preparation);
-    return preparation;
   }
 
   evaluationContext(connection: Connection): Promise<EvaluationContext> {
@@ -53,10 +46,18 @@ class RequestScope {
 
     const { getEvaluationContext } = connection;
     const context = new Promise<EvaluationContext>((resolve) =>
-      resolve(getEvaluationContext ? getEvaluationContext(this.#request) : {}),
+      resolve(
+        getEvaluationContext ? getEvaluationContext(this.#incoming()) : {},
+      ),
     );
     this.#contexts.set(connection, context);
     return context;
+  }
+
+  // Converts the headers only when a connection needs them
+  #incoming(): IncomingRequest {
+    this.#incomingRequest ??= { headers: toHeaders(this.#request.headers) };
+    return this.#incomingRequest;
   }
 }
 
@@ -94,36 +95,33 @@ class RuntimeImpl {
   }
 
   /**
-   * Call for each request, inside the request handler. Pass the code which
-   * handles the request as `handler`, and return its result.
+   * Call for each request. Pass the request of your framework, and the
+   * function which continues to handle the request, e.g. `next` of a
+   * middleware. Returns the result of `next`.
    *
-   * Flags which are evaluated inside `handler` belong to this request: each
+   * Flags which are evaluated while `next` runs belong to this request: each
    * connection creates its evaluation context once per request.
    *
    * Starts the initialization of providers which are not initialized yet,
-   * retries failed initializations, and starts the `onInvoke` extension of
-   * each provider. Does not wait for this work: each flag waits only for the
-   * provider of its own connection. The evaluation of a flag reports errors.
+   * and retries failed initializations. Does not wait for them: each flag
+   * waits only for the provider of its own connection. The evaluation of a
+   * flag reports errors.
+   *
+   * @param request - A Web `Request`, a Node.js `IncomingMessage`, or any
+   * object with headers.
    *
    * @example
    * ```ts
-   * return runtime.onInvoke({ headers: request.headers }, () =>
-   *   handler(request),
-   * );
+   * // Hono
+   * app.use((c, next) => runtime.onInvoke(c.req.raw, next));
    * ```
    */
-  onInvoke<T>(
-    request: IncomingRequest,
-    handler: () => T | Promise<T>,
-  ): Promise<T> {
-    const scope = new RequestScope(request, this);
-    return this.#storage.run(scope, async () => {
-      for (const provider of this.#registeredProviders()) {
-        // Flags report the error, so it is ignored here
-        scope.prepare(provider).catch(() => {});
-      }
-      return handler();
-    });
+  onInvoke<T>(request: RequestLike, next: () => T | Promise<T>): Promise<T> {
+    for (const provider of this.#registeredProviders()) {
+      // Flags report the error, so it is ignored here
+      this.initializeProvider(provider).catch(() => {});
+    }
+    return this.#storage.run(new RequestScope(request), async () => next());
   }
 
   /**
@@ -211,12 +209,67 @@ class RuntimeImpl {
   }
 
   /**
-   * Returns the scope of the current request, if there is one.
+   * Evaluates a flag. Inside `onInvoke`, uses the evaluation context of the
+   * current request. Outside, uses an empty context.
    *
-   * @internal
+   * Calling a flag returned by `defineFlag` does the same. Use this method
+   * to evaluate a key which is only known at runtime.
+   *
+   * Returns `defaultValue` if the evaluation fails, after logging the error.
+   * Without `defaultValue`, rejects with a `FlagEvaluationError`.
+   *
+   * @example
+   * ```ts
+   * await runtime.evaluate(myFlag);
+   * await runtime.evaluate({ key: 'new-checkout', connection, defaultValue: false });
+   * ```
    */
-  get requestScope(): RequestScope | undefined {
-    return this.#storage.getStore();
+  async evaluate(flag: FlagDefinition): Promise<boolean> {
+    const { key, defaultValue, connection } = flag;
+    if (!isConnection(connection)) {
+      throw new Error(
+        `flags: The connection of flag "${key}" must be returned by defineConnection.`,
+      );
+    }
+    const { provider } = connection;
+
+    try {
+      const scope = this.#storage.getStore();
+      const [, context] = await Promise.all([
+        this.initializeProvider(provider),
+        scope ? scope.evaluationContext(connection) : {},
+      ]);
+
+      const details = await provider.resolveBooleanEvaluation(
+        key,
+        // OpenFeature requires a default. Without one, errors are thrown, so
+        // this placeholder is never returned.
+        defaultValue ?? false,
+        context,
+        logger,
+      );
+
+      if (details.errorCode) {
+        throw new FlagEvaluationError(
+          key,
+          details.errorCode,
+          details.errorMessage ?? details.errorCode,
+        );
+      }
+      if (typeof details.value !== 'boolean') {
+        throw new FlagEvaluationError(
+          key,
+          'TYPE_MISMATCH',
+          `Expected a boolean, got ${typeof details.value}`,
+        );
+      }
+      return details.value;
+    } catch (error) {
+      const evaluationError = toEvaluationError(key, error);
+      if (defaultValue === undefined) throw evaluationError;
+      logger.error(evaluationError);
+      return defaultValue;
+    }
   }
 
   /**
