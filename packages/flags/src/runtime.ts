@@ -18,6 +18,14 @@ import type {
 export interface FlagDefinition {
   readonly key: string;
   /**
+   * The middle step of the chain which creates the evaluation context. See
+   * `defineFlag`.
+   */
+  getEvaluationContext?(
+    context: unknown,
+    request: IncomingRequest | undefined,
+  ): unknown;
+  /**
    * Returned when the evaluation fails, after logging the error. If not set,
    * the error is thrown.
    */
@@ -28,54 +36,59 @@ export interface FlagDefinition {
   readonly connection: Connection;
 }
 
-/**
- * Merges the fields of `explicit` over `base`. Ignores fields which are
- * `undefined`.
- */
-function mergeContext(
-  base: EvaluationContext,
-  explicit: EvaluationContext | undefined,
-): EvaluationContext {
-  if (!explicit) return base;
-  const context = { ...base };
-  for (const [key, value] of Object.entries(explicit)) {
-    if (value !== undefined) context[key] = value;
-  }
-  return context;
-}
+type Step = (context: unknown, request: IncomingRequest | undefined) => unknown;
 
 /**
- * The state of one request. Each connection creates its evaluation context
- * once per request.
+ * The state of one request. Each step of the context chain runs once per
+ * input object.
  */
 class RequestScope {
-  readonly #request: RequestLike;
-  #incomingRequest: IncomingRequest | undefined;
-  readonly #contexts = new Map<Connection, Promise<EvaluationContext>>();
+  readonly request: IncomingRequest;
+  readonly #results = new Map<
+    Step,
+    {
+      objects: WeakMap<object, Promise<unknown>>;
+      values: Map<unknown, Promise<unknown>>;
+    }
+  >();
 
   constructor(request: RequestLike) {
-    this.#request = request;
+    let headers: IncomingRequest['headers'] | undefined;
+    this.request = {
+      // Converts the headers only when a step reads them
+      get headers() {
+        headers ??= toHeaders(request.headers);
+        return headers;
+      },
+    };
   }
 
-  evaluationContext(connection: Connection): Promise<EvaluationContext> {
-    const existing = this.#contexts.get(connection);
+  run(step: Step, owner: object, input: unknown): Promise<unknown> {
+    let results = this.#results.get(step);
+    if (!results) {
+      results = { objects: new WeakMap(), values: new Map() };
+      this.#results.set(step, results);
+    }
+    const isObject = typeof input === 'object' && input !== null;
+    const existing = isObject
+      ? results.objects.get(input)
+      : results.values.get(input);
     if (existing) return existing;
 
-    const { getEvaluationContext } = connection;
-    const context = new Promise<EvaluationContext>((resolve) =>
-      resolve(
-        getEvaluationContext ? getEvaluationContext(this.#incoming()) : {},
-      ),
-    );
-    this.#contexts.set(connection, context);
-    return context;
+    const result = callStep(step, owner, input, this.request);
+    if (isObject) results.objects.set(input, result);
+    else results.values.set(input, result);
+    return result;
   }
+}
 
-  // Converts the headers only when a connection needs them
-  #incoming(): IncomingRequest {
-    this.#incomingRequest ??= { headers: toHeaders(this.#request.headers) };
-    return this.#incomingRequest;
-  }
+function callStep(
+  step: Step,
+  owner: object,
+  input: unknown,
+  request: IncomingRequest | undefined,
+): Promise<unknown> {
+  return new Promise((resolve) => resolve(step.call(owner, input, request)));
 }
 
 /**
@@ -231,16 +244,45 @@ class RuntimeImpl {
    */
   readonly evaluate: Evaluate = ((
     flags: FlagDefinition | readonly FlagDefinition[],
-    context?: EvaluationContext,
-  ) =>
-    Array.isArray(flags)
-      ? Promise.all(flags.map((flag) => this.#evaluateFlag(flag, context)))
-      : this.#evaluateFlag(flags as FlagDefinition, context)) as Evaluate;
+    options?: { evaluationContext?: unknown },
+  ) => {
+    const input = options?.evaluationContext;
+    return Array.isArray(flags)
+      ? Promise.all(flags.map((flag) => this.#evaluateFlag(flag, input)))
+      : this.#evaluateFlag(flags as FlagDefinition, input);
+  }) as Evaluate;
 
-  async #evaluateFlag(
+  /**
+   * Runs the chain: the call side gives `input` to the flag, the flag to the
+   * connection, and the connection to the provider. A missing step gives its
+   * input to the next step as it is.
+   */
+  async #evaluationContext(
     flag: FlagDefinition,
-    explicitContext: EvaluationContext | undefined,
-  ): Promise<boolean> {
+    input: unknown,
+  ): Promise<EvaluationContext> {
+    const scope = this.#storage.getStore();
+    const run = (step: Step, owner: object, value: unknown) =>
+      scope
+        ? scope.run(step, owner, value)
+        : callStep(step, owner, value, undefined);
+
+    let context = input;
+    if (flag.getEvaluationContext) {
+      context = await run(flag.getEvaluationContext, flag, context);
+    }
+    const { connection } = flag;
+    if (connection.getEvaluationContext) {
+      context = await run(
+        connection.getEvaluationContext as Step,
+        connection,
+        context,
+      );
+    }
+    return (context ?? {}) as EvaluationContext;
+  }
+
+  async #evaluateFlag(flag: FlagDefinition, input: unknown): Promise<boolean> {
     const { key, defaultValue, connection } = flag;
     if (!isConnection(connection)) {
       throw new Error(
@@ -250,12 +292,10 @@ class RuntimeImpl {
     const { provider } = connection;
 
     try {
-      const scope = this.#storage.getStore();
-      const [, requestContext] = await Promise.all([
+      const [, context] = await Promise.all([
         this.initializeProvider(provider),
-        scope ? scope.evaluationContext(connection) : {},
+        this.#evaluationContext(flag, input),
       ]);
-      const context = mergeContext(requestContext, explicitContext);
 
       const details = await provider.resolveBooleanEvaluation(
         key,

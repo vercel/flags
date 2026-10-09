@@ -10,17 +10,18 @@ Working notes for the next major version. Not published (`files` only includes `
 3. Done: request scope. `runtime.onInvoke(request, next)` keeps the request
    with `AsyncLocalStorage`. `getEvaluationContext` runs once per request and
    connection.
-4. Done: batch evaluation. `evaluate(flag)` and `evaluate([flagA, flagB])`,
-   with an explicit context whose type comes from the connections.
-5. Framework integrations. Small adapters for Hono, Express, SvelteKit,
-   TanStack Start, Nuxt and Next.js call the `runtime` methods (see
-   "Framework integrations").
-   Compiler plugins for the `'use flags'` directive call `registerFlags`.
+4. Done: batch evaluation. `evaluate(flag)` and `evaluate([flagA, flagB])`.
+5. Done: evaluation context chain. The call side, the flag and the connection
+   each create a part of the context (see "Evaluation context chain").
 6. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
 7. Tooling. Links to the flag in the dashboard of the platform (`origin`).
    Flag discovery for tools such as Flags Explorer.
-8. Standard. Write the spec with normative words (MUST, SHOULD). Add a
+8. Framework integrations. Small adapters for Hono, Express, SvelteKit,
+   TanStack Start, Nuxt and Next.js call the `runtime` methods (see
+   "Framework integrations"). Compiler plugins for the `'use flags'`
+   directive call `registerFlags`.
+9. Standard. Write the spec with normative words (MUST, SHOULD). Add a
    conformance test suite that provider authors can run.
 
 ## Providers
@@ -99,15 +100,17 @@ const launchdarkly = defineConnection({
   `launchdarkly` requires `projectId` and `teamId`, `in-memory` requires none.
 - The connection is a new frozen object exposing `provider`, `project` and
   `getEvaluationContext`. The provider is not modified.
-- `getEvaluationContext(request: { headers: ReadonlyHeaders })` is called once
-  per request.
+- `getEvaluationContext(context, request)` is the last step of the
+  evaluation context chain (see "Evaluation context chain").
 - Several connections can share a provider. It is initialized once.
 
 ## Flags
 
-`defineFlag({ key, defaultValue?, connection })` returns an async function:
-`await myFlag()`. The function also exposes `key`, `defaultValue` and
-`connection`, so the project is available from every flag.
+`defineFlag({ key, defaultValue?, connection, getEvaluationContext? })` returns
+an async function: `await myFlag()` or
+`await myFlag({ evaluationContext })`. The function also exposes `key`,
+`defaultValue`, `connection` and `getEvaluationContext`, so the project is
+available from every flag.
 
 - `connection` must be returned by `defineConnection`. This is checked at the
   type level and at runtime.
@@ -120,8 +123,8 @@ const launchdarkly = defineConnection({
 - The key keeps its literal type. Any string is accepted. Typed keys (a fixed
   list of keys for each provider) are not planned for now.
 - Boolean only for now. A `type` field will be added later.
-- Inside `runtime.onInvoke`, the context comes from `getEvaluationContext` of
-  the connection. Outside, it is empty.
+- The context comes from the evaluation context chain (see "Evaluation
+  context chain").
 - The SDK and the providers use the same logger. Like the default logger of
   OpenFeature, it writes errors and warnings to the console, and ignores info
   and debug messages.
@@ -145,39 +148,85 @@ const launchdarkly = defineConnection({
 
 ```ts
 const [showBanner, newCheckout] = await evaluate([showBannerFlag, newCheckoutFlag]);
-const enabled = await evaluate(myFlag, { user: { id: 'user-1' } });
+const enabled = await evaluate(teamFlag, { evaluationContext: { teamId: 'team-1' } });
 ```
 
 - It accepts one flag or a list of flags. For a list, it returns a tuple with
   the values in the order of the list.
 - It accepts flags returned by `defineFlag` and plain `FlagDefinition`s.
-- Each flag gets the context of its connection once per request, and waits
-  for its provider. The flags are evaluated in parallel.
+- `evaluationContext` is the input of the call side for each flag. Each flag
+  receives the same object, so each step of the chain runs once per request
+  for all of them. The flags are evaluated in parallel.
 - Each flag that fails returns its `defaultValue` and logs the error. If a
   flag without `defaultValue` fails, the call rejects with its
   `FlagEvaluationError`. Thus, `evaluate([flag])` behaves the same as
   `flag()`.
 
-#### Explicit context
+### Evaluation context chain
 
-`evaluate` accepts an optional context as its second argument.
+Three steps create the evaluation context. Each step receives the result of
+the step before, so each step further down can change more:
 
-- The SDK merges its fields over the context of each flag: a field in the
-  explicit context replaces the same field, and all other fields stay. The
-  merge is shallow. Fields that are `undefined` are ignored.
-- Outside of a request, the explicit context is the full context.
-- The explicit context does not change the request context of later
-  evaluations.
-- The type comes from the connections. The return type of
-  `getEvaluationContext` defines the shape of the context of a connection
-  (`FlagContext`). The explicit context is the overlap (intersection) of the
-  contexts of all flags in the call, with all fields optional
-  (`EvaluateContext`). The SDK uses the intersection, not the union, because
-  it merges the same object into the context of each flag. Thus, the object
-  must be valid for every connection.
+1. The call side gives `evaluationContext`: `myFlag({ evaluationContext })` or
+   `evaluate(flags, { evaluationContext })`.
+2. `getEvaluationContext(context, request)` of the flag receives it and
+   returns the context for the connection.
+3. `getEvaluationContext(context, request)` of the connection receives that
+   and returns the context for the provider.
+
+```ts
+const connection = defineConnection({
+  provider,
+  project: { platform: 'in-memory' },
+  getEvaluationContext: async (context: { teamId: string }, request) => ({
+    team: await loadTeam(context.teamId),
+    user: request?.headers.get('x-user') ?? null,
+  }),
+});
+
+const teamInsights = defineFlag({ key: 'team-insights', connection });
+
+// API route GET /api/teams/:teamId: the route knows the team
+await teamInsights({ evaluationContext: { teamId: params.teamId } });
+```
+
+- A missing step gives its input to the next step as it is. Without any step
+  and without input, the provider receives an empty context.
+- There is no automatic merge. A step that wants to keep fields of the step
+  before returns `{ ...context, ... }`.
+- `request` is the current request inside `runtime.onInvoke`, and `undefined`
+  outside. The steps run also outside of a request, e.g. in scripts, because
+  the provider needs the context in the shape that the last step creates.
+- The SDK calls each step with the step's owner as `this`: the flag or the
+  connection.
+
+#### Cache
+
+- Inside a request, each step runs once for each input object. A second call
+  with the same object, or without input, uses the first result.
+  `evaluate([a, b], { evaluationContext })` gives the same object to each
+  flag, so the step of a shared connection runs once.
+- A new object is a new input, also with the same fields. The SDK does not
+  compare the fields, because that is slow and not always correct.
+- Outside of a request, the steps run on each evaluation.
+- If a step throws, the flags that use its result fail for the rest of the
+  request. They return `defaultValue` or throw a `FlagEvaluationError`.
+
+#### Types
+
+- The type of `context` of a step defines the input that the step needs. The
+  return type defines what the next step receives.
+- The connection: `ConnectionInput<C>` is what its flags must give. Without a
+  step, it is `DefaultConnectionInput` (`EvaluationContext | undefined`).
+- The flag: its step must return `ConnectionInput<C>`. The type of its
+  `context` is what the call side must give (`FlagEvaluationContext<F>`).
+  Without a step, the call side must give `ConnectionInput<C>`.
+- The call side: the options are optional if the input can be `undefined`.
+  Otherwise `evaluationContext` is required.
+- `evaluate` with several flags requires the overlap (intersection) of their
+  inputs (`EvaluateContext<F>`), because each flag receives the same object.
 - No field has a special meaning, also not `targetingKey`. Not all providers
-  use it. A connection that needs it declares it in `getEvaluationContext`.
-- A connection without `getEvaluationContext` accepts any context.
+  use it. A connection that needs it declares it.
 
 ## Runtime lifecycle
 
@@ -225,22 +274,13 @@ The SDK does not use `enterWith`, because it changes the context of the
 caller.
 
 - The request can be a Web `Request`, a Node.js `IncomingMessage`, or any
-  object with `headers`. `getEvaluationContext` always receives Web `Headers`.
-  The SDK converts Node.js headers only when a connection needs them. It skips
-  HTTP/2 pseudo-headers, e.g. `:path`.
-- `getEvaluationContext(request)` of a connection runs on the first evaluation
-  of a flag of that connection in the request. Its result is used for all
-  flags of the connection in the same request. It does not run for
-  connections that the request does not use.
-- If `getEvaluationContext` throws, the flags of that connection fail for the
-  rest of the request. They return `defaultValue` or throw a
-  `FlagEvaluationError`. It does not run again in the same request.
-- Each connection has its own context, also when connections share a
-  provider.
+  object with `headers`.
+- `getEvaluationContext` always receives Web `Headers` in `request`. The SDK
+  converts Node.js headers only when a step reads them. It skips HTTP/2
+  pseudo-headers, e.g. `:path`.
+- The request scope holds the cache of the evaluation context chain.
 - A flag waits for the initialization of its provider. It gets the context at
   the same time.
-- Outside of `runtime.onInvoke`, e.g. in scripts or at build time, flags use
-  an empty context. `getEvaluationContext` does not run.
 
 ### Framework integrations (planned)
 
@@ -321,8 +361,6 @@ Other items:
 - Value types other than boolean.
 - A configurable logger, e.g. to write debug messages or to send errors to a
   monitoring service.
-- A context on the call side of a flag, e.g. `myFlag(context)`. Flags will
-  accept it later. Until then, only `evaluate` accepts an explicit context.
 
 ## Open questions
 

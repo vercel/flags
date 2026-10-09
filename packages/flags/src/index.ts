@@ -1,6 +1,8 @@
 export {
   type Connection,
+  type ConnectionInput,
   type ConnectionOptions,
+  type DefaultConnectionInput,
   defineConnection,
   type GetEvaluationContext,
   type Platform,
@@ -13,9 +15,15 @@ export {
   type EvaluateContext,
   type EvaluateResults,
   evaluate,
-  type FlagContext,
+  type FlagEvaluationContext,
 } from './evaluate';
-export { defineFlag, type Flag, type FlagOptions } from './flag';
+export {
+  defineFlag,
+  type EvaluationArgs,
+  type EvaluationOptions,
+  type Flag,
+  type FlagOptions,
+} from './flag';
 export { registerConnections, registerFlags } from './register';
 export { type FlagDefinition, type Runtime, runtime } from './runtime';
 export type {
