@@ -1,5 +1,6 @@
 import type { DatafileInput } from '../types';
 import type { CacheAssessment, CacheMetadata } from './datafile-cache';
+import { debug } from './debug';
 import type { NormalizedOptions } from './normalized-options';
 import {
   connectStream,
@@ -69,6 +70,10 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
   start(): Promise<void> {
     if (this.promise) return this.promise;
 
+    debug(this.options.clientName, 'stream.start', () => ({
+      revision: this.revision(),
+      staleAfterMs: this.staleAfterMs,
+    }));
     const abortController = new AbortController();
     this.abortController = abortController;
 
@@ -92,6 +97,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
       const promise = connectStream(
         {
           host: this.options.host,
+          clientName: this.options.clientName,
           resolveToken: () => this.options.auth.resolveToken(),
           sourceProjectId: this.options.auth.sourceProjectId,
           abortController,
@@ -130,6 +136,9 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
    * Stop the stream connection.
    */
   stop(): void {
+    if (this.abortController) {
+      debug(this.options.clientName, 'stream.stop');
+    }
     const abortController = this.abortController;
     this.abortController = undefined;
     this.promise = undefined;

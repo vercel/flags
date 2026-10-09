@@ -1,6 +1,7 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
 import { type Auth, authHeaders, unauthorizedMessage } from './auth';
+import { debug } from './debug';
 
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -23,6 +24,7 @@ class DatafileHttpError extends Error {
  * body parsing. Cancellation also settles transports that ignore the signal.
  */
 export async function fetchDatafile(options: {
+  clientName?: string;
   host: string;
   auth: Auth;
   fetch: typeof globalThis.fetch;
@@ -35,6 +37,10 @@ export async function fetchDatafile(options: {
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new Error('maxAttempts must be a positive integer');
   }
+  debug(options.clientName, 'datafile.fetch.start', () => ({
+    maxAttempts,
+    timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+  }));
 
   const controller = new AbortController();
   const { signal } = controller;
@@ -46,17 +52,25 @@ export async function fetchDatafile(options: {
   signal.addEventListener('abort', onAbort, { once: true });
   const onExternalAbort = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', onExternalAbort, { once: true });
-  const timeoutId = setTimeout(
-    () =>
-      controller.abort(
-        new Error('@vercel/flags-core: Datafile fetch deadline exceeded'),
-      ),
-    DEFAULT_FETCH_TIMEOUT_MS,
-  );
+  const timeoutId = setTimeout(() => {
+    debug(options.clientName, 'datafile.fetch.timeout', () => ({
+      timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+    }));
+    controller.abort(
+      new Error('@vercel/flags-core: Datafile fetch deadline exceeded'),
+    );
+  }, DEFAULT_FETCH_TIMEOUT_MS);
   let delay: ReturnType<typeof setTimeout> | undefined;
 
-  const fetchAttempt = async (): Promise<BundledDefinitions> => {
-    const token = await options.auth.resolveToken();
+  const fetchAttempt = async (attempt: number): Promise<BundledDefinitions> => {
+    debug(options.clientName, 'datafile.fetch.attempt', () => ({
+      attempt,
+      maxAttempts,
+    }));
+    const token = await options.auth.resolveToken().catch((error) => {
+      debug(options.clientName, 'datafile.auth.failed', () => ({ attempt }));
+      throw error;
+    });
     signal.throwIfAborted();
     const res = await options.fetch(`${options.host}/v1/datafile`, {
       headers: {
@@ -69,6 +83,10 @@ export async function fetchDatafile(options: {
       signal,
     });
     signal.throwIfAborted();
+    debug(options.clientName, 'datafile.fetch.response', () => ({
+      attempt,
+      status: res.status,
+    }));
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
       throw new DatafileHttpError(
@@ -81,6 +99,12 @@ export async function fetchDatafile(options: {
 
     const data = (await res.json()) as BundledDefinitions;
     signal.throwIfAborted();
+    debug(options.clientName, 'datafile.fetch.complete', () => ({
+      attempt,
+      projectId: data.projectId,
+      revision: data.revision,
+      configUpdatedAt: Number(data.configUpdatedAt),
+    }));
     return data;
   };
 
@@ -96,7 +120,7 @@ export async function fetchDatafile(options: {
       }
       signal.throwIfAborted();
       try {
-        return await Promise.race([fetchAttempt(), aborted]);
+        return await Promise.race([fetchAttempt(attempt + 1), aborted]);
       } catch (error) {
         signal.throwIfAborted();
         if (
@@ -107,8 +131,25 @@ export async function fetchDatafile(options: {
             ? error
             : new Error('Unknown fetch error');
         }
+        debug(options.clientName, 'datafile.fetch.retry', () => ({
+          nextAttempt: attempt + 2,
+          delayMs: 100 * 2 ** attempt,
+          status: error instanceof DatafileHttpError ? error.status : undefined,
+        }));
       }
     }
+  } catch (error) {
+    if (signal.aborted) {
+      debug(options.clientName, 'datafile.fetch.aborted', () => ({
+        // The internal deadline aborts too; only the caller's signal is external.
+        reason: options.signal?.aborted ? 'external' : 'timeout',
+      }));
+    } else {
+      debug(options.clientName, 'datafile.fetch.failed', () => ({
+        status: error instanceof DatafileHttpError ? error.status : undefined,
+      }));
+    }
+    throw error;
   } finally {
     clearTimeout(timeoutId);
     clearTimeout(delay);

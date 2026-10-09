@@ -14,6 +14,7 @@ import { UsageTracker } from '../utils/usage-tracker';
 import { unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
+import { debug } from './debug';
 import { fetchDatafile } from './fetch-datafile';
 import { HeaderSource } from './header-source';
 import {
@@ -161,6 +162,7 @@ export class Controller implements ControllerInterface {
       },
       this.options.staleIfErrorMs,
       this.options.waitUntil,
+      this.options.clientName,
     );
 
     // Create source modules
@@ -170,6 +172,7 @@ export class Controller implements ControllerInterface {
     );
 
     this.pollingSource = new PollingSource({
+      clientName: this.options.clientName,
       polling: this.options.polling,
       staleWhileRevalidateMs: this.options.staleWhileRevalidateMs,
       refresh: () => this.cache.refresh('poll'),
@@ -191,35 +194,59 @@ export class Controller implements ControllerInterface {
     }
 
     this.usageTracker = new UsageTracker(this.options);
+    debug(this.options.clientName, 'client.created', () => ({
+      ...this.debugState(),
+      buildStep: this.options.buildStep,
+      vercel: this.options.vercel,
+      stream: this.options.stream.enabled,
+      streamInitTimeoutMs: this.options.stream.initTimeoutMs,
+      polling: this.options.polling.enabled,
+      pollingIntervalMs: this.options.polling.intervalMs,
+      pollingInitTimeoutMs: this.options.polling.initTimeoutMs,
+      staleWhileRevalidateMs: this.options.staleWhileRevalidateMs,
+      staleIfErrorMs: this.options.staleIfErrorMs,
+    }));
   }
 
   // Source event handlers (stored for cleanup)
   private onStreamData = (data: DatafileInput) => {
+    debug(this.options.clientName, 'stream.data', () => ({
+      projectId: data.projectId,
+      revision: data.revision,
+      configUpdatedAt: Number(data.configUpdatedAt),
+    }));
     this.unauthorized = false;
     this.cache.updateFromSource(data, 'stream');
   };
   private onStreamPrimed = (message: PrimedMessage) => {
     this.unauthorized = false;
-    this.cache.tryConfirm(message, 'revision', 'stream');
+    const confirmed = this.cache.tryConfirm(message, 'revision', 'stream');
+    debug(this.options.clientName, 'stream.primed', () => ({
+      ...this.debugState(),
+      incomingRevision: message.revision,
+      confirmed,
+    }));
     // The stream is connected even if its revision no longer matches the cache.
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
-      this.transition('streaming');
+      this.transition('streaming', 'stream-primed');
     }
   };
   private onStreamPing = () => {
+    debug(this.options.clientName, 'stream.ping', this.debugState);
     // Each connection sends primed/datafile before pings, so a ping confirms recovery.
     this.cache.confirm('stream');
   };
   private onStreamConnected = () => {
     if (this.state === 'degraded' || this.state === 'initializing:stream') {
-      this.transition('streaming');
+      this.transition('streaming', 'stream-connected');
     }
   };
   private onStreamDisconnected = () => {
+    debug(this.options.clientName, 'stream.disconnected', this.debugState);
     this.cache.fail(new Error('stream: disconnected'));
     // The stream reconnects on its own; polling waits until it gives up.
     if (this.state === 'streaming') {
-      this.transition('degraded');
+      this.transition('degraded', 'stream-disconnected');
     }
   };
   private onStreamExhausted = () => {
@@ -243,7 +270,7 @@ export class Controller implements ControllerInterface {
     // stream does; degraded reads revalidate over HTTP once it is fixed.
     if (this.state === 'polling' && isUnauthorizedError(error)) {
       this.pollingSource.stop();
-      this.transition('degraded');
+      this.transition('degraded', 'polling-unauthorized');
     }
   };
 
@@ -277,8 +304,27 @@ export class Controller implements ControllerInterface {
   // State machine
   // ---------------------------------------------------------------------------
 
-  private transition(to: State): void {
+  private debugState = () => ({
+    state: this.state,
+    mode: this.mode,
+    projectId: this.cache.metadata?.projectId,
+    hasData: this.cache.hasData,
+    revision: this.cache.revision,
+    ageMs: this.cache.ageMs,
+    unauthorized: this.unauthorized,
+  });
+
+  private transition(to: State, reason: string): void {
+    const from = this.state;
     this.state = to;
+    if (from !== to) {
+      debug(this.options.clientName, 'client.state', () => ({
+        ...this.debugState(),
+        from,
+        to,
+        reason,
+      }));
+    }
   }
 
   private get isShutdown(): boolean {
@@ -320,10 +366,11 @@ export class Controller implements ControllerInterface {
   async initialize({
     prepareRequest = true,
   }: InitializeOptions = {}): Promise<void> {
+    debug(this.options.clientName, 'client.initialize', this.debugState);
     if (this.options.buildStep) {
-      this.transition('build:loading');
+      this.transition('build:loading', 'build-initialize');
       await this.initializeForBuildStep();
-      this.transition('build:ready');
+      this.transition('build:ready', 'build-data-ready');
       return;
     }
 
@@ -359,7 +406,7 @@ export class Controller implements ControllerInterface {
     if (this.isShutdown) {
       // Reinitialization after shutdown rewires the sources it stopped.
       this.wireSourceEvents();
-      this.transition('idle');
+      this.transition('idle', 'restart-after-shutdown');
     }
 
     // Hydrate from provided datafile if not already set (e.g., after shutdown)
@@ -381,7 +428,7 @@ export class Controller implements ControllerInterface {
 
     // Select header mode after hydration so provided/bundled data avoids a cold fetch.
     if (this.headerSource.isEnabled()) {
-      this.transition('vercel');
+      this.transition('vercel', 'header-mode-enabled');
       return;
     }
 
@@ -414,9 +461,17 @@ export class Controller implements ControllerInterface {
     const isFirstRead = this.isFirstGetData;
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveData();
+    debug(this.options.clientName, 'client.read.start', this.debugState);
+    const [result, cacheStatus] = await this.resolveData().catch((error) => {
+      debug(this.options.clientName, 'client.read.failed', this.debugState);
+      throw error;
+    });
 
     const datafile = this.toDatafile(result, cacheStatus, startTime);
+    debug(this.options.clientName, 'client.read', () => ({
+      ...this.debugState(),
+      ...datafile.metrics,
+    }));
     this.trackRead(startTime, cacheHadDefinitions, isFirstRead, datafile);
     return datafile;
   }
@@ -425,6 +480,7 @@ export class Controller implements ControllerInterface {
    * Shuts down the data source and releases resources.
    */
   async shutdown(): Promise<void> {
+    debug(this.options.clientName, 'client.shutdown.start', this.debugState);
     this.unwireSourceEvents();
     this.streamSource.stop();
     this.pollingSource.stop();
@@ -434,8 +490,9 @@ export class Controller implements ControllerInterface {
       this.cache.seed(tagData({ ...this.options.datafile }, 'provided'));
     }
     this.runtimeInitialized = false;
-    this.transition('shutdown');
+    this.transition('shutdown', 'shutdown');
     await this.usageTracker.shutdown();
+    debug(this.options.clientName, 'client.shutdown.complete', this.debugState);
   }
 
   /**
@@ -445,12 +502,27 @@ export class Controller implements ControllerInterface {
    * definitions, then performs a one-time fetch.
    */
   async getDatafile(): Promise<Datafile> {
+    debug(this.options.clientName, 'client.getDatafile.start', this.debugState);
     const startTime = Date.now();
     this.isFirstGetData = false;
 
-    const [result, cacheStatus] = await this.resolveSnapshot();
+    const [result, cacheStatus] = await this.resolveSnapshot().catch(
+      (error) => {
+        debug(
+          this.options.clientName,
+          'client.getDatafile.failed',
+          this.debugState,
+        );
+        throw error;
+      },
+    );
 
     const datafile = this.toDatafile(result, cacheStatus, startTime);
+    debug(this.options.clientName, 'client.getDatafile', () => ({
+      ...this.debugState(),
+      cacheStatus,
+      origin: result._origin,
+    }));
     return datafile;
   }
 
@@ -476,6 +548,11 @@ export class Controller implements ControllerInterface {
       this.dataViewSource = result;
     }
 
+    debug(this.options.clientName, 'client.getDatafile', () => ({
+      ...this.debugState(),
+      cacheStatus,
+      origin: result._origin,
+    }));
     return {
       ...(this.dataViewBase as DatafileInput),
       metrics: {
@@ -510,6 +587,7 @@ export class Controller implements ControllerInterface {
     [TaggedData, Metrics['cacheStatus']]
   > {
     if (this.sourceStartup) {
+      debug(this.options.clientName, 'source.startup.shared', this.debugState);
       await this.sourceStartup;
     }
 
@@ -524,6 +602,10 @@ export class Controller implements ControllerInterface {
     const result = await this.cache.resolve(this.cacheReadPolicy);
 
     if (result.hasError || !result.data) {
+      debug(this.options.clientName, 'header.fallback', () => ({
+        ...this.debugState(),
+        reason: 'source-assessment-error',
+      }));
       await this.activateFallbackSource();
       return this.resolveRuntimeData();
     }
@@ -550,7 +632,7 @@ export class Controller implements ControllerInterface {
 
     // Header mode needs no network to select, so snapshots can use it too.
     if (this.state === 'idle' && this.headerSource.isEnabled()) {
-      this.transition('vercel');
+      this.transition('vercel', 'header-mode-enabled');
     }
 
     if (!this.cache.hasData) {
@@ -647,12 +729,15 @@ export class Controller implements ControllerInterface {
    */
   private activateFallbackSource(): Promise<void> {
     if (this.sourceStartup) {
+      debug(this.options.clientName, 'source.startup.shared', this.debugState);
       return this.sourceStartup;
     }
+    debug(this.options.clientName, 'source.startup', this.debugState);
     const startup = this.startFallbackSource().finally(() => {
       if (this.sourceStartup === startup) {
         this.sourceStartup = undefined;
       }
+      debug(this.options.clientName, 'source.startup.settled', this.debugState);
     });
     this.sourceStartup = startup;
     return startup;
@@ -667,18 +752,18 @@ export class Controller implements ControllerInterface {
       (this.state === 'idle' || this.state === 'vercel') &&
       this.options.stream.enabled
     ) {
-      this.transition('initializing:stream');
+      this.transition('initializing:stream', 'start-stream');
       const outcome = await this.tryInitializeStream();
       if (this.isShutdown) {
         throw new Error('@vercel/flags-core: Client is shut down');
       }
       if (outcome === 'connected' || this.isConnected) {
-        this.transition('streaming');
+        this.transition('streaming', 'stream-initialized');
         return;
       }
       if (outcome === 'connecting' && this.streamSource.active) {
         // The stream keeps connecting in the background; polling waits until it gives up.
-        this.transition('degraded');
+        this.transition('degraded', 'stream-still-connecting');
         return;
       }
     }
@@ -686,7 +771,7 @@ export class Controller implements ControllerInterface {
     if (this.options.polling.enabled) {
       // A retried initialization keeps the active polling source and waits for its poll again.
       if (this.state !== 'polling') {
-        this.transition('polling');
+        this.transition('polling', 'start-polling');
         this.pollingSource.startInterval();
       }
       await this.initializePolling();
@@ -696,7 +781,7 @@ export class Controller implements ControllerInterface {
       return;
     }
 
-    this.transition('degraded');
+    this.transition('degraded', 'no-active-update-source');
   }
 
   // ---------------------------------------------------------------------------
@@ -708,6 +793,10 @@ export class Controller implements ControllerInterface {
    * stream connecting in the background; a rejection means it gave up.
    */
   private async tryInitializeStream(): Promise<StreamStartup> {
+    debug(this.options.clientName, 'stream.initialize', () => ({
+      timeoutMs: this.options.stream.initTimeoutMs,
+      ...this.debugState(),
+    }));
     if (this.options.stream.initTimeoutMs <= 0) {
       try {
         await this.streamSource.start();
@@ -735,6 +824,10 @@ export class Controller implements ControllerInterface {
       clearTimeout(timeoutId!);
 
       if (result === 'timeout') {
+        debug(this.options.clientName, 'stream.initialize.timeout', () => ({
+          timeoutMs: this.options.stream.initTimeoutMs,
+          ...this.debugState(),
+        }));
         console.warn(
           '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
         );
@@ -766,11 +859,20 @@ export class Controller implements ControllerInterface {
    * the client is shutting down.
    */
   private async initializePolling(): Promise<void> {
+    debug(this.options.clientName, 'poll.initialize', () => ({
+      timeoutMs: this.options.polling.initTimeoutMs,
+      ...this.debugState(),
+    }));
     const poll = this.pollingSource.poll().catch((error) => {
       // Initialization can finish with retained data; serving still enforces SIE.
       if (!this.cache.hasData || this.isShutdown) {
         throw error;
       }
+      debug(
+        this.options.clientName,
+        'poll.initialize.fallback',
+        this.debugState,
+      );
     });
     const timeoutMs = this.options.polling.initTimeoutMs;
     if (timeoutMs <= 0) {
@@ -787,6 +889,10 @@ export class Controller implements ControllerInterface {
         }),
       ]);
       if (outcome === 'timeout') {
+        debug(this.options.clientName, 'poll.initialize.timeout', () => ({
+          timeoutMs,
+          ...this.debugState(),
+        }));
         console.warn(
           '@vercel/flags-core: Polling initialization timeout, falling back while continuing to poll in the background',
         );
@@ -799,6 +905,7 @@ export class Controller implements ControllerInterface {
   private noteUnauthorized(error: unknown): void {
     if (isUnauthorizedError(error)) {
       this.unauthorized = true;
+      debug(this.options.clientName, 'client.unauthorized', this.debugState);
     }
   }
 
@@ -870,6 +977,7 @@ export class Controller implements ControllerInterface {
   private fetchOnce(): Promise<DatafileInput> {
     return fetchDatafile({
       host: this.options.host,
+      clientName: this.options.clientName,
       auth: this.options.auth,
       fetch: this.options.fetch,
     });
@@ -892,17 +1000,17 @@ export class Controller implements ControllerInterface {
    * Shared fallback chain used by both initialize() and resolveData().
    */
   private async initializeFromFallbacks(): Promise<void> {
-    this.transition('initializing:fallback');
+    this.transition('initializing:fallback', 'initialize-static-fallback');
 
     if (this.cache.hasData) {
-      this.transition('degraded');
+      this.transition('degraded', 'cached-fallback');
       return;
     }
 
     const bundled = await this.bundledSource.tryLoad();
     if (bundled) {
       this.cache.seed(tagData({ ...bundled }, 'bundled'));
-      this.transition('degraded');
+      this.transition('degraded', 'bundled-fallback');
       return;
     }
 
@@ -910,7 +1018,7 @@ export class Controller implements ControllerInterface {
     if (!this.options.stream.enabled && !this.options.polling.enabled) {
       try {
         this.acceptLastResortFetch(await this.fetchOnce());
-        this.transition('degraded');
+        this.transition('degraded', 'fetched-fallback');
         return;
       } catch {
         // fetch failed — fall through to throw
@@ -925,6 +1033,7 @@ export class Controller implements ControllerInterface {
    * starts with either "." or " during build.".
    */
   private noDefinitionsError(detail: string): Error {
+    debug(this.options.clientName, 'client.no-definitions', this.debugState);
     const { sourceProjectId } = this.options.auth;
     const reason =
       this.unauthorized && sourceProjectId
@@ -947,13 +1056,13 @@ export class Controller implements ControllerInterface {
     if (cached) return [cached, 'STALE'];
 
     // Fallback chain: datafile → bundled → one-time fetch
-    this.transition('initializing:fallback');
+    this.transition('initializing:fallback', 'read-static-fallback');
 
     if (this.options.datafile) {
       const provided = this.cache.seedAndRead(
         tagData({ ...this.options.datafile }, 'provided'),
       );
-      this.transition('degraded');
+      this.transition('degraded', 'provided-fallback');
       return [provided, 'STALE'];
     }
 
@@ -963,7 +1072,7 @@ export class Controller implements ControllerInterface {
       const embedded = this.cache.seedAndRead(
         tagData({ ...bundled }, 'bundled'),
       );
-      this.transition('degraded');
+      this.transition('degraded', 'bundled-fallback');
       return [embedded, 'STALE'];
     }
 
@@ -977,7 +1086,7 @@ export class Controller implements ControllerInterface {
       }
       if (fetched) {
         const remote = this.acceptLastResortFetch(fetched);
-        this.transition('degraded');
+        this.transition('degraded', 'fetched-fallback');
         return [remote, 'MISS'];
       }
     }
