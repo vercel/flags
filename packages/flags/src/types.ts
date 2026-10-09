@@ -46,7 +46,13 @@ export const providerExtension: unique symbol = Symbol.for(
   'flags.provider-extension',
 );
 
-export interface ProviderExtension {
+export interface ProviderExtension<K extends string = string> {
+  /**
+   * Type-only. Declares the flag keys this provider knows about, so
+   * `defineFlag` can check them. Never set at runtime.
+   */
+  readonly types?: { readonly flagKey: K };
+
   /**
    * Called once per request. Lets the provider prepare work that later
    * evaluations in the same request reuse, e.g. making sure data is fresh.
@@ -57,7 +63,7 @@ export interface ProviderExtension {
    * Resolves several flags in a single call.
    */
   resolveBatch?(
-    flags: { key: string; defaultValue?: boolean }[],
+    flags: { key: K; defaultValue?: boolean }[],
     context: EvaluationContext,
   ): Promise<ResolutionDetails<boolean>[]>;
 }
@@ -74,3 +80,15 @@ export interface Provider {
     logger: Logger,
   ): Promise<ResolutionDetails<boolean>>;
 }
+
+/**
+ * The flag keys a provider declares through its extension, or `string` if it
+ * doesn't declare any.
+ */
+export type FlagKey<P extends Provider> = P extends {
+  readonly [providerExtension]?: {
+    readonly types?: { readonly flagKey: infer K extends string };
+  };
+}
+  ? K
+  : string;

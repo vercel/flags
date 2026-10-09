@@ -1,4 +1,10 @@
 export {
+  defineFlag,
+  type Flag,
+  FlagEvaluationError,
+  type FlagOptions,
+} from './flag';
+export {
   defineProject,
   type GetEvaluationContext,
   type ProjectFieldsByProvider,
@@ -11,6 +17,7 @@ export { Runtime } from './runtime';
 export {
   type EvaluationContext,
   type EvaluationContextValue,
+  type FlagKey,
   type Logger,
   type PrimitiveValue,
   type Provider,

@@ -4,6 +4,7 @@ import type { EvaluationContext, Provider, ReadonlyHeaders } from './types';
  * The project fields each supported provider expects.
  */
 export interface ProjectFieldsByProvider {
+  'in-memory': Record<never, never>;
   launchdarkly: { projectId: string; teamId: string };
 }
 
@@ -30,7 +31,11 @@ export type ProjectProvider<
   N extends ProviderName = ProviderName,
 > = P & { readonly metadata: P['metadata'] & ProjectMetadata<N> };
 
-const evaluationContextGetters = new WeakMap<Provider, GetEvaluationContext>();
+interface Project {
+  getEvaluationContext?: GetEvaluationContext;
+}
+
+const projects = new WeakMap<Provider, Project>();
 
 /**
  * Adds project metadata to a provider and returns the same provider instance.
@@ -57,13 +62,18 @@ export function defineProject<P extends Provider, N extends ProviderName>(
     if (assigned[key] !== value) throw error;
   }
 
-  if (getEvaluationContext) {
-    evaluationContextGetters.set(provider, getEvaluationContext);
-  } else {
-    evaluationContextGetters.delete(provider);
-  }
+  projects.set(provider, { getEvaluationContext });
 
   return provider as ProjectProvider<P, N>;
+}
+
+/**
+ * Returns whether the provider was passed to `defineProject`.
+ *
+ * @internal
+ */
+export function isProject(provider: Provider): provider is ProjectProvider {
+  return projects.has(provider);
 }
 
 /**
@@ -74,5 +84,5 @@ export function defineProject<P extends Provider, N extends ProviderName>(
 export function getEvaluationContextGetter(
   provider: Provider,
 ): GetEvaluationContext | undefined {
-  return evaluationContextGetters.get(provider);
+  return projects.get(provider)?.getEvaluationContext;
 }
