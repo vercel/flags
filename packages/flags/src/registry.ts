@@ -1,23 +1,24 @@
+import type { Connection } from './connection';
 import type { Provider } from './types';
 
-const providers = new Set<Provider>();
+const connections = new Set<Connection>();
 const initializations = new WeakMap<Provider, Promise<void>>();
 
 /**
- * Makes a provider known to the runtime, so it can be initialized before the
- * first evaluation.
+ * Makes a connection known to the runtime, so its provider can be initialized
+ * before the first evaluation.
  *
  * @internal
  */
-export function registerProvider(provider: Provider): void {
-  providers.add(provider);
+export function registerConnection(connection: Connection): void {
+  connections.add(connection);
 }
 
 /**
  * @internal
  */
-export function getRegisteredProviders(): ReadonlySet<Provider> {
-  return providers;
+export function getRegisteredConnections(): ReadonlySet<Connection> {
+  return connections;
 }
 
 /**

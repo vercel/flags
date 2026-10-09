@@ -1,10 +1,10 @@
-import { isProject, type ProjectProvider } from './project';
-import { initializeProvider, registerProvider } from './providers';
+import { type Connection, isConnection } from './connection';
+import { initializeProvider, registerConnection } from './registry';
 import type { FlagKey, Logger } from './types';
 
 const logger: Logger = console;
 
-export interface FlagOptions<P extends ProjectProvider, K extends string> {
+export interface FlagOptions<C extends Connection, K extends string> {
   key: K;
   /**
    * Returned when the evaluation fails, after logging the error. If not set,
@@ -12,18 +12,18 @@ export interface FlagOptions<P extends ProjectProvider, K extends string> {
    */
   defaultValue?: boolean;
   /**
-   * A provider returned by `defineProject`.
+   * A connection returned by `defineConnection`.
    */
-  provider: P;
+  connection: C;
 }
 
 export type Flag<
-  P extends ProjectProvider = ProjectProvider,
+  C extends Connection = Connection,
   K extends string = string,
 > = (() => Promise<boolean>) & {
   readonly key: K;
   readonly defaultValue?: boolean;
-  readonly provider: P;
+  readonly connection: C;
 };
 
 /**
@@ -63,18 +63,19 @@ function toEvaluationError(flagKey: string, error: unknown) {
  * Declares a flag. Call the returned function to evaluate it.
  */
 export function defineFlag<
-  P extends ProjectProvider,
-  const K extends FlagKey<P>,
->(options: FlagOptions<P, K>): Flag<P, K> {
-  const { key, defaultValue, provider } = options;
+  C extends Connection,
+  const K extends FlagKey<C['provider']>,
+>(options: FlagOptions<C, K>): Flag<C, K> {
+  const { key, defaultValue, connection } = options;
 
-  if (!isProject(provider)) {
+  if (!isConnection(connection)) {
     throw new Error(
-      `flags: The provider of flag "${key}" must be returned by defineProject.`,
+      `flags: The connection of flag "${key}" must be returned by defineConnection.`,
     );
   }
 
-  registerProvider(provider);
+  registerConnection(connection);
+  const { provider } = connection;
 
   async function evaluate(): Promise<boolean> {
     try {
@@ -111,5 +112,5 @@ export function defineFlag<
     }
   }
 
-  return Object.assign(evaluate, { key, defaultValue, provider });
+  return Object.assign(evaluate, { key, defaultValue, connection });
 }
