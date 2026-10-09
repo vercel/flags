@@ -2,6 +2,26 @@
 
 Working notes for the next major version. Not published (`files` only includes `dist`).
 
+## Milestones
+
+1. Done: core primitives. Provider types, connections, flags, errors.
+2. Done: runtime lifecycle and registration. `runtime`,
+   `registerConnections`, `registerFlags`.
+3. Done: request scope. `runtime.onInvoke(request, handler)` keeps the
+   request with `AsyncLocalStorage`. `getEvaluationContext` runs once per
+   request and connection. The `onInvoke` extension of providers runs once
+   per request.
+4. Batch evaluation. `evaluate([flagA, flagB])` and the `resolveBatch`
+   extension.
+5. Framework integrations. Next.js and SvelteKit call the `runtime` methods.
+   Compiler plugins for the `'use flags'` directive call `registerFlags`.
+6. OpenFeature parity. Provider hooks, events and tracking. Flag types other
+   than boolean.
+7. Tooling. Links to the flag in the dashboard of the platform (`origin`).
+   Flag discovery for tools such as Flags Explorer.
+8. Standard. Write the spec with normative words (MUST, SHOULD). Add a
+   conformance test suite that provider authors can run.
+
 ## Providers
 
 A provider is any object structurally compatible with the OpenFeature server
@@ -53,6 +73,37 @@ class MyProvider implements Provider {
   declare readonly [providerExtension]?: ProviderExtension<'a' | 'b'>;
 }
 ```
+
+### Lifecycle alignment with OpenFeature
+
+The provider contract uses the OpenFeature lifecycle without changes:
+
+| OpenFeature (provider spec)                        | This SDK                                            |
+| -------------------------------------------------- | --------------------------------------------------- |
+| `initialize(context?, domain?)` (2.4)              | Called by `runtime.onInit`, `onInvoke` or the first evaluation. No context and no domain are passed. |
+| Initialized only once, also for several domains    | Initialized only once, also for several connections |
+| `shutdown` / `onClose` (2.5)                       | Called by `runtime.onShutdown`                      |
+| Re-initialization after shutdown is allowed (2.5.2)| The next use initializes the provider again         |
+| Status from events (2.8)                           | Status from the `initialize` promise. Events are deferred. |
+| `on context changed` (2.6)                         | Not used. It is for static-context (client) providers. |
+| `track` (2.7)                                      | Deferred                                            |
+| No per-request hook                                | `onInvoke` in the provider extension                |
+
+The `runtime` methods (`onInit`, `onInvoke`, `onShutdown`) are not provider
+methods. They are events of the host platform, so they keep their names.
+
+Differences from the OpenFeature client:
+
+- The OpenFeature client registers a provider with `setProvider`, which calls
+  `initialize` at once. In serverless functions, this usually happens at
+  module scope, which is the Lambda init phase. `runtime.onInit` gives the same
+  result.
+- The OpenFeature client does not wait for a provider that is not ready. It
+  returns the default value with `PROVIDER_NOT_READY`. This SDK waits for the
+  initialization, like `setProviderAndWait`. Thus, a cold start does not return
+  default values. A timeout for this wait is an open question.
+- A provider instance used with this SDK must not also be registered with the
+  OpenFeature API (1.8.4). Otherwise, it is initialized and closed two times.
 
 ## Connections
 
@@ -110,19 +161,78 @@ as a tuple matching the input order.
 
 ## Runtime lifecycle
 
-The lifecycle maps to AWS Lambda phases.
+The SDK exports one `runtime` instance. It coordinates the providers of all
+connections. An application has only one runtime, so `Runtime` is exported
+only as a type. The lifecycle methods map to the AWS Lambda phases. Framework
+integrations call them.
 
-- `registerConnections(connections)` is optional. It lets the runtime know
-  about connections before the first request.
-- `onInit` (Lambda init phase, outside any request): awaits `initialize()` of
-  the providers of registered connections. Intended for local work like parsing an embedded
-  fallback configuration. Failures are logged, not thrown.
-- `onInvoke({ headers })` (inside the request handler): makes sure every known
-  provider is initialized, retrying failed initializations, then calls each
-  provider's `onInvoke` extension.
-- Providers of connections that were never registered are initialized lazily
-  on their first evaluation.
-- `onShutdown`: calls `onClose()` on every initialized provider.
+- `onInit()`: call once before the first request (Lambda init phase). It
+  initializes the providers of all registered connections in parallel, and
+  waits for them. It logs failures and does not throw. Use `initialize()` for
+  local work, e.g. to parse an embedded fallback configuration. Do not rely on
+  connections that you open here: Lambda can freeze the process between
+  requests.
+- `onInvoke(request, handler)`: call for each request, inside the request
+  handler. Pass the code that handles the request as `handler`, and return its
+  result. Flags that are evaluated inside `handler` belong to the request (see
+  "Request scope"). `onInvoke` starts the initialization of providers that are
+  not initialized, retries failed initializations, and starts the `onInvoke`
+  extension of each registered provider. It does not wait for this work: a
+  request can use only some of the providers, and a slow provider must not
+  delay the flags of a different provider. The evaluation of a flag reports
+  errors.
+- A flag waits only for the provider of its connection. If the initialization
+  of that provider is in progress, the flag waits for it before it calls the
+  provider.
+- `waitForInitialization()`: waits until all running initializations are
+  finished. It does not throw.
+- `onShutdown()`: call once when the process stops. It waits for running
+  initializations, then calls `onClose()` on each provider that was
+  initialized. It logs errors and does not throw. After a shutdown, the next
+  use initializes the providers again.
+- A provider is initialized only once, also when several connections share
+  it. Concurrent callers share one initialization. `initialize()` is called
+  synchronously, so the work starts immediately.
+- The provider of a connection that is not registered is initialized on its
+  first evaluation.
+
+### Request scope
+
+`runtime.onInvoke` keeps the request with `AsyncLocalStorage` while `handler`
+runs. This is similar to transaction context propagation in OpenFeature. The
+SDK does not use `enterWith`, because it changes the context of the caller.
+
+- `getEvaluationContext(request)` of a connection runs on the first evaluation
+  of a flag of that connection in the request. Its result is used for all
+  flags of the connection in the same request. It does not run for
+  connections that the request does not use.
+- If `getEvaluationContext` throws, the flags of that connection fail for the
+  rest of the request. They return `defaultValue` or throw a
+  `FlagEvaluationError`. It does not run again in the same request.
+- Each connection has its own context, also when connections share a
+  provider.
+- The `onInvoke` extension of a provider runs once per request, after the
+  initialization of the provider. `runtime.onInvoke` starts it for the
+  providers of registered connections. For other providers, the first
+  evaluation in the request starts it.
+- A flag waits for the initialization and the `onInvoke` extension of its
+  provider. It gets the context at the same time.
+- If the `onInvoke` extension fails, the SDK logs the error, and the
+  evaluations continue. The provider can still evaluate with the data it has.
+- Outside of `runtime.onInvoke`, e.g. in scripts or at build time, flags use
+  an empty context. `getEvaluationContext` and the `onInvoke` extension do not
+  run.
+
+### Registration
+
+- `registerConnections(connections)` registers connections. Use it when you
+  have the connections.
+- `registerFlags(moduleExports)` registers the connections of all flags that a
+  module exports. Use it with a module that only exports flags. It throws if
+  an export is not a flag, and then registers nothing.
+- `defineFlag` registers the connection of the flag. Thus, you only need these
+  functions for flags that are defined after `onInit`, e.g. in modules that are
+  imported lazily.
 
 ### Build tooling (planned)
 
@@ -135,7 +245,8 @@ startup, so nobody has to call `registerConnections` by hand. Two options:
 - Preferred: inject a self-import into each such module, so the module can read
   its own exports and pass their connections to `registerConnections`.
 
-Until then, `registerConnections` is called manually.
+The injected code calls `registerFlags` with the exports of the module. Until
+then, call `registerFlags` or `registerConnections` manually.
 
 ## Deferred
 
@@ -157,15 +268,14 @@ SDK calls providers directly, it has to run these itself to stay compatible.
   such as conversions for experiments. The SDK could expose it as a
   pass-through.
 - Value types other than boolean.
-- Passing the current request to `getEvaluationContext` (needs
-  `AsyncLocalStorage`).
 
 ## Open questions
+
+- Add a timeout for the wait for an initialization? The LaunchDarkly provider
+  waits up to 10 seconds by default.
 
 - Does `evaluate([...], context)` take an explicit evaluation context, and does
   it replace or merge with the one from `getEvaluationContext`?
 - If one flag in `evaluate` fails and has no `defaultValue`, does the whole call
   reject (like `Promise.all`), or does only that entry fail?
-- Should `Runtime.onInvoke` wait for the provider's `onInvoke` extension, or
-  start it and let the first evaluation in that request wait for it? The
-  second lets the request handler do other work in the meantime.
+

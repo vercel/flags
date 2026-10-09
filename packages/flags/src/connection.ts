@@ -1,4 +1,4 @@
-import type { EvaluationContext, Provider, ReadonlyHeaders } from './types';
+import type { EvaluationContext, IncomingRequest, Provider } from './types';
 
 /**
  * The project fields each supported platform expects.
@@ -17,9 +17,9 @@ export type Project<N extends Platform = Platform> = {
   [K in N]: { platform: K } & ProjectFieldsByPlatform[K];
 }[N];
 
-export type GetEvaluationContext = (request: {
-  headers: ReadonlyHeaders;
-}) => EvaluationContext | Promise<EvaluationContext>;
+export type GetEvaluationContext = (
+  request: IncomingRequest,
+) => EvaluationContext | Promise<EvaluationContext>;
 
 export interface ConnectionOptions<P extends Provider, N extends Platform> {
   /**
@@ -28,7 +28,9 @@ export interface ConnectionOptions<P extends Provider, N extends Platform> {
   provider: P;
   project: { platform: N } & ProjectFieldsByPlatform[N];
   /**
-   * Called once per request to create the evaluation context.
+   * Creates the evaluation context for a request. Called once per request,
+   * on the first evaluation of a flag of this connection. Outside of a
+   * request, flags are evaluated with an empty context.
    */
   getEvaluationContext?: GetEvaluationContext;
 }

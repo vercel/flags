@@ -4,6 +4,7 @@
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "resolveJsonModule": true,
+    "stripInternal": true,
     "target": "ES2020"
   }
 }

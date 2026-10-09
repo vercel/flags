@@ -13,11 +13,13 @@ export {
   FlagEvaluationError,
   type FlagOptions,
 } from './flag';
-export { Runtime } from './runtime';
+export { registerConnections, registerFlags } from './register';
+export { type Runtime, runtime } from './runtime';
 export {
   type EvaluationContext,
   type EvaluationContextValue,
   type FlagKey,
+  type IncomingRequest,
   type Logger,
   type PrimitiveValue,
   type Provider,
