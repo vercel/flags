@@ -52,11 +52,6 @@ export type StreamCallbacks = {
   onPing?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
-  /**
-   * Receives, per connection attempt, a handle that drops that connection and
-   * reconnects silently, exactly like a ping timeout.
-   */
-  onConnection?: (reconnect: () => void) => void;
 };
 
 export type StreamConfig = {
@@ -80,8 +75,7 @@ export async function connectStream(
   callbacks: StreamCallbacks,
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
-  const { onDatafile, onPrimed, onPing, onDisconnect, onError, onConnection } =
-    callbacks;
+  const { onDatafile, onPrimed, onPing, onDisconnect, onError } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
 
@@ -131,7 +125,6 @@ export async function connectStream(
       abortController.signal.addEventListener('abort', onMainAbort, {
         once: true,
       });
-      onConnection?.(() => connectionAbort.abort(PING_TIMEOUT));
 
       let pingTimeoutId: ReturnType<typeof setTimeout> | undefined;
       const resetPingTimeout = (): void => {

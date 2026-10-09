@@ -134,17 +134,17 @@ as is, older data is served while a background refresh runs, and data older than
 age refreshes in the background. `getFallbackDatafile()` remains an independent
 bundled-data export.
 
-**Cached definitions now expire by age.** Streaming data is fresh for 60 seconds after
+**Cached definitions now age.** Streaming data is fresh for 60 seconds after
 the last message, allowing one missed 30-second ping. Polling data is fresh for its
 interval plus the 10-second fetch deadline (40 seconds with the default 30-second
 interval). After that, polling data is stale for `staleWhileRevalidate` seconds (10 by
 default) and then expired: stale reads refresh over HTTP in the background, and expired
-reads wait for the shared fetch. Streaming starts no HTTP work while the connection is
-active. Its data stays stale until five minutes after the last message, or until the
-fresh window plus `staleWhileRevalidate` if that is longer, so a runtime resuming from an
-ordinary suspension serves the cache while the ping watchdog reconnects in the
-background. Only older data is expired: those reads drop the silent connection and wait
-up to ten seconds for the replacement stream to confirm or replace the cache.
+reads wait for the shared fetch. Streaming reads never wait and start no HTTP work
+while the stream is live: older data is served immediately and reported as stale. The
+stream recovers on its own. Its ping watchdog reconnects a connection that has been
+silent for 90 seconds, including right after a runtime resumes from a suspension, and
+the reconnect's first message confirms or replaces the cache. A stream that keeps failing
+gives up and hands over to polling or HTTP revalidation.
 `staleWhileRevalidate: 0` makes polling reads block as soon as the fresh window ends. Data
 without a known age, such as a provided datafile without `fetchedAt`, is served until the
 active source first confirms it; without a live source it is revalidated like stale data.

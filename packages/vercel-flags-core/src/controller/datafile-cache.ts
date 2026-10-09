@@ -35,11 +35,10 @@ export type CacheReadPolicy = {
   /** Header reads can provide new recovery evidence before a source update. */
   retryOnFailure?: boolean;
   /**
-   * A live source that owns refreshes. Stale reads then serve the cache while
-   * the source recovers, and expired reads wait for its confirmation instead
-   * of fetching over HTTP.
+   * A live source keeps the entry current, so reads serve it as is and never
+   * start HTTP work that would compete with the source.
    */
-  revalidate?: () => Promise<void>;
+  sourceRefreshes?: boolean;
 };
 
 /**
@@ -242,7 +241,11 @@ export class DatafileCache {
       }
       // Apply recovery evidence before read() enforces the failure deadline.
       if (confirmed) this.confirm();
-      if (status === 'fresh' || status === 'unknown') {
+      if (
+        status === 'fresh' ||
+        status === 'unknown' ||
+        policy.sourceRefreshes
+      ) {
         // read() still enforces stale-if-error, even for a fresh assessment.
         return {
           data: this.read(),
@@ -265,14 +268,8 @@ export class DatafileCache {
       // Calling read() here would throw before a background fetch could start.
       if (status === 'stale' && this.canServe()) {
         const stale = this.read();
-        if (!policy.revalidate) {
-          this.fetchInBackground();
-        }
+        this.fetchInBackground();
         return { data: stale, status: 'STALE' };
-      }
-
-      if (policy.revalidate) {
-        return this.resolveThroughSource(policy);
       }
     }
 
@@ -308,27 +305,6 @@ export class DatafileCache {
       throw new Error('@vercel/flags-core: Fetch returned no definitions');
     }
     return { data, status: 'MISS' };
-  }
-
-  /**
-   * Waits for the live source to confirm or replace the cache, then serves
-   * whatever it left behind. A failed or silent source leaves the failure
-   * policy to decide; the source's own fallback path takes over from there.
-   */
-  private async resolveThroughSource(
-    policy: CacheReadPolicy,
-  ): Promise<CacheResult> {
-    await policy.revalidate?.().catch(() => {});
-    const data = this.read();
-    const metadata = this.metadata;
-    if (!data || !metadata) {
-      throw new Error('@vercel/flags-core: Definitions unavailable');
-    }
-    const { status } = policy.assess(metadata);
-    return {
-      data,
-      status: status === 'fresh' && !this.failure ? 'HIT' : 'STALE',
-    };
   }
 
   /** Runs the one shared datafile refresh used by reads and polling. */

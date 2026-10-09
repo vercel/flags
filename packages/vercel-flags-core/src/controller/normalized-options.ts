@@ -59,11 +59,10 @@ export type ControllerOptions = {
    * How long reads may serve stale cached data while refreshing in the background.
    * Header-driven reads measure from the last fetch or matching version header.
    * Polling data is fresh for its interval plus the 10-second fetch deadline; this
-   * window follows, after which reads wait for the refresh. Streaming data is fresh
-   * for 60 seconds after the last message and waits for the stream only after five
-   * minutes of silence, or after this window if it is longer. Accepts finite,
-   * non-negative seconds, including fractional seconds. Set to 0 to block as soon as
-   * header or polling data is no longer fresh.
+   * window follows, after which reads wait for the refresh. Streaming reads never
+   * wait: the stream keeps the cache current and reconnects on its own. Accepts
+   * finite, non-negative seconds, including fractional seconds. Set to 0 to block as
+   * soon as header or polling data is no longer fresh.
    * @default 10
    */
   staleWhileRevalidate?: number;

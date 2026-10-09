@@ -236,28 +236,25 @@ it.each([
   await vi.advanceTimersByTimeAsync(30_000);
   expect(dataFetch).not.toHaveBeenCalled();
 
-  // Expired reads wait for the young replacement connection instead of
-  // dropping it or fetching over HTTP.
-  const settled = vi.fn();
-  const snapshotRead = instance.getDatafile();
-  const reading = instance.evaluate('feature').then((result) => {
-    settled();
-    return result;
+  // Reads serve the old entry at once while the replacement connects; they
+  // neither wait for the stream nor fetch over HTTP.
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
   });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(settled).not.toHaveBeenCalled();
-  expect(streamFetch).toHaveBeenCalledTimes(2);
+  expect((await instance.getDatafile()).metrics.cacheStatus).toBe('STALE');
   second.push({
     type: 'primed',
     revision: 2,
     projectId: 'prj_review',
     environment: 'production',
   });
-  expect(await reading).toMatchObject({
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await instance.evaluate('feature')).toMatchObject({
     value: true,
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
-  expect(await snapshotRead).toMatchObject({
+  expect(await instance.getDatafile()).toMatchObject({
     fetchedAt: snapshot.fetchedAt,
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
@@ -555,37 +552,28 @@ it.each([
     },
     false,
   ],
-] as const)('settles an expired read through the stream, confirming only on valid evidence: %s', async (_kind, message, confirms) => {
+] as const)('serves old data without waiting and confirms it only on valid stream evidence: %s', async (_kind, message, confirms) => {
   const live = stream();
-  const replacement = stream();
-  streamFetch
-    .mockResolvedValueOnce(live.response)
-    .mockResolvedValueOnce(replacement.response);
+  streamFetch.mockResolvedValueOnce(live.response);
   const instance = client({ polling: false, staleIfError: 0 });
   const initial = instance.evaluate('feature');
   live.push({ type: 'datafile', data: data(2) });
   await initial;
 
-  vi.setSystemTime(now + 300_001);
-  const settled = vi.fn();
-  const reading = instance.evaluate('feature').then((result) => {
-    settled();
-    return result;
+  // Long silence after a suspension: the read is served at once, labeled stale.
+  vi.setSystemTime(now + 3_600_000);
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'streaming', cacheStatus: 'STALE' },
   });
-  await vi.advanceTimersByTimeAsync(0);
-  // The overdue connection is dropped and the read waits for the replacement.
-  expect(settled).not.toHaveBeenCalled();
-  expect(streamFetch).toHaveBeenCalledTimes(2);
-  expect(streamFetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
-  expect(dataFetch).not.toHaveBeenCalled();
 
-  replacement.push(message);
+  live.push(message);
   await vi.advanceTimersByTimeAsync(0);
-  expect(settled).toHaveBeenCalledTimes(1);
-  expect(await reading).toMatchObject({
+  expect(await instance.evaluate('feature')).toMatchObject({
     value: true,
     metrics: { mode: 'streaming', cacheStatus: confirms ? 'HIT' : 'STALE' },
   });
+  expect(streamFetch).toHaveBeenCalledTimes(1);
   expect(dataFetch).not.toHaveBeenCalled();
 });
 
@@ -661,11 +649,8 @@ it.each([
 });
 
 it.each([
-  [10, 300_000],
-  [0, 300_000],
-  // A stale window longer than five minutes extends the streaming expiry.
-  [600, 660_000],
-] as const)('serves the cache after a suspension and only waits for the stream after long silence with staleWhileRevalidate %i', async (staleWhileRevalidate, expiresAt) => {
+  10, 0,
+] as const)('never waits for the stream after a suspension with staleWhileRevalidate %i', async (staleWhileRevalidate) => {
   const first = stream();
   const second = stream();
   streamFetch
@@ -679,9 +664,7 @@ it.each([
   // Wall-clock age advances without any source messages while suspended.
   vi.setSystemTime(now + 60_000);
   expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe('HIT');
-  // Stale, as after an ordinary suspension: served at once without HTTP or a
-  // reconnect; the ping watchdog recovers the connection in the background.
-  for (const age of [60_001, 75_000, expiresAt]) {
+  for (const age of [60_001, 75_000, 300_001, 3_600_000]) {
     vi.setSystemTime(now + age);
     expect((await instance.evaluate('feature')).metrics?.cacheStatus).toBe(
       'STALE',
@@ -691,22 +674,11 @@ it.each([
   expect(streamFetch).toHaveBeenCalledTimes(1);
   expect(dataFetch).not.toHaveBeenCalled();
 
-  // Expired after long silence: the overdue connection is dropped and both
-  // reads share the wait for the replacement stream's first message.
-  vi.setSystemTime(now + expiresAt + 1);
-  const settled = vi.fn();
-  const reading = instance.evaluate('feature').then((result) => {
-    settled();
-    return result;
-  });
-  const snapshot = instance.getDatafile().then((result) => {
-    settled();
-    return result;
-  });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(settled).not.toHaveBeenCalled();
+  // Once timers run again, the overdue ping watchdog reconnects in the
+  // background and the replacement's first message confirms the cache.
+  await vi.advanceTimersByTimeAsync(90_001);
+  await vi.advanceTimersByTimeAsync(1_000);
   expect(streamFetch).toHaveBeenCalledTimes(2);
-  expect(dataFetch).not.toHaveBeenCalled();
   second.push({
     type: 'primed',
     revision: 2,
@@ -714,11 +686,8 @@ it.each([
     environment: 'production',
   });
   await vi.advanceTimersByTimeAsync(0);
-  expect(await reading).toMatchObject({
+  expect(await instance.evaluate('feature')).toMatchObject({
     value: true,
-    metrics: { mode: 'streaming', cacheStatus: 'HIT' },
-  });
-  expect(await snapshot).toMatchObject({
     metrics: { mode: 'streaming', cacheStatus: 'HIT' },
   });
   expect(dataFetch).not.toHaveBeenCalled();
