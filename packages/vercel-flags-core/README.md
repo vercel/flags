@@ -33,10 +33,59 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
-## Cached stream and polling reads
+## Header-driven reads on Vercel
+
+When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
+or bundled definitions. At module scope it starts no network activity. Called inside a
+request, `initialize()` also prepares the cache for that request the way its first
+evaluation would: a matching version header confirms the cache, a newer version or an
+empty cache fetches, and a missing entry starts streaming or polling. It resolves once
+that work settles and rejects only when no definitions are available. Calling it again
+in later requests repeats the preparation without setting the client up twice. Request version headers
+indicate when cached definitions need refreshing. Header mode requires a valid positive
+version for the client’s own `projectId`. An evaluation whose request carries a missing,
+empty, malformed, or unrelated entry permanently switches that client to streaming when
+enabled, otherwise polling. Clients also switch when cached definitions have no valid
+positive config version to compare. Clients with different projects select their sources
+independently within the same request. Concurrent reads share that startup and later
+headers do not switch the client back. Pending HTTP refreshes remain shared until the
+stream delivers current data or confirms the cached version. That confirmation cancels the
+superseded refresh, and waiting reads use the confirmed cache; late responses cannot
+change cache or authorization state. With an empty cache, the first read uses a shared
+fetch to load definitions and discover the client’s project. The next evaluation assesses
+that project’s header entry and starts the stream/poll fallback if it is unavailable.
+If the cold fetch fails, the read rejects without switching sources, and the next read
+retries it. Fetch failures use cached data only while stale-if-error permits it; source
+assessment errors start fallback.
+
+```ts
+const client = createClient(process.env.FLAGS!, {
+  vercel: true,
+  staleWhileRevalidate: 10, // Seconds of background-refresh grace.
+  staleIfError: 60, // Seconds of cached fallback after a refresh failure.
+});
+```
+
+`staleWhileRevalidate` defaults to 10 seconds and accepts finite, nonnegative values,
+including fractions. `0` makes header-driven refreshes block. The window starts at the latest
+accepted fetch or valid confirmation, including an equal-version fetch response.
+The cache tracks this age independently of `fetchedAt`. Bundled/provided definitions
+preserve their original `fetchedAt`; unknown or expired cache age requires a blocking
+refresh when a newer request version arrives. Refresh failures use `staleIfError`.
+A newer-header read attempts blocking recovery after that failure allowance expires.
+
+`getDatafile()` is a snapshot: it never starts streaming or polling. It serves cached
+definitions through the same header checks, background revalidation, blocking refresh,
+and stale-if-error as evaluations, shares pending HTTP refreshes with them, and loads
+bundled definitions or performs a one-time fetch when the cache is empty. Only
+evaluations switch a client to streaming or polling.
+Use `vercel: false` to select the stream/poll behavior. Disabling both
+stream and polling still selects offline mode, and builds retain their existing loading.
+
+## Cached reads after errors
 
 `staleIfError` controls how many seconds evaluations and `getDatafile()` may use
-cached flag definitions after a stream/poll failure or stream disconnect:
+cached flag definitions after a stream/poll/header-refresh failure or stream disconnect:
 
 ```ts
 const client = createClient(process.env.FLAGS!, {
@@ -51,11 +100,13 @@ deadline; `0` disables cached fallback immediately after failure.
 Negative values, `NaN`, and negative infinity throw when creating the client.
 
 The allowance starts at the first consecutive failure. Repeated errors,
-disconnects, and provided or bundled fallback data do not renew it. An accepted
-source update, or a finite equal version for the same project and environment,
-clears the outage. A stream `primed` message also clears it when its finite numeric
-revision and identity match the cached entry. Opening a connection or receiving
-a ping alone does not clear a failure. A later failure starts a new allowance.
+disconnects, and provided or bundled fallback data do not renew it. Any successful
+source response clears the outage: a newer datafile replaces the cached one, while
+an equal, older, or differently identified response proves the source is reachable
+and leaves the stored definitions in place. A stream `primed` message clears it when
+its finite numeric revision and identity match the cached entry. Pings clear failures
+too: the server sends `primed` or a datafile before pings on each connection. Opening
+a connection alone does not clear a failure. A later failure starts a new allowance.
 Responses are observed in completion order, with existing version acceptance.
 
 After expiry, `evaluate()` returns the caller's default with reason `error`, or
@@ -63,15 +114,48 @@ throws the first failure when no default is supplied. `bulkEvaluate()` returns
 an error result for each requested flag, with its default value when provided.
 `getDatafile()` follows the same allowance and throws after expiry. The entry is
 retained for recovery, including its revision for stream reconnection. A clean
-stream close or ping timeout records `stream: disconnected` if no earlier failure
-exists. `getFallbackDatafile()` remains an independent bundled-data export.
+stream close records `stream: disconnected` if no earlier failure exists, and the
+stream reconnects on its own with backoff while reads keep serving the cache. A
+routine reconnect takes about a second, so keep `staleIfError` above the reconnect
+delay; `0` or sub-second values fail reads during every reconnect. Ping timeouts
+reconnect quietly without recording a failure, including after runtime suspension.
 
-There is no age-based expiry while the source is healthy, and reads do not trigger
-an extra refresh after expiry. Build/offline behavior, source scheduling, retries,
-timeouts, metrics categories, and logging are unchanged. An initialization timeout
-alone does not start the allowance. Existing startup limitations remain: when
-initial polling times out, no recurring interval is started, even if that in-flight
-request later completes.
+Streaming and polling never run at the same time. Polling starts only once the stream
+has given up for good: its retry budget is exhausted, it receives a 401, or its token
+cannot be resolved. A stream startup timeout keeps connecting in the background without
+polling. Whenever polling starts, reads wait for the first poll or `polling.initTimeoutMs`;
+on timeout, reads follow `staleIfError` while polling continues at the configured
+interval. A zero initialization timeout waits for the poll, which still has a ten-second
+fetch deadline. Polling gives up on a 401 as well. Whenever no live source is active,
+because the stream is reconnecting or the stream or polling gave up, reads apply plain
+stale-while-revalidate over HTTP: data refreshed within `staleWhileRevalidate` is served
+as is, older data is served while a background refresh runs, and data older than
+`staleWhileRevalidate` plus `staleIfError` waits for the refresh. Data without a known
+age refreshes in the background. `getFallbackDatafile()` remains an independent
+bundled-data export.
+
+**Cached definitions now age.** Streaming data is fresh for 60 seconds after
+the last message, allowing one missed 30-second ping. Polling data is fresh for its
+interval plus the 10-second fetch deadline (40 seconds with the default 30-second
+interval). After that, polling data is stale for `staleWhileRevalidate` seconds (10 by
+default) and then expired: stale reads refresh over HTTP in the background, and expired
+reads wait for the shared fetch. Streaming reads never wait and start no HTTP work
+while the stream is live: older data is served immediately and reported as stale. The
+stream recovers on its own. Its ping watchdog reconnects a connection that has been
+silent for 90 seconds, including right after a runtime resumes from a suspension, and
+the reconnect's first message confirms or replaces the cache. A stream that keeps failing
+gives up and hands over to polling or HTTP revalidation.
+`staleWhileRevalidate: 0` makes polling reads block as soon as the fresh window ends. Data
+without a known age, such as a provided datafile without `fetchedAt`, is served until the
+active source first confirms it; without a live source it is revalidated like stale data.
+Refresh failures still follow `staleIfError`.
+
+Accepted updates, source responses, and valid confirmations reset cache age without
+rewriting `fetchedAt`. Stream pings also reset age and clear any failure. Poll errors
+feed the shared failure handler without logging each failed poll. An initialization
+timeout alone does not start the failure allowance or reset cache age; it permits
+cached fallback while the pending update continues. Shutting down and reinitializing
+a client starts with a clean cache and failure deadline.
 
 ## Evaluation Metrics
 

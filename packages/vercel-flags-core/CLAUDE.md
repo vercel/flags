@@ -18,6 +18,7 @@ src/
 ├── controller/           # Controller (state machine) and I/O sources
 │   ├── index.ts              # Controller class
 │   ├── stream-source.ts      # StreamSource (wraps stream-connection)
+│   ├── header-source.ts       # Request version checks and on-demand refresh
 │   ├── polling-source.ts     # PollingSource (wraps fetch-datafile)
 │   ├── bundled-source.ts     # BundledSource (wraps read-bundled-definitions)
 │   ├── stream-connection.ts  # Low-level NDJSON stream connection
@@ -43,7 +44,7 @@ src/
 ```
 createClient(sdkKey, options)
   → Controller (state machine, selects data origin and coordinates sources/cache)
-    → StreamSource / PollingSource / BundledSource (emit raw DatafileInput)
+    → StreamSource / PollingSource / HeaderSource / BundledSource (raw DatafileInput)
   → create-raw-client (ID-based indirection for 'use cache' support)
     → controller-fns (lookup by ID, evaluate, report)
   → FlagsClient (public API)
@@ -99,7 +100,9 @@ type ControllerOptions = {
   datafile?: Datafile;  // Initial datafile for immediate reads
   stream?: boolean | { initTimeoutMs: number };      // default: true (3000ms)
   polling?: boolean | { intervalMs: number; initTimeoutMs: number };  // default: true (30s interval, 3s timeout)
-  staleIfError?: number;  // Seconds of fallback after stream/poll failure; default: Infinity
+  vercel?: boolean; // default: process.env.VERCEL === '1'; replaces stream/poll at runtime
+  staleWhileRevalidate?: number; // Seconds of header refresh grace; default: 10
+  staleIfError?: number; // Seconds of fallback after update failure; default: Infinity
   buildStep?: boolean;  // Override build step auto-detection
   metricEnvironment?: string; // Environment attached to ingested evaluation metrics
   waitUntil?: (promise: Promise<unknown>) => void;  // default: @vercel/functions waitUntil
@@ -123,7 +126,49 @@ Behavior differs based on environment:
 
 Build-step reads are deduplicated: data is loaded once via a shared promise (`buildDataPromise`) and all concurrent `evaluate()` calls share the result. The entire build counts as a single tracked read event (`buildReadTracked` flag in Controller).
 
-**Runtime** (default, or `buildStep: false`):
+**Vercel runtime** (`vercel: true`, default when `VERCEL=1`):
+- Load provided or bundled definitions during initialization, then select Vercel mode.
+- Module-scope initialization (no request headers) starts no stream/poll or fetch; the
+  first read fetches if the cache is empty.
+- Inside a request (`hasRequestHeaders()`), `initialize()` also runs `prepareForRequest()`,
+  which resolves through `resolveRuntimeData()` like a read without tracking usage: a
+  matching header confirms, a newer version or empty cache fetches, a missing entry
+  starts stream/poll. It rejects only when the cache stays empty.
+- `initialize()` is idempotent: `runtimeInitialized` gates source setup (reset by
+  `shutdown()`, left unset on failure so retries rerun it). The client wrapper sets the
+  controller up once with `{ prepareRequest: false }`, which lazy reads also use because
+  they resolve the request themselves, then calls `initialize()` again inside a request
+  so only an explicit call prepares it and read metrics stay accurate.
+- HeaderSource parses the request's project version and owns `highestObserved`. The cache owns freshness age.
+- A matching header confirms freshness only when no newer version has been observed.
+- The controller configures one shared fetch callback and passes `assess` to `cache.resolve()`.
+  The cache selects cached/background/blocking behavior and shares refresh work.
+- A newer header permits background refresh within `staleWhileRevalidate` seconds of the
+  latest accepted fetch or valid confirmation; unknown/expired cache age blocks for refresh.
+- Every returned entry passes through `DatafileCache.read()`. Refresh errors use its
+  `staleIfError` allowance; expiry forces blocking recovery on the next newer-header read.
+- Evaluations without a valid positive version for this client’s project (missing, empty,
+  malformed, or unrelated headers) permanently start streaming if enabled, otherwise
+  polling, using the existing startup timeouts. Clients select independently. A cold
+  cache first loads definitions and discovers project identity via a shared HTTP fetch.
+  The next evaluation checks source availability through the cache assessment. Missing or
+  invalid cached config versions also produce assessment errors. A failed cold fetch rejects
+  without switching sources; subsequent reads retry the fetch.
+  Concurrent new reads share source startup and pending HTTP refreshes. Accepted stream
+  updates and valid confirmations cancel superseded HTTP work; waiting reads use the
+  confirmed cache, and late responses cannot change failure or authorization state.
+  An assessment with status `error` returns a STALE cache result and a source-error
+  indicator without starting or clearing a fetch-failure deadline. Unservable data is
+  omitted, allowing the controller to start fallback even after stale-if-error expires.
+  Handover retains cached data before considering seeds.
+- `getDatafile()` is a snapshot (`resolveSnapshot()`): it never starts streaming or polling
+  and only shares a source startup already in flight. It serves cached data through the
+  active source policy (header assessment, SWR, blocking refresh, stale-if-error) and loads
+  bundled definitions, then a one-time fetch, when the cache is empty. It selects header
+  mode on an idle client because that needs no network. Disabling both stream and polling
+  selects offline mode.
+
+**Other runtime** (default outside Vercel, or `vercel: false`):
 1. **Stream** - Real-time updates via NDJSON streaming, wait up to `initTimeoutMs`
 2. **Polling** - Interval-based HTTP requests, wait up to `initTimeoutMs`
 3. **Provided datafile** - Use `options.datafile` if provided
@@ -135,8 +180,24 @@ Key behaviors:
 - When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
-- If stream reconnects while polling → stop polling
-- If stream disconnects → start polling (if enabled)
+- `degraded` means no live source is active: the stream is reconnecting after a startup
+  timeout or disconnect, the stream gave up with polling disabled, polling gave up on a
+  401, or the client is offline with data. Degraded reads apply plain stale-while-revalidate
+  over HTTP (`retryOnFailure`) from the public windows only: fresh within
+  `staleWhileRevalidateMs`, stale (background refresh) until `staleWhileRevalidateMs +
+  staleIfErrorMs`, expired (blocking refresh) beyond that. An unknown age is stale because
+  nothing else will confirm it. Offline clients keep the `unknown` policy and never refresh.
+- Polling starts only when the stream gives up for good (`exhausted` event: retries
+  exhausted, 401, or token failure). During startup `tryInitializeStream()` reports
+  `failed` and the source chain moves on; afterwards the detached handler calls
+  `activateFallbackSource()` from `streaming`/`degraded` and catches its rejection. There
+  is no separate exhausted flag: the state and `StreamSource.active` carry it.
+- Polling gives up on a 401: `onPollingError` stops the interval and transitions to
+  `degraded`. A retried `initialize()` after a failed first poll keeps the active polling
+  source and only waits for its next poll.
+- Ping timeouts reconnect quietly without recording a failure.
+- `shutdown()` followed by `initialize()` rewires source events and starts with a clean
+  cache and failure deadline.
 - Use `buildStep: true` to force static-only mode (e.g., serverless cold starts)
 - Use `buildStep: false` to force runtime mode (e.g., custom build environments)
 
@@ -243,14 +304,16 @@ When updating tests for new behavior, preserve the strength of existing assertio
 ### Stream Connection
 
 - Uses fetch with streaming body (NDJSON format)
-- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onDisconnect`, and `onError` (failure evidence for cache policy)
+- Callbacks: `onDatafile` (new data), `onPrimed` (server confirmed revision is current), `onPing` (resets age and clears failure), `onDisconnect`, and `onError` (failure evidence for cache policy)
 - Sends `X-Revision` header with the current revision number on every connection (including reconnects), allowing the server to respond with a lightweight `primed` message instead of a full datafile when the revision is current
-- The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — only transitions state to `streaming`
+- The `primed` message confirms the client's data is up-to-date; it resolves the init promise (like `datafile`) but does not update data — resets cache age and clears a failure when revision/identity match, then transitions state to `streaming`
 - Reconnects with exponential backoff (base: 1s, max: 60s, max retries: 15)
 - Retries on transient errors both before and after initial data is received. Before initial data, retries continue until max retries are exhausted or the abort controller is aborted (e.g., by the Controller's init timeout). The init promise rejects when the loop exits without data.
 - Default `initTimeoutMs`: 3000ms
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
-- On disconnect: state transitions to `'degraded'`, falls back to polling if enabled
+- A ping timeout reconnects the transport internally without emitting a disconnect or starting polling, including when a suspended runtime resumes. Replacement streams keep a watchdog before their first message. Reconnecting alone does not renew cache age or clear failures; stale/expired reads still refresh through HTTP.
+- On connection errors or server closure: state transitions to `'degraded'` while the connection loop retries; polling does not start, and reads revalidate stale data over HTTP meanwhile
+- On retry exhaustion, 401, or token failure the loop aborts its own controller; `StreamSource` emits `'exhausted'` (its `stop()` clears the fields first so an external stop does not) and the Controller starts polling if enabled
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 - Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
@@ -260,8 +323,10 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `intervalMs`: 30000ms (30s)
 - Default `initTimeoutMs`: 3000ms (3s)
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
-- Stops automatically when stream reconnects
-- `PollingSource` passes its abort signal to `fetchDatafile` for both initialization and scheduled polls, so calling `stop()` cancels pending requests and backoff without emitting a shutdown error.
+- Once polling takes over from an exhausted stream it keeps running for the client's lifetime unless it receives a 401, which stops it (state `degraded`); the stream is not restarted
+- `PollingSource` shares the cache's HTTP refresh for initialization, immediate fallback, and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
+- Every transition to polling (configured source, or takeover after the stream is exhausted) waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback subject to stale-if-error without renewing cache age or failure allowance; the pending poll and recurring interval continue. Zero waits for the poll, subject to its ten-second fetch deadline.
+- After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.
 - `fetchDatafile` owns a ten-second deadline covering token resolution, all attempts and backoff, and body parsing. It settles on timeout or cancellation even when a transport ignores its signal, and preserves the external abort reason.
 - Retries are enabled by default for every `fetchDatafile` caller: polling, build loading, offline initialization/evaluation, and direct `getDatafile()` fallback. Internal callers can override `maxAttempts`; retry scheduling and deadline handling remain in the fetch helper, independently of source classes and cache policy.
 
@@ -272,7 +337,12 @@ The Controller selects the origin. Initial/fallback snapshots are tagged before 
 - `'fetched'` → `'remote'`
 - `'bundled'` → `'embedded'`
 
-`tagData` mutates the input object in-place via `Object.assign` (callers always pass freshly-created data).
+`tagData` returns a shallow copy. Accepted fetched/stream/poll data is stamped with
+`fetchedAt`; provided and bundled data preserves valid finite nonnegative timestamps.
+The cache seeds its own freshness age from that timestamp; missing/invalid timestamps
+mean unknown age. Accepted updates and valid confirmations reset cache age without
+rewriting the stored `fetchedAt`. Equal/older/mismatched responses do not replace or retag
+data, but every successful source response resets age and clears the failure.
 
 ### Usage Tracking
 
@@ -305,15 +375,50 @@ The DatafileCache rejects incoming data (from stream or poll) if its `configUpda
 
 ### Cache read policy
 
-`DatafileCache.read()` is the only full-entry read. The cache is configured once
+Every served entry passes through `DatafileCache.read()`, including `resolve(policy)` results. The cache is configured once
 with the internal `staleIfErrorMs`, normalized from the public `staleIfError`
 option in seconds. Evaluations and `getDatafile()` share the same serving
 boundary. `hasData` and `revision` expose coordination metadata even after expiry,
 so retained data is not replaced by fallback and stream reconnects can still send
-`X-Revision`. `seed()` never clears failure. Accepted source updates or valid
-version/revision confirmations clear it; repeated errors/disconnects do not renew
-the first-error deadline. Stream opening/pings and initialization timeout alone
-are not recovery/failure evidence respectively.
+`X-Revision`. `seed()` never clears failure; `clear()` resets it. Every successful
+source response (`updateFromSource()`, including rejected versions) and valid
+primed/header confirmations clear it; repeated errors/disconnects do not renew
+the first-error deadline. Stream opening and initialization timeout alone
+are not recovery/failure evidence respectively. Last-resort fetches go through
+`updateFromSource()` so they clear failure too.
+
+`tryConfirm()` validates version and identity, then delegates to `confirm(source)`.
+Confirmation owns freshness, recovery, and cancellation: stream evidence cancels
+superseded HTTP work only after data is accepted or validated. HTTP responses finish
+their own refresh, and request-header confirmations do not cancel pending work.
+
+`cache.resolve(policy)` receives a mode-specific `assess` callback returning
+`{ status, confirmed? }`, where status is `fresh`, `stale`, `expired`, `unknown`, or `error`.
+It returns `{ data, status, hasError? }`; `hasError` signals an assessment error to the
+controller. Fetch failures still throw when no cached data can be served.
+The shared fetch callback is configured once on the cache.
+It owns background/blocking decisions, `waitUntil`, shared revalidation, and cancellation
+on clear. HeaderSource supplies small version/age checks; it does
+not read the cache. Header assessments return confirmation evidence explicitly; the
+cache applies it before enforcing stale-if-error, without a controller event round trip.
+HTTP results update the cache before the shared fetch promise settles. Polling
+evaluations refresh stale data over HTTP in the background and block on expired data,
+sharing scheduled HTTP work. Streaming evaluations never wait and start no HTTP work:
+the streaming policy sets `CacheReadPolicy.sourceRefreshes`, so the cache serves the entry
+as is (still subject to stale-if-error). Recovery belongs to the stream: the ping watchdog
+reconnects after 90 seconds of silence (overdue timers fire right after a suspended runtime
+resumes), and exhausted retries fall back to polling or degraded HTTP revalidation.
+New public time windows use seconds; internal normalized durations,
+cache age, and `fetchedAt` use milliseconds. Polling is fresh through its interval plus
+the 10-second fetch deadline and then stays stale for `staleWhileRevalidateMs`; streaming
+is fresh through 60 seconds (`STREAM_FRESH_MS`) and stale afterwards, never expired. Both report an
+unknown age (`Infinity`) as `unknown` so unconfirmed seeds are served without a refresh
+while that source is active; the degraded policy maps unknown age to `stale` instead.
+Each source exposes `staleAfterMs` (polling also `expiresAfterMs`) for its `assess()` and its logs.
+Accepted updates, valid confirmations,
+and stream pings reset cache age. Pings also clear failures: each connection sends
+`primed` or a datafile before pings, so they confirm recovery without rewriting `fetchedAt`.
+Polling errors use the shared source-error handler without logging each failed poll.
 
 ### Evaluation Safety
 

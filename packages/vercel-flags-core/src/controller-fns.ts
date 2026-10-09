@@ -10,6 +10,7 @@ import type {
   ControllerInterface,
   Datafile,
   EvaluationResult,
+  InitializeOptions,
   Metrics,
   Packed,
 } from './types';
@@ -38,8 +39,11 @@ function getInstance(id: number): ControllerInstance {
   return instance;
 }
 
-export function initialize(id: number): Promise<void> {
-  return getInstance(id).controller.initialize();
+export function initialize(
+  id: number,
+  options?: InitializeOptions,
+): Promise<void> {
+  return getInstance(id).controller.initialize(options);
 }
 
 export function shutdown(id: number): void | Promise<void> {
