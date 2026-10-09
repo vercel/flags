@@ -9,6 +9,7 @@ import {
 } from 'vitest';
 import { defineConnection } from './connection';
 import { defineFlag } from './flag';
+import { logger } from './logger';
 import { registerConnections } from './register';
 import { type FlagDefinition, runtime } from './runtime';
 import type { Provider } from './types';
@@ -352,7 +353,7 @@ describe('runtime', () => {
         'a',
         false,
         {},
-        console,
+        logger,
       );
       expectTypeOf(flag).toExtend<FlagDefinition>();
       expectTypeOf(runtime.evaluate(flag)).toEqualTypeOf<Promise<boolean>>();
@@ -369,7 +370,7 @@ describe('runtime', () => {
         'new-checkout',
         false,
         {},
-        console,
+        logger,
       );
     });
 
@@ -402,7 +403,7 @@ describe('runtime', () => {
         'a',
         false,
         { targetingKey: 'alice' },
-        console,
+        logger,
       );
     });
 
@@ -416,7 +417,7 @@ describe('runtime', () => {
         runtime.evaluate({ key: 'a', connection, defaultValue: false }),
       ).resolves.toBe(false);
       expect(console.error).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'FlagEvaluationError', flagKey: 'a' }),
+        'flags: Could not evaluate flag "a": Oops. Returned the default value: false.',
       );
     });
 

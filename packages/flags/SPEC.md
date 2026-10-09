@@ -122,12 +122,19 @@ const launchdarkly = defineConnection({
 - Boolean only for now. A `type` field will be added later.
 - Inside `runtime.onInvoke`, the context comes from `getEvaluationContext` of
   the connection. Outside, it is empty.
-- The logger passed to providers is `console`.
+- The SDK and the providers use the same logger. Like the default logger of
+  OpenFeature, it writes errors and warnings to the console, and ignores info
+  and debug messages.
 - Errors: a provider can throw, return details with an `errorCode`, or return a
   non-boolean value (`TYPE_MISMATCH`). All are turned into a
   `FlagEvaluationError` with the flag key and an OpenFeature error code
-  (`GENERAL` if the error has none). If `defaultValue` is set, the error is
-  logged and `defaultValue` returned. Otherwise the error is thrown.
+  (`GENERAL` if the error has none). If `defaultValue` is set, the SDK logs
+  one line and returns `defaultValue`, e.g. `flags: Could not evaluate flag
+  "a": Oops. Returned the default value: false.` The full error goes to the
+  debug level. One line keeps the logs small when a flag fails on each
+  request. Otherwise the error is thrown.
+- Errors of the initialization and of the shutdown are logged with the full
+  error, because they occur only once per process.
 - A link to the flag in the provider's dashboard (`origin`) will be added
   later.
 
@@ -312,6 +319,8 @@ SDK calls providers directly, it has to run these itself to stay compatible.
 Other items:
 
 - Value types other than boolean.
+- A configurable logger, e.g. to write debug messages or to send errors to a
+  monitoring service.
 - A context on the call side of a flag, e.g. `myFlag(context)`. Flags will
   accept it later. Until then, only `evaluate` accepts an explicit context.
 

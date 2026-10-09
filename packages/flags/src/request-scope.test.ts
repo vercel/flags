@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineConnection, type GetEvaluationContext } from './connection';
 import { defineFlag } from './flag';
+import { logger } from './logger';
 import { runtime } from './runtime';
 import type { IncomingRequest, Provider, RequestLike } from './types';
 
@@ -78,7 +79,7 @@ describe('request scope', () => {
         'a',
         false,
         { targetingKey: 'alice' },
-        console,
+        logger,
       );
     });
 
@@ -159,7 +160,7 @@ describe('request scope', () => {
         'a',
         false,
         { targetingKey: 'alice' },
-        console,
+        logger,
       );
     });
 
@@ -238,14 +239,14 @@ describe('request scope', () => {
         'a',
         false,
         { targetingKey: 'a' },
-        console,
+        logger,
       );
       expect(provider.resolveBooleanEvaluation).toHaveBeenNthCalledWith(
         2,
         'b',
         false,
         { targetingKey: 'b' },
-        console,
+        logger,
       );
     });
 
@@ -260,7 +261,7 @@ describe('request scope', () => {
         'a',
         false,
         { targetingKey: 'async' },
-        console,
+        logger,
       );
     });
 
@@ -273,7 +274,7 @@ describe('request scope', () => {
         'a',
         false,
         {},
-        console,
+        logger,
       );
     });
 
@@ -287,7 +288,7 @@ describe('request scope', () => {
         'a',
         false,
         {},
-        console,
+        logger,
       );
     });
 
@@ -323,9 +324,7 @@ describe('request scope', () => {
           runtime.onInvoke(request('alice'), () => flag()),
         ).resolves.toBe(false);
         expect(console.error).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: 'flags: Could not evaluate flag "a": No user',
-          }),
+          'flags: Could not evaluate flag "a": No user. Returned the default value: false.',
         );
       });
 
