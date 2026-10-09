@@ -45,7 +45,7 @@
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
     "check": "biome check",
-    "test": "vitest --run --passWithNoTests",
+    "test": "vitest --run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
