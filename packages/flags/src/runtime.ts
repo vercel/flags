@@ -1,7 +1,4 @@
-/**
- * Headers which can be read but not modified.
- */
-export type ReadonlyHeaders = Omit<Headers, 'append' | 'delete' | 'set'>;
+import type { ReadonlyHeaders } from './types';
 
 /**
  * Base class for runtimes. Extend it and override the lifecycle methods you need.

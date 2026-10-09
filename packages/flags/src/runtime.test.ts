@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { type ReadonlyHeaders, Runtime } from './runtime';
+import { Runtime } from './runtime';
+import type { ReadonlyHeaders } from './types';
 
 describe('Runtime', () => {
   it('has no-op lifecycle methods by default', async () => {
