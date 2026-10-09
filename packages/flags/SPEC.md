@@ -7,13 +7,14 @@ Working notes for the next major version. Not published (`files` only includes `
 1. Done: core primitives. Provider types, connections, flags, errors.
 2. Done: runtime lifecycle and registration. `runtime`,
    `registerConnections`, `registerFlags`.
-3. Done: request scope. `runtime.onInvoke(request, handler)` keeps the
-   request with `AsyncLocalStorage`. `getEvaluationContext` runs once per
-   request and connection. The `onInvoke` extension of providers runs once
-   per request.
-4. Batch evaluation. `evaluate([flagA, flagB])` and the `resolveBatch`
-   extension.
-5. Framework integrations. Next.js and SvelteKit call the `runtime` methods.
+3. Done: request scope. `runtime.onInvoke(request, next)` keeps the request
+   with `AsyncLocalStorage`. `getEvaluationContext` runs once per request and
+   connection.
+4. Batch evaluation. `evaluate([flagA, flagB])` evaluates several flags with
+   one context lookup and one wait per provider.
+5. Framework integrations. Small adapters for Hono, Express, SvelteKit,
+   TanStack Start, Nuxt and Next.js call the `runtime` methods (see
+   "Framework integrations").
    Compiler plugins for the `'use flags'` directive call `registerFlags`.
 6. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
@@ -34,45 +35,19 @@ which is only a dev dependency.
 The SDK calls providers directly instead of going through the OpenFeature
 client, so it owns initialization, evaluation and shutdown.
 
-### Provider extension
+The SDK supports OpenFeature providers as they are. It does not require
+providers to implement more than the OpenFeature spec.
 
-Capabilities beyond the OpenFeature spec live on an optional extension object
-under `provider[Symbol.for('flags.provider-extension')]`. The SDK detects each
-capability and falls back when it is missing.
+### Architecture
 
-```ts
-interface ProviderExtension<K extends string = string> {
-  /**
-   * Type-only. Declares the flag keys this provider knows about. Never set
-   * at runtime.
-   */
-  readonly types?: { readonly flagKey: K };
+All public functions call the `runtime`. For example, a flag calls
+`runtime.evaluate`, and `registerConnections` calls
+`runtime.registerConnection`. The runtime owns all state and all behavior.
 
-  /**
-   * Called once per request. Lets the provider prepare work that later
-   * evaluations in the same request reuse, e.g. making sure data is fresh.
-   */
-  onInvoke?(request: { headers: ReadonlyHeaders }): Promise<void> | void;
-
-  /** Resolves several flags in a single call. */
-  resolveBatch?(
-    flags: { key: K; defaultValue?: boolean }[],
-    context: EvaluationContext,
-  ): Promise<ResolutionDetails<boolean>[]>;
-}
-```
-
-Fallbacks: `onInvoke` is a no-op, and `resolveBatch` becomes one
-`resolveBooleanEvaluation` call per flag.
-
-A provider that declares `types.flagKey` restricts the keys `defineFlag`
-accepts. Providers that don't accept any string key. Example:
-
-```ts
-class MyProvider implements Provider {
-  declare readonly [providerExtension]?: ProviderExtension<'a' | 'b'>;
-}
-```
+`runtime.evaluate(flag)` is public. It accepts a flag returned by `defineFlag`,
+or a `FlagDefinition` (`key`, `connection`, optional `defaultValue`). Use the
+second form to evaluate a key that is only known at runtime. The connection
+must come from `defineConnection`.
 
 ### Lifecycle alignment with OpenFeature
 
@@ -87,7 +62,7 @@ The provider contract uses the OpenFeature lifecycle without changes:
 | Status from events (2.8)                           | Status from the `initialize` promise. Events are deferred. |
 | `on context changed` (2.6)                         | Not used. It is for static-context (client) providers. |
 | `track` (2.7)                                      | Deferred                                            |
-| No per-request hook                                | `onInvoke` in the provider extension                |
+| No per-request hook                                | None. `runtime.onInvoke` scopes the request in the SDK, not in the provider. |
 
 The `runtime` methods (`onInit`, `onInvoke`, `onShutdown`) are not provider
 methods. They are events of the host platform, so they keep their names.
@@ -141,8 +116,11 @@ const launchdarkly = defineConnection({
 - The provider is initialized before its first evaluation. Concurrent
   evaluations share one initialization, and a failed initialization is retried
   on the next evaluation.
+- The key keeps its literal type. Any string is accepted. Typed keys (a fixed
+  list of keys for each provider) are not planned for now.
 - Boolean only for now. A `type` field will be added later.
-- Evaluation context is empty until `getEvaluationContext` is wired up.
+- Inside `runtime.onInvoke`, the context comes from `getEvaluationContext` of
+  the connection. Outside, it is empty.
 - The logger passed to providers is `console`.
 - Errors: a provider can throw, return details with an `errorCode`, or return a
   non-boolean value (`TYPE_MISMATCH`). All are turned into a
@@ -154,10 +132,10 @@ const launchdarkly = defineConnection({
 
 ### Evaluating several flags
 
-`evaluate([flagA, flagB])` resolves several flags in one call, avoiding the
-overhead of one promise chain per flag. The SDK groups the flags by provider
-and calls `resolveBatch` once per provider when available. Results are returned
-as a tuple matching the input order.
+`evaluate([flagA, flagB])` evaluates several flags in one call. It gets the
+context of each connection once, and waits for each provider once. Then it
+calls the provider for each flag. Results are returned as a tuple in the order
+of the input.
 
 ## Runtime lifecycle
 
@@ -172,12 +150,12 @@ integrations call them.
   local work, e.g. to parse an embedded fallback configuration. Do not rely on
   connections that you open here: Lambda can freeze the process between
   requests.
-- `onInvoke(request, handler)`: call for each request, inside the request
-  handler. Pass the code that handles the request as `handler`, and return its
-  result. Flags that are evaluated inside `handler` belong to the request (see
-  "Request scope"). `onInvoke` starts the initialization of providers that are
-  not initialized, retries failed initializations, and starts the `onInvoke`
-  extension of each registered provider. It does not wait for this work: a
+- `onInvoke(request, next)`: call for each request, e.g. in a middleware.
+  Pass the request of the framework and the function that continues to handle
+  the request, e.g. `next`. It returns the result of `next`. Flags that are
+  evaluated while `next` runs belong to the request (see "Request scope").
+  `onInvoke` starts the initialization of providers that are not initialized,
+  and retries failed initializations. It does not wait for this work: a
   request can use only some of the providers, and a slow provider must not
   delay the flags of a different provider. The evaluation of a flag reports
   errors.
@@ -198,10 +176,16 @@ integrations call them.
 
 ### Request scope
 
-`runtime.onInvoke` keeps the request with `AsyncLocalStorage` while `handler`
-runs. This is similar to transaction context propagation in OpenFeature. The
-SDK does not use `enterWith`, because it changes the context of the caller.
+`runtime.onInvoke` keeps the request with `AsyncLocalStorage` while `next`
+runs. Work that `next` starts keeps the scope, also after `next` returns, e.g.
+in Express. This is similar to transaction context propagation in OpenFeature.
+The SDK does not use `enterWith`, because it changes the context of the
+caller.
 
+- The request can be a Web `Request`, a Node.js `IncomingMessage`, or any
+  object with `headers`. `getEvaluationContext` always receives Web `Headers`.
+  The SDK converts Node.js headers only when a connection needs them. It skips
+  HTTP/2 pseudo-headers, e.g. `:path`.
 - `getEvaluationContext(request)` of a connection runs on the first evaluation
   of a flag of that connection in the request. Its result is used for all
   flags of the connection in the same request. It does not run for
@@ -211,17 +195,39 @@ SDK does not use `enterWith`, because it changes the context of the caller.
   `FlagEvaluationError`. It does not run again in the same request.
 - Each connection has its own context, also when connections share a
   provider.
-- The `onInvoke` extension of a provider runs once per request, after the
-  initialization of the provider. `runtime.onInvoke` starts it for the
-  providers of registered connections. For other providers, the first
-  evaluation in the request starts it.
-- A flag waits for the initialization and the `onInvoke` extension of its
-  provider. It gets the context at the same time.
-- If the `onInvoke` extension fails, the SDK logs the error, and the
-  evaluations continue. The provider can still evaluate with the data it has.
+- A flag waits for the initialization of its provider. It gets the context at
+  the same time.
 - Outside of `runtime.onInvoke`, e.g. in scripts or at build time, flags use
-  an empty context. `getEvaluationContext` and the `onInvoke` extension do not
-  run.
+  an empty context. `getEvaluationContext` does not run.
+
+### Framework integrations (planned)
+
+Each integration is a small adapter. Most frameworks have a middleware with a
+`next` function, so the adapter is one line:
+
+```ts
+// Hono
+app.use((c, next) => runtime.onInvoke(c.req.raw, next));
+
+// Express
+app.use((req, res, next) => runtime.onInvoke(req, next));
+
+// SvelteKit (hooks.server.ts)
+export const handle = ({ event, resolve }) =>
+  runtime.onInvoke(event.request, () => resolve(event));
+
+// TanStack Start (request middleware)
+createMiddleware({ type: 'request' }).server(({ request, next }) =>
+  runtime.onInvoke(request, next),
+);
+```
+
+The package will export these adapters, e.g. `flags/hono`, so users do not
+write them. Frameworks without a middleware that wraps the handler need a
+different way to find the current request. Nuxt 3 and 4 (Nitro 2 / h3 1) are
+an example. For these, a later version can let the adapter give the runtime a
+function that returns the current request, e.g. from the request context of
+the framework. This must be checked for each framework.
 
 ### Registration
 

@@ -1,14 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineConnection, type GetEvaluationContext } from './connection';
 import { defineFlag } from './flag';
-import { registerConnections } from './register';
 import { runtime } from './runtime';
-import {
-  type IncomingRequest,
-  type Provider,
-  type ProviderExtension,
-  providerExtension,
-} from './types';
+import type { IncomingRequest, Provider, RequestLike } from './types';
 
 function deferred() {
   let resolve = () => {};
@@ -19,31 +13,24 @@ function deferred() {
 }
 
 function createProvider(name = 'test') {
-  const extension = {
-    onInvoke: vi.fn<(request: IncomingRequest) => Promise<void>>(
-      async () => {},
-    ),
-  } satisfies ProviderExtension;
-  const provider = {
+  return {
     metadata: { name },
-    [providerExtension]: extension,
     initialize: vi.fn<() => Promise<void>>(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value: true })),
   } satisfies Provider;
-  return { provider, extension };
 }
 
 function createConnection(
   getEvaluationContext?: GetEvaluationContext,
   name?: string,
 ) {
-  const { provider, extension } = createProvider(name);
+  const provider = createProvider(name);
   const connection = defineConnection({
     provider,
     project: { platform: 'in-memory' },
     getEvaluationContext,
   });
-  return { connection, provider, extension };
+  return { connection, provider };
 }
 
 function request(user: string): IncomingRequest {
@@ -75,6 +62,26 @@ describe('request scope', () => {
       ).resolves.toBe('async');
     });
 
+    it('keeps the scope for work which next starts', async () => {
+      const { connection, provider } = createConnection(getUserContext);
+      const flag = defineFlag({ key: 'a', connection });
+
+      // Like Express: next returns at once, the work continues later
+      const evaluation = await new Promise<Promise<boolean>>((resolve) => {
+        void runtime.onInvoke(request('alice'), () => {
+          setTimeout(() => resolve(flag()), 0);
+        });
+      });
+
+      await evaluation;
+      expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+        'a',
+        false,
+        { targetingKey: 'alice' },
+        console,
+      );
+    });
+
     it('rejects with the error of the handler', async () => {
       const error = new Error('Handler failed');
 
@@ -86,13 +93,68 @@ describe('request scope', () => {
     });
   });
 
+  describe('requests of frameworks', () => {
+    async function headersFor(request: RequestLike) {
+      let received: IncomingRequest | undefined;
+      const { connection } = createConnection((incoming) => {
+        received = incoming;
+        return {};
+      });
+      const flag = defineFlag({ key: 'a', connection });
+      await runtime.onInvoke(request, () => flag());
+      return received?.headers;
+    }
+
+    it('accepts a Web Request', async () => {
+      const headers = await headersFor(
+        new Request('https://example.com', { headers: { 'x-user': 'alice' } }),
+      );
+      expect(headers?.get('x-user')).toBe('alice');
+    });
+
+    it('accepts Node.js headers', async () => {
+      const headers = await headersFor({
+        headers: {
+          'x-user': 'alice',
+          'accept-language': ['en', 'de'],
+          'x-missing': undefined,
+          ':path': '/',
+        },
+      });
+
+      expect(headers?.get('x-user')).toBe('alice');
+      expect(headers?.get('accept-language')).toBe('en, de');
+      expect(headers?.has('x-missing')).toBe(false);
+      expect([...(headers?.keys() ?? [])]).not.toContain(':path');
+    });
+
+    it('passes Web Headers through', async () => {
+      const original = new Headers({ 'x-user': 'alice' });
+      expect(await headersFor({ headers: original })).toBe(original);
+    });
+
+    it('does not read the headers when no connection needs them', async () => {
+      const { connection } = createConnection();
+      const flag = defineFlag({ key: 'a', connection });
+      const request = {
+        get headers(): Headers {
+          throw new Error('Headers were read');
+        },
+      };
+
+      await expect(runtime.onInvoke(request, () => flag())).resolves.toBe(true);
+    });
+  });
+
   describe('getEvaluationContext', () => {
     it('passes the context to the provider', async () => {
       const { connection, provider } = createConnection(getUserContext);
       const flag = defineFlag({ key: 'a', connection });
 
       await runtime.onInvoke(request('alice'), () => flag());
-      expect(getUserContext).toHaveBeenCalledWith(request('alice'));
+      expect(getUserContext).toHaveBeenCalledWith({
+        headers: expect.any(Headers),
+      });
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
         false,
@@ -277,131 +339,6 @@ describe('request scope', () => {
         });
         expect(calls).toBe(1);
       });
-    });
-  });
-
-  describe('onInvoke extension', () => {
-    it('is called once per request for registered providers', async () => {
-      const { connection, extension } = createConnection();
-      registerConnections([connection]);
-
-      await runtime.onInvoke(request('alice'), () => {});
-      await runtime.waitForInitialization();
-      await vi.waitFor(() =>
-        expect(extension.onInvoke).toHaveBeenCalledWith(request('alice')),
-      );
-
-      await runtime.onInvoke(request('bob'), () => {});
-      await vi.waitFor(() =>
-        expect(extension.onInvoke).toHaveBeenCalledTimes(2),
-      );
-    });
-
-    it('is called after the initialization', async () => {
-      const order: string[] = [];
-      const { connection, provider, extension } = createConnection();
-      const init = deferred();
-      provider.initialize.mockImplementation(async () => {
-        await init.promise;
-        order.push('initialize');
-      });
-      extension.onInvoke.mockImplementation(async () => {
-        order.push('onInvoke');
-      });
-      const flag = defineFlag({ key: 'a', connection });
-
-      await runtime.onInvoke(request('alice'), async () => {
-        const pending = flag();
-        init.resolve();
-        await pending;
-      });
-      expect(order).toEqual(['initialize', 'onInvoke']);
-    });
-
-    it('does not delay the handler', async () => {
-      const { connection, extension } = createConnection();
-      extension.onInvoke.mockReturnValue(deferred().promise);
-      registerConnections([connection]);
-
-      await expect(
-        runtime.onInvoke(request('alice'), () => 'result'),
-      ).resolves.toBe('result');
-    });
-
-    it('lets flags of the provider wait for it', async () => {
-      const { connection, provider, extension } = createConnection();
-      const prepared = deferred();
-      extension.onInvoke.mockReturnValue(prepared.promise);
-      const flag = defineFlag({ key: 'a', connection });
-
-      await runtime.onInvoke(request('alice'), async () => {
-        const pending = flag();
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(provider.resolveBooleanEvaluation).not.toHaveBeenCalled();
-
-        prepared.resolve();
-        await expect(pending).resolves.toBe(true);
-      });
-    });
-
-    it('does not let flags of other providers wait for it', async () => {
-      const slow = createConnection(undefined, 'slow');
-      slow.extension.onInvoke.mockReturnValue(deferred().promise);
-      const fast = createConnection(undefined, 'fast');
-      defineFlag({ key: 'a', connection: slow.connection });
-      const fastFlag = defineFlag({ key: 'b', connection: fast.connection });
-
-      await runtime.onInvoke(request('alice'), async () => {
-        await expect(fastFlag()).resolves.toBe(true);
-      });
-    });
-
-    it('is called once per request for providers of flags which are not registered', async () => {
-      const { connection, extension } = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
-      runtime.reset();
-
-      await runtime.onInvoke(request('alice'), async () => {
-        expect(extension.onInvoke).not.toHaveBeenCalled();
-        await flag();
-        await flag();
-      });
-      expect(extension.onInvoke).toHaveBeenCalledTimes(1);
-    });
-
-    it('logs errors and lets the evaluation continue', async () => {
-      const { connection, extension } = createConnection(undefined, 'broken');
-      const error = new Error('Refresh failed');
-      extension.onInvoke.mockRejectedValue(error);
-      const flag = defineFlag({ key: 'a', connection });
-
-      await expect(
-        runtime.onInvoke(request('alice'), () => flag()),
-      ).resolves.toBe(true);
-      expect(console.error).toHaveBeenCalledWith(
-        'flags: The onInvoke extension of provider "broken" failed.',
-        error,
-      );
-    });
-
-    it('is not called outside of a request', async () => {
-      const { connection, extension } = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
-
-      await flag();
-      expect(extension.onInvoke).not.toHaveBeenCalled();
-    });
-
-    it('is not called when the initialization fails', async () => {
-      const { connection, provider, extension } = createConnection();
-      provider.initialize.mockRejectedValueOnce(new Error('Network error'));
-      const flag = defineFlag({ key: 'a', defaultValue: false, connection });
-
-      await runtime.onInvoke(request('alice'), () => flag());
-      expect(extension.onInvoke).not.toHaveBeenCalled();
-
-      await runtime.onInvoke(request('bob'), () => flag());
-      expect(extension.onInvoke).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -7,25 +7,20 @@ export {
   type Project,
   type ProjectFieldsByPlatform,
 } from './connection';
-export {
-  defineFlag,
-  type Flag,
-  FlagEvaluationError,
-  type FlagOptions,
-} from './flag';
+export { FlagEvaluationError } from './errors';
+export { defineFlag, type Flag, type FlagOptions } from './flag';
 export { registerConnections, registerFlags } from './register';
-export { type Runtime, runtime } from './runtime';
-export {
-  type EvaluationContext,
-  type EvaluationContextValue,
-  type FlagKey,
-  type IncomingRequest,
-  type Logger,
-  type PrimitiveValue,
-  type Provider,
-  type ProviderExtension,
-  type ProviderMetadata,
-  providerExtension,
-  type ReadonlyHeaders,
-  type ResolutionDetails,
+export { type FlagDefinition, type Runtime, runtime } from './runtime';
+export type {
+  EvaluationContext,
+  EvaluationContextValue,
+  IncomingRequest,
+  Logger,
+  NodeHeaders,
+  PrimitiveValue,
+  Provider,
+  ProviderMetadata,
+  ReadonlyHeaders,
+  RequestLike,
+  ResolutionDetails,
 } from './types';
