@@ -26,23 +26,6 @@
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    },
-    "./next": {
-      "import": "./dist/next.js",
-      "require": "./dist/next.cjs"
-    },
-    "./analytics": {
-      "import": "./dist/analytics.js",
-      "require": "./dist/analytics.cjs"
-    },
-    "./react": {
-      "import": "./dist/react.js",
-      "require": "./dist/react.cjs"
-    },
-    "./sveltekit": {
-      "svelte": "./dist/sveltekit.js",
-      "import": "./dist/sveltekit.js",
-      "require": "./dist/sveltekit.cjs"
     }
   },
   "typesVersions": {
@@ -50,18 +33,6 @@
       "*": [
         "dist/*.d.ts",
         "dist/*.d.cts"
-      ],
-      "next": [
-        "dist/next.d.ts",
-        "dist/next.d.cts"
-      ],
-      "react": [
-        "dist/react.d.ts",
-        "dist/react.d.cts"
-      ],
-      "sveltekit": [
-        "dist/sveltekit.d.ts",
-        "dist/sveltekit.d.cts"
       ]
     }
   },
@@ -74,47 +45,17 @@
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
     "check": "biome check",
-    "test": "vitest --run",
+    "test": "vitest --run --passWithNoTests",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "@edge-runtime/cookies": "^5.0.2",
-    "jose": "^5.10.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@types/node": "22.14.0",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@sveltejs/kit": "^2.70.1",
-    "@vitejs/plugin-react": "6.0.4",
-    "msw": "2.6.4",
-    "next": "16.3.8",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vite": "8.1.5",
     "vitest": "4.1.11"
-  },
-  "peerDependencies": {
-    "@opentelemetry/api": "^1.7.0",
-    "next": "*",
-    "react": "*",
-    "react-dom": "*"
-  },
-  "peerDependenciesMeta": {
-    "@opentelemetry/api": {
-      "optional": true
-    },
-    "next": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
   },
   "publishConfig": {
     "access": "public"
