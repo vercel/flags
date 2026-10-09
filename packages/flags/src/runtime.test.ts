@@ -355,7 +355,7 @@ describe('runtime', () => {
         console,
       );
       expectTypeOf(flag).toExtend<FlagDefinition>();
-      expectTypeOf(runtime.evaluate).returns.toEqualTypeOf<Promise<boolean>>();
+      expectTypeOf(runtime.evaluate(flag)).toEqualTypeOf<Promise<boolean>>();
     });
 
     it('evaluates a key which is only known at runtime', async () => {

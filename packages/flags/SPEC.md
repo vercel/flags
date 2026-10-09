@@ -10,8 +10,8 @@ Working notes for the next major version. Not published (`files` only includes `
 3. Done: request scope. `runtime.onInvoke(request, next)` keeps the request
    with `AsyncLocalStorage`. `getEvaluationContext` runs once per request and
    connection.
-4. Batch evaluation. `evaluate([flagA, flagB])` evaluates several flags with
-   one context lookup and one wait per provider.
+4. Done: batch evaluation. `evaluate(flag)` and `evaluate([flagA, flagB])`,
+   with an explicit context whose type comes from the connections.
 5. Framework integrations. Small adapters for Hono, Express, SvelteKit,
    TanStack Start, Nuxt and Next.js call the `runtime` methods (see
    "Framework integrations").
@@ -44,8 +44,9 @@ All public functions call the `runtime`. For example, a flag calls
 `runtime.evaluate`, and `registerConnections` calls
 `runtime.registerConnection`. The runtime owns all state and all behavior.
 
-`runtime.evaluate(flag)` is public. It accepts a flag returned by `defineFlag`,
-or a `FlagDefinition` (`key`, `connection`, optional `defaultValue`). Use the
+The package exports `evaluate` (see "Evaluating flags with `evaluate`"). It
+calls `runtime.evaluate`. Both accept a flag returned by `defineFlag`, or a
+`FlagDefinition` (`key`, `connection`, optional `defaultValue`). Use the
 second form to evaluate a key that is only known at runtime. The connection
 must come from `defineConnection`.
 
@@ -130,12 +131,46 @@ const launchdarkly = defineConnection({
 - A link to the flag in the provider's dashboard (`origin`) will be added
   later.
 
-### Evaluating several flags
+### Evaluating flags with `evaluate`
 
-`evaluate([flagA, flagB])` evaluates several flags in one call. It gets the
-context of each connection once, and waits for each provider once. Then it
-calls the provider for each flag. Results are returned as a tuple in the order
-of the input.
+`evaluate` is a standard function, like `defineFlag`. It calls
+`runtime.evaluate`.
+
+```ts
+const [showBanner, newCheckout] = await evaluate([showBannerFlag, newCheckoutFlag]);
+const enabled = await evaluate(myFlag, { user: { id: 'user-1' } });
+```
+
+- It accepts one flag or a list of flags. For a list, it returns a tuple with
+  the values in the order of the list.
+- It accepts flags returned by `defineFlag` and plain `FlagDefinition`s.
+- Each flag gets the context of its connection once per request, and waits
+  for its provider. The flags are evaluated in parallel.
+- Each flag that fails returns its `defaultValue` and logs the error. If a
+  flag without `defaultValue` fails, the call rejects with its
+  `FlagEvaluationError`. Thus, `evaluate([flag])` behaves the same as
+  `flag()`.
+
+#### Explicit context
+
+`evaluate` accepts an optional context as its second argument.
+
+- The SDK merges its fields over the context of each flag: a field in the
+  explicit context replaces the same field, and all other fields stay. The
+  merge is shallow. Fields that are `undefined` are ignored.
+- Outside of a request, the explicit context is the full context.
+- The explicit context does not change the request context of later
+  evaluations.
+- The type comes from the connections. The return type of
+  `getEvaluationContext` defines the shape of the context of a connection
+  (`FlagContext`). The explicit context is the overlap (intersection) of the
+  contexts of all flags in the call, with all fields optional
+  (`EvaluateContext`). The SDK uses the intersection, not the union, because
+  it merges the same object into the context of each flag. Thus, the object
+  must be valid for every connection.
+- No field has a special meaning, also not `targetingKey`. Not all providers
+  use it. A connection that needs it declares it in `getEvaluationContext`.
+- A connection without `getEvaluationContext` accepts any context.
 
 ## Runtime lifecycle
 
@@ -273,15 +308,16 @@ SDK calls providers directly, it has to run these itself to stay compatible.
 - **Tracking.** `provider.track?(eventName, context, details)` records events
   such as conversions for experiments. The SDK could expose it as a
   pass-through.
+
+Other items:
+
 - Value types other than boolean.
+- A context on the call side of a flag, e.g. `myFlag(context)`. Flags will
+  accept it later. Until then, only `evaluate` accepts an explicit context.
 
 ## Open questions
 
 - Add a timeout for the wait for an initialization? The LaunchDarkly provider
   waits up to 10 seconds by default.
 
-- Does `evaluate([...], context)` take an explicit evaluation context, and does
-  it replace or merge with the one from `getEvaluationContext`?
-- If one flag in `evaluate` fails and has no `defaultValue`, does the whole call
-  reject (like `Promise.all`), or does only that entry fail?
 

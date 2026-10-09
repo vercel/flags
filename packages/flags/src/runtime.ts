@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type Connection, isConnection } from './connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
+import type { Evaluate } from './evaluate';
 import { toHeaders } from './headers';
 import { logger } from './logger';
 import type {
@@ -25,6 +26,22 @@ export interface FlagDefinition {
    * A connection returned by `defineConnection`.
    */
   readonly connection: Connection;
+}
+
+/**
+ * Merges the fields of `explicit` over `base`. Ignores fields which are
+ * `undefined`.
+ */
+function mergeContext(
+  base: EvaluationContext,
+  explicit: EvaluationContext | undefined,
+): EvaluationContext {
+  if (!explicit) return base;
+  const context = { ...base };
+  for (const [key, value] of Object.entries(explicit)) {
+    if (value !== undefined) context[key] = value;
+  }
+  return context;
 }
 
 /**
@@ -209,22 +226,21 @@ class RuntimeImpl {
   }
 
   /**
-   * Evaluates a flag. Inside `onInvoke`, uses the evaluation context of the
-   * current request. Outside, uses an empty context.
-   *
-   * Calling a flag returned by `defineFlag` does the same. Use this method
-   * to evaluate a key which is only known at runtime.
-   *
-   * Returns `defaultValue` if the evaluation fails, after logging the error.
-   * Without `defaultValue`, rejects with a `FlagEvaluationError`.
-   *
-   * @example
-   * ```ts
-   * await runtime.evaluate(myFlag);
-   * await runtime.evaluate({ key: 'new-checkout', connection, defaultValue: false });
-   * ```
+   * Evaluates one flag or several flags. The same as the `evaluate` function
+   * which the package exports.
    */
-  async evaluate(flag: FlagDefinition): Promise<boolean> {
+  readonly evaluate: Evaluate = ((
+    flags: FlagDefinition | readonly FlagDefinition[],
+    context?: EvaluationContext,
+  ) =>
+    Array.isArray(flags)
+      ? Promise.all(flags.map((flag) => this.#evaluateFlag(flag, context)))
+      : this.#evaluateFlag(flags as FlagDefinition, context)) as Evaluate;
+
+  async #evaluateFlag(
+    flag: FlagDefinition,
+    explicitContext: EvaluationContext | undefined,
+  ): Promise<boolean> {
     const { key, defaultValue, connection } = flag;
     if (!isConnection(connection)) {
       throw new Error(
@@ -235,10 +251,11 @@ class RuntimeImpl {
 
     try {
       const scope = this.#storage.getStore();
-      const [, context] = await Promise.all([
+      const [, requestContext] = await Promise.all([
         this.initializeProvider(provider),
         scope ? scope.evaluationContext(connection) : {},
       ]);
+      const context = mergeContext(requestContext, explicitContext);
 
       const details = await provider.resolveBooleanEvaluation(
         key,
