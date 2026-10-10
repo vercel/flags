@@ -1,0 +1,6 @@
+.next
+.next-platform
+.next-webpack
+next-env.d.ts
+test-results
+playwright-report

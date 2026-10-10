@@ -447,6 +447,111 @@ describe('runtime', () => {
     });
   });
 
+  describe('setRethrow', () => {
+    class FrameworkSignal extends Error {}
+    const rethrow = (error: unknown) => {
+      if (error instanceof FrameworkSignal) throw error;
+    };
+
+    it('lets a signal of the framework through, also with a defaultValue', async () => {
+      runtime.setRethrow(rethrow);
+      const signal = new FrameworkSignal('Dynamic server usage');
+      runtime.setRequestSource(() => {
+        throw signal;
+      });
+      const flag = defineFlag({
+        key: 'a',
+        defaultValue: false,
+        connection: createConnection(),
+      });
+
+      await expect(flag()).rejects.toBe(signal);
+    });
+
+    it('lets a signal of a step through', async () => {
+      runtime.setRethrow(rethrow);
+      const signal = new FrameworkSignal('Postponed');
+      const connection = defineConnection({
+        provider: createConnection().provider,
+        project: { platform: 'in-memory' },
+        getEvaluationContext: () => {
+          throw signal;
+        },
+      });
+
+      await expect(
+        defineFlag({ key: 'a', defaultValue: false, connection })(),
+      ).rejects.toBe(signal);
+    });
+
+    it('handles other errors as usual', async () => {
+      runtime.setRethrow(rethrow);
+      runtime.setRequestSource(() => {
+        throw new Error('Other error');
+      });
+
+      await expect(
+        defineFlag({
+          key: 'a',
+          defaultValue: false,
+          connection: createConnection(),
+        })(),
+      ).resolves.toBe(false);
+    });
+  });
+
+  describe('setConfigSource', () => {
+    const connectionWith = (value: boolean) =>
+      defineConnection({
+        provider: {
+          metadata: { name: `value-${value}` },
+          resolveBooleanEvaluation: async () => ({ value }),
+        },
+        project: { platform: 'in-memory' },
+      });
+
+    it('loads the configuration before the first evaluation', async () => {
+      const config = { defaultConnection: connectionWith(true) };
+      runtime.setConfigSource(() => config);
+
+      await expect(defineFlag({ key: 'a' })()).resolves.toBe(true);
+    });
+
+    it('loads a changed configuration in development', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      let config = { defaultConnection: connectionWith(true) };
+      runtime.setConfigSource(() => config);
+      const flag = defineFlag({ key: 'a' });
+
+      await expect(flag()).resolves.toBe(true);
+      config = { defaultConnection: connectionWith(false) };
+      await expect(flag()).resolves.toBe(false);
+      vi.unstubAllEnvs();
+    });
+
+    it('loads the configuration one time in production', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      const source = vi.fn(() => ({ defaultConnection: connectionWith(true) }));
+      runtime.setConfigSource(source);
+      const flag = defineFlag({ key: 'a' });
+
+      await flag();
+      await flag();
+      expect(source).toHaveBeenCalledTimes(1);
+      vi.unstubAllEnvs();
+    });
+
+    it('fails the evaluation when the configuration can not be loaded', async () => {
+      runtime.setConfigSource(() => {
+        throw new Error('flags.config.ts has an error');
+      });
+
+      await expect(
+        defineFlag({ key: 'a', connection: connectionWith(true) })(),
+      ).rejects.toThrow('flags.config.ts has an error');
+    });
+  });
+
   it('supports providers without initialize and onClose', async () => {
     const connection = defineConnection({
       provider: {

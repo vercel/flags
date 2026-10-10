@@ -1,0 +1,82 @@
+import { expect, test } from '@playwright/test';
+import { encryptOverrides } from 'flags';
+import { FLAGS_SECRET } from '../playwright.config';
+
+// The app: withFlags loads flags.config.ts, and the flags use its default
+// connection, with the user from a cookie of the request
+
+test('evaluates the flags in a server component', async ({ request }) => {
+  const html = await (await request.get('/')).text();
+
+  expect(html).toContain(
+    '{&quot;sale&quot;:true,&quot;checkout&quot;:false,&quot;banner&quot;:&quot;Summer sale!&quot;}',
+  );
+});
+
+test('gives the cookies of the request to the evaluation context', async ({
+  request,
+}) => {
+  const response = await request.get('/api/flags', {
+    headers: { cookie: 'user=alice' },
+  });
+
+  expect(await response.json()).toMatchObject({ checkout: true });
+});
+
+test('evaluates a flag again in a nested server component', async ({
+  request,
+}) => {
+  const html = await (
+    await request.get('/', { headers: { cookie: 'user=alice' } })
+  ).text();
+
+  expect(html).toContain('<p id="checkout">true</p>');
+});
+
+test('creates the evaluation context one time for each request', async ({
+  request,
+}) => {
+  const response = await request.get('/api/flags', {
+    headers: { 'x-request-id': 'request-1' },
+  });
+
+  // Five evaluations, but one call of getEvaluationContext: Next.js gives
+  // the same headers object during one request
+  expect(await response.json()).toMatchObject({ contextCalls: 1 });
+});
+
+test('keeps requests apart', async ({ request }) => {
+  const [alice, bob] = await Promise.all([
+    request.get('/api/flags', { headers: { cookie: 'user=alice' } }),
+    request.get('/api/flags', { headers: { cookie: 'user=bob' } }),
+  ]);
+
+  expect(await alice.json()).toMatchObject({ checkout: true });
+  expect(await bob.json()).toMatchObject({ checkout: false });
+});
+
+test('applies an override cookie', async ({ request }) => {
+  const token = await encryptOverrides(
+    { 'summer-sale': false, 'banner-text': 'Override' },
+    FLAGS_SECRET,
+  );
+  const response = await request.get('/api/flags', {
+    headers: { cookie: `flag-overrides=${token}` },
+  });
+
+  expect(await response.json()).toMatchObject({
+    sale: false,
+    banner: 'Override',
+  });
+});
+
+test('evaluates a static page at build time without a request', async ({
+  request,
+}) => {
+  const html = await (
+    await request.get('/static', { headers: { cookie: 'user=alice' } })
+  ).text();
+
+  // Built before any request, so the user is "anonymous", also for alice
+  expect(html).toContain('<p id="static-checkout">false</p>');
+});

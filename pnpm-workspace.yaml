@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - tests/*
+  - tests/standard/*
   - examples/*
   - examples/providers/*
   - apps/*

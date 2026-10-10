@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { setupIntegration } from 'flags/integration';
 import type { Config } from './config';
 import { type Connection, isConnection } from './connection';
 import { getBuiltInConnection } from './default-connection';
@@ -94,6 +95,15 @@ function formatValue(value: FlagValue): string {
 }
 
 /**
+ * Returns the configuration, or `undefined` if there is none. See
+ * `runtime.setConfigSource`.
+ */
+export type ConfigSource = () =>
+  | Config
+  | undefined
+  | Promise<Config | undefined>;
+
+/**
  * Returns the current request, or `undefined` outside of a request. See
  * `runtime.setRequestSource`.
  */
@@ -177,6 +187,10 @@ class RuntimeImpl {
   // Whether a flag uses the default connection. Only then does the runtime
   // initialize its provider.
   #usesDefaultConnection = false;
+  #integration: Promise<void> | undefined;
+  #rethrow: ((error: unknown) => void) | undefined;
+  #configSource: ConfigSource | undefined;
+  #loadedConfig: Promise<void> | undefined;
   readonly #sourceScopes = new WeakMap<object, RequestScope>();
 
   /**
@@ -187,6 +201,12 @@ class RuntimeImpl {
    * again on the next request or evaluation.
    */
   async onInit(): Promise<void> {
+    try {
+      await this.#setUpIntegration();
+      await this.#loadConfig();
+    } catch (error) {
+      logger.error('flags: Could not set up the framework integration.', error);
+    }
     const providers = this.#registeredProviders();
     const results = await Promise.allSettled(
       providers.map((provider) => this.initializeProvider(provider)),
@@ -263,6 +283,39 @@ class RuntimeImpl {
   }
 
   /**
+   * Sets a function which throws an error again if the framework must
+   * receive it. Some frameworks use errors as signals, e.g. Next.js to stop
+   * the static rendering, and the SDK must not catch them. The runtime calls
+   * it first when an evaluation fails, before it uses the defaultValue.
+   * The framework integration sets it.
+   *
+   * @example
+   * ```ts
+   * // Next.js
+   * import { unstable_rethrow } from 'next/navigation';
+   *
+   * runtime.setRethrow(unstable_rethrow);
+   * ```
+   */
+  setRethrow(rethrow: ((error: unknown) => void) | undefined): void {
+    this.#rethrow = rethrow;
+  }
+
+  /**
+   * Sets a function which returns the configuration, e.g. the export
+   * `config` of `flags.config.ts`. The framework integration sets it.
+   *
+   * In production, the runtime calls it one time. In development, the
+   * runtime calls it before each evaluation, and configures again when it
+   * returns a different object, so that a change of `flags.config.ts`
+   * applies without a restart.
+   */
+  setConfigSource(source: ConfigSource | undefined): void {
+    this.#configSource = source;
+    this.#loadedConfig = undefined;
+  }
+
+  /**
    * Configures the SDK. By convention, the framework integration calls it
    * with the export `config` of `flags.config.ts`. Without a framework, call
    * it at startup.
@@ -313,7 +366,7 @@ class RuntimeImpl {
    *
    * @internal
    */
-  useDefaultConnection(): void {
+  markDefaultConnectionUsed(): void {
     this.#usesDefaultConnection = true;
   }
 
@@ -451,6 +504,15 @@ class RuntimeImpl {
   ): Promise<FlagValue> {
     const { key, defaultValue, options } = flag;
     const type = flag.type ?? 'boolean';
+    // The integration can configure the default connection, so it must run
+    // before the SDK selects the connection of the flag
+    let setupError: unknown;
+    try {
+      await this.#setUpIntegration();
+      await this.#loadConfig();
+    } catch (error) {
+      setupError = error;
+    }
     const connection = flag.connection ?? this.defaultConnection;
     if (!isConnection(connection)) {
       throw new Error(
@@ -460,6 +522,7 @@ class RuntimeImpl {
     const { provider } = connection;
 
     try {
+      if (setupError !== undefined) throw setupError;
       const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
 
       // An override skips the provider, also its initialization
@@ -528,6 +591,8 @@ class RuntimeImpl {
       }
       return details.value as FlagValue;
     } catch (error) {
+      // A signal of the framework must reach the framework unchanged
+      this.#rethrow?.(error);
       const evaluationError = toEvaluationError(key, error);
       if (defaultValue === undefined) throw evaluationError;
       // One line per evaluation, so a broken flag does not fill the logs
@@ -551,6 +616,49 @@ class RuntimeImpl {
     this.#readOverrides = createOverridesReader();
     this.#config = {};
     this.#usesDefaultConnection = false;
+    this.#integration = undefined;
+    this.#rethrow = undefined;
+    this.#configSource = undefined;
+    this.#loadedConfig = undefined;
+  }
+
+  /**
+   * Loads the configuration of the config source: one time in production,
+   * before each evaluation in development.
+   */
+  #loadConfig(): Promise<void> {
+    const source = this.#configSource;
+    if (!source) return Promise.resolve();
+    const reload = process.env.NODE_ENV !== 'production';
+    if (this.#loadedConfig && !reload) return this.#loadedConfig;
+
+    const loading = Promise.resolve()
+      .then(source)
+      .then((config) => {
+        if (config && config !== this.#config) this.configure(config);
+      })
+      .catch((error: unknown) => {
+        if (this.#loadedConfig === loading) this.#loadedConfig = undefined;
+        throw error;
+      });
+    this.#loadedConfig = loading;
+    return loading;
+  }
+
+  /**
+   * Calls the framework integration one time (see `flags/integration`). If
+   * it fails, the next call tries again.
+   */
+  #setUpIntegration(): Promise<void> {
+    if (!setupIntegration) return Promise.resolve();
+    const setup = setupIntegration;
+    this.#integration ??= Promise.resolve()
+      .then(() => setup(this))
+      .catch((error: unknown) => {
+        this.#integration = undefined;
+        throw error;
+      });
+    return this.#integration;
   }
 
   async #scopeFromSource(): Promise<RequestScope | undefined> {

@@ -26,10 +26,9 @@ changed, update the walkthrough in the same change.
    connection").
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
-9. Next.js as a complete example, in `tests/standard/next`. The integration
-   is built so that it could later live inside Next.js (see "Framework
-   integration contract"). The build plugin and precompute have separate
-   exports.
+9. Done: Next.js. `flags/next/plugin` and `flags/next`, tested in
+   `tests/standard/next` with Turbopack, webpack, a platform adapter, and
+   development (see "Framework integration contract").
 10. OpenFeature parity. Provider hooks, events, tracking, and the report of
     overrides. It is early in the plan, because it can show problems in the
     design.
@@ -87,6 +86,15 @@ All public functions call the `runtime`. For example, a flag calls
 The package needs Node.js 20.19, or 22.12 or newer (`engines`). The CommonJS
 build loads `jose`, an ES module, with `require()`, and the overrides read
 `.vercel/project.json` with `process.getBuiltinModule`.
+
+Three modules can be replaced with a bundler alias. The runtime imports them
+through its own package name, and the build of the SDK keeps these imports:
+
+| Module                   | Default                     | Replaced by                                   |
+| ------------------------ | --------------------------- | --------------------------------------------- |
+| `flags/default-provider` | OFREP                       | a platform, e.g. with `@vercel/flags-core`    |
+| `flags/integration`      | no integration              | a framework plugin, e.g. with `flags/next`    |
+| `flags/config`           | no configuration            | a framework plugin, with `flags.config.ts`    |
 
 A bundler can put more than one copy of the package into one process, e.g.
 one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
@@ -774,63 +782,123 @@ interface FlagsRequest {
 
 ## Framework integration contract
 
-These are the tasks of a framework integration. Integrations do not exist
-yet. Until then, an application without a framework does them by hand.
+A framework integration connects the SDK to a framework. It has two parts:
 
-| Task                                   | Who does it with a framework                                                                 | Without a framework                                        |
-| -------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load `flags.config.ts`                 | The integration imports it and calls `runtime.configure(config)`, in development and in builds | `runtime.configure(config)` at startup                     |
-| Give the request to the runtime        | The integration calls `runtime.onInvoke(request, next)`, or sets `runtime.setRequestSource` | `runtime.onInvoke` in a middleware                         |
-| Convert the request                    | The integration gives `FlagsRequestInit`, e.g. a Web `Request`                               | The application converts it, e.g. Node.js headers          |
-| `onInit` and `onShutdown`              | The integration, at startup and when the process stops                                       | At startup, and on `SIGTERM`                               |
-| Fast evaluations on Vercel at step 0   | The integration or the platform adapter sets the alias of `flags/default-provider`          | Not possible: OFREP, with a warning in production          |
-| Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Build tooling")                                | `registerFlags` by hand, if necessary                      |
+1. **A build plugin**, e.g. `withFlags` of `flags/next/plugin`. It sets two
+   bundler aliases:
+   - `flags/integration` to the module of the integration, e.g. `flags/next`.
+   - `flags/config` to the `flags.config.ts` of the application, if it exists.
+2. **The module of the integration** behind `flags/integration`. It exports
+   `setupIntegration(runtime)`, which the runtime calls one time, before the
+   first evaluation and in `onInit`.
+
+The application does not import the module of the integration. The runtime
+imports `flags/integration` itself, so the integration works in each bundle
+that uses `flags`. Without a plugin, `flags/integration` and `flags/config`
+are empty modules.
+
+The module of the integration:
+
+- must not import `flags` statically, because `flags` imports it. It gets
+  the runtime as an argument.
+- loads the configuration with a dynamic `import('flags/config')`, because
+  `flags.config.ts` imports `flags`.
+- uses only the public API of the SDK, so that a framework can take it over,
+  e.g. as its own module behind the same alias.
+
+`setupIntegration` uses these methods of the runtime:
+
+| Method                           | Purpose                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `runtime.setRequestSource(fn)`   | Gives the current request, if no middleware wraps the handler (see "The request")          |
+| `runtime.setConfigSource(fn)`    | Gives the configuration. In development, the runtime loads it again before each evaluation |
+| `runtime.setRethrow(fn)`         | Throws the errors again which the framework must receive                                    |
+
+- `setConfigSource`: in production, the runtime calls it one time. In
+  development (`NODE_ENV` is not `production`), it calls it before each
+  evaluation, and configures again when it returns a different object. Thus,
+  a change of `flags.config.ts` applies without a restart, and `configure`
+  closes the old default connection. If the source throws, the evaluation
+  fails, and the next one tries again.
+- `setRethrow`: some frameworks use errors as signals, e.g. Next.js to stop
+  the static rendering, or to postpone a part of a page. The SDK must never
+  catch such an error. The runtime calls the function first when an
+  evaluation fails, before it uses the `defaultValue` and before it wraps the
+  error. This covers errors of the request source, of steps of the context
+  chain, and of providers. Without it, a flag of a page that Next.js tries to
+  render statically breaks the build.
+
+The tasks of an integration:
+
+| Task                                   | With a framework                                                                            | Without a framework                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the integration calls `setConfigSource`       | `runtime.configure(config)` at startup                     |
+| Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setRequestSource`                    | `runtime.onInvoke` in a middleware                         |
+| Convert the request                    | The integration gives `FlagsRequestInit`, e.g. a Web `Request`                              | The application converts it, e.g. Node.js headers          |
+| Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
+| `onInit` and `onShutdown`              | At startup, and when the process stops, if the framework has such hooks                     | At startup, and on `SIGTERM`                               |
+| Fast evaluations on Vercel at step 0   | The platform adapter, or the plugin for a platform build, sets the alias of `flags/default-provider` | Not possible: OFREP, with a warning in production          |
+| Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Build tooling")                               | `registerFlags` by hand, if necessary                      |
 
 Rules for each integration:
 
-- Load `flags.config.ts` before the first evaluation, and use only its export
-  `config`. Load it again after a change in development.
+- Use only the export `config` of `flags.config.ts`.
 - Give the request as `FlagsRequestInit`. Give the same `headers` object
   during one request.
-- Set the alias only when the build is for a platform that has a fast
-  provider. Do not set it in development, so that development uses OFREP or
-  the configuration.
-- Do not catch the internal errors of the framework, e.g. the errors of
-  Next.js that stop the static rendering.
+- Set the alias of `flags/default-provider` only when the build is for a
+  platform that has a fast provider. Do not set it in development, so that
+  development uses OFREP or the configuration.
+- Set the aliases for each bundler that the framework uses, e.g. Turbopack
+  and webpack for Next.js.
 
 ### Notes for each framework
 
 The details must be checked when the integration is built (milestone 10).
 
-**Next.js**
+**Next.js** (done)
 
+```ts
+// next.config.ts
+import { withFlags } from 'flags/next/plugin';
+
+export default withFlags({ /* the configuration of Next.js */ });
+```
+
+| Path                    | Content                                                          | Used by                    |
+| ----------------------- | ---------------------------------------------------------------- | -------------------------- |
+| `flags/next/plugin`     | `withFlags(nextConfig, { dir? })`, the build plugin               | `next.config.ts`           |
+| `flags/next`            | `setupIntegration`, the module of the integration                 | the alias, not the app     |
+| `flags/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
+
+- `withFlags` sets the aliases for Turbopack (`turbopack.resolveAlias`) and
+  for webpack (`resolve.alias`, with `$` for an exact match). It keeps the
+  aliases and the `webpack` function of the application. It finds
+  `flags.config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
+  application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
-  same object during one request. Thus, use `runtime.setRequestSource`, e.g.
-  in `instrumentation.ts`. The shared state on `globalThis` makes sure that
-  `instrumentation.ts` and the pages, which Next.js can bundle separately,
-  use the same runtime.
+  same object during one request. Thus, `flags/next` uses
+  `runtime.setRequestSource` with `headers()` and `cookies()`. The test shows
+  one call of `getEvaluationContext` for five evaluations in one request.
+- Outside of a request, e.g. at build time, `headers()` throws, so the source
+  returns `undefined`. The static page of the test evaluates with the user
+  `anonymous`.
+- Signals: `flags/next` sets `runtime.setRethrow(unstable_rethrow)`. During
+  the build, `headers()` throws "Dynamic server usage" to tell Next.js that a
+  page is dynamic. Without `setRethrow`, the SDK caught it, and the build
+  failed.
+- The alias of the platform: the Vercel adapter (Adapter API,
+  `NEXT_ADAPTER_PATH`, stable since Next.js 16.2) sets it in `modifyConfig`,
+  during `phase-production-build`. The test adapter of `tests/standard/next`
+  does this. Adapters run only for builds, so development uses OFREP or the
+  configuration.
+- Not done yet: `onInit` and `onShutdown` (Next.js has no hooks for them,
+  except `register` in `instrumentation.ts`), the proxy (`proxy.ts`), which
+  gets the full `NextRequest`, and server actions.
 
-  ```ts
-  export function register() {
-    runtime.setRequestSource(async () => ({
-      headers: await headers(),
-      cookies: await cookies(),
-    }));
-  }
-  ```
-
-- The source: outside of a request, e.g. at build time or in
-  `generateStaticParams`, `headers()` throws, so the source returns
-  `undefined`. During static rendering, Next.js throws internal errors to
-  stop the static rendering. The source must not catch them. The v4 SDK had
-  `isInternalNextError` for this.
-- Two places with different requests: the proxy (`proxy.ts`) gets the full
-  `NextRequest`, but pages only get `headers()` and `cookies()`. Both places
-  can give `{ headers, cookies }`, and the proxy can also give `url`.
-- The alias: the Vercel adapter (Adapter API, `NEXT_ADAPTER_PATH`, stable
-  since Next.js 16.2) can set it in `modifyConfig`, during
-  `phase-production-build`, for Turbopack and for webpack. Adapters run only
-  for builds, so development uses OFREP or the configuration.
+`tests/standard/next` tests the integration with three builds: Turbopack,
+webpack, and Turbopack with a test adapter of the platform. `pnpm test:e2e`
+runs 15 tests with HTTP requests, without a browser. `next dev` was also
+tested by hand, with a change of `flags.config.ts` during the run.
 
 **SvelteKit**
 

@@ -8,6 +8,12 @@ export default defineConfig({
       'flags/default-provider': fileURLToPath(
         new URL('./src/default-provider.ts', import.meta.url),
       ),
+      'flags/integration': fileURLToPath(
+        new URL('./src/integration.ts', import.meta.url),
+      ),
+      'flags/config': fileURLToPath(
+        new URL('./src/config-module.ts', import.meta.url),
+      ),
     },
   },
   test: {

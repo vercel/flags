@@ -6,7 +6,9 @@
     "target": "ES2020",
     "paths": {
       "flags": ["../../src/index.ts"],
-      "flags/default-provider": ["../../src/default-provider.ts"]
+      "flags/default-provider": ["../../src/default-provider.ts"],
+      "flags/integration": ["../../src/integration.ts"],
+      "flags/config": ["../../src/config-module.ts"]
     }
   },
   "include": ["*.ts"]

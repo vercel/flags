@@ -33,10 +33,34 @@
     "./default-provider": {
       "import": "./dist/default-provider.js",
       "require": "./dist/default-provider.cjs"
+    },
+    "./integration": {
+      "import": "./dist/integration.js",
+      "require": "./dist/integration.cjs"
+    },
+    "./config": {
+      "import": "./dist/config-module.js",
+      "require": "./dist/config-module.cjs"
+    },
+    "./next": {
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
+    },
+    "./next/plugin": {
+      "import": "./dist/next-plugin.js",
+      "require": "./dist/next-plugin.cjs"
     }
   },
   "typesVersions": {
     "*": {
+      "next/plugin": [
+        "dist/next-plugin.d.ts",
+        "dist/next-plugin.d.cts"
+      ],
+      "config": [
+        "dist/config-module.d.ts",
+        "dist/config-module.d.cts"
+      ],
       "*": [
         "dist/*.d.ts",
         "dist/*.d.cts"
@@ -63,6 +87,7 @@
     "@openfeature/core": "1.12.0",
     "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
+    "next": "16.3.8",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vitest": "4.1.11"
@@ -72,5 +97,13 @@
   },
   "dependencies": {
     "jose": "^6.2.12"
+  },
+  "peerDependencies": {
+    "next": ">=15.1.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
   }
 }
