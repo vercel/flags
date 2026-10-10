@@ -46,6 +46,7 @@
     "dev": "tsup --watch --clean=false",
     "check": "biome check",
     "test": "vitest --run",
+    "test:playground": "vitest --run playground --reporter=verbose",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },

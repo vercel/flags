@@ -4,6 +4,7 @@ import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { logger } from './logger';
 import { createFlagsRequest } from './request';
+import { sharedState } from './shared-state';
 import type {
   EvaluationContext,
   FlagsRequest,
@@ -407,6 +408,8 @@ class RuntimeImpl {
 export type Runtime = RuntimeImpl;
 
 /**
- * The runtime of the application.
+ * The runtime of the application. All copies of the package in one process
+ * share it.
  */
-export const runtime: Runtime = new RuntimeImpl();
+sharedState.runtime ??= new RuntimeImpl();
+export const runtime = sharedState.runtime as Runtime;

@@ -1,3 +1,4 @@
+import { sharedState } from './shared-state';
 import type { EvaluationContext, FlagsRequest, Provider } from './types';
 
 /**
@@ -99,7 +100,7 @@ export type ConnectionInput<C extends Connection> =
     ? In
     : never;
 
-const connections = new WeakSet<object>();
+const { connections } = sharedState;
 
 /**
  * Defines a connection to a project on a platform.
