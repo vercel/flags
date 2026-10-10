@@ -88,7 +88,9 @@ export function createOfrepProvider(
     if (response.ok) {
       const body = (await response.json()) as Record<string, unknown>;
       // Without a value, the server asks for the default of the code
-      if (!('value' in body)) return { value: defaultValue, reason: 'DEFAULT' };
+      if (!('value' in body)) {
+        return markCodeDefault({ value: defaultValue, reason: 'DEFAULT' });
+      }
       return {
         value: body.value as T,
         reason: typeof body.reason === 'string' ? body.reason : undefined,
@@ -139,6 +141,22 @@ export function createOfrepProvider(
     resolveNumberEvaluation: resolve,
     resolveObjectEvaluation: resolve,
   };
+}
+
+/**
+ * Marks a result in which the provider returned the default of the code.
+ * The runtime then throws if the flag has no `defaultValue`, because the
+ * default is only a placeholder. Not enumerable, so that it is not a part of
+ * the result as it is seen from outside.
+ *
+ * @internal
+ */
+export const codeDefault: unique symbol = Symbol('flags.code-default');
+
+function markCodeDefault<T>(
+  details: ResolutionDetails<T>,
+): ResolutionDetails<T> {
+  return Object.defineProperty(details, codeDefault, { value: true });
 }
 
 /**
