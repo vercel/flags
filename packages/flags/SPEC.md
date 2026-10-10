@@ -271,27 +271,39 @@ integrations call them.
 Frameworks give different requests. Next.js gives only `headers()` and
 `cookies()`, and no full request. Hono, SvelteKit and TanStack Start give a
 Web `Request`. Express gives a Node.js `IncomingMessage`. Extensions of the
-SDK, e.g. overrides from cookies or headers, need one shape that they can
-rely on. Thus, each framework converts what it can give into `FlagsRequest`:
+SDK, e.g. overrides from cookies or headers, need one standard that they can
+rely on. Thus, the SDK has two types:
 
 ```ts
+// What a framework gives: each property is optional. A Web Request fits.
+interface FlagsRequestInit {
+  readonly headers?: ReadonlyHeaders;
+  readonly cookies?: ReadonlyRequestCookies;
+  readonly url?: string | URL;
+}
+
+// What each step and each extension receives: the same for each framework.
 interface FlagsRequest {
-  readonly headers: ReadonlyHeaders; // required
-  readonly cookies?: ReadonlyRequestCookies; // optional
-  readonly url?: string; // optional, the full URL
+  readonly headers: ReadonlyHeaders | undefined;
+  readonly cookies: ReadonlyRequestCookies | undefined;
+  readonly url: Readonly<URL> | undefined;
 }
 ```
 
-- `headers` is required, because each framework can give it.
-- `cookies` is optional. Its shape agrees with the cookies of Next.js.
-  `getCookies(request)` returns `request.cookies`, or reads the `Cookie`
-  header if the framework gives no cookies. Extensions use `getCookies`.
-- A Web `Request` has this shape. Thus, frameworks that give a Web `Request`
-  can pass it directly.
-- Framework adapters can add properties with declaration merging, e.g.
-  `params`. They add only optional properties, because other frameworks can
-  not give them. Extensions do not rely on them.
-- Each step of the evaluation context chain receives the `FlagsRequest`.
+- The framework gives what it can. The SDK creates the `FlagsRequest` from it.
+- All properties can be read, but not modified. A property is `undefined`
+  when the framework can not give it.
+- `cookies` are the cookies of the framework. If the framework gives no
+  cookies, but headers, they come from the `Cookie` header. Thus,
+  `request.cookies` works with each framework. Their shape agrees with the
+  cookies of Next.js. If a name occurs two times, the first cookie wins,
+  because browsers send the most specific cookie first.
+- `url` is a `URL`, made from the string or the `URL` of the framework. It
+  must be a full URL. Otherwise, reading it throws a `TypeError`.
+- The SDK reads each property only when a step uses it.
+- Each step of a request receives the same `FlagsRequest` object.
+- The standard has no other properties. A framework that can give more
+  information gives it through the context chain, not through the request.
 
 #### How the runtime gets the request
 
@@ -307,10 +319,11 @@ interface FlagsRequest {
    `undefined` outside of a request. It can be async.
 
 - The SDK identifies a request by its `headers` object. The framework must
-  give the same `headers` object during one request. The request object
-  itself can be new on each call. Next.js meets this rule: `headers()`
+  give the same `headers` object during one request. The object which the
+  source returns can be new on each call. Next.js meets this rule: `headers()`
   returns the same object during one request. Thus, a `WeakMap` with the
-  `headers` as key works like `AsyncLocalStorage`.
+  `headers` as key works like `AsyncLocalStorage`. Without `headers`, the
+  source must return the same object during one request.
 - Inside `onInvoke`, the request of `onInvoke` is used, and the source is not
   called.
 - If the source throws, the evaluation fails. A source returns `undefined`
@@ -321,9 +334,9 @@ interface FlagsRequest {
 
 ### Framework integrations (planned)
 
-Each integration is a small adapter. It converts the request of the framework
-into `FlagsRequest`, and uses the way to give it to the runtime that fits the
-framework.
+Each integration is a small adapter. It gives the SDK what the framework can
+give about the request (`FlagsRequestInit`), and uses the way to give it to
+the runtime that fits the framework.
 
 ```ts
 // Hono, SvelteKit, TanStack Start: a Web Request

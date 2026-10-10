@@ -6,14 +6,13 @@ import {
   defineConnection,
   defineFlag,
   evaluate,
-  type FlagsRequest,
-  getCookies,
+  type FlagsRequestInit,
   runtime,
 } from './dist/index.js';
 
-// A Node.js server converts its request into the shape which the SDK
-// understands. Framework adapters will do this.
-function toFlagsRequest(req: IncomingMessage): FlagsRequest {
+// A Node.js server gives the SDK what it can about its request. Framework
+// adapters will do this.
+function toFlagsRequest(req: IncomingMessage): FlagsRequestInit {
   const headers = new Headers();
   for (const [name, value] of Object.entries(req.headers)) {
     if (value === undefined || name.startsWith(':')) continue;
@@ -54,8 +53,8 @@ const connection = defineConnection({
     console.log('connection getEvaluationContext', context);
     const team = context?.teamId ? teams[context.teamId] : undefined;
     return {
-      // No cookies from Node.js, so getCookies reads the Cookie header
-      user: (request && getCookies(request).get('user')?.value) ?? 'anonymous',
+      // Node.js gives no cookies, so they come from the Cookie header
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
       team: team ? { id: context?.teamId ?? '', ...team } : null,
     };
   },

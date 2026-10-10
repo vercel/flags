@@ -3,7 +3,13 @@ import { type Connection, isConnection } from './connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { logger } from './logger';
-import type { EvaluationContext, FlagsRequest, Provider } from './types';
+import { createFlagsRequest } from './request';
+import type {
+  EvaluationContext,
+  FlagsRequest,
+  FlagsRequestInit,
+  Provider,
+} from './types';
 
 /**
  * What the runtime needs to evaluate a flag. A flag returned by `defineFlag`
@@ -35,9 +41,9 @@ export interface FlagDefinition {
  * `runtime.setRequestSource`.
  */
 export type RequestSource = () =>
-  | FlagsRequest
+  | FlagsRequestInit
   | undefined
-  | Promise<FlagsRequest | undefined>;
+  | Promise<FlagsRequestInit | undefined>;
 
 type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
 
@@ -99,7 +105,7 @@ class RuntimeImpl {
   readonly #initializations = new Map<Provider, Promise<void>>();
   readonly #storage = new AsyncLocalStorage<RequestScope>();
   #requestSource: RequestSource | undefined;
-  readonly #sourceScopes = new WeakMap<FlagsRequest['headers'], RequestScope>();
+  readonly #sourceScopes = new WeakMap<object, RequestScope>();
 
   /**
    * Call once before the first request, e.g. in the Lambda init phase.
@@ -135,8 +141,9 @@ class RuntimeImpl {
    * waits only for the provider of its own connection. The evaluation of a
    * flag reports errors.
    *
-   * @param request - The request in the shape which the SDK understands, e.g.
-   * a Web `Request`. Each step of the evaluation context chain receives it.
+   * @param request - What the framework can give about the request, e.g. a
+   * Web `Request`. Each step of the evaluation context chain receives it as
+   * a standard `FlagsRequest`.
    *
    * @example
    * ```ts
@@ -144,12 +151,18 @@ class RuntimeImpl {
    * app.use((c, next) => runtime.onInvoke(c.req.raw, next));
    * ```
    */
-  onInvoke<T>(request: FlagsRequest, next: () => T | Promise<T>): Promise<T> {
+  onInvoke<T>(
+    request: FlagsRequestInit,
+    next: () => T | Promise<T>,
+  ): Promise<T> {
     for (const provider of this.#registeredProviders()) {
       // Flags report the error, so it is ignored here
       this.initializeProvider(provider).catch(() => {});
     }
-    return this.#storage.run(new RequestScope(request), async () => next());
+    return this.#storage.run(
+      new RequestScope(createFlagsRequest(request)),
+      async () => next(),
+    );
   }
 
   /**
@@ -157,9 +170,10 @@ class RuntimeImpl {
    * which can give the current request at any time, but have no middleware
    * which wraps the handler, e.g. Next.js with `headers()` and `cookies()`.
    *
-   * The SDK identifies a request by its `headers` object. Thus, the request
-   * which the function returns can be a new object on each call, but its
-   * `headers` must be the same object during one request. The function
+   * The SDK identifies a request by its `headers` object. Thus, the function
+   * can return a new object on each call, but its `headers` must be the same
+   * object during one request. Without `headers`, the function must return
+   * the same object during one request. The function
    * returns `undefined` outside of a request. Inside `onInvoke`, the request
    * of `onInvoke` is used, and the function is not called.
    *
@@ -368,14 +382,15 @@ class RuntimeImpl {
 
   async #scopeFromSource(): Promise<RequestScope | undefined> {
     if (!this.#requestSource) return undefined;
-    const request = await this.#requestSource();
-    if (request === undefined) return undefined;
+    const init = await this.#requestSource();
+    if (init === undefined) return undefined;
     // The headers stay the same object during one request, also when the
-    // source returns a new request object on each call
-    let scope = this.#sourceScopes.get(request.headers);
+    // source returns a new object on each call, e.g. in Next.js
+    const key = init.headers ?? init;
+    let scope = this.#sourceScopes.get(key);
     if (!scope) {
-      scope = new RequestScope(request);
-      this.#sourceScopes.set(request.headers, scope);
+      scope = new RequestScope(createFlagsRequest(init));
+      this.#sourceScopes.set(key, scope);
     }
     return scope;
   }

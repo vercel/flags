@@ -90,7 +90,7 @@ describe('context chain', () => {
         context: { teamId: keyof typeof teams },
         request,
       ) => ({
-        user: request?.headers.get('x-user') ?? null,
+        user: request?.headers?.get('x-user') ?? null,
         team: { id: context.teamId, ...teams[context.teamId] },
       }),
     });
@@ -113,7 +113,7 @@ describe('context chain', () => {
       project: { platform: 'in-memory' },
       getEvaluationContext: (context: { country: string }, request) => ({
         ...context,
-        user: request?.headers.get('x-user') ?? null,
+        user: request?.headers?.get('x-user') ?? null,
       }),
     });
     const flag = defineFlag({ key: 'a', connection });
@@ -188,7 +188,7 @@ describe('context chain', () => {
 
       await runtime.onInvoke(request, () => flag());
       expect(received).toHaveLength(2);
-      expect(received[0]?.headers.get('x-user')).toBe('alice');
+      expect(received[0]?.headers?.get('x-user')).toBe('alice');
       expect(received[1]).toBe(received[0]);
     });
 
