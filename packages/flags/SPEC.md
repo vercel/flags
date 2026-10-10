@@ -339,6 +339,10 @@ interface FlagsRequest {
   called.
 - If the source throws, the evaluation fails. A source returns `undefined`
   outside of a request, and does not throw.
+- Each evaluation outside of `onInvoke` calls the source, also for flags
+  without steps. This is correct: flags are dynamic by definition, and
+  overrides will read the cookies of each request. In Next.js, this makes the
+  page dynamic, as expected.
 - The request scope holds the cache of the evaluation context chain.
 - A flag waits for the initialization of its provider. It gets the context at
   the same time.
@@ -473,11 +477,10 @@ Other items:
 
 ## Open questions
 
-- Call the request source only when the flag or its connection has a
-  `getEvaluationContext` step? Now each evaluation outside of `onInvoke` calls
-  the source. In Next.js, `headers()` makes the page dynamic, so a page with
-  only a simple flag can not be static. With Cache Components, reading
-  `headers()` outside of `<Suspense>` is an error.
+- Version skew: copies of the same major version share one runtime, which
+  the first copy creates. If a newer copy needs a method that the runtime of
+  an older copy does not have, it fails. Possible solution: store a protocol
+  number in the shared state, and let each copy examine it.
 
 - Add a timeout for the wait for an initialization? The LaunchDarkly provider
   waits up to 10 seconds by default.
