@@ -3,6 +3,12 @@ import { type Connection, isConnection } from './connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { logger } from './logger';
+import {
+  createOverridesReader,
+  type OverridesOptions,
+  type OverridesReader,
+} from './overrides/reader';
+import type { JsonValue } from './overrides/types';
 import { createFlagsRequest } from './request';
 import { sharedState } from './shared-state';
 import type {
@@ -62,8 +68,18 @@ class RequestScope {
     }
   >();
 
+  #overrides: Promise<ReadonlyMap<string, JsonValue>> | undefined;
+
   constructor(request: FlagsRequest) {
     this.request = request;
+  }
+
+  /**
+   * Reads the overrides of the request once.
+   */
+  overrides(read: OverridesReader): Promise<ReadonlyMap<string, JsonValue>> {
+    this.#overrides ??= read(this.request.cookies);
+    return this.#overrides;
   }
 
   run(step: Step, owner: object, input: unknown): Promise<unknown> {
@@ -106,6 +122,7 @@ class RuntimeImpl {
   readonly #initializations = new Map<Provider, Promise<void>>();
   readonly #storage = new AsyncLocalStorage<RequestScope>();
   #requestSource: RequestSource | undefined;
+  #readOverrides: OverridesReader = createOverridesReader();
   readonly #sourceScopes = new WeakMap<object, RequestScope>();
 
   /**
@@ -189,6 +206,14 @@ class RuntimeImpl {
    */
   setRequestSource(source: RequestSource | undefined): void {
     this.#requestSource = source;
+  }
+
+  /**
+   * Sets which override tokens the SDK accepts. The same as the
+   * `configureOverrides` function which the package exports.
+   */
+  configureOverrides(options: OverridesOptions): void {
+    this.#readOverrides = createOverridesReader(options);
   }
 
   /**
@@ -297,8 +322,8 @@ class RuntimeImpl {
   async #evaluationContext(
     flag: FlagDefinition,
     input: unknown,
+    scope: RequestScope | undefined,
   ): Promise<EvaluationContext> {
-    const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
     const run = (step: Step, owner: object, value: unknown) =>
       scope
         ? scope.run(step, owner, value)
@@ -329,9 +354,22 @@ class RuntimeImpl {
     const { provider } = connection;
 
     try {
+      const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
+
+      // An override skips the provider, also its initialization
+      const override = scope
+        ? (await scope.overrides(this.#readOverrides)).get(key)
+        : undefined;
+      if (typeof override === 'boolean') return override;
+      if (override !== undefined) {
+        logger.warn(
+          `flags: The override of flag "${key}" was ignored, because it is not a boolean.`,
+        );
+      }
+
       const [, context] = await Promise.all([
         this.initializeProvider(provider),
-        this.#evaluationContext(flag, input),
+        this.#evaluationContext(flag, input, scope),
       ]);
 
       const details = await provider.resolveBooleanEvaluation(
@@ -379,6 +417,7 @@ class RuntimeImpl {
     this.#connections.clear();
     this.#initializations.clear();
     this.#requestSource = undefined;
+    this.#readOverrides = createOverridesReader();
   }
 
   async #scopeFromSource(): Promise<RequestScope | undefined> {

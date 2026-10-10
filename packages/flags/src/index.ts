@@ -24,6 +24,18 @@ export {
   type Flag,
   type FlagOptions,
 } from './flag';
+export {
+  configureOverrides,
+  decryptOverrides,
+  encryptOverrides,
+  type FlagOverrides,
+  type JsonValue,
+  type OverrideProject,
+  type OverrideRejection,
+  OverridesError,
+  type OverridesOptions,
+  type VercelOverridesOptions,
+} from './overrides';
 export { registerConnections, registerFlags } from './register';
 export {
   type FlagDefinition,
