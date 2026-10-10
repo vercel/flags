@@ -413,10 +413,10 @@ describe('context chain', () => {
 
     it('requires the step of a flag to return the input of the connection', () => {
       void (() => {
+        // @ts-expect-error teamId must be a string
         defineFlag({
           key: 'a',
           connection: teamConnection,
-          // @ts-expect-error teamId must be a string
           getEvaluationContext: () => ({ teamId: 1 }),
         });
       });

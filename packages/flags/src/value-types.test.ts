@@ -216,10 +216,10 @@ describe('flag value types', () => {
 
     it('requires objects with a value for object flags', () => {
       expect(() =>
+        // @ts-expect-error an object flag needs { value }
         defineFlag({
           key: 'theme',
           type: 'object',
-          // @ts-expect-error an object flag needs { value }
           options: [{ color: 'blue' }],
           connection: connection(),
         }),
@@ -291,9 +291,9 @@ describe('flag value types', () => {
 
     it('throws for a type which does not exist', () => {
       expect(() =>
+        // @ts-expect-error not a type
         defineFlag({
           key: 'a',
-          // @ts-expect-error not a type
           type: 'date',
           connection: connection(),
         }),
@@ -333,9 +333,9 @@ describe('flag value types', () => {
 
   describe('without a type', () => {
     it('warns about a defaultValue which is not a boolean', () => {
+      // @ts-expect-error a flag without a type is a boolean
       defineFlag({
         key: 'banner-text',
-        // @ts-expect-error a flag without a type is a boolean
         defaultValue: 'Welcome',
         connection: connection(),
       });
@@ -346,9 +346,9 @@ describe('flag value types', () => {
     });
 
     it('warns about options which are not booleans', () => {
+      // @ts-expect-error a flag without a type is a boolean
       defineFlag({
         key: 'checkout',
-        // @ts-expect-error a flag without a type is a boolean
         options: ['control', 'express'],
         connection: connection(),
       });
@@ -364,11 +364,11 @@ describe('flag value types', () => {
       void (() => {
         // @ts-expect-error a number flag needs a number
         defineFlag({ key: 'a', type: 'number', defaultValue: 'x' });
+        // @ts-expect-error the defaultValue must be one of the options
         defineFlag({
           key: 'a',
           type: 'string',
           options: ['a', 'b'],
-          // @ts-expect-error the defaultValue must be one of the options
           defaultValue: 'c',
         });
         // @ts-expect-error the options must have the type of the flag
@@ -377,11 +377,11 @@ describe('flag value types', () => {
     });
 
     it('warns at runtime about the same problems', () => {
+      // @ts-expect-error the defaultValue must be one of the options
       defineFlag({
         key: 'a',
         type: 'string',
         options: ['a', 'b'],
-        // @ts-expect-error the defaultValue must be one of the options
         defaultValue: 'c',
         connection: connection(),
       });
