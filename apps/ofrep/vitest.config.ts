@@ -1,7 +1,5 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  test: {
-    projects: ['./packages/*', './apps/docs', './apps/ofrep'],
-  },
+  test: { environment: 'node' },
 });

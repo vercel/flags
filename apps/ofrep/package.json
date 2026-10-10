@@ -1,0 +1,28 @@
+{
+  "name": "ofrep",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 3031",
+    "start": "next start --port 3031",
+    "check": "biome check",
+    "type-check": "next typegen && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vercel/flags-core": "workspace:*",
+    "next": "16.3.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@openfeature/ofrep-provider": "0.2.5",
+    "@openfeature/server-sdk": "^1.17.1",
+    "@types/node": "22.14.0",
+    "@types/react": "catalog:",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.11"
+  }
+}
