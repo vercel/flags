@@ -258,6 +258,43 @@ describe('configured default connection', () => {
   });
 });
 
+describe('a replaced default connection', () => {
+  it('is not initialized after it is replaced', async () => {
+    const first = connectionOf(true, 'first');
+    const second = connectionOf(true, 'second');
+    runtime.configure({ defaultConnection: first });
+    runtime.configure({ defaultConnection: second });
+
+    await runtime.onInit();
+    expect(first.provider.initialize).not.toHaveBeenCalled();
+    expect(second.provider.initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it('is closed when it was initialized', async () => {
+    const first = connectionOf(true, 'first');
+    const onClose = vi.fn(async () => {});
+    Object.assign(first.provider, { onClose });
+    runtime.configure({ defaultConnection: first });
+    await runtime.onInit();
+
+    runtime.configure({ defaultConnection: connectionOf(true, 'second') });
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('is not closed when a flag still uses its provider', async () => {
+    const shared = connectionOf(true, 'shared');
+    const onClose = vi.fn(async () => {});
+    Object.assign(shared.provider, { onClose });
+    defineFlag({ key: 'own', connection: shared });
+    runtime.configure({ defaultConnection: shared });
+    await runtime.onInit();
+
+    runtime.configure({ defaultConnection: connectionOf(true, 'second') });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 describe('configure', () => {
   it('validates all options before it changes anything', async () => {
     const connection = connectionOf(true);

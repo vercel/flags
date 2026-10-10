@@ -292,8 +292,12 @@ declare module 'flags' {
 - `runtime.configure` validates the full configuration at once, and throws
   before it changes anything. A new call replaces the configuration, e.g.
   after a reload in development.
-- `runtime.configure` registers the `defaultConnection`, so `onInit`
-  initializes it.
+- `onInit` and `onInvoke` initialize the current `defaultConnection`. A new
+  call of `configure` replaces it: the old one is not initialized any more,
+  and if it was initialized, the runtime closes its provider, unless a flag
+  still uses that provider. Thus, a reload in development, or one call of
+  `configure` for each copy of `flags.config.ts`, does not leave open
+  clients.
 - The convention has one name: `flags.config.ts` exports `config`, not a
   default export. A default export would need a separate name anyway for
   `typeof config`, and two accepted names would be ambiguous.
@@ -379,14 +383,14 @@ e.g. with `VercelProvider` of `@vercel/flags-core`.
 - The build of the SDK keeps this import (an esbuild plugin marks it as
   external), and the OFREP code is only in `dist/default-provider.js`. Thus,
   an alias replaces it, and the bundler removes the OFREP code.
-- A replacement must keep one client for all copies of the package, e.g. in
-  the shared state on `globalThis`. Next.js has more than one bundle, and
-  each bundle contains its own copy of the replacement.
-- The planned replacement is a subpath of `@vercel/flags-core`, e.g.
-  `@vercel/flags-core/default-provider`, which exports
-  `createDefaultProvider()` and returns its `VercelProvider`. This is a
-  separate step. Its default client must then stay one client for all copies
-  of the package.
+- The SDK calls `createDefaultProvider()` one time for each process, because
+  the built-in default connection is in the shared state. Next.js can have
+  more than one copy of the replacement, e.g. one for each layer, but only
+  the first one is called. Thus, a replacement needs no singleton.
+- The replacement for Vercel is `@vercel/flags-core/default-provider`. It
+  exports `createDefaultProvider()`, which returns a `VercelProvider` with
+  the default client of the package. It has a variant for Next.js (export
+  condition `next-js`), like `@vercel/flags-core/openfeature`.
 - Without a bundler, nothing replaces the module, so the built-in OFREP
   implementation is used.
 - The default connection of the application always wins over the
