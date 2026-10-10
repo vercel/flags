@@ -391,7 +391,7 @@ describe('runtime', () => {
         provider,
         project: { platform: 'in-memory' },
         getEvaluationContext: (_context, request) => ({
-          targetingKey: request?.headers.get('x-user') ?? 'anonymous',
+          targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
         }),
       });
 

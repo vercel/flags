@@ -22,40 +22,46 @@ export interface ReadonlyRequestCookies {
 }
 
 /**
- * The request in the shape which the SDK understands. Each framework gives
- * what it can: `headers` is required, the other properties are optional. A
- * Web `Request` has this shape.
- *
- * Extensions of the SDK, e.g. overrides, read only these properties. Use
- * `getCookies(request)` to read the cookies, also when a framework gives no
- * `cookies`.
- *
- * Framework adapters can add properties with declaration merging. Add only
- * optional properties, because other frameworks can not give them:
- *
- * ```ts
- * declare module 'flags' {
- *   interface FlagsRequest {
- *     readonly params?: Record<string, string>;
- *   }
- * }
- * ```
+ * What a framework gives the SDK about a request. Each framework gives what
+ * it can, so each property is optional. A Web `Request` has this shape.
  */
-export interface FlagsRequest {
+export interface FlagsRequestInit {
   /**
-   * The headers of the request. The SDK identifies a request by this object,
-   * so the framework must give the same object during one request.
+   * The headers of the request. If given, the framework must give the same
+   * object during one request, because the SDK identifies the request by it.
    */
-  readonly headers: ReadonlyHeaders;
+  readonly headers?: ReadonlyHeaders;
   /**
-   * The cookies of the request. If missing, `getCookies` reads the `Cookie`
+   * The cookies of the request. Without them, the SDK reads the `Cookie`
    * header.
    */
   readonly cookies?: ReadonlyRequestCookies;
   /**
    * The full URL of the request.
    */
-  readonly url?: string;
+  readonly url?: string | URL;
+}
+
+/**
+ * The request in the standard shape of the SDK. It is the same for each
+ * framework. Each step of the evaluation context chain and each extension of
+ * the SDK receives it. All properties can be read, but not modified, and are
+ * `undefined` when the framework can not give them.
+ */
+export interface FlagsRequest {
+  /**
+   * The headers of the request.
+   */
+  readonly headers: ReadonlyHeaders | undefined;
+  /**
+   * The cookies of the request. If the framework gives no cookies, they come
+   * from the `Cookie` header.
+   */
+  readonly cookies: ReadonlyRequestCookies | undefined;
+  /**
+   * The full URL of the request.
+   */
+  readonly url: Readonly<URL> | undefined;
 }
 
 // The types below are structurally compatible with the OpenFeature server SDK,

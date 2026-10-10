@@ -3,7 +3,7 @@ import { defineConnection, type GetEvaluationContext } from './connection';
 import { defineFlag } from './flag';
 import { logger } from './logger';
 import { runtime } from './runtime';
-import type { FlagsRequest, Provider } from './types';
+import type { FlagsRequest, FlagsRequestInit, Provider } from './types';
 
 function deferred() {
   let resolve = () => {};
@@ -34,12 +34,12 @@ function createConnection(
   return { connection, provider };
 }
 
-function request(user: string): FlagsRequest {
+function request(user: string): FlagsRequestInit {
   return { headers: new Headers({ 'x-user': user }) };
 }
 
 const getUserContext = vi.fn<GetEvaluationContext>((_context, request) => ({
-  targetingKey: request?.headers.get('x-user') ?? 'anonymous',
+  targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
 }));
 
 describe('request scope', () => {
@@ -95,31 +95,50 @@ describe('request scope', () => {
   });
 
   describe('requests of frameworks', () => {
-    async function receivedRequest(request: FlagsRequest) {
+    async function receivedRequest(init: FlagsRequestInit) {
       let received: FlagsRequest | undefined;
       const { connection } = createConnection((_context, incoming) => {
         received = incoming;
         return {};
       });
       const flag = defineFlag({ key: 'a', connection });
-      await runtime.onInvoke(request, () => flag());
+      await runtime.onInvoke(init, () => flag());
       return received;
     }
 
-    it('gives a Web Request to the steps as it is', async () => {
+    it('gives the steps a standard request made from a Web Request', async () => {
       const original = new Request('https://example.com/teams/acme', {
-        headers: { 'x-user': 'alice' },
+        headers: { 'x-user': 'alice', cookie: 'theme=dark' },
       });
-      expect(await receivedRequest(original)).toBe(original);
+      const received = await receivedRequest(original);
+
+      expect(received?.headers).toBe(original.headers);
+      expect(received?.url?.pathname).toBe('/teams/acme');
+      expect(received?.cookies?.get('theme')?.value).toBe('dark');
     });
 
-    it('gives other request objects to the steps as they are', async () => {
-      // e.g. an object with properties which an adapter added
-      const context = {
-        headers: new Headers(),
-        req: { param: (name: string) => `${name}-1` },
+    it('gives the steps a standard request made from headers and cookies', async () => {
+      // Like Next.js: headers() and cookies(), but no URL
+      const headers = new Headers({ 'x-user': 'alice' });
+      const cookies = {
+        get: (name: string) => ({ name, value: 'from-next' }),
+        getAll: () => [],
+        has: () => true,
       };
-      expect(await receivedRequest(context)).toBe(context);
+      const received = await receivedRequest({ headers, cookies });
+
+      expect(received?.headers).toBe(headers);
+      expect(received?.cookies).toBe(cookies);
+      expect(received?.url).toBeUndefined();
+    });
+
+    it('gives the steps an empty standard request without any property', async () => {
+      const received = await receivedRequest({});
+
+      expect(received).toBeDefined();
+      expect(received?.headers).toBeUndefined();
+      expect(received?.cookies).toBeUndefined();
+      expect(received?.url).toBeUndefined();
     });
   });
 
@@ -135,7 +154,10 @@ describe('request scope', () => {
       const flag = defineFlag({ key: 'a', connection });
 
       await flag();
-      expect(getUserContext).toHaveBeenCalledWith(undefined, current);
+      expect(getUserContext).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ headers: current.headers }),
+      );
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
         false,
@@ -150,7 +172,10 @@ describe('request scope', () => {
       const { connection } = createConnection(getUserContext);
 
       await defineFlag({ key: 'a', connection })();
-      expect(getUserContext).toHaveBeenCalledWith(undefined, current);
+      expect(getUserContext).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ headers: current.headers }),
+      );
     });
 
     it('caches the steps for the same request object', async () => {
@@ -176,6 +201,22 @@ describe('request scope', () => {
       await a();
       await b();
       expect(getUserContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('identifies a request without headers by the object', async () => {
+      let init: FlagsRequestInit = { url: 'https://example.com/a' };
+      runtime.setRequestSource(() => init);
+      const step = vi.fn(() => ({}));
+      const { connection } = createConnection(step);
+      const flag = defineFlag({ key: 'a', connection });
+
+      await flag();
+      await flag();
+      expect(step).toHaveBeenCalledTimes(1);
+
+      init = { url: 'https://example.com/b' };
+      await flag();
+      expect(step).toHaveBeenCalledTimes(2);
     });
 
     it('runs the steps again for new headers', async () => {
@@ -227,9 +268,10 @@ describe('request scope', () => {
       const flag = defineFlag({ key: 'a', connection });
 
       await runtime.onInvoke(request('alice'), () => flag());
-      expect(getUserContext).toHaveBeenCalledWith(undefined, {
-        headers: expect.any(Headers),
-      });
+      expect(getUserContext).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ headers: expect.any(Headers) }),
+      );
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
         false,

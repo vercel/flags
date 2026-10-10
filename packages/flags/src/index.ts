@@ -9,7 +9,6 @@ export {
   type Project,
   type ProjectFieldsByPlatform,
 } from './connection';
-export { getCookies } from './cookies';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,
@@ -36,6 +35,7 @@ export type {
   EvaluationContext,
   EvaluationContextValue,
   FlagsRequest,
+  FlagsRequestInit,
   Logger,
   PrimitiveValue,
   Provider,
