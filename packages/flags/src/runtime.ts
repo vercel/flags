@@ -16,8 +16,20 @@ import type {
   EvaluationContext,
   FlagsRequest,
   FlagsRequestInit,
+  Logger,
   Provider,
+  ResolutionDetails,
 } from './types';
+import {
+  describeValue,
+  type FlagOptionObject,
+  type FlagType,
+  type FlagValue,
+  hasType,
+  isOption,
+  placeholderOf,
+  resolveMethodOf,
+} from './value-types';
 
 /**
  * What the runtime needs to evaluate a flag. A flag returned by `defineFlag`
@@ -37,12 +49,48 @@ export interface FlagDefinition {
    * Returned when the evaluation fails, after logging the error. If not set,
    * the error is thrown.
    */
-  readonly defaultValue?: boolean;
+  readonly defaultValue?: FlagValue;
+  /**
+   * The type of the value. The default is `boolean`.
+   */
+  readonly type?: FlagType;
+  /**
+   * The values which the flag can have, as objects with a value. A value
+   * that is not one of them fails.
+   */
+  readonly options?: readonly FlagOptionObject<FlagValue>[];
   /**
    * A connection returned by `defineConnection`. Without it, the flag uses
    * the default connection.
    */
   readonly connection?: Connection;
+}
+
+/**
+ * Why a value does not fit a flag, or `undefined` if it fits.
+ */
+function valueProblem(
+  value: unknown,
+  type: FlagType,
+  options: readonly FlagOptionObject<FlagValue>[] | undefined,
+): string | undefined {
+  if (!hasType(value, type)) return `it is not a ${type}`;
+  if (options && !isOption(value, options)) {
+    return 'it is not one of the options';
+  }
+  return undefined;
+}
+
+function typeName(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function formatValue(value: FlagValue): string {
+  return typeof value === 'object' || typeof value === 'string'
+    ? JSON.stringify(value)
+    : String(value);
 }
 
 /**
@@ -397,8 +445,12 @@ class RuntimeImpl {
     return (context ?? {}) as EvaluationContext;
   }
 
-  async #evaluateFlag(flag: FlagDefinition, input: unknown): Promise<boolean> {
-    const { key, defaultValue } = flag;
+  async #evaluateFlag(
+    flag: FlagDefinition,
+    input: unknown,
+  ): Promise<FlagValue> {
+    const { key, defaultValue, options } = flag;
+    const type = flag.type ?? 'boolean';
     const connection = flag.connection ?? this.defaultConnection;
     if (!isConnection(connection)) {
       throw new Error(
@@ -414,10 +466,27 @@ class RuntimeImpl {
       const override = scope
         ? (await scope.overrides(this.#readOverrides)).get(key)
         : undefined;
-      if (typeof override === 'boolean') return override;
       if (override !== undefined) {
+        const problem = valueProblem(override, type, options);
+        if (!problem) return override as FlagValue;
         logger.warn(
-          `flags: The override of flag "${key}" was ignored, because it is not a boolean.`,
+          `flags: The override of flag "${key}" was ignored, because ${problem}.`,
+        );
+      }
+
+      const resolve = provider[resolveMethodOf[type]] as
+        | ((
+            flagKey: string,
+            defaultValue: FlagValue,
+            context: EvaluationContext,
+            logger: Logger,
+          ) => Promise<ResolutionDetails<unknown>>)
+        | undefined;
+      if (!resolve) {
+        throw new FlagEvaluationError(
+          key,
+          'GENERAL',
+          `The provider "${provider.metadata.name}" does not support ${type} flags.`,
         );
       }
 
@@ -426,11 +495,12 @@ class RuntimeImpl {
         this.#evaluationContext(flag, connection, input, scope),
       ]);
 
-      const details = await provider.resolveBooleanEvaluation(
+      const details = await resolve.call(
+        provider,
         key,
         // OpenFeature requires a default of the correct type, and providers
-        // examine it. Without one, the SDK passes false (see the spec).
-        defaultValue ?? false,
+        // examine it. Without one, the SDK passes a placeholder (see the spec).
+        defaultValue ?? placeholderOf(type),
         context,
         logger,
       );
@@ -442,20 +512,27 @@ class RuntimeImpl {
           details.errorMessage ?? details.errorCode,
         );
       }
-      if (typeof details.value !== 'boolean') {
+      if (!hasType(details.value, type)) {
         throw new FlagEvaluationError(
           key,
           'TYPE_MISMATCH',
-          `Expected a boolean, got ${typeof details.value}`,
+          `Expected a ${type}, got ${typeName(details.value)}`,
         );
       }
-      return details.value;
+      if (options && !isOption(details.value, options)) {
+        throw new FlagEvaluationError(
+          key,
+          'TYPE_MISMATCH',
+          `The value is not one of the options: ${describeValue(details.value)}`,
+        );
+      }
+      return details.value as FlagValue;
     } catch (error) {
       const evaluationError = toEvaluationError(key, error);
       if (defaultValue === undefined) throw evaluationError;
       // One line per evaluation, so a broken flag does not fill the logs
       logger.error(
-        `${evaluationError.message.replace(/\.$/, '')}. Returned the default value: ${defaultValue}.`,
+        `${evaluationError.message.replace(/\.$/, '')}. Returned the default value: ${formatValue(defaultValue)}.`,
       );
       logger.debug(evaluationError);
       return defaultValue;

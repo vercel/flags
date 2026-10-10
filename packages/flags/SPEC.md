@@ -24,16 +24,44 @@ changed, update the walkthrough in the same change.
    of the application, else the default provider: OFREP, or a fast provider
    that a framework puts in with an alias (see "Configuration" and "Default
    connection").
-8. OpenFeature parity. Provider hooks, events and tracking. Flag types other
-   than boolean.
-9. Tooling. Links to the flag in the dashboard of the platform (`origin`).
-   Flag discovery for tools such as Flags Explorer.
-10. Framework integrations. Small adapters for Hono, Express, SvelteKit,
-   TanStack Start, Nuxt and Next.js call the `runtime` methods (see
-   "Framework integration contract"). Compiler plugins for the `'use flags'`
-   directive call `registerFlags`.
-11. Standard. Write the spec with normative words (MUST, SHOULD). Add a
-    conformance test suite that provider authors can run.
+8. Done: flag value types. Boolean, string, number and object flags, with
+   typed default values, options and overrides (see "Flag value types").
+9. Next.js as a complete example, in `tests/standard/next`. The integration
+   is built so that it could later live inside Next.js (see "Framework
+   integration contract"). The build plugin and precompute have separate
+   exports.
+10. OpenFeature parity. Provider hooks, events, tracking, and the report of
+    overrides. It is early in the plan, because it can show problems in the
+    design.
+11. A cache of results for each request, and precompute for Next.js as a
+    separate export, outside of the runtime and the standard.
+12. Tooling. Flag discovery for tools such as Flags Explorer, links to the
+    dashboard of the platform (`origin`), and the overrides from end to end
+    with the Vercel Toolbar.
+13. More frameworks: SvelteKit, then Hono and Express.
+14. Standard. Write the spec with normative words (MUST, SHOULD). Add
+    conformance tests for framework integrations. The provider contract is
+    OpenFeature, so the standard of this SDK is the contract between
+    frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
+    `flags.config.ts`, the alias of `flags/default-provider`, and the format
+    of discovery.
+
+Not planned now: the migration from v4 (later with a skill or a codemod), and
+the packages of the monorepo that still use v4.
+
+### Precompute
+
+v5 supports precompute, but not as a part of the runtime or the standard. It
+is a feature of Next.js: flags in the proxy, and static pages for each
+combination of flags. It will be a separate export, e.g.
+`flags/next/precompute`, so that users of v4 can keep using it. Ultimately,
+it belongs in the framework, built on the standard of this SDK.
+
+### Tests with real frameworks
+
+`tests/standard/<framework>` contains small apps that test the SDK in a real
+framework, e.g. `tests/standard/next`. They test the SDK and its contract,
+not providers. For now, only Next.js.
 
 ## Providers
 
@@ -145,7 +173,7 @@ available from every flag.
   on the next evaluation.
 - The key keeps its literal type. Any string is accepted. Typed keys (a fixed
   list of keys for each provider) are not planned for now.
-- Boolean only for now. A `type` field will be added later.
+- The value has a type (see "Flag value types").
 - The context comes from the evaluation context chain (see "Evaluation
   context chain").
 - The SDK and the providers use the same logger. Like the default logger of
@@ -161,16 +189,72 @@ available from every flag.
   request. Otherwise the error is thrown.
 - Errors of the initialization and of the shutdown are logged with the full
   error, because they occur only once per process.
-- Without `defaultValue`, the SDK passes `false` to the provider, because
-  OpenFeature requires a default of the correct type, and providers examine
-  it (e.g. `TypedInMemoryProvider` throws `TYPE_MISMATCH` for `undefined`). A
-  provider that returns the default, e.g. for a disabled flag, then returns
-  `false`. The SDK can not detect this case in general: the reason `DEFAULT`
+- Without `defaultValue`, the SDK passes a placeholder to the provider:
+  `false`, `''`, `0` or `{}`, as the type requires. OpenFeature requires a
+  default of the correct type, and providers examine it (e.g.
+  `TypedInMemoryProvider` throws `TYPE_MISMATCH` for `undefined`). A provider
+  that returns the default, e.g. for a disabled flag, then returns the
+  placeholder. The SDK can not detect this case in general: the reason `DEFAULT`
   or `DISABLED` can also mean a value that is configured in the platform,
   e.g. the "off" value of LaunchDarkly. Set `defaultValue` when the
   difference matters.
 - A link to the flag in the provider's dashboard (`origin`) will be added
   later.
+
+### Flag value types
+
+```ts
+const summerSale = defineFlag({ key: 'summer-sale' }); // boolean
+const bannerText = defineFlag({ key: 'banner-text', type: 'string' });
+const checkout = defineFlag({
+  key: 'checkout',
+  type: 'string',
+  options: [{ value: 'control', label: 'Old' }, 'express'],
+  defaultValue: 'control',
+}); // 'control' | 'express'
+```
+
+- The types are `boolean`, `string`, `number` and `object`, the names of
+  OpenFeature. Without `type`, a flag is a boolean. Each other type must be
+  set with `type`. The SDK does not infer the type from `defaultValue` or
+  `options`.
+- A `defaultValue` or options that do not fit the type are type errors. For
+  code without TypeScript, `defineFlag` logs a warning, e.g. `The
+  defaultValue of flag "a" is not a boolean. Set type to use a different
+  type.` An unknown `type` throws.
+- `object` means a JSON object or a JSON array.
+- The type selects the method of the provider: `resolveBooleanEvaluation`,
+  `resolveStringEvaluation`, `resolveNumberEvaluation` or
+  `resolveObjectEvaluation`. Only the boolean method is required in the type
+  `Provider`. A flag of a type that its provider does not support fails.
+- The SDK examines each value of the provider. A value of a different type
+  fails with `TYPE_MISMATCH`. A provider error without a message gives its
+  error code as the message.
+
+#### Options
+
+- `options` lists the values that the flag can have. An option is a value,
+  or `{ value, label }`, as in v4. The label is for tools, e.g. Flags
+  Explorer. The flag exposes its options as objects with a value.
+- With options, the type of the value is the union of the options, e.g.
+  `'control' | 'express'`.
+- A value that is not one of the options fails (`TYPE_MISMATCH`), so the type
+  stays true at runtime. This protects the application from a variant that
+  the platform added before the code knows it. Objects are compared by their
+  content.
+- An option of an `object` flag must be `{ value }`, because a JSON object and
+  an option object look the same. Otherwise, `defineFlag` throws.
+- A `defaultValue` that is not one of the options is a type error, and a
+  warning at runtime.
+
+#### Overrides and evaluate
+
+- An override must fit the type and the options. Otherwise, the SDK logs a
+  warning, e.g. `The override of flag "a" was ignored, because it is not a
+  number.`, and evaluates the flag as usual.
+- `evaluate([a, b])` returns the type of each flag, e.g. `[boolean, string]`.
+- OFREP has no types: the server returns any JSON value, so all four methods
+  use the same request, and the SDK examines the type.
 
 ### Evaluating flags with `evaluate`
 
@@ -859,11 +943,8 @@ Other items:
   v4 had `experimental_reportOverride` on the adapter. OpenFeature has no
   such function, so it could be on the connection, or a hook (see provider
   hooks above).
-- Values of overrides other than boolean, together with flag types other than
-  boolean.
 - Groups of projects that share overrides, e.g. for microfrontends (see the
   RFC).
-- Value types other than boolean.
 - A configurable logger, e.g. to write debug messages or to send errors to a
   monitoring service.
 

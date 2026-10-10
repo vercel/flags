@@ -25,7 +25,24 @@ export interface OfrepProviderOptions {
  * @see https://github.com/open-feature/protocol
  * @internal
  */
-export function createOfrepProvider(options: OfrepProviderOptions): Provider {
+/**
+ * A provider which supports each type of flag.
+ *
+ * @internal
+ */
+export type ProviderOfAllTypes = Provider &
+  Required<
+    Pick<
+      Provider,
+      | 'resolveStringEvaluation'
+      | 'resolveNumberEvaluation'
+      | 'resolveObjectEvaluation'
+    >
+  >;
+
+export function createOfrepProvider(
+  options: OfrepProviderOptions,
+): ProviderOfAllTypes {
   const baseUrl = options.baseUrl.replace(/\/$/, '');
   // Read the global fetch at each request, because a framework can replace
   // it after the provider is created, e.g. Next.js
@@ -34,88 +51,93 @@ export function createOfrepProvider(options: OfrepProviderOptions): Provider {
   // After a 429, no requests until this time
   let retryAt = 0;
 
-  return {
-    metadata: { name: options.name ?? 'ofrep' },
+  // OFREP has no types: the server returns any JSON value, and the runtime
+  // examines its type. Thus, all types use the same request.
+  async function resolve<T>(
+    flagKey: string,
+    defaultValue: T,
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<T>> {
+    const failure = (errorCode: string, errorMessage: string) => ({
+      value: defaultValue,
+      reason: 'ERROR',
+      errorCode,
+      errorMessage,
+    });
 
-    async resolveBooleanEvaluation(
-      flagKey: string,
-      defaultValue: boolean,
-      context: EvaluationContext,
-    ): Promise<ResolutionDetails<boolean>> {
-      const failure = (errorCode: string, errorMessage: string) => ({
-        value: defaultValue,
-        reason: 'ERROR',
-        errorCode,
-        errorMessage,
-      });
+    if (Date.now() < retryAt) {
+      return failure(
+        'GENERAL',
+        `The OFREP server allows requests again at ${new Date(retryAt).toISOString()}.`,
+      );
+    }
 
-      if (Date.now() < retryAt) {
+    const response = await fetchFlags(
+      `${baseUrl}/ofrep/v1/evaluate/flags/${encodeURIComponent(flagKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          ...Object.fromEntries(new Headers(await options.headers?.())),
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({ context }),
+      },
+    );
+
+    if (response.ok) {
+      const body = (await response.json()) as Record<string, unknown>;
+      // Without a value, the server asks for the default of the code
+      if (!('value' in body)) return { value: defaultValue, reason: 'DEFAULT' };
+      return {
+        value: body.value as T,
+        reason: typeof body.reason === 'string' ? body.reason : undefined,
+        variant: typeof body.variant === 'string' ? body.variant : undefined,
+        flagMetadata: isMetadata(body.metadata) ? body.metadata : undefined,
+      };
+    }
+
+    switch (response.status) {
+      case 400: {
+        const body = await response.json().catch(() => ({}));
         return failure(
-          'GENERAL',
-          `The OFREP server allows requests again at ${new Date(retryAt).toISOString()}.`,
+          typeof body.errorCode === 'string' ? body.errorCode : 'GENERAL',
+          typeof body.errorDetails === 'string'
+            ? body.errorDetails
+            : 'The OFREP server rejected the request.',
         );
       }
+      case 401:
+      case 403:
+        return failure(
+          'GENERAL',
+          `The OFREP server did not accept the credential (status ${response.status}).`,
+        );
+      case 404:
+        return failure(
+          'FLAG_NOT_FOUND',
+          `The flag "${flagKey}" does not exist.`,
+        );
+      case 429:
+        retryAt = parseRetryAfter(response.headers.get('retry-after'));
+        return failure(
+          'GENERAL',
+          'The OFREP server received too many requests.',
+        );
+      default:
+        return failure(
+          'GENERAL',
+          `The OFREP server returned status ${response.status}.`,
+        );
+    }
+  }
 
-      const response = await fetchFlags(
-        `${baseUrl}/ofrep/v1/evaluate/flags/${encodeURIComponent(flagKey)}`,
-        {
-          method: 'POST',
-          headers: {
-            ...Object.fromEntries(new Headers(await options.headers?.())),
-            'content-type': 'application/json',
-            accept: 'application/json',
-          },
-          body: JSON.stringify({ context }),
-        },
-      );
-
-      if (response.ok) {
-        const body = (await response.json()) as Record<string, unknown>;
-        // Without a value, the server asks for the default of the code
-        if (!('value' in body))
-          return { value: defaultValue, reason: 'DEFAULT' };
-        return {
-          value: body.value as boolean,
-          reason: typeof body.reason === 'string' ? body.reason : undefined,
-          variant: typeof body.variant === 'string' ? body.variant : undefined,
-          flagMetadata: isMetadata(body.metadata) ? body.metadata : undefined,
-        };
-      }
-
-      switch (response.status) {
-        case 400: {
-          const body = await response.json().catch(() => ({}));
-          return failure(
-            typeof body.errorCode === 'string' ? body.errorCode : 'GENERAL',
-            typeof body.errorDetails === 'string'
-              ? body.errorDetails
-              : 'The OFREP server rejected the request.',
-          );
-        }
-        case 401:
-        case 403:
-          return failure(
-            'GENERAL',
-            `The OFREP server did not accept the credential (status ${response.status}).`,
-          );
-        case 404:
-          return failure(
-            'FLAG_NOT_FOUND',
-            `The flag "${flagKey}" does not exist.`,
-          );
-        case 429:
-          retryAt = parseRetryAfter(response.headers.get('retry-after'));
-          return failure(
-            'GENERAL',
-            'The OFREP server received too many requests.',
-          );
-        default:
-          return failure(
-            'GENERAL',
-            `The OFREP server returned status ${response.status}.`,
-          );
-      }
-    },
+  return {
+    metadata: { name: options.name ?? 'ofrep' },
+    resolveBooleanEvaluation: resolve,
+    resolveStringEvaluation: resolve,
+    resolveNumberEvaluation: resolve,
+    resolveObjectEvaluation: resolve,
   };
 }
 
