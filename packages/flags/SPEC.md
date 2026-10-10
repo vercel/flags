@@ -51,6 +51,10 @@ All public functions call the `runtime`. For example, a flag calls
 `runtime.evaluate`, and `registerConnections` calls
 `runtime.registerConnection`. The runtime owns all state and all behavior.
 
+The package needs Node.js 20.19, or 22.12 or newer (`engines`). The CommonJS
+build loads `jose`, an ES module, with `require()`, and the overrides read
+`.vercel/project.json` with `process.getBuiltinModule`.
+
 A bundler can put more than one copy of the package into one process, e.g.
 one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
 `Symbol.for('flags.v5.state')`: the runtime, and the lists of connections and
