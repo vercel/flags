@@ -27,7 +27,10 @@ export interface OfrepProviderOptions {
  */
 export function createOfrepProvider(options: OfrepProviderOptions): Provider {
   const baseUrl = options.baseUrl.replace(/\/$/, '');
-  const fetchFlags = options.fetch ?? globalThis.fetch;
+  // Read the global fetch at each request, because a framework can replace
+  // it after the provider is created, e.g. Next.js
+  const fetchFlags: typeof fetch = (input, init) =>
+    (options.fetch ?? globalThis.fetch)(input, init);
   // After a 429, no requests until this time
   let retryAt = 0;
 

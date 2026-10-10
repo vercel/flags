@@ -1,4 +1,10 @@
 export {
+  type Config,
+  type ConfiguredConnection,
+  defineConfig,
+  type Register,
+} from './config';
+export {
   type Connection,
   type ConnectionInput,
   type ConnectionOptions,
@@ -25,7 +31,6 @@ export {
   type FlagOptions,
 } from './flag';
 export {
-  configureOverrides,
   decryptOverrides,
   encryptOverrides,
   type FlagOverrides,

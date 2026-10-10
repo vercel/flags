@@ -333,7 +333,10 @@ function createKeyCache(
     options.cacheMaxAgeMs ?? policy.cacheMaxAgeMs,
     'cacheMaxAgeMs',
   );
-  const fetchKeys = options.fetch ?? globalThis.fetch;
+  // Read the global fetch at each request, because a framework can replace
+  // it after the cache is created
+  const fetchKeys: typeof fetch = (input, init) =>
+    (options.fetch ?? globalThis.fetch)(input, init);
 
   type KeySet = ReturnType<typeof createLocalJWKSet>;
   let keySet: KeySet | undefined;

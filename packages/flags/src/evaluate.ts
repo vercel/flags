@@ -1,4 +1,5 @@
-import type { ConnectionInput } from './connection';
+import type { ConfiguredConnection } from './config';
+import type { Connection, ConnectionInput } from './connection';
 import type { EvaluationArgs } from './flag';
 import { type FlagDefinition, runtime } from './runtime';
 import type { FlagsRequest } from './types';
@@ -23,9 +24,19 @@ export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   ): unknown;
 }
   ? unknown extends In
-    ? ConnectionInput<F['connection']>
+    ? ConnectionInput<ConnectionOf<F>>
     : In
-  : ConnectionInput<F['connection']>;
+  : ConnectionInput<ConnectionOf<F>>;
+
+/**
+ * The connection of a flag. Without a connection, the configured default
+ * connection.
+ */
+type ConnectionOf<F extends FlagDefinition> = F extends {
+  readonly connection: infer C extends Connection;
+}
+  ? C
+  : ConfiguredConnection;
 
 /**
  * The evaluation context which `evaluate` accepts for a list of flags.

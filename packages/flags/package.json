@@ -29,6 +29,10 @@
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./default-provider": {
+      "import": "./dist/default-provider.js",
+      "require": "./dist/default-provider.cjs"
     }
   },
   "typesVersions": {
@@ -52,14 +56,13 @@
     "test": "vitest --run",
     "test:playground": "vitest --run playground --reporter=verbose",
     "test:watch": "vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit && tsc -p test/register/tsconfig.json"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@openfeature/core": "1.12.0",
     "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
-    "@vercel/flags-core": "workspace:*",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vitest": "4.1.11"
@@ -69,13 +72,5 @@
   },
   "dependencies": {
     "jose": "^6.2.12"
-  },
-  "peerDependencies": {
-    "@vercel/flags-core": "^1.9.0"
-  },
-  "peerDependenciesMeta": {
-    "@vercel/flags-core": {
-      "optional": true
-    }
   }
 }

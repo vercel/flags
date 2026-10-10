@@ -19,8 +19,10 @@ changed, update the walkthrough in the same change.
    each create a part of the context (see "Evaluation context chain").
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
-7. Done: default connection. A flag without a connection uses Vercel Flags:
-   `@vercel/flags-core` if it is installed, else OFREP (see "Default
+7. Done: configuration and default connection. `runtime.configure` with
+   `flags.config.ts`. A flag without a connection uses the default connection
+   of the application, else the default provider: OFREP, or a fast provider
+   that a framework puts in with an alias (see "Configuration" and "Default
    connection").
 8. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
@@ -28,7 +30,7 @@ changed, update the walkthrough in the same change.
    Flag discovery for tools such as Flags Explorer.
 10. Framework integrations. Small adapters for Hono, Express, SvelteKit,
    TanStack Start, Nuxt and Next.js call the `runtime` methods (see
-   "Framework integrations"). Compiler plugins for the `'use flags'`
+   "Framework integration contract"). Compiler plugins for the `'use flags'`
    directive call `registerFlags`.
 11. Standard. Write the spec with normative words (MUST, SHOULD). Add a
     conformance test suite that provider authors can run.
@@ -257,81 +259,163 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
 - No field has a special meaning, also not `targetingKey`. Not all providers
   use it. A connection that needs it declares it.
 
+## Configuration
+
+`runtime.configure(config)` configures the SDK. By convention, the
+configuration is the export `config` of `flags.config.ts`, and the framework
+integration calls `runtime.configure` with it. Without a framework, the
+application calls it at startup.
+
+```ts
+// flags.config.ts
+import { defineConfig, defineConnection } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export const config = defineConfig({
+  defaultConnection: defineConnection({
+    provider: new VercelProvider(),
+    project: { platform: 'vercel' },
+    getEvaluationContext,
+  }),
+});
+
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+- `defaultConnection`: the connection of all flags without a connection. It
+  must come from `defineConnection`.
+- `overrides`: which override tokens the SDK accepts (see "Overrides").
+- `runtime.configure` validates the full configuration at once, and throws
+  before it changes anything. A new call replaces the configuration, e.g.
+  after a reload in development.
+- `runtime.configure` registers the `defaultConnection`, so `onInit`
+  initializes it.
+- The convention has one name: `flags.config.ts` exports `config`, not a
+  default export. A default export would need a separate name anyway for
+  `typeof config`, and two accepted names would be ambiguous.
+
+### Types of the configuration
+
+- `defineConfig(config)` returns the configuration as it is, with its exact
+  type (a `const` type parameter). It does not use `Register`, so that
+  `Register` can refer to `typeof config` without a circular type.
+- The application registers the type in `flags.config.ts` itself, with
+  `declare module 'flags'`. No generated declaration file is necessary.
+  `flags.config.ts` is part of the TypeScript program, so the registration
+  applies to the full program.
+- With the registration, a flag without a connection has the types of the
+  configured default connection (`ConfiguredConnection`), e.g. the input of
+  its `getEvaluationContext`. Without it, the flag has the open
+  `DefaultConnectionInput`.
+- If `flags.config.ts` is not in the TypeScript program, the types fall back
+  to the open context. The type check does not fail, but it is less strict.
+- `test/register` tests this pattern with its own TypeScript program, as part
+  of `type-check`. A registration applies to the full program, so the other
+  tests can not contain it.
+
 ## Default connection
 
-A flag without a connection uses Vercel Flags. Thus, a project that is linked
-to Vercel needs no package and no configuration:
+A flag without a connection uses the default connection. The connection
+resolves at the evaluation, not at the definition, so a flag that a module
+defines before the configuration also uses the configured connection.
+
+1. The `defaultConnection` of the configuration, if the application sets one.
+2. Otherwise, the built-in default connection. Its provider comes from the
+   module `flags/default-provider`. The built-in implementation uses OFREP.
 
 ```ts
 const summerSale = defineFlag({ key: 'summer-sale' });
 ```
 
-- `flags` exports nothing for Vercel. Who wants a different provider passes a
-  connection. The package `@flags-sdk/vercel` will export the provider of
-  Vercel Flags for an explicit connection.
-- The default connection has the platform `vercel`. Its context is
+- `flags` exports nothing for Vercel, and there is no wrapper package. The
+  application uses the OpenFeature provider of Vercel Flags directly:
+  `VercelProvider` of `@vercel/flags-core/openfeature`, like each other
+  OpenFeature provider. That provider needs `@openfeature/server-sdk`, which
+  is normal for OpenFeature providers.
+- The built-in default connection has the platform `vercel`. Its context is
   `DefaultConnectionInput`, so it accepts any evaluation context, and gives
-  it to the provider as it is.
-- All copies of the package share one default connection (shared state).
+  it to the provider as it is. All copies of the package share it.
+- The runtime initializes the default connection only when a flag uses it,
+  or when `runtime.configure` sets it. Thus, the built-in provider does not
+  start when the application has its own default connection.
+- A flag with its own connection is not affected by the configuration.
 
-The provider of the default connection selects its implementation on the
-first use, in this order:
+The gradual path:
 
-1. `@vercel/flags-core`, if it is installed. It evaluates without a request
-   for each flag. The build of Vercel installs it. Thus, a deployment uses
-   it, and the build has to do nothing else. A user can also install it
-   locally.
-2. Otherwise, after `vercel link` and `vercel env pull`: OFREP, with
-   `VERCEL_OIDC_TOKEN` as the bearer credential. The SDK reads the token for
-   each request, because `vercel env pull` can renew it.
-3. Otherwise, the evaluation throws an error that tells the user to run
-   `vercel link` and `vercel env pull`, or to pass a connection. The error
-   comes at the evaluation, not at the definition, so that imports in tests
-   and scripts do not fail. A flag with `defaultValue` returns it and logs the
-   error.
+| Step | What the user does                   | Result                                                                      |
+| ---- | ------------------------------------ | --------------------------------------------------------------------------- |
+| 0    | Nothing                              | OFREP locally. On Vercel, a fast provider, if the framework puts it in.     |
+| 1    | Writes `flags.config.ts`             | Evaluation context and fast evaluations everywhere. No flag changes.        |
+| 2    | Adds `connection` to some flags      | More than one provider.                                                     |
 
-The selection stays after a success. After a failure, the next use tries
-again, e.g. after `vercel env pull`. `onShutdown` resets the selection.
+### The built-in default provider
 
-### The optional package `@vercel/flags-core`
+The built-in implementation of `flags/default-provider` uses OFREP:
 
-- `@vercel/flags-core` is an optional peer dependency (`^1.9.0`). Users
-  without it install nothing.
-- The SDK uses its default client, `flagsClient`, and adapts it to an
-  OpenFeature provider. It does not use `@vercel/flags-core/openfeature`,
-  because that file needs the package `@openfeature/server-sdk`.
-  - The reason `paused` becomes `STATIC`, the other reasons become
-    `TARGETING_MATCH`.
-  - An error result becomes an `errorCode` (`GENERAL` if it has none) and
-    its `errorMessage`.
-  - `initialize` and `onClose` call `initialize` and `shutdown` of the
-    client.
-- The SDK loads it with a literal `import('@vercel/flags-core')` in
-  `try`/`catch`. Only the error "not installed" leads to OFREP:
-  `ERR_MODULE_NOT_FOUND` (Node.js ESM), `MODULE_NOT_FOUND` (CommonJS), or the
-  message `Cannot find module '@vercel/flags-core'` (Turbopack). Other errors,
-  e.g. of the configuration of the package, are thrown.
-- The type declarations of the SDK do not refer to the package.
+- After `vercel link` and `vercel env pull`, it uses `VERCEL_OIDC_TOKEN` as
+  the bearer credential. It reads the token for each request, because
+  `vercel env pull` can renew it.
+- Without the token, the evaluation throws an error that tells the user to
+  run `vercel link` and `vercel env pull`, to set a default connection in
+  `flags.config.ts`, or to pass a connection. The error comes at the
+  evaluation, not at the definition, so that imports in tests and scripts do
+  not fail. A flag with `defaultValue` returns it and logs the error.
+- With `NODE_ENV=production`, it logs a warning one time: OFREP sends one
+  request for each evaluation, so set a default connection in
+  `flags.config.ts`, e.g. with `VercelProvider`.
 
-Why a literal import: the tools that build an application must include the
-package when it is installed, and must build without it when it is not. A
-test with a fake package gave these results:
+### Replacing the default provider with an alias
 
-| Tool                   | Without the package          | With the package       |
-| ---------------------- | ---------------------------- | ---------------------- |
-| esbuild                | builds                       | bundles the package    |
-| webpack (Next.js)      | builds                       | bundles the package    |
-| Turbopack (Next.js 16) | builds, with a warning       | bundles the package    |
-| `@vercel/nft`          | -                            | traces the package     |
+The SDK imports its default provider through its own package name:
+`import { createDefaultProvider } from 'flags/default-provider'`. Thus, a
+framework or a platform can replace it with a bundler alias at build time,
+e.g. with `VercelProvider` of `@vercel/flags-core`.
 
-- The comments `webpackIgnore` and `turbopackIgnore` remove the warning of
-  Turbopack, but then the standalone output of Next.js does not contain the
-  package. Thus, a deployment would not find it. The SDK does not use them.
-- An import with a variable (`import(name)`) gives a warning in webpack, and
-  webpack does not find the package at runtime.
-- Thus, the cost of the literal import is one warning of Turbopack in builds
-  without the package: `Module not found: Can't resolve '@vercel/flags-core'`.
-  On Vercel, the build installs the package, so the warning does not occur.
+- The contract: the replacement exports `createDefaultProvider(): Provider`.
+- The build of the SDK keeps this import (an esbuild plugin marks it as
+  external), and the OFREP code is only in `dist/default-provider.js`. Thus,
+  an alias replaces it, and the bundler removes the OFREP code.
+- A replacement must keep one client for all copies of the package, e.g. in
+  the shared state on `globalThis`. Next.js has more than one bundle, and
+  each bundle contains its own copy of the replacement.
+- The planned replacement is a subpath of `@vercel/flags-core`, e.g.
+  `@vercel/flags-core/default-provider`, which exports
+  `createDefaultProvider()` and returns its `VercelProvider`. This is a
+  separate step. Its default client must then stay one client for all copies
+  of the package.
+- Without a bundler, nothing replaces the module, so the built-in OFREP
+  implementation is used.
+- The default connection of the application always wins over the
+  replacement.
+
+A test with a small Next.js 16 app gave these results. A fake package
+imported its own subpath, and the alias pointed it to a different package:
+
+| Bundler   | Alias | Build     | OFREP code in the output | Result |
+| --------- | ----- | --------- | ------------------------ | ------ |
+| Turbopack | no    | no errors | yes                      | OFREP  |
+| Turbopack | yes   | no errors | no                       | fast   |
+| webpack   | no    | no errors | -                        | OFREP  |
+| webpack   | yes   | no errors | no                       | fast   |
+
+- Turbopack: `turbopack.resolveAlias`, with the key
+  `flags/default-provider`.
+- webpack: `resolve.alias`, with the key `flags/default-provider$`.
+
+The test also rejected two other ways:
+
+- An optional import of `@vercel/flags-core` in `flags`: Turbopack shows a
+  warning in each build without the package, also in applications with their
+  own provider. The comments `turbopackIgnore` and `webpackIgnore` remove the
+  warning, but then the standalone output of Next.js does not contain the
+  package.
+- A slot in the shared state that the platform fills before the application
+  starts: it needs a change of the entry of each function, and extra files in
+  each function.
 
 ### OFREP
 
@@ -390,8 +474,8 @@ The SDK needs no configuration:
 The SDK reads these environment variables when a token needs them, because
 they can change until then. An empty variable counts as missing.
 
-`configureOverrides(options)` changes the defaults. Call it one time, at
-startup. The trust comes only from the options and the environment, never
+The option `overrides` of the configuration (see "Configuration") changes the
+defaults. The trust comes only from the options and the environment, never
 from the token.
 
 - `secret`: the shared secret. The default is `FLAGS_SECRET`. `false` accepts
@@ -600,51 +684,94 @@ interface FlagsRequest {
 - A flag waits for the initialization of its provider. It gets the context at
   the same time.
 
-### Framework integrations (planned)
+## Framework integration contract
 
-Each integration is a small adapter. It gives the SDK what the framework can
-give about the request (`FlagsRequestInit`), and uses the way to give it to
-the runtime that fits the framework.
+These are the tasks of a framework integration. Integrations do not exist
+yet. Until then, an application without a framework does them by hand.
 
-```ts
-// Hono, SvelteKit, TanStack Start: a Web Request
-app.use((c, next) => runtime.onInvoke(c.req.raw, next));
-export const handle = ({ event, resolve }) =>
-  runtime.onInvoke(event.request, () => resolve(event));
+| Task                                   | Who does it with a framework                                                                 | Without a framework                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Load `flags.config.ts`                 | The integration imports it and calls `runtime.configure(config)`, in development and in builds | `runtime.configure(config)` at startup                     |
+| Give the request to the runtime        | The integration calls `runtime.onInvoke(request, next)`, or sets `runtime.setRequestSource` | `runtime.onInvoke` in a middleware                         |
+| Convert the request                    | The integration gives `FlagsRequestInit`, e.g. a Web `Request`                               | The application converts it, e.g. Node.js headers          |
+| `onInit` and `onShutdown`              | The integration, at startup and when the process stops                                       | At startup, and on `SIGTERM`                               |
+| Fast evaluations on Vercel at step 0   | The integration or the platform adapter sets the alias of `flags/default-provider`          | Not possible: OFREP, with a warning in production          |
+| Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Build tooling")                                | `registerFlags` by hand, if necessary                      |
 
-// Express: convert the Node.js headers into Web Headers
-app.use((req, res, next) => runtime.onInvoke(toFlagsRequest(req), next));
+Rules for each integration:
 
-// Next.js, instrumentation.ts: no middleware wraps the rendering, but
-// headers() returns the same object during one request
-export function register() {
-  runtime.setRequestSource(async () => ({
-    headers: await headers(),
-    cookies: await cookies(),
-  }));
-}
-```
+- Load `flags.config.ts` before the first evaluation, and use only its export
+  `config`. Load it again after a change in development.
+- Give the request as `FlagsRequestInit`. Give the same `headers` object
+  during one request.
+- Set the alias only when the build is for a platform that has a fast
+  provider. Do not set it in development, so that development uses OFREP or
+  the configuration.
+- Do not catch the internal errors of the framework, e.g. the errors of
+  Next.js that stop the static rendering.
 
-Next.js can bundle `instrumentation.ts` and the pages separately. The shared
-state on `globalThis` makes sure that they use the same runtime. Rules for
-the source of the Next.js adapter:
+### Notes for each framework
 
-- Outside of a request, e.g. at build time or in `generateStaticParams`,
-  `headers()` throws. The source returns `undefined` there.
-- During static rendering, Next.js throws internal errors to stop the static
-  rendering. The source must not catch them, or Next.js can not detect
-  dynamic pages. The v4 SDK had `isInternalNextError` for this.
+The details must be checked when the integration is built (milestone 10).
 
-Next.js has two places with different requests: the proxy (`proxy.ts`) gets
-the full `NextRequest`, but pages only get `headers()` and `cookies()`. Both
-places can give `{ headers, cookies }`, and the proxy can also give `url`.
+**Next.js**
 
-Frameworks that have their own request context can also use a source, e.g.
-`getRequestEvent()` of SvelteKit or the request context of Nitro for Nuxt.
-The details must be checked for each framework in milestone 8.
+- The request: no middleware wraps the rendering, but `headers()` returns the
+  same object during one request. Thus, use `runtime.setRequestSource`, e.g.
+  in `instrumentation.ts`. The shared state on `globalThis` makes sure that
+  `instrumentation.ts` and the pages, which Next.js can bundle separately,
+  use the same runtime.
 
-The package will export these adapters, e.g. `flags/hono`, so users do not
-write them.
+  ```ts
+  export function register() {
+    runtime.setRequestSource(async () => ({
+      headers: await headers(),
+      cookies: await cookies(),
+    }));
+  }
+  ```
+
+- The source: outside of a request, e.g. at build time or in
+  `generateStaticParams`, `headers()` throws, so the source returns
+  `undefined`. During static rendering, Next.js throws internal errors to
+  stop the static rendering. The source must not catch them. The v4 SDK had
+  `isInternalNextError` for this.
+- Two places with different requests: the proxy (`proxy.ts`) gets the full
+  `NextRequest`, but pages only get `headers()` and `cookies()`. Both places
+  can give `{ headers, cookies }`, and the proxy can also give `url`.
+- The alias: the Vercel adapter (Adapter API, `NEXT_ADAPTER_PATH`, stable
+  since Next.js 16.2) can set it in `modifyConfig`, during
+  `phase-production-build`, for Turbopack and for webpack. Adapters run only
+  for builds, so development uses OFREP or the configuration.
+
+**SvelteKit**
+
+- The request: the `handle` hook wraps the handler:
+  `runtime.onInvoke(event.request, () => resolve(event))`. `getRequestEvent()`
+  is an alternative for a source.
+- The alias: the adapter (`@sveltejs/adapter-vercel`) runs after the Vite
+  build, so it is too late for an alias. The Vite plugin of the integration
+  must set it, e.g. when `VERCEL` is set at build time.
+
+**Hono, TanStack Start**
+
+- The request: a middleware with `next` gives a Web `Request`:
+  `app.use((c, next) => runtime.onInvoke(c.req.raw, next))`.
+- The alias: through the configuration of their bundler (Vite for TanStack
+  Start). Not examined yet.
+
+**Express**
+
+- The request: a middleware with `next`. The integration converts the
+  Node.js headers into Web `Headers` (see `toFlagsRequest` in
+  `playground.ts`).
+- The alias: no bundler, so OFREP, unless the application sets a default
+  connection.
+
+**Nuxt (Nitro), Astro**
+
+- Their presets or integrations can change the configuration of the bundler,
+  and they have a request context for a source. Not examined yet.
 
 ### Registration
 
@@ -746,7 +873,7 @@ a file in `src` contains this marker.
   `src/overrides/vercel.ts`): replace it with the real issuer of the Vercel
   Toolbar.
 - The OFREP base URL of Vercel Flags (`VERCEL_OFREP_BASE_URL` in
-  `src/default-connection.ts`): replace it with the real endpoint.
+  `src/default-provider.ts`): replace it with the real endpoint.
 
 ## Open questions
 

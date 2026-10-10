@@ -1,12 +1,9 @@
+import type { ConfiguredConnection } from './config';
 import {
   type Connection,
   type ConnectionInput,
   isConnection,
 } from './connection';
-import {
-  type DefaultConnection,
-  getDefaultConnection,
-} from './default-connection';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
 import type { FlagsRequest } from './types';
@@ -103,26 +100,41 @@ export type Flag<
  */
 export function defineFlag<
   const K extends string,
-  C extends Connection = DefaultConnection,
+  C extends Connection = ConfiguredConnection,
   In = ConnectionInput<C>,
 >(options: FlagOptions<C, K, In>): Flag<C, K, In> {
   const { key, defaultValue, getEvaluationContext } = options;
-  const connection = options.connection ?? getDefaultConnection();
+  const explicit = options.connection;
 
-  if (!isConnection(connection)) {
+  if (explicit !== undefined && !isConnection(explicit)) {
     throw new Error(
       `flags: The connection of flag "${key}" must be returned by defineConnection.`,
     );
   }
+  if (explicit) runtime.registerConnection(explicit);
+  else runtime.useDefaultConnection();
 
-  const definition = { key, defaultValue, connection, getEvaluationContext };
-  runtime.registerConnection(connection);
-
-  const flag = Object.assign(
+  // Without a connection, the runtime resolves the default connection at the
+  // evaluation, so the configuration can come later than the flag
+  const definition: FlagDefinition = {
+    key,
+    defaultValue,
+    connection: explicit,
+    getEvaluationContext,
+  };
+  const flag = Object.defineProperties(
     (options?: Partial<EvaluationOptions<In>>) =>
-      runtime.evaluate(definition as FlagDefinition, options as never),
-    definition,
-  ) as Flag<C, K, In>;
+      runtime.evaluate(definition, options as never),
+    {
+      key: { value: key, enumerable: true },
+      defaultValue: { value: defaultValue, enumerable: true },
+      getEvaluationContext: { value: getEvaluationContext, enumerable: true },
+      connection: {
+        get: () => explicit ?? runtime.defaultConnection,
+        enumerable: true,
+      },
+    },
+  ) as unknown as Flag<C, K, In>;
   flags.add(flag);
   return flag;
 }
