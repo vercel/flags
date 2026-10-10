@@ -3,6 +3,7 @@ import type { Connection, ConnectionInput } from './connection';
 import type { EvaluationArgs } from './flag';
 import { type FlagDefinition, runtime } from './runtime';
 import type { FlagsRequest } from './types';
+import type { FlagType, FlagValueOf } from './value-types';
 
 type UnionToIntersection<U> = (
   U extends unknown
@@ -59,10 +60,22 @@ export type EvaluateContext<F extends readonly FlagDefinition[]> =
       : never;
 
 /**
+ * The value of a flag: the value of a flag of `defineFlag`, or the value of
+ * the `type` of a plain definition.
+ */
+export type FlagValueOfFlag<F> = F extends (
+  ...args: never[]
+) => Promise<infer V>
+  ? V
+  : F extends { readonly type: infer T extends FlagType }
+    ? FlagValueOf<T>
+    : boolean;
+
+/**
  * The values of a list of flags, in the order of the list.
  */
 export type EvaluateResults<F extends readonly FlagDefinition[]> = {
-  -readonly [K in keyof F]: boolean;
+  -readonly [K in keyof F]: FlagValueOfFlag<F[K]>;
 };
 
 export interface Evaluate {
@@ -72,7 +85,7 @@ export interface Evaluate {
   <const F extends FlagDefinition>(
     flag: F,
     ...args: EvaluationArgs<FlagEvaluationContext<F>>
-  ): Promise<boolean>;
+  ): Promise<FlagValueOfFlag<F>>;
   /**
    * Evaluates several flags. Returns their values in the order of `flags`.
    */

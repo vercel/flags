@@ -1,3 +1,5 @@
+import type { JsonValue } from './overrides/types';
+
 /**
  * Headers which can be read but not modified.
  */
@@ -99,6 +101,11 @@ export interface ProviderMetadata {
   readonly name: string;
 }
 
+/**
+ * An OpenFeature provider. Only the method for boolean flags is required, so
+ * that a simple provider can omit the others. A flag of a type which its
+ * provider does not support fails.
+ */
 export interface Provider {
   readonly metadata: ProviderMetadata;
   initialize?(context?: EvaluationContext): Promise<void>;
@@ -109,4 +116,22 @@ export interface Provider {
     context: EvaluationContext,
     logger: Logger,
   ): Promise<ResolutionDetails<boolean>>;
+  resolveStringEvaluation?(
+    flagKey: string,
+    defaultValue: string,
+    context: EvaluationContext,
+    logger: Logger,
+  ): Promise<ResolutionDetails<string>>;
+  resolveNumberEvaluation?(
+    flagKey: string,
+    defaultValue: number,
+    context: EvaluationContext,
+    logger: Logger,
+  ): Promise<ResolutionDetails<number>>;
+  resolveObjectEvaluation?<T extends JsonValue>(
+    flagKey: string,
+    defaultValue: T,
+    context: EvaluationContext,
+    logger: Logger,
+  ): Promise<ResolutionDetails<T>>;
 }

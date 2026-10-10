@@ -36,5 +36,8 @@ export function toEvaluationError(
   const message = (error instanceof Error ? error.message : String(error))
     // The message of the SDK has its own prefix
     .replace(/^flags: /, '');
-  return new FlagEvaluationError(flagKey, code, message, { cause: error });
+  // Some providers throw errors without a message, e.g. TypeMismatchError
+  return new FlagEvaluationError(flagKey, code, message || code, {
+    cause: error,
+  });
 }

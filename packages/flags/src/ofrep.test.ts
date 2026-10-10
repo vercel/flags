@@ -219,6 +219,31 @@ describe('createOfrepProvider', () => {
     });
   });
 
+  it('gives values of each type with the same request', async () => {
+    const values: Record<string, unknown> = {
+      text: 'Sale!',
+      count: 10,
+      theme: { color: 'red' },
+    };
+    const ofrep = createOfrepProvider({
+      baseUrl: 'https://flags.example.com',
+      fetch: async (url) => {
+        const key = String(url).split('/').pop() ?? '';
+        return Response.json({ key, value: values[key], reason: 'STATIC' });
+      },
+    });
+
+    await expect(
+      ofrep.resolveStringEvaluation('text', '', {}, logger),
+    ).resolves.toMatchObject({ value: 'Sale!' });
+    await expect(
+      ofrep.resolveNumberEvaluation('count', 0, {}, logger),
+    ).resolves.toMatchObject({ value: 10 });
+    await expect(
+      ofrep.resolveObjectEvaluation('theme', {}, {}, logger),
+    ).resolves.toMatchObject({ value: { color: 'red' } });
+  });
+
   it('works as the provider of a connection', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { provider: ofrep } = provider(() =>

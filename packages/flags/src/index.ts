@@ -22,6 +22,7 @@ export {
   type EvaluateResults,
   evaluate,
   type FlagEvaluationContext,
+  type FlagValueOfFlag,
 } from './evaluate';
 export {
   defineFlag,
@@ -62,3 +63,13 @@ export type {
   RequestCookie,
   ResolutionDetails,
 } from './types';
+export type {
+  FlagObjectValue,
+  FlagOption,
+  FlagOptionObject,
+  FlagOptionsOf,
+  FlagType,
+  FlagValue,
+  FlagValueFrom,
+  FlagValueOf,
+} from './value-types';

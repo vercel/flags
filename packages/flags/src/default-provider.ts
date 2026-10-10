@@ -1,5 +1,5 @@
 import { logger } from './logger';
-import { createOfrepProvider } from './ofrep';
+import { createOfrepProvider, type ProviderOfAllTypes } from './ofrep';
 import type { Provider } from './types';
 
 /**
@@ -29,9 +29,9 @@ let warnedAboutProduction = false;
  * for development.
  */
 export function createDefaultProvider(): Provider {
-  let ofrep: Provider | undefined;
+  let ofrep: ProviderOfAllTypes | undefined;
 
-  function current(): Provider {
+  function current(): ProviderOfAllTypes {
     if (!process.env.VERCEL_OIDC_TOKEN) {
       throw new Error(
         'flags: A flag without a connection uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default connection in flags.config.ts, or pass a connection to defineFlag.',
@@ -63,6 +63,12 @@ export function createDefaultProvider(): Provider {
         context,
         logger,
       ),
+    resolveStringEvaluation: (flagKey, defaultValue, context, logger) =>
+      current().resolveStringEvaluation(flagKey, defaultValue, context, logger),
+    resolveNumberEvaluation: (flagKey, defaultValue, context, logger) =>
+      current().resolveNumberEvaluation(flagKey, defaultValue, context, logger),
+    resolveObjectEvaluation: (flagKey, defaultValue, context, logger) =>
+      current().resolveObjectEvaluation(flagKey, defaultValue, context, logger),
   };
 }
 

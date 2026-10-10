@@ -736,3 +736,86 @@ describe('10. Zero configuration and flags.config.ts', () => {
     expect(newCheckout.connection).toBe(config.defaultConnection);
   });
 });
+
+describe('11. Flag value types', () => {
+  // Without a type, a flag is a boolean. Each other type must be set with
+  // type. The names are those of OpenFeature.
+
+  const connection = () =>
+    defineConnection({
+      provider: new TypedInMemoryProvider({
+        'banner-text': {
+          variants: { welcome: 'Welcome', sale: 'Summer sale!' },
+          defaultVariant: 'sale',
+          disabled: false,
+        },
+        'max-items': {
+          variants: { few: 3, many: 10 },
+          defaultVariant: 'many',
+          disabled: false,
+        },
+        checkout: {
+          variants: { control: 'control', express: 'express' },
+          defaultVariant: 'express',
+          disabled: false,
+        },
+        theme: {
+          variants: { light: { color: 'white' }, dark: { color: 'black' } },
+          defaultVariant: 'dark',
+          disabled: false,
+        },
+      } as const),
+      project: { platform: 'in-memory' },
+    });
+
+  it('evaluates strings, numbers and objects', async () => {
+    const c = connection();
+    const bannerText = defineFlag({
+      key: 'banner-text',
+      type: 'string',
+      connection: c,
+    });
+    const maxItems = defineFlag({
+      key: 'max-items',
+      type: 'number',
+      connection: c,
+    });
+    const theme = defineFlag({ key: 'theme', type: 'object', connection: c });
+
+    expect(await evaluate([bannerText, maxItems, theme])).toEqual([
+      'Summer sale!',
+      10,
+      { color: 'black' },
+    ]);
+  });
+
+  it('limits a flag to its options', async () => {
+    const checkout = defineFlag({
+      key: 'checkout',
+      type: 'string',
+      // The type of the value is 'control' | 'express'
+      options: [
+        { value: 'control', label: 'Old checkout' },
+        { value: 'express', label: 'Express checkout' },
+      ],
+      defaultValue: 'control',
+      connection: connection(),
+    });
+
+    const value: 'control' | 'express' = await checkout();
+    expect(value).toBe('express');
+    expect(checkout.options?.map((option) => option.label)).toEqual([
+      'Old checkout',
+      'Express checkout',
+    ]);
+  });
+
+  it('shows a type error for a value which does not fit the type', () => {
+    void (() => {
+      // @ts-expect-error without a type, a flag is a boolean
+      defineFlag({ key: 'banner-text', defaultValue: 'Welcome' });
+      // @ts-expect-error a number flag needs a number
+      defineFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
+    });
+  });
+});
