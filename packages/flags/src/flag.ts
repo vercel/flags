@@ -158,7 +158,7 @@ export function defineFlag<
   warnAboutValues(key, type, options.type, defaultValue, flagOptions);
 
   if (explicit) runtime.registerConnection(explicit);
-  else runtime.useDefaultConnection();
+  else runtime.markDefaultConnectionUsed();
 
   // Without a connection, the runtime resolves the default connection at the
   // evaluation, so the configuration can come later than the flag

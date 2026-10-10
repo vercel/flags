@@ -44,6 +44,7 @@ export {
 } from './overrides';
 export { registerConnections, registerFlags } from './register';
 export {
+  type ConfigSource,
   type FlagDefinition,
   type RequestSource,
   type Runtime,

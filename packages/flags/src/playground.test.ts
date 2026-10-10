@@ -819,3 +819,37 @@ describe('11. Flag value types', () => {
     });
   });
 });
+
+describe('12. What a framework integration does', () => {
+  // A framework plugin points the alias flags/integration to its module,
+  // e.g. withFlags of flags/next/plugin points it to flags/next. That module
+  // calls these three methods. The application does not call them.
+  // tests/standard/next tests the real integration of Next.js.
+
+  it('gives the runtime the request, the configuration and the signals', async () => {
+    class RenderSignal extends Error {}
+    const headers = new Headers({ cookie: 'user=alice' });
+
+    // Next.js: headers() and cookies() of the current request
+    runtime.setRequestSource(async () => ({ headers }));
+    // flags.config.ts. In development, the runtime loads it again.
+    runtime.setConfigSource(() =>
+      defineConfig({
+        defaultConnection: defineConnection({
+          provider: createProvider(),
+          project: { platform: 'in-memory' },
+          getEvaluationContext: (_context, request) => ({
+            user: request?.cookies?.get('user')?.value ?? 'anonymous',
+          }),
+        }),
+      }),
+    );
+    // Errors which the framework must receive, e.g. unstable_rethrow
+    runtime.setRethrow((error) => {
+      if (error instanceof RenderSignal) throw error;
+    });
+
+    const newCheckout = defineFlag({ key: 'new-checkout' });
+    expect(await newCheckout()).toBe(true);
+  });
+});

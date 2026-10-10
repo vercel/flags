@@ -1,0 +1,30 @@
+{
+  "name": "standard-next",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "build:webpack": "NEXT_DIST_DIR=.next-webpack next build --webpack",
+    "build:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform NEXT_ADAPTER_PATH=\"$PWD/adapter.mjs\" next build",
+    "start": "next start --port 4310",
+    "start:webpack": "NEXT_DIST_DIR=.next-webpack next start --port 4312",
+    "start:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform next start --port 4311",
+    "test:e2e": "pnpm build && pnpm build:webpack && pnpm build:platform && playwright test"
+  },
+  "dependencies": {
+    "@openfeature/core": "1.12.0",
+    "@openfeature/server-sdk": "1.23.0",
+    "flags": "workspace:*",
+    "next": "16.3.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.1",
+    "@types/node": "22.14.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "^5.9.3"
+  }
+}
