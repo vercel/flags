@@ -4,7 +4,7 @@ import {
   isConnection,
 } from './connection';
 import { type FlagDefinition, runtime } from './runtime';
-import type { IncomingRequest } from './types';
+import type { FlagsRequest } from './types';
 
 const flags = new WeakSet<object>();
 
@@ -60,7 +60,7 @@ export interface FlagOptions<
    */
   getEvaluationContext?(
     context: In,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): ConnectionInput<C> | Promise<ConnectionInput<C>>;
 }
 
@@ -74,7 +74,7 @@ export type Flag<
   readonly connection: C;
   getEvaluationContext?(
     context: In,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): ConnectionInput<C> | Promise<ConnectionInput<C>>;
 };
 

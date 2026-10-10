@@ -1,4 +1,4 @@
-import type { EvaluationContext, IncomingRequest, Provider } from './types';
+import type { EvaluationContext, FlagsRequest, Provider } from './types';
 
 /**
  * The project fields each supported platform expects.
@@ -27,7 +27,7 @@ export type Project<N extends Platform = Platform> = {
  */
 export type GetEvaluationContext<In = unknown, Out = EvaluationContext> = (
   context: In,
-  request: IncomingRequest | undefined,
+  request: FlagsRequest | undefined,
 ) => Out | Promise<Out>;
 
 /**
@@ -66,7 +66,7 @@ export interface ConnectionOptions<
    */
   getEvaluationContext?(
     context: In,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): C | Promise<C>;
 }
 
@@ -87,7 +87,7 @@ export interface Connection<
   readonly project: Project<N>;
   getEvaluationContext?(
     context: In,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): C | Promise<C>;
 }
 

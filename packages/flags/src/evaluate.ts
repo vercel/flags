@@ -1,7 +1,7 @@
 import type { ConnectionInput } from './connection';
 import type { EvaluationArgs } from './flag';
 import { type FlagDefinition, runtime } from './runtime';
-import type { IncomingRequest } from './types';
+import type { FlagsRequest } from './types';
 
 type UnionToIntersection<U> = (
   U extends unknown
@@ -19,7 +19,7 @@ type UnionToIntersection<U> = (
 export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   getEvaluationContext?(
     context: infer In,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): unknown;
 }
   ? unknown extends In

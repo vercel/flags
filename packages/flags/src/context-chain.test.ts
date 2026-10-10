@@ -15,7 +15,7 @@ import {
 import { evaluate, type FlagEvaluationContext } from './evaluate';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
-import type { EvaluationContext, IncomingRequest, Provider } from './types';
+import type { EvaluationContext, FlagsRequest, Provider } from './types';
 
 function createProvider() {
   return {
@@ -168,7 +168,7 @@ describe('context chain', () => {
 
   describe('request', () => {
     it('is given to each step inside of a request', async () => {
-      const received: (IncomingRequest | undefined)[] = [];
+      const received: (FlagsRequest | undefined)[] = [];
       const connection = defineConnection({
         provider: createProvider(),
         project: { platform: 'in-memory' },
@@ -448,7 +448,7 @@ describe('context chain', () => {
         project: { platform: 'in-memory' },
         getEvaluationContext: (context, request) => {
           expectTypeOf(context).toEqualTypeOf<DefaultConnectionInput>();
-          expectTypeOf(request).toEqualTypeOf<IncomingRequest | undefined>();
+          expectTypeOf(request).toEqualTypeOf<FlagsRequest | undefined>();
           return {};
         },
       });

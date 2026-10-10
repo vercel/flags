@@ -4,24 +4,58 @@
 export type ReadonlyHeaders = Omit<Headers, 'append' | 'delete' | 'set'>;
 
 /**
- * Headers in the shape of Node.js `IncomingMessage.headers`.
+ * A cookie of a request.
  */
-export type NodeHeaders = Record<string, string | string[] | undefined>;
-
-/**
- * A request of any framework: a Web `Request`, a Node.js `IncomingMessage`,
- * or any object with headers.
- */
-export interface RequestLike {
-  readonly headers: ReadonlyHeaders | NodeHeaders;
+export interface RequestCookie {
+  readonly name: string;
+  readonly value: string;
 }
 
 /**
- * The request which `getEvaluationContext` receives. The headers are always
- * Web `Headers`, whatever the framework.
+ * The cookies of a request, which can be read but not modified. The cookies
+ * of Next.js have this shape.
  */
-export interface IncomingRequest {
+export interface ReadonlyRequestCookies {
+  get(name: string): RequestCookie | undefined;
+  getAll(): RequestCookie[];
+  has(name: string): boolean;
+}
+
+/**
+ * The request in the shape which the SDK understands. Each framework gives
+ * what it can: `headers` is required, the other properties are optional. A
+ * Web `Request` has this shape.
+ *
+ * Extensions of the SDK, e.g. overrides, read only these properties. Use
+ * `getCookies(request)` to read the cookies, also when a framework gives no
+ * `cookies`.
+ *
+ * Framework adapters can add properties with declaration merging. Add only
+ * optional properties, because other frameworks can not give them:
+ *
+ * ```ts
+ * declare module 'flags' {
+ *   interface FlagsRequest {
+ *     readonly params?: Record<string, string>;
+ *   }
+ * }
+ * ```
+ */
+export interface FlagsRequest {
+  /**
+   * The headers of the request. The SDK identifies a request by this object,
+   * so the framework must give the same object during one request.
+   */
   readonly headers: ReadonlyHeaders;
+  /**
+   * The cookies of the request. If missing, `getCookies` reads the `Cookie`
+   * header.
+   */
+  readonly cookies?: ReadonlyRequestCookies;
+  /**
+   * The full URL of the request.
+   */
+  readonly url?: string;
 }
 
 // The types below are structurally compatible with the OpenFeature server SDK,

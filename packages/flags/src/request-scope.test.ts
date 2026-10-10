@@ -3,7 +3,7 @@ import { defineConnection, type GetEvaluationContext } from './connection';
 import { defineFlag } from './flag';
 import { logger } from './logger';
 import { runtime } from './runtime';
-import type { IncomingRequest, Provider, RequestLike } from './types';
+import type { FlagsRequest, Provider } from './types';
 
 function deferred() {
   let resolve = () => {};
@@ -34,7 +34,7 @@ function createConnection(
   return { connection, provider };
 }
 
-function request(user: string): IncomingRequest {
+function request(user: string): FlagsRequest {
   return { headers: new Headers({ 'x-user': user }) };
 }
 
@@ -95,55 +95,129 @@ describe('request scope', () => {
   });
 
   describe('requests of frameworks', () => {
-    async function headersFor(request: RequestLike) {
-      let received: IncomingRequest | undefined;
+    async function receivedRequest(request: FlagsRequest) {
+      let received: FlagsRequest | undefined;
       const { connection } = createConnection((_context, incoming) => {
         received = incoming;
         return {};
       });
       const flag = defineFlag({ key: 'a', connection });
       await runtime.onInvoke(request, () => flag());
-      return received?.headers;
+      return received;
     }
 
-    it('accepts a Web Request', async () => {
-      const headers = await headersFor(
-        new Request('https://example.com', { headers: { 'x-user': 'alice' } }),
-      );
-      expect(headers?.get('x-user')).toBe('alice');
-    });
-
-    it('accepts Node.js headers', async () => {
-      const headers = await headersFor({
-        headers: {
-          'x-user': 'alice',
-          'accept-language': ['en', 'de'],
-          'x-missing': undefined,
-          ':path': '/',
-        },
+    it('gives a Web Request to the steps as it is', async () => {
+      const original = new Request('https://example.com/teams/acme', {
+        headers: { 'x-user': 'alice' },
       });
-
-      expect(headers?.get('x-user')).toBe('alice');
-      expect(headers?.get('accept-language')).toBe('en, de');
-      expect(headers?.has('x-missing')).toBe(false);
-      expect([...(headers?.keys() ?? [])]).not.toContain(':path');
+      expect(await receivedRequest(original)).toBe(original);
     });
 
-    it('passes Web Headers through', async () => {
-      const original = new Headers({ 'x-user': 'alice' });
-      expect(await headersFor({ headers: original })).toBe(original);
-    });
-
-    it('does not read the headers when no connection needs them', async () => {
-      const { connection } = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
-      const request = {
-        get headers(): Headers {
-          throw new Error('Headers were read');
-        },
+    it('gives other request objects to the steps as they are', async () => {
+      // e.g. an object with properties which an adapter added
+      const context = {
+        headers: new Headers(),
+        req: { param: (name: string) => `${name}-1` },
       };
+      expect(await receivedRequest(context)).toBe(context);
+    });
+  });
 
-      await expect(runtime.onInvoke(request, () => flag())).resolves.toBe(true);
+  describe('request source', () => {
+    afterEach(() => {
+      runtime.setRequestSource(undefined);
+    });
+
+    it('gives the request of the source to the steps', async () => {
+      const current = { headers: new Headers({ 'x-user': 'alice' }) };
+      runtime.setRequestSource(() => current);
+      const { connection, provider } = createConnection(getUserContext);
+      const flag = defineFlag({ key: 'a', connection });
+
+      await flag();
+      expect(getUserContext).toHaveBeenCalledWith(undefined, current);
+      expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+        'a',
+        false,
+        { targetingKey: 'alice' },
+        logger,
+      );
+    });
+
+    it('accepts an async source', async () => {
+      const current = { headers: new Headers({ 'x-user': 'bob' }) };
+      runtime.setRequestSource(async () => current);
+      const { connection } = createConnection(getUserContext);
+
+      await defineFlag({ key: 'a', connection })();
+      expect(getUserContext).toHaveBeenCalledWith(undefined, current);
+    });
+
+    it('caches the steps for the same request object', async () => {
+      const current = { headers: new Headers({ 'x-user': 'alice' }) };
+      runtime.setRequestSource(() => current);
+      const { connection } = createConnection(getUserContext);
+      const a = defineFlag({ key: 'a', connection });
+      const b = defineFlag({ key: 'b', connection });
+
+      await a();
+      await b();
+      expect(getUserContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('identifies a request by its headers object', async () => {
+      // Like Next.js: a new object on each call, but the same headers
+      const headers = new Headers({ 'x-user': 'alice' });
+      runtime.setRequestSource(() => ({ headers }));
+      const { connection } = createConnection(getUserContext);
+      const a = defineFlag({ key: 'a', connection });
+      const b = defineFlag({ key: 'b', connection });
+
+      await a();
+      await b();
+      expect(getUserContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the steps again for new headers', async () => {
+      let current = { headers: new Headers({ 'x-user': 'alice' }) };
+      runtime.setRequestSource(() => current);
+      const { connection } = createConnection(getUserContext);
+      const flag = defineFlag({ key: 'a', connection });
+
+      await flag();
+      current = { headers: new Headers({ 'x-user': 'bob' }) };
+      await flag();
+      expect(getUserContext).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives no request when the source returns undefined', async () => {
+      runtime.setRequestSource(() => undefined);
+      const { connection } = createConnection(getUserContext);
+
+      await defineFlag({ key: 'a', connection })();
+      expect(getUserContext).toHaveBeenCalledWith(undefined, undefined);
+    });
+
+    it('is not used inside onInvoke', async () => {
+      const source = vi.fn(() => ({ headers: new Headers() }));
+      runtime.setRequestSource(source);
+      const { connection } = createConnection(getUserContext);
+      const flag = defineFlag({ key: 'a', connection });
+
+      await runtime.onInvoke(request('alice'), () => flag());
+      expect(source).not.toHaveBeenCalled();
+    });
+
+    it('fails the evaluation when the source throws', async () => {
+      runtime.setRequestSource(() => {
+        throw new Error('No request');
+      });
+      const { connection } = createConnection(getUserContext);
+      const flag = defineFlag({ key: 'a', connection });
+
+      await expect(flag()).rejects.toMatchObject({
+        message: 'flags: Could not evaluate flag "a": No request',
+      });
     });
   });
 
