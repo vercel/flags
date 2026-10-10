@@ -3,6 +3,10 @@ import {
   type ConnectionInput,
   isConnection,
 } from './connection';
+import {
+  type DefaultConnection,
+  getDefaultConnection,
+} from './default-connection';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
 import type { FlagsRequest } from './types';
@@ -42,9 +46,14 @@ export interface FlagOptions<
   C extends Connection,
   K extends string,
   In = ConnectionInput<C>,
-> extends FlagDefinition {
+> extends Omit<FlagDefinition, 'connection'> {
   readonly key: K;
-  readonly connection: C;
+  /**
+   * A connection returned by `defineConnection`. Without it, the flag uses
+   * Vercel Flags: on a deployment of Vercel, or locally after `vercel link`
+   * and `vercel env pull`. Otherwise, its evaluation throws.
+   */
+  readonly connection?: C;
   /**
    * The middle step of the chain. Receives the evaluation context of the call
    * side, and returns the context for the connection. The type of `context`
@@ -84,17 +93,21 @@ export type Flag<
  *
  * @example
  * ```ts
- * const flag = defineFlag({ key: 'new-checkout', connection });
+ * // Uses Vercel Flags
+ * const flag = defineFlag({ key: 'new-checkout' });
+ * // Uses a provider of your choice
+ * const other = defineFlag({ key: 'new-checkout', connection });
  * await flag();
  * await flag({ evaluationContext: { teamId: 'team-1' } });
  * ```
  */
 export function defineFlag<
-  C extends Connection,
   const K extends string,
+  C extends Connection = DefaultConnection,
   In = ConnectionInput<C>,
 >(options: FlagOptions<C, K, In>): Flag<C, K, In> {
-  const { key, defaultValue, connection, getEvaluationContext } = options;
+  const { key, defaultValue, getEvaluationContext } = options;
+  const connection = options.connection ?? getDefaultConnection();
 
   if (!isConnection(connection)) {
     throw new Error(

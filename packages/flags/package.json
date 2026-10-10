@@ -47,7 +47,7 @@
     "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
-    "prepublishOnly": "node -e \"if (require('node:fs').readFileSync('src/overrides/vercel.ts', 'utf8').includes('e97b43ed-736f-40db-808a-eec9b59d9f5e')) { console.error('Replace the temporary issuer of the Vercel overrides in src/overrides/vercel.ts before publishing.'); process.exit(1); }\"",
+    "prepublishOnly": "node scripts/check-temporary.mjs",
     "check": "biome check",
     "test": "vitest --run",
     "test:playground": "vitest --run playground --reporter=verbose",
@@ -59,6 +59,7 @@
     "@openfeature/core": "1.12.0",
     "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
+    "@vercel/flags-core": "workspace:*",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vitest": "4.1.11"
@@ -68,5 +69,13 @@
   },
   "dependencies": {
     "jose": "^6.2.12"
+  },
+  "peerDependencies": {
+    "@vercel/flags-core": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@vercel/flags-core": {
+      "optional": true
+    }
   }
 }

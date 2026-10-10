@@ -19,15 +19,18 @@ changed, update the walkthrough in the same change.
    each create a part of the context (see "Evaluation context chain").
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
-7. OpenFeature parity. Provider hooks, events and tracking. Flag types other
+7. Done: default connection. A flag without a connection uses Vercel Flags:
+   `@vercel/flags-core` if it is installed, else OFREP (see "Default
+   connection").
+8. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
-8. Tooling. Links to the flag in the dashboard of the platform (`origin`).
+9. Tooling. Links to the flag in the dashboard of the platform (`origin`).
    Flag discovery for tools such as Flags Explorer.
-9. Framework integrations. Small adapters for Hono, Express, SvelteKit,
+10. Framework integrations. Small adapters for Hono, Express, SvelteKit,
    TanStack Start, Nuxt and Next.js call the `runtime` methods (see
    "Framework integrations"). Compiler plugins for the `'use flags'`
    directive call `registerFlags`.
-10. Standard. Write the spec with normative words (MUST, SHOULD). Add a
+11. Standard. Write the spec with normative words (MUST, SHOULD). Add a
     conformance test suite that provider authors can run.
 
 ## Providers
@@ -130,7 +133,8 @@ an async function: `await myFlag()` or
 available from every flag.
 
 - `connection` must be returned by `defineConnection`. This is checked at the
-  type level and at runtime.
+  type level and at runtime. Without `connection`, the flag uses the default
+  connection (see "Default connection").
 - Defining a flag registers its connection with the runtime. Flags are usually
   defined at module scope, so the runtime knows about their connections before
   `onInit`. `registerConnections` is only needed for flags defined later.
@@ -155,6 +159,14 @@ available from every flag.
   request. Otherwise the error is thrown.
 - Errors of the initialization and of the shutdown are logged with the full
   error, because they occur only once per process.
+- Without `defaultValue`, the SDK passes `false` to the provider, because
+  OpenFeature requires a default of the correct type, and providers examine
+  it (e.g. `TypedInMemoryProvider` throws `TYPE_MISMATCH` for `undefined`). A
+  provider that returns the default, e.g. for a disabled flag, then returns
+  `false`. The SDK can not detect this case in general: the reason `DEFAULT`
+  or `DISABLED` can also mean a value that is configured in the platform,
+  e.g. the "off" value of LaunchDarkly. Set `defaultValue` when the
+  difference matters.
 - A link to the flag in the provider's dashboard (`origin`) will be added
   later.
 
@@ -244,6 +256,103 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
   inputs (`EvaluateContext<F>`), because each flag receives the same object.
 - No field has a special meaning, also not `targetingKey`. Not all providers
   use it. A connection that needs it declares it.
+
+## Default connection
+
+A flag without a connection uses Vercel Flags. Thus, a project that is linked
+to Vercel needs no package and no configuration:
+
+```ts
+const summerSale = defineFlag({ key: 'summer-sale' });
+```
+
+- `flags` exports nothing for Vercel. Who wants a different provider passes a
+  connection. The package `@flags-sdk/vercel` will export the provider of
+  Vercel Flags for an explicit connection.
+- The default connection has the platform `vercel`. Its context is
+  `DefaultConnectionInput`, so it accepts any evaluation context, and gives
+  it to the provider as it is.
+- All copies of the package share one default connection (shared state).
+
+The provider of the default connection selects its implementation on the
+first use, in this order:
+
+1. `@vercel/flags-core`, if it is installed. It evaluates without a request
+   for each flag. The build of Vercel installs it. Thus, a deployment uses
+   it, and the build has to do nothing else. A user can also install it
+   locally.
+2. Otherwise, after `vercel link` and `vercel env pull`: OFREP, with
+   `VERCEL_OIDC_TOKEN` as the bearer credential. The SDK reads the token for
+   each request, because `vercel env pull` can renew it.
+3. Otherwise, the evaluation throws an error that tells the user to run
+   `vercel link` and `vercel env pull`, or to pass a connection. The error
+   comes at the evaluation, not at the definition, so that imports in tests
+   and scripts do not fail. A flag with `defaultValue` returns it and logs the
+   error.
+
+The selection stays after a success. After a failure, the next use tries
+again, e.g. after `vercel env pull`. `onShutdown` resets the selection.
+
+### The optional package `@vercel/flags-core`
+
+- `@vercel/flags-core` is an optional peer dependency (`^1.9.0`). Users
+  without it install nothing.
+- The SDK uses its default client, `flagsClient`, and adapts it to an
+  OpenFeature provider. It does not use `@vercel/flags-core/openfeature`,
+  because that file needs the package `@openfeature/server-sdk`.
+  - The reason `paused` becomes `STATIC`, the other reasons become
+    `TARGETING_MATCH`.
+  - An error result becomes an `errorCode` (`GENERAL` if it has none) and
+    its `errorMessage`.
+  - `initialize` and `onClose` call `initialize` and `shutdown` of the
+    client.
+- The SDK loads it with a literal `import('@vercel/flags-core')` in
+  `try`/`catch`. Only the error "not installed" leads to OFREP:
+  `ERR_MODULE_NOT_FOUND` (Node.js ESM), `MODULE_NOT_FOUND` (CommonJS), or the
+  message `Cannot find module '@vercel/flags-core'` (Turbopack). Other errors,
+  e.g. of the configuration of the package, are thrown.
+- The type declarations of the SDK do not refer to the package.
+
+Why a literal import: the tools that build an application must include the
+package when it is installed, and must build without it when it is not. A
+test with a fake package gave these results:
+
+| Tool                   | Without the package          | With the package       |
+| ---------------------- | ---------------------------- | ---------------------- |
+| esbuild                | builds                       | bundles the package    |
+| webpack (Next.js)      | builds                       | bundles the package    |
+| Turbopack (Next.js 16) | builds, with a warning       | bundles the package    |
+| `@vercel/nft`          | -                            | traces the package     |
+
+- The comments `webpackIgnore` and `turbopackIgnore` remove the warning of
+  Turbopack, but then the standalone output of Next.js does not contain the
+  package. Thus, a deployment would not find it. The SDK does not use them.
+- An import with a variable (`import(name)`) gives a warning in webpack, and
+  webpack does not find the package at runtime.
+- Thus, the cost of the literal import is one warning of Turbopack in builds
+  without the package: `Module not found: Can't resolve '@vercel/flags-core'`.
+  On Vercel, the build installs the package, so the warning does not occur.
+
+### OFREP
+
+The OpenFeature Remote Evaluation Protocol (OFREP, version 0.4) evaluates
+flags with HTTP requests. The SDK has an internal OFREP provider. It is not a
+public API.
+
+- It uses `POST /ofrep/v1/evaluate/flags/{key}` with `{ "context": … }`, one
+  request for each evaluation. It does not use the bulk endpoint, which is
+  for clients that keep all flags.
+- A response with `value` gives `value`, `reason`, `variant` and `metadata`.
+  A response without `value` asks for the default of the code: the provider
+  returns the default with the reason `DEFAULT`.
+- Errors: a 400 response gives its `errorCode` and `errorDetails`. 404 gives
+  `FLAG_NOT_FOUND`. 401, 403 and other status codes give `GENERAL` with a
+  clear message. A network error rejects.
+- After a 429 response, the provider sends no requests until the time of
+  `Retry-After` (seconds or a date, one second without a valid value). Until
+  then, each evaluation fails with `GENERAL`.
+- The base URL of Vercel Flags is temporary, because the endpoint does not
+  exist yet (see "Before publishing").
 
 ## Overrides
 
@@ -629,10 +738,15 @@ Other items:
 
 ## Before publishing
 
-- Replace the temporary issuer of the Vercel overrides
-  (`VERCEL_TOOLBAR_ISSUER` in `src/overrides/vercel.ts`) with the real issuer
-  of the Vercel Toolbar. The `prepublishOnly` script stops a publish while the
-  temporary issuer is in the code.
+Values that must be replaced are marked with `TEMPORARY:` in the source. The
+`prepublishOnly` script (`scripts/check-temporary.mjs`) stops a publish while
+a file in `src` contains this marker.
+
+- The issuer of the Vercel overrides (`VERCEL_TOOLBAR_ISSUER` in
+  `src/overrides/vercel.ts`): replace it with the real issuer of the Vercel
+  Toolbar.
+- The OFREP base URL of Vercel Flags (`VERCEL_OFREP_BASE_URL` in
+  `src/default-connection.ts`): replace it with the real endpoint.
 
 ## Open questions
 
