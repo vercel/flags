@@ -8,6 +8,8 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Only to decide whether @vercel/flags-core is installed
+import { getDefaultConnection, modules } from './default-connection';
 import {
   configureOverrides,
   decryptOverrides,
@@ -667,5 +669,70 @@ describe('9. Overrides', () => {
     expect(warnings).toEqual([
       'flags: The override cookie was ignored. Reason: malformed-token.',
     ]);
+  });
+});
+
+describe('10. Flags without a connection: Vercel Flags', () => {
+  // A flag without a connection uses Vercel Flags. Locally, it needs no
+  // package: after vercel link and vercel env pull, it uses the OpenFeature
+  // Remote Evaluation Protocol (OFREP). If @vercel/flags-core is installed,
+  // e.g. because the build of Vercel installs it, it uses that package
+  // instead. OFREP sends one request for each evaluation, the package does
+  // not.
+
+  const loadFlagsCore = modules.loadFlagsCore;
+
+  beforeEach(() => {
+    // Only for this walkthrough: @vercel/flags-core is not installed
+    modules.loadFlagsCore = async () => {
+      throw Object.assign(new Error('Cannot find package'), {
+        code: 'ERR_MODULE_NOT_FOUND',
+      });
+    };
+  });
+
+  afterEach(async () => {
+    await getDefaultConnection().provider.onClose?.();
+    modules.loadFlagsCore = loadFlagsCore;
+  });
+
+  it('evaluates with OFREP locally, after vercel env pull', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', 'token-of-vercel-env-pull');
+    // Only for this walkthrough: the OFREP server of Vercel Flags
+    vi.stubGlobal('fetch', async () =>
+      Response.json({ key: 'summer-sale', value: true, reason: 'STATIC' }),
+    );
+
+    const summerSale = defineFlag({ key: 'summer-sale' });
+
+    expect(await summerSale()).toBe(true);
+  });
+
+  it('uses @vercel/flags-core when it is installed, e.g. on a deployment', async () => {
+    // Only for this walkthrough: the client of @vercel/flags-core
+    const flagsClient = {
+      initialize: async () => {},
+      shutdown: async () => {},
+      evaluate: async () => ({
+        value: true,
+        reason: 'paused',
+        variantId: null,
+      }),
+    };
+    modules.loadFlagsCore = async () =>
+      ({ flagsClient }) as unknown as Awaited<ReturnType<typeof loadFlagsCore>>;
+
+    const summerSale = defineFlag({ key: 'summer-sale' });
+
+    expect(await summerSale()).toBe(true);
+  });
+
+  it('tells what to do when the project is not connected to Vercel', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', '');
+    const summerSale = defineFlag({ key: 'summer-sale' });
+
+    await expect(summerSale()).rejects.toThrow(
+      'Run `vercel link` and `vercel env pull`, or pass a connection to defineFlag.',
+    );
   });
 });

@@ -374,8 +374,8 @@ class RuntimeImpl {
 
       const details = await provider.resolveBooleanEvaluation(
         key,
-        // OpenFeature requires a default. Without one, errors are thrown, so
-        // this placeholder is never returned.
+        // OpenFeature requires a default of the correct type, and providers
+        // examine it. Without one, the SDK passes false (see the spec).
         defaultValue ?? false,
         context,
         logger,

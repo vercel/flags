@@ -11,6 +11,7 @@ interface SharedState {
   readonly connections: WeakSet<object>;
   readonly flags: WeakSet<object>;
   runtime?: unknown;
+  defaultConnection?: unknown;
 }
 
 const key = Symbol.for('flags.v5.state');

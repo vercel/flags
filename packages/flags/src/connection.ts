@@ -6,6 +6,10 @@ import type { EvaluationContext, FlagsRequest, Provider } from './types';
  */
 export interface ProjectFieldsByPlatform {
   'in-memory': Record<never, never>;
+  /**
+   * Vercel Flags. The project of Vercel comes from the environment.
+   */
+  vercel: Record<never, never>;
   launchdarkly: { projectId: string; teamId: string };
 }
 
