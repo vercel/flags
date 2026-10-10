@@ -1160,9 +1160,6 @@ importers:
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
-      '@vercel/flags-core':
-        specifier: workspace:*
-        version: link:../vercel-flags-core
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)

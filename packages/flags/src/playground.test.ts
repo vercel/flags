@@ -8,11 +8,9 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-// Only to decide whether @vercel/flags-core is installed
-import { getDefaultConnection, modules } from './default-connection';
 import {
-  configureOverrides,
   decryptOverrides,
+  defineConfig,
   defineConnection,
   defineFlag,
   encryptOverrides,
@@ -552,15 +550,17 @@ describe('9. Overrides', () => {
   });
 
   it('accepts longer lifetimes of signed cookies when configured', () => {
-    // The default is 24 hours
-    expect(() =>
-      configureOverrides({
+    // flags.config.ts. The default is 24 hours.
+    const config = defineConfig({
+      overrides: {
         vercel: {
           project: { projectId: 'prj_shop', environment: 'preview' },
           maxLifetimeSeconds: 7 * 24 * 60 * 60,
         },
-      }),
-    ).not.toThrow();
+      },
+    });
+
+    expect(() => runtime.configure(config)).not.toThrow();
   });
 
   it('needs no configuration on Vercel for cookies which Vercel signs', async () => {
@@ -672,29 +672,15 @@ describe('9. Overrides', () => {
   });
 });
 
-describe('10. Flags without a connection: Vercel Flags', () => {
-  // A flag without a connection uses Vercel Flags. Locally, it needs no
-  // package: after vercel link and vercel env pull, it uses the OpenFeature
-  // Remote Evaluation Protocol (OFREP). If @vercel/flags-core is installed,
-  // e.g. because the build of Vercel installs it, it uses that package
-  // instead. OFREP sends one request for each evaluation, the package does
-  // not.
-
-  const loadFlagsCore = modules.loadFlagsCore;
-
-  beforeEach(() => {
-    // Only for this walkthrough: @vercel/flags-core is not installed
-    modules.loadFlagsCore = async () => {
-      throw Object.assign(new Error('Cannot find package'), {
-        code: 'ERR_MODULE_NOT_FOUND',
-      });
-    };
-  });
-
-  afterEach(async () => {
-    await getDefaultConnection().provider.onClose?.();
-    modules.loadFlagsCore = loadFlagsCore;
-  });
+describe('10. Zero configuration and flags.config.ts', () => {
+  // A flag without a connection uses the default connection. Without
+  // configuration, that is Vercel Flags: locally with the OpenFeature Remote
+  // Evaluation Protocol (OFREP), after vercel link and vercel env pull. When
+  // a framework builds for Vercel, it replaces this provider with a fast one
+  // (see default-provider-alias.test.ts).
+  //
+  // To get more, e.g. an evaluation context, the application writes one
+  // file, flags.config.ts. The flags do not change.
 
   it('evaluates with OFREP locally, after vercel env pull', async () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', 'token-of-vercel-env-pull');
@@ -708,31 +694,45 @@ describe('10. Flags without a connection: Vercel Flags', () => {
     expect(await summerSale()).toBe(true);
   });
 
-  it('uses @vercel/flags-core when it is installed, e.g. on a deployment', async () => {
-    // Only for this walkthrough: the client of @vercel/flags-core
-    const flagsClient = {
-      initialize: async () => {},
-      shutdown: async () => {},
-      evaluate: async () => ({
-        value: true,
-        reason: 'paused',
-        variantId: null,
-      }),
-    };
-    modules.loadFlagsCore = async () =>
-      ({ flagsClient }) as unknown as Awaited<ReturnType<typeof loadFlagsCore>>;
-
-    const summerSale = defineFlag({ key: 'summer-sale' });
-
-    expect(await summerSale()).toBe(true);
-  });
-
   it('tells what to do when the project is not connected to Vercel', async () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', '');
     const summerSale = defineFlag({ key: 'summer-sale' });
 
     await expect(summerSale()).rejects.toThrow(
-      'Run `vercel link` and `vercel env pull`, or pass a connection to defineFlag.',
+      'Run `vercel link` and `vercel env pull`, set a default connection in flags.config.ts, or pass a connection to defineFlag.',
     );
+  });
+
+  it('upgrades all flags with one default connection in flags.config.ts', async () => {
+    // The flags of the application, without a connection
+    const newCheckout = defineFlag({ key: 'new-checkout' });
+    const summerSale = defineFlag({ key: 'summer-sale' });
+
+    // flags.config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
+    // Here, a
+    // connection with an evaluation context from a cookie.
+    const config = defineConfig({
+      defaultConnection: defineConnection({
+        provider: createProvider(),
+        project: { platform: 'in-memory' },
+        getEvaluationContext: (_context, request) => ({
+          user: request?.cookies?.get('user')?.value ?? 'anonymous',
+        }),
+      }),
+    });
+    // The framework integration does this
+    runtime.configure(config);
+
+    const request = new Request('https://shop.example', {
+      headers: { cookie: 'user=alice' },
+    });
+    const [checkout, sale] = await runtime.onInvoke(request, () =>
+      evaluate([newCheckout, summerSale]),
+    );
+
+    // new-checkout is on for alice only
+    expect(checkout).toBe(true);
+    expect(sale).toBe(true);
+    expect(newCheckout.connection).toBe(config.defaultConnection);
   });
 });

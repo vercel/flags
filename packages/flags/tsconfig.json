@@ -3,6 +3,9 @@
   "include": ["src"],
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
+    "paths": {
+      "flags/default-provider": ["./src/default-provider.ts"]
+    },
     "resolveJsonModule": true,
     "stripInternal": true,
     "target": "ES2020"

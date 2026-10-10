@@ -1,11 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { Config } from './config';
 import { type Connection, isConnection } from './connection';
+import { getBuiltInConnection } from './default-connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { logger } from './logger';
 import {
   createOverridesReader,
-  type OverridesOptions,
   type OverridesReader,
 } from './overrides/reader';
 import type { JsonValue } from './overrides/types';
@@ -38,9 +39,10 @@ export interface FlagDefinition {
    */
   readonly defaultValue?: boolean;
   /**
-   * A connection returned by `defineConnection`.
+   * A connection returned by `defineConnection`. Without it, the flag uses
+   * the default connection.
    */
-  readonly connection: Connection;
+  readonly connection?: Connection;
 }
 
 /**
@@ -123,6 +125,10 @@ class RuntimeImpl {
   readonly #storage = new AsyncLocalStorage<RequestScope>();
   #requestSource: RequestSource | undefined;
   #readOverrides: OverridesReader = createOverridesReader();
+  #config: Config = {};
+  // Whether a flag uses the default connection. Only then does the runtime
+  // initialize its provider.
+  #usesDefaultConnection = false;
   readonly #sourceScopes = new WeakMap<object, RequestScope>();
 
   /**
@@ -209,11 +215,52 @@ class RuntimeImpl {
   }
 
   /**
-   * Sets which override tokens the SDK accepts. The same as the
-   * `configureOverrides` function which the package exports.
+   * Configures the SDK. By convention, the framework integration calls it
+   * with the export `config` of `flags.config.ts`. Without a framework, call
+   * it at startup.
+   *
+   * A new call replaces the configuration, e.g. after a reload in
+   * development. Validates the configuration at once, and throws before it
+   * changes anything.
+   *
+   * @example
+   * ```ts
+   * import { config } from './flags.config';
+   *
+   * runtime.configure(config);
+   * ```
    */
-  configureOverrides(options: OverridesOptions): void {
-    this.#readOverrides = createOverridesReader(options);
+  configure(config: Config): void {
+    const { defaultConnection } = config;
+    if (defaultConnection !== undefined && !isConnection(defaultConnection)) {
+      throw new Error(
+        'flags: The defaultConnection of the configuration must be returned by defineConnection.',
+      );
+    }
+    const readOverrides = createOverridesReader(config.overrides);
+
+    this.#config = config;
+    this.#readOverrides = readOverrides;
+    if (defaultConnection) this.registerConnection(defaultConnection);
+  }
+
+  /**
+   * The connection of flags without a connection: the `defaultConnection` of
+   * the configuration, or the built-in default connection.
+   *
+   * @internal
+   */
+  get defaultConnection(): Connection {
+    return this.#config.defaultConnection ?? getBuiltInConnection();
+  }
+
+  /**
+   * Marks that a flag uses the default connection.
+   *
+   * @internal
+   */
+  useDefaultConnection(): void {
+    this.#usesDefaultConnection = true;
   }
 
   /**
@@ -321,6 +368,7 @@ class RuntimeImpl {
    */
   async #evaluationContext(
     flag: FlagDefinition,
+    connection: Connection,
     input: unknown,
     scope: RequestScope | undefined,
   ): Promise<EvaluationContext> {
@@ -333,7 +381,6 @@ class RuntimeImpl {
     if (flag.getEvaluationContext) {
       context = await run(flag.getEvaluationContext, flag, context);
     }
-    const { connection } = flag;
     if (connection.getEvaluationContext) {
       context = await run(
         connection.getEvaluationContext as Step,
@@ -345,7 +392,8 @@ class RuntimeImpl {
   }
 
   async #evaluateFlag(flag: FlagDefinition, input: unknown): Promise<boolean> {
-    const { key, defaultValue, connection } = flag;
+    const { key, defaultValue } = flag;
+    const connection = flag.connection ?? this.defaultConnection;
     if (!isConnection(connection)) {
       throw new Error(
         `flags: The connection of flag "${key}" must be returned by defineConnection.`,
@@ -369,7 +417,7 @@ class RuntimeImpl {
 
       const [, context] = await Promise.all([
         this.initializeProvider(provider),
-        this.#evaluationContext(flag, input, scope),
+        this.#evaluationContext(flag, connection, input, scope),
       ]);
 
       const details = await provider.resolveBooleanEvaluation(
@@ -418,6 +466,8 @@ class RuntimeImpl {
     this.#initializations.clear();
     this.#requestSource = undefined;
     this.#readOverrides = createOverridesReader();
+    this.#config = {};
+    this.#usesDefaultConnection = false;
   }
 
   async #scopeFromSource(): Promise<RequestScope | undefined> {
@@ -436,7 +486,9 @@ class RuntimeImpl {
   }
 
   #registeredProviders(): Provider[] {
-    return [...new Set([...this.#connections].map((c) => c.provider))];
+    const connections = [...this.#connections];
+    if (this.#usesDefaultConnection) connections.push(this.defaultConnection);
+    return [...new Set(connections.map((c) => c.provider))];
   }
 }
 

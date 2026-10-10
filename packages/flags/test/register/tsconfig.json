@@ -1,0 +1,13 @@
+{
+  "extends": "../../../../tsconfig-base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2020",
+    "paths": {
+      "flags": ["../../src/index.ts"],
+      "flags/default-provider": ["../../src/default-provider.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}
