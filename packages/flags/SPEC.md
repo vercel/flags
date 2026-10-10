@@ -197,15 +197,22 @@ available from every flag.
   request. Otherwise the error is thrown.
 - Errors of the initialization and of the shutdown are logged with the full
   error, because they occur only once per process.
+- Without `defaultValue`, each issue throws a `FlagEvaluationError`: a
+  provider that throws, an `errorCode`, the reason `ERROR` (also without an
+  `errorCode`), a value of the wrong type or outside of the options, and an
+  OFREP response without `value`, which asks for the default of the code. The
+  OFREP provider marks that result with an internal symbol, so the runtime
+  can detect it.
 - Without `defaultValue`, the SDK passes a placeholder to the provider:
   `false`, `''`, `0` or `{}`, as the type requires. OpenFeature requires a
   default of the correct type, and providers examine it (e.g.
   `TypedInMemoryProvider` throws `TYPE_MISMATCH` for `undefined`). A provider
-  that returns the default, e.g. for a disabled flag, then returns the
-  placeholder. The SDK can not detect this case in general: the reason `DEFAULT`
-  or `DISABLED` can also mean a value that is configured in the platform,
-  e.g. the "off" value of LaunchDarkly. Set `defaultValue` when the
-  difference matters.
+  that returns its default without any sign of an issue, e.g. for a disabled
+  flag of `TypedInMemoryProvider`, then returns the placeholder. The SDK can
+  not detect this case: the reasons `DEFAULT` and `DISABLED` can also mean a
+  real value of the platform. `VercelProvider` reports `DEFAULT` for the
+  fallthrough of a flag, and LaunchDarkly reports `DISABLED` with its "off"
+  value. Set `defaultValue` when the difference matters.
 - A link to the flag in the provider's dashboard (`origin`) will be added
   later.
 
@@ -855,7 +862,8 @@ Rules for each integration:
 
 The details must be checked when the integration is built (milestone 10).
 
-**Next.js** (done)
+**Next.js** (done). The guide for users and for the authors of the
+integration is `frameworks/nextjs.md`.
 
 ```ts
 // next.config.ts

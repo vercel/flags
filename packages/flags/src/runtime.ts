@@ -6,6 +6,7 @@ import { getBuiltInConnection } from './default-connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { logger } from './logger';
+import { codeDefault } from './ofrep';
 import {
   createOverridesReader,
   type OverridesReader,
@@ -573,6 +574,21 @@ class RuntimeImpl {
           key,
           details.errorCode,
           details.errorMessage ?? details.errorCode,
+        );
+      }
+      if (details.reason === 'ERROR') {
+        throw new FlagEvaluationError(
+          key,
+          'GENERAL',
+          details.errorMessage ?? 'The provider reported an error.',
+        );
+      }
+      // Without a defaultValue, the default of the code is only a placeholder
+      if (defaultValue === undefined && codeDefault in details) {
+        throw new FlagEvaluationError(
+          key,
+          'GENERAL',
+          'The provider asks for the default value, but the flag has no defaultValue.',
         );
       }
       if (!hasType(details.value, type)) {
