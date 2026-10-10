@@ -33,6 +33,8 @@ export function toEvaluationError(
     error instanceof Error && 'code' in error && typeof error.code === 'string'
       ? error.code
       : 'GENERAL';
-  const message = error instanceof Error ? error.message : String(error);
+  const message = (error instanceof Error ? error.message : String(error))
+    // The message of the SDK has its own prefix
+    .replace(/^flags: /, '');
   return new FlagEvaluationError(flagKey, code, message, { cause: error });
 }

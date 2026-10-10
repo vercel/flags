@@ -17,17 +17,18 @@ changed, update the walkthrough in the same change.
 4. Done: batch evaluation. `evaluate(flag)` and `evaluate([flagA, flagB])`.
 5. Done: evaluation context chain. The call side, the flag and the connection
    each create a part of the context (see "Evaluation context chain").
-6. OpenFeature parity. Provider hooks, events and tracking. Flag types other
+6. Done: overrides. Override cookies, trusted with the shared secret
+   `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
+7. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
-7. Tooling. Links to the flag in the dashboard of the platform (`origin`).
-   Flag discovery for tools such as Flags Explorer. Overrides from cookies or
-   headers, as an extension that reads only `FlagsRequest`.
-8. Framework integrations. Small adapters for Hono, Express, SvelteKit,
+8. Tooling. Links to the flag in the dashboard of the platform (`origin`).
+   Flag discovery for tools such as Flags Explorer.
+9. Framework integrations. Small adapters for Hono, Express, SvelteKit,
    TanStack Start, Nuxt and Next.js call the `runtime` methods (see
    "Framework integrations"). Compiler plugins for the `'use flags'`
    directive call `registerFlags`.
-9. Standard. Write the spec with normative words (MUST, SHOULD). Add a
-   conformance test suite that provider authors can run.
+10. Standard. Write the spec with normative words (MUST, SHOULD). Add a
+    conformance test suite that provider authors can run.
 
 ## Providers
 
@@ -239,6 +240,145 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
   inputs (`EvaluateContext<F>`), because each flag receives the same object.
 - No field has a special meaning, also not `targetingKey`. Not all providers
   use it. A connection that needs it declares it.
+
+## Overrides
+
+An override sets the value of a flag for one browser, e.g. from the Vercel
+Toolbar. It comes from a cookie of the request. The SDK accepts only trusted
+overrides: encrypted with a shared secret, or signed by Vercel.
+
+- The cookie is `flag-overrides`. The SDK also reads `vercel-flag-overrides`,
+  the cookie of v4. If both are set, `flag-overrides` wins. A cookie contains
+  one token, so the SDK never merges overrides.
+- An override for the key of a flag replaces the evaluation. The SDK does not
+  call the provider, does not wait for its initialization, and does not run
+  the evaluation context chain.
+- The value must be a boolean for now. Otherwise, the SDK logs a warning and
+  evaluates the flag as usual.
+- The SDK reads the token once per request. Outside of a request, there are
+  no overrides.
+- An invalid token gives no overrides. The SDK logs one warning with the
+  reason, e.g. `flags: The override cookie was ignored. Reason: wrong-scope.`
+  It never logs the token, because the token can contain information about
+  the user.
+
+### Which tokens the SDK accepts
+
+The SDK needs no configuration:
+
+1. If `FLAGS_SECRET` is set, the SDK accepts only the tokens of this shared
+   secret. This is the behavior of v4.
+2. Otherwise, on Vercel or locally with a linked project (when `VERCEL` or
+   `VERCEL_OIDC_TOKEN` is set), the SDK accepts only the tokens that Vercel
+   signs for this project. Locally, Flags Explorer signs them, and
+   `vercel env pull` writes `VERCEL_OIDC_TOKEN`.
+3. Otherwise, the SDK accepts no tokens.
+
+The SDK reads these environment variables when a token needs them, because
+they can change until then. An empty variable counts as missing.
+
+`configureOverrides(options)` changes the defaults. Call it one time, at
+startup. The trust comes only from the options and the environment, never
+from the token.
+
+- `secret`: the shared secret. The default is `FLAGS_SECRET`. `false` accepts
+  no tokens of the shared secret. An explicit secret that is not valid throws
+  at once.
+- `vercel`: `true` accepts signed tokens with the defaults, an object sets
+  options, and `false` accepts no signed tokens. With an explicit value, the
+  rule "only the shared secret if `FLAGS_SECRET` is set" does not apply, so
+  both methods can be active, e.g. during a migration. Explicit options are
+  validated at once.
+
+The format of the token only selects the method: three parts for a signed
+token (JWS), five parts for an encrypted token (JWE). Each method verifies the
+token completely. An invalid token never goes to a different method.
+
+The protocol (cookie names, claims, limits) is in this spec. The package does
+not export it as constants, so that it is not a part of the public API.
+
+### Shared secret
+
+- The format is the same as in v4: a JWE with direct encryption (A256GCM), the
+  purpose claim `overrides`, the overrides in the claim `o`, and an
+  expiration. Thus, the Vercel Toolbar of today and existing tests work.
+- `encryptOverrides(overrides, secret?, expirationTime?)` creates a token,
+  e.g. in tests or CI. The default secret is `FLAGS_SECRET`, and the default
+  expiration is one year.
+- `decryptOverrides(token, secret?)` reads a token. It returns `undefined` for
+  a token that is not valid, and throws if the secret is missing or not
+  valid. Both functions have the signature of v4.
+- Anyone with the secret can create overrides. Use a different secret for each
+  application, unless the applications must share their overrides.
+- The `plaintext` mode of v4 (`overrideEncryptionMode`) is not supported,
+  because the SDK must not trust a cookie that is not encrypted or signed.
+
+### Signed by Vercel
+
+This follows the RFC "Vercel flag overrides without a required shared
+secret". Vercel, e.g. the Vercel Toolbar with Vercel KMS, signs the token.
+The application verifies it with the public keys of the issuer. It needs no
+secret and no configuration.
+
+- The issuer is the signer of the Vercel Toolbar in Vercel KMS. The option
+  `issuer` replaces it, e.g. for a local test issuer. `jwksUrl` is
+  `<issuer>/jwks.json`. Both must use HTTPS. `allowInsecureLocalhost` allows
+  `http://localhost` for a local test issuer.
+- The issuer in the code is temporary: a test issuer of the team
+  testing-internal (`https://kms.vercel.com/e97b43ed-…`). It signs with RS512.
+  It must be replaced with the real issuer before publishing (see "Before
+  publishing").
+- The project of the host comes from the configuration, never from the token
+  or from a header:
+  - `projectId`: the option, else `VERCEL_PROJECT_ID`, else the claim
+    `project_id` of `VERCEL_OIDC_TOKEN`, else the `.vercel/project.json` of
+    `vercel link`.
+  - `environment`: the option, else `VERCEL_TARGET_ENV`, else `VERCEL_ENV`,
+    else the claim `environment` of `VERCEL_OIDC_TOKEN`, else `development`
+    when the project is linked and `NODE_ENV` is `development`.
+  - `teamId`: the option, else the claim `owner_id` of `VERCEL_OIDC_TOKEN`,
+    else the `orgId` of `.vercel/project.json`. The SDK compares the team only
+    when it knows it. A project ID is unique on all of Vercel, so the project
+    ID and the environment identify the host.
+  - The SDK decodes `VERCEL_OIDC_TOKEN`, but does not verify it. The token is
+    part of the configuration of the host, like the other environment
+    variables, not an input of a request. Its claims stay correct also when
+    it is expired. In Vercel Functions, the token can be missing from the
+    environment, but there `VERCEL_PROJECT_ID` is set.
+  - If the project ID or the environment is not known, the SDK throws an
+    `OverridesError`.
+- The token is a JWT with these claims: `iss` (the issuer), `aud`
+  (`vercel:flag-overrides`), `ver` (`1`), `pur` (`flag-overrides`), `iat`,
+  `exp`, `scope` (`projectId`, `environments`, optional `teamId`) and
+  `overrides`.
+- The SDK verifies: the algorithm (ES256 or RS512), the signature, the
+  issuer, the audience, the time (5 seconds of tolerance), the lifetime, the
+  version, the purpose, and that the overrides are JSON. The scope must have
+  the project and the environment of the host, and its team if known.
+- The lifetime (`exp - iat`) is at most 24 hours. `maxLifetimeSeconds`
+  changes it, e.g. to one week.
+- The header must have a `kid`. A key or a URL in the header (`jwk`, `jku`,
+  `x5u`) is never used, and the token is rejected.
+- The payload can be read by anyone. It is signed, but not encrypted. Do not
+  put secret information into it.
+
+The public keys:
+
+- The SDK loads them on the first signed token, and keeps them for the
+  process. Requests without a signed token load no keys.
+- Concurrent loads share one request. The load has no timeout. The keys stay
+  valid for 5 minutes (`cacheMaxAgeMs`).
+- If the keys can not be loaded, the SDK throws an `OverridesError`, and the
+  flags of the request fail: they return their `defaultValue` or throw.
+  Overrides are a tool for development, so a visible error is better than a
+  silent one. The next request loads the keys again.
+- A `kid` that is not known loads the keys again, but at most once in 30
+  seconds (`cooldownMs`). Thus, tokens with random `kid`s can not cause many
+  requests. If the key is still not known, the token is rejected
+  (`unknown-key`).
+- The key set can have at most 100 keys and 64 KB. It must not contain
+  private or secret keys.
+- The SDK never accepts a token that it can not verify.
 
 ## Runtime lifecycle
 
@@ -471,9 +611,24 @@ SDK calls providers directly, it has to run these itself to stay compatible.
 
 Other items:
 
+- Report overrides to the provider, e.g. for the exposures of an experiment.
+  v4 had `experimental_reportOverride` on the adapter. OpenFeature has no
+  such function, so it could be on the connection, or a hook (see provider
+  hooks above).
+- Values of overrides other than boolean, together with flag types other than
+  boolean.
+- Groups of projects that share overrides, e.g. for microfrontends (see the
+  RFC).
 - Value types other than boolean.
 - A configurable logger, e.g. to write debug messages or to send errors to a
   monitoring service.
+
+## Before publishing
+
+- Replace the temporary issuer of the Vercel overrides
+  (`VERCEL_TOOLBAR_ISSUER` in `src/overrides/vercel.ts`) with the real issuer
+  of the Vercel Toolbar. The `prepublishOnly` script stops a publish while the
+  temporary issuer is in the code.
 
 ## Open questions
 

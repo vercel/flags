@@ -207,26 +207,6 @@ describe('context chain', () => {
       await flag();
       expect(received).toEqual([undefined]);
     });
-
-    it('does not read the headers when no step reads them', async () => {
-      const connection = defineConnection({
-        provider: createProvider(),
-        project: { platform: 'in-memory' },
-        getEvaluationContext: (context: { teamId: string }) => context,
-      });
-      const flag = defineFlag({ key: 'a', connection });
-      const unreadable = {
-        get headers(): Headers {
-          throw new Error('Headers were read');
-        },
-      };
-
-      await expect(
-        runtime.onInvoke(unreadable, () =>
-          flag({ evaluationContext: { teamId: 't' } }),
-        ),
-      ).resolves.toBe(true);
-    });
   });
 
   describe('cache', () => {

@@ -6,10 +6,14 @@
  * Keep this file up to date when you add a feature.
  */
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  configureOverrides,
+  decryptOverrides,
   defineConnection,
   defineFlag,
+  encryptOverrides,
   evaluate,
   FlagEvaluationError,
   type Provider,
@@ -17,6 +21,8 @@ import {
   registerFlags,
   runtime,
 } from './index';
+// Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
+import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
 
 // A provider with some flags. In an application, this is the OpenFeature
 // provider of a platform, e.g. LaunchDarkly.
@@ -85,6 +91,8 @@ beforeEach(() => {
 
 afterEach(() => {
   runtime.setRequestSource(undefined);
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -502,5 +510,162 @@ describe('8. One runtime for each process', () => {
     expect(instrumentation.defineFlag).not.toBe(defineFlag);
     expect(instrumentation.runtime).toBe(runtime);
     expect(await newCheckout()).toBe(true);
+  });
+});
+
+describe('9. Overrides', () => {
+  // An override sets the value of a flag for one browser, e.g. from the
+  // Vercel Toolbar. It is a cookie, and it must be trusted: either encrypted
+  // with a shared secret, or signed by Vercel.
+
+  const connection = () =>
+    defineConnection({
+      provider: createProvider(),
+      project: { platform: 'in-memory' },
+    });
+
+  it('overrides a flag with a cookie which the shared secret encrypts', async () => {
+    // FLAGS_SECRET is 32 random bytes as base64url. With it, the SDK needs
+    // no configuration, as in v4.
+    vi.stubEnv(
+      'FLAGS_SECRET',
+      Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+        'base64url',
+      ),
+    );
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: connection(),
+    });
+
+    // e.g. in a test or in CI
+    const token = await encryptOverrides({ 'new-checkout': true });
+    expect(await decryptOverrides(token)).toEqual({ 'new-checkout': true });
+
+    const request = new Request('https://shop.example', {
+      headers: { cookie: `flag-overrides=${token}` },
+    });
+    // Without the override, new-checkout is off for this user
+    expect(await runtime.onInvoke(request, () => newCheckout())).toBe(true);
+  });
+
+  it('accepts longer lifetimes of signed cookies when configured', () => {
+    // The default is 24 hours
+    expect(() =>
+      configureOverrides({
+        vercel: {
+          project: { projectId: 'prj_shop', environment: 'preview' },
+          maxLifetimeSeconds: 7 * 24 * 60 * 60,
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it('needs no configuration on Vercel for cookies which Vercel signs', async () => {
+    // What Vercel sets for a deployment
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('VERCEL_PROJECT_ID', 'prj_shop');
+    vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
+    vi.stubEnv('FLAGS_SECRET', '');
+
+    // The issuer publishes its public keys. Only for this walkthrough, they
+    // come from memory instead of the network.
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const publicKeys = {
+      keys: [{ ...(await exportJWK(publicKey)), kid: 'key-1' }],
+    };
+    vi.stubGlobal('fetch', async () => Response.json(publicKeys));
+
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: connection(),
+    });
+
+    // What the Vercel Toolbar does: sign the override for this project
+    const token = await new SignJWT({
+      ver: 1,
+      pur: 'flag-overrides',
+      scope: { projectId: 'prj_shop', environments: ['preview'] },
+      overrides: { 'new-checkout': true },
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'key-1' })
+      .setIssuer(VERCEL_TOOLBAR_ISSUER)
+      .setAudience('vercel:flag-overrides')
+      .setIssuedAt()
+      .setExpirationTime('24h')
+      .sign(privateKey);
+
+    const request = new Request('https://shop.example', {
+      headers: { cookie: `flag-overrides=${token}` },
+    });
+    expect(await runtime.onInvoke(request, () => newCheckout())).toBe(true);
+  });
+
+  it('needs no configuration locally for cookies which Flags Explorer signs', async () => {
+    // vercel env pull writes VERCEL_OIDC_TOKEN. Its claims tell the SDK the
+    // project and the environment, also without VERCEL_PROJECT_ID.
+    const oidcToken = await new SignJWT({
+      project_id: 'prj_shop',
+      owner_id: 'team_acme',
+      environment: 'development',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(crypto.getRandomValues(new Uint8Array(32)));
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
+    vi.stubEnv('FLAGS_SECRET', '');
+
+    // The public keys of the issuer, from memory for this walkthrough
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const publicKeys = {
+      keys: [{ ...(await exportJWK(publicKey)), kid: 'key-1' }],
+    };
+    vi.stubGlobal('fetch', async () => Response.json(publicKeys));
+
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: connection(),
+    });
+
+    // What Flags Explorer does in local development
+    const token = await new SignJWT({
+      ver: 1,
+      pur: 'flag-overrides',
+      scope: {
+        teamId: 'team_acme',
+        projectId: 'prj_shop',
+        environments: ['development'],
+      },
+      overrides: { 'new-checkout': true },
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'key-1' })
+      .setIssuer(VERCEL_TOOLBAR_ISSUER)
+      .setAudience('vercel:flag-overrides')
+      .setIssuedAt()
+      .setExpirationTime('24h')
+      .sign(privateKey);
+
+    const request = new Request('http://localhost:3000', {
+      headers: { cookie: `flag-overrides=${token}` },
+    });
+    expect(await runtime.onInvoke(request, () => newCheckout())).toBe(true);
+  });
+
+  it('ignores a cookie which is not trusted', async () => {
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: connection(),
+    });
+    const request = new Request('https://shop.example', {
+      headers: { cookie: 'flag-overrides=I-want-the-new-checkout' },
+    });
+    const warnings: string[] = [];
+    vi.spyOn(console, 'warn').mockImplementation((message) => {
+      warnings.push(String(message));
+    });
+
+    expect(await runtime.onInvoke(request, () => newCheckout())).toBe(false);
+    expect(warnings).toEqual([
+      'flags: The override cookie was ignored. Reason: malformed-token.',
+    ]);
   });
 });

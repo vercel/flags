@@ -44,6 +44,7 @@
     "attw": "attw --pack .",
     "build": "tsup",
     "dev": "tsup --watch --clean=false",
+    "prepublishOnly": "node -e \"if (require('node:fs').readFileSync('src/overrides/vercel.ts', 'utf8').includes('e97b43ed-736f-40db-808a-eec9b59d9f5e')) { console.error('Replace the temporary issuer of the Vercel overrides in src/overrides/vercel.ts before publishing.'); process.exit(1); }\"",
     "check": "biome check",
     "test": "vitest --run",
     "test:playground": "vitest --run playground --reporter=verbose",
@@ -61,5 +62,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
   }
 }
