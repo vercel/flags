@@ -220,8 +220,9 @@ class RuntimeImpl {
    * it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
-   * development. Validates the configuration at once, and throws before it
-   * changes anything.
+   * development. A replaced default connection is closed, if no other
+   * connection uses its provider. Validates the configuration at once, and
+   * throws before it changes anything.
    *
    * @example
    * ```ts
@@ -239,9 +240,14 @@ class RuntimeImpl {
     }
     const readOverrides = createOverridesReader(config.overrides);
 
+    const previous = this.#config.defaultConnection;
     this.#config = config;
     this.#readOverrides = readOverrides;
-    if (defaultConnection) this.registerConnection(defaultConnection);
+    // A replaced default connection, e.g. after a reload in development,
+    // must not keep its client open
+    if (previous && previous !== defaultConnection) {
+      this.#closeUnusedProvider(previous.provider);
+    }
   }
 
   /**
@@ -485,10 +491,39 @@ class RuntimeImpl {
     return scope;
   }
 
+  /**
+   * The providers which `onInit` and `onInvoke` initialize. The default
+   * connection of the configuration always counts, the built-in one only when
+   * a flag uses it. Thus, a new configuration replaces the old default.
+   */
   #registeredProviders(): Provider[] {
     const connections = [...this.#connections];
-    if (this.#usesDefaultConnection) connections.push(this.defaultConnection);
+    if (this.#config.defaultConnection) {
+      connections.push(this.#config.defaultConnection);
+    } else if (this.#usesDefaultConnection) {
+      connections.push(getBuiltInConnection());
+    }
     return [...new Set(connections.map((c) => c.provider))];
+  }
+
+  /**
+   * Closes a provider which was initialized, if no registered connection
+   * uses it any more.
+   */
+  #closeUnusedProvider(provider: Provider): void {
+    const initialization = this.#initializations.get(provider);
+    if (!initialization || this.#registeredProviders().includes(provider)) {
+      return;
+    }
+    this.#initializations.delete(provider);
+    initialization
+      .then(() => provider.onClose?.())
+      .catch((error: unknown) => {
+        logger.error(
+          `flags: Could not close provider "${provider.metadata.name}".`,
+          error,
+        );
+      });
   }
 }
 

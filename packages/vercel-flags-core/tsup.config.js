@@ -2,7 +2,11 @@ import { defineConfig } from 'tsup';
 
 export default [
   defineConfig({
-    entry: ['src/index.default.ts', 'src/openfeature.default.ts'],
+    entry: [
+      'src/index.default.ts',
+      'src/openfeature.default.ts',
+      'src/default-provider.default.ts',
+    ],
     format: ['esm', 'cjs'],
     splitting: true,
     sourcemap: true,
@@ -18,7 +22,11 @@ export default [
   }),
   // Next.js-specific entry point (separate config to avoid split types)
   defineConfig({
-    entry: ['src/index.next-js.ts', 'src/openfeature.next-js.ts'],
+    entry: [
+      'src/index.next-js.ts',
+      'src/openfeature.next-js.ts',
+      'src/default-provider.next-js.ts',
+    ],
     format: ['esm', 'cjs'],
     splitting: true,
     sourcemap: true,
