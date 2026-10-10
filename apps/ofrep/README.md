@@ -99,7 +99,8 @@ optional event stream; clients use polling.
 ## Cache and limits
 
 The in-memory LRU cache holds successful datafiles for five seconds. Entries are
-separated by a SHA-256 hash of the exact credential and source project header.
+separated by an HMAC-SHA-256 digest of the exact credential and source project
+header. Each cache instance uses its own random secret, which stays in memory.
 The cache does not retain raw credentials. Concurrent requests with the same
 credentials share one datafile fetch. Each process has its own cache.
 

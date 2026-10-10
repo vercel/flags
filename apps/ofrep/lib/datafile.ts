@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import type { DatafileInput } from '@vercel/flags-core';
 import { HttpError, isObject, readJson } from './http';
 
@@ -26,7 +26,11 @@ function unauthorized(): HttpError {
   );
 }
 
-function credentials(headers: Headers, now: number): Credentials {
+function credentials(
+  headers: Headers,
+  now: number,
+  cacheSecret: Buffer,
+): Credentials {
   const authorization = headers.get('authorization');
   const apiKey = headers.get('x-api-key');
   const match = authorization?.match(/^Bearer ([^\s]+)$/i);
@@ -56,7 +60,7 @@ function credentials(headers: Headers, now: number): Credentials {
     authorization: `Bearer ${token}`,
     projectId,
     expiresAt,
-    cacheKey: createHash('sha256')
+    cacheKey: createHmac('sha256', cacheSecret)
       .update(JSON.stringify([token, projectId]))
       .digest('hex'),
   };
@@ -71,6 +75,10 @@ export function createDatafileLoader({
   fetch?: typeof globalThis.fetch;
   now?: () => number;
 } = {}) {
+  // These are transient cache identifiers, not stored password verifiers.
+  // A private key prevents credential guesses from being checked against an
+  // isolated cache identifier. Its lifetime is limited to this cache instance.
+  const cacheSecret = randomBytes(32);
   const cache = new Map<string, Entry>();
   const pending = new Map<string, Promise<DatafileInput>>();
 
@@ -131,7 +139,7 @@ export function createDatafileLoader({
   }
 
   return async (request: Request): Promise<DatafileInput> => {
-    const auth = credentials(request.headers, now());
+    const auth = credentials(request.headers, now(), cacheSecret);
     // Change-event metadata requires a fresh read, independent of the HTTP ETag.
     const query = new URL(request.url).searchParams;
     const forceRefresh =
