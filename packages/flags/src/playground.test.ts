@@ -131,6 +131,24 @@ describe('1. Connections and flags', () => {
     });
   });
 
+  it('has short forms for the common cases', async () => {
+    const launchdarkly = defineConnection({
+      provider: createProvider(),
+      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+    });
+
+    // The same as defineFlag({ key, connection })
+    const summerSale = defineFlag(launchdarkly, 'summer-sale');
+    // The type comes from the default value: a boolean flag
+    const newCheckout = defineFlag(launchdarkly, 'new-checkout', false);
+
+    expect(await summerSale()).toBe(true);
+    expect(await newCheckout()).toBe(false);
+    expect(newCheckout.defaultValue).toBe(false);
+    // Without a connection, defineFlag('summer-sale') and
+    // defineFlag('summer-sale', false) use the default connection
+  });
+
   it('requires the fields of the platform', () => {
     void (() => {
       defineConnection({

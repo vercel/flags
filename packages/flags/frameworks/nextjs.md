@@ -134,6 +134,17 @@ export const checkout = defineFlag({
 Without `type`, a flag is a boolean. The types are `boolean`, `string`,
 `number` and `object`.
 
+Short forms are available for the common cases:
+
+```ts
+export const summerSale = defineFlag('summer-sale'); // a boolean
+export const bannerText = defineFlag('banner-text', 'Welcome'); // a string
+export const maxItems = defineFlag(shop, 'max-items', 10); // a connection
+```
+
+The short forms take the type from `defaultValue`. For `options` and
+`getEvaluationContext`, use the full form.
+
 ### Server components
 
 ```tsx

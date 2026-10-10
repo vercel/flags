@@ -170,6 +170,20 @@ an async function: `await myFlag()` or
 `defaultValue`, `connection` and `getEvaluationContext`, so the project is
 available from every flag.
 
+- Short forms for the common cases:
+
+  | Short form                                  | Full form                                             |
+  | ------------------------------------------- | ----------------------------------------------------- |
+  | `defineFlag(key)`                           | `defineFlag({ key })`                                 |
+  | `defineFlag(key, defaultValue)`             | `defineFlag({ key, type, defaultValue })`             |
+  | `defineFlag(connection, key)`               | `defineFlag({ key, connection })`                     |
+  | `defineFlag(connection, key, defaultValue)` | `defineFlag({ key, type, defaultValue, connection })` |
+
+  Only the short forms take the type from `defaultValue`: `'Welcome'` gives
+  a `string` flag, and the value has the type `string`, not `'Welcome'`.
+  Without `defaultValue`, the flag is a boolean. For `options` and
+  `getEvaluationContext`, use the full form. The full form is the first
+  overload, so TypeScript shows its error first for wrong options.
 - `connection` must be returned by `defineConnection`. This is checked at the
   type level and at runtime. Without `connection`, the flag uses the default
   connection (see "Default connection").

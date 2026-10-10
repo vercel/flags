@@ -9,6 +9,7 @@ import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
 import type { FlagsRequest } from './types';
 import {
+  type FlagObjectValue,
   type FlagOptionObject,
   type FlagOptionsOf,
   type FlagType,
@@ -121,11 +122,22 @@ export type Flag<
 };
 
 /**
+ * The general type of a default value, e.g. `string` for `'Welcome'`.
+ */
+type ValueTypeOf<D> = D extends boolean
+  ? boolean
+  : D extends string
+    ? string
+    : D extends number
+      ? number
+      : FlagObjectValue;
+
+/**
  * Declares a flag. Call the returned function to evaluate it.
  *
  * @example
  * ```ts
- * // Uses Vercel Flags
+ * // Uses the default connection
  * const flag = defineFlag({ key: 'new-checkout' });
  * // Uses a provider of your choice
  * const other = defineFlag({ key: 'new-checkout', connection });
@@ -139,9 +151,146 @@ export function defineFlag<
   const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
   C extends Connection = ConfiguredConnection,
   In = ConnectionInput<C>,
->(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>> {
+>(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>>;
+/**
+ * Declares a boolean flag with a key. Short for `defineFlag({ key })`.
+ *
+ * @example
+ * ```ts
+ * const summerSale = defineFlag('summer-sale');
+ * ```
+ */
+export function defineFlag<const K extends string>(
+  key: K,
+): Flag<
+  ConfiguredConnection,
+  K,
+  ConnectionInput<ConfiguredConnection>,
+  boolean
+>;
+/**
+ * Declares a flag with a key and a default value. The type of the flag comes
+ * from the default value. Short for `defineFlag({ key, type, defaultValue })`.
+ *
+ * @example
+ * ```ts
+ * const bannerText = defineFlag('banner-text', 'Welcome'); // string
+ * ```
+ */
+export function defineFlag<const K extends string, D extends FlagValue>(
+  key: K,
+  defaultValue: D,
+): Flag<
+  ConfiguredConnection,
+  K,
+  ConnectionInput<ConfiguredConnection>,
+  ValueTypeOf<D>
+>;
+/**
+ * Declares a boolean flag of a connection. Short for
+ * `defineFlag({ key, connection })`.
+ *
+ * @example
+ * ```ts
+ * const summerSale = defineFlag(launchdarkly, 'summer-sale');
+ * ```
+ */
+export function defineFlag<C extends Connection, const K extends string>(
+  connection: C,
+  key: K,
+): Flag<C, K, ConnectionInput<C>, boolean>;
+/**
+ * Declares a flag of a connection, with a default value. The type of the flag
+ * comes from the default value. Short for
+ * `defineFlag({ key, type, defaultValue, connection })`.
+ *
+ * @example
+ * ```ts
+ * const maxItems = defineFlag(launchdarkly, 'max-items', 10); // number
+ * ```
+ */
+export function defineFlag<
+  C extends Connection,
+  const K extends string,
+  D extends FlagValue,
+>(
+  connection: C,
+  key: K,
+  defaultValue: D,
+): Flag<C, K, ConnectionInput<C>, ValueTypeOf<D>>;
+export function defineFlag(...args: unknown[]): unknown {
+  return defineFromOptions(toOptions(args));
+}
+
+/**
+ * Converts the arguments of a short form into the options of the full form.
+ */
+function toOptions(
+  args: unknown[],
+): FlagOptions<Connection, string, unknown, FlagType, never> {
+  const [first, second, third] = args;
+  if (typeof first === 'string') {
+    return withDefault({ key: first }, second, args.length > 1);
+  }
+  if (isConnection(first)) {
+    if (typeof second !== 'string') {
+      throw new TypeError('flags: The key of a flag must be a string.');
+    }
+    return withDefault(
+      { key: second, connection: first },
+      third,
+      args.length > 2,
+    );
+  }
+  if (typeof first === 'object' && first !== null) {
+    // An object with a provider and a project looks like a connection, but
+    // defineConnection did not return it
+    if ('provider' in first && 'project' in first && !('key' in first)) {
+      throw new Error(
+        'flags: The connection of a flag must be returned by defineConnection.',
+      );
+    }
+    return first as FlagOptions<Connection, string, unknown, FlagType, never>;
+  }
+  throw new TypeError(
+    'flags: defineFlag expects a key, a connection and a key, or options.',
+  );
+}
+
+function withDefault(
+  options: { key: string; connection?: Connection },
+  defaultValue: unknown,
+  hasDefault: boolean,
+): FlagOptions<Connection, string, unknown, FlagType, never> {
+  if (!hasDefault || defaultValue === undefined) return options;
+  return {
+    ...options,
+    type: typeOfValue(options.key, defaultValue),
+    defaultValue: defaultValue as never,
+  };
+}
+
+/**
+ * The type of a flag of the short form, from its default value.
+ */
+function typeOfValue(key: string, value: unknown): FlagType {
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'object' && value !== null) return 'object';
+  throw new TypeError(
+    `flags: The defaultValue of flag "${key}" must be a boolean, a string, a number or an object.`,
+  );
+}
+
+function defineFromOptions(
+  options: FlagOptions<Connection, string, unknown, FlagType, never>,
+): Flag<Connection, string, unknown, FlagValue> {
   const { key, defaultValue, getEvaluationContext } = options;
   const explicit = options.connection;
+  if (typeof key !== 'string') {
+    throw new TypeError('flags: The key of a flag must be a string.');
+  }
   const type: FlagType = options.type ?? 'boolean';
 
   if (!isFlagType(type)) {
@@ -171,7 +320,7 @@ export function defineFlag<
     getEvaluationContext,
   };
   const flag = Object.defineProperties(
-    (options?: Partial<EvaluationOptions<In>>) =>
+    (options?: Partial<EvaluationOptions<unknown>>) =>
       runtime.evaluate(definition, options as never),
     {
       key: { value: key, enumerable: true },
@@ -184,7 +333,7 @@ export function defineFlag<
         enumerable: true,
       },
     },
-  ) as unknown as Flag<C, K, In, FlagValueFrom<T, O>>;
+  ) as unknown as Flag<Connection, string, unknown, FlagValue>;
   flags.add(flag);
   return flag;
 }
