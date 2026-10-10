@@ -2,6 +2,10 @@
 
 Working notes for the next major version. Not published (`files` only includes `dist`).
 
+`src/playground.test.ts` is a walkthrough of the features, grouped by
+feature. Run it with `pnpm test:playground`. When a feature is added or
+changed, update the walkthrough in the same change.
+
 ## Milestones
 
 1. Done: core primitives. Provider types, connections, flags, errors.
@@ -45,6 +49,13 @@ providers to implement more than the OpenFeature spec.
 All public functions call the `runtime`. For example, a flag calls
 `runtime.evaluate`, and `registerConnections` calls
 `runtime.registerConnection`. The runtime owns all state and all behavior.
+
+A bundler can put more than one copy of the package into one process, e.g.
+one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
+`Symbol.for('flags.v5.state')`: the runtime, and the lists of connections and
+flags. All copies share it. A connection of one copy works with a flag of a
+different copy. The key contains the major version, because a different
+major version can have a different runtime.
 
 The package exports `evaluate` (see "Evaluating flags with `evaluate`"). It
 calls `runtime.evaluate`. Both accept a flag returned by `defineFlag`, or a
@@ -347,13 +358,25 @@ export const handle = ({ event, resolve }) =>
 // Express: convert the Node.js headers into Web Headers
 app.use((req, res, next) => runtime.onInvoke(toFlagsRequest(req), next));
 
-// Next.js: no middleware wraps the rendering, but headers() returns the
-// same object during one request
-runtime.setRequestSource(async () => ({
-  headers: await headers(),
-  cookies: await cookies(),
-}));
+// Next.js, instrumentation.ts: no middleware wraps the rendering, but
+// headers() returns the same object during one request
+export function register() {
+  runtime.setRequestSource(async () => ({
+    headers: await headers(),
+    cookies: await cookies(),
+  }));
+}
 ```
+
+Next.js can bundle `instrumentation.ts` and the pages separately. The shared
+state on `globalThis` makes sure that they use the same runtime. Rules for
+the source of the Next.js adapter:
+
+- Outside of a request, e.g. at build time or in `generateStaticParams`,
+  `headers()` throws. The source returns `undefined` there.
+- During static rendering, Next.js throws internal errors to stop the static
+  rendering. The source must not catch them, or Next.js can not detect
+  dynamic pages. The v4 SDK had `isInternalNextError` for this.
 
 Next.js has two places with different requests: the proxy (`proxy.ts`) gets
 the full `NextRequest`, but pages only get `headers()` and `cookies()`. Both
@@ -449,6 +472,12 @@ Other items:
   monitoring service.
 
 ## Open questions
+
+- Call the request source only when the flag or its connection has a
+  `getEvaluationContext` step? Now each evaluation outside of `onInvoke` calls
+  the source. In Next.js, `headers()` makes the page dynamic, so a page with
+  only a simple flag can not be static. With Cache Components, reading
+  `headers()` outside of `<Suspense>` is an error.
 
 - Add a timeout for the wait for an initialization? The LaunchDarkly provider
   waits up to 10 seconds by default.

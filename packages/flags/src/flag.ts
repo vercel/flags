@@ -4,9 +4,10 @@ import {
   isConnection,
 } from './connection';
 import { type FlagDefinition, runtime } from './runtime';
+import { sharedState } from './shared-state';
 import type { FlagsRequest } from './types';
 
-const flags = new WeakSet<object>();
+const { flags } = sharedState;
 
 /**
  * Returns whether the value was returned by `defineFlag`.
