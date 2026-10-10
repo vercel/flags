@@ -16,7 +16,8 @@ Working notes for the next major version. Not published (`files` only includes `
 6. OpenFeature parity. Provider hooks, events and tracking. Flag types other
    than boolean.
 7. Tooling. Links to the flag in the dashboard of the platform (`origin`).
-   Flag discovery for tools such as Flags Explorer.
+   Flag discovery for tools such as Flags Explorer. Overrides from cookies or
+   headers, as an extension that reads only `FlagsRequest`.
 8. Framework integrations. Small adapters for Hono, Express, SvelteKit,
    TanStack Start, Nuxt and Next.js call the `runtime` methods (see
    "Framework integrations"). Compiler plugins for the `'use flags'`
@@ -194,8 +195,8 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
   and without input, the provider receives an empty context.
 - There is no automatic merge. A step that wants to keep fields of the step
   before returns `{ ...context, ... }`.
-- `request` is the current request inside `runtime.onInvoke`, and `undefined`
-  outside. The steps run also outside of a request, e.g. in scripts, because
+- `request` is the current `FlagsRequest` (see "The request"). It is
+  `undefined` outside of a request. The steps run also outside of a request, e.g. in scripts, because
   the provider needs the context in the shape that the last step creates.
 - The SDK calls each step with the step's owner as `this`: the flag or the
   connection.
@@ -265,51 +266,92 @@ integrations call them.
 - The provider of a connection that is not registered is initialized on its
   first evaluation.
 
-### Request scope
+### The request
 
-`runtime.onInvoke` keeps the request with `AsyncLocalStorage` while `next`
-runs. Work that `next` starts keeps the scope, also after `next` returns, e.g.
-in Express. This is similar to transaction context propagation in OpenFeature.
-The SDK does not use `enterWith`, because it changes the context of the
-caller.
+Frameworks give different requests. Next.js gives only `headers()` and
+`cookies()`, and no full request. Hono, SvelteKit and TanStack Start give a
+Web `Request`. Express gives a Node.js `IncomingMessage`. Extensions of the
+SDK, e.g. overrides from cookies or headers, need one shape that they can
+rely on. Thus, each framework converts what it can give into `FlagsRequest`:
 
-- The request can be a Web `Request`, a Node.js `IncomingMessage`, or any
-  object with `headers`.
-- `getEvaluationContext` always receives Web `Headers` in `request`. The SDK
-  converts Node.js headers only when a step reads them. It skips HTTP/2
-  pseudo-headers, e.g. `:path`.
+```ts
+interface FlagsRequest {
+  readonly headers: ReadonlyHeaders; // required
+  readonly cookies?: ReadonlyRequestCookies; // optional
+  readonly url?: string; // optional, the full URL
+}
+```
+
+- `headers` is required, because each framework can give it.
+- `cookies` is optional. Its shape agrees with the cookies of Next.js.
+  `getCookies(request)` returns `request.cookies`, or reads the `Cookie`
+  header if the framework gives no cookies. Extensions use `getCookies`.
+- A Web `Request` has this shape. Thus, frameworks that give a Web `Request`
+  can pass it directly.
+- Framework adapters can add properties with declaration merging, e.g.
+  `params`. They add only optional properties, because other frameworks can
+  not give them. Extensions do not rely on them.
+- Each step of the evaluation context chain receives the `FlagsRequest`.
+
+#### How the runtime gets the request
+
+1. `runtime.onInvoke(request, next)`: for frameworks with a middleware that
+   wraps the handler, e.g. Hono, Express and SvelteKit (`handle`). The SDK
+   keeps the request with `AsyncLocalStorage` while `next` runs. Work that
+   `next` starts keeps the scope, also after `next` returns, e.g. in Express.
+   This is similar to transaction context propagation in OpenFeature. The SDK
+   does not use `enterWith`, because it changes the context of the caller.
+2. `runtime.setRequestSource(source)`: for frameworks that can give the
+   current request at any time, but have no middleware that wraps the
+   handler, e.g. Next.js. The source returns the current request, or
+   `undefined` outside of a request. It can be async.
+
+- The SDK identifies a request by its `headers` object. The framework must
+  give the same `headers` object during one request. The request object
+  itself can be new on each call. Next.js meets this rule: `headers()`
+  returns the same object during one request. Thus, a `WeakMap` with the
+  `headers` as key works like `AsyncLocalStorage`.
+- Inside `onInvoke`, the request of `onInvoke` is used, and the source is not
+  called.
+- If the source throws, the evaluation fails. A source returns `undefined`
+  outside of a request, and does not throw.
 - The request scope holds the cache of the evaluation context chain.
 - A flag waits for the initialization of its provider. It gets the context at
   the same time.
 
 ### Framework integrations (planned)
 
-Each integration is a small adapter. Most frameworks have a middleware with a
-`next` function, so the adapter is one line:
+Each integration is a small adapter. It converts the request of the framework
+into `FlagsRequest`, and uses the way to give it to the runtime that fits the
+framework.
 
 ```ts
-// Hono
+// Hono, SvelteKit, TanStack Start: a Web Request
 app.use((c, next) => runtime.onInvoke(c.req.raw, next));
-
-// Express
-app.use((req, res, next) => runtime.onInvoke(req, next));
-
-// SvelteKit (hooks.server.ts)
 export const handle = ({ event, resolve }) =>
   runtime.onInvoke(event.request, () => resolve(event));
 
-// TanStack Start (request middleware)
-createMiddleware({ type: 'request' }).server(({ request, next }) =>
-  runtime.onInvoke(request, next),
-);
+// Express: convert the Node.js headers into Web Headers
+app.use((req, res, next) => runtime.onInvoke(toFlagsRequest(req), next));
+
+// Next.js: no middleware wraps the rendering, but headers() returns the
+// same object during one request
+runtime.setRequestSource(async () => ({
+  headers: await headers(),
+  cookies: await cookies(),
+}));
 ```
 
+Next.js has two places with different requests: the proxy (`proxy.ts`) gets
+the full `NextRequest`, but pages only get `headers()` and `cookies()`. Both
+places can give `{ headers, cookies }`, and the proxy can also give `url`.
+
+Frameworks that have their own request context can also use a source, e.g.
+`getRequestEvent()` of SvelteKit or the request context of Nitro for Nuxt.
+The details must be checked for each framework in milestone 8.
+
 The package will export these adapters, e.g. `flags/hono`, so users do not
-write them. Frameworks without a middleware that wraps the handler need a
-different way to find the current request. Nuxt 3 and 4 (Nitro 2 / h3 1) are
-an example. For these, a later version can let the adapter give the runtime a
-function that returns the current request, e.g. from the request context of
-the framework. This must be checked for each framework.
+write them.
 
 ### Registration
 
@@ -335,6 +377,37 @@ startup, so nobody has to call `registerConnections` by hand. Two options:
 
 The injected code calls `registerFlags` with the exports of the module. Until
 then, call `registerFlags` or `registerConnections` manually.
+
+#### Self-registration
+
+A module can register its own flags with a static self-import:
+
+```ts
+// flags.ts
+import * as self from './flags';
+
+export const a = defineFlag({ key: 'a', connection });
+export const b = defineFlag({ key: 'b', connection });
+
+registerFlags(self); // at the end of the module
+```
+
+- The call must be at the end of the module. Before, the exports are not
+  initialized, and `registerFlags` throws a `ReferenceError`.
+- This works in Node.js and after bundling (tested with esbuild).
+- `registerSelf(import.meta.url)`, which imports the URL dynamically, is not
+  part of the SDK:
+  - After bundling, `import.meta.url` is the URL of the bundle file, not of
+    the module. The import then returns the exports of the bundle (tested
+    with esbuild: it found the export of the entry point instead of the
+    flags).
+  - With a top-level `await`, the module waits for itself: a deadlock.
+  - CommonJS has no `import.meta.url`.
+- A self-registration runs only when the module is imported. `defineFlag`
+  already registers the connection at that time. Thus, the self-registration
+  adds value for the `'use flags'` contract (each export is a flag) and for
+  flag discovery, but not for modules which are imported lazily. For these,
+  the build tooling must import the module at startup.
 
 ## Deferred
 

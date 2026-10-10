@@ -2,14 +2,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { type Connection, isConnection } from './connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
-import { toHeaders } from './headers';
 import { logger } from './logger';
-import type {
-  EvaluationContext,
-  IncomingRequest,
-  Provider,
-  RequestLike,
-} from './types';
+import type { EvaluationContext, FlagsRequest, Provider } from './types';
 
 /**
  * What the runtime needs to evaluate a flag. A flag returned by `defineFlag`
@@ -23,7 +17,7 @@ export interface FlagDefinition {
    */
   getEvaluationContext?(
     context: unknown,
-    request: IncomingRequest | undefined,
+    request: FlagsRequest | undefined,
   ): unknown;
   /**
    * Returned when the evaluation fails, after logging the error. If not set,
@@ -36,14 +30,23 @@ export interface FlagDefinition {
   readonly connection: Connection;
 }
 
-type Step = (context: unknown, request: IncomingRequest | undefined) => unknown;
+/**
+ * Returns the current request, or `undefined` outside of a request. See
+ * `runtime.setRequestSource`.
+ */
+export type RequestSource = () =>
+  | FlagsRequest
+  | undefined
+  | Promise<FlagsRequest | undefined>;
+
+type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
 
 /**
  * The state of one request. Each step of the context chain runs once per
  * input object.
  */
 class RequestScope {
-  readonly request: IncomingRequest;
+  readonly request: FlagsRequest;
   readonly #results = new Map<
     Step,
     {
@@ -52,15 +55,8 @@ class RequestScope {
     }
   >();
 
-  constructor(request: RequestLike) {
-    let headers: IncomingRequest['headers'] | undefined;
-    this.request = {
-      // Converts the headers only when a step reads them
-      get headers() {
-        headers ??= toHeaders(request.headers);
-        return headers;
-      },
-    };
+  constructor(request: FlagsRequest) {
+    this.request = request;
   }
 
   run(step: Step, owner: object, input: unknown): Promise<unknown> {
@@ -86,7 +82,7 @@ function callStep(
   step: Step,
   owner: object,
   input: unknown,
-  request: IncomingRequest | undefined,
+  request: FlagsRequest | undefined,
 ): Promise<unknown> {
   return new Promise((resolve) => resolve(step.call(owner, input, request)));
 }
@@ -102,6 +98,8 @@ class RuntimeImpl {
   readonly #connections = new Set<Connection>();
   readonly #initializations = new Map<Provider, Promise<void>>();
   readonly #storage = new AsyncLocalStorage<RequestScope>();
+  #requestSource: RequestSource | undefined;
+  readonly #sourceScopes = new WeakMap<FlagsRequest['headers'], RequestScope>();
 
   /**
    * Call once before the first request, e.g. in the Lambda init phase.
@@ -137,8 +135,8 @@ class RuntimeImpl {
    * waits only for the provider of its own connection. The evaluation of a
    * flag reports errors.
    *
-   * @param request - A Web `Request`, a Node.js `IncomingMessage`, or any
-   * object with headers.
+   * @param request - The request in the shape which the SDK understands, e.g.
+   * a Web `Request`. Each step of the evaluation context chain receives it.
    *
    * @example
    * ```ts
@@ -146,12 +144,36 @@ class RuntimeImpl {
    * app.use((c, next) => runtime.onInvoke(c.req.raw, next));
    * ```
    */
-  onInvoke<T>(request: RequestLike, next: () => T | Promise<T>): Promise<T> {
+  onInvoke<T>(request: FlagsRequest, next: () => T | Promise<T>): Promise<T> {
     for (const provider of this.#registeredProviders()) {
       // Flags report the error, so it is ignored here
       this.initializeProvider(provider).catch(() => {});
     }
     return this.#storage.run(new RequestScope(request), async () => next());
+  }
+
+  /**
+   * Sets a function which returns the current request. Use it for frameworks
+   * which can give the current request at any time, but have no middleware
+   * which wraps the handler, e.g. Next.js with `headers()` and `cookies()`.
+   *
+   * The SDK identifies a request by its `headers` object. Thus, the request
+   * which the function returns can be a new object on each call, but its
+   * `headers` must be the same object during one request. The function
+   * returns `undefined` outside of a request. Inside `onInvoke`, the request
+   * of `onInvoke` is used, and the function is not called.
+   *
+   * @example
+   * ```ts
+   * // Next.js: headers() returns the same object during one request
+   * runtime.setRequestSource(async () => ({
+   *   headers: await headers(),
+   *   cookies: await cookies(),
+   * }));
+   * ```
+   */
+  setRequestSource(source: RequestSource | undefined): void {
+    this.#requestSource = source;
   }
 
   /**
@@ -261,7 +283,7 @@ class RuntimeImpl {
     flag: FlagDefinition,
     input: unknown,
   ): Promise<EvaluationContext> {
-    const scope = this.#storage.getStore();
+    const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
     const run = (step: Step, owner: object, value: unknown) =>
       scope
         ? scope.run(step, owner, value)
@@ -341,6 +363,21 @@ class RuntimeImpl {
   reset(): void {
     this.#connections.clear();
     this.#initializations.clear();
+    this.#requestSource = undefined;
+  }
+
+  async #scopeFromSource(): Promise<RequestScope | undefined> {
+    if (!this.#requestSource) return undefined;
+    const request = await this.#requestSource();
+    if (request === undefined) return undefined;
+    // The headers stay the same object during one request, also when the
+    // source returns a new request object on each call
+    let scope = this.#sourceScopes.get(request.headers);
+    if (!scope) {
+      scope = new RequestScope(request);
+      this.#sourceScopes.set(request.headers, scope);
+    }
+    return scope;
   }
 
   #registeredProviders(): Provider[] {

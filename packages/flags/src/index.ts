@@ -9,6 +9,7 @@ export {
   type Project,
   type ProjectFieldsByPlatform,
 } from './connection';
+export { getCookies } from './cookies';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,
@@ -25,17 +26,22 @@ export {
   type FlagOptions,
 } from './flag';
 export { registerConnections, registerFlags } from './register';
-export { type FlagDefinition, type Runtime, runtime } from './runtime';
+export {
+  type FlagDefinition,
+  type RequestSource,
+  type Runtime,
+  runtime,
+} from './runtime';
 export type {
   EvaluationContext,
   EvaluationContextValue,
-  IncomingRequest,
+  FlagsRequest,
   Logger,
-  NodeHeaders,
   PrimitiveValue,
   Provider,
   ProviderMetadata,
   ReadonlyHeaders,
-  RequestLike,
+  ReadonlyRequestCookies,
+  RequestCookie,
   ResolutionDetails,
 } from './types';
