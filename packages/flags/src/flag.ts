@@ -87,6 +87,10 @@ export interface FlagOptions<
    */
   readonly options?: O;
   /**
+   * What the flag is for, e.g. for Flags Explorer.
+   */
+  readonly description?: string;
+  /**
    * A connection returned by `defineConnection`. Without it, the flag uses
    * the default connection.
    */
@@ -124,6 +128,7 @@ export type Flag<
    * The options, always as objects with a value.
    */
   readonly options?: readonly FlagOptionObject<V>[];
+  readonly description?: string;
   readonly connection: C;
   getEvaluationContext?(
     context: In,
@@ -301,6 +306,14 @@ function defineFromOptions(
   if (typeof key !== 'string') {
     throw new TypeError('flags: The key of a flag must be a string.');
   }
+  if (
+    options.description !== undefined &&
+    typeof options.description !== 'string'
+  ) {
+    throw new TypeError(
+      `flags: The description of flag "${key}" must be a string.`,
+    );
+  }
   const type: FlagType = options.type ?? 'boolean';
 
   if (!isFlagType(type)) {
@@ -330,6 +343,7 @@ function defineFromOptions(
         type: { value: type, enumerable: true },
         defaultValue: { value: defaultValue, enumerable: true },
         options: { value: flagOptions, enumerable: true },
+        description: { value: options.description, enumerable: true },
         getEvaluationContext: { value: getEvaluationContext, enumerable: true },
         // Without a connection, the default connection at the time of the
         // evaluation, so the configuration can come later than the flag

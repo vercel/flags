@@ -24,6 +24,7 @@ import {
   runtime,
   track,
 } from './index';
+import { createManifest } from './manifest';
 import {
   generatePermutations,
   getPrecomputed,
@@ -518,7 +519,8 @@ describe('7. Registration', () => {
       provider: createProvider(),
       project: { platform: 'in-memory' },
     });
-    // In a module: import * as self from './flags'; registerFlags(self);
+    // The framework plugins append this to each 'use flags' module:
+    // import * as self from './flags'; registerFlags(self);
     const flagsModule = {
       summerSale: defineFlag({ key: 'summer-sale', connection }),
       newCheckout: defineFlag({ key: 'new-checkout', connection }),
@@ -1031,5 +1033,53 @@ describe('14. Precompute for Next.js', () => {
 
     // generateStaticParams: one page for each combination
     expect(await generatePermutations(marketingFlags)).toHaveLength(4);
+  });
+});
+
+describe('15. Discovery for Flags Explorer', () => {
+  // Optional, on top of the rest. The framework plugins (withFlags,
+  // flags/vite, flags/nuxt) or the script `flags manifest` import the
+  // modules with 'use flags' and create the manifest from their exports.
+
+  it('creates the manifest from the exports of a use flags module', () => {
+    // flags.ts starts with 'use flags': it exports only flags, and importing
+    // it has no side effects
+    const flagsModule = {
+      checkout: defineFlag({
+        key: 'checkout',
+        type: 'string',
+        options: ['control', 'express'],
+        defaultValue: 'control',
+        description: 'The checkout flow',
+      }),
+      // Any object with a key is a flag, not only a flag of defineFlag
+      theme: { key: 'theme', type: 'string', options: ['light', 'dark'] },
+    };
+
+    const manifest = createManifest([{ id: 'flags.ts', exports: flagsModule }]);
+
+    // No values and no secrets: the manifest evaluates nothing
+    expect(manifest.definitions.checkout).toEqual({
+      type: 'string',
+      options: [{ value: 'control' }, { value: 'express' }],
+      defaultValue: 'control',
+      description: 'The checkout flow',
+      declaredInCode: true,
+      sources: [{ module: 'flags.ts', export: 'checkout' }],
+    });
+    expect(Object.keys(manifest.definitions)).toEqual(['checkout', 'theme']);
+  });
+
+  it('registers the flags of a use flags module', () => {
+    const remote = defineConnection({
+      provider: createProvider(),
+      project: { platform: 'in-memory' },
+    });
+
+    // The framework plugins append this call to each 'use flags' module.
+    // Without a plugin, call it with the module namespace object.
+    registerFlags({ plain: { key: 'plain', connection: remote } });
+
+    expect(runtime.connections.has(remote)).toBe(true);
   });
 });

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
@@ -122,4 +124,54 @@ test('has no page for a code which is not valid', async ({ request }) => {
   const response = await request.get('/precomputed/not-a-code');
 
   expect(response.status()).toBe(404);
+});
+
+test('registers the flags of a use flags module', async ({ request }) => {
+  const response = await request.get('/api/registered');
+
+  expect(await response.json()).toMatchObject({
+    providers: expect.arrayContaining(['lazy']),
+  });
+});
+
+test('has no public manifest route in production', async ({ request }) => {
+  const response = await request.get('/.well-known/flags/manifest.json');
+
+  expect(response.status()).toBe(404);
+});
+
+test('writes the manifest of the flags into the build', () => {
+  const distDir =
+    test.info().project.name === 'app-webpack' ? '.next-webpack' : '.next';
+  const manifest = JSON.parse(
+    readFileSync(join(distDir, 'flags-manifest.json'), 'utf8'),
+  );
+
+  expect(manifest).toEqual({
+    version: 1,
+    definitions: {
+      'banner-text': {
+        type: 'string',
+        defaultValue: 'Welcome',
+        description: 'The text of the banner',
+        declaredInCode: true,
+        sources: [{ module: 'flags.ts', export: 'bannerText' }],
+      },
+      'new-checkout': {
+        type: 'boolean',
+        declaredInCode: true,
+        sources: [{ module: 'flags.ts', export: 'newCheckout' }],
+      },
+      'plain-flag': {
+        type: 'boolean',
+        declaredInCode: true,
+        sources: [{ module: 'lazy-flags.ts', export: 'plainFlag' }],
+      },
+      'summer-sale': {
+        type: 'boolean',
+        declaredInCode: true,
+        sources: [{ module: 'flags.ts', export: 'summerSale' }],
+      },
+    },
+  });
 });

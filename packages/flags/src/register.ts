@@ -1,5 +1,5 @@
 import { type Connection, isConnection } from './connection';
-import { isFlag } from './flag';
+import { isExportedFlag } from './manifest';
 import { runtime } from './runtime';
 
 /**
@@ -33,11 +33,13 @@ export function registerConnections(connections: Iterable<Connection>): void {
  * Registers the connections of all flags a module exports.
  *
  * Use this with the exports of a module which only exports flags, e.g. a
- * module with the `'use flags'` directive. Build tooling will call this for
- * you. Until then, you can call it with the module namespace object.
+ * module with the `'use flags'` directive. The framework plugins call it for
+ * these modules, e.g. `withFlags` of `flags/next/plugin`. Without a plugin,
+ * call it with the module namespace object.
  *
- * Throws if an export is not a flag. To register connections directly, use
- * `registerConnections` instead.
+ * A flag is any object or function with a `key`, e.g. a flag of
+ * `defineFlag`. Throws if an export is not a flag. To register connections
+ * directly, use `registerConnections` instead.
  *
  * @example
  * ```ts
@@ -48,12 +50,20 @@ export function registerConnections(connections: Iterable<Connection>): void {
  */
 export function registerFlags(moduleExports: Record<string, unknown>): void {
   const flags = Object.entries(moduleExports).map(([name, value]) => {
-    if (!isFlag(value)) {
+    if (!isExportedFlag(value)) {
       throw new Error(
         `flags: registerFlags expects only flags, but export "${name}" is not a flag.`,
       );
     }
-    return value;
+    return value as { connection?: unknown };
   });
-  for (const flag of flags) runtime.registerConnection(flag.connection);
+  for (const flag of flags) {
+    const { connection } = flag;
+    // A flag without a connection uses the default connection, which the
+    // runtime selects at each evaluation
+    if (!isConnection(connection) || connection === runtime.defaultConnection) {
+      continue;
+    }
+    runtime.registerConnection(connection);
+  }
 }
