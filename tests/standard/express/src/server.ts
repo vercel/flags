@@ -1,3 +1,4 @@
+import { conformanceResult } from '@flags-sdk/conformance';
 import { flags } from '@flags-sdk/express';
 import express from 'express';
 import { evaluate } from 'flags';
@@ -18,6 +19,11 @@ app.get('/', async (_request, response) => {
 app.get('/later', async (_request, response) => {
   await new Promise((resolve) => setTimeout(resolve, 10));
   response.json({ checkout: await newCheckout() });
+});
+
+// The route of the conformance suite. Express has no signals.
+app.get('/conformance', async (_request, response) => {
+  response.json(await conformanceResult());
 });
 
 app.listen(Number(process.env.PORT ?? 4360));

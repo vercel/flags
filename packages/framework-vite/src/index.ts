@@ -134,48 +134,55 @@ function isServer(
 
 interface DevImporter {
   import(url: string): Promise<Record<string, unknown>>;
-  close?(): Promise<void>;
+  refresh?(): void;
 }
+
+// The runnable copy of the SSR environment of each dev server
+const copies = new WeakMap<ViteDevServer, Promise<DevImporter>>();
 
 /**
  * Returns a way to import server modules in development. The SSR
  * environment of Vite is runnable in most frameworks. With a framework which
  * runs it elsewhere, e.g. TanStack Start with Nitro in a worker, a runnable
- * copy of the SSR environment imports the modules. It is new for each
- * request, so that it imports the current files, and `vite` is only loaded
- * when it is necessary.
+ * copy of the SSR environment imports the modules.
+ *
+ * The copy stays open as long as the dev server: the runtime keeps the
+ * loader of flags.config.ts of the copy as its config source. Each manifest
+ * clears its modules first, so it imports the current files. `vite` is only
+ * loaded when it is necessary.
  */
-async function devImporter(
-  server: ViteDevServer,
-): Promise<{ importer: DevImporter; own: boolean }> {
+function devImporter(server: ViteDevServer): Promise<DevImporter> {
   const ssr = server.environments?.ssr as
     | ({ runner?: DevImporter } & object)
     | undefined;
-  if (ssr?.runner) return { importer: ssr.runner, own: false };
-  if (ssr) {
-    // A runnable copy of the SSR environment, with its configuration and
-    // plugins, only for this request
-    const { createRunnableDevEnvironment } = await import('vite');
-    const environment = createRunnableDevEnvironment('ssr', server.config, {
-      hot: false,
-    });
-    await environment.init({ watcher: server.watcher });
-    return {
-      importer: {
-        import: (url) =>
-          environment.runner.import(url) as Promise<Record<string, unknown>>,
-        close: () => environment.close(),
-      },
-      own: true,
-    };
-  }
-  return {
-    importer: {
+  if (ssr?.runner) return Promise.resolve(ssr.runner);
+  if (!ssr) {
+    return Promise.resolve({
       import: (file) =>
         server.ssrLoadModule(file) as Promise<Record<string, unknown>>,
-    },
-    own: false,
-  };
+    });
+  }
+  let copy = copies.get(server);
+  if (!copy) {
+    copy = (async () => {
+      const { createRunnableDevEnvironment } = await import('vite');
+      const environment = createRunnableDevEnvironment('ssr', server.config);
+      await environment.init({ watcher: server.watcher });
+      server.httpServer?.once('close', () => void environment.close());
+      return {
+        import: (url: string) =>
+          environment.runner.import(url) as Promise<Record<string, unknown>>,
+        // Vite does not invalidate the copy when a file changes, because it
+        // is not an environment of the server. Each manifest starts fresh.
+        refresh: () => {
+          environment.moduleGraph.invalidateAll();
+          environment.runner.clearCache();
+        },
+      };
+    })();
+    copies.set(server, copy);
+  }
+  return copy;
 }
 
 export function flags(options: FlagsVitePluginOptions = {}): Plugin {
@@ -304,19 +311,20 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       handler(server) {
         server.middlewares.use(async (request, response, next) => {
           if (request.url?.split('?')[0] !== MANIFEST_PATH) return next();
-          const { importer, own } = await devImporter(server);
           try {
+            const load = await devImporter(server);
+            load.refresh?.();
             if (options.binding) {
               // The SDK in the server code has the framework binding, so the
               // runtime can load flags.config.ts, which gives the default
               // connection of the flags without a connection
-              await importer.import('flags');
+              await load.import('flags');
               await runtime.prepare();
             }
             const modules = await Promise.all(
               findFlagsModules(root).map(async (id) => ({
                 id,
-                exports: { ...(await importer.import(join(root, id))) },
+                exports: { ...(await load.import(join(root, id))) },
               })),
             );
             response.setHeader('content-type', 'application/json');
@@ -324,8 +332,6 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
             response.end(JSON.stringify(createManifest(modules)));
           } catch (error) {
             next(error);
-          } finally {
-            if (own) await importer.close?.();
           }
         });
       },

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineConnection } from './connection';
 import { defineFlag } from './flag';
-import { createManifest } from './manifest';
+import { createManifest, validateFlagsManifest } from './manifest';
 import { registerFlags } from './register';
 import { runtime } from './runtime';
 
@@ -244,5 +244,83 @@ describe('registerFlags', () => {
       'flags: registerFlags expects only flags, but export "helper" is not a flag.',
     );
     expect(runtime.connections.has(c)).toBe(false);
+  });
+});
+
+describe('validateFlagsManifest', () => {
+  it('accepts a manifest of createManifest', () => {
+    const manifest = createManifest([
+      {
+        id: 'flags.ts',
+        exports: {
+          a: defineFlag('a', false),
+          b: defineFlag({ key: 'b', type: 'string', options: ['x', 'y'] }),
+          c: defineFlag(connection(), 'c'),
+        },
+      },
+    ]);
+
+    expect(validateFlagsManifest(JSON.parse(JSON.stringify(manifest)))).toEqual(
+      manifest,
+    );
+  });
+
+  it('allows fields which it does not know', () => {
+    expect(() =>
+      validateFlagsManifest({
+        version: 1,
+        connections: {},
+        definitions: {},
+        generator: 'a later version',
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    [{ version: 2, connections: {}, definitions: {} }, 'the version is not 1'],
+    [
+      {
+        version: 1,
+        connections: {},
+        definitions: {
+          b: {
+            type: 'boolean',
+            declaredInCode: true,
+            sources: [{ module: 'f', export: 'b' }],
+          },
+          a: {
+            type: 'boolean',
+            declaredInCode: true,
+            sources: [{ module: 'f', export: 'a' }],
+          },
+        },
+      },
+      'not sorted by key',
+    ],
+    [
+      {
+        version: 1,
+        connections: {},
+        definitions: {
+          a: {
+            type: 'boolean',
+            declaredInCode: true,
+            connection: 'missing',
+            sources: [{ module: 'f', export: 'a' }],
+          },
+        },
+      },
+      'a connection which is not known',
+    ],
+    [
+      {
+        version: 1,
+        connections: { x: { system: 'x', variables: { key: 1 } } },
+        definitions: {},
+      },
+      'must be strings',
+    ],
+  ])('rejects %j', (manifest, message) => {
+    expect(() => validateFlagsManifest(manifest)).toThrow(message);
   });
 });

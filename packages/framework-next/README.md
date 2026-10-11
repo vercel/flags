@@ -277,6 +277,11 @@ the configuration, the providers and their clients.
 
 ## Gotchas
 
+- **The request has no URL.** Server components of Next.js only have
+  `headers()` and `cookies()`, so `request.url` of the evaluation context
+  chain is `undefined`. A route handler can give a value of the URL to a
+  flag with `evaluationContext`.
+
 - **A page with a flag is dynamic.** The request source reads `headers()`,
   so Next.js renders the page for each request. This is correct: flags are
   dynamic, and overrides read the cookies of each request. Use

@@ -728,7 +728,7 @@ importers:
         version: 1.2.1
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(1b0eea9e04aa5f88cd5e27d8a8f942bc)
+        version: 0.2.7(d635e505b133de7816e537e24c1de116)
       cookie:
         specifier: ^0.7.0
         version: 0.7.2
@@ -1142,6 +1142,24 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.5(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
 
+  packages/conformance:
+    devDependencies:
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.3.4(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
+
   packages/flags:
     dependencies:
       fast-json-stable-stringify:
@@ -1489,6 +1507,9 @@ importers:
 
   tests/standard/express:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/express':
         specifier: workspace:*
         version: link:../../../packages/framework-express
@@ -1511,6 +1532,9 @@ importers:
 
   tests/standard/hono:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/hono':
         specifier: workspace:*
         version: link:../../../packages/framework-hono
@@ -1533,6 +1557,9 @@ importers:
 
   tests/standard/next:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/next':
         specifier: workspace:*
         version: link:../../../packages/framework-next
@@ -1573,6 +1600,9 @@ importers:
 
   tests/standard/nuxt:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/nuxt':
         specifier: workspace:*
         version: link:../../../packages/framework-nuxt
@@ -1592,6 +1622,9 @@ importers:
 
   tests/standard/sveltekit:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/sveltekit':
         specifier: workspace:*
         version: link:../../../packages/framework-sveltekit
@@ -1626,6 +1659,9 @@ importers:
 
   tests/standard/tanstack-start:
     dependencies:
+      '@flags-sdk/conformance':
+        specifier: workspace:*
+        version: link:../../../packages/conformance
       '@flags-sdk/tanstack-start':
         specifier: workspace:*
         version: link:../../../packages/framework-tanstack-start
@@ -1674,7 +1710,7 @@ importers:
     dependencies:
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(d635e505b133de7816e537e24c1de116)
+        version: 0.2.7(1b0eea9e04aa5f88cd5e27d8a8f942bc)
       flags:
         specifier: workspace:*
         version: link:../../packages/flags

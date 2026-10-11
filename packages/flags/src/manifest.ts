@@ -10,6 +10,7 @@ import stringify from 'fast-json-stable-stringify';
 import { systemManifestUrls } from './connection';
 import { findPlatformProject } from './overrides/vercel';
 import { runtime } from './runtime';
+import { isSafeUrl } from './system-manifest';
 import {
   describeValue,
   type FlagOptionObject,
@@ -274,6 +275,82 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
     }),
   );
   return { version: 1, connections, definitions };
+}
+
+const flagTypes = ['boolean', 'string', 'number', 'object'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Checks a flags manifest, e.g. after a tool reads `flags-manifest.json`.
+ * Throws if it does not follow version 1 of the format (the schema is at
+ * https://flags-sdk.dev/schemas/flags-manifest.v1.json). Fields which are
+ * not known are allowed, so that later versions can add them.
+ */
+export function validateFlagsManifest(value: unknown): FlagsManifest {
+  const fail = (message: string): never => {
+    throw new TypeError(`flags: The flags manifest is not valid: ${message}`);
+  };
+  if (!isRecord(value)) return fail('it is not an object.');
+  if (value.version !== 1) return fail('the version is not 1.');
+  if (!isRecord(value.connections)) return fail('connections is missing.');
+  if (!isRecord(value.definitions)) return fail('definitions is missing.');
+  for (const [id, connection] of Object.entries(value.connections)) {
+    if (!isRecord(connection) || typeof connection.system !== 'string') {
+      fail(`connection "${id}" has no system.`);
+    }
+    const { variables, systemManifest } = connection as Record<string, unknown>;
+    if (
+      !isRecord(variables) ||
+      Object.values(variables).some((v) => typeof v !== 'string')
+    ) {
+      fail(`the variables of connection "${id}" must be strings.`);
+    }
+    if (systemManifest !== undefined && !isSafeUrl(systemManifest)) {
+      fail(`the systemManifest of connection "${id}" must be an HTTPS URL.`);
+    }
+  }
+  const keys = Object.keys(value.definitions);
+  if (keys.some((key, i) => i > 0 && (keys[i - 1] as string) > key)) {
+    fail('the definitions are not sorted by key.');
+  }
+  for (const [key, definition] of Object.entries(value.definitions)) {
+    if (!isRecord(definition)) return fail(`flag "${key}" is not an object.`);
+    if (!flagTypes.includes(definition.type as string)) {
+      fail(`flag "${key}" has no valid type.`);
+    }
+    if (definition.declaredInCode !== true) {
+      fail(`flag "${key}" must have declaredInCode: true.`);
+    }
+    if (
+      definition.connection !== undefined &&
+      !Object.hasOwn(value.connections, definition.connection as string)
+    ) {
+      fail(`flag "${key}" refers to a connection which is not known.`);
+    }
+    if (
+      !Array.isArray(definition.sources) ||
+      definition.sources.length === 0 ||
+      !definition.sources.every(
+        (source) =>
+          isRecord(source) &&
+          typeof source.module === 'string' &&
+          typeof source.export === 'string',
+      )
+    ) {
+      fail(`flag "${key}" has no valid sources.`);
+    }
+    if (
+      definition.options !== undefined &&
+      (!Array.isArray(definition.options) ||
+        !definition.options.every((o) => isRecord(o) && 'value' in o))
+    ) {
+      fail(`the options of flag "${key}" must be objects with a value.`);
+    }
+  }
+  return value as unknown as FlagsManifest;
 }
 
 export {

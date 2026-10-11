@@ -12,6 +12,7 @@
     "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
+    "@flags-sdk/conformance": "workspace:*",
     "@flags-sdk/tanstack-start": "workspace:*",
     "@tanstack/react-router": "^1.170.0",
     "@tanstack/react-start": "^1.168.0",
