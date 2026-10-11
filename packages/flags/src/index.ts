@@ -31,6 +31,7 @@ export {
   type Flag,
   type FlagOptions,
 } from './flag';
+export { OVERRIDE_REASON } from './hooks';
 export {
   decryptOverrides,
   encryptOverrides,
@@ -50,19 +51,37 @@ export {
   type Runtime,
   runtime,
 } from './runtime';
+export { type TrackArgs, type TrackOptions, track } from './track';
 export type {
+  BeforeHookContext,
+  ClientMetadata,
   EvaluationContext,
   EvaluationContextValue,
+  EvaluationDetails,
+  EventDetails,
+  EventHandler,
+  EventMetadata,
+  FlagMetadata,
   FlagsRequest,
   FlagsRequestInit,
+  Hook,
+  HookContext,
+  HookData,
+  HookFlagValue,
+  HookHints,
   Logger,
   PrimitiveValue,
   Provider,
+  ProviderEvent,
+  ProviderEventDetails,
+  ProviderEventEmitter,
   ProviderMetadata,
   ReadonlyHeaders,
   ReadonlyRequestCookies,
   RequestCookie,
   ResolutionDetails,
+  TrackingEventDetails,
+  TrackingEventValue,
 } from './types';
 export type {
   FlagObjectValue,

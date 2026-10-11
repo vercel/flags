@@ -7,7 +7,7 @@ import {
 import { logger } from './logger';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
-import type { FlagsRequest } from './types';
+import type { FlagsRequest, Hook, HookHints } from './types';
 import {
   type FlagObjectValue,
   type FlagOptionObject,
@@ -42,6 +42,16 @@ export interface EvaluationOptions<In> {
    * flag has none.
    */
   evaluationContext: In;
+  /**
+   * OpenFeature hooks for this evaluation only. They run after the hooks of
+   * the configuration and of the connection, and before the hooks of the
+   * provider.
+   */
+  hooks?: readonly Hook[];
+  /**
+   * Hints which the hooks receive.
+   */
+  hookHints?: HookHints;
 }
 
 /**

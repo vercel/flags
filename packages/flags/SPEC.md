@@ -29,9 +29,8 @@ changed, update the walkthrough in the same change.
 9. Done: Next.js. `flags/next/plugin` and `flags/next`, tested in
    `tests/standard/next` with Turbopack, webpack, a platform adapter, and
    development (see "Framework integration contract").
-10. OpenFeature parity. Provider hooks, events, tracking, and the report of
-    overrides. It is early in the plan, because it can show problems in the
-    design.
+10. Done: OpenFeature parity. Hooks, events, tracking, and the report of
+    overrides through hooks (see "Hooks, events and tracking").
 11. A cache of results for each request, and precompute for Next.js as a
     separate export, outside of the runtime and the standard.
 12. Tooling. Flag discovery for tools such as Flags Explorer, links to the
@@ -119,9 +118,9 @@ The provider contract uses the OpenFeature lifecycle without changes:
 | Initialized only once, also for several domains    | Initialized only once, also for several connections |
 | `shutdown` / `onClose` (2.5)                       | Called by `runtime.onShutdown`                      |
 | Re-initialization after shutdown is allowed (2.5.2)| The next use initializes the provider again         |
-| Status from events (2.8)                           | Status from the `initialize` promise. Events are deferred. |
+| Status from events (2.8)                           | Status from the `initialize` promise and from the events of the provider. |
 | `on context changed` (2.6)                         | Not used. It is for static-context (client) providers. |
-| `track` (2.7)                                      | Deferred                                            |
+| `track` (2.7)                                      | Called by `track` of this SDK                       |
 | No per-request hook                                | None. `runtime.onInvoke` scopes the request in the SDK, not in the provider. |
 
 The `runtime` methods (`onInit`, `onInvoke`, `onShutdown`) are not provider
@@ -372,6 +371,114 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
 - No field has a special meaning, also not `targetingKey`. Not all providers
   use it. A connection that needs it declares it.
 
+## Hooks, events and tracking
+
+The SDK calls providers directly, without the OpenFeature client. Thus, it
+does the work of the client itself: it runs hooks, listens to events, and
+calls `track`.
+
+### Hooks
+
+A hook is an OpenFeature `Hook`, with the stages `before`, `after`, `error`
+and `finally`. Hooks come from four places. They run in the order of
+OpenFeature:
+
+| OpenFeature   | This SDK                                  |
+| ------------- | ----------------------------------------- |
+| API           | `hooks` of the configuration              |
+| Client        | `hooks` of `defineConnection`             |
+| Invocation    | `flag({ hooks, hookHints })`, `evaluate`  |
+| Provider      | `provider.hooks`                          |
+
+- `before` runs from the first hook to the last. `after`, `error` and
+  `finally` run from the last hook to the first.
+- `before` can return a context. The SDK merges it into a new object, so
+  the context of the request does not change. The next hooks and the
+  provider receive the merged context.
+- Each hook has its own `hookData` during one evaluation.
+- An error of `before` or `after` fails the evaluation: `error` and
+  `finally` run, then the flag returns its `defaultValue` or throws. An
+  error of `error` or `finally` is logged, and does not change the result.
+- `finally` receives the evaluation details. After an error, they have the
+  reason `ERROR`, the error code, and the `defaultValue` (or the
+  placeholder).
+- Hooks run when the evaluation context exists. An error before that, e.g.
+  in `getEvaluationContext`, or a type which the provider does not support,
+  runs no hooks.
+- In `hookContext`, `defaultValue` is the placeholder for a flag without a
+  `defaultValue`. `clientMetadata` has `sdk: 'js-server'`, `paradigm:
+  'server'` and the metadata of the provider. There is no domain.
+
+### The report of overrides
+
+An override does not call the provider, but all hooks run, also the hooks
+of the provider. The evaluation details have the reason `OVERRIDE`
+(`OVERRIDE_REASON`). Thus, a hook of a provider knows about overrides, e.g.
+to remove them from the exposures of an experiment. A hook which does not
+check the reason counts an override as a usual evaluation.
+
+An application reports overrides with a hook, e.g. to the platform of an
+experiment:
+
+```ts
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        if (details.reason === OVERRIDE_REASON) report(hookContext.flagKey);
+      },
+    },
+  ],
+});
+```
+
+Without hooks, an override does not create the evaluation context, as
+before.
+
+### Events
+
+The runtime listens to `provider.events` from the first initialization
+until the shutdown, or until a new configuration replaces the provider.
+
+- `runtime.addHandler(event, handler)` and `runtime.removeHandler` work like
+  `OpenFeature.addHandler`. The handlers receive the events of all
+  providers, with `providerName`. The events are `PROVIDER_READY`,
+  `PROVIDER_ERROR`, `PROVIDER_CONFIGURATION_CHANGED` and `PROVIDER_STALE`.
+- The runtime emits `PROVIDER_READY` when `initialize` resolves, and
+  `PROVIDER_ERROR` when it rejects, as the OpenFeature SDK does.
+- A handler for the current status of a provider runs at once (OpenFeature
+  5.3.3), e.g. `PROVIDER_READY` for a provider which is ready.
+- An error of a handler is logged.
+- The status is `READY`, `ERROR`, `STALE` or `FATAL`. Only `FATAL` changes
+  the evaluation: a `PROVIDER_ERROR` with the error code `PROVIDER_FATAL`,
+  or an initialization which rejects with the code `PROVIDER_FATAL`, makes
+  each next evaluation fail with `PROVIDER_FATAL`. The runtime does not
+  initialize the provider again until `onShutdown`. `ERROR` and `STALE` do
+  not stop evaluations, as in OpenFeature.
+- Handlers for one connection (the client level of OpenFeature) are not
+  supported. A handler can filter by `providerName`.
+
+### Tracking
+
+`track(eventName, options?)` and `track(connection, eventName, options?)`
+give a tracking event to `provider.track`, e.g. a purchase for an
+experiment.
+
+```ts
+await track(launchdarkly, 'purchase', {
+  evaluationContext: { userId: 'alice' },
+  details: { value: 99 },
+});
+```
+
+- The evaluation context comes from the chain without the flag step: the
+  call side gives `evaluationContext` to `getEvaluationContext` of the
+  connection. It runs once per request, as for flags.
+- `track` waits for the initialization of the provider. OpenFeature does
+  not call `track` of a provider which is not ready.
+- A provider without `track` ignores the event.
+- Errors are logged, not thrown. Only a call with a wrong connection throws.
+
 ## Configuration
 
 `runtime.configure(config)` configures the SDK. By convention, the
@@ -402,6 +509,8 @@ declare module 'flags' {
 - `defaultConnection`: the connection of all flags without a connection. It
   must come from `defineConnection`.
 - `overrides`: which override tokens the SDK accepts (see "Overrides").
+- `hooks`: OpenFeature hooks for all flags (see "Hooks, events and
+  tracking").
 - `runtime.configure` validates the full configuration at once, and throws
   before it changes anything. A new call replaces the configuration, e.g.
   after a reload in development.
@@ -1009,30 +1118,9 @@ registerFlags(self); // at the end of the module
 
 ## Deferred
 
-OpenFeature features that only work through the OpenFeature client. Since the
-SDK calls providers directly, it has to run these itself to stay compatible.
-
-- **Provider hooks.** `provider.hooks?: Hook[]` lets a provider run code around
-  its own evaluations, in four stages: `before` (can return extra evaluation
-  context), `after`, `error` and `finally`. The OpenFeature client runs them,
-  not the provider. To support them, run `before` hooks before resolving and
-  the other stages afterwards. OpenFeature also has hooks registered globally,
-  per client and per call; whether the SDK offers those is a separate decision.
-- **Provider events.** `provider.events?` is an emitter that the provider fires
-  on its own: `PROVIDER_READY`, `PROVIDER_ERROR`,
-  `PROVIDER_CONFIGURATION_CHANGED` and `PROVIDER_STALE`. Nothing listens unless
-  the SDK subscribes. Could be used to track provider status or to refresh
-  stale data.
-- **Tracking.** `provider.track?(eventName, context, details)` records events
-  such as conversions for experiments. The SDK could expose it as a
-  pass-through.
-
-Other items:
-
-- Report overrides to the provider, e.g. for the exposures of an experiment.
-  v4 had `experimental_reportOverride` on the adapter. OpenFeature has no
-  such function, so it could be on the connection, or a hook (see provider
-  hooks above).
+- Hooks registered at runtime, e.g. `runtime.addHooks`, and hooks of one
+  flag. Today, hooks come from the configuration, the connection, the call
+  side and the provider.
 - Groups of projects that share overrides, e.g. for microfrontends (see the
   RFC).
 - A configurable logger, e.g. to write debug messages or to send errors to a

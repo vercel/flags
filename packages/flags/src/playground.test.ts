@@ -16,10 +16,13 @@ import {
   encryptOverrides,
   evaluate,
   FlagEvaluationError,
+  type Hook,
+  OVERRIDE_REASON,
   type Provider,
   registerConnections,
   registerFlags,
   runtime,
+  track,
 } from './index';
 // Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
 import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
@@ -869,5 +872,101 @@ describe('12. What a framework integration does', () => {
 
     const newCheckout = defineFlag({ key: 'new-checkout' });
     expect(await newCheckout()).toBe(true);
+  });
+});
+
+describe('13. Hooks, events and tracking', () => {
+  // The SDK calls the providers without the OpenFeature client, so it does
+  // the work of the client itself
+
+  it('runs OpenFeature hooks, e.g. to log each evaluation', async () => {
+    const logs: string[] = [];
+    const logEvaluations: Hook = {
+      after: (hookContext, details) => {
+        logs.push(
+          `${hookContext.flagKey}=${details.value} (${details.reason})`,
+        );
+      },
+    };
+    // flags.config.ts: hooks for all flags. A connection and the call side
+    // can add more.
+    runtime.configure(defineConfig({ hooks: [logEvaluations] }));
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: defineConnection({
+        provider: createProvider(),
+        project: { platform: 'in-memory' },
+      }),
+    });
+
+    await newCheckout({ evaluationContext: { user: 'alice' } });
+    expect(logs).toEqual(['new-checkout=true (TARGETING_MATCH)']);
+  });
+
+  it('reports overrides with a hook', async () => {
+    vi.stubEnv(
+      'FLAGS_SECRET',
+      Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+        'base64url',
+      ),
+    );
+    const overridden: string[] = [];
+    runtime.configure({
+      hooks: [
+        {
+          after: (hookContext, details) => {
+            if (details.reason === OVERRIDE_REASON) {
+              overridden.push(hookContext.flagKey);
+            }
+          },
+        },
+      ],
+    });
+    const newCheckout = defineFlag({
+      key: 'new-checkout',
+      connection: defineConnection({
+        provider: createProvider(),
+        project: { platform: 'in-memory' },
+      }),
+    });
+    const token = await encryptOverrides({ 'new-checkout': true });
+    const request = new Request('https://shop.example', {
+      headers: { cookie: `flag-overrides=${token}` },
+    });
+
+    expect(await runtime.onInvoke(request, () => newCheckout())).toBe(true);
+    expect(overridden).toEqual(['new-checkout']);
+  });
+
+  it('gives the events of the providers to the handlers', async () => {
+    const events: string[] = [];
+    runtime.addHandler('PROVIDER_READY', (details) => {
+      events.push(`${details.providerName} is ready`);
+    });
+    const { connection } = lifecycleConnection('remote');
+    defineFlag({ key: 'summer-sale', connection });
+
+    await runtime.onInit();
+    expect(events).toEqual(['remote is ready']);
+  });
+
+  it('records tracking events, e.g. a purchase for an experiment', async () => {
+    const provider = Object.assign(createProvider(), { track: vi.fn() });
+    const shop = defineConnection({
+      provider,
+      project: { platform: 'in-memory' },
+      getEvaluationContext: (context: { user: string }) => context,
+    });
+
+    await track(shop, 'purchase', {
+      evaluationContext: { user: 'alice' },
+      details: { value: 99 },
+    });
+    // The provider receives the context of the connection, as for a flag
+    expect(provider.track).toHaveBeenCalledWith(
+      'purchase',
+      { user: 'alice' },
+      { value: 99 },
+    );
   });
 });
