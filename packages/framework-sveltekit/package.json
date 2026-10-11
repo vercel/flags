@@ -1,0 +1,77 @@
+{
+  "name": "@flags-sdk/sveltekit",
+  "description": "The SvelteKit binding of the Flags SDK",
+  "version": "0.0.0",
+  "license": "MIT",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "homepage": "https://flags-sdk.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./binding": {
+      "import": "./dist/binding.js",
+      "require": "./dist/binding.cjs"
+    },
+    "./vite": {
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "binding": [
+        "dist/binding.d.ts",
+        "dist/binding.d.cts"
+      ],
+      "vite": [
+        "dist/vite.d.ts",
+        "dist/vite.d.cts"
+      ],
+      "*": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "check": "biome check",
+    "type-check": "tsc --noEmit",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@flags-sdk/vite": "workspace:*"
+  },
+  "peerDependencies": {
+    "flags": "workspace:*",
+    "@sveltejs/kit": ">=2.20.0",
+    "vite": ">=6.0.0"
+  },
+  "devDependencies": {
+    "flags": "workspace:*",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "@types/node": "22.14.0",
+    "vitest": "4.1.11",
+    "@sveltejs/kit": "^2.70.2",
+    "vite": "8.3.4",
+    "svelte": "^5.57.1",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0"
+  }
+}

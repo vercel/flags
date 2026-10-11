@@ -1,6 +1,6 @@
+import { flags } from '@flags-sdk/hono';
 import { serve } from '@hono/node-server';
 import { evaluate } from 'flags';
-import { flags } from 'flags/hono';
 import { Hono } from 'hono';
 import { newCheckout } from './default-flags.ts';
 import { config } from './flags.config.ts';

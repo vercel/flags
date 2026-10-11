@@ -8,6 +8,7 @@
     "test:e2e": "pnpm manifest && playwright test"
   },
   "dependencies": {
+    "@flags-sdk/express": "workspace:*",
     "express": "^5.1.0",
     "flags": "workspace:*"
   },

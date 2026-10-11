@@ -2,7 +2,7 @@
 
 import { defineConnection, defineFlag } from 'flags';
 
-// A 'use flags' module: it exports only flags, and the module of flags/nuxt
+// A 'use flags' module: it exports only flags, and the module @flags-sdk/nuxt
 // registers them
 const shop = defineConnection({
   provider: {

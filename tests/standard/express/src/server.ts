@@ -1,6 +1,6 @@
+import { flags } from '@flags-sdk/express';
 import express from 'express';
 import { evaluate } from 'flags';
-import { flags } from 'flags/express';
 import { config } from './flags.config.ts';
 import { greeting, newCheckout } from './flags.ts';
 

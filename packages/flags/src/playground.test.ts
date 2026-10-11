@@ -25,11 +25,6 @@ import {
   track,
 } from './index';
 import { createManifest, resolveFlagLinks } from './manifest';
-import {
-  generatePermutations,
-  getPrecomputed,
-  precompute,
-} from './next/precompute';
 // Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
 import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
 
@@ -870,7 +865,7 @@ describe('11. Flag value types', () => {
 
 describe('12. What a framework binding does', () => {
   // A framework plugin points the alias flags/framework to its module,
-  // e.g. withFlags of flags/next/plugin points it to flags/next. That module
+  // e.g. withFlags of @flags-sdk/next/plugin points it to the binding. That module
   // calls these three methods. The application does not call them.
   // tests/standard/next tests the real integration of Next.js.
 
@@ -998,48 +993,9 @@ describe('13. Hooks, events and tracking', () => {
   });
 });
 
-describe('14. Precompute for Next.js', () => {
-  // A separate export, flags/next/precompute. Not a part of the runtime or
-  // of the standard.
-
-  it('evaluates in the proxy, and reads the values on a static page', async () => {
-    // One secret for each build, only for precompute
-    vi.stubEnv(
-      'FLAGS_PRECOMPUTE_SECRET',
-      Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
-        'base64url',
-      ),
-    );
-    const connection = defineConnection({
-      provider: createProvider(),
-      project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => ({
-        user: request?.cookies?.get('user')?.value ?? 'anonymous',
-      }),
-    });
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
-    const marketingFlags = [summerSale, newCheckout] as const;
-
-    // proxy.ts: a short, signed code with the values, for the URL
-    const request = new Request('https://shop.example/marketing', {
-      headers: { cookie: 'user=alice' },
-    });
-    const code = await precompute(marketingFlags, { request });
-
-    // app/marketing/[code]/page.tsx: read the values, no evaluation
-    expect(
-      await getPrecomputed([summerSale, newCheckout], marketingFlags, code),
-    ).toEqual([true, true]);
-
-    // generateStaticParams: one page for each combination
-    expect(await generatePermutations(marketingFlags)).toHaveLength(4);
-  });
-});
-
-describe('15. Discovery for Flags Explorer', () => {
-  // Optional, on top of the rest. The framework plugins (withFlags,
-  // flags/vite, flags/nuxt) or the script `flags manifest` import the
+describe('14. Discovery for Flags Explorer', () => {
+  // Optional, on top of the rest. The framework packages (e.g.
+  // @flags-sdk/next) or the script `flags manifest` import the
   // modules with 'use flags' and create the manifest from their exports.
 
   it('creates the manifest from the exports of a use flags module', () => {

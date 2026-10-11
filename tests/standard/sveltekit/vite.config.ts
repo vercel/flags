@@ -1,5 +1,5 @@
+import { flags } from '@flags-sdk/sveltekit/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { flags } from 'flags/vite';
 import { defineConfig } from 'vite';
 
 const platform = process.env.TEST_VARIANT === 'platform';
@@ -12,7 +12,6 @@ export default defineConfig({
     // default provider of the platform. On Vercel, it does this itself with
     // @vercel/flags-core.
     flags({
-      framework: 'sveltekit',
       defaultProvider: platform ? './src/deployment-provider.ts' : undefined,
     }),
   ],

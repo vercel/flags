@@ -1,4 +1,4 @@
-import { withFlags } from 'flags/next/plugin';
+import { withFlags } from '@flags-sdk/next/plugin';
 
 export default withFlags({
   // The platform variant of the tests builds into its own directory

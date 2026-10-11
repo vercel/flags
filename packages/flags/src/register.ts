@@ -34,7 +34,7 @@ export function registerConnections(connections: Iterable<Connection>): void {
  *
  * Use this with the exports of a module which only exports flags, e.g. a
  * module with the `'use flags'` directive. The framework plugins call it for
- * these modules, e.g. `withFlags` of `flags/next/plugin`. Without a plugin,
+ * these modules, e.g. `withFlags` of `@flags-sdk/next/plugin`. Without a plugin,
  * call it with the module namespace object.
  *
  * A flag is any object or function with a `key`, e.g. a flag of

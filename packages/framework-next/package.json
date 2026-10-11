@@ -1,0 +1,107 @@
+{
+  "name": "@flags-sdk/next",
+  "description": "The Next.js binding of the Flags SDK",
+  "version": "0.0.0",
+  "license": "MIT",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "homepage": "https://flags-sdk.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./binding": {
+      "import": "./dist/binding.js",
+      "require": "./dist/binding.cjs"
+    },
+    "./plugin": {
+      "import": "./dist/plugin.js",
+      "require": "./dist/plugin.cjs"
+    },
+    "./precompute": {
+      "import": "./dist/precompute.js",
+      "require": "./dist/precompute.cjs"
+    },
+    "./manifest": {
+      "import": "./dist/manifest.js",
+      "require": "./dist/manifest.cjs"
+    },
+    "./use-flags-loader": {
+      "import": "./dist/use-flags-loader.js",
+      "require": "./dist/use-flags-loader.cjs"
+    },
+    "./manifest-loader": {
+      "import": "./dist/manifest-loader.js",
+      "require": "./dist/manifest-loader.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "binding": [
+        "dist/binding.d.ts",
+        "dist/binding.d.cts"
+      ],
+      "plugin": [
+        "dist/plugin.d.ts",
+        "dist/plugin.d.cts"
+      ],
+      "precompute": [
+        "dist/precompute.d.ts",
+        "dist/precompute.d.cts"
+      ],
+      "manifest": [
+        "dist/manifest.d.ts",
+        "dist/manifest.d.cts"
+      ],
+      "use-flags-loader": [
+        "dist/use-flags-loader.d.ts",
+        "dist/use-flags-loader.d.cts"
+      ],
+      "manifest-loader": [
+        "dist/manifest-loader.d.ts",
+        "dist/manifest-loader.d.cts"
+      ],
+      "*": [
+        "dist/*.d.ts",
+        "dist/*.d.cts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "check": "biome check",
+    "type-check": "tsc --noEmit",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  },
+  "peerDependencies": {
+    "flags": "workspace:*",
+    "next": ">=15.4.0"
+  },
+  "devDependencies": {
+    "flags": "workspace:*",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "@types/node": "22.14.0",
+    "vitest": "4.1.11",
+    "next": "16.3.8",
+    "@openfeature/server-sdk": "1.23.0",
+    "@openfeature/core": "1.12.0"
+  }
+}
