@@ -211,6 +211,57 @@ export async function GET(
 The `getEvaluationContext` of the connection receives `{ teamId }` (see
 `../SPEC.md`, section "Evaluation context chain").
 
+### Hooks, events and tracking
+
+Set hooks for all flags in `flags.config.ts`, e.g. to report overrides:
+
+```ts
+// flags.config.ts
+import { defineConfig, OVERRIDE_REASON } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        if (details.reason === OVERRIDE_REASON) {
+          console.log(`Override of ${hookContext.flagKey}`);
+        }
+      },
+    },
+  ],
+});
+```
+
+Record tracking events in server code, e.g. in a route handler:
+
+```ts
+// app/api/checkout/route.ts
+import { track } from 'flags';
+
+export async function POST() {
+  await track('purchase', { details: { value: 99 } });
+  return Response.json({ ok: true });
+}
+```
+
+Add event handlers in `register` of `instrumentation.ts`. All bundles of
+Next.js share one runtime, so the handlers receive the events of the
+providers of the pages:
+
+```ts
+// instrumentation.ts
+export async function register() {
+  // The SDK runs only in the Node.js runtime
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const { runtime } = await import('flags');
+  runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
+    console.log(`${details.providerName} changed`, details.flagsChanged);
+  });
+}
+```
+
+See `../SPEC.md`, section "Hooks, events and tracking".
+
 ### Static pages
 
 A page that Next.js renders at build time has no request. Its flags use the

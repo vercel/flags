@@ -1,5 +1,5 @@
 import { sharedState } from './shared-state';
-import type { EvaluationContext, FlagsRequest, Provider } from './types';
+import type { EvaluationContext, FlagsRequest, Hook, Provider } from './types';
 
 /**
  * The project fields each supported platform expects.
@@ -53,6 +53,12 @@ export interface ConnectionOptions<
   provider: P;
   project: { platform: N } & ProjectFieldsByPlatform[N];
   /**
+   * OpenFeature hooks for the flags of this connection. They run after the
+   * hooks of the configuration, and before the hooks of the call side and of
+   * the provider. They also run for overrides.
+   */
+  hooks?: readonly Hook[];
+  /**
    * The last step of the chain. Receives the context which the flag creates,
    * and returns the context for the provider. The type of `context` defines
    * what the flags of this connection must give. The return type defines
@@ -90,6 +96,7 @@ export interface Connection<
 > {
   readonly provider: P;
   readonly project: Project<N>;
+  readonly hooks?: readonly Hook[];
   getEvaluationContext?(
     context: In,
     request: FlagsRequest | undefined,
@@ -119,6 +126,7 @@ export function defineConnection<
     provider: options.provider,
     project: Object.freeze({ ...options.project }) as unknown as Project<N>,
     getEvaluationContext: options.getEvaluationContext,
+    hooks: options.hooks ? Object.freeze([...options.hooks]) : undefined,
   });
   connections.add(connection);
   return connection;

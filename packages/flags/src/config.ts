@@ -1,6 +1,7 @@
 import type { Connection } from './connection';
 import type { DefaultConnection } from './default-connection';
 import type { OverridesOptions } from './overrides/reader';
+import type { Hook } from './types';
 
 /**
  * The configuration of the SDK. By convention, it is the export `config` of
@@ -17,6 +18,12 @@ export interface Config {
    * Which override tokens the SDK accepts. See `OverridesOptions`.
    */
   readonly overrides?: OverridesOptions;
+  /**
+   * OpenFeature hooks for all flags. They run first, before the hooks of the
+   * connection, of the call side and of the provider. They also run for
+   * overrides, with the reason `OVERRIDE`.
+   */
+  readonly hooks?: readonly Hook[];
 }
 
 /**

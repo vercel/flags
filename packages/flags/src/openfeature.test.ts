@@ -2,10 +2,14 @@ import type * as OpenFeature from '@openfeature/server-sdk';
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
   EvaluationContext,
+  EvaluationDetails,
+  Hook,
+  HookContext,
   Logger,
   Provider,
   ProviderMetadata,
   ResolutionDetails,
+  TrackingEventDetails,
 } from './types';
 
 // Our types are declared without importing @openfeature/* so customers don't
@@ -30,5 +34,17 @@ describe('OpenFeature compatibility', () => {
   it('passes loggers OpenFeature providers accept', () => {
     expectTypeOf<Logger>().toExtend<OpenFeature.Logger>();
     expectTypeOf<OpenFeature.Logger>().toExtend<Logger>();
+  });
+
+  it('accepts OpenFeature hooks', () => {
+    expectTypeOf<OpenFeature.Hook>().toExtend<Hook>();
+    expectTypeOf<HookContext>().toExtend<OpenFeature.HookContext>();
+    expectTypeOf<OpenFeature.EvaluationDetails<boolean>>().toExtend<
+      EvaluationDetails<boolean>
+    >();
+  });
+
+  it('passes tracking details OpenFeature providers accept', () => {
+    expectTypeOf<TrackingEventDetails>().toExtend<OpenFeature.TrackingEventDetails>();
   });
 });

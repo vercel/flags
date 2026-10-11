@@ -5,6 +5,7 @@ import { type Connection, isConnection } from './connection';
 import { getBuiltInConnection } from './default-connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
+import { HookRun, OVERRIDE_REASON } from './hooks';
 import { logger } from './logger';
 import { codeDefault } from './ofrep';
 import {
@@ -16,11 +17,19 @@ import { createFlagsRequest } from './request';
 import { sharedState } from './shared-state';
 import type {
   EvaluationContext,
+  EvaluationDetails,
+  EventDetails,
+  EventHandler,
   FlagsRequest,
   FlagsRequestInit,
+  Hook,
+  HookHints,
   Logger,
   Provider,
+  ProviderEvent,
+  ProviderEventDetails,
   ResolutionDetails,
+  TrackingEventDetails,
 } from './types';
 import {
   describeValue,
@@ -115,6 +124,68 @@ export type RequestSource = () =>
 
 type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
 
+type ResolveMethod = (
+  flagKey: string,
+  defaultValue: FlagValue,
+  context: EvaluationContext,
+  logger: Logger,
+) => Promise<ResolutionDetails<unknown>>;
+
+/**
+ * The options of the call side for an evaluation.
+ */
+interface CallOptions {
+  readonly evaluationContext?: unknown;
+  readonly hooks?: readonly Hook[];
+  readonly hookHints?: HookHints;
+}
+
+/**
+ * The status of a provider which was initialized. OpenFeature has the same
+ * statuses. A provider without a status is not ready.
+ */
+type ProviderStatus = 'READY' | 'ERROR' | 'STALE' | 'FATAL';
+
+const providerEvents: readonly ProviderEvent[] = [
+  'PROVIDER_READY',
+  'PROVIDER_ERROR',
+  'PROVIDER_CONFIGURATION_CHANGED',
+  'PROVIDER_STALE',
+];
+
+/**
+ * Whether a handler which is added later must run at once, because the
+ * provider already has the status of the event (OpenFeature 5.3.3).
+ */
+function statusMatchesEvent(
+  status: ProviderStatus,
+  event: ProviderEvent,
+): boolean {
+  if (event === 'PROVIDER_READY') return status === 'READY';
+  if (event === 'PROVIDER_ERROR')
+    return status === 'ERROR' || status === 'FATAL';
+  if (event === 'PROVIDER_STALE') return status === 'STALE';
+  return false;
+}
+
+function isFatal(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'PROVIDER_FATAL'
+  );
+}
+
+/**
+ * A rejected promise which is not an unhandled rejection, because the
+ * callers handle it later.
+ */
+function handledRejection(error: unknown): Promise<never> {
+  const promise = Promise.reject(error);
+  promise.catch(() => {});
+  return promise;
+}
+
 /**
  * The state of one request. Each step of the context chain runs once per
  * input object.
@@ -193,6 +264,9 @@ class RuntimeImpl {
   #configSource: ConfigSource | undefined;
   #loadedConfig: Promise<void> | undefined;
   readonly #sourceScopes = new WeakMap<object, RequestScope>();
+  readonly #statuses = new Map<Provider, ProviderStatus>();
+  readonly #subscriptions = new Map<Provider, () => void>();
+  readonly #handlers = new Map<ProviderEvent, Set<EventHandler>>();
 
   /**
    * Call once before the first request, e.g. in the Lambda init phase.
@@ -340,6 +414,11 @@ class RuntimeImpl {
         'flags: The defaultConnection of the configuration must be returned by defineConnection.',
       );
     }
+    if (config.hooks !== undefined && !Array.isArray(config.hooks)) {
+      throw new Error(
+        'flags: The hooks of the configuration must be an array.',
+      );
+    }
     const readOverrides = createOverridesReader(config.overrides);
 
     const previous = this.#config.defaultConnection;
@@ -400,6 +479,48 @@ class RuntimeImpl {
         }
       }),
     );
+    for (const provider of [...this.#subscriptions.keys()]) {
+      this.#unsubscribe(provider);
+    }
+    this.#statuses.clear();
+  }
+
+  /**
+   * Adds a handler for an event of the providers, e.g.
+   * `PROVIDER_CONFIGURATION_CHANGED`. Like `OpenFeature.addHandler`, it runs
+   * for the events of all providers. The runtime emits `PROVIDER_READY` and
+   * `PROVIDER_ERROR` when an initialization ends, and gives the events of
+   * the providers to the handlers.
+   *
+   * If a provider already has the status of the event, e.g. it is ready, the
+   * handler runs at once. Errors of handlers are logged.
+   *
+   * @example
+   * ```ts
+   * runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
+   *   console.log(`${details.providerName}: ${details.flagsChanged}`);
+   * });
+   * ```
+   */
+  addHandler(event: ProviderEvent, handler: EventHandler): void {
+    let handlers = this.#handlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      this.#handlers.set(event, handlers);
+    }
+    handlers.add(handler);
+    for (const [provider, status] of this.#statuses) {
+      if (statusMatchesEvent(status, event)) {
+        this.#callHandler(handler, { providerName: provider.metadata.name });
+      }
+    }
+  }
+
+  /**
+   * Removes a handler of `addHandler`.
+   */
+  removeHandler(event: ProviderEvent, handler: EventHandler): void {
+    this.#handlers.get(event)?.delete(handler);
   }
 
   /**
@@ -436,6 +557,7 @@ class RuntimeImpl {
     const existing = this.#initializations.get(provider);
     if (existing) return existing;
 
+    this.#subscribe(provider);
     let started: Promise<void>;
     try {
       // Call synchronously, so the work starts immediately
@@ -444,13 +566,29 @@ class RuntimeImpl {
       started = Promise.reject(error);
     }
 
-    const initialization: Promise<void> = started.catch((error: unknown) => {
-      // Only forget this attempt, not a newer one started after a shutdown
-      if (this.#initializations.get(provider) === initialization) {
-        this.#initializations.delete(provider);
-      }
-      throw error;
-    });
+    const initialization: Promise<void> = started.then(
+      () => {
+        if (this.#initializations.get(provider) !== initialization) return;
+        this.#handleEvent(provider, 'PROVIDER_READY', {}, true);
+      },
+      (error: unknown) => {
+        // Only forget this attempt, not a newer one started after a shutdown
+        if (this.#initializations.get(provider) === initialization) {
+          // A fatal error is not retried (OpenFeature PROVIDER_FATAL)
+          if (!isFatal(error)) this.#initializations.delete(provider);
+          this.#handleEvent(
+            provider,
+            'PROVIDER_ERROR',
+            {
+              message: error instanceof Error ? error.message : String(error),
+              errorCode: isFatal(error) ? 'PROVIDER_FATAL' : 'GENERAL',
+            },
+            true,
+          );
+        }
+        throw error;
+      },
+    );
     this.#initializations.set(provider, initialization);
     return initialization;
   }
@@ -461,13 +599,52 @@ class RuntimeImpl {
    */
   readonly evaluate: Evaluate = ((
     flags: FlagDefinition | readonly FlagDefinition[],
-    options?: { evaluationContext?: unknown },
+    options?: CallOptions,
   ) => {
-    const input = options?.evaluationContext;
     return Array.isArray(flags)
-      ? Promise.all(flags.map((flag) => this.#evaluateFlag(flag, input)))
-      : this.#evaluateFlag(flags as FlagDefinition, input);
+      ? Promise.all(flags.map((flag) => this.#evaluateFlag(flag, options)))
+      : this.#evaluateFlag(flags as FlagDefinition, options);
   }) as Evaluate;
+
+  /**
+   * Records a tracking event with the provider of the connection. The same
+   * as the `track` function which the package exports.
+   *
+   * @internal
+   */
+  async track(
+    connection: Connection | undefined,
+    eventName: string,
+    options?: {
+      evaluationContext?: unknown;
+      details?: TrackingEventDetails;
+    },
+  ): Promise<void> {
+    try {
+      await this.#setUpIntegration();
+      await this.#loadConfig();
+      const target = connection ?? this.defaultConnection;
+      const { provider } = target;
+      // A provider without track ignores the event, as in OpenFeature
+      if (!provider.track) return;
+      const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
+      // OpenFeature does not call track on a provider which is not ready
+      const [, context] = await Promise.all([
+        this.initializeProvider(provider),
+        this.#evaluationContext(
+          undefined,
+          target,
+          options?.evaluationContext,
+          scope,
+        ),
+      ]);
+      provider.track(eventName, context, options?.details ?? {});
+    } catch (error) {
+      this.#rethrow?.(error);
+      // As in OpenFeature, tracking does not throw
+      logger.error(`flags: Could not track event "${eventName}".`, error);
+    }
+  }
 
   /**
    * Runs the chain: the call side gives `input` to the flag, the flag to the
@@ -475,7 +652,7 @@ class RuntimeImpl {
    * input to the next step as it is.
    */
   async #evaluationContext(
-    flag: FlagDefinition,
+    flag: FlagDefinition | undefined,
     connection: Connection,
     input: unknown,
     scope: RequestScope | undefined,
@@ -486,7 +663,7 @@ class RuntimeImpl {
         : callStep(step, owner, value, undefined);
 
     let context = input;
-    if (flag.getEvaluationContext) {
+    if (flag?.getEvaluationContext) {
       context = await run(flag.getEvaluationContext, flag, context);
     }
     if (connection.getEvaluationContext) {
@@ -501,7 +678,7 @@ class RuntimeImpl {
 
   async #evaluateFlag(
     flag: FlagDefinition,
-    input: unknown,
+    call: CallOptions | undefined,
   ): Promise<FlagValue> {
     const { key, defaultValue, options } = flag;
     const type = flag.type ?? 'boolean';
@@ -521,103 +698,201 @@ class RuntimeImpl {
       );
     }
     const { provider } = connection;
+    // OpenFeature requires a default of the correct type, and providers
+    // examine it. Without one, the SDK passes a placeholder (see the spec).
+    const fallback = defaultValue ?? placeholderOf(type);
+    // The order of OpenFeature: API (configuration), client (connection),
+    // invocation (call side), provider. They also run for an override, with
+    // the reason OVERRIDE.
+    const allHooks = [
+      ...(this.#config.hooks ?? []),
+      ...(connection.hooks ?? []),
+      ...(call?.hooks ?? []),
+      ...(provider.hooks ?? []),
+    ];
 
+    let hooks: HookRun | undefined;
+    let details: EvaluationDetails<FlagValue> | undefined;
+    let failure: FlagEvaluationError | undefined;
     try {
       if (setupError !== undefined) throw setupError;
       const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
 
-      // An override skips the provider, also its initialization
-      const override = scope
+      let override = scope
         ? (await scope.overrides(this.#readOverrides)).get(key)
         : undefined;
       if (override !== undefined) {
         const problem = valueProblem(override, type, options);
-        if (!problem) return override as FlagValue;
-        logger.warn(
-          `flags: The override of flag "${key}" was ignored, because ${problem}.`,
-        );
+        if (problem) {
+          logger.warn(
+            `flags: The override of flag "${key}" was ignored, because ${problem}.`,
+          );
+          override = undefined;
+        } else if (allHooks.length === 0) {
+          return override as FlagValue;
+        }
       }
 
-      const resolve = provider[resolveMethodOf[type]] as
-        | ((
-            flagKey: string,
-            defaultValue: FlagValue,
-            context: EvaluationContext,
-            logger: Logger,
-          ) => Promise<ResolutionDetails<unknown>>)
-        | undefined;
-      if (!resolve) {
-        throw new FlagEvaluationError(
-          key,
-          'GENERAL',
-          `The provider "${provider.metadata.name}" does not support ${type} flags.`,
-        );
-      }
+      // An override skips the provider and its initialization
+      const resolve =
+        override === undefined
+          ? this.#resolveMethod(key, provider, type)
+          : undefined;
+      const initialization = resolve
+        ? this.initializeProvider(provider)
+        : undefined;
+      // It is awaited below. An early error must not make it unhandled.
+      initialization?.catch(() => {});
 
-      const [, context] = await Promise.all([
-        this.initializeProvider(provider),
-        this.#evaluationContext(flag, connection, input, scope),
-      ]);
-
-      const details = await resolve.call(
-        provider,
-        key,
-        // OpenFeature requires a default of the correct type, and providers
-        // examine it. Without one, the SDK passes a placeholder (see the spec).
-        defaultValue ?? placeholderOf(type),
-        context,
-        logger,
+      const context = await this.#evaluationContext(
+        flag,
+        connection,
+        call?.evaluationContext,
+        scope,
       );
+      if (allHooks.length > 0) {
+        hooks = new HookRun({
+          hooks: allHooks,
+          hints: call?.hookHints,
+          flagKey: key,
+          defaultValue: fallback,
+          type,
+          provider,
+          context,
+        });
+        await hooks.before();
+      }
 
-      if (details.errorCode) {
-        throw new FlagEvaluationError(
-          key,
-          details.errorCode,
-          details.errorMessage ?? details.errorCode,
+      if (resolve) {
+        await initialization;
+        details = await this.#resolve(
+          flag,
+          type,
+          provider,
+          resolve,
+          fallback,
+          hooks?.context ?? context,
         );
+      } else {
+        details = {
+          flagKey: key,
+          value: override as FlagValue,
+          reason: OVERRIDE_REASON,
+          flagMetadata: Object.freeze({}),
+        };
       }
-      if (details.reason === 'ERROR') {
-        throw new FlagEvaluationError(
-          key,
-          'GENERAL',
-          details.errorMessage ?? 'The provider reported an error.',
-        );
-      }
-      // Without a defaultValue, the default of the code is only a placeholder
-      if (defaultValue === undefined && codeDefault in details) {
-        throw new FlagEvaluationError(
-          key,
-          'GENERAL',
-          'The provider asks for the default value, but the flag has no defaultValue.',
-        );
-      }
-      if (!hasType(details.value, type)) {
-        throw new FlagEvaluationError(
-          key,
-          'TYPE_MISMATCH',
-          `Expected a ${type}, got ${typeName(details.value)}`,
-        );
-      }
-      if (options && !isOption(details.value, options)) {
-        throw new FlagEvaluationError(
-          key,
-          'TYPE_MISMATCH',
-          `The value is not one of the options: ${describeValue(details.value)}`,
-        );
-      }
-      return details.value as FlagValue;
+      await hooks?.after(details);
     } catch (error) {
       // A signal of the framework must reach the framework unchanged
       this.#rethrow?.(error);
-      const evaluationError = toEvaluationError(key, error);
-      if (defaultValue === undefined) throw evaluationError;
-      // One line per evaluation, so a broken flag does not fill the logs
-      logger.error(
-        `${evaluationError.message.replace(/\.$/, '')}. Returned the default value: ${formatValue(defaultValue)}.`,
-      );
-      logger.debug(evaluationError);
-      return defaultValue;
+      failure = toEvaluationError(key, error);
     }
+
+    if (!failure && details) {
+      await hooks?.finally(details);
+      return details.value;
+    }
+    const evaluationError =
+      failure ?? new FlagEvaluationError(key, 'GENERAL', 'No result.');
+    await hooks?.error(evaluationError);
+    await hooks?.finally({
+      flagKey: key,
+      value: fallback,
+      reason: 'ERROR',
+      errorCode: evaluationError.code,
+      errorMessage: evaluationError.message,
+      flagMetadata: Object.freeze({}),
+    });
+    if (defaultValue === undefined) throw evaluationError;
+    // One line per evaluation, so a broken flag does not fill the logs
+    logger.error(
+      `${evaluationError.message.replace(/\.$/, '')}. Returned the default value: ${formatValue(defaultValue)}.`,
+    );
+    logger.debug(evaluationError);
+    return defaultValue;
+  }
+
+  #resolveMethod(
+    key: string,
+    provider: Provider,
+    type: FlagType,
+  ): ResolveMethod {
+    const resolve = provider[resolveMethodOf[type]] as
+      | ResolveMethod
+      | undefined;
+    if (!resolve) {
+      throw new FlagEvaluationError(
+        key,
+        'GENERAL',
+        `The provider "${provider.metadata.name}" does not support ${type} flags.`,
+      );
+    }
+    return resolve;
+  }
+
+  /**
+   * Calls the provider and checks its result.
+   */
+  async #resolve(
+    flag: FlagDefinition,
+    type: FlagType,
+    provider: Provider,
+    resolve: ResolveMethod,
+    fallback: FlagValue,
+    context: EvaluationContext,
+  ): Promise<EvaluationDetails<FlagValue>> {
+    const { key, defaultValue, options } = flag;
+    const resolution = await resolve.call(
+      provider,
+      key,
+      fallback,
+      context,
+      logger,
+    );
+
+    if (resolution.errorCode) {
+      throw new FlagEvaluationError(
+        key,
+        resolution.errorCode,
+        resolution.errorMessage ?? resolution.errorCode,
+      );
+    }
+    if (resolution.reason === 'ERROR') {
+      throw new FlagEvaluationError(
+        key,
+        'GENERAL',
+        resolution.errorMessage ?? 'The provider reported an error.',
+      );
+    }
+    // Without a defaultValue, the default of the code is only a placeholder
+    if (defaultValue === undefined && codeDefault in resolution) {
+      throw new FlagEvaluationError(
+        key,
+        'GENERAL',
+        'The provider asks for the default value, but the flag has no defaultValue.',
+      );
+    }
+    if (!hasType(resolution.value, type)) {
+      throw new FlagEvaluationError(
+        key,
+        'TYPE_MISMATCH',
+        `Expected a ${type}, got ${typeName(resolution.value)}`,
+      );
+    }
+    if (options && !isOption(resolution.value, options)) {
+      throw new FlagEvaluationError(
+        key,
+        'TYPE_MISMATCH',
+        `The value is not one of the options: ${describeValue(resolution.value)}`,
+      );
+    }
+    return {
+      value: resolution.value as FlagValue,
+      variant: resolution.variant,
+      reason: resolution.reason,
+      flagKey: key,
+      flagMetadata: Object.freeze({ ...resolution.flagMetadata }),
+    };
   }
 
   /**
@@ -636,6 +911,94 @@ class RuntimeImpl {
     this.#rethrow = undefined;
     this.#configSource = undefined;
     this.#loadedConfig = undefined;
+    for (const provider of [...this.#subscriptions.keys()]) {
+      this.#unsubscribe(provider);
+    }
+    this.#statuses.clear();
+    this.#handlers.clear();
+  }
+
+  /**
+   * Listens to the events of a provider, one time until it is closed.
+   */
+  #subscribe(provider: Provider): void {
+    const { events } = provider;
+    if (!events || this.#subscriptions.has(provider)) return;
+    const listeners = providerEvents.map((event) => {
+      const listener = (details?: ProviderEventDetails) =>
+        this.#handleEvent(provider, event, details ?? {});
+      events.addHandler(event, listener);
+      return [event, listener] as const;
+    });
+    this.#subscriptions.set(provider, () => {
+      for (const [event, listener] of listeners) {
+        events.removeHandler(event, listener);
+      }
+    });
+  }
+
+  #unsubscribe(provider: Provider): void {
+    try {
+      this.#subscriptions.get(provider)?.();
+    } catch (error) {
+      logger.error(
+        `flags: Could not remove the event handlers of provider "${provider.metadata.name}".`,
+        error,
+      );
+    }
+    this.#subscriptions.delete(provider);
+    this.#statuses.delete(provider);
+  }
+
+  /**
+   * Updates the status of the provider, and gives the event to the handlers.
+   */
+  #handleEvent(
+    provider: Provider,
+    event: ProviderEvent,
+    details: ProviderEventDetails,
+    // The rejected initialization already keeps the fatal error
+    fromInitialization = false,
+  ): void {
+    const previous = this.#statuses.get(provider);
+    // FATAL does not change any more (OpenFeature)
+    if (previous !== 'FATAL') {
+      if (event === 'PROVIDER_READY') this.#statuses.set(provider, 'READY');
+      if (event === 'PROVIDER_STALE') this.#statuses.set(provider, 'STALE');
+      if (event === 'PROVIDER_ERROR') {
+        const fatal = details.errorCode === 'PROVIDER_FATAL';
+        this.#statuses.set(provider, fatal ? 'FATAL' : 'ERROR');
+        // The next evaluations fail at once, and are not retried
+        if (fatal && !fromInitialization) {
+          const error = Object.assign(
+            new Error(
+              details.message ??
+                `The provider "${provider.metadata.name}" reported a fatal error.`,
+            ),
+            { code: 'PROVIDER_FATAL' },
+          );
+          this.#initializations.set(provider, handledRejection(error));
+        }
+      }
+    }
+    const handlers = this.#handlers.get(event);
+    if (!handlers) return;
+    for (const handler of handlers) {
+      this.#callHandler(handler, {
+        ...details,
+        providerName: provider.metadata.name,
+      });
+    }
+  }
+
+  #callHandler(handler: EventHandler, details: EventDetails): void {
+    const report = (error: unknown) =>
+      logger.error('flags: An event handler failed.', error);
+    try {
+      Promise.resolve(handler(details)).catch(report);
+    } catch (error) {
+      report(error);
+    }
   }
 
   /**
@@ -717,6 +1080,7 @@ class RuntimeImpl {
       return;
     }
     this.#initializations.delete(provider);
+    this.#unsubscribe(provider);
     initialization
       .then(() => provider.onClose?.())
       .catch((error: unknown) => {
