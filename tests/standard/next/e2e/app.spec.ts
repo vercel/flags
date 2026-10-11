@@ -89,3 +89,37 @@ test('evaluates a static page at build time without a request', async ({
   // Built before any request, so the user is "anonymous", also for alice
   expect(html).toContain('<p id="static-checkout">false</p>');
 });
+
+test('precomputes the flags in the proxy for a static page', async ({
+  request,
+}) => {
+  const [anonymous, alice] = await Promise.all([
+    request.get('/precomputed'),
+    request.get('/precomputed', { headers: { cookie: 'user=alice' } }),
+  ]);
+
+  // The page exists only for the codes of generateStaticParams
+  expect(await anonymous.text()).toContain(
+    '{&quot;sale&quot;:true,&quot;checkout&quot;:false}',
+  );
+  expect(await alice.text()).toContain(
+    '{&quot;sale&quot;:true,&quot;checkout&quot;:true}',
+  );
+});
+
+test('applies an override cookie to precomputed flags', async ({ request }) => {
+  const token = await encryptOverrides({ 'summer-sale': false }, FLAGS_SECRET);
+  const response = await request.get('/precomputed', {
+    headers: { cookie: `flag-overrides=${token}` },
+  });
+
+  expect(await response.text()).toContain(
+    '{&quot;sale&quot;:false,&quot;checkout&quot;:false}',
+  );
+});
+
+test('has no page for a code which is not valid', async ({ request }) => {
+  const response = await request.get('/precomputed/not-a-code');
+
+  expect(response.status()).toBe(404);
+});

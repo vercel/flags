@@ -49,6 +49,10 @@
     "./next/plugin": {
       "import": "./dist/next-plugin.js",
       "require": "./dist/next-plugin.cjs"
+    },
+    "./next/precompute": {
+      "import": "./dist/next-precompute.js",
+      "require": "./dist/next-precompute.cjs"
     }
   },
   "typesVersions": {
@@ -56,6 +60,10 @@
       "next/plugin": [
         "dist/next-plugin.d.ts",
         "dist/next-plugin.d.cts"
+      ],
+      "next/precompute": [
+        "dist/next-precompute.d.ts",
+        "dist/next-precompute.d.cts"
       ],
       "config": [
         "dist/config-module.d.ts",
