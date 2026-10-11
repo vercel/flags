@@ -15,18 +15,23 @@ test('the script writes the manifest of the flags', () => {
 
   expect(manifest).toEqual({
     version: 1,
+    connections: {
+      'in-memory': { platform: 'in-memory', variables: {} },
+    },
     definitions: {
       'banner-text': {
         type: 'string',
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'src/flags.ts', export: 'bannerText' }],
       },
       'summer-sale': {
         type: 'boolean',
         defaultValue: false,
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'src/flags.ts', export: 'summerSale' }],
       },
     },

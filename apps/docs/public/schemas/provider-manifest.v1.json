@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "title": "Provider manifest",
+  "description": "Tells tools such as Flags Explorer how to build links to the dashboard of a feature flag platform, from the variables of a connection of the Flags SDK. URL templates use level 1 of RFC 6570: {name} placeholders, which are replaced with URL-encoded values. A placeholder must not be in the origin.",
+  "type": "object",
+  "required": ["version", "name", "links"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The name of the platform."
+    },
+    "logo": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "The URL of the logo of the platform."
+    },
+    "variables": {
+      "type": "object",
+      "description": "The variables which the connections give, e.g. projectId. The variable flagKey is always available in the link of a flag.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flag": {
+          "$ref": "#/$defs/template",
+          "description": "The page of one flag. Has the variable flagKey."
+        },
+        "createFlag": {
+          "$ref": "#/$defs/template",
+          "description": "The page which creates a flag."
+        },
+        "project": {
+          "$ref": "#/$defs/template",
+          "description": "The page of the project."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "template": {
+      "type": "string",
+      "pattern": "^https://[^/?#{}]+([/?][^#]*)?$",
+      "description": "An HTTPS URL template, without a placeholder in its origin."
+    }
+  }
+}

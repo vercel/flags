@@ -196,6 +196,29 @@ export function createVercelVerifier(
 }
 
 /**
+ * Finds the Vercel project of the host: the environment of a deployment, the
+ * `VERCEL_OIDC_TOKEN` of `vercel env pull`, and the `.vercel/project.json` of
+ * `vercel link`, in this order. A part which is not known is `undefined`.
+ *
+ * @internal
+ */
+export function findVercelProject(): Partial<OverrideProject> {
+  const env = process.env;
+  const oidc = readOidcClaims();
+  const linked = readLinkedProject();
+  // An empty environment variable counts as missing
+  return {
+    projectId: env.VERCEL_PROJECT_ID || oidc?.projectId || linked?.projectId,
+    environment:
+      env.VERCEL_TARGET_ENV ||
+      env.VERCEL_ENV ||
+      oidc?.environment ||
+      (linked && env.NODE_ENV === 'development' ? 'development' : undefined),
+    teamId: oidc?.teamId || linked?.orgId,
+  };
+}
+
+/**
  * Finds the project of the host, in this order: the options, the environment
  * of a deployment, the `VERCEL_OIDC_TOKEN` of `vercel env pull`, and the
  * `.vercel/project.json` of `vercel link`.
@@ -203,20 +226,10 @@ export function createVercelVerifier(
 function resolveProject(
   configured: Partial<OverrideProject> = {},
 ): OverrideProject {
-  const env = process.env;
-  const oidc = readOidcClaims();
-  const linked = readLinkedProject();
-  // An empty environment variable counts as missing
-  const projectId =
-    configured.projectId ??
-    (env.VERCEL_PROJECT_ID || oidc?.projectId || linked?.projectId);
-  const environment =
-    configured.environment ??
-    (env.VERCEL_TARGET_ENV ||
-      env.VERCEL_ENV ||
-      oidc?.environment ||
-      (linked && env.NODE_ENV === 'development' ? 'development' : undefined));
-  const teamId = configured.teamId ?? (oidc?.teamId || linked?.orgId);
+  const found = findVercelProject();
+  const projectId = configured.projectId ?? found.projectId;
+  const environment = configured.environment ?? found.environment;
+  const teamId = configured.teamId ?? found.teamId;
 
   if (!projectId?.trim() || !environment?.trim()) {
     throw new OverridesError(

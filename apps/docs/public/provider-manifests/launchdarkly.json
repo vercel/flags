@@ -1,0 +1,16 @@
+{
+  "$schema": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "version": 1,
+  "name": "LaunchDarkly",
+  "variables": {
+    "projectId": {
+      "description": "The key of the project in LaunchDarkly."
+    },
+    "environment": {
+      "description": "The key of the environment, e.g. production."
+    }
+  },
+  "links": {
+    "flag": "https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting"
+  }
+}
