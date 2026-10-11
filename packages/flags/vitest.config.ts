@@ -14,6 +14,16 @@ export default defineConfig({
       'flags/config': fileURLToPath(
         new URL('./src/config-module.ts', import.meta.url),
       ),
+      // Modules of SvelteKit and Nitro, which only the frameworks provide
+      '$app/server': fileURLToPath(
+        new URL('./test/stubs/app-server.ts', import.meta.url),
+      ),
+      '#imports': fileURLToPath(
+        new URL('./test/stubs/nitro-imports.ts', import.meta.url),
+      ),
+      'flags:tanstack-start/server': fileURLToPath(
+        new URL('./test/stubs/tanstack-start-server.ts', import.meta.url),
+      ),
     },
   },
   test: {

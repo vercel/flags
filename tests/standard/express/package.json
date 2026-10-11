@@ -1,0 +1,22 @@
+{
+  "name": "standard-express",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "manifest": "flags manifest",
+    "test:e2e": "pnpm manifest && playwright test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "flags": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.1",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.14.0"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

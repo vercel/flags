@@ -19,12 +19,15 @@
  */
 import { createHash } from 'node:crypto';
 import { rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { basename, join, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { MANIFEST_FILE, writeManifestFromBuild } from './build-manifest';
+import { findConfigFile } from './config-file';
 import { hasUseFlagsDirective } from './directive';
 import { findFlagsModules } from './find-flags-modules';
 import { createManifest } from './manifest';
+import { runtime } from './runtime';
 import { addSelfRegistration } from './self-registration';
 
 export interface FlagsVitePluginOptions {
@@ -39,6 +42,63 @@ export interface FlagsVitePluginOptions {
    * writes it in one of them.
    */
   readonly manifest?: boolean;
+  /**
+   * The framework, e.g. `sveltekit`. With it, the plugin points
+   * `flags/framework` to the framework binding (e.g. `flags/sveltekit`),
+   * and `flags/config` to `flags.config.ts`, so that the SDK gets the
+   * request and the configuration without code in the application.
+   */
+  readonly framework?: 'sveltekit' | 'tanstack-start';
+  /**
+   * The module of the default provider, e.g. of a platform, instead of the
+   * built-in OFREP provider (see `flags/default-provider`). A path is
+   * relative to the project. During a build on Vercel (`VERCEL` is set),
+   * the default is `@vercel/flags-core/default-provider`, if the project
+   * has `@vercel/flags-core`.
+   */
+  readonly defaultProvider?: string;
+}
+
+const bindings = {
+  sveltekit: 'flags/sveltekit',
+  'tanstack-start': 'flags/tanstack-start',
+} as const;
+
+/**
+ * The modules of the frameworks which the bindings import. The plugin
+ * resolves them from the project, because the SDK does not depend on the
+ * frameworks.
+ */
+const frameworkModules: Readonly<Record<string, readonly string[]>> = {
+  'flags:tanstack-start/server': [
+    '@tanstack/react-start/server',
+    '@tanstack/solid-start/server',
+  ],
+};
+
+const VERCEL_DEFAULT_PROVIDER = '@vercel/flags-core/default-provider';
+
+/**
+ * The default provider of the platform of the build: on Vercel, the fast
+ * provider of `@vercel/flags-core`, if the project has it. Development uses
+ * OFREP, as with the deployment adapters of Next.js.
+ *
+ * @internal
+ */
+export function platformDefaultProvider(
+  dir: string,
+  isBuild: boolean,
+  // Throws if the project does not have the module
+  resolveModule: (id: string) => unknown = (id) =>
+    createRequire(join(dir, 'package.json')).resolve(id),
+): string | undefined {
+  if (!isBuild || !process.env.VERCEL) return undefined;
+  try {
+    resolveModule(VERCEL_DEFAULT_PROVIDER);
+    return VERCEL_DEFAULT_PROVIDER;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -71,17 +131,55 @@ function isServer(
   return consumer ? consumer === 'server' : ssr === true;
 }
 
-async function importForDev(server: ViteDevServer, file: string) {
+interface DevImporter {
+  import(url: string): Promise<Record<string, unknown>>;
+  close?(): Promise<void>;
+}
+
+/**
+ * Returns a way to import server modules in development. The SSR
+ * environment of Vite is runnable in most frameworks. With a framework which
+ * runs it elsewhere, e.g. TanStack Start with Nitro in a worker, a runnable
+ * copy of the SSR environment imports the modules. It is new for each
+ * request, so that it imports the current files, and `vite` is only loaded
+ * when it is necessary.
+ */
+async function devImporter(
+  server: ViteDevServer,
+): Promise<{ importer: DevImporter; own: boolean }> {
   const ssr = server.environments?.ssr as
-    | { runner?: { import(url: string): Promise<Record<string, unknown>> } }
+    | ({ runner?: DevImporter } & object)
     | undefined;
-  return ssr?.runner
-    ? ssr.runner.import(file)
-    : (server.ssrLoadModule(file) as Promise<Record<string, unknown>>);
+  if (ssr?.runner) return { importer: ssr.runner, own: false };
+  if (ssr) {
+    // A runnable copy of the SSR environment, with its configuration and
+    // plugins, only for this request
+    const { createRunnableDevEnvironment } = await import('vite');
+    const environment = createRunnableDevEnvironment('ssr', server.config, {
+      hot: false,
+    });
+    await environment.init({ watcher: server.watcher });
+    return {
+      importer: {
+        import: (url) =>
+          environment.runner.import(url) as Promise<Record<string, unknown>>,
+        close: () => environment.close(),
+      },
+      own: true,
+    };
+  }
+  return {
+    importer: {
+      import: (file) =>
+        server.ssrLoadModule(file) as Promise<Record<string, unknown>>,
+    },
+    own: false,
+  };
 }
 
 export function flags(options: FlagsVitePluginOptions = {}): Plugin {
   let root = options.root ?? process.cwd();
+  let defaultProvider: string | undefined;
   // Vite calls configResolved. Rollup does not, and then it is a build.
   let vite = false;
   let isBuild = true;
@@ -90,6 +188,57 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
 
   return {
     name: 'flags',
+    config(config, env) {
+      const dir = options.root ?? config.root ?? process.cwd();
+      defaultProvider =
+        options.defaultProvider ??
+        platformDefaultProvider(dir, env.command === 'build');
+      if (!options.framework && !defaultProvider) return;
+      const configFile = options.framework ? findConfigFile(dir) : undefined;
+      return {
+        resolve: {
+          alias: [
+            ...(options.framework
+              ? [
+                  {
+                    find: /^flags\/framework$/,
+                    replacement: bindings[options.framework],
+                  },
+                ]
+              : []),
+            ...(configFile
+              ? [{ find: /^flags\/config$/, replacement: configFile }]
+              : []),
+          ],
+        },
+        // The aliases only reach the SDK when it is bundled into the server
+        // code, not when Node.js loads it from node_modules. The optimizer
+        // of dependencies must not bundle it in advance: the modules of the
+        // framework which the bindings import only work in the framework.
+        ssr: { noExternal: ['flags'], optimizeDeps: { exclude: ['flags'] } },
+        optimizeDeps: { exclude: ['flags'] },
+      };
+    },
+    // Resolves the modules which the SDK imports, but which only the project
+    // has: the modules of the framework, and the default provider. Before
+    // the resolver of Vite, which resolves flags/default-provider through
+    // the exports of the package.
+    resolveId: {
+      order: 'pre',
+      async handler(id) {
+        const importer = join(root, 'package.json');
+        if (id === 'flags/default-provider' && defaultProvider) {
+          return this.resolve(defaultProvider, importer, { skipSelf: true });
+        }
+        for (const candidate of frameworkModules[id] ?? []) {
+          const resolved = await this.resolve(candidate, importer, {
+            skipSelf: true,
+          });
+          if (resolved) return resolved;
+        }
+        return null;
+      },
+    },
     configResolved(config) {
       vite = true;
       root = options.root ?? config.root;
@@ -148,23 +297,38 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
         output: file,
       });
     },
-    configureServer(server) {
-      server.middlewares.use(async (request, response, next) => {
-        if (request.url?.split('?')[0] !== MANIFEST_PATH) return next();
-        try {
-          const modules = await Promise.all(
-            findFlagsModules(root).map(async (id) => ({
-              id,
-              exports: { ...(await importForDev(server, join(root, id))) },
-            })),
-          );
-          response.setHeader('content-type', 'application/json');
-          response.setHeader('cache-control', 'no-store');
-          response.end(JSON.stringify(createManifest(modules)));
-        } catch (error) {
-          next(error);
-        }
-      });
+    // Before the middlewares of the framework, which can answer each path,
+    // e.g. TanStack Start
+    configureServer: {
+      order: 'pre',
+      handler(server) {
+        server.middlewares.use(async (request, response, next) => {
+          if (request.url?.split('?')[0] !== MANIFEST_PATH) return next();
+          const { importer, own } = await devImporter(server);
+          try {
+            if (options.framework) {
+              // The SDK in the server code has the framework binding, so the
+              // runtime can load flags.config.ts, which gives the default
+              // connection of the flags without a connection
+              await importer.import('flags');
+              await runtime.prepare();
+            }
+            const modules = await Promise.all(
+              findFlagsModules(root).map(async (id) => ({
+                id,
+                exports: { ...(await importer.import(join(root, id))) },
+              })),
+            );
+            response.setHeader('content-type', 'application/json');
+            response.setHeader('cache-control', 'no-store');
+            response.end(JSON.stringify(createManifest(modules)));
+          } catch (error) {
+            next(error);
+          } finally {
+            if (own) await importer.close?.();
+          }
+        });
+      },
     },
   };
 }

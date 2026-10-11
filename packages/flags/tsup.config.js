@@ -35,6 +35,12 @@ export default defineConfig({
     vite: 'src/vite.ts',
     cli: 'src/cli.ts',
     nuxt: 'src/nuxt.ts',
+    sveltekit: 'src/sveltekit.ts',
+    'tanstack-start': 'src/tanstack-start.ts',
+    'nuxt-runtime': 'src/nuxt-runtime.ts',
+    'nuxt-plugin': 'src/nuxt-plugin.ts',
+    hono: 'src/hono.ts',
+    express: 'src/express.ts',
   },
   format: ['esm', 'cjs'],
   splitting: true,
@@ -43,7 +49,9 @@ export default defineConfig({
   clean: true,
   skipNodeModulesBundle: true,
   dts: true,
-  external: [/^node:.*/, 'node_modules'],
+  // $app/* (SvelteKit), #imports (Nitro) and flags:* (resolved by flags/vite)
+  // are modules of the framework in the build of the application
+  external: [/^node:.*/, /^\$app\//, /^#imports$/, /^flags:/, 'node_modules'],
   esbuildPlugins: [keepReplaceableImports],
   removeNodeProtocol: false,
 });

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import stringify from 'fast-json-stable-stringify';
-import { setupFramework } from 'flags/framework';
+import { type SetupFramework, setupFramework } from 'flags/framework';
 import type { Config } from './config';
 import { type Connection, isConnection } from './connection';
 import { getBuiltInConnection } from './default-connection';
@@ -1126,8 +1126,10 @@ class RuntimeImpl {
    * it fails, the next call tries again.
    */
   #setUpFramework(): Promise<void> {
-    if (!setupFramework) return Promise.resolve();
-    const setup = setupFramework;
+    // The binding of any copy of the SDK. Without one, nothing is stored, so
+    // that a copy which is loaded later can still give its binding.
+    const setup = sharedState.setupFramework as SetupFramework | undefined;
+    if (!setup) return Promise.resolve();
     this.#framework ??= Promise.resolve()
       .then(() => setup(this))
       .catch((error: unknown) => {
@@ -1199,5 +1201,7 @@ export type Runtime = RuntimeImpl;
  * The runtime of the application. All copies of the package in one process
  * share it.
  */
+// A copy with a framework binding gives it to the runtime of all copies
+if (setupFramework) sharedState.setupFramework ??= setupFramework;
 sharedState.runtime ??= new RuntimeImpl();
 export const runtime = sharedState.runtime as Runtime;

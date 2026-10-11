@@ -17,6 +17,10 @@ import { existsSync, rmSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { NextConfig } from 'next';
+import { findConfigFile } from '../config-file';
+
+export { findConfigFile };
+
 import { MANIFEST_FILE } from '../build-manifest';
 
 export interface FlagsPluginOptions {
@@ -25,29 +29,6 @@ export interface FlagsPluginOptions {
    * `flags.config.ts`. The default is the current directory.
    */
   readonly dir?: string;
-}
-
-const configFileNames = [
-  'flags.config.ts',
-  'flags.config.mts',
-  'flags.config.js',
-  'flags.config.mjs',
-];
-
-/**
- * Finds `flags.config.ts`, in the directory of the application or in its
- * `src` directory.
- *
- * @internal
- */
-export function findConfigFile(dir: string): string | undefined {
-  for (const base of [dir, join(dir, 'src')]) {
-    for (const name of configFileNames) {
-      const file = join(base, name);
-      if (existsSync(file)) return file;
-    }
-  }
-  return undefined;
 }
 
 // Next.js can load the configuration more than once during one build, e.g.

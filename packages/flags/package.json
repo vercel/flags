@@ -74,6 +74,30 @@
       "import": "./dist/vite.js",
       "require": "./dist/vite.cjs"
     },
+    "./sveltekit": {
+      "import": "./dist/sveltekit.js",
+      "require": "./dist/sveltekit.cjs"
+    },
+    "./tanstack-start": {
+      "import": "./dist/tanstack-start.js",
+      "require": "./dist/tanstack-start.cjs"
+    },
+    "./hono": {
+      "import": "./dist/hono.js",
+      "require": "./dist/hono.cjs"
+    },
+    "./express": {
+      "import": "./dist/express.js",
+      "require": "./dist/express.cjs"
+    },
+    "./nuxt/runtime": {
+      "import": "./dist/nuxt-runtime.js",
+      "require": "./dist/nuxt-runtime.cjs"
+    },
+    "./nuxt/plugin": {
+      "import": "./dist/nuxt-plugin.js",
+      "require": "./dist/nuxt-plugin.cjs"
+    },
     "./nuxt": {
       "import": "./dist/nuxt.js",
       "require": "./dist/nuxt.cjs"
@@ -92,6 +116,14 @@
       "next/use-flags-loader": [
         "dist/next-use-flags-loader.d.ts",
         "dist/next-use-flags-loader.d.cts"
+      ],
+      "nuxt/runtime": [
+        "dist/nuxt-runtime.d.ts",
+        "dist/nuxt-runtime.d.cts"
+      ],
+      "nuxt/plugin": [
+        "dist/nuxt-plugin.d.ts",
+        "dist/nuxt-plugin.d.cts"
       ],
       "next/manifest": [
         "dist/next-manifest.d.ts",
