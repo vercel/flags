@@ -263,6 +263,76 @@ export async function register() {
 
 See `../SPEC.md`, section "Hooks, events and tracking".
 
+### Precompute
+
+Precompute evaluates flags in the proxy, puts their values into a signed
+code in the URL, and renders a static page for each combination of values.
+Thus, a page can be static and still show the values of each visitor.
+
+```ts
+// flags.ts
+export const marketingFlags = [summerSale, checkout] as const;
+```
+
+```ts
+// proxy.ts
+import { precompute } from 'flags/next/precompute';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './flags';
+
+export async function proxy(request: NextRequest) {
+  // The request goes to the evaluation context chain and to the overrides
+  const code = await precompute(marketingFlags, { request });
+  return NextResponse.rewrite(new URL(`/marketing/${code}`, request.url));
+}
+
+export const config = { matcher: '/marketing' };
+```
+
+```tsx
+// app/marketing/[code]/page.tsx
+import { generatePermutations, getPrecomputed } from 'flags/next/precompute';
+import { checkout, marketingFlags, summerSale } from '../../../flags';
+
+// Optional: build a page for each combination at build time
+export async function generateStaticParams() {
+  const codes = await generatePermutations(marketingFlags);
+  return codes.map((code) => ({ code }));
+}
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const [sale, flow] = await getPrecomputed(
+    [summerSale, checkout],
+    marketingFlags,
+    code,
+  );
+  return <h1>{sale ? 'Summer sale' : `Checkout: ${flow}`}</h1>;
+}
+```
+
+- The code is signed with `FLAGS_PRECOMPUTE_SECRET`, so a visitor can not
+  set the values in the URL. Set it for the build and for the runtime, e.g.
+  a new random value for each build. It is not `FLAGS_SECRET` of the
+  override cookies. Each function also accepts an explicit `secret`.
+- To keep codes of v4 valid during the upgrade, set
+  `FLAGS_PRECOMPUTE_SECRET` to the value of `FLAGS_SECRET` for that time.
+- `getPrecomputed` reads the code. It does not evaluate the flags again, so
+  the page stays static.
+- `generatePermutations` needs `options` for each flag which is not a
+  boolean. Use its `filter` to skip combinations which need no page.
+- The API and the format of the code are those of v4. A code of v4 is
+  valid in v5.
+- Changes from v4: a flag is not a function of `(code, group)`. Use
+  `getPrecomputed`. A flag which is not part of the code throws, and a flag
+  without options which is not a boolean throws in `generatePermutations`.
+- Precompute is not a part of the standard of the SDK. It uses only its
+  public API.
+
 ### Static pages
 
 A page that Next.js renders at build time has no request. Its flags use the
@@ -365,15 +435,14 @@ the configuration, the providers and their clients.
 
 ## Not supported yet
 
-- **The proxy (`proxy.ts`).** It gets the full `NextRequest`, but it does
-  not use `headers()` of `next/headers`. A helper that wraps the proxy with
-  `runtime.onInvoke` is planned.
+- **A helper for flags in the proxy.** `precompute(flags, { request })`
+  works in the proxy. For a flag call in the proxy, wrap it with
+  `runtime.onInvoke(request, () => flag())`, because the proxy does not use
+  `headers()` of `next/headers`. A shorter helper is planned.
 - **Server actions.** They are not tested yet.
 - **`onInit` and `onShutdown`.** Next.js has no hooks for them, except
   `register` in `instrumentation.ts`. Without them, providers are initialized
   on their first evaluation.
-- **Precompute.** It is planned as `flags/next/precompute`, for the
-  transition from v4 (milestone 11).
 - **The Edge runtime.** It is not tested. The Edge runtime is deprecated.
 - **The Pages Router.** It is not tested.
 
@@ -388,7 +457,7 @@ the configuration, the providers and their clients.
   `modifyConfig`, during `phase-production-build`. The adapter API is stable
   since Next.js 16.2, and the platform enables its adapter with
   `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 17 end-to-end tests with HTTP requests, without
+- `tests/standard/next` runs 23 end-to-end tests with HTTP requests, without
   a browser:
 
   ```sh

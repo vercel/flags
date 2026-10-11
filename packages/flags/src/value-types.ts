@@ -158,6 +158,19 @@ export function isOption(
   return options.some((option) => isEqual(option.value, value));
 }
 
+/**
+ * The index of the option with this value, or -1. Compares JSON values by
+ * their content.
+ *
+ * @internal
+ */
+export function optionIndex(
+  value: unknown,
+  options: readonly FlagOptionObject<FlagValue>[],
+): number {
+  return options.findIndex((option) => isEqual(option.value, value));
+}
+
 function isEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;

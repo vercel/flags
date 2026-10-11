@@ -24,6 +24,11 @@ import {
   runtime,
   track,
 } from './index';
+import {
+  generatePermutations,
+  getPrecomputed,
+  precompute,
+} from './next/precompute';
 // Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
 import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
 
@@ -987,5 +992,44 @@ describe('13. Hooks, events and tracking', () => {
       { user: 'alice' },
       { value: 99 },
     );
+  });
+});
+
+describe('14. Precompute for Next.js', () => {
+  // A separate export, flags/next/precompute. Not a part of the runtime or
+  // of the standard.
+
+  it('evaluates in the proxy, and reads the values on a static page', async () => {
+    // One secret for each build, only for precompute
+    vi.stubEnv(
+      'FLAGS_PRECOMPUTE_SECRET',
+      Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+        'base64url',
+      ),
+    );
+    const connection = defineConnection({
+      provider: createProvider(),
+      project: { platform: 'in-memory' },
+      getEvaluationContext: (_context, request) => ({
+        user: request?.cookies?.get('user')?.value ?? 'anonymous',
+      }),
+    });
+    const summerSale = defineFlag({ key: 'summer-sale', connection });
+    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const marketingFlags = [summerSale, newCheckout] as const;
+
+    // proxy.ts: a short, signed code with the values, for the URL
+    const request = new Request('https://shop.example/marketing', {
+      headers: { cookie: 'user=alice' },
+    });
+    const code = await precompute(marketingFlags, { request });
+
+    // app/marketing/[code]/page.tsx: read the values, no evaluation
+    expect(
+      await getPrecomputed([summerSale, newCheckout], marketingFlags, code),
+    ).toEqual([true, true]);
+
+    // generateStaticParams: one page for each combination
+    expect(await generatePermutations(marketingFlags)).toHaveLength(4);
   });
 });

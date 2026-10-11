@@ -31,9 +31,9 @@ changed, update the walkthrough in the same change.
    development (see "Framework integration contract").
 10. Done: OpenFeature parity. Hooks, events, tracking, and the report of
     overrides through hooks (see "Hooks, events and tracking").
-11. A cache of results for each request (done, see "The cache of each
-    request"), and precompute for Next.js as a separate export, outside of
-    the runtime and the standard.
+11. Done: a cache of results for each request (see "The cache of each
+    request"), and precompute for Next.js as the separate export
+    `flags/next/precompute` (see "Precompute").
 12. Tooling. Flag discovery for tools such as Flags Explorer, links to the
     dashboard of the platform (`origin`), and the overrides from end to end
     with the Vercel Toolbar.
@@ -52,9 +52,51 @@ the packages of the monorepo that still use v4.
 
 v5 supports precompute, but not as a part of the runtime or the standard. It
 is a feature of Next.js: flags in the proxy, and static pages for each
-combination of flags. It will be a separate export, e.g.
-`flags/next/precompute`, so that users of v4 can keep using it. Ultimately,
-it belongs in the framework, built on the standard of this SDK.
+combination of flags. It is the separate export `flags/next/precompute`, so
+that users of v4 can keep using it. Ultimately, it belongs in the framework,
+built on the standard of this SDK. The usage is in
+`frameworks/nextjs.md`, section "Precompute".
+
+- The API has the names and the signatures of v4: `precompute`,
+  `serialize`, `deserialize`, `getPrecomputed`, `generatePermutations` and
+  `combine`.
+- The format of the code is that of v4: one byte for each flag (the index
+  of its option, or a special value for `null`, `false`, `true` and a value
+  which is not an option), then the other values as JSON, signed with
+  HS256. A test reads a code which v4 created, and v5 creates the same code.
+- The secret is `FLAGS_PRECOMPUTE_SECRET`, not `FLAGS_SECRET`: one secret
+  for each purpose. `FLAGS_SECRET` encrypts the override cookies. The user
+  sets `FLAGS_PRECOMPUTE_SECRET`, e.g. a new value for each build, because
+  a code is only used inside one deployment: the proxy rewrites to a static
+  page of the same deployment. There is no fallback to `FLAGS_SECRET`.
+- To keep the codes of v4 valid during the upgrade, e.g. while v4 and v5
+  are deployed at the same time, set `FLAGS_PRECOMPUTE_SECRET` to the value
+  of `FLAGS_SECRET` for that time.
+- `precompute(flags, { request, evaluationContext, secret })` evaluates the
+  flags with `evaluate`. With `request`, it runs in `runtime.onInvoke`, so
+  that the context chain and the overrides get the request of the proxy.
+- It uses only the public API of the runtime. It is not a framework
+  integration, and it needs no alias.
+- Changes from v4, which match the rules of v5:
+  - A flag is not a function of `(code, group)`. Use `getPrecomputed`.
+  - A flag which is not part of the code throws. v4 logged a warning and
+    returned `undefined`.
+  - `generatePermutations` throws for a flag without options which is not
+    a boolean. v4 used `false` and `true` for each flag without options.
+  - A code with a wrong signature throws "The precomputed code is not
+    valid.", with the error of `jose` as the cause.
+- Why a signature: without it, anyone can make a code. A code with any
+  JSON value shows text of the attacker on the page (phishing, or XSS if a
+  value goes into HTML or a link). Codes without a limit fill the cache of
+  pages. And each visitor can choose each combination of options, e.g. an
+  unreleased feature. The code is signed, not encrypted: the values are
+  readable.
+- Open question: zero configuration. The SDK can not sign with Vercel KMS:
+  the key pair belongs to Flags Explorer, not to the application. Next.js
+  creates a key for each build for Server Actions, in a manifest of the
+  build, and `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` replaces it. A plugin can
+  not write into that manifest. Under investigation: `withFlags` inlines a
+  key for each build into the compiled code.
 
 ### Tests with real frameworks
 
@@ -1062,7 +1104,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 `tests/standard/next` tests the integration with three builds: Turbopack,
 webpack, and Turbopack with a test adapter of the platform. `pnpm test:e2e`
-runs 17 tests with HTTP requests, without a browser. `next dev` was also
+runs 23 tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
 
 **SvelteKit**

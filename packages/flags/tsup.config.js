@@ -27,6 +27,7 @@ export default defineConfig({
     'config-module': 'src/config-module.ts',
     next: 'src/next/index.ts',
     'next-plugin': 'src/next/plugin.ts',
+    'next-precompute': 'src/next/precompute.ts',
   },
   format: ['esm', 'cjs'],
   splitting: true,
