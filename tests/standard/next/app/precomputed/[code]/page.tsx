@@ -1,4 +1,7 @@
-import { generatePermutations, getPrecomputed } from 'flags/next/precompute';
+import {
+  generatePermutations,
+  getPrecomputed,
+} from '@flags-sdk/next/precompute';
 import { newCheckout, summerSale } from '../../../flags';
 import { precomputeFlags } from '../../../precompute';
 

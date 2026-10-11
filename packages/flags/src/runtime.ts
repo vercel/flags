@@ -523,8 +523,6 @@ class RuntimeImpl {
    * Sets up the framework binding and loads the configuration, without
    * the initialization of providers. For tools, e.g. the route of the
    * manifest, which need the default connection of the configuration.
-   *
-   * @internal
    */
   async prepare(): Promise<void> {
     await this.#setUpFramework();

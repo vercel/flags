@@ -1,7 +1,7 @@
 {
   "name": "flags",
   "version": "4.3.1",
-  "description": "Flags SDK by Vercel - The feature flags toolkit for Next.js and SvelteKit",
+  "description": "Flags SDK by Vercel: the feature flags toolkit, built on OpenFeature",
   "keywords": [
     "feature flags",
     "Next.js",
@@ -42,96 +42,20 @@
       "import": "./dist/config-module.js",
       "require": "./dist/config-module.cjs"
     },
-    "./next": {
-      "import": "./dist/next.js",
-      "require": "./dist/next.cjs"
-    },
-    "./next/plugin": {
-      "import": "./dist/next-plugin.js",
-      "require": "./dist/next-plugin.cjs"
-    },
-    "./next/precompute": {
-      "import": "./dist/next-precompute.js",
-      "require": "./dist/next-precompute.cjs"
-    },
-    "./next/use-flags-loader": {
-      "import": "./dist/next-use-flags-loader.js",
-      "require": "./dist/next-use-flags-loader.cjs"
-    },
-    "./next/manifest": {
-      "import": "./dist/next-manifest.js",
-      "require": "./dist/next-manifest.cjs"
-    },
-    "./next/manifest-loader": {
-      "import": "./dist/next-manifest-loader.js",
-      "require": "./dist/next-manifest-loader.cjs"
-    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
     },
-    "./vite": {
-      "import": "./dist/vite.js",
-      "require": "./dist/vite.cjs"
-    },
-    "./sveltekit": {
-      "import": "./dist/sveltekit.js",
-      "require": "./dist/sveltekit.cjs"
-    },
-    "./tanstack-start": {
-      "import": "./dist/tanstack-start.js",
-      "require": "./dist/tanstack-start.cjs"
-    },
-    "./hono": {
-      "import": "./dist/hono.js",
-      "require": "./dist/hono.cjs"
-    },
-    "./express": {
-      "import": "./dist/express.js",
-      "require": "./dist/express.cjs"
-    },
-    "./nuxt/runtime": {
-      "import": "./dist/nuxt-runtime.js",
-      "require": "./dist/nuxt-runtime.cjs"
-    },
-    "./nuxt/plugin": {
-      "import": "./dist/nuxt-plugin.js",
-      "require": "./dist/nuxt-plugin.cjs"
-    },
-    "./nuxt": {
-      "import": "./dist/nuxt.js",
-      "require": "./dist/nuxt.cjs"
+    "./tooling": {
+      "import": "./dist/tooling.js",
+      "require": "./dist/tooling.cjs"
     }
   },
   "typesVersions": {
     "*": {
-      "next/plugin": [
-        "dist/next-plugin.d.ts",
-        "dist/next-plugin.d.cts"
-      ],
-      "next/precompute": [
-        "dist/next-precompute.d.ts",
-        "dist/next-precompute.d.cts"
-      ],
-      "next/use-flags-loader": [
-        "dist/next-use-flags-loader.d.ts",
-        "dist/next-use-flags-loader.d.cts"
-      ],
-      "nuxt/runtime": [
-        "dist/nuxt-runtime.d.ts",
-        "dist/nuxt-runtime.d.cts"
-      ],
-      "nuxt/plugin": [
-        "dist/nuxt-plugin.d.ts",
-        "dist/nuxt-plugin.d.cts"
-      ],
-      "next/manifest": [
-        "dist/next-manifest.d.ts",
-        "dist/next-manifest.d.cts"
-      ],
-      "next/manifest-loader": [
-        "dist/next-manifest-loader.d.ts",
-        "dist/next-manifest-loader.d.cts"
+      "tooling": [
+        "dist/tooling.d.ts",
+        "dist/tooling.d.cts"
       ],
       "config": [
         "dist/config-module.d.ts",
@@ -163,10 +87,8 @@
     "@openfeature/core": "1.12.0",
     "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
-    "next": "16.3.8",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vite": "8.3.4",
     "vitest": "4.1.11"
   },
   "publishConfig": {
@@ -175,18 +97,6 @@
   "dependencies": {
     "fast-json-stable-stringify": "^2.1.0",
     "jose": "^6.2.12"
-  },
-  "peerDependencies": {
-    "next": ">=15.4.0",
-    "vite": ">=6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "next": {
-      "optional": true
-    },
-    "vite": {
-      "optional": true
-    }
   },
   "bin": {
     "flags": "./dist/cli.js"

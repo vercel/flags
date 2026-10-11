@@ -160,9 +160,7 @@ export function isOption(
 
 /**
  * The index of the option with this value, or -1. Compares JSON values by
- * their content.
- *
- * @internal
+ * their content. Public through `flags/tooling`.
  */
 export function optionIndex(
   value: unknown,

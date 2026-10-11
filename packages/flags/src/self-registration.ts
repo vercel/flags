@@ -5,8 +5,6 @@
  *
  * The call is at the end, because the exports are initialized there. The
  * imports are hoisted, so their position does not matter.
- *
- * @internal
  */
 export function addSelfRegistration(source: string, fileName: string): string {
   const self = JSON.stringify(`./${fileName}`);

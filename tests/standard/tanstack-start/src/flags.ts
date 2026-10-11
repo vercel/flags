@@ -2,7 +2,7 @@
 
 import { defineConnection, defineFlag } from 'flags';
 
-// A 'use flags' module: it exports only flags, and the plugin of flags/vite
+// A 'use flags' module: it exports only flags, and the plugin of @flags-sdk/tanstack-start/vite
 // registers them
 const shop = defineConnection({
   provider: {

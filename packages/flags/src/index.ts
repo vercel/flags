@@ -31,6 +31,7 @@ export {
   type Flag,
   type FlagOptions,
 } from './flag';
+export type { SetupFramework } from './framework';
 export { OVERRIDE_REASON } from './hooks';
 export {
   decryptOverrides,

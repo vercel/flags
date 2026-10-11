@@ -9,8 +9,6 @@ const skipped = new Set(['node_modules', 'out', 'build', 'dist', 'coverage']);
 /**
  * Returns the paths of the modules with the `'use flags'` directive in the
  * project, relative to the project and with `/`, in a fixed order.
- *
- * @internal
  */
 export function findFlagsModules(projectDir: string): string[] {
   const found: string[] = [];

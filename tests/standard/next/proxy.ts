@@ -1,4 +1,4 @@
-import { precompute } from 'flags/next/precompute';
+import { precompute } from '@flags-sdk/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
 import { precomputeFlags } from './precompute';
 

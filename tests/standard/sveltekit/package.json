@@ -23,6 +23,7 @@
     "@playwright/test": "1.58.1"
   },
   "dependencies": {
+    "@flags-sdk/sveltekit": "workspace:*",
     "flags": "workspace:*"
   }
 }

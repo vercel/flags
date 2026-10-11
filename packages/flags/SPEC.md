@@ -22,8 +22,8 @@ management system (system)".
 | **Platform project** | A project on a platform. It has many deployments, in environments such as production and preview. The overrides are scoped to it (`PlatformProject`). | a Vercel project |
 | **Deployment** | One build and release of one version of the code of a platform project, e.g. for one commit. | one Vercel deployment |
 | **Deployment adapter** | The code of a platform for a framework, e.g. with the Adapter API of Next.js. | the adapter of Vercel for Next.js |
-| **Framework binding** | The code of this SDK for one framework. It is the module behind the alias `flags/framework`, with `setupFramework`. | `flags/next` |
-| **Build plugin** | The part of a framework binding for the bundler. | `withFlags`, `flags/vite`, `flags/nuxt` |
+| **Framework binding** | The code of this SDK for one framework. It is the module behind the alias `flags/framework`, with `setupFramework`. | `@flags-sdk/next/binding` |
+| **Build plugin** | The part of a framework binding for the bundler. | `withFlags`, `@flags-sdk/vite`, `@flags-sdk/nuxt` |
 | **System manifest** | The JSON file of a system, with the templates of the links to its dashboard. | `vercel-flags.json` |
 | **Flags manifest** | The JSON file of the flags of an application. | `flags-manifest.json` |
 | **Integration** (OpenFeature) | Only in the meaning of OpenFeature: a secondary function, e.g. telemetry. | a hook for tracing |
@@ -57,7 +57,7 @@ writes a deployment adapter.
    connection").
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
-9. Done: Next.js. `flags/next/plugin` and `flags/next`, tested in
+9. Done: Next.js. `@flags-sdk/next/plugin` and `@flags-sdk/next/binding`, tested in
    `tests/standard/next` with Turbopack, a deployment adapter, and
    development (see "Framework binding contract"). Only Turbopack is
    supported, not webpack.
@@ -65,13 +65,14 @@ writes a deployment adapter.
     overrides through hooks (see "Hooks, events and tracking").
 11. Done: a cache of results for each request (see "The cache of each
     request"), and precompute for Next.js as the separate export
-    `flags/next/precompute` (see "Precompute").
+    `@flags-sdk/next/precompute` (see "Precompute").
 12. Tooling. Flag discovery for tools such as Flags Explorer (done, see
     "Discovery"), links to the dashboard of the system (done, see "Links
     to the dashboard"), and the overrides from end to end with the Vercel
     Toolbar.
-13. Done: more frameworks. Framework bindings for SvelteKit, Nuxt and
-    TanStack Start, and middlewares for Hono and Express,
+13. Done: more frameworks. A package for each framework (see
+    "Packages"): bindings for SvelteKit, Nuxt and TanStack Start, and
+    middlewares for Hono and Express,
     each tested in `tests/standard/<framework>` (see "Notes for each
     framework").
 14. Standard. Write the spec with normative words (MUST, SHOULD). Add
@@ -88,10 +89,10 @@ the packages of the monorepo that still use v4.
 
 v5 supports precompute, but not as a part of the runtime or the standard. It
 is a feature of Next.js: flags in the proxy, and static pages for each
-combination of flags. It is the separate export `flags/next/precompute`, so
+combination of flags. It is the separate export `@flags-sdk/next/precompute`, so
 that users of v4 can keep using it. Ultimately, it belongs in the framework,
 built on the standard of this SDK. The usage is in
-`frameworks/nextjs.md`, section "Precompute".
+`../framework-next/README.md`, section "Precompute".
 
 - The API has the names and the signatures of v4: `precompute`,
   `serialize`, `deserialize`, `getPrecomputed`, `generatePermutations` and
@@ -202,7 +203,7 @@ through its own package name, and the build of the SDK keeps these imports:
 | Module                   | Default                     | Replaced by                                   |
 | ------------------------ | --------------------------- | --------------------------------------------- |
 | `flags/default-provider` | OFREP                       | a platform, e.g. with `@vercel/flags-core`    |
-| `flags/framework`      | no framework binding        | a framework plugin, e.g. with `flags/next`    |
+| `flags/framework`      | no framework binding        | a framework plugin, e.g. with `@flags-sdk/next/binding`    |
 | `flags/config`           | no configuration            | a framework plugin, with `flags.config.ts`    |
 
 A bundler can put more than one copy of the package into one process, e.g.
@@ -1064,13 +1065,48 @@ provider gets fewer calls.
   evaluates the flag.
 - The cache ends with the request. Nothing is shared between requests.
 
+## Packages
+
+`flags` is the shared runtime and its functions, without code for a
+framework or a bundler. Each framework has its own package, which can
+depend on its framework. A framework can vendor its package later, or
+provide the same itself.
+
+| Package | Contents | Used by |
+| --- | --- | --- |
+| `flags` | runtime, `defineFlag`, connections, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
+| `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
+| `@flags-sdk/vite` | the generic Vite plugin: the binding, `flags.config.ts`, `'use flags'` modules, the manifest, the default provider of the platform | the framework packages for Vite |
+| `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
+| `@flags-sdk/nuxt` | the module, `/binding`, `/plugin` (Nitro) | `nuxt.config.ts` |
+| `@flags-sdk/tanstack-start` | `/binding`, `/vite` | `vite.config.ts` |
+| `@flags-sdk/hono` | the middleware | the setup of the app |
+| `@flags-sdk/express` | the middleware | the setup of the app |
+
+- The code of the application imports only `flags`. The framework packages
+  are only for the setup, one time. Precompute of Next.js is the
+  exception: it is a feature of Next.js, so its pages and its proxy import
+  `@flags-sdk/next/precompute`.
+- A framework package imports its framework, e.g. `isRedirect` of
+  `@sveltejs/kit`, and has a peer dependency on it. A framework package
+  only uses the public API of `flags`.
+- `flags/tooling` is the public API for framework packages and build tools:
+  `findFlagsModules`, `hasUseFlagsDirective`, `addSelfRegistration`,
+  `writeManifestFromBuild`, `MANIFEST_FILE`, `findConfigFile`,
+  `optionIndex`, and `registerFramework`. It is part of the contract of a
+  framework binding.
+- `registerFramework(setupFramework)` registers a binding without the
+  alias of `flags/framework`, for a runtime which loads `flags` from
+  `node_modules`, e.g. Nitro in development. The first binding wins, as
+  with the alias.
+
 ## Framework binding contract
 
 A framework binding connects the SDK to a framework. It has two parts:
 
-1. **A build plugin**, e.g. `withFlags` of `flags/next/plugin`. It sets two
+1. **A build plugin**, e.g. `withFlags` of `@flags-sdk/next/plugin`. It sets two
    bundler aliases:
-   - `flags/framework` to the module of the binding, e.g. `flags/next`.
+   - `flags/framework` to the module of the binding, e.g. `@flags-sdk/next/binding`.
    - `flags/config` to the `flags.config.ts` of the application, if it exists.
 2. **The module of the binding** behind `flags/framework`. It exports
    `setupFramework(runtime)`, which the runtime calls one time, before the
@@ -1140,20 +1176,21 @@ Rules for each binding:
 The details must be checked when the binding is built (milestone 13).
 
 **Next.js** (done). The guide for users and for the authors of the
-binding is `frameworks/nextjs.md`.
+binding is `../framework-next/README.md`. The contract for framework
+authors is `FRAMEWORK-AUTHORS.md`.
 
 ```ts
 // next.config.ts
-import { withFlags } from 'flags/next/plugin';
+import { withFlags } from '@flags-sdk/next/plugin';
 
 export default withFlags({ /* the configuration of Next.js */ });
 ```
 
 | Path                    | Content                                                          | Used by                    |
 | ----------------------- | ---------------------------------------------------------------- | -------------------------- |
-| `flags/next/plugin`     | `withFlags(nextConfig, { dir? })`, the build plugin               | `next.config.ts`           |
-| `flags/next`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
-| `flags/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
+| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir? })`, the build plugin               | `next.config.ts`           |
+| `@flags-sdk/next/binding`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
+| `@flags-sdk/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
 - `withFlags` sets the aliases for Turbopack (`turbopack.resolveAlias`). It
   supports only Turbopack: its `webpack` function throws, so a build with
@@ -1162,13 +1199,13 @@ export default withFlags({ /* the configuration of Next.js */ });
   `flags.config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
   application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
-  same object during one request. Thus, `flags/next` uses
+  same object during one request. Thus, `@flags-sdk/next/binding` uses
   `runtime.setRequestSource` with `headers()` and `cookies()`. The test shows
   one call of `getEvaluationContext` for five evaluations in one request.
 - Outside of a request, e.g. at build time, `headers()` throws, so the source
   returns `undefined`. The static page of the test evaluates with the user
   `anonymous`.
-- Signals: `flags/next` sets `runtime.setRethrow(unstable_rethrow)`. During
+- Signals: `@flags-sdk/next/binding` sets `runtime.setRethrow(unstable_rethrow)`. During
   the build, `headers()` throws "Dynamic server usage" to tell Next.js that a
   page is dynamic. Without `setRethrow`, the SDK caught it, and the build
   failed.
@@ -1186,18 +1223,21 @@ Turbopack with a test adapter of the platform. `pnpm test:e2e` runs 16
 tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
 
-**SvelteKit** (done). Guide: `frameworks/sveltekit.md`.
+**SvelteKit** (done). Package: `@flags-sdk/sveltekit`. Guide:
+`../framework-sveltekit/README.md`.
 
-- The binding is `flags/sveltekit`. `flags({ framework: 'sveltekit' })` of
-  `flags/vite` points `flags/framework` to it and `flags/config` to
-  `flags.config.ts`, and bundles `flags` into the server code
+- `flags()` of `@flags-sdk/sveltekit/vite` uses `@flags-sdk/vite` with the
+  binding `@flags-sdk/sveltekit/binding`. The plugin resolves the binding
+  from the project, points `flags/config` to `flags.config.ts`, and bundles
+  `flags` and `@flags-sdk/sveltekit` into the server code
   (`ssr.noExternal`), so that the aliases reach the SDK.
 - The request: `getRequestEvent()` of `$app/server` (SvelteKit 2.20 or
   newer), with the headers and the URL of the request. The application
   needs no `handle` hook. Outside of a request, there is no request.
-- The rethrow: `redirect()` and `error()` throw objects of the classes
-  `Redirect` and `HttpError`. The binding examines the name of the class
-  and their fields, so that the SDK does not depend on `@sveltejs/kit`.
+- The rethrow: `isRedirect()` and `isHttpError()` of `@sveltejs/kit`. The
+  plugin deduplicates `@sveltejs/kit` (`resolve.dedupe`), so that the
+  binding and the application use one copy, and `isRedirect()` recognizes
+  the `redirect()` of the application.
 - The alias of `flags/default-provider`: the adapter
   (`@sveltejs/adapter-vercel`) runs after the Vite build, so it is too late
   for an alias. Thus, the Vite plugin sets it: during a build with
@@ -1208,50 +1248,61 @@ tested by hand, with a change of `flags.config.ts` during the run.
   of the package. `tests/standard/sveltekit` tests it with a platform
   variant.
 
-**Nuxt (Nitro)** (done). Guide: `frameworks/nuxt.md`.
+**Nuxt (Nitro)** (done). Package: `@flags-sdk/nuxt`. Guide:
+`../framework-nuxt/README.md`.
 
-- The binding is `flags/nuxt/runtime`, in the server of Nitro. The module
-  `flags/nuxt` sets the aliases in `nitro.alias`, adds `flags` to
-  `externals.inline`, and sets `experimental.asyncContext`.
-- The request: `useEvent()` of `#imports`, which needs the async context of
-  Nitro. The module sets it, so the application does not opt in.
-- The rethrow: errors of `createError()` are of the class `H3Error`, which
-  has the static field `__h3_error__`.
-- A Nitro plugin (`flags/nuxt/plugin`) calls `runtime.onInit` at the start,
-  and `runtime.onShutdown` in the hook `close`.
-- The binding imports only from `#imports`, which Nitro resolves, so the
-  SDK does not depend on `nitropack` or `h3`.
+- The module `@flags-sdk/nuxt` sets the aliases in `nitro.alias`, adds
+  `flags` and `@flags-sdk/nuxt` to `externals.inline`, and sets
+  `experimental.asyncContext`. It points Nitro to the ESM files of the
+  package, so that the bundle has one copy of the SDK.
+- The binding `@flags-sdk/nuxt/binding` gets the request with `useEvent()`
+  of `#imports`, which needs the async context of Nitro. The module sets
+  it, so the application does not opt in.
+- The rethrow: `isError()` of h3, through `#imports`. An application of
+  Nuxt depends on `nuxt`, not on `h3` or `nitropack`, so the binding
+  imports the auto-imports of Nitro.
+- In development, Nitro loads `flags` from `node_modules`, so the alias does
+  not reach the SDK. The Nitro plugin (`@flags-sdk/nuxt/plugin`) therefore
+  registers the binding with `registerFramework` of `flags/tooling`. Nitro
+  always bundles its plugins.
+- The plugin also calls `runtime.onInit` at the start, and
+  `runtime.onShutdown` in the hook `close`.
+- The default provider: during a build on Vercel, the provider of
+  `@vercel/flags-core`, if the project has it, or the module of the
+  option `defaultProvider` (`modules: [['@flags-sdk/nuxt', {
+  defaultProvider }]]`), as an alias of Nitro.
 
-**Hono** (done). Guide: `frameworks/hono.md`.
+**Hono** (done). Package: `@flags-sdk/hono`. README: `../framework-hono/README.md`.
 
-- `flags({ config })` of `flags/hono` is a middleware: each request runs in
+- `flags({ config })` is a middleware: each request runs in
   `runtime.onInvoke` with `c.req.raw`. Hono often runs without a bundler,
   so the configuration is an option, not an alias.
-- The rethrow: an `HTTPException` of Hono. Hono does not set `name`, so the
-  binding examines the name of the class and `getResponse`.
+- The rethrow: `instanceof HTTPException` of `hono/http-exception`.
 
-**Express** (done). Guide: `frameworks/express.md`.
+**Express** (done). Package: `@flags-sdk/express`. Guide:
+`../framework-express/README.md`.
 
-- `flags({ config })` of `flags/express` is a middleware. It converts the
-  Node.js headers into Web `Headers`, and builds the URL from the `Host`
-  header and `originalUrl` (`toFlagsRequest`).
+- `flags({ config })` is a middleware. It converts the Node.js headers into
+  Web `Headers`, and builds the URL from the `Host` header and
+  `originalUrl` (`toFlagsRequest`).
 - The handlers which `next` calls run in the scope of the request, also
   after an `await`.
 
-**TanStack Start** (done). Guide: `frameworks/tanstack-start.md`.
+**TanStack Start** (done). Package: `@flags-sdk/tanstack-start`. Guide:
+`../framework-tanstack-start/README.md`.
 
-- The binding is `flags/tanstack-start`, with
-  `flags({ framework: 'tanstack-start' })` of `flags/vite`.
+- `flags()` of `@flags-sdk/tanstack-start/vite` uses `@flags-sdk/vite`
+  with the binding `@flags-sdk/tanstack-start/binding`.
 - The request: `getRequest()` of TanStack Start, in server functions,
-  server routes and the rendering of pages. The binding imports it from
-  `flags:tanstack-start/server`, which the plugin resolves to the server
-  module of `@tanstack/react-start` or `@tanstack/solid-start` of the
-  project, so that the SDK does not depend on TanStack Start.
-- The rethrow: `redirect()` returns a `Response` with `options`, and
-  `notFound()` an object with `isNotFound`.
-- The plugin excludes `flags` from the optimizer of dependencies: the
-  optimizer would bundle the server module of TanStack Start in advance,
-  which only works inside TanStack Start.
+  server routes and the rendering of pages.
+- The rethrow: `isRedirect()` and `isNotFound()` of TanStack Router.
+- TanStack Start has a package for React and one for Solid. Thus, the
+  binding imports `flags:tanstack-start/server` and
+  `flags:tanstack-start/router`, which the plugin resolves to the packages
+  of the project (`projectModules`).
+- The plugin excludes `flags` and the package from the optimizer of
+  dependencies: the optimizer would bundle the server module of TanStack
+  Start in advance, which only works inside TanStack Start.
 - The manifest goes into `.output/server` (the build of Nitro). The SSR
   environment of Vite runs in a worker of Nitro and is not runnable, so the
   dev endpoint uses a runnable copy of it (`createRunnableDevEnvironment`).
@@ -1403,9 +1454,9 @@ build of the application.
 
 | Framework | Plugin | Development | Build |
 | --- | --- | --- | --- |
-| Next.js | `withFlags` and the route `export { GET } from 'flags/next/manifest'` | the route | `flags-manifest.json` in `distDir` |
-| SvelteKit | `flags()` of `flags/vite` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in the server output |
-| Nuxt | `modules: ['flags/nuxt']` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in `.output/server` |
+| Next.js | `withFlags` and the route `export { GET } from '@flags-sdk/next/manifest'` | the route | `flags-manifest.json` in `distDir` |
+| SvelteKit | `flags()` of `@flags-sdk/vite` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in the server output |
+| Nuxt | `modules: ['@flags-sdk/nuxt']` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in `.output/server` |
 | No bundler, e.g. Hono | none | none | `flags manifest [dir]` after the build |
 
 - The plugins find the flags modules with a scan of the files of the
@@ -1432,10 +1483,10 @@ build of the application.
 
 ### Next.js details
 
-- The loader `flags/next/use-flags-loader` adds the self-registration, with
+- The loader `@flags-sdk/next/use-flags-loader` adds the self-registration, with
   a rule of Turbopack with a condition on the content.
-- The loader `flags/next/manifest-loader` puts an import of each flags
-  module into `flags/next/manifest`, so that Next.js compiles them. It adds
+- The loader `@flags-sdk/next/manifest-loader` puts an import of each flags
+  module into `@flags-sdk/next/manifest`, so that Next.js compiles them. It adds
   the project as a context dependency (`addContextDependency`), so the
   bundler runs it again when a file changes, e.g. a new flags module in
   `next dev`. Tested with Turbopack, without a loop of rebuilds.

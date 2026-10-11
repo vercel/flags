@@ -29,8 +29,6 @@ writeFileSync(output, JSON.stringify(createManifest(modules), null, 2));
  * Writes the manifest from the built modules with `'use flags'`. In a
  * separate process, so that the modules do not run in the process of the
  * build, and so that each build imports them again.
- *
- * @internal
  */
 export async function writeManifestFromBuild(options: {
   readonly projectDir: string;

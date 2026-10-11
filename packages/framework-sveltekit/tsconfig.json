@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig-base.json",
+  "include": ["src", "test"],
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2020",
+    "paths": {
+      "$app/server": ["./test/stubs/app-server.ts"]
+    }
+  }
+}

@@ -2,8 +2,6 @@
  * Whether a module starts with the `'use flags'` directive. It reads only the
  * directive prologue: comments, whitespace and string literals at the start
  * of the module, as for `'use client'`. It is not a parser.
- *
- * @internal
  */
 export function hasUseFlagsDirective(source: string): boolean {
   let rest = source.replace(/^#![^\n]*/, '');
