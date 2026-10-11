@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { encryptOverrides } from 'flags';
+import { FLAGS_SECRET } from '../playwright.config';
 
 test('evaluates the flags in a load function', async ({ request }) => {
   const html = await (await request.get('/')).text();
@@ -43,6 +45,21 @@ test('writes the manifest of the flags into the server output', () => {
         connection: 'in-memory',
         sources: [{ module: 'src/lib/flags.ts', export: 'bannerText' }],
       },
+      greeting: {
+        type: 'string',
+        defaultValue: 'Hi',
+        declaredInCode: true,
+        connection: 'in-memory',
+        sources: [{ module: 'src/lib/default-flags.ts', export: 'greeting' }],
+      },
+      'new-checkout': {
+        type: 'boolean',
+        declaredInCode: true,
+        connection: 'in-memory',
+        sources: [
+          { module: 'src/lib/default-flags.ts', export: 'newCheckout' },
+        ],
+      },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
@@ -58,4 +75,37 @@ test('writes the manifest of the flags into the server output', () => {
       },
     },
   });
+});
+
+test('uses flags.config.ts and the request without onInvoke', async ({
+  request,
+}) => {
+  const [anonymous, alice] = await Promise.all([
+    request.get('/config'),
+    request.get('/config', { headers: { cookie: 'user=alice' } }),
+  ]);
+
+  expect(await anonymous.text()).toContain(
+    '{"checkout":false,"text":"Hello from flags.config.ts"}',
+  );
+  expect(await alice.text()).toContain('{"checkout":true');
+});
+
+test('applies an override cookie', async ({ request }) => {
+  const token = await encryptOverrides({ 'new-checkout': true }, FLAGS_SECRET);
+  const response = await request.get('/config', {
+    headers: { cookie: `flag-overrides=${token}` },
+  });
+
+  expect(await response.text()).toContain('{"checkout":true');
+});
+
+test('lets a redirect of SvelteKit through', async ({ request }) => {
+  const response = await request.get('/config', {
+    headers: { cookie: 'blocked=1' },
+    maxRedirects: 0,
+  });
+
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toBe('/blocked');
 });

@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { NextConfig } from 'next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { findConfigFile, withFlags } from './plugin';
+import { findConfigFile } from '../config-file';
+import { withFlags } from './plugin';
 
 function projectWith(file?: string) {
   const dir = mkdtempSync(join(tmpdir(), 'flags-next-'));

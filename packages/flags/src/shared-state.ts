@@ -12,6 +12,12 @@ interface SharedState {
   readonly flags: WeakSet<object>;
   runtime?: unknown;
   defaultConnection?: unknown;
+  /**
+   * The framework binding of the first copy which has one. A copy without
+   * the alias of `flags/framework`, e.g. in the process of the build tool,
+   * must not hide the binding of a copy in the server code.
+   */
+  setupFramework?: unknown;
 }
 
 const key = Symbol.for('flags.v5.state');

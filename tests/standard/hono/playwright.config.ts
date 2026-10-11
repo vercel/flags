@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+// A fixed test secret for the overrides, 32 bytes as base64url
+export const FLAGS_SECRET = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
+
 // The tests only send HTTP requests, so they need no browser. Run
 // `pnpm test:e2e`, which writes the manifest first.
 export default defineConfig({
@@ -9,7 +12,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm start',
     url: 'http://localhost:4340/',
-    env: { PORT: '4340' },
+    env: { PORT: '4340', FLAGS_SECRET },
     reuseExistingServer: false,
   },
 });

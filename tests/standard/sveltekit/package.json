@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test:e2e": "pnpm build && playwright test"
+    "test:e2e": "pnpm build && pnpm build:platform && playwright test",
+    "build:platform": "TEST_VARIANT=platform svelte-kit sync && TEST_VARIANT=platform vite build"
   },
   "devDependencies": {
     "@sveltejs/kit": "^2.70.2",

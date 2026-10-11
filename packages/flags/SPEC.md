@@ -70,7 +70,10 @@ writes a deployment adapter.
     "Discovery"), links to the dashboard of the system (done, see "Links
     to the dashboard"), and the overrides from end to end with the Vercel
     Toolbar.
-13. More frameworks: SvelteKit, then Hono and Express.
+13. Done: more frameworks. Framework bindings for SvelteKit, Nuxt and
+    TanStack Start, and middlewares for Hono and Express,
+    each tested in `tests/standard/<framework>` (see "Notes for each
+    framework").
 14. Standard. Write the spec with normative words (MUST, SHOULD). Add
     conformance tests for framework bindings. The provider contract is
     OpenFeature, so the standard of this SDK is the contract between
@@ -164,8 +167,9 @@ built on the standard of this SDK. The usage is in
 ### Tests with real frameworks
 
 `tests/standard/<framework>` contains small apps that test the SDK in a real
-framework: `next`, `sveltekit`, `nuxt` and `hono`. They test the SDK and its
-contract, not providers. Each has `pnpm test:e2e`.
+framework: `next`, `sveltekit`, `nuxt`, `hono`, `express` and
+`tanstack-start`. They test the SDK and its contract, not providers. Each
+has `pnpm test:e2e`.
 
 ## Providers
 
@@ -207,6 +211,16 @@ one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
 flags. All copies share it. A connection of one copy works with a flag of a
 different copy. The key contains the major version, because a different
 major version can have a different runtime.
+
+The framework binding is in the shared state too. A copy without the alias
+of `flags/framework`, e.g. the copy which the build tool loads for its
+plugin, can create the runtime first. Thus, each copy with a binding puts
+it into the shared state, and the runtime takes the binding from there,
+not from its own copy. The runtime does not store a missing binding, so a
+copy which is loaded later still gives its binding. This is necessary for
+`vite dev`, where the plugin and the server code run in one process.
+`src/shared-binding.test.ts` tests it with two copies of the module in
+one process (`vi.resetModules`).
 
 The package exports `evaluate` (see "Evaluating flags with `evaluate`"). It
 calls `runtime.evaluate`. Both accept a flag returned by `defineFlag`, or a
@@ -1172,34 +1186,81 @@ Turbopack with a test adapter of the platform. `pnpm test:e2e` runs 16
 tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
 
-**SvelteKit**
+**SvelteKit** (done). Guide: `frameworks/sveltekit.md`.
 
-- The request: the `handle` hook wraps the handler:
-  `runtime.onInvoke(event.request, () => resolve(event))`. `getRequestEvent()`
-  is an alternative for a source.
-- The alias: the adapter (`@sveltejs/adapter-vercel`) runs after the Vite
-  build, so it is too late for an alias. The Vite plugin of the binding
-  must set it, e.g. when `VERCEL` is set at build time.
+- The binding is `flags/sveltekit`. `flags({ framework: 'sveltekit' })` of
+  `flags/vite` points `flags/framework` to it and `flags/config` to
+  `flags.config.ts`, and bundles `flags` into the server code
+  (`ssr.noExternal`), so that the aliases reach the SDK.
+- The request: `getRequestEvent()` of `$app/server` (SvelteKit 2.20 or
+  newer), with the headers and the URL of the request. The application
+  needs no `handle` hook. Outside of a request, there is no request.
+- The rethrow: `redirect()` and `error()` throw objects of the classes
+  `Redirect` and `HttpError`. The binding examines the name of the class
+  and their fields, so that the SDK does not depend on `@sveltejs/kit`.
+- The alias of `flags/default-provider`: the adapter
+  (`@sveltejs/adapter-vercel`) runs after the Vite build, so it is too late
+  for an alias. Thus, the Vite plugin sets it: during a build with
+  `VERCEL`, to `@vercel/flags-core/default-provider` if the project has it,
+  or to the module of the option `defaultProvider`. It resolves the module
+  from the project, in a `resolveId` hook with the order `pre`, before the
+  resolver of Vite resolves `flags/default-provider` through the exports
+  of the package. `tests/standard/sveltekit` tests it with a platform
+  variant.
 
-**Hono, TanStack Start**
+**Nuxt (Nitro)** (done). Guide: `frameworks/nuxt.md`.
 
-- The request: a middleware with `next` gives a Web `Request`:
-  `app.use((c, next) => runtime.onInvoke(c.req.raw, next))`.
-- The alias: through the configuration of their bundler (Vite for TanStack
-  Start). Not examined yet.
+- The binding is `flags/nuxt/runtime`, in the server of Nitro. The module
+  `flags/nuxt` sets the aliases in `nitro.alias`, adds `flags` to
+  `externals.inline`, and sets `experimental.asyncContext`.
+- The request: `useEvent()` of `#imports`, which needs the async context of
+  Nitro. The module sets it, so the application does not opt in.
+- The rethrow: errors of `createError()` are of the class `H3Error`, which
+  has the static field `__h3_error__`.
+- A Nitro plugin (`flags/nuxt/plugin`) calls `runtime.onInit` at the start,
+  and `runtime.onShutdown` in the hook `close`.
+- The binding imports only from `#imports`, which Nitro resolves, so the
+  SDK does not depend on `nitropack` or `h3`.
 
-**Express**
+**Hono** (done). Guide: `frameworks/hono.md`.
 
-- The request: a middleware with `next`. The binding converts the
-  Node.js headers into Web `Headers` (see `toFlagsRequest` in
-  `playground.ts`).
-- The alias: no bundler, so OFREP, unless the application sets a default
-  connection.
+- `flags({ config })` of `flags/hono` is a middleware: each request runs in
+  `runtime.onInvoke` with `c.req.raw`. Hono often runs without a bundler,
+  so the configuration is an option, not an alias.
+- The rethrow: an `HTTPException` of Hono. Hono does not set `name`, so the
+  binding examines the name of the class and `getResponse`.
 
-**Nuxt (Nitro), Astro**
+**Express** (done). Guide: `frameworks/express.md`.
 
-- Their presets or integrations can change the configuration of the bundler,
-  and they have a request context for a source. Not examined yet.
+- `flags({ config })` of `flags/express` is a middleware. It converts the
+  Node.js headers into Web `Headers`, and builds the URL from the `Host`
+  header and `originalUrl` (`toFlagsRequest`).
+- The handlers which `next` calls run in the scope of the request, also
+  after an `await`.
+
+**TanStack Start** (done). Guide: `frameworks/tanstack-start.md`.
+
+- The binding is `flags/tanstack-start`, with
+  `flags({ framework: 'tanstack-start' })` of `flags/vite`.
+- The request: `getRequest()` of TanStack Start, in server functions,
+  server routes and the rendering of pages. The binding imports it from
+  `flags:tanstack-start/server`, which the plugin resolves to the server
+  module of `@tanstack/react-start` or `@tanstack/solid-start` of the
+  project, so that the SDK does not depend on TanStack Start.
+- The rethrow: `redirect()` returns a `Response` with `options`, and
+  `notFound()` an object with `isNotFound`.
+- The plugin excludes `flags` from the optimizer of dependencies: the
+  optimizer would bundle the server module of TanStack Start in advance,
+  which only works inside TanStack Start.
+- The manifest goes into `.output/server` (the build of Nitro). The SSR
+  environment of Vite runs in a worker of Nitro and is not runnable, so the
+  dev endpoint uses a runnable copy of it (`createRunnableDevEnvironment`).
+- The default provider: the same as for SvelteKit.
+
+**Astro**
+
+- Its integrations can change the configuration of the bundler, and it has
+  a request context for a source. Not examined yet.
 
 ### Registration
 

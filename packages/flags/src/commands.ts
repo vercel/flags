@@ -8,7 +8,9 @@
  *
  * It imports the modules with the `'use flags'` directive in `dir` (the
  * default is the current directory) with Node.js, and writes the manifest of
- * their flags, by default to `flags-manifest.json` in `dir`. Run it after the
+ * their flags, by default to `flags-manifest.json` in `dir`. If it finds
+ * `flags.config.ts` (in `dir`, its `src`, or the current directory), it
+ * loads it for the default connection. Run it after the
  * build, on the output of the build, or on the source if Node.js can run it,
  * e.g. TypeScript with type stripping.
  */
@@ -16,8 +18,11 @@ import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { MANIFEST_FILE } from './build-manifest';
+import type { Config } from './config';
+import { findConfigFile } from './config-file';
 import { findFlagsModules } from './find-flags-modules';
 import { createManifest } from './manifest';
+import { runtime } from './runtime';
 
 const usage = 'Usage: flags manifest [dir] [--out <file>]';
 
@@ -41,6 +46,15 @@ export async function manifest(args: string[]): Promise<string> {
   for (const id of findFlagsModules(root)) {
     const exports = await import(pathToFileURL(join(root, id)).href);
     modules.push({ id, exports: { ...exports } });
+  }
+  // Flags without a connection use the default connection of
+  // flags.config.ts, if the project has one
+  const configFile = findConfigFile(root) ?? findConfigFile(process.cwd());
+  if (configFile) {
+    const { config } = (await import(pathToFileURL(configFile).href)) as {
+      config?: Config;
+    };
+    if (config) runtime.configure(config);
   }
   const result = createManifest(modules);
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`);
