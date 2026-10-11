@@ -9,6 +9,7 @@ import { findFlagsModules } from '../find-flags-modules';
 interface LoaderContext {
   readonly resourcePath: string;
   getOptions(): { projectDir: string };
+  addContextDependency(directory: string): void;
 }
 
 // The build of the SDK keeps the comment, but can change the whitespace
@@ -20,6 +21,9 @@ export default function manifestLoader(
 ): string {
   if (!marker.test(source)) return source;
   const { projectDir } = this.getOptions();
+  // The bundler runs the loader again when a file of the project changes,
+  // e.g. a new module with 'use flags' in next dev
+  this.addContextDependency(projectDir);
   const from = dirname(this.resourcePath);
   const imports = findFlagsModules(projectDir).map((id) => {
     let path = relative(from, join(projectDir, id)).split(sep).join('/');
