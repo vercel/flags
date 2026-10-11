@@ -28,7 +28,7 @@ function createConnection(values: Record<string, boolean>) {
   const provider = createProvider(values);
   const connection = defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
   return { connection, provider };
 }
@@ -122,7 +122,7 @@ describe('evaluate', () => {
       const { provider } = createConnection({});
       const connection = {
         provider,
-        project: { platform: 'in-memory' as const },
+        project: { system: 'in-memory' as const },
       };
 
       await expect(evaluate([{ key: 'a', connection }])).rejects.toThrow(

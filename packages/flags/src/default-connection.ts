@@ -13,7 +13,7 @@ import type { EvaluationContext, Provider } from './types';
  */
 export type DefaultConnection = Connection<
   Provider,
-  'vercel',
+  'vercel-flags',
   EvaluationContext,
   DefaultConnectionInput
 >;
@@ -28,7 +28,7 @@ export type DefaultConnection = Connection<
 export function getBuiltInConnection(): DefaultConnection {
   sharedState.defaultConnection ??= defineConnection({
     provider: createDefaultProvider(),
-    project: { platform: 'vercel' },
+    project: { system: 'vercel-flags' },
   });
   return sharedState.defaultConnection as DefaultConnection;
 }

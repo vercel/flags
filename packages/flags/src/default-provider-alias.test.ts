@@ -53,7 +53,7 @@ describe('flags/default-provider replaced by an alias', () => {
           metadata: { name: 'own' },
           resolveBooleanEvaluation: async () => ({ value: true }),
         },
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -69,7 +69,7 @@ describe('flags/default-provider replaced by an alias', () => {
           metadata: { name: 'app' },
           resolveBooleanEvaluation: async () => ({ value: false }),
         },
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -85,7 +85,7 @@ describe('flags/default-provider replaced by an alias', () => {
     runtime.configure({
       defaultConnection: defineConnection({
         provider: appProvider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 

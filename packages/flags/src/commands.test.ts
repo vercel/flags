@@ -33,10 +33,10 @@ describe('flags manifest', () => {
     ).toEqual({
       version: 1,
       connections: {
-        vercel: {
-          platform: 'vercel',
-          providerManifest:
-            'https://flags-sdk.dev/provider-manifests/vercel.json',
+        'vercel-flags': {
+          system: 'vercel-flags',
+          systemManifest:
+            'https://flags-sdk.dev/system-manifests/vercel-flags.json',
           variables: { projectId: 'prj_shop', environment: 'production' },
         },
       },
@@ -45,7 +45,7 @@ describe('flags manifest', () => {
           type: 'boolean',
           defaultValue: false,
           declaredInCode: true,
-          connection: 'vercel',
+          connection: 'vercel-flags',
           sources: [{ module: 'flags.js', export: 'sale' }],
         },
       },

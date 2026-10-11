@@ -26,7 +26,7 @@ const myFlags = {
 function inMemoryConnection() {
   return defineConnection({
     provider: new TypedInMemoryProvider(myFlags),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 }
 
@@ -39,7 +39,7 @@ function customConnection(
     initialize,
     resolveBooleanEvaluation: vi.fn(resolve),
   } as Provider & { resolveBooleanEvaluation: ReturnType<typeof vi.fn> };
-  return defineConnection({ provider, project: { platform: 'in-memory' } });
+  return defineConnection({ provider, project: { system: 'in-memory' } });
 }
 
 describe('defineFlag', () => {
@@ -65,7 +65,7 @@ describe('defineFlag', () => {
   it('exposes its definition and the connection', () => {
     const connection = defineConnection({
       provider: new TypedInMemoryProvider(myFlags),
-      project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+      project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
     const flag = defineFlag({
       key: 'v2_enabled',
@@ -77,7 +77,7 @@ describe('defineFlag', () => {
     expect(flag.defaultValue).toBe(false);
     expect(flag.connection).toBe(connection);
     expect(flag.connection.project).toEqual({
-      platform: 'launchdarkly',
+      system: 'launchdarkly',
       projectId: 'x',
       teamId: 'y',
     });
@@ -120,7 +120,7 @@ describe('defineFlag', () => {
   it('requires a connection returned by defineConnection', () => {
     const connection = {
       provider: new TypedInMemoryProvider(myFlags),
-      project: { platform: 'in-memory' as const },
+      project: { system: 'in-memory' as const },
     };
 
     expect(() => defineFlag({ key: 'v2_enabled', connection })).toThrow(

@@ -42,7 +42,7 @@ function createConnection(initialize?: () => Promise<void>) {
   } satisfies Provider;
   const connection = defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
   return { connection, events, provider };
 }

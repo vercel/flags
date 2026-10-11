@@ -147,7 +147,7 @@ test('writes the manifest of the flags into the build', () => {
   expect(manifest).toEqual({
     version: 1,
     connections: {
-      'in-memory': { platform: 'in-memory', variables: {} },
+      'in-memory': { system: 'in-memory', variables: {} },
     },
     definitions: {
       'banner-text': {

@@ -60,7 +60,7 @@ describe('hooks', () => {
     runtime.configure({ hooks: [recorder('config', steps)] });
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       hooks: [recorder('connection', steps)],
     });
     const flag = defineFlag({ key: 'summer-sale', connection });
@@ -86,7 +86,7 @@ describe('hooks', () => {
     const after = vi.fn<NonNullable<Hook['after']>>();
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({
       key: 'summer-sale',
@@ -122,7 +122,7 @@ describe('hooks', () => {
     const seen = vi.fn();
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const input = { user: 'bob' };
     const flag = defineFlag({ key: 'summer-sale', connection });
@@ -157,7 +157,7 @@ describe('hooks', () => {
     };
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     await defineFlag({ key: 'summer-sale', connection })({
@@ -172,7 +172,7 @@ describe('hooks', () => {
     const final = vi.fn<NonNullable<Hook['finally']>>();
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       hooks: [recorder('connection', steps), { error, finally: final }],
     });
     const flag = defineFlag({ key: 'missing', connection, defaultValue: true });
@@ -195,7 +195,7 @@ describe('hooks', () => {
   it('fails the evaluation when a before or after hook throws', async () => {
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({ key: 'summer-sale', connection });
     const provider = vi.spyOn(connection.provider, 'resolveBooleanEvaluation');
@@ -231,7 +231,7 @@ describe('hooks', () => {
   it('logs errors of error and finally hooks, and keeps the result', async () => {
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({ key: 'summer-sale', connection });
 
@@ -255,7 +255,7 @@ describe('hooks', () => {
     const keys: string[] = [];
     const connection = defineConnection({
       provider: inMemory(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const a = defineFlag({ key: 'summer-sale', connection });
     const b = defineFlag({ key: 'missing', connection, defaultValue: false });
@@ -276,7 +276,7 @@ describe('hooks', () => {
     };
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       hooks: [{ before }],
     });
     const flag = defineFlag({
@@ -316,7 +316,7 @@ describe('hooks', () => {
       const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
       const connection = defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
       runtime.configure({ hooks: [{ after }] });
       const flag = defineFlag({ key: 'summer-sale', connection });
@@ -342,7 +342,7 @@ describe('hooks', () => {
       const getEvaluationContext = vi.fn(() => ({}));
       const connection = defineConnection({
         provider: inMemory(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext,
       });
       const flag = defineFlag({ key: 'summer-sale', connection });

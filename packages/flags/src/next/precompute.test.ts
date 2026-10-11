@@ -43,7 +43,7 @@ function createConnection() {
         disabled: false,
       },
     } as const),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
     getEvaluationContext: (_context, request) => ({
       user: request?.cookies?.get('user')?.value ?? 'anonymous',
     }),

@@ -35,7 +35,7 @@ function connectionOf(value: boolean, name = 'app') {
     initialize: vi.fn(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value })),
   } satisfies Provider;
-  return defineConnection({ provider, project: { platform: 'in-memory' } });
+  return defineConnection({ provider, project: { system: 'in-memory' } });
 }
 
 let warnings: string[];
@@ -62,7 +62,7 @@ describe('built-in default connection', () => {
     const flag = defineFlag({ key: 'a' });
 
     expect(flag.connection).toBe(getBuiltInConnection());
-    expect(flag.connection.project).toEqual({ platform: 'vercel' });
+    expect(flag.connection.project).toEqual({ system: 'vercel-flags' });
     expectTypeOf(flag.connection).toEqualTypeOf<DefaultConnection>();
   });
 
@@ -220,7 +220,7 @@ describe('configured default connection', () => {
             disabled: false,
           },
         } as const),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -230,7 +230,7 @@ describe('configured default connection', () => {
   it('only accepts a connection returned by defineConnection', () => {
     const fake = {
       provider: connectionOf(true).provider,
-      project: { platform: 'in-memory' as const },
+      project: { system: 'in-memory' as const },
     };
 
     expect(() => runtime.configure({ defaultConnection: fake })).toThrow(

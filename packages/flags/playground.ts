@@ -46,7 +46,7 @@ const connection = defineConnection({
           : 'off',
     },
   } as const),
-  project: { platform: 'in-memory' },
+  project: { system: 'in-memory' },
   // The last step of the chain: receives the context of the flag or of the
   // call side, and the request
   getEvaluationContext: (context: { teamId?: string } | undefined, request) => {

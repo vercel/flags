@@ -11,7 +11,7 @@ const connection = () =>
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),
     },
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 
 beforeEach(() => {
@@ -28,8 +28,8 @@ afterEach(() => {
 });
 
 const vercel = {
-  platform: 'vercel',
-  providerManifest: 'https://flags-sdk.dev/provider-manifests/vercel.json',
+  system: 'vercel-flags',
+  systemManifest: 'https://flags-sdk.dev/system-manifests/vercel-flags.json',
   variables: { projectId: 'prj_shop', environment: 'production' },
 };
 
@@ -54,7 +54,7 @@ describe('createManifest', () => {
     expect(manifest).toEqual({
       version: 1,
       // Without a connection, the flags use the default connection
-      connections: { vercel },
+      connections: { 'vercel-flags': vercel },
       definitions: {
         checkout: {
           type: 'string',
@@ -65,13 +65,13 @@ describe('createManifest', () => {
           defaultValue: 'control',
           description: 'The checkout flow',
           declaredInCode: true,
-          connection: 'vercel',
+          connection: 'vercel-flags',
           sources: [{ module: 'flags.ts', export: 'checkout' }],
         },
         'summer-sale': {
           type: 'boolean',
           declaredInCode: true,
-          connection: 'vercel',
+          connection: 'vercel-flags',
           sources: [{ module: 'flags.ts', export: 'summerSale' }],
         },
       },
@@ -92,19 +92,19 @@ describe('createManifest', () => {
       type: 'string',
       options: [{ value: 'light' }, { value: 'dark' }],
       declaredInCode: true,
-      connection: 'vercel',
+      connection: 'vercel-flags',
       sources: [{ module: 'other.ts', export: 'theme' }],
     });
   });
 
-  it('gives each connection its platform and the variables of its project', () => {
+  it('gives each connection its system and the variables of its flag project', () => {
     const launchdarkly = (projectId: string) =>
       defineConnection({
         provider: {
           metadata: { name: 'ld' },
           resolveBooleanEvaluation: async () => ({ value: true }),
         },
-        project: { platform: 'launchdarkly', projectId, teamId: 'acme' },
+        project: { system: 'launchdarkly', projectId, teamId: 'acme' },
       });
     const manifest = createManifest([
       {
@@ -121,19 +121,19 @@ describe('createManifest', () => {
     // Two connection objects with the same project are one connection
     expect(manifest.connections).toEqual({
       launchdarkly: {
-        platform: 'launchdarkly',
-        providerManifest:
-          'https://flags-sdk.dev/provider-manifests/launchdarkly.json',
+        system: 'launchdarkly',
+        systemManifest:
+          'https://flags-sdk.dev/system-manifests/launchdarkly.json',
         variables: { projectId: 'shop', teamId: 'acme' },
       },
       'launchdarkly-2': {
-        platform: 'launchdarkly',
-        providerManifest:
-          'https://flags-sdk.dev/provider-manifests/launchdarkly.json',
+        system: 'launchdarkly',
+        systemManifest:
+          'https://flags-sdk.dev/system-manifests/launchdarkly.json',
         variables: { projectId: 'blog', teamId: 'acme' },
       },
-      // No provider manifest for in-memory
-      'in-memory': { platform: 'in-memory', variables: {} },
+      // No system manifest for in-memory
+      'in-memory': { system: 'in-memory', variables: {} },
     });
     expect(manifest.definitions.a?.connection).toBe('launchdarkly');
     expect(manifest.definitions.b?.connection).toBe('launchdarkly');
@@ -141,15 +141,15 @@ describe('createManifest', () => {
     expect(manifest.definitions.d?.connection).toBe('in-memory');
   });
 
-  it('uses the provider manifest of the project instead of the one of the platform', () => {
+  it('uses the system manifest of the project instead of the one of the system', () => {
     const own = defineConnection({
       provider: {
         metadata: { name: 'own' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
       project: {
-        platform: 'in-memory',
-        providerManifest: 'https://flags.example/provider.json',
+        system: 'in-memory',
+        systemManifest: 'https://flags.example/provider.json',
       },
     });
 
@@ -157,8 +157,8 @@ describe('createManifest', () => {
       { id: 'flags.ts', exports: { a: defineFlag(own, 'a') } },
     ]);
     expect(manifest.connections['in-memory']).toEqual({
-      platform: 'in-memory',
-      providerManifest: 'https://flags.example/provider.json',
+      system: 'in-memory',
+      systemManifest: 'https://flags.example/provider.json',
       variables: {},
     });
   });

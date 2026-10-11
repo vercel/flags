@@ -17,11 +17,11 @@ function projectWith(file?: string) {
 type WebpackFn = NonNullable<NextConfig['webpack']>;
 
 describe('withFlags', () => {
-  it('points flags/integration to flags/next', () => {
+  it('points flags/framework to flags/next', () => {
     const config = withFlags({}, { dir: projectWith() });
 
     expect(config.turbopack?.resolveAlias).toEqual({
-      'flags/integration': 'flags/next',
+      'flags/framework': 'flags/next',
     });
   });
 
@@ -58,7 +58,7 @@ describe('withFlags', () => {
     expect(config.reactStrictMode).toBe(true);
     expect(config.turbopack?.resolveAlias).toEqual({
       own: './own.js',
-      'flags/integration': 'flags/next',
+      'flags/framework': 'flags/next',
     });
     expect(config.turbopack?.rules?.['*.svg']).toEqual({
       loaders: ['@svgr/webpack'],

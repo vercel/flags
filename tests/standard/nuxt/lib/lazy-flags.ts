@@ -9,7 +9,7 @@ const lazy = defineConnection({
     metadata: { name: 'lazy' },
     resolveBooleanEvaluation: async () => ({ value: true }),
   },
-  project: { platform: 'in-memory' },
+  project: { system: 'in-memory' },
 });
 
 export const plainFlag = { key: 'plain-flag', connection: lazy };

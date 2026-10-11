@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import stringify from 'fast-json-stable-stringify';
-import { setupIntegration } from 'flags/integration';
+import { setupFramework } from 'flags/framework';
 import type { Config } from './config';
 import { type Connection, isConnection } from './connection';
 import { getBuiltInConnection } from './default-connection';
@@ -315,7 +315,7 @@ function callStep(
  * Coordinates the providers of all connections. Use the default `runtime`
  * instance. An application has only one runtime.
  *
- * The lifecycle methods map to the AWS Lambda phases. Framework integrations
+ * The lifecycle methods map to the AWS Lambda phases. Framework bindings
  * call them.
  */
 class RuntimeImpl {
@@ -328,7 +328,7 @@ class RuntimeImpl {
   // Whether a flag uses the default connection. Only then does the runtime
   // initialize its provider.
   #usesDefaultConnection = false;
-  #integration: Promise<void> | undefined;
+  #framework: Promise<void> | undefined;
   #rethrow: ((error: unknown) => void) | undefined;
   #configSource: ConfigSource | undefined;
   #loadedConfig: Promise<void> | undefined;
@@ -346,10 +346,10 @@ class RuntimeImpl {
    */
   async onInit(): Promise<void> {
     try {
-      await this.#setUpIntegration();
+      await this.#setUpFramework();
       await this.#loadConfig();
     } catch (error) {
-      logger.error('flags: Could not set up the framework integration.', error);
+      logger.error('flags: Could not set up the framework binding.', error);
     }
     const providers = this.#registeredProviders();
     const results = await Promise.allSettled(
@@ -431,7 +431,7 @@ class RuntimeImpl {
    * receive it. Some frameworks use errors as signals, e.g. Next.js to stop
    * the static rendering, and the SDK must not catch them. The runtime calls
    * it first when an evaluation fails, before it uses the defaultValue.
-   * The framework integration sets it.
+   * The framework binding sets it.
    *
    * @example
    * ```ts
@@ -447,7 +447,7 @@ class RuntimeImpl {
 
   /**
    * Sets a function which returns the configuration, e.g. the export
-   * `config` of `flags.config.ts`. The framework integration sets it.
+   * `config` of `flags.config.ts`. The framework binding sets it.
    *
    * In production, the runtime calls it one time. In development, the
    * runtime calls it before each evaluation, and configures again when it
@@ -460,7 +460,7 @@ class RuntimeImpl {
   }
 
   /**
-   * Configures the SDK. By convention, the framework integration calls it
+   * Configures the SDK. By convention, the framework binding calls it
    * with the export `config` of `flags.config.ts`. Without a framework, call
    * it at startup.
    *
@@ -520,14 +520,14 @@ class RuntimeImpl {
   }
 
   /**
-   * Sets up the framework integration and loads the configuration, without
+   * Sets up the framework binding and loads the configuration, without
    * the initialization of providers. For tools, e.g. the route of the
    * manifest, which need the default connection of the configuration.
    *
    * @internal
    */
   async prepare(): Promise<void> {
-    await this.#setUpIntegration();
+    await this.#setUpFramework();
     await this.#loadConfig();
   }
 
@@ -702,7 +702,7 @@ class RuntimeImpl {
     },
   ): Promise<void> {
     try {
-      await this.#setUpIntegration();
+      await this.#setUpFramework();
       await this.#loadConfig();
       const target = connection ?? this.defaultConnection;
       const { provider } = target;
@@ -770,7 +770,7 @@ class RuntimeImpl {
     let setupError: unknown;
     let scope: RequestScope | undefined;
     try {
-      await this.#setUpIntegration();
+      await this.#setUpFramework();
       await this.#loadConfig();
       scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
     } catch (error) {
@@ -1004,7 +1004,7 @@ class RuntimeImpl {
     this.#readOverrides = createOverridesReader();
     this.#config = {};
     this.#usesDefaultConnection = false;
-    this.#integration = undefined;
+    this.#framework = undefined;
     this.#rethrow = undefined;
     this.#configSource = undefined;
     this.#loadedConfig = undefined;
@@ -1122,19 +1122,19 @@ class RuntimeImpl {
   }
 
   /**
-   * Calls the framework integration one time (see `flags/integration`). If
+   * Calls the framework binding one time (see `flags/framework`). If
    * it fails, the next call tries again.
    */
-  #setUpIntegration(): Promise<void> {
-    if (!setupIntegration) return Promise.resolve();
-    const setup = setupIntegration;
-    this.#integration ??= Promise.resolve()
+  #setUpFramework(): Promise<void> {
+    if (!setupFramework) return Promise.resolve();
+    const setup = setupFramework;
+    this.#framework ??= Promise.resolve()
       .then(() => setup(this))
       .catch((error: unknown) => {
-        this.#integration = undefined;
+        this.#framework = undefined;
         throw error;
       });
-    return this.#integration;
+    return this.#framework;
   }
 
   async #scopeFromSource(): Promise<RequestScope | undefined> {

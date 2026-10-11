@@ -14,7 +14,7 @@ function createConnection() {
   } satisfies Provider;
   return defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 }
 
@@ -155,7 +155,7 @@ describe('the cache of each request', () => {
     };
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const withDefault = defineFlag({
       key: 'a',

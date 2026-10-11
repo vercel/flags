@@ -28,7 +28,7 @@ function createConnection(
   const provider = createProvider(name);
   const connection = defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
     getEvaluationContext,
   });
   return { connection, provider };
@@ -340,7 +340,7 @@ describe('request scope', () => {
       }));
       const b = defineConnection({
         provider,
-        project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+        project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
         getEvaluationContext: () => ({ targetingKey: 'b' }),
       });
       const flagA = defineFlag({ key: 'a', connection: a });

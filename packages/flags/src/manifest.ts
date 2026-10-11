@@ -7,8 +7,8 @@
  * flags, and it does not depend on how the flags were created.
  */
 import stringify from 'fast-json-stable-stringify';
-import { providerManifestUrls } from './connection';
-import { findVercelProject } from './overrides/vercel';
+import { systemManifestUrls } from './connection';
+import { findPlatformProject } from './overrides/vercel';
 import { runtime } from './runtime';
 import {
   describeValue,
@@ -66,17 +66,17 @@ export interface FlagManifestDefinition {
 }
 
 /**
- * A connection of the flags: its platform, and the variables of its
+ * A connection of the flags: its system, and the variables of its
  * project. A tool builds the links to the dashboard from the provider
  * manifest and the variables (see `resolveFlagLinks`). The links are not in
- * the file, so a platform can change them without a new build.
+ * the file, so a system can change them without a new build.
  */
 export interface FlagManifestConnection {
-  readonly platform: string;
+  readonly system: string;
   /**
-   * The URL of the provider manifest of the platform, if it has one.
+   * The URL of the system manifest of the system, if it has one.
    */
-  readonly providerManifest?: string;
+  readonly systemManifest?: string;
   /**
    * The fields of the project, e.g. `projectId`. Public identifiers, never
    * credentials.
@@ -168,12 +168,13 @@ function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
   };
   const project = connection?.project as Record<string, unknown> | undefined;
   if (typeof project !== 'object' || project === null) return undefined;
-  const { platform, providerManifest, ...fields } = project;
-  if (typeof platform !== 'string') return undefined;
+  const { system, systemManifest, ...fields } = project;
+  if (typeof system !== 'string') return undefined;
   const variables: Record<string, string> = {};
-  // Vercel Flags: the project comes from the environment of the build
-  if (platform === 'vercel') {
-    for (const [name, value] of Object.entries(findVercelProject())) {
+  // Vercel Flags uses the platform project of Vercel as its flag project, so
+  // the variables come from the environment of the build
+  if (system === 'vercel-flags') {
+    for (const [name, value] of Object.entries(findPlatformProject())) {
       if (value) variables[name] = value;
     }
   }
@@ -181,12 +182,12 @@ function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
     if (typeof value === 'string') variables[name] = value;
   }
   const url =
-    typeof providerManifest === 'string'
-      ? providerManifest
-      : providerManifestUrls[platform as keyof typeof providerManifestUrls];
+    typeof systemManifest === 'string'
+      ? systemManifest
+      : systemManifestUrls[system as keyof typeof systemManifestUrls];
   return {
-    platform,
-    ...(url ? { providerManifest: url } : {}),
+    system,
+    ...(url ? { systemManifest: url } : {}),
     variables,
   };
 }
@@ -243,8 +244,8 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
     }
   }
 
-  // The ids of the connections: the platform, and a number if two
-  // connections have the same platform. In the order of the keys of the
+  // The ids of the connections: the system, and a number if two
+  // connections have the same system. In the order of the keys of the
   // flags, so that the file is stable.
   const connections: Record<string, FlagManifestConnection> = {};
   const ids = new Map<string, string>();
@@ -258,9 +259,9 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
         const content = stringify(connection);
         id = ids.get(content);
         if (!id) {
-          id = connection.platform;
+          id = connection.system;
           for (let n = 2; Object.hasOwn(connections, id); n++) {
-            id = `${connection.platform}-${n}`;
+            id = `${connection.system}-${n}`;
           }
           ids.set(content, id);
           connections[id] = connection;
@@ -278,8 +279,8 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
 export {
   expandTemplate,
   type FlagLinks,
-  type ProviderManifest,
-  type ProviderManifestLinks,
   resolveFlagLinks,
-  validateProviderManifest,
-} from './provider-manifest';
+  type SystemManifest,
+  type SystemManifestLinks,
+  validateSystemManifest,
+} from './system-manifest';

@@ -44,7 +44,7 @@ describe('context chain', () => {
     const provider = createProvider();
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: { id: context.teamId },
       }),
@@ -60,7 +60,7 @@ describe('context chain', () => {
     const provider = createProvider();
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => {
         order.push(`connection:${context.teamId}`);
         return { team: { id: context.teamId } };
@@ -85,7 +85,7 @@ describe('context chain', () => {
     const provider = createProvider();
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: async (
         context: { teamId: keyof typeof teams },
         request,
@@ -110,7 +110,7 @@ describe('context chain', () => {
     const provider = createProvider();
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { country: string }, request) => ({
         ...context,
         user: request?.headers?.get('x-user') ?? null,
@@ -129,7 +129,7 @@ describe('context chain', () => {
       const provider = createProvider();
       const connection = defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
       const flag = defineFlag({ key: 'a', connection });
 
@@ -141,7 +141,7 @@ describe('context chain', () => {
       const provider = createProvider();
       const connection = defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
       const flag = defineFlag({
         key: 'a',
@@ -157,7 +157,7 @@ describe('context chain', () => {
       const provider = createProvider();
       const connection = defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
       const flag = defineFlag({ key: 'a', connection });
 
@@ -171,7 +171,7 @@ describe('context chain', () => {
       const received: (FlagsRequest | undefined)[] = [];
       const connection = defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => {
           received.push(request);
           return {};
@@ -196,7 +196,7 @@ describe('context chain', () => {
       const received: unknown[] = [];
       const connection = defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => {
           received.push(request);
           return {};
@@ -216,7 +216,7 @@ describe('context chain', () => {
       }));
       const connection = defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: step,
       });
       return { connection, step };
@@ -319,7 +319,7 @@ describe('context chain', () => {
     it('returns the default value when the step of the flag throws', async () => {
       const connection = defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
       const flag = defineFlag({
         key: 'a',
@@ -339,7 +339,7 @@ describe('context chain', () => {
     it('rejects without a default value when the connection step throws', async () => {
       const connection = defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: async (): Promise<EvaluationContext> => {
           throw new Error('Team not found');
         },
@@ -356,21 +356,21 @@ describe('context chain', () => {
   describe('types', () => {
     const teamConnection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: context.teamId,
       }),
     });
     const optionalConnection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string } | undefined) => ({
         team: context?.teamId ?? null,
       }),
     });
     const plainConnection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     it('takes the input of a connection from its getEvaluationContext', () => {
@@ -444,7 +444,7 @@ describe('context chain', () => {
     it('types the request of each step', () => {
       defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: (context, request) => {
           expectTypeOf(context).toEqualTypeOf<DefaultConnectionInput>();
           expectTypeOf(request).toEqualTypeOf<FlagsRequest | undefined>();

@@ -251,7 +251,7 @@ describe('createOfrepProvider', () => {
     );
     const connection = defineConnection({
       provider: ofrep,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     await expect(

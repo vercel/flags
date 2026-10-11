@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { providerManifestUrls } from './connection';
+import { systemManifestUrls } from './connection';
 import {
   expandTemplate,
-  type ProviderManifest,
   resolveFlagLinks,
-  validateProviderManifest,
-} from './provider-manifest';
+  type SystemManifest,
+  validateSystemManifest,
+} from './system-manifest';
 
-const manifest: ProviderManifest = {
+const manifest: SystemManifest = {
   version: 1,
   name: 'Acme Flags',
   links: {
@@ -46,7 +46,7 @@ describe('resolveFlagLinks', () => {
   });
 });
 
-describe('validateProviderManifest', () => {
+describe('validateSystemManifest', () => {
   it.each([
     ['a placeholder in the origin', 'https://{teamId}.acme.dev/flags'],
     ['a URL which is not HTTPS', 'http://app.acme.dev/{projectId}'],
@@ -54,18 +54,18 @@ describe('validateProviderManifest', () => {
     ['a fragment', 'https://app.acme.dev/{projectId}#x'],
   ])('rejects a link with %s', (_, flag) => {
     expect(() =>
-      validateProviderManifest({ ...manifest, links: { flag } }),
+      validateSystemManifest({ ...manifest, links: { flag } }),
     ).toThrow(
-      'flags: The link "flag" of the provider manifest must be an HTTPS URL',
+      'flags: The link "flag" of the system manifest must be an HTTPS URL',
     );
   });
 
   it('rejects a manifest without version 1 or a name', () => {
     expect(() =>
-      validateProviderManifest({ version: 2, name: 'x', links: {} }),
-    ).toThrow('flags: The provider manifest is not valid.');
-    expect(() => validateProviderManifest({ version: 1, links: {} })).toThrow(
-      'flags: The provider manifest is not valid.',
+      validateSystemManifest({ version: 2, name: 'x', links: {} }),
+    ).toThrow('flags: The system manifest is not valid.');
+    expect(() => validateSystemManifest({ version: 1, links: {} })).toThrow(
+      'flags: The system manifest is not valid.',
     );
   });
 });
@@ -78,28 +78,26 @@ describe('expandTemplate', () => {
   });
 });
 
-describe('the provider manifests which the SDK hosts', () => {
-  // apps/docs publishes them at https://flags-sdk.dev/provider-manifests/
-  const hosted = (platform: string) =>
+describe('the system manifests which the SDK hosts', () => {
+  // apps/docs publishes them at https://flags-sdk.dev/system-manifests/
+  const hosted = (system: string) =>
     JSON.parse(
       readFileSync(
         resolve(
           __dirname,
-          `../../../apps/docs/public/provider-manifests/${platform}.json`,
+          `../../../apps/docs/public/system-manifests/${system}.json`,
         ),
         'utf8',
       ),
     );
 
   it.each(
-    Object.entries(providerManifestUrls).filter(([, url]) => url),
-  )('has a valid file for %s', (platform, url) => {
-    expect(url).toBe(
-      `https://flags-sdk.dev/provider-manifests/${platform}.json`,
-    );
-    const file = validateProviderManifest(hosted(platform));
+    Object.entries(systemManifestUrls).filter(([, url]) => url),
+  )('has a valid file for %s', (system, url) => {
+    expect(url).toBe(`https://flags-sdk.dev/system-manifests/${system}.json`);
+    const file = validateSystemManifest(hosted(system));
     expect(file.$schema).toBe(
-      'https://flags-sdk.dev/schemas/provider-manifest.v1.json',
+      'https://flags-sdk.dev/schemas/system-manifest.v1.json',
     );
     // Each placeholder is a declared variable, or flagKey
     for (const template of Object.values(file.links)) {
@@ -127,7 +125,7 @@ describe('the provider manifests which the SDK hosts', () => {
   it('builds the link of a Vercel flag', () => {
     expect(
       resolveFlagLinks(
-        hosted('vercel'),
+        hosted('vercel-flags'),
         { teamId: 'team_1', projectId: 'prj_1', environment: 'production' },
         'sale',
       ),

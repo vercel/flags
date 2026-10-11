@@ -21,7 +21,7 @@ function createConnection(name = 'test') {
     onClose: vi.fn<() => Promise<void>>(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value: true })),
   } satisfies Provider;
-  return defineConnection({ provider, project: { platform: 'in-memory' } });
+  return defineConnection({ provider, project: { system: 'in-memory' } });
 }
 
 /**
@@ -86,7 +86,7 @@ describe('runtime', () => {
       const a = createConnection();
       const b = defineConnection({
         provider: a.provider,
-        project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+        project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
       });
       registerConnections([a, b]);
 
@@ -389,7 +389,7 @@ describe('runtime', () => {
       } satisfies Provider;
       const connection = defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => ({
           targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
         }),
@@ -438,7 +438,7 @@ describe('runtime', () => {
     it('requires a connection returned by defineConnection', async () => {
       const connection = {
         provider: createConnection().provider,
-        project: { platform: 'in-memory' as const },
+        project: { system: 'in-memory' as const },
       };
 
       await expect(runtime.evaluate({ key: 'a', connection })).rejects.toThrow(
@@ -473,7 +473,7 @@ describe('runtime', () => {
       const signal = new FrameworkSignal('Postponed');
       const connection = defineConnection({
         provider: createConnection().provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: () => {
           throw signal;
         },
@@ -507,7 +507,7 @@ describe('runtime', () => {
           metadata: { name: `value-${value}` },
           resolveBooleanEvaluation: async () => ({ value }),
         },
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
 
     it('loads the configuration before the first evaluation', async () => {
@@ -558,7 +558,7 @@ describe('runtime', () => {
         metadata: { name: 'minimal' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({ key: 'a', connection });
 

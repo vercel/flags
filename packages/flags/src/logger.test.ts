@@ -38,7 +38,7 @@ describe('logger', () => {
   it('logs one line when a flag returns its default value', async () => {
     const connection = defineConnection({
       provider: new TypedInMemoryProvider({}),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({
       key: 'missing',
@@ -57,7 +57,7 @@ describe('logger', () => {
     // The in-memory provider logs unknown keys at debug level
     const connection = defineConnection({
       provider: new TypedInMemoryProvider({}),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({
       key: 'missing',
@@ -78,7 +78,7 @@ describe('logger', () => {
           throw new Error('Oops');
         },
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({ key: 'a', defaultValue: true, connection });
 
@@ -94,7 +94,7 @@ describe('logger', () => {
           throw new Error('The service is down.');
         },
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = defineFlag({ key: 'a', defaultValue: true, connection });
 

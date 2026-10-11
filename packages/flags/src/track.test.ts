@@ -13,7 +13,7 @@ function createConnection() {
   } satisfies Provider;
   return defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
     getEvaluationContext: (context: { userId: string }, request) => ({
       user: context.userId,
       country: request?.headers?.get('x-country') ?? null,
@@ -78,7 +78,7 @@ describe('track', () => {
     };
     const connection = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     await expect(track(connection, 'purchase')).resolves.toBeUndefined();

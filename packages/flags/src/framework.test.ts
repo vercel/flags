@@ -3,10 +3,10 @@ import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
 
-// What a framework plugin does: an alias replaces flags/integration
+// What a framework plugin does: an alias replaces flags/framework
 const setup = vi.fn();
-vi.mock('flags/integration', () => ({
-  setupIntegration: (r: unknown) => setup(r),
+vi.mock('flags/framework', () => ({
+  setupFramework: (r: unknown) => setup(r),
 }));
 
 const connection = () =>
@@ -15,10 +15,10 @@ const connection = () =>
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),
     },
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 
-describe('flags/integration replaced by a framework', () => {
+describe('flags/framework replaced by a framework', () => {
   beforeEach(() => {
     runtime.reset();
     setup.mockReset();
@@ -45,7 +45,7 @@ describe('flags/integration replaced by a framework', () => {
       key: 'a',
       connection: defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -88,7 +88,7 @@ describe('flags/integration replaced by a framework', () => {
     await runtime.onInit();
     expect(setup).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith(
-      'flags: Could not set up the framework integration.',
+      'flags: Could not set up the framework binding.',
       expect.any(Error),
     );
   });

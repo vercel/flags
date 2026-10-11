@@ -6,7 +6,7 @@ export {
 } from './shared-secret';
 export type { JsonValue, OverrideRejection } from './types';
 export {
-  type OverrideProject,
   OverridesError,
+  type PlatformProject,
   type VercelOverridesOptions,
 } from './vercel';

@@ -53,7 +53,7 @@ const flagValues = {
 const connection = () =>
   defineConnection({
     provider: new TypedInMemoryProvider(flagValues),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 
 let errors: string[];
@@ -245,7 +245,7 @@ describe('flag value types', () => {
         defaultValue: 0,
         connection: defineConnection({
           provider,
-          project: { platform: 'in-memory' },
+          project: { system: 'in-memory' },
         }),
       });
 
@@ -279,7 +279,7 @@ describe('flag value types', () => {
         type: 'string',
         connection: defineConnection({
           provider: onlyBoolean,
-          project: { platform: 'in-memory' },
+          project: { system: 'in-memory' },
         }),
       });
 
@@ -323,7 +323,7 @@ describe('flag value types', () => {
         type,
         connection: defineConnection({
           provider,
-          project: { platform: 'in-memory' },
+          project: { system: 'in-memory' },
         }),
       })();
 

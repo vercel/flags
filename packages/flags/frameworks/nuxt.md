@@ -2,7 +2,7 @@
 
 Status: the runtime works with `runtime.onInvoke` in server routes. The
 module `flags/nuxt` registers `'use flags'` modules and writes the manifest
-of the flags. A full integration (request source, `flags.config.ts`) is
+of the flags. A full framework binding (request source, `flags.config.ts`) is
 planned (milestone 13). `tests/standard/nuxt` tests it with Nuxt 4.6 and
 Nitro 2.
 

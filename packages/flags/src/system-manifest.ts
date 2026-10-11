@@ -1,18 +1,18 @@
 /**
- * The provider manifest: a JSON file which a platform publishes. It tells
- * tools such as Flags Explorer how to build the links to its dashboard, from
- * the variables of a connection, e.g. the project. The flags manifest of an
- * application stores only the variables, so a platform can change its
- * links without a new build of the application.
+ * The system manifest: a JSON file which a flag management system (system)
+ * publishes. It tells tools such as Flags Explorer how to build the links to
+ * its dashboard, from the variables of a connection, e.g. the flag project.
+ * The flags manifest of an application stores only the variables, so a
+ * system can change its links without a new build of the application.
  *
- * The schema is at https://flags-sdk.dev/schemas/provider-manifest.v1.json.
+ * The schema is at https://flags-sdk.dev/schemas/system-manifest.v1.json.
  */
 
 /**
  * The URL templates use level 1 of RFC 6570: `{name}` placeholders, which
  * are replaced with URL-encoded values.
  */
-export interface ProviderManifestLinks {
+export interface SystemManifestLinks {
   /**
    * The page of one flag. Has the variable `flagKey`.
    */
@@ -27,15 +27,15 @@ export interface ProviderManifestLinks {
   readonly project?: string;
 }
 
-export interface ProviderManifest {
+export interface SystemManifest {
   readonly $schema?: string;
   readonly version: 1;
   /**
-   * The name of the platform, e.g. `LaunchDarkly`.
+   * The name of the system, e.g. `LaunchDarkly`.
    */
   readonly name: string;
   /**
-   * The URL of the logo of the platform.
+   * The URL of the logo of the system.
    */
   readonly logo?: string;
   /**
@@ -44,11 +44,11 @@ export interface ProviderManifest {
   readonly variables?: Readonly<
     Record<string, { readonly description?: string }>
   >;
-  readonly links: ProviderManifestLinks;
+  readonly links: SystemManifestLinks;
 }
 
 /**
- * The links of one flag, built from a provider manifest.
+ * The links of one flag, built from a system manifest.
  */
 export interface FlagLinks {
   readonly flag?: string;
@@ -88,10 +88,10 @@ function isSafeTemplate(template: unknown): template is string {
 }
 
 /**
- * Checks a provider manifest, e.g. after a fetch. Throws if it is not valid.
+ * Checks a system manifest, e.g. after a fetch. Throws if it is not valid.
  */
-export function validateProviderManifest(value: unknown): ProviderManifest {
-  const manifest = value as Partial<ProviderManifest> | null;
+export function validateSystemManifest(value: unknown): SystemManifest {
+  const manifest = value as Partial<SystemManifest> | null;
   if (
     typeof manifest !== 'object' ||
     manifest === null ||
@@ -102,22 +102,22 @@ export function validateProviderManifest(value: unknown): ProviderManifest {
     manifest.links === null
   ) {
     throw new TypeError(
-      'flags: The provider manifest is not valid. It needs version 1, a name and links.',
+      'flags: The system manifest is not valid. It needs version 1, a name and links.',
     );
   }
   if (manifest.logo !== undefined && !isSafeUrl(manifest.logo)) {
     throw new TypeError(
-      'flags: The logo of the provider manifest must be an HTTPS URL.',
+      'flags: The logo of the system manifest must be an HTTPS URL.',
     );
   }
   for (const [name, template] of Object.entries(manifest.links)) {
     if (template !== undefined && !isSafeTemplate(template)) {
       throw new TypeError(
-        `flags: The link "${name}" of the provider manifest must be an HTTPS URL, without a placeholder in its origin.`,
+        `flags: The link "${name}" of the system manifest must be an HTTPS URL, without a placeholder in its origin.`,
       );
     }
   }
-  return manifest as ProviderManifest;
+  return manifest as SystemManifest;
 }
 
 /**
@@ -142,15 +142,15 @@ export function expandTemplate(
 }
 
 /**
- * Builds the links of a flag from a provider manifest and the variables of
+ * Builds the links of a flag from a system manifest and the variables of
  * its connection. A link whose variables are not all known is left out.
  */
 export function resolveFlagLinks(
-  providerManifest: ProviderManifest,
+  systemManifest: SystemManifest,
   variables: Readonly<Record<string, string>>,
   flagKey: string,
 ): FlagLinks {
-  const manifest = validateProviderManifest(providerManifest);
+  const manifest = validateSystemManifest(systemManifest);
   const values = { ...variables, flagKey };
   const links: Record<string, string> = {};
   for (const name of ['flag', 'createFlag', 'project'] as const) {

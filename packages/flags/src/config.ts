@@ -5,7 +5,7 @@ import type { Hook } from './types';
 
 /**
  * The configuration of the SDK. By convention, it is the export `config` of
- * `flags.config.ts`, and the framework integration gives it to
+ * `flags.config.ts`, and the framework binding gives it to
  * `runtime.configure`.
  */
 export interface Config {
@@ -37,7 +37,7 @@ export interface Config {
  * export const config = defineConfig({
  *   defaultConnection: defineConnection({
  *     provider: new VercelProvider(), // of @vercel/flags-core/openfeature
- *     project: { platform: 'vercel' },
+ *     project: { system: 'vercel-flags' },
  *   }),
  * });
  *
