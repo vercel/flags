@@ -31,8 +31,9 @@ changed, update the walkthrough in the same change.
    development (see "Framework integration contract").
 10. Done: OpenFeature parity. Hooks, events, tracking, and the report of
     overrides through hooks (see "Hooks, events and tracking").
-11. A cache of results for each request, and precompute for Next.js as a
-    separate export, outside of the runtime and the standard.
+11. A cache of results for each request (done, see "The cache of each
+    request"), and precompute for Next.js as a separate export, outside of
+    the runtime and the standard.
 12. Tooling. Flag discovery for tools such as Flags Explorer, links to the
     dashboard of the platform (`origin`), and the overrides from end to end
     with the Vercel Toolbar.
@@ -345,12 +346,18 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
 
 #### Cache
 
-- Inside a request, each step runs once for each input object. A second call
-  with the same object, or without input, uses the first result.
+- Inside a request, each step runs once for each input. A second call with
+  the same input, or without input, uses the first result.
   `evaluate([a, b], { evaluationContext })` gives the same object to each
   flag, so the step of a shared connection runs once.
-- A new object is a new input, also with the same fields. The SDK does not
-  compare the fields, because that is slow and not always correct.
+- Plain data is compared by its content: primitives, arrays and plain
+  objects. Thus, `{ teamId: 't1' }` in two server components is one input,
+  also with the keys in a different order. The key is a stable JSON string
+  (`fast-json-stable-stringify`, without dependencies).
+- Other objects are compared by identity: a `Date`, a `Map`, an instance of
+  a class, a function, or an object which contains one of them, and
+  circular objects. The SDK can not compare them safely, so it does not
+  guess. Example: `{ since: new Date(0) }` two times is two inputs.
 - Outside of a request, the steps run on each evaluation.
 - If a step throws, the flags that use its result fail for the rest of the
   request. They return `defaultValue` or throw a `FlagEvaluationError`.
@@ -906,9 +913,36 @@ interface FlagsRequest {
   without steps. This is correct: flags are dynamic by definition, and
   overrides will read the cookies of each request. In Next.js, this makes the
   page dynamic, as expected.
-- The request scope holds the cache of the evaluation context chain.
+- The request scope holds the cache of the evaluation context chain and the
+  cache of the results.
 - A flag waits for the initialization of its provider. It gets the context at
   the same time.
+
+#### The cache of each request
+
+During one request, the SDK evaluates each flag one time for each input of
+the call side. Thus, all components of a page get the same value, also when
+the configuration of the provider changes during the request, and the
+provider gets fewer calls.
+
+- The key is the flag object and the `evaluationContext` of the call side.
+  Plain data is compared by its content, other objects by identity, as for
+  the steps of the chain (see "Cache" in "Evaluation context chain"). Two
+  flags with the same key are two flags. A plain
+  `FlagDefinition` which the call side creates for each call is not cached.
+- `flag()`, `evaluate(flag)` and `evaluate([flag])` share the cache.
+- The cache keeps the promise. Concurrent calls share one evaluation.
+- The cache also keeps a failure. A flag with `defaultValue` logs one line
+  for each request, and a flag without `defaultValue` throws the same error
+  again.
+- A result of the cache runs no hooks, because the SDK does not evaluate the
+  flag again. Thus, a hook which records exposures records one exposure for
+  each request, flag and input.
+- A call with its own `hooks` or `hookHints` skips the cache. It gets its own
+  evaluation, so that its hooks run. It does not change the cache.
+- Outside of a request, e.g. in a script, there is no cache. Each call
+  evaluates the flag.
+- The cache ends with the request. Nothing is shared between requests.
 
 ## Framework integration contract
 
@@ -1028,7 +1062,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 `tests/standard/next` tests the integration with three builds: Turbopack,
 webpack, and Turbopack with a test adapter of the platform. `pnpm test:e2e`
-runs 15 tests with HTTP requests, without a browser. `next dev` was also
+runs 17 tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
 
 **SvelteKit**

@@ -158,8 +158,9 @@ export default async function Page() {
 }
 ```
 
-A nested server component can evaluate the same flag again. The evaluation
-context is created one time for each request (see "How it works").
+A nested server component can evaluate the same flag again. The SDK
+evaluates each flag one time for each request, so all components get the
+same value, and the provider gets one call (see "How it works").
 
 ### Route handlers
 
@@ -303,8 +304,8 @@ Before the first evaluation, the SDK calls `setupIntegration` of
 1. **The request source.** No middleware of Next.js wraps the rendering of a
    page, but `headers()` and `cookies()` give the current request at any
    time. `headers()` returns the same object during one request, so the SDK
-   identifies the request by it, and creates the evaluation context one time
-   for each request. Outside of a request, `headers()` throws, and the source
+   identifies the request by it. It creates the evaluation context, and
+   evaluates each flag, one time for each request. Outside of a request, `headers()` throws, and the source
    gives no request.
 2. **The rethrow.** Next.js uses errors as signals, e.g. "Dynamic server
    usage" during the build, to detect that a page is dynamic. The SDK gives
@@ -387,7 +388,7 @@ the configuration, the providers and their clients.
   `modifyConfig`, during `phase-production-build`. The adapter API is stable
   since Next.js 16.2, and the platform enables its adapter with
   `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 15 end-to-end tests with HTTP requests, without
+- `tests/standard/next` runs 17 end-to-end tests with HTTP requests, without
   a browser:
 
   ```sh

@@ -247,13 +247,32 @@ describe('context chain', () => {
       expect(step).toHaveBeenCalledTimes(1);
     });
 
-    it('runs a step for each new input object', async () => {
+    it('runs a step once for inputs with the same content', async () => {
       const { connection, step } = countingConnection();
       const a = defineFlag({ key: 'a', connection });
+      const b = defineFlag({ key: 'b', connection });
 
       await runtime.onInvoke(request, async () => {
         await a({ evaluationContext: { teamId: 't1' } });
-        await a({ evaluationContext: { teamId: 't1' } });
+        await b({ evaluationContext: { teamId: 't1' } });
+        await b({ evaluationContext: { teamId: 't2' } });
+      });
+      expect(step).toHaveBeenCalledTimes(2);
+    });
+
+    it('compares an input which is not plain data by identity', async () => {
+      const { connection, step } = countingConnection();
+      const a = defineFlag({ key: 'a', connection });
+      const b = defineFlag({ key: 'b', connection });
+      class Team {
+        constructor(readonly teamId: string) {}
+      }
+      const team = new Team('t1');
+
+      await runtime.onInvoke(request, async () => {
+        await a({ evaluationContext: team });
+        await b({ evaluationContext: team });
+        await b({ evaluationContext: new Team('t1') });
       });
       expect(step).toHaveBeenCalledTimes(2);
     });

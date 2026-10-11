@@ -319,31 +319,26 @@ function defineFromOptions(
   if (explicit) runtime.registerConnection(explicit);
   else runtime.markDefaultConnectionUsed();
 
-  // Without a connection, the runtime resolves the default connection at the
-  // evaluation, so the configuration can come later than the flag
-  const definition: FlagDefinition = {
-    key,
-    type,
-    defaultValue: defaultValue as FlagValue | undefined,
-    options: flagOptions,
-    connection: explicit,
-    getEvaluationContext,
-  };
-  const flag = Object.defineProperties(
-    (options?: Partial<EvaluationOptions<unknown>>) =>
-      runtime.evaluate(definition, options as never),
-    {
-      key: { value: key, enumerable: true },
-      type: { value: type, enumerable: true },
-      defaultValue: { value: defaultValue, enumerable: true },
-      options: { value: flagOptions, enumerable: true },
-      getEvaluationContext: { value: getEvaluationContext, enumerable: true },
-      connection: {
-        get: () => explicit ?? runtime.defaultConnection,
-        enumerable: true,
+  // The flag gives itself to the runtime, so that flag() and evaluate(flag)
+  // share the cache of the request
+  const flag: Flag<Connection, string, unknown, FlagValue> =
+    Object.defineProperties(
+      (options?: Partial<EvaluationOptions<unknown>>) =>
+        runtime.evaluate(flag as FlagDefinition, options as never),
+      {
+        key: { value: key, enumerable: true },
+        type: { value: type, enumerable: true },
+        defaultValue: { value: defaultValue, enumerable: true },
+        options: { value: flagOptions, enumerable: true },
+        getEvaluationContext: { value: getEvaluationContext, enumerable: true },
+        // Without a connection, the default connection at the time of the
+        // evaluation, so the configuration can come later than the flag
+        connection: {
+          get: () => explicit ?? runtime.defaultConnection,
+          enumerable: true,
+        },
       },
-    },
-  ) as unknown as Flag<Connection, string, unknown, FlagValue>;
+    ) as unknown as Flag<Connection, string, unknown, FlagValue>;
   flags.add(flag);
   return flag;
 }

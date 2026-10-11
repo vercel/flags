@@ -45,6 +45,15 @@ test('creates the evaluation context one time for each request', async ({
   expect(await response.json()).toMatchObject({ contextCalls: 1 });
 });
 
+test('evaluates each flag one time for each request', async ({ request }) => {
+  const response = await request.get('/api/flags', {
+    headers: { 'x-request-id': 'request-2' },
+  });
+
+  // Five calls of three flags: the hook sees three evaluations
+  expect(await response.json()).toMatchObject({ evaluations: 3 });
+});
+
 test('keeps requests apart', async ({ request }) => {
   const [alice, bob] = await Promise.all([
     request.get('/api/flags', { headers: { cookie: 'user=alice' } }),

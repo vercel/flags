@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import stringify from 'fast-json-stable-stringify';
 import { setupIntegration } from 'flags/integration';
 import type { Config } from './config';
 import { type Connection, isConnection } from './connection';
@@ -187,18 +188,73 @@ function handledRejection(error: unknown): Promise<never> {
 }
 
 /**
+ * Whether a value is plain data: primitives, arrays and plain objects. Only
+ * plain data can be compared by its content. A `Date`, a `Map`, an instance
+ * of a class, a function or a circular object is not plain data.
+ */
+function isPlainData(value: unknown, parents = new Set<object>()): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value !== 'object' || parents.has(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  const isArray = Array.isArray(value);
+  if (!isArray && prototype !== Object.prototype && prototype !== null) {
+    return false;
+  }
+  parents.add(value);
+  const plain = Object.values(value).every((item) =>
+    isPlainData(item, parents),
+  );
+  parents.delete(value);
+  return plain;
+}
+
+/**
+ * Results for one owner, e.g. one step, by their input. Plain data is
+ * compared by its content: `{ x: 1 }` and a different `{ x: 1 }` are the same
+ * input, also with the keys in a different order. Other objects are compared
+ * by identity.
+ */
+class ResultsByInput {
+  readonly #objects = new WeakMap<object, Promise<unknown>>();
+  readonly #values = new Map<unknown, Promise<unknown>>();
+  readonly #contents = new Map<string, Promise<unknown>>();
+
+  get(input: unknown, create: () => Promise<unknown>): Promise<unknown> {
+    if (typeof input !== 'object' || input === null) {
+      return cached(this.#values, input, create);
+    }
+    if (isPlainData(input)) {
+      return cached(this.#contents, stringify(input), create);
+    }
+    return cached(this.#objects, input, create);
+  }
+}
+
+function cached<K>(
+  map: {
+    get(key: K): Promise<unknown> | undefined;
+    set(key: K, value: Promise<unknown>): unknown;
+  },
+  key: K,
+  create: () => Promise<unknown>,
+): Promise<unknown> {
+  const existing = map.get(key);
+  if (existing) return existing;
+  const result = create();
+  map.set(key, result);
+  return result;
+}
+
+/**
  * The state of one request. Each step of the context chain runs once per
- * input object.
+ * input object, and each flag is evaluated once per input object.
  */
 class RequestScope {
   readonly request: FlagsRequest;
-  readonly #results = new Map<
-    Step,
-    {
-      objects: WeakMap<object, Promise<unknown>>;
-      values: Map<unknown, Promise<unknown>>;
-    }
-  >();
+  readonly #steps = new Map<Step, ResultsByInput>();
+  readonly #flags = new WeakMap<FlagDefinition, ResultsByInput>();
 
   #overrides: Promise<ReadonlyMap<string, JsonValue>> | undefined;
 
@@ -215,21 +271,30 @@ class RequestScope {
   }
 
   run(step: Step, owner: object, input: unknown): Promise<unknown> {
-    let results = this.#results.get(step);
+    let results = this.#steps.get(step);
     if (!results) {
-      results = { objects: new WeakMap(), values: new Map() };
-      this.#results.set(step, results);
+      results = new ResultsByInput();
+      this.#steps.set(step, results);
     }
-    const isObject = typeof input === 'object' && input !== null;
-    const existing = isObject
-      ? results.objects.get(input)
-      : results.values.get(input);
-    if (existing) return existing;
+    return results.get(input, () => callStep(step, owner, input, this.request));
+  }
 
-    const result = callStep(step, owner, input, this.request);
-    if (isObject) results.objects.set(input, result);
-    else results.values.set(input, result);
-    return result;
+  /**
+   * Returns the result of the flag for this input in this request, or
+   * evaluates the flag. Also a failure is kept, so that the request gets the
+   * same result each time.
+   */
+  evaluate(
+    flag: FlagDefinition,
+    input: unknown,
+    evaluate: () => Promise<FlagValue>,
+  ): Promise<FlagValue> {
+    let results = this.#flags.get(flag);
+    if (!results) {
+      results = new ResultsByInput();
+      this.#flags.set(flag, results);
+    }
+    return results.get(input, evaluate) as Promise<FlagValue>;
   }
 }
 
@@ -676,21 +741,38 @@ class RuntimeImpl {
     return (context ?? {}) as EvaluationContext;
   }
 
+  /**
+   * Evaluates a flag once per request and input. A call with its own hooks
+   * gets its own evaluation, so that its hooks run.
+   */
   async #evaluateFlag(
     flag: FlagDefinition,
     call: CallOptions | undefined,
   ): Promise<FlagValue> {
-    const { key, defaultValue, options } = flag;
-    const type = flag.type ?? 'boolean';
-    // The integration can configure the default connection, so it must run
-    // before the SDK selects the connection of the flag
+    // The integration can configure the default connection and the request
+    // source, so it must run first
     let setupError: unknown;
+    let scope: RequestScope | undefined;
     try {
       await this.#setUpIntegration();
       await this.#loadConfig();
+      scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
     } catch (error) {
       setupError = error;
     }
+    const evaluate = () => this.#evaluateOnce(flag, call, scope, setupError);
+    if (!scope || call?.hooks || call?.hookHints) return evaluate();
+    return scope.evaluate(flag, call?.evaluationContext, evaluate);
+  }
+
+  async #evaluateOnce(
+    flag: FlagDefinition,
+    call: CallOptions | undefined,
+    scope: RequestScope | undefined,
+    setupError: unknown,
+  ): Promise<FlagValue> {
+    const { key, defaultValue, options } = flag;
+    const type = flag.type ?? 'boolean';
     const connection = flag.connection ?? this.defaultConnection;
     if (!isConnection(connection)) {
       throw new Error(
@@ -716,7 +798,6 @@ class RuntimeImpl {
     let failure: FlagEvaluationError | undefined;
     try {
       if (setupError !== undefined) throw setupError;
-      const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
 
       let override = scope
         ? (await scope.overrides(this.#readOverrides)).get(key)

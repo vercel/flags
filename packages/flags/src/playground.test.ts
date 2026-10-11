@@ -395,6 +395,25 @@ describe('5. Requests', () => {
     expect(calls.count).toBe(1);
   });
 
+  it('evaluates each flag once per request, so the page is consistent', async () => {
+    const provider = createProvider();
+    const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
+    const summerSale = defineFlag({
+      key: 'summer-sale',
+      connection: defineConnection({
+        provider,
+        project: { platform: 'in-memory' },
+      }),
+    });
+
+    // e.g. a header and a footer which both use the flag
+    await runtime.onInvoke(new Request('https://shop.example'), async () => {
+      await summerSale();
+      await summerSale();
+    });
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
   it('works like Next.js, which gives only headers() and cookies()', async () => {
     const { connection, calls } = cookieConnection();
     const newCheckout = defineFlag({ key: 'new-checkout', connection });
