@@ -131,6 +131,9 @@ describe('the provider manifests which the SDK hosts', () => {
         { teamId: 'team_1', projectId: 'prj_1', environment: 'production' },
         'sale',
       ),
-    ).toEqual({ flag: 'https://vercel.com/team_1/prj_1/flag/sale' });
+    ).toEqual({
+      flag: 'https://vercel.com/team_1/prj_1/flag/sale',
+      createFlag: 'https://vercel.com/team_1/prj_1/flags?create=1',
+    });
   });
 });
