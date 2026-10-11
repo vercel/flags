@@ -1,6 +1,6 @@
 import { precompute } from 'flags/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
-import { precomputeFlags } from './flags';
+import { precomputeFlags } from './precompute';
 
 // Evaluates the flags in the proxy, and rewrites to the static page of
 // their values

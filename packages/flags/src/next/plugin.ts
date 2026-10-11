@@ -11,10 +11,13 @@
  * `flags/integration` and `flags/config`), so that Next.js could take it
  * over.
  */
+import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { promisify } from 'node:util';
 import type { NextConfig } from 'next';
+import { MANIFEST_FILE } from '../build-manifest';
 
 export interface FlagsPluginOptions {
   /**
@@ -65,12 +68,112 @@ export function buildPrecomputeSecret(): string {
   return process.env[BUILD_KEY_SEED];
 }
 
+const LOADER = 'flags/next/use-flags-loader';
+const MANIFEST_LOADER = 'flags/next/manifest-loader';
+// The module of the route of the manifest, in the build of the SDK
+const manifestModule = /[\\/]next-manifest\.c?js$/;
+
+// Calls the compiled route of the manifest, and writes its result. In a
+// separate process, so that the modules of the application do not run in
+// the process of the build.
+const writeManifestScript = `
+const [route, output] = process.argv.slice(1);
+const { routeModule } = require(route);
+Promise.resolve(routeModule.userland.GET())
+  .then(async (response) => {
+    if (!response.ok) throw new Error('The route returned ' + response.status);
+    require('node:fs').writeFileSync(output, JSON.stringify(await response.json(), null, 2));
+  })
+  .catch((error) => { console.error(error); process.exitCode = 1; });
+`;
+
+/**
+ * Writes `flags-manifest.json` into `distDir` after the compile, if the
+ * application has the route of the manifest. The manifest is an optional
+ * feature, so without the route there is no file.
+ *
+ * @internal
+ */
+export async function writeManifest(
+  distDir: string,
+  projectDir: string,
+): Promise<void> {
+  const output = join(distDir, MANIFEST_FILE);
+  rmSync(output, { force: true });
+  const route = join(
+    distDir,
+    'server/app/.well-known/flags/manifest.json/route.js',
+  );
+  if (!existsSync(route)) return;
+  await promisify(execFile)(
+    process.execPath,
+    ['-e', writeManifestScript, route, output],
+    {
+      cwd: projectDir,
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        __FLAGS_WRITE_MANIFEST: '1',
+      },
+      timeout: 60_000,
+    },
+  ).catch((error: { stderr?: string }) => {
+    throw new Error(
+      `flags: Could not write ${MANIFEST_FILE}. ${error.stderr ?? String(error)}`,
+    );
+  });
+}
+const sourceExtensions = ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs'];
+
+type TurbopackRules = NonNullable<
+  NonNullable<NextConfig['turbopack']>['rules']
+>;
+
+/**
+ * Turbopack: the loader runs only for modules of the application which
+ * contain `use flags`. The loader then examines the directive prologue.
+ */
+function turbopackRules(
+  existing: TurbopackRules | undefined,
+  projectDir: string,
+): TurbopackRules {
+  const rules: TurbopackRules = { ...existing };
+  for (const extension of sourceExtensions) {
+    const glob = `*.${extension}`;
+    const current = rules[glob];
+    rules[glob] = [
+      ...(current === undefined
+        ? []
+        : Array.isArray(current)
+          ? current
+          : [current]),
+      {
+        condition: { all: [{ not: 'foreign' }, { content: /use flags/ }] },
+        loaders: [LOADER],
+      },
+      ...(extension === 'js' || extension === 'cjs'
+        ? [
+            {
+              condition: { path: manifestModule },
+              loaders: [{ loader: MANIFEST_LOADER, options: { projectDir } }],
+            },
+          ]
+        : []),
+    ] as TurbopackRules[string];
+  }
+  return rules;
+}
+
 /**
  * Adds the Flags SDK to the configuration of Next.js:
  *
  * - The alias `flags/integration` points to `flags/next`, which gives the
  *   runtime the current request of Next.js, and loads the configuration.
  * - The alias `flags/config` points to `flags.config.ts`, if it exists.
+ * - A module with the `'use flags'` directive registers its flags itself,
+ *   so nobody calls `registerFlags` by hand.
+ * - The route `flags/next/manifest` gets the modules with `'use flags'`,
+ *   and the build writes `flags-manifest.json` into `distDir`.
  * - The secret of precompute for this build goes into the server code, so
  *   that `flags/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  *
@@ -107,6 +210,10 @@ export function withFlags(
         ...nextConfig.compiler?.defineServer,
         'process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET': buildPrecomputeSecret(),
       },
+      async runAfterProductionCompile(metadata) {
+        await nextConfig.compiler?.runAfterProductionCompile?.(metadata);
+        await writeManifest(metadata.distDir, metadata.projectDir);
+      },
     },
     turbopack: {
       ...nextConfig.turbopack,
@@ -114,6 +221,7 @@ export function withFlags(
         ...nextConfig.turbopack?.resolveAlias,
         ...turbopackAliases,
       },
+      rules: turbopackRules(nextConfig.turbopack?.rules, dir),
     },
     webpack(config, context) {
       const result = nextConfig.webpack
@@ -121,6 +229,19 @@ export function withFlags(
         : config;
       result.resolve ??= {};
       result.resolve.alias = { ...result.resolve.alias, ...webpackAliases };
+      result.module ??= {};
+      result.module.rules ??= [];
+      // Before the other loaders, so that it gets the source of the module
+      result.module.rules.push({
+        enforce: 'pre',
+        test: new RegExp(`\\.(${sourceExtensions.join('|')})$`),
+        exclude: /node_modules/,
+        use: [LOADER],
+      });
+      result.module.rules.push({
+        test: manifestModule,
+        use: [{ loader: MANIFEST_LOADER, options: { projectDir: dir } }],
+      });
       return result;
     },
   };

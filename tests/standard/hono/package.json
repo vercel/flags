@@ -1,0 +1,22 @@
+{
+  "name": "standard-hono",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "manifest": "flags manifest",
+    "test:e2e": "pnpm manifest && playwright test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.4",
+    "flags": "workspace:*",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.1",
+    "@types/node": "^22.14.0"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

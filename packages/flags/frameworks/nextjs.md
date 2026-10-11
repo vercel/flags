@@ -337,6 +337,43 @@ export default async function Page({
 - Precompute is not a part of the standard of the SDK. It uses only its
   public API.
 
+### Discovery for Flags Explorer (optional)
+
+Put the flags into modules which start with `'use flags'`. Such a module
+exports only flags, and importing it has no side effects:
+
+```ts
+// flags.ts
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const summerSale = defineFlag('summer-sale', false);
+export const bannerText = defineFlag({
+  key: 'banner-text',
+  type: 'string',
+  defaultValue: 'Welcome',
+  description: 'The text of the banner',
+});
+```
+
+Add one route file:
+
+```ts
+// app/.well-known/flags/manifest.json/route.ts
+export { GET } from 'flags/next/manifest';
+```
+
+- `withFlags` registers the flags of each `'use flags'` module, so you do
+  not call `registerFlags`.
+- In development, the route returns the manifest of all flags, with
+  `no-store`. In production, it returns 404.
+- `next build` writes the manifest into `flags-manifest.json` in `distDir`.
+  The platform adapter puts it into the build output.
+- A new `'use flags'` file needs a restart of `next dev`.
+
+See `../SPEC.md`, section "Discovery".
+
 ### Static pages
 
 A page that Next.js renders at build time has no request. Its flags use the
@@ -457,11 +494,19 @@ the configuration, the providers and their clients.
   `flags/integration`.
 - `flags/next` must not import `flags` statically, because `flags` imports
   it. It gets the runtime as an argument.
+- `withFlags` adds two loaders: `flags/next/use-flags-loader` for the
+  self-registration of `'use flags'` modules, and
+  `flags/next/manifest-loader`, which puts the imports of these modules into
+  `flags/next/manifest`. After the compile
+  (`compiler.runAfterProductionCompile`), it calls the compiled route of the
+  manifest in a child process, and writes `flags-manifest.json`.
+- A platform adapter can read `flags-manifest.json` in `onBuildComplete`.
+  See `tests/standard/next/adapter.mjs`.
 - A platform adapter sets the alias of `flags/default-provider` in
   `modifyConfig`, during `phase-production-build`. The adapter API is stable
   since Next.js 16.2, and the platform enables its adapter with
   `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 23 end-to-end tests with HTTP requests, without
+- `tests/standard/next` runs 30 end-to-end tests with HTTP requests, without
   a browser:
 
   ```sh

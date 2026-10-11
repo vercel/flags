@@ -34,9 +34,9 @@ changed, update the walkthrough in the same change.
 11. Done: a cache of results for each request (see "The cache of each
     request"), and precompute for Next.js as the separate export
     `flags/next/precompute` (see "Precompute").
-12. Tooling. Flag discovery for tools such as Flags Explorer, links to the
-    dashboard of the platform (`origin`), and the overrides from end to end
-    with the Vercel Toolbar.
+12. Tooling. Flag discovery for tools such as Flags Explorer (done, see
+    "Discovery"), links to the dashboard of the platform (`origin`), and
+    the overrides from end to end with the Vercel Toolbar.
 13. More frameworks: SvelteKit, then Hono and Express.
 14. Standard. Write the spec with normative words (MUST, SHOULD). Add
     conformance tests for framework integrations. The provider contract is
@@ -132,8 +132,8 @@ built on the standard of this SDK. The usage is in
 ### Tests with real frameworks
 
 `tests/standard/<framework>` contains small apps that test the SDK in a real
-framework, e.g. `tests/standard/next`. They test the SDK and its contract,
-not providers. For now, only Next.js.
+framework: `next`, `sveltekit`, `nuxt` and `hono`. They test the SDK and its
+contract, not providers. Each has `pnpm test:e2e`.
 
 ## Providers
 
@@ -1075,7 +1075,7 @@ The tasks of an integration:
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
 | `onInit` and `onShutdown`              | At startup, and when the process stops, if the framework has such hooks                     | At startup, and on `SIGTERM`                               |
 | Fast evaluations on Vercel at step 0   | The platform adapter, or the plugin for a platform build, sets the alias of `flags/default-provider` | Not possible: OFREP, with a warning in production          |
-| Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Build tooling")                               | `registerFlags` by hand, if necessary                      |
+| Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Discovery")                                   | `registerFlags` by hand, if necessary                      |
 
 Rules for each integration:
 
@@ -1176,52 +1176,123 @@ tested by hand, with a change of `flags.config.ts` during the run.
   an export is not a flag, and then registers nothing.
 - `defineFlag` registers the connection of the flag. Thus, you only need these
   functions for flags that are defined after `onInit`, e.g. in modules that are
-  imported lazily.
+  imported lazily, or for plain flag objects.
+- The framework plugins call `registerFlags` for each `'use flags'` module
+  (see "Discovery").
 
-### Build tooling (planned)
+## Discovery
 
-Modules starting with a `'use flags'` directive export only flags. Framework
-compiler plugins will make sure their connections are registered before
-startup, so nobody has to call `registerConnections` by hand. Two options:
+Discovery is optional, on top of the rest: everything else works without
+it. It gives tools such as Flags Explorer the flags of an application, as a
+manifest. The framework collects the data and emits the manifest, through
+the framework plugins of the SDK. There is no secret, no access check, and
+no public endpoint in production.
 
-- At build time, import these modules, read the `connection` of each export and
-  generate the registration code.
-- Preferred: inject a self-import into each such module, so the module can read
-  its own exports and pass their connections to `registerConnections`.
+### `'use flags'`
 
-The injected code calls `registerFlags` with the exports of the module. Until
-then, call `registerFlags` or `registerConnections` manually.
+A module which starts with the `'use flags'` directive is a flags module:
 
-#### Self-registration
+- Each export is a flag: an object or a function with a string `key`, e.g.
+  a flag of `defineFlag`. The contract is based on the exported objects,
+  not on `defineFlag`.
+- Importing it has no side effects, e.g. no network connections. Tools
+  import it to read its exports. OpenFeature providers usually connect in
+  `initialize`, not in the constructor, so `defineConnection` in such a
+  module is fine.
+- The directive is found in the directive prologue (comments, whitespace,
+  and string literals at the start), as for `'use client'`. It is not a
+  parser.
+- The framework plugins append a self-registration to each flags module:
+  `import * as self from './flags'; registerFlags(self);`. `registerFlags`
+  registers the connections of the exports, also of plain flag objects. A
+  flag without a connection uses the default connection, which is not
+  registered. Without a plugin, call `registerFlags` by hand.
 
-A module can register its own flags with a static self-import:
+### The manifest
 
-```ts
-// flags.ts
-import * as self from './flags';
+`createManifest(modules)` (export `flags/manifest`) creates the manifest
+from the exports of the flags modules. It evaluates nothing.
 
-export const a = defineFlag({ key: 'a', connection });
-export const b = defineFlag({ key: 'b', connection });
-
-registerFlags(self); // at the end of the module
+```json
+{
+  "version": 1,
+  "definitions": {
+    "banner-text": {
+      "type": "string",
+      "options": [{ "value": "Welcome" }, { "value": "Summer sale!" }],
+      "defaultValue": "Welcome",
+      "description": "The text of the banner",
+      "declaredInCode": true,
+      "sources": [{ "module": "src/lib/flags.ts", "export": "bannerText" }]
+    }
+  }
+}
 ```
 
-- The call must be at the end of the module. Before, the exports are not
-  initialized, and `registerFlags` throws a `ReferenceError`.
-- This works in Node.js and after bundling (tested with esbuild).
-- `registerSelf(import.meta.url)`, which imports the URL dynamically, is not
-  part of the SDK:
-  - After bundling, `import.meta.url` is the URL of the bundle file, not of
-    the module. The import then returns the exports of the bundle (tested
-    with esbuild: it found the export of the entry point instead of the
-    flags).
-  - With a top-level `await`, the module waits for itself: a deadlock.
-  - CommonJS has no `import.meta.url`.
-- A self-registration runs only when the module is imported. `defineFlag`
-  already registers the connection at that time. Thus, the self-registration
-  adds value for the `'use flags'` contract (each export is a flag) and for
-  flag discovery, but not for modules which are imported lazily. For these,
-  the build tooling must import the module at startup.
+- The fields have the names of the definitions of Flags Explorer
+  (`options`, `defaultValue`, `description`, `declaredInCode`), plus `type`
+  and `sources`. `origin` comes later.
+- `defineFlag` has an optional `description` for it.
+- An export which is not a flag throws. Two exports with the same key must
+  declare the same flag; then the flag has two sources.
+- The keys are sorted, so the file is stable.
+
+### Where the manifest is
+
+| Framework | Plugin | Development | Build |
+| --- | --- | --- | --- |
+| Next.js | `withFlags` and the route `export { GET } from 'flags/next/manifest'` | the route | `flags-manifest.json` in `distDir` |
+| SvelteKit | `flags()` of `flags/vite` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in the server output |
+| Nuxt | `modules: ['flags/nuxt']` | `/.well-known/flags/manifest.json` | `flags-manifest.json` in `.output/server` |
+| No bundler, e.g. Hono | none | none | `flags manifest [dir]` after the build |
+
+- The plugins find the flags modules with a scan of the files of the
+  project (`findFlagsModules`): the directive prologue of each source file,
+  without `node_modules`, the output of builds, and hidden directories. The
+  bundler of the framework then compiles and imports them, so path aliases
+  and TypeScript work. The scan finds all flags modules, also of routes
+  which are not open.
+- Development: the endpoint imports the modules on each request, and
+  answers with `cache-control: no-store`. In production, there is no
+  endpoint.
+- Build: each flags module becomes its own chunk with all its exports
+  (Vite, Rollup, Nitro), or the compiled route of the manifest is called
+  (Next.js). A child process imports them after the build and writes the
+  file, so the modules do not run in the process of the build.
+- A platform puts the file into its build output. The test adapter of
+  `tests/standard/next` copies it in `onBuildComplete`. Where the Build
+  Output API of Vercel expects it is open.
+- `flags manifest [dir] [--out <file>]` imports the flags modules of `dir`
+  with Node.js. It works on the source if Node.js can run it (TypeScript
+  with type stripping in Node.js 22.18 or newer), or on the output of a
+  build which keeps the directive, e.g. `tsc`. A bundled output loses the
+  directive.
+
+### Next.js details
+
+- The loader `flags/next/use-flags-loader` adds the self-registration, for
+  Turbopack (a rule with a condition on the content) and webpack (an
+  `enforce: 'pre'` rule).
+- The loader `flags/next/manifest-loader` puts an import of each flags
+  module into `flags/next/manifest`, so that Next.js compiles them. A new
+  flags module needs a restart of `next dev`.
+- A plugin can not add a route, so the application has one route file:
+  `app/.well-known/flags/manifest.json/route.ts`. Without it, there is no
+  manifest.
+- `compiler.runAfterProductionCompile` (since Next.js 15.4) calls the
+  compiled route (`routeModule.userland.GET`) in a child process. This uses
+  the layout of the build output of Next.js, which `tests/standard/next`
+  tests with Turbopack and webpack.
+
+### Turbopack collect/emit
+
+Next.js 16.4 has the compiler intrinsics `__turbopack_emit__` and
+`__turbopack_collect__`: a loader marks a module, and a collector gets the
+marked modules of the app graph. They could replace the scan and the
+manifest loader for Turbopack. They are not used yet: they are not
+documented, they only exist with Turbopack and Next.js 16.4 or newer, and
+in development they only find the modules of the current route. The team
+of Turbopack works on a collection of the whole application.
 
 ## Deferred
 

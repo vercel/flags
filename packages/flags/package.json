@@ -53,6 +53,30 @@
     "./next/precompute": {
       "import": "./dist/next-precompute.js",
       "require": "./dist/next-precompute.cjs"
+    },
+    "./next/use-flags-loader": {
+      "import": "./dist/next-use-flags-loader.js",
+      "require": "./dist/next-use-flags-loader.cjs"
+    },
+    "./next/manifest": {
+      "import": "./dist/next-manifest.js",
+      "require": "./dist/next-manifest.cjs"
+    },
+    "./next/manifest-loader": {
+      "import": "./dist/next-manifest-loader.js",
+      "require": "./dist/next-manifest-loader.cjs"
+    },
+    "./manifest": {
+      "import": "./dist/manifest.js",
+      "require": "./dist/manifest.cjs"
+    },
+    "./vite": {
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
+    },
+    "./nuxt": {
+      "import": "./dist/nuxt.js",
+      "require": "./dist/nuxt.cjs"
     }
   },
   "typesVersions": {
@@ -64,6 +88,18 @@
       "next/precompute": [
         "dist/next-precompute.d.ts",
         "dist/next-precompute.d.cts"
+      ],
+      "next/use-flags-loader": [
+        "dist/next-use-flags-loader.d.ts",
+        "dist/next-use-flags-loader.d.cts"
+      ],
+      "next/manifest": [
+        "dist/next-manifest.d.ts",
+        "dist/next-manifest.d.cts"
+      ],
+      "next/manifest-loader": [
+        "dist/next-manifest-loader.d.ts",
+        "dist/next-manifest-loader.d.cts"
       ],
       "config": [
         "dist/config-module.d.ts",
@@ -98,6 +134,7 @@
     "next": "16.3.8",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
+    "vite": "8.3.4",
     "vitest": "4.1.11"
   },
   "publishConfig": {
@@ -108,11 +145,18 @@
     "jose": "^6.2.12"
   },
   "peerDependencies": {
-    "next": ">=15.4.0"
+    "next": ">=15.4.0",
+    "vite": ">=6.0.0"
   },
   "peerDependenciesMeta": {
     "next": {
       "optional": true
+    },
+    "vite": {
+      "optional": true
     }
+  },
+  "bin": {
+    "flags": "./dist/cli.js"
   }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "standard-nuxt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "start": "node .output/server/index.mjs",
+    "test:e2e": "pnpm build && playwright test"
+  },
+  "dependencies": {
+    "flags": "workspace:*",
+    "nuxt": "~4.6.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.1"
+  }
+}

@@ -1,5 +1,6 @@
 import { generatePermutations, getPrecomputed } from 'flags/next/precompute';
-import { newCheckout, precomputeFlags, summerSale } from '../../../flags';
+import { newCheckout, summerSale } from '../../../flags';
+import { precomputeFlags } from '../../../precompute';
 
 // Only the pages of generateStaticParams exist. Thus, a response shows that
 // the page was built at build time.

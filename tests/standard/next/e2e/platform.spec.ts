@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 // The platform variant: flags.config.ts has no default connection, and the
@@ -11,4 +12,17 @@ test('uses the default provider of the platform', async ({ request }) => {
     checkout: true,
     banner: 'From the platform',
   });
+});
+
+test('gives the platform the manifest of the flags', () => {
+  const manifest = JSON.parse(
+    readFileSync('.next-platform/platform-output/flags-manifest.json', 'utf8'),
+  );
+
+  expect(Object.keys(manifest.definitions)).toEqual([
+    'banner-text',
+    'new-checkout',
+    'plain-flag',
+    'summer-sale',
+  ]);
 });

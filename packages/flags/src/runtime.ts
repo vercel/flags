@@ -72,6 +72,10 @@ export interface FlagDefinition {
    */
   readonly options?: readonly FlagOptionObject<FlagValue>[];
   /**
+   * What the flag is for, e.g. for Flags Explorer.
+   */
+  readonly description?: string;
+  /**
    * A connection returned by `defineConnection`. Without it, the flag uses
    * the default connection.
    */
