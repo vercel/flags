@@ -5,9 +5,10 @@ installation, the setup, the usage, how it works, and the gotchas. The
 contract between frameworks and the SDK is in `../SPEC.md`, section
 "Framework integration contract".
 
-Status: the integration works with the App Router. `tests/standard/next`
-tests it with Turbopack, with webpack, and with a platform adapter. Some
-parts are not done yet (see "Not supported yet").
+Status: the integration works with the App Router and Turbopack. It does
+not support webpack: a build with `--webpack` stops with an error.
+`tests/standard/next` tests it with Turbopack and with a platform adapter.
+Some parts are not done yet (see "Not supported yet").
 
 ## Requirements
 
@@ -46,7 +47,7 @@ export default withFlags({
 ```
 
 That is the only required step. `withFlags` keeps the configuration of the
-application, also its own aliases and its `webpack` function.
+application, also its own aliases and rules of Turbopack.
 
 If `flags.config.ts` is not in the directory of the application or in its
 `src` directory, give the directory:
@@ -399,8 +400,7 @@ evaluate without a request for each flag, also with zero configuration.
 
 ## How it works
 
-`withFlags` sets two bundler aliases, for Turbopack (`turbopack.resolveAlias`)
-and for webpack (`resolve.alias`):
+`withFlags` sets two aliases of Turbopack (`turbopack.resolveAlias`):
 
 | Alias               | Points to          | Default without the plugin |
 | ------------------- | ------------------ | -------------------------- |
@@ -507,7 +507,7 @@ the configuration, the providers and their clients.
   `modifyConfig`, during `phase-production-build`. The adapter API is stable
   since Next.js 16.2, and the platform enables its adapter with
   `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 30 end-to-end tests with HTTP requests, without
+- `tests/standard/next` runs 16 end-to-end tests with HTTP requests, without
   a browser:
 
   ```sh
@@ -515,5 +515,5 @@ the configuration, the providers and their clients.
   pnpm test:e2e
   ```
 
-  It builds three variants: Turbopack (`.next`), webpack (`.next-webpack`),
-  and Turbopack with the test adapter of the platform (`.next-platform`).
+  It builds two variants: Turbopack (`.next`), and Turbopack with the test
+  adapter of the platform (`.next-platform`).

@@ -15,11 +15,6 @@ function projectWith(file?: string) {
 }
 
 type WebpackFn = NonNullable<NextConfig['webpack']>;
-type WebpackConfig = Parameters<WebpackFn>[0];
-
-function runWebpack(config: NextConfig, initial: WebpackConfig = {}) {
-  return config.webpack?.(initial, {} as Parameters<WebpackFn>[1]);
-}
 
 describe('withFlags', () => {
   it('points flags/integration to flags/next', () => {
@@ -27,9 +22,6 @@ describe('withFlags', () => {
 
     expect(config.turbopack?.resolveAlias).toEqual({
       'flags/integration': 'flags/next',
-    });
-    expect(runWebpack(config).resolve.alias).toEqual({
-      'flags/integration$': 'flags/next',
     });
   });
 
@@ -39,9 +31,6 @@ describe('withFlags', () => {
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
       'flags/config': './flags.config.ts',
-    });
-    expect(runWebpack(config).resolve.alias).toMatchObject({
-      'flags/config$': join(dir, 'flags.config.ts'),
     });
   });
 
@@ -55,15 +44,13 @@ describe('withFlags', () => {
   });
 
   it('keeps the configuration of the application', () => {
-    const own = vi.fn((config: WebpackConfig) => {
-      config.resolve = { alias: { own: './own.js' } };
-      return config;
-    });
     const config = withFlags(
       {
         reactStrictMode: true,
-        turbopack: { resolveAlias: { own: './own.js' } },
-        webpack: own,
+        turbopack: {
+          resolveAlias: { own: './own.js' },
+          rules: { '*.svg': { loaders: ['@svgr/webpack'], as: '*.js' } },
+        },
       },
       { dir: projectWith() },
     );
@@ -73,11 +60,29 @@ describe('withFlags', () => {
       own: './own.js',
       'flags/integration': 'flags/next',
     });
-    expect(runWebpack(config).resolve.alias).toEqual({
-      own: './own.js',
-      'flags/integration$': 'flags/next',
+    expect(config.turbopack?.rules?.['*.svg']).toEqual({
+      loaders: ['@svgr/webpack'],
+      as: '*.js',
     });
-    expect(own).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds the loader for use flags modules to Turbopack', () => {
+    const config = withFlags({}, { dir: projectWith() });
+
+    expect(config.turbopack?.rules?.['*.ts']).toEqual([
+      {
+        condition: { all: [{ not: 'foreign' }, { content: /use flags/ }] },
+        loaders: ['flags/next/use-flags-loader'],
+      },
+    ]);
+  });
+
+  it('throws for a build with webpack', () => {
+    const config = withFlags({}, { dir: projectWith() });
+
+    expect(() => config.webpack?.({}, {} as Parameters<WebpackFn>[1])).toThrow(
+      'flags: withFlags supports only Turbopack. Remove --webpack from next dev and next build.',
+    );
   });
 });
 

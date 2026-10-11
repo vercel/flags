@@ -27,8 +27,9 @@ changed, update the walkthrough in the same change.
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
 9. Done: Next.js. `flags/next/plugin` and `flags/next`, tested in
-   `tests/standard/next` with Turbopack, webpack, a platform adapter, and
-   development (see "Framework integration contract").
+   `tests/standard/next` with Turbopack, a platform adapter, and
+   development (see "Framework integration contract"). Only Turbopack is
+   supported, not webpack.
 10. Done: OpenFeature parity. Hooks, events, tracking, and the report of
     overrides through hooks (see "Hooks, events and tracking").
 11. Done: a cache of results for each request (see "The cache of each
@@ -88,11 +89,10 @@ built on the standard of this SDK. The usage is in
     different key without a warning.
   - `compiler.defineServer` exists since Next.js 15.4.0, so the peer
     dependency is `next >=15.4.0`. It applies only to the Node.js and Edge
-    compilers, not to the client. `tests/standard/next` checks that the key is in the server
-    chunks of the proxy and of the page, and in no file of
-    `.next/static`. It was tested with Turbopack and webpack, with
-    `next build` and `next start`, with `next dev`, and with the platform
-    adapter.
+    compilers, not to the client. `tests/standard/next` checks that the
+    key is in the server chunks of the proxy and of the page, and in no
+    file of `.next/static`. It was tested with Turbopack, with `next build`
+    and `next start`, with `next dev`, and with the platform adapter.
   - `next dev` makes a new key when the dev server starts. Old codes are
     then not valid, which is acceptable in development.
   - Set `FLAGS_PRECOMPUTE_SECRET` for the build and for the runtime, or for
@@ -1085,8 +1085,8 @@ Rules for each integration:
 - Set the alias of `flags/default-provider` only when the build is for a
   platform that has a fast provider. Do not set it in development, so that
   development uses OFREP or the configuration.
-- Set the aliases for each bundler that the framework uses, e.g. Turbopack
-  and webpack for Next.js.
+- Set the aliases for each bundler that the framework supports. For
+  Next.js, the SDK supports only Turbopack.
 
 ### Notes for each framework
 
@@ -1108,9 +1108,10 @@ export default withFlags({ /* the configuration of Next.js */ });
 | `flags/next`            | `setupIntegration`, the module of the integration                 | the alias, not the app     |
 | `flags/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
-- `withFlags` sets the aliases for Turbopack (`turbopack.resolveAlias`) and
-  for webpack (`resolve.alias`, with `$` for an exact match). It keeps the
-  aliases and the `webpack` function of the application. It finds
+- `withFlags` sets the aliases for Turbopack (`turbopack.resolveAlias`). It
+  supports only Turbopack: its `webpack` function throws, so a build with
+  `--webpack` stops with a clear error. It keeps the aliases and the rules
+  of the application. It finds
   `flags.config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
   application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
@@ -1133,9 +1134,9 @@ export default withFlags({ /* the configuration of Next.js */ });
   except `register` in `instrumentation.ts`), the proxy (`proxy.ts`), which
   gets the full `NextRequest`, and server actions.
 
-`tests/standard/next` tests the integration with three builds: Turbopack,
-webpack, and Turbopack with a test adapter of the platform. `pnpm test:e2e`
-runs 23 tests with HTTP requests, without a browser. `next dev` was also
+`tests/standard/next` tests the integration with two builds: Turbopack, and
+Turbopack with a test adapter of the platform. `pnpm test:e2e` runs 16
+tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
 
 **SvelteKit**
@@ -1270,22 +1271,20 @@ from the exports of the flags modules. It evaluates nothing.
 
 ### Next.js details
 
-- The loader `flags/next/use-flags-loader` adds the self-registration, for
-  Turbopack (a rule with a condition on the content) and webpack (an
-  `enforce: 'pre'` rule).
+- The loader `flags/next/use-flags-loader` adds the self-registration, with
+  a rule of Turbopack with a condition on the content.
 - The loader `flags/next/manifest-loader` puts an import of each flags
   module into `flags/next/manifest`, so that Next.js compiles them. It adds
   the project as a context dependency (`addContextDependency`), so the
   bundler runs it again when a file changes, e.g. a new flags module in
-  `next dev`. Tested with Turbopack and webpack, without a loop of
-  rebuilds.
+  `next dev`. Tested with Turbopack, without a loop of rebuilds.
 - A plugin can not add a route, so the application has one route file:
   `app/.well-known/flags/manifest.json/route.ts`. Without it, there is no
   manifest.
 - `compiler.runAfterProductionCompile` (since Next.js 15.4) calls the
   compiled route (`routeModule.userland.GET`) in a child process. This uses
   the layout of the build output of Next.js, which `tests/standard/next`
-  tests with Turbopack and webpack.
+  tests.
 
 ### Turbopack collect/emit
 

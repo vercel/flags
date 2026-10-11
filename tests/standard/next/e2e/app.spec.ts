@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
@@ -141,10 +140,8 @@ test('has no public manifest route in production', async ({ request }) => {
 });
 
 test('writes the manifest of the flags into the build', () => {
-  const distDir =
-    test.info().project.name === 'app-webpack' ? '.next-webpack' : '.next';
   const manifest = JSON.parse(
-    readFileSync(join(distDir, 'flags-manifest.json'), 'utf8'),
+    readFileSync('.next/flags-manifest.json', 'utf8'),
   );
 
   expect(manifest).toEqual({

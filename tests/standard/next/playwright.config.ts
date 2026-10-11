@@ -15,12 +15,6 @@ export default defineConfig({
       use: { baseURL: 'http://localhost:4310' },
     },
     {
-      // The same tests, with a build of webpack instead of Turbopack
-      name: 'app-webpack',
-      testMatch: 'app.spec.ts',
-      use: { baseURL: 'http://localhost:4312' },
-    },
-    {
       name: 'platform',
       testMatch: 'platform.spec.ts',
       use: { baseURL: 'http://localhost:4311' },
@@ -30,12 +24,6 @@ export default defineConfig({
     {
       command: 'pnpm start',
       url: 'http://localhost:4310/api/flags',
-      env: { FLAGS_SECRET },
-      reuseExistingServer: false,
-    },
-    {
-      command: 'pnpm start:webpack',
-      url: 'http://localhost:4312/api/flags',
       env: { FLAGS_SECRET },
       reuseExistingServer: false,
     },
