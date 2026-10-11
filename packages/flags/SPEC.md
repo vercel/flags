@@ -1292,9 +1292,11 @@ build of the application.
   can give its own URL in `project.providerManifest`, an HTTPS URL.
 - A new platform adds itself with a pull request: its fields in
   `ProjectFieldsByPlatform`, and its URL in `providerManifestUrls`.
-- The hosted files have only the link of a flag: for Vercel Flags
-  `https://vercel.com/{teamId}/{projectId}/flag/{flagKey}` (the dashboard
-  accepts the ID of the project), for LaunchDarkly the link of v4,
+- The hosted files: for Vercel Flags, the link of a flag
+  `https://vercel.com/{teamId}/{projectId}/flag/{flagKey}` and the link
+  `createFlag` `https://vercel.com/{teamId}/{projectId}/flags?create=1`
+  (the dashboard accepts the IDs of the team and of the project). For
+  LaunchDarkly, only the link of a flag of v4,
   `https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting`.
   A LaunchDarkly project without `environment` has no link.
 - Until a platform publishes its own file, the SDK hosts it in `apps/docs`
