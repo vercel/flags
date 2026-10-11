@@ -370,7 +370,8 @@ export { GET } from 'flags/next/manifest';
   `no-store`. In production, it returns 404.
 - `next build` writes the manifest into `flags-manifest.json` in `distDir`.
   The platform adapter puts it into the build output.
-- A new `'use flags'` file needs a restart of `next dev`.
+- A new `'use flags'` file is in the manifest without a restart of
+  `next dev`.
 
 See `../SPEC.md`, section "Discovery".
 

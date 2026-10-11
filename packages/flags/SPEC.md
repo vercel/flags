@@ -1274,8 +1274,11 @@ from the exports of the flags modules. It evaluates nothing.
   Turbopack (a rule with a condition on the content) and webpack (an
   `enforce: 'pre'` rule).
 - The loader `flags/next/manifest-loader` puts an import of each flags
-  module into `flags/next/manifest`, so that Next.js compiles them. A new
-  flags module needs a restart of `next dev`.
+  module into `flags/next/manifest`, so that Next.js compiles them. It adds
+  the project as a context dependency (`addContextDependency`), so the
+  bundler runs it again when a file changes, e.g. a new flags module in
+  `next dev`. Tested with Turbopack and webpack, without a loop of
+  rebuilds.
 - A plugin can not add a route, so the application has one route file:
   `app/.well-known/flags/manifest.json/route.ts`. Without it, there is no
   manifest.
