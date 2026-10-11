@@ -1,5 +1,5 @@
 /**
- * The loader of `withFlags` for webpack and Turbopack. A module with the
+ * The loader of `withFlags` for Turbopack. A module with the
  * `'use flags'` directive gets a self-registration at its end.
  */
 import { basename } from 'node:path';

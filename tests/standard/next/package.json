@@ -5,12 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "build:webpack": "NEXT_DIST_DIR=.next-webpack next build --webpack",
     "build:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform NEXT_ADAPTER_PATH=\"$PWD/adapter.mjs\" next build",
     "start": "next start --port 4310",
-    "start:webpack": "NEXT_DIST_DIR=.next-webpack next start --port 4312",
     "start:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform next start --port 4311",
-    "test:e2e": "pnpm build && pnpm build:webpack && pnpm build:platform && playwright test"
+    "test:e2e": "pnpm build && pnpm build:platform && playwright test"
   },
   "dependencies": {
     "@openfeature/core": "1.12.0",

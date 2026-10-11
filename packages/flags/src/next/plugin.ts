@@ -177,8 +177,8 @@ function turbopackRules(
  * - The secret of precompute for this build goes into the server code, so
  *   that `flags/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  *
- * It sets the aliases for Turbopack and for webpack, and keeps the aliases
- * and the `webpack` function of the configuration.
+ * It supports only Turbopack, and keeps the aliases and the rules of the
+ * configuration. A build with webpack throws.
  */
 export function withFlags(
   nextConfig: NextConfig = {},
@@ -190,15 +190,10 @@ export function withFlags(
   const turbopackAliases: Record<string, string> = {
     'flags/integration': 'flags/next',
   };
-  // webpack: `$` makes the alias match only this exact import
-  const webpackAliases: Record<string, string> = {
-    'flags/integration$': 'flags/next',
-  };
   if (configFile) {
     // Turbopack resolves a relative path from the directory of the project
     turbopackAliases['flags/config'] =
       `./${relative(dir, configFile).split(sep).join('/')}`;
-    webpackAliases['flags/config$'] = configFile;
   }
 
   return {
@@ -223,26 +218,11 @@ export function withFlags(
       },
       rules: turbopackRules(nextConfig.turbopack?.rules, dir),
     },
-    webpack(config, context) {
-      const result = nextConfig.webpack
-        ? nextConfig.webpack(config, context)
-        : config;
-      result.resolve ??= {};
-      result.resolve.alias = { ...result.resolve.alias, ...webpackAliases };
-      result.module ??= {};
-      result.module.rules ??= [];
-      // Before the other loaders, so that it gets the source of the module
-      result.module.rules.push({
-        enforce: 'pre',
-        test: new RegExp(`\\.(${sourceExtensions.join('|')})$`),
-        exclude: /node_modules/,
-        use: [LOADER],
-      });
-      result.module.rules.push({
-        test: manifestModule,
-        use: [{ loader: MANIFEST_LOADER, options: { projectDir: dir } }],
-      });
-      return result;
+    // Next.js calls it only for a build with webpack
+    webpack() {
+      throw new Error(
+        'flags: withFlags supports only Turbopack. Remove --webpack from next dev and next build.',
+      );
     },
   };
 }
