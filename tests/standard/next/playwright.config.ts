@@ -11,7 +11,7 @@ export default defineConfig({
   projects: [
     {
       name: 'app',
-      testMatch: 'app.spec.ts',
+      testMatch: /(app|conformance)\.spec\.ts/,
       use: { baseURL: 'http://localhost:4310' },
     },
     {

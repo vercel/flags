@@ -8,6 +8,7 @@
     "test:e2e": "pnpm manifest && playwright test"
   },
   "dependencies": {
+    "@flags-sdk/conformance": "workspace:*",
     "@flags-sdk/hono": "workspace:*",
     "@hono/node-server": "^2.1.4",
     "flags": "workspace:*",

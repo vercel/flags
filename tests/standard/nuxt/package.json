@@ -9,6 +9,7 @@
     "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
+    "@flags-sdk/conformance": "workspace:*",
     "@flags-sdk/nuxt": "workspace:*",
     "flags": "workspace:*",
     "nuxt": "~4.6.0",

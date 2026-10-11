@@ -295,6 +295,8 @@ await runtime.onInvoke(request, () => handle(request));
   can include this part itself later.
 - **`flags/tooling`:** functions for framework packages and build tools. See
   [For framework authors](./FRAMEWORK-AUTHORS.md).
+- **`@flags-sdk/conformance`:** checks that a framework follows
+  [the standard](./STANDARD.md).
 
 ## Examples
 

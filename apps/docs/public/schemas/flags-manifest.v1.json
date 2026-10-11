@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flags-sdk.dev/schemas/flags-manifest.v1.json",
+  "title": "Flags manifest",
+  "description": "The flags of an application, as a build plugin of the Flags SDK writes them: at /.well-known/flags/manifest.json in development, and as flags-manifest.json in the server output. It has no values of flags and no credentials.",
+  "type": "object",
+  "required": ["version", "connections", "definitions"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "connections": {
+      "type": "object",
+      "description": "The connections, by an id which the definitions use.",
+      "additionalProperties": {
+        "$ref": "#/$defs/connection"
+      }
+    },
+    "definitions": {
+      "type": "object",
+      "description": "The flags, by key, sorted by key.",
+      "additionalProperties": {
+        "$ref": "#/$defs/definition"
+      }
+    }
+  },
+  "$defs": {
+    "jsonValue": {},
+    "option": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": ["system", "variables"],
+      "properties": {
+        "system": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ID of the flag management system, e.g. launchdarkly."
+        },
+        "systemManifest": {
+          "type": "string",
+          "pattern": "^https://",
+          "description": "The URL of the system manifest of the system."
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Public identifiers of the flag project, never credentials."
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "required": ["type", "declaredInCode", "sources"],
+      "properties": {
+        "type": {
+          "enum": ["boolean", "string", "number", "object"]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "defaultValue": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "description": {
+          "type": "string"
+        },
+        "declaredInCode": {
+          "const": true
+        },
+        "connection": {
+          "type": "string",
+          "description": "The id of the connection in connections."
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["module", "export"],
+            "properties": {
+              "module": {
+                "type": "string"
+              },
+              "export": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

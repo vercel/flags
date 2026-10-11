@@ -11,12 +11,12 @@ export default defineConfig({
   projects: [
     {
       name: 'build',
-      testMatch: 'build.spec.ts',
+      testMatch: /(build|conformance)\.spec\.ts/,
       use: { baseURL: 'http://localhost:4370' },
     },
     {
       name: 'dev',
-      testMatch: 'dev.spec.ts',
+      testMatch: /(dev|conformance)\.spec\.ts/,
       use: { baseURL: 'http://localhost:4371' },
     },
   ],

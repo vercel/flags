@@ -75,8 +75,12 @@ writes a deployment adapter.
     middlewares for Hono and Express,
     each tested in `tests/standard/<framework>` (see "Notes for each
     framework").
-14. Standard. Write the spec with normative words (MUST, SHOULD). Add
-    conformance tests for framework bindings. The provider contract is
+14. Done: the standard. `STANDARD.md` has the normative words (MUST,
+    SHOULD) of RFC 2119, and `@flags-sdk/conformance` checks framework
+    bindings over HTTP. Each app of `tests/standard` runs it. The JSON
+    Schema of the flags manifest is
+    `https://flags-sdk.dev/schemas/flags-manifest.v1.json`, and
+    `validateFlagsManifest` of `flags/manifest` checks a manifest. The provider contract is
     OpenFeature, so the standard of this SDK is the contract between
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
     `flags.config.ts`, the alias of `flags/default-provider`, and the format

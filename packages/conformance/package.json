@@ -1,0 +1,50 @@
+{
+  "name": "@flags-sdk/conformance",
+  "description": "The conformance suite of the Flags SDK standard, for framework bindings",
+  "version": "0.0.0",
+  "license": "MIT",
+  "author": "Dominik Ferber <dominik@vercel.com>",
+  "homepage": "https://flags-sdk.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "check": "biome check",
+    "test": "vitest --run",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "flags": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "flags": "workspace:*",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.11"
+  }
+}

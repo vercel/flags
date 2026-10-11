@@ -4,8 +4,9 @@ How a framework connects to the Flags SDK. The packages `@flags-sdk/<framework>`
 do this today. A framework can take over its package, vendor it, or provide
 the same itself: everything here uses only the public API of `flags`.
 
-The full contract is in [SPEC.md](./SPEC.md), sections "Packages" and
-"Framework binding contract".
+The normative contract is [STANDARD.md](./STANDARD.md). The working notes
+are in [SPEC.md](./SPEC.md), sections "Packages" and "Framework binding
+contract".
 
 ## What a framework provides
 
@@ -160,8 +161,13 @@ A system adds itself with a pull request to `flags`:
 
 ## Testing a binding
 
-`tests/standard/<framework>` has a small app for each framework, with
-end-to-end tests over HTTP. Each app tests:
+Run the conformance suite
+[`@flags-sdk/conformance`](../conformance/README.md) in an app of your
+framework. It checks the request, one context for each request, separate
+requests, a signal, an override cookie and the manifest.
+
+`tests/standard/<framework>` has a small app for each framework, with the
+suite and more end-to-end tests over HTTP. Each app tests:
 
 - the evaluation with the request, and one evaluation context for each
   request;
