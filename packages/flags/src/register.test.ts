@@ -8,7 +8,7 @@ import { runtime } from './runtime';
 function createConnection() {
   return defineConnection({
     provider: new TypedInMemoryProvider({}),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 }
 
@@ -41,7 +41,7 @@ describe('registerConnections', () => {
   it('only accepts connections returned by defineConnection', () => {
     const fake = {
       provider: new TypedInMemoryProvider({}),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     } as Connection;
 
     expect(() => registerConnections([fake])).toThrow(

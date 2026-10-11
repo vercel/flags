@@ -1,5 +1,5 @@
 {
-  "$schema": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "$schema": "https://flags-sdk.dev/schemas/system-manifest.v1.json",
   "version": 1,
   "name": "LaunchDarkly",
   "variables": {

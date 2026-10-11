@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRequest, setupIntegration } from './index';
+import { getRequest, setupFramework } from './index';
 
 const headers = vi.fn();
 const cookies = vi.fn();
@@ -51,7 +51,7 @@ describe('getRequest', () => {
   });
 });
 
-describe('setupIntegration', () => {
+describe('setupFramework', () => {
   it('sets the request source, the rethrow and the config source', async () => {
     const runtime = {
       setRequestSource: vi.fn(),
@@ -59,7 +59,7 @@ describe('setupIntegration', () => {
       setConfigSource: vi.fn(),
     };
 
-    await setupIntegration(runtime as never);
+    await setupFramework(runtime as never);
     expect(runtime.setRequestSource).toHaveBeenCalledWith(getRequest);
     expect(runtime.setRethrow).toHaveBeenCalledTimes(1);
     // Without the plugin, flags/config has no configuration

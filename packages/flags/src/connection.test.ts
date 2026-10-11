@@ -15,12 +15,12 @@ describe('defineConnection', () => {
     const provider = new TypedInMemoryProvider(myFlags);
     const connection = defineConnection({
       provider,
-      project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+      project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
 
     expect(connection.provider).toBe(provider);
     expect(connection.project).toEqual({
-      platform: 'launchdarkly',
+      system: 'launchdarkly',
       projectId: 'x',
       teamId: 'y',
     });
@@ -31,7 +31,7 @@ describe('defineConnection', () => {
     const provider = new TypedInMemoryProvider(myFlags);
     defineConnection({
       provider,
-      project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+      project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
 
     expect(provider.metadata).toEqual({ name: 'in-memory' });
@@ -41,7 +41,7 @@ describe('defineConnection', () => {
     const getEvaluationContext = () => ({ targetingKey: 'user' });
     const connection = defineConnection({
       provider: new TypedInMemoryProvider(myFlags),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext,
     });
 
@@ -49,7 +49,7 @@ describe('defineConnection', () => {
   });
 
   it('can not be modified', () => {
-    const project = { platform: 'in-memory' } as const;
+    const project = { system: 'in-memory' } as const;
     const connection = defineConnection({
       provider: new TypedInMemoryProvider(myFlags),
       project,
@@ -60,16 +60,16 @@ describe('defineConnection', () => {
     expect(connection.project).not.toBe(project);
   });
 
-  it('narrows the types by platform', () => {
+  it('narrows the types by system', () => {
     const connection = defineConnection({
       provider: new TypedInMemoryProvider(myFlags),
-      project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+      project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
 
     expectTypeOf(connection.provider).toEqualTypeOf<
       TypedInMemoryProvider<typeof myFlags>
     >();
-    expectTypeOf(connection.project.platform).toEqualTypeOf<'launchdarkly'>();
+    expectTypeOf(connection.project.system).toEqualTypeOf<'launchdarkly'>();
     expectTypeOf(connection.project.projectId).toEqualTypeOf<string>();
     expectTypeOf(connection.project.teamId).toEqualTypeOf<string>();
   });
@@ -77,11 +77,11 @@ describe('defineConnection', () => {
   it('supports platforms without project fields', () => {
     const connection = defineConnection({
       provider: new TypedInMemoryProvider(myFlags),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
-    expect(connection.project).toEqual({ platform: 'in-memory' });
-    expectTypeOf(connection.project.platform).toEqualTypeOf<'in-memory'>();
+    expect(connection.project).toEqual({ system: 'in-memory' });
+    expectTypeOf(connection.project.system).toEqualTypeOf<'in-memory'>();
     // @ts-expect-error in-memory has no projectId
     connection.project.projectId;
   });
@@ -91,20 +91,20 @@ describe('defineConnection', () => {
 
     defineConnection({
       provider,
-      // @ts-expect-error unknown platform
-      project: { platform: 'unknown', projectId: 'x' },
+      // @ts-expect-error unknown system
+      project: { system: 'unknown', projectId: 'x' },
     });
 
     defineConnection({
       provider,
       // @ts-expect-error teamId is required for launchdarkly
-      project: { platform: 'launchdarkly', projectId: 'x' },
+      project: { system: 'launchdarkly', projectId: 'x' },
     });
 
     defineConnection({
       provider,
       project: {
-        platform: 'launchdarkly',
+        system: 'launchdarkly',
         projectId: 'x',
         teamId: 'y',
         // @ts-expect-error unknown field
@@ -115,7 +115,7 @@ describe('defineConnection', () => {
     defineConnection({
       provider,
       project: {
-        platform: 'in-memory',
+        system: 'in-memory',
         // @ts-expect-error in-memory has no projectId
         projectId: 'x',
       },
@@ -126,9 +126,24 @@ describe('defineConnection', () => {
     expect(
       isConnection({
         provider: new TypedInMemoryProvider(myFlags),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     ).toBe(false);
     expect(isConnection(null)).toBe(false);
+  });
+
+  it('throws for the old field platform', () => {
+    expect(() =>
+      defineConnection({
+        provider: {
+          metadata: { name: 'x' },
+          resolveBooleanEvaluation: async () => ({ value: true }),
+        },
+        // @ts-expect-error platform is now the deployment platform
+        project: { platform: 'in-memory' },
+      }),
+    ).toThrow(
+      'flags: Use `system` instead of `platform` for the flag management system of a project.',
+    );
   });
 });

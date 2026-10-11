@@ -34,9 +34,9 @@
       "import": "./dist/default-provider.js",
       "require": "./dist/default-provider.cjs"
     },
-    "./integration": {
-      "import": "./dist/integration.js",
-      "require": "./dist/integration.cjs"
+    "./framework": {
+      "import": "./dist/framework.js",
+      "require": "./dist/framework.cjs"
     },
     "./config": {
       "import": "./dist/config-module.js",

@@ -1,6 +1,6 @@
 /**
  * The integration of the Flags SDK for Next.js. The plugin `withFlags` of
- * `flags/next/plugin` points the alias `flags/integration` to this module.
+ * `flags/next/plugin` points the alias `flags/framework` to this module.
  * The application does not import it.
  *
  * It uses only the public API of the SDK, so that Next.js could take it
@@ -8,7 +8,7 @@
  */
 import { cookies, headers } from 'next/headers';
 import { unstable_rethrow } from 'next/navigation';
-import type { SetupIntegration } from '../integration';
+import type { SetupFramework } from '../framework';
 import type { FlagsRequestInit } from '../types';
 
 /**
@@ -19,7 +19,7 @@ import type { FlagsRequestInit } from '../types';
  * module. `flags.config.ts` imports `flags`, so it is loaded with a dynamic
  * `import()`.
  */
-export const setupIntegration: SetupIntegration = async (runtime) => {
+export const setupFramework: SetupFramework = async (runtime) => {
   runtime.setRequestSource(getRequest);
   // Next.js uses errors as signals, e.g. to stop the static rendering. They
   // must reach Next.js, also from steps of the context chain or providers.

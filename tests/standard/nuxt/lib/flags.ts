@@ -10,7 +10,7 @@ const shop = defineConnection({
     resolveBooleanEvaluation: async () => ({ value: true }),
     resolveStringEvaluation: async () => ({ value: 'Summer sale!' }),
   },
-  project: { platform: 'in-memory' },
+  project: { system: 'in-memory' },
 });
 
 export const summerSale = defineFlag(shop, 'summer-sale', false);

@@ -53,7 +53,7 @@ const appConfig = defineConfig({
         disabled: false,
       },
     } as const),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
     getEvaluationContext: (_context, request) => {
       const id = request?.headers?.get('x-request-id');
       if (id) counts.set(id, (counts.get(id) ?? 0) + 1);

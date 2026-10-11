@@ -8,7 +8,7 @@ export const config = defineConfig({
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),
     },
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
     getEvaluationContext: (context: { teamId: string }) => ({
       team: context.teamId,
     }),

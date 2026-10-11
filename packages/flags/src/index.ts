@@ -10,10 +10,10 @@ export {
   type ConnectionOptions,
   type DefaultConnectionInput,
   defineConnection,
+  type FlagManagementSystem,
   type GetEvaluationContext,
-  type Platform,
   type Project,
-  type ProjectFieldsByPlatform,
+  type ProjectFieldsBySystem,
 } from './connection';
 export { FlagEvaluationError } from './errors';
 export {
@@ -37,10 +37,10 @@ export {
   encryptOverrides,
   type FlagOverrides,
   type JsonValue,
-  type OverrideProject,
   type OverrideRejection,
   OverridesError,
   type OverridesOptions,
+  type PlatformProject,
   type VercelOverridesOptions,
 } from './overrides';
 export { registerConnections, registerFlags } from './register';

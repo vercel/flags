@@ -2,7 +2,7 @@
 
 Status: the runtime works with `runtime.onInvoke` in `hooks.server.ts`. The
 Vite plugin of `flags/vite` registers `'use flags'` modules and writes the
-manifest of the flags. A full integration (request source, `flags.config.ts`)
+manifest of the flags. A full framework binding (request source, `flags.config.ts`)
 is planned (milestone 13). `tests/standard/sveltekit` tests it with
 SvelteKit 2.70 and Vite 8.
 

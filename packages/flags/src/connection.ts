@@ -1,16 +1,18 @@
-import { isSafeUrl } from './provider-manifest';
 import { sharedState } from './shared-state';
+import { isSafeUrl } from './system-manifest';
 import type { EvaluationContext, FlagsRequest, Hook, Provider } from './types';
 
 /**
- * The project fields each supported platform expects.
+ * The fields of the flag project which each supported flag management
+ * system (system) expects.
  */
-export interface ProjectFieldsByPlatform {
+export interface ProjectFieldsBySystem {
   'in-memory': Record<never, never>;
   /**
-   * Vercel Flags. The project of Vercel comes from the environment.
+   * Vercel Flags. It uses the platform project of Vercel as its flag
+   * project, so the fields come from the environment.
    */
-  vercel: Record<never, never>;
+  'vercel-flags': Record<never, never>;
   /**
    * `projectId` is the key of the project in LaunchDarkly. The link to a
    * flag needs `environment`, the key of the environment.
@@ -18,24 +20,28 @@ export interface ProjectFieldsByPlatform {
   launchdarkly: { projectId: string; teamId: string; environment?: string };
 }
 
-export type Platform = keyof ProjectFieldsByPlatform;
+/**
+ * A flag management system (OpenFeature): the source of truth of the flags,
+ * e.g. LaunchDarkly or Vercel Flags. The short form is "system".
+ */
+export type FlagManagementSystem = keyof ProjectFieldsBySystem;
 
-const PROVIDER_MANIFESTS = 'https://flags-sdk.dev/provider-manifests';
+const SYSTEM_MANIFESTS = 'https://flags-sdk.dev/system-manifests';
 
 /**
- * The URL of the provider manifest of each platform (see
- * `provider-manifest.ts`). A tool builds the links to the dashboard of the
- * platform from it. A platform adds itself with a pull request, and, until it
- * publishes its own file, the SDK hosts it.
+ * The URL of the system manifest of each system (see `system-manifest.ts`).
+ * A tool builds the links to the dashboard of the system from it. A system
+ * adds itself with a pull request, and, until it publishes its own file,
+ * the SDK hosts it.
  *
  * @internal
  */
-export const providerManifestUrls: Readonly<
-  Record<Platform, string | undefined>
+export const systemManifestUrls: Readonly<
+  Record<FlagManagementSystem, string | undefined>
 > = {
   'in-memory': undefined,
-  vercel: `${PROVIDER_MANIFESTS}/vercel.json`,
-  launchdarkly: `${PROVIDER_MANIFESTS}/launchdarkly.json`,
+  'vercel-flags': `${SYSTEM_MANIFESTS}/vercel-flags.json`,
+  launchdarkly: `${SYSTEM_MANIFESTS}/launchdarkly.json`,
 };
 
 /**
@@ -43,16 +49,16 @@ export const providerManifestUrls: Readonly<
  */
 interface CommonProjectFields {
   /**
-   * The URL of the provider manifest, instead of the one of the platform.
+   * The URL of the system manifest, instead of the one of the system.
    */
-  providerManifest?: string;
+  systemManifest?: string;
 }
 
 /**
- * The project on a platform a connection points to.
+ * The flag project in a system which a connection points to.
  */
-export type Project<N extends Platform = Platform> = {
-  [K in N]: { platform: K } & CommonProjectFields & ProjectFieldsByPlatform[K];
+export type Project<N extends FlagManagementSystem = FlagManagementSystem> = {
+  [K in N]: { system: K } & CommonProjectFields & ProjectFieldsBySystem[K];
 }[N];
 
 /**
@@ -76,7 +82,7 @@ export type DefaultConnectionInput = EvaluationContext | undefined;
 
 export interface ConnectionOptions<
   P extends Provider,
-  N extends Platform,
+  N extends FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
   In = DefaultConnectionInput,
 > {
@@ -84,7 +90,7 @@ export interface ConnectionOptions<
    * The OpenFeature provider used to evaluate flags.
    */
   provider: P;
-  project: { platform: N } & CommonProjectFields & ProjectFieldsByPlatform[N];
+  project: { system: N } & CommonProjectFields & ProjectFieldsBySystem[N];
   /**
    * OpenFeature hooks for the flags of this connection. They run after the
    * hooks of the configuration, and before the hooks of the call side and of
@@ -116,7 +122,7 @@ export interface ConnectionOptions<
 }
 
 /**
- * Connects flags to a project on a platform, and to the provider which
+ * Connects flags to a flag project in a system, and to the provider which
  * evaluates them.
  *
  * `C` is the context which the provider receives. `In` is the context which
@@ -124,7 +130,7 @@ export interface ConnectionOptions<
  */
 export interface Connection<
   P extends Provider = Provider,
-  N extends Platform = Platform,
+  N extends FlagManagementSystem = FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
   In = DefaultConnectionInput,
 > {
@@ -141,25 +147,35 @@ export interface Connection<
  * The context which the flags of a connection must give.
  */
 export type ConnectionInput<C extends Connection> =
-  C extends Connection<Provider, Platform, EvaluationContext, infer In>
+  C extends Connection<
+    Provider,
+    FlagManagementSystem,
+    EvaluationContext,
+    infer In
+  >
     ? In
     : never;
 
 const { connections } = sharedState;
 
 /**
- * Defines a connection to a project on a platform.
+ * Defines a connection to a flag project in a system.
  */
 export function defineConnection<
   P extends Provider,
-  N extends Platform,
+  N extends FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
   In = DefaultConnectionInput,
 >(options: ConnectionOptions<P, N, C, In>): Connection<P, N, C, In> {
-  const { providerManifest } = options.project as CommonProjectFields;
-  if (providerManifest !== undefined && !isSafeUrl(providerManifest)) {
+  if (Object.hasOwn(options.project, 'platform')) {
     throw new TypeError(
-      'flags: The providerManifest of a project must be an HTTPS URL.',
+      'flags: Use `system` instead of `platform` for the flag management system of a project.',
+    );
+  }
+  const { systemManifest } = options.project as CommonProjectFields;
+  if (systemManifest !== undefined && !isSafeUrl(systemManifest)) {
+    throw new TypeError(
+      'flags: The systemManifest of a project must be an HTTPS URL.',
     );
   }
   const connection: Connection<P, N, C, In> = Object.freeze({

@@ -6,6 +6,37 @@ Working notes for the next major version. Not published (`files` only includes `
 feature. Run it with `pnpm test:playground`. When a feature is added or
 changed, update the walkthrough in the same change.
 
+## Glossary
+
+The terms of OpenFeature, plus the terms of this SDK. Each term has one
+meaning. A document writes the full term the first time, e.g. "the flag
+management system (system)".
+
+| Term | Meaning | Examples |
+| --- | --- | --- |
+| **Flag management system**, short **system** (OpenFeature) | The source of truth of the flags, with a dashboard. | LaunchDarkly, Statsig, Vercel Flags, in-memory |
+| **Flag project** | The project in a system. The `project` of a connection. | a LaunchDarkly project |
+| **Provider** (OpenFeature) | The OpenFeature object which resolves the flags of a system. Only this object. | `VercelProvider`, `TypedInMemoryProvider` |
+| **Connection** | A provider, plus a flag project. | `defineConnection` |
+| **Deployment platform**, short **platform** | Where the application runs. | Vercel, Netlify, Cloudflare |
+| **Platform project** | A project on a platform. It has many deployments, in environments such as production and preview. The overrides are scoped to it (`PlatformProject`). | a Vercel project |
+| **Deployment** | One build and release of one version of the code of a platform project, e.g. for one commit. | one Vercel deployment |
+| **Deployment adapter** | The code of a platform for a framework, e.g. with the Adapter API of Next.js. | the adapter of Vercel for Next.js |
+| **Framework binding** | The code of this SDK for one framework. It is the module behind the alias `flags/framework`, with `setupFramework`. | `flags/next` |
+| **Build plugin** | The part of a framework binding for the bundler. | `withFlags`, `flags/vite`, `flags/nuxt` |
+| **System manifest** | The JSON file of a system, with the templates of the links to its dashboard. | `vercel-flags.json` |
+| **Flags manifest** | The JSON file of the flags of an application. | `flags-manifest.json` |
+| **Integration** (OpenFeature) | Only in the meaning of OpenFeature: a secondary function, e.g. telemetry. | a hook for tracing |
+
+Vercel is both: Vercel Flags is a system (ID `vercel-flags`), and Vercel is
+a platform. Vercel Flags uses the platform project of Vercel as its flag
+project.
+
+Roles: the roles of OpenFeature (Application Author, Application
+Integrator, Provider Author, Integration Author, Library Author), plus the
+Framework Author, who writes a framework binding, and the platform, which
+writes a deployment adapter.
+
 ## Milestones
 
 1. Done: core primitives. Provider types, connections, flags, errors.
@@ -27,8 +58,8 @@ changed, update the walkthrough in the same change.
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
 9. Done: Next.js. `flags/next/plugin` and `flags/next`, tested in
-   `tests/standard/next` with Turbopack, a platform adapter, and
-   development (see "Framework integration contract"). Only Turbopack is
+   `tests/standard/next` with Turbopack, a deployment adapter, and
+   development (see "Framework binding contract"). Only Turbopack is
    supported, not webpack.
 10. Done: OpenFeature parity. Hooks, events, tracking, and the report of
     overrides through hooks (see "Hooks, events and tracking").
@@ -36,12 +67,12 @@ changed, update the walkthrough in the same change.
     request"), and precompute for Next.js as the separate export
     `flags/next/precompute` (see "Precompute").
 12. Tooling. Flag discovery for tools such as Flags Explorer (done, see
-    "Discovery"), links to the dashboard of the platform (done, see "Links
+    "Discovery"), links to the dashboard of the system (done, see "Links
     to the dashboard"), and the overrides from end to end with the Vercel
     Toolbar.
 13. More frameworks: SvelteKit, then Hono and Express.
 14. Standard. Write the spec with normative words (MUST, SHOULD). Add
-    conformance tests for framework integrations. The provider contract is
+    conformance tests for framework bindings. The provider contract is
     OpenFeature, so the standard of this SDK is the contract between
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
     `flags.config.ts`, the alias of `flags/default-provider`, and the format
@@ -93,7 +124,7 @@ built on the standard of this SDK. The usage is in
     compilers, not to the client. `tests/standard/next` checks that the
     key is in the server chunks of the proxy and of the page, and in no
     file of `.next/static`. It was tested with Turbopack, with `next build`
-    and `next start`, with `next dev`, and with the platform adapter.
+    and `next start`, with `next dev`, and with the deployment adapter.
   - `next dev` makes a new key when the dev server starts. Old codes are
     then not valid, which is acceptable in development.
   - Set `FLAGS_PRECOMPUTE_SECRET` for the build and for the runtime, or for
@@ -106,7 +137,7 @@ built on the standard of this SDK. The usage is in
   flags with `evaluate`. With `request`, it runs in `runtime.onInvoke`, so
   that the context chain and the overrides get the request of the proxy.
 - It uses only the public API of the runtime. It is not a framework
-  integration, and it needs no alias.
+  binding, and it needs no alias.
 - Changes from v4, which match the rules of v5:
   - A flag is not a function of `(code, group)`. Use `getPrecomputed`.
   - A flag which is not part of the code throws. v4 logged a warning and
@@ -167,7 +198,7 @@ through its own package name, and the build of the SDK keeps these imports:
 | Module                   | Default                     | Replaced by                                   |
 | ------------------------ | --------------------------- | --------------------------------------------- |
 | `flags/default-provider` | OFREP                       | a platform, e.g. with `@vercel/flags-core`    |
-| `flags/integration`      | no integration              | a framework plugin, e.g. with `flags/next`    |
+| `flags/framework`      | no framework binding        | a framework plugin, e.g. with `flags/next`    |
 | `flags/config`           | no configuration            | a framework plugin, with `flags.config.ts`    |
 
 A bundler can put more than one copy of the package into one process, e.g.
@@ -216,19 +247,20 @@ Differences from the OpenFeature client:
 
 ## Connections
 
-A connection links flags to a project on a platform, and to the provider which
+A connection links flags to a flag project in a flag management system
+(system), and to the provider which
 evaluates them. "Provider" always means the OpenFeature provider.
 
 ```ts
 const launchdarkly = defineConnection({
   provider: new LaunchDarklyProvider(),
-  project: { platform: 'launchdarkly', projectId: 'x', teamId: 'y' },
+  project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
   getEvaluationContext, // optional
 });
 ```
 
-- `project.platform` is one of a fixed list of platforms. The platform
-  determines which other fields are required (`ProjectFieldsByPlatform`), e.g.
+- `project.system` is one of a fixed list of systems. The system
+  determines which other fields are required (`ProjectFieldsBySystem`), e.g.
   `launchdarkly` requires `projectId` and `teamId`, `in-memory` requires none.
 - The connection is a new frozen object exposing `provider`, `project` and
   `getEvaluationContext`. The provider is not modified.
@@ -298,7 +330,7 @@ available from every flag.
   that returns its default without any sign of an issue, e.g. for a disabled
   flag of `TypedInMemoryProvider`, then returns the placeholder. The SDK can
   not detect this case: the reasons `DEFAULT` and `DISABLED` can also mean a
-  real value of the platform. `VercelProvider` reports `DEFAULT` for the
+  real value of the system. `VercelProvider` reports `DEFAULT` for the
   fallthrough of a flag, and LaunchDarkly reports `DISABLED` with its "off"
   value. Set `defaultValue` when the difference matters.
 - A link to the flag in the provider's dashboard (`origin`) will be added
@@ -343,7 +375,7 @@ const checkout = defineFlag({
   `'control' | 'express'`.
 - A value that is not one of the options fails (`TYPE_MISMATCH`), so the type
   stays true at runtime. This protects the application from a variant that
-  the platform added before the code knows it. Objects are compared by their
+  the system added before the code knows it. Objects are compared by their
   content.
 - An option of an `object` flag must be `{ value }`, because a JSON object and
   an option object look the same. Otherwise, `defineFlag` throws.
@@ -395,7 +427,7 @@ the step before, so each step further down can change more:
 ```ts
 const connection = defineConnection({
   provider,
-  project: { platform: 'in-memory' },
+  project: { system: 'in-memory' },
   getEvaluationContext: async (context: { teamId: string }, request) => ({
     team: await loadTeam(context.teamId),
     user: request?.headers.get('x-user') ?? null,
@@ -498,7 +530,7 @@ of the provider. The evaluation details have the reason `OVERRIDE`
 to remove them from the exposures of an experiment. A hook which does not
 check the reason counts an override as a usual evaluation.
 
-An application reports overrides with a hook, e.g. to the platform of an
+An application reports overrides with a hook, e.g. to the system of an
 experiment:
 
 ```ts
@@ -564,7 +596,7 @@ await track(launchdarkly, 'purchase', {
 
 `runtime.configure(config)` configures the SDK. By convention, the
 configuration is the export `config` of `flags.config.ts`, and the framework
-integration calls `runtime.configure` with it. Without a framework, the
+binding calls `runtime.configure` with it. Without a framework, the
 application calls it at startup.
 
 ```ts
@@ -575,7 +607,7 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export const config = defineConfig({
   defaultConnection: defineConnection({
     provider: new VercelProvider(),
-    project: { platform: 'vercel' },
+    project: { system: 'vercel-flags' },
     getEvaluationContext,
   }),
 });
@@ -643,7 +675,7 @@ const summerSale = defineFlag({ key: 'summer-sale' });
   `VercelProvider` of `@vercel/flags-core/openfeature`, like each other
   OpenFeature provider. That provider needs `@openfeature/server-sdk`, which
   is normal for OpenFeature providers.
-- The built-in default connection has the platform `vercel`. Its context is
+- The built-in default connection has the system `vercel-flags`. Its context is
   `DefaultConnectionInput`, so it accepts any evaluation context, and gives
   it to the provider as it is. All copies of the package share it.
 - The runtime initializes the default connection only when a flag uses it,
@@ -889,7 +921,7 @@ The public keys:
 The SDK exports one `runtime` instance. It coordinates the providers of all
 connections. An application has only one runtime, so `Runtime` is exported
 only as a type. The lifecycle methods map to the AWS Lambda phases. Framework
-integrations call them.
+bindings call them.
 
 - `onInit()`: call once before the first request (Lambda init phase). It
   initializes the providers of all registered connections in parallel, and
@@ -1018,24 +1050,24 @@ provider gets fewer calls.
   evaluates the flag.
 - The cache ends with the request. Nothing is shared between requests.
 
-## Framework integration contract
+## Framework binding contract
 
-A framework integration connects the SDK to a framework. It has two parts:
+A framework binding connects the SDK to a framework. It has two parts:
 
 1. **A build plugin**, e.g. `withFlags` of `flags/next/plugin`. It sets two
    bundler aliases:
-   - `flags/integration` to the module of the integration, e.g. `flags/next`.
+   - `flags/framework` to the module of the binding, e.g. `flags/next`.
    - `flags/config` to the `flags.config.ts` of the application, if it exists.
-2. **The module of the integration** behind `flags/integration`. It exports
-   `setupIntegration(runtime)`, which the runtime calls one time, before the
+2. **The module of the binding** behind `flags/framework`. It exports
+   `setupFramework(runtime)`, which the runtime calls one time, before the
    first evaluation and in `onInit`.
 
-The application does not import the module of the integration. The runtime
-imports `flags/integration` itself, so the integration works in each bundle
-that uses `flags`. Without a plugin, `flags/integration` and `flags/config`
+The application does not import the module of the binding. The runtime
+imports `flags/framework` itself, so the binding works in each bundle
+that uses `flags`. Without a plugin, `flags/framework` and `flags/config`
 are empty modules.
 
-The module of the integration:
+The module of the binding:
 
 - must not import `flags` statically, because `flags` imports it. It gets
   the runtime as an argument.
@@ -1044,7 +1076,7 @@ The module of the integration:
 - uses only the public API of the SDK, so that a framework can take it over,
   e.g. as its own module behind the same alias.
 
-`setupIntegration` uses these methods of the runtime:
+`setupFramework` uses these methods of the runtime:
 
 | Method                           | Purpose                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -1066,19 +1098,19 @@ The module of the integration:
   chain, and of providers. Without it, a flag of a page that Next.js tries to
   render statically breaks the build.
 
-The tasks of an integration:
+The tasks of a binding:
 
 | Task                                   | With a framework                                                                            | Without a framework                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the integration calls `setConfigSource`       | `runtime.configure(config)` at startup                     |
+| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setConfigSource`           | `runtime.configure(config)` at startup                     |
 | Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setRequestSource`                    | `runtime.onInvoke` in a middleware                         |
-| Convert the request                    | The integration gives `FlagsRequestInit`, e.g. a Web `Request`                              | The application converts it, e.g. Node.js headers          |
+| Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
 | `onInit` and `onShutdown`              | At startup, and when the process stops, if the framework has such hooks                     | At startup, and on `SIGTERM`                               |
-| Fast evaluations on Vercel at step 0   | The platform adapter, or the plugin for a platform build, sets the alias of `flags/default-provider` | Not possible: OFREP, with a warning in production          |
+| Fast evaluations on Vercel at step 0   | The deployment adapter, or the plugin for a platform build, sets the alias of `flags/default-provider` | Not possible: OFREP, with a warning in production          |
 | Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Discovery")                                   | `registerFlags` by hand, if necessary                      |
 
-Rules for each integration:
+Rules for each binding:
 
 - Use only the export `config` of `flags.config.ts`.
 - Give the request as `FlagsRequestInit`. Give the same `headers` object
@@ -1091,10 +1123,10 @@ Rules for each integration:
 
 ### Notes for each framework
 
-The details must be checked when the integration is built (milestone 10).
+The details must be checked when the binding is built (milestone 13).
 
 **Next.js** (done). The guide for users and for the authors of the
-integration is `frameworks/nextjs.md`.
+binding is `frameworks/nextjs.md`.
 
 ```ts
 // next.config.ts
@@ -1106,7 +1138,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 | Path                    | Content                                                          | Used by                    |
 | ----------------------- | ---------------------------------------------------------------- | -------------------------- |
 | `flags/next/plugin`     | `withFlags(nextConfig, { dir? })`, the build plugin               | `next.config.ts`           |
-| `flags/next`            | `setupIntegration`, the module of the integration                 | the alias, not the app     |
+| `flags/next`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
 | `flags/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
 - `withFlags` sets the aliases for Turbopack (`turbopack.resolveAlias`). It
@@ -1135,7 +1167,7 @@ export default withFlags({ /* the configuration of Next.js */ });
   except `register` in `instrumentation.ts`), the proxy (`proxy.ts`), which
   gets the full `NextRequest`, and server actions.
 
-`tests/standard/next` tests the integration with two builds: Turbopack, and
+`tests/standard/next` tests the binding with two builds: Turbopack, and
 Turbopack with a test adapter of the platform. `pnpm test:e2e` runs 16
 tests with HTTP requests, without a browser. `next dev` was also
 tested by hand, with a change of `flags.config.ts` during the run.
@@ -1146,7 +1178,7 @@ tested by hand, with a change of `flags.config.ts` during the run.
   `runtime.onInvoke(event.request, () => resolve(event))`. `getRequestEvent()`
   is an alternative for a source.
 - The alias: the adapter (`@sveltejs/adapter-vercel`) runs after the Vite
-  build, so it is too late for an alias. The Vite plugin of the integration
+  build, so it is too late for an alias. The Vite plugin of the binding
   must set it, e.g. when `VERCEL` is set at build time.
 
 **Hono, TanStack Start**
@@ -1158,7 +1190,7 @@ tested by hand, with a change of `flags.config.ts` during the run.
 
 **Express**
 
-- The request: a middleware with `next`. The integration converts the
+- The request: a middleware with `next`. The binding converts the
   Node.js headers into Web `Headers` (see `toFlagsRequest` in
   `playground.ts`).
 - The alias: no bundler, so OFREP, unless the application sets a default
@@ -1242,33 +1274,34 @@ from the exports of the flags modules. It evaluates nothing.
 
 ### Links to the dashboard
 
-The links to the dashboard of a platform (the `origin` of v4) are not in
+The links to the dashboard of a system (the `origin` of v4) are not in
 the manifest. The manifest has only the variables. A tool builds the links
-when it shows a flag. Thus, a platform can change its links without a new
+when it shows a flag. Thus, a system can change its links without a new
 build of the application.
 
-1. Each connection is in `connections` of the manifest: its platform, the
-   URL of its provider manifest, and the variables of its project (the
-   fields of `project`, without `platform` and `providerManifest`). The
-   definitions refer to it by an id: the platform, and a number if two
-   connections have the same platform. Two connection objects with the same
+1. Each connection is in `connections` of the manifest: its system, the
+   URL of its system manifest, and the variables of its project (the
+   fields of `project`, without `system` and `systemManifest`). The
+   definitions refer to it by an id: the system, and a number if two
+   connections have the same system. Two connection objects with the same
    project are one connection. A flag without a connection has the default
    connection, so the Next.js route loads `flags.config.ts` first
    (`runtime.prepare()`).
-2. For Vercel Flags, the variables `projectId`, `environment` and `teamId`
-   come from the environment of the build, like the project of the
-   overrides (`findVercelProject`).
-3. The platform publishes a provider manifest: JSON, with the schema
-   `https://flags-sdk.dev/schemas/provider-manifest.v1.json`. It has the
+2. Vercel Flags uses the platform project of Vercel as its flag project.
+   Thus, its variables `projectId`, `environment` and `teamId` come from
+   the environment of the build, like the platform project of the
+   overrides (`findPlatformProject`).
+3. The system publishes a system manifest: JSON, with the schema
+   `https://flags-sdk.dev/schemas/system-manifest.v1.json`. It has the
    name, a logo, the variables, and the URL templates `flag`, `createFlag`
    and `project`.
-4. A tool fetches the provider manifest, with HTTP caching, and calls
-   `resolveFlagLinks(providerManifest, variables, flagKey)` of
+4. A tool fetches the system manifest, with HTTP caching, and calls
+   `resolveFlagLinks(systemManifest, variables, flagKey)` of
    `flags/manifest`. The SDK itself fetches nothing.
 
 ```json
 {
-  "$schema": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "$schema": "https://flags-sdk.dev/schemas/system-manifest.v1.json",
   "version": 1,
   "name": "LaunchDarkly",
   "variables": {
@@ -1287,11 +1320,11 @@ build of the application.
 - Only HTTPS. A placeholder must not be in the origin, so a value can not
   send the user to a different site. No credentials and no fragment.
 - A link whose variables are not all known is left out: no broken links.
-- The URL of the provider manifest comes from the list of the SDK
-  (`providerManifestUrls`, next to `ProjectFieldsByPlatform`). A project
-  can give its own URL in `project.providerManifest`, an HTTPS URL.
-- A new platform adds itself with a pull request: its fields in
-  `ProjectFieldsByPlatform`, and its URL in `providerManifestUrls`.
+- The URL of the system manifest comes from the list of the SDK
+  (`systemManifestUrls`, next to `ProjectFieldsBySystem`). A project
+  can give its own URL in `project.systemManifest`, an HTTPS URL.
+- A new system adds itself with a pull request: its fields in
+  `ProjectFieldsBySystem`, and its URL in `systemManifestUrls`.
 - The hosted files: for Vercel Flags, the link of a flag
   `https://vercel.com/{teamId}/{projectId}/flag/{flagKey}` and the link
   `createFlag` `https://vercel.com/{teamId}/{projectId}/flags?create=1`
@@ -1299,10 +1332,10 @@ build of the application.
   LaunchDarkly, only the link of a flag of v4,
   `https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting`.
   A LaunchDarkly project without `environment` has no link.
-- Until a platform publishes its own file, the SDK hosts it in `apps/docs`
-  (`public/provider-manifests/<platform>.json`), at
-  `https://flags-sdk.dev/provider-manifests/<platform>.json`. When the
-  platform publishes its file, the hosted file can redirect to it, so the
+- Until a system publishes its own file, the SDK hosts it in `apps/docs`
+  (`public/system-manifests/<system>.json`), at
+  `https://flags-sdk.dev/system-manifests/<system>.json`. When the
+  system publishes its file, the hosted file can redirect to it, so the
   URL in the SDK does not change.
 
 ### Where the manifest is

@@ -27,7 +27,7 @@ describe('a flag without defaultValue', () => {
           disabled: true,
         },
       } as const),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
   it('passes false to the provider, because providers examine the type', async () => {
@@ -41,7 +41,7 @@ describe('a flag without defaultValue', () => {
       key: 'a',
       connection: defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -86,7 +86,7 @@ describe('a provider which reports an issue', () => {
           reason: 'ERROR',
         }),
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
   it('throws for the reason ERROR without an errorCode', async () => {
@@ -116,7 +116,7 @@ describe('a provider which reports an issue', () => {
           baseUrl: 'https://flags.example.com',
           fetch: async () => Response.json({ key: 'a', reason: 'DEFAULT' }),
         }),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
 
     it('throws without defaultValue', async () => {

@@ -13,7 +13,7 @@ import type { JsonValue, OverrideRejection } from './types';
  * The project, which must be in the scope of a signed override token. It
  * comes from the configuration of the host, never from the token.
  */
-export interface OverrideProject {
+export interface PlatformProject {
   readonly projectId: string;
   /**
    * E.g. `production`, `preview` or `development`.
@@ -43,7 +43,7 @@ export interface VercelOverridesOptions {
    * `VERCEL_OIDC_TOKEN` of `vercel env pull`, or from the
    * `.vercel/project.json` of `vercel link`.
    */
-  readonly project?: Partial<OverrideProject>;
+  readonly project?: Partial<PlatformProject>;
   /**
    * The maximum lifetime of a token in seconds. The default is 24 hours.
    */
@@ -202,7 +202,7 @@ export function createVercelVerifier(
  *
  * @internal
  */
-export function findVercelProject(): Partial<OverrideProject> {
+export function findPlatformProject(): Partial<PlatformProject> {
   const env = process.env;
   const oidc = readOidcClaims();
   const linked = readLinkedProject();
@@ -224,9 +224,9 @@ export function findVercelProject(): Partial<OverrideProject> {
  * `.vercel/project.json` of `vercel link`.
  */
 function resolveProject(
-  configured: Partial<OverrideProject> = {},
-): OverrideProject {
-  const found = findVercelProject();
+  configured: Partial<PlatformProject> = {},
+): PlatformProject {
+  const found = findPlatformProject();
   const projectId = configured.projectId ?? found.projectId;
   const environment = configured.environment ?? found.environment;
   const teamId = configured.teamId ?? found.teamId;
@@ -309,7 +309,7 @@ function hasValidClaims(
   );
 }
 
-function isInScope(scope: unknown, project: OverrideProject): boolean {
+function isInScope(scope: unknown, project: PlatformProject): boolean {
   if (!isPlainObject(scope)) return false;
   const allowed = ['teamId', 'projectId', 'environments'];
   if (Object.keys(scope).some((key) => !allowed.includes(key))) return false;

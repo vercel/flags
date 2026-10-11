@@ -191,7 +191,7 @@ describe('FlagsRequest', () => {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => {
         received.push(request);
         return {};

@@ -8,7 +8,7 @@
  * ```
  *
  * It uses only the public contract of the SDK (the aliases of
- * `flags/integration` and `flags/config`), so that Next.js could take it
+ * `flags/framework` and `flags/config`), so that Next.js could take it
  * over.
  */
 import { execFile } from 'node:child_process';
@@ -167,7 +167,7 @@ function turbopackRules(
 /**
  * Adds the Flags SDK to the configuration of Next.js:
  *
- * - The alias `flags/integration` points to `flags/next`, which gives the
+ * - The alias `flags/framework` points to `flags/next`, which gives the
  *   runtime the current request of Next.js, and loads the configuration.
  * - The alias `flags/config` points to `flags.config.ts`, if it exists.
  * - A module with the `'use flags'` directive registers its flags itself,
@@ -188,7 +188,7 @@ export function withFlags(
   const configFile = findConfigFile(dir);
 
   const turbopackAliases: Record<string, string> = {
-    'flags/integration': 'flags/next',
+    'flags/framework': 'flags/next',
   };
   if (configFile) {
     // Turbopack resolves a relative path from the directory of the project

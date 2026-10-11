@@ -1,19 +1,20 @@
 # Flags SDK with Next.js
 
-This guide describes the integration of the Flags SDK (v5) with Next.js: the
+This guide describes the framework binding of the Flags SDK (v5) for
+Next.js: the
 installation, the setup, the usage, how it works, and the gotchas. The
 contract between frameworks and the SDK is in `../SPEC.md`, section
-"Framework integration contract".
+"Framework binding contract".
 
-Status: the integration works with the App Router and Turbopack. It does
+Status: the binding works with the App Router and Turbopack. It does
 not support webpack: a build with `--webpack` stops with an error.
-`tests/standard/next` tests it with Turbopack and with a platform adapter.
+`tests/standard/next` tests it with Turbopack and with a deployment adapter.
 Some parts are not done yet (see "Not supported yet").
 
 ## Requirements
 
 - Next.js 15.4 or newer, with the App Router. It was tested with Next.js
-  16.3.8. The integration uses `headers()` and `cookies()` as promises,
+  16.3.8. The binding uses `headers()` and `cookies()` as promises,
   `unstable_rethrow`, and `compiler.defineServer` (since Next.js 15.4) for
   the secret of precompute.
 - Node.js 20.19, or 22.12 or newer.
@@ -72,7 +73,7 @@ it, and the SDK uses it as the credential. The token expires, so run
 `vercel env pull` again when the flags fail with an error about the
 credential.
 
-On a deployment to Vercel, the platform adapter replaces OFREP with a fast
+On a deployment to Vercel, the deployment adapter replaces OFREP with a fast
 provider (see "Deployment").
 
 ### 3. Optional: `flags.config.ts`
@@ -89,7 +90,7 @@ import { defineConfig, defineConnection } from 'flags';
 export const config = defineConfig({
   defaultConnection: defineConnection({
     provider: new VercelProvider(),
-    project: { platform: 'vercel' },
+    project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
       user: request?.cookies?.get('user')?.value ?? 'anonymous',
     }),
@@ -370,7 +371,7 @@ export { GET } from 'flags/next/manifest';
 - In development, the route returns the manifest of all flags, with
   `no-store`. In production, it returns 404.
 - `next build` writes the manifest into `flags-manifest.json` in `distDir`.
-  The platform adapter puts it into the build output.
+  The deployment adapter puts it into the build output.
 - A new `'use flags'` file is in the manifest without a restart of
   `next dev`.
 
@@ -384,7 +385,7 @@ example above. Thus, a static page shows the same value to each user.
 
 ## Deployment
 
-On Vercel, the platform adapter of Next.js points the module
+On Vercel, the deployment adapter of Next.js points the module
 `flags/default-provider` to the fast provider of Vercel Flags
 (`@vercel/flags-core/default-provider`). Thus, flags without a connection
 evaluate without a request for each flag, also with zero configuration.
@@ -393,7 +394,7 @@ evaluate without a request for each flag, also with zero configuration.
   connection of `flags.config.ts`.
 - A `defaultConnection` in `flags.config.ts` always wins over the provider of
   the platform.
-- Without the platform adapter, e.g. on a different host, flags without a
+- Without the deployment adapter, e.g. on a different host, flags without a
   connection use OFREP, and the SDK logs a warning in production: OFREP sends
   one request for each evaluation. Set a `defaultConnection` in
   `flags.config.ts` for production.
@@ -404,13 +405,13 @@ evaluate without a request for each flag, also with zero configuration.
 
 | Alias               | Points to          | Default without the plugin |
 | ------------------- | ------------------ | -------------------------- |
-| `flags/integration` | `flags/next`       | no integration             |
+| `flags/framework` | `flags/next`       | no framework binding       |
 | `flags/config`      | `flags.config.ts`  | no configuration           |
 
-The SDK imports `flags/integration` itself, so the integration works in each
+The SDK imports `flags/framework` itself, so the binding works in each
 bundle that uses `flags`. The application never imports `flags/next`.
 
-Before the first evaluation, the SDK calls `setupIntegration` of
+Before the first evaluation, the SDK calls `setupFramework` of
 `flags/next`. It sets three things on the runtime:
 
 1. **The request source.** No middleware of Next.js wraps the rendering of a
@@ -470,7 +471,7 @@ the configuration, the providers and their clients.
   reasons `DEFAULT` and `DISABLED` can not be used to detect this, because
   providers also use them for real values: `VercelProvider` reports `DEFAULT`
   for the fallthrough of a flag, and LaunchDarkly reports `DISABLED` with the
-  "off" value of the platform. Set `defaultValue` when the difference
+  "off" value of the system. Set `defaultValue` when the difference
   matters.
 - **Flags evaluated in `generateStaticParams` or at build time** have no
   request. They use the evaluation context without a request.
@@ -488,11 +489,11 @@ the configuration, the providers and their clients.
 - **The Edge runtime.** It is not tested. The Edge runtime is deprecated.
 - **The Pages Router.** It is not tested.
 
-## For the authors of the integration
+## For the authors of the binding
 
 - `flags/next` and `flags/next/plugin` use only the public API of the SDK, so
   that Next.js could take them over, e.g. as its own module behind the alias
-  `flags/integration`.
+  `flags/framework`.
 - `flags/next` must not import `flags` statically, because `flags` imports
   it. It gets the runtime as an argument.
 - `withFlags` adds two loaders: `flags/next/use-flags-loader` for the
@@ -501,9 +502,9 @@ the configuration, the providers and their clients.
   `flags/next/manifest`. After the compile
   (`compiler.runAfterProductionCompile`), it calls the compiled route of the
   manifest in a child process, and writes `flags-manifest.json`.
-- A platform adapter can read `flags-manifest.json` in `onBuildComplete`.
+- A deployment adapter can read `flags-manifest.json` in `onBuildComplete`.
   See `tests/standard/next/adapter.mjs`.
-- A platform adapter sets the alias of `flags/default-provider` in
+- A deployment adapter sets the alias of `flags/default-provider` in
   `modifyConfig`, during `phase-production-build`. The adapter API is stable
   since Next.js 16.2, and the platform enables its adapter with
   `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.

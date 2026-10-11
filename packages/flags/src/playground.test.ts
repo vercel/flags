@@ -83,7 +83,7 @@ function lifecycleConnection(name = 'remote') {
   };
   const connection = defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
   return { connection, steps };
 }
@@ -107,11 +107,12 @@ afterEach(() => {
 
 describe('1. Connections and flags', () => {
   it('defines a flag and evaluates it', async () => {
-    // A connection links flags to a project on a platform, and to the
+    // A connection links flags to a flag project in a flag management
+    // system (system), and to the
     // provider which evaluates them
     const launchdarkly = defineConnection({
       provider: createProvider(),
-      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+      project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
     const summerSale = defineFlag({
@@ -125,7 +126,7 @@ describe('1. Connections and flags', () => {
   it('gives each flag access to its project', () => {
     const launchdarkly = defineConnection({
       provider: createProvider(),
-      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+      project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
     const summerSale = defineFlag({
       key: 'summer-sale',
@@ -134,7 +135,7 @@ describe('1. Connections and flags', () => {
 
     expect(summerSale.key).toBe('summer-sale');
     expect(summerSale.connection.project).toEqual({
-      platform: 'launchdarkly',
+      system: 'launchdarkly',
       projectId: 'shop',
       teamId: 'acme',
     });
@@ -143,7 +144,7 @@ describe('1. Connections and flags', () => {
   it('has short forms for the common cases', async () => {
     const launchdarkly = defineConnection({
       provider: createProvider(),
-      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+      project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
     // The same as defineFlag({ key, connection })
@@ -158,17 +159,17 @@ describe('1. Connections and flags', () => {
     // defineFlag('summer-sale', false) use the default connection
   });
 
-  it('requires the fields of the platform', () => {
+  it('requires the fields of the system', () => {
     void (() => {
       defineConnection({
         provider: createProvider(),
         // @ts-expect-error launchdarkly requires projectId and teamId
-        project: { platform: 'launchdarkly' },
+        project: { system: 'launchdarkly' },
       });
       // in-memory requires no fields
       defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       });
     });
   });
@@ -178,7 +179,7 @@ describe('2. Default values and errors', () => {
   const connection = () =>
     defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
   it('returns the default value and logs one line when a flag fails', async () => {
@@ -213,7 +214,7 @@ describe('3. Several flags at once', () => {
   it('evaluates a list of flags and returns the values in order', async () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const summerSale = defineFlag({ key: 'summer-sale', connection });
     const newCheckout = defineFlag({ key: 'new-checkout', connection });
@@ -227,7 +228,7 @@ describe('3. Several flags at once', () => {
   it('evaluates a key which is only known at runtime', async () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const key = ['summer', 'sale'].join('-');
 
@@ -242,7 +243,7 @@ describe('4. The evaluation context chain', () => {
   it('passes the context of the call side to the connection', async () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       // The connection decides what its flags must give
       getEvaluationContext: (context: { user: string }) => ({
         user: context.user,
@@ -266,7 +267,7 @@ describe('4. The evaluation context chain', () => {
 
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       // The connection loads the team, e.g. from a database
       getEvaluationContext: async (context: {
         teamId: keyof typeof teams;
@@ -288,7 +289,7 @@ describe('4. The evaluation context chain', () => {
   it('lets a flag convert the context between the call side and the connection', async () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: { plan: context.teamId === 'id-of-acme' ? 'enterprise' : 'free' },
       }),
@@ -311,7 +312,7 @@ describe('4. The evaluation context chain', () => {
   it('checks the context at the type level', () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: context.teamId,
       }),
@@ -334,7 +335,7 @@ describe('5. Requests', () => {
     const calls = { count: 0 };
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => {
         calls.count++;
         return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
@@ -360,7 +361,7 @@ describe('5. Requests', () => {
     let seen: unknown;
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => {
         seen = {
           header: request?.headers?.get('accept-language'),
@@ -408,7 +409,7 @@ describe('5. Requests', () => {
       key: 'summer-sale',
       connection: defineConnection({
         provider,
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -475,7 +476,7 @@ describe('6. Runtime lifecycle', () => {
     const slow = lifecycleConnection('slow');
     const fast = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     defineFlag({ key: 'summer-sale', connection: slow.connection });
     const summerSale = defineFlag({ key: 'summer-sale', connection: fast });
@@ -517,7 +518,7 @@ describe('7. Registration', () => {
   it('registers the flags of a module, e.g. a "use flags" module', () => {
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     // The framework plugins append this to each 'use flags' module:
     // import * as self from './flags'; registerFlags(self);
@@ -547,7 +548,7 @@ describe('8. One runtime for each process', () => {
     // A page, with a different copy of the package
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
@@ -568,7 +569,7 @@ describe('9. Overrides', () => {
   const connection = () =>
     defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
   it('overrides a flag with a cookie which the shared secret encrypts', async () => {
@@ -761,13 +762,13 @@ describe('10. Zero configuration and flags.config.ts', () => {
     const config = defineConfig({
       defaultConnection: defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => ({
           user: request?.cookies?.get('user')?.value ?? 'anonymous',
         }),
       }),
     });
-    // The framework integration does this
+    // The framework binding does this
     runtime.configure(config);
 
     const request = new Request('https://shop.example', {
@@ -812,7 +813,7 @@ describe('11. Flag value types', () => {
           disabled: false,
         },
       } as const),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
   it('evaluates strings, numbers and objects', async () => {
@@ -867,8 +868,8 @@ describe('11. Flag value types', () => {
   });
 });
 
-describe('12. What a framework integration does', () => {
-  // A framework plugin points the alias flags/integration to its module,
+describe('12. What a framework binding does', () => {
+  // A framework plugin points the alias flags/framework to its module,
   // e.g. withFlags of flags/next/plugin points it to flags/next. That module
   // calls these three methods. The application does not call them.
   // tests/standard/next tests the real integration of Next.js.
@@ -884,7 +885,7 @@ describe('12. What a framework integration does', () => {
       defineConfig({
         defaultConnection: defineConnection({
           provider: createProvider(),
-          project: { platform: 'in-memory' },
+          project: { system: 'in-memory' },
           getEvaluationContext: (_context, request) => ({
             user: request?.cookies?.get('user')?.value ?? 'anonymous',
           }),
@@ -921,7 +922,7 @@ describe('13. Hooks, events and tracking', () => {
       key: 'new-checkout',
       connection: defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
 
@@ -952,7 +953,7 @@ describe('13. Hooks, events and tracking', () => {
       key: 'new-checkout',
       connection: defineConnection({
         provider: createProvider(),
-        project: { platform: 'in-memory' },
+        project: { system: 'in-memory' },
       }),
     });
     const token = await encryptOverrides({ 'new-checkout': true });
@@ -980,7 +981,7 @@ describe('13. Hooks, events and tracking', () => {
     const provider = Object.assign(createProvider(), { track: vi.fn() });
     const shop = defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (context: { user: string }) => context,
     });
 
@@ -1011,7 +1012,7 @@ describe('14. Precompute for Next.js', () => {
     );
     const connection = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
@@ -1066,16 +1067,16 @@ describe('15. Discovery for Flags Explorer', () => {
       description: 'The checkout flow',
       declaredInCode: true,
       // Without a connection: the default connection, here Vercel Flags
-      connection: 'vercel',
+      connection: 'vercel-flags',
       sources: [{ module: 'flags.ts', export: 'checkout' }],
     });
     expect(Object.keys(manifest.definitions)).toEqual(['checkout', 'theme']);
   });
 
-  it('lets a tool build the links to the dashboard of the platform', () => {
+  it('lets a tool build the links to the dashboard of the system', () => {
     const launchdarkly = defineConnection({
       provider: createProvider(),
-      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+      project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
     const manifest = createManifest([
       {
@@ -1091,9 +1092,9 @@ describe('15. Discovery for Flags Explorer', () => {
       teamId: 'acme',
     });
 
-    // A tool fetches connection.providerManifest, which the platform can
+    // A tool fetches connection.systemManifest, which the system can
     // change at any time, and builds the links
-    const providerManifest = {
+    const systemManifest = {
       version: 1,
       name: 'LaunchDarkly',
       links: {
@@ -1102,7 +1103,7 @@ describe('15. Discovery for Flags Explorer', () => {
     } as const;
     expect(
       resolveFlagLinks(
-        providerManifest,
+        systemManifest,
         connection?.variables ?? {},
         'summer-sale',
       ),
@@ -1114,7 +1115,7 @@ describe('15. Discovery for Flags Explorer', () => {
   it('registers the flags of a use flags module', () => {
     const remote = defineConnection({
       provider: createProvider(),
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     // The framework plugins append this call to each 'use flags' module.

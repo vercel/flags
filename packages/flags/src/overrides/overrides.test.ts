@@ -42,7 +42,7 @@ function createFlag(key = 'new-checkout') {
   } satisfies Provider;
   const connection = defineConnection({
     provider,
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
   return { flag: defineFlag({ key, connection }), provider };
 }

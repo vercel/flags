@@ -45,7 +45,7 @@ describe('shared state', () => {
     const b = await loadCopy();
     const connection = a.defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
 
     const flag = b.defineFlag({ key: 'a', connection });
@@ -58,7 +58,7 @@ describe('shared state', () => {
     const b = await loadCopy();
     const connection = a.defineConnection({
       provider,
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
     });
     const flag = a.defineFlag({ key: 'a', connection });
 
@@ -82,7 +82,7 @@ describe('shared state', () => {
           return { value: true };
         },
       },
-      project: { platform: 'in-memory' },
+      project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),

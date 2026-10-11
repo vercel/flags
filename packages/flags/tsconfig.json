@@ -5,7 +5,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
       "flags/default-provider": ["./src/default-provider.ts"],
-      "flags/integration": ["./src/integration.ts"],
+      "flags/framework": ["./src/framework.ts"],
       "flags/config": ["./src/config-module.ts"]
     },
     "resolveJsonModule": true,

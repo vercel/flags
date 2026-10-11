@@ -38,7 +38,7 @@ const connection = () =>
         disabled: false,
       },
     } as const),
-    project: { platform: 'in-memory' },
+    project: { system: 'in-memory' },
   });
 
 beforeEach(() => {
@@ -179,7 +179,7 @@ describe('short forms of defineFlag', () => {
     it('requires a connection returned by defineConnection', () => {
       const fake = {
         provider: new TypedInMemoryProvider({}),
-        project: { platform: 'in-memory' as const },
+        project: { system: 'in-memory' as const },
       };
 
       // The types accept the fake object, because a connection is structural

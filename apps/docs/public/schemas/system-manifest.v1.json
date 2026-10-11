@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
-  "title": "Provider manifest",
-  "description": "Tells tools such as Flags Explorer how to build links to the dashboard of a feature flag platform, from the variables of a connection of the Flags SDK. URL templates use level 1 of RFC 6570: {name} placeholders, which are replaced with URL-encoded values. A placeholder must not be in the origin.",
+  "$id": "https://flags-sdk.dev/schemas/system-manifest.v1.json",
+  "title": "System manifest",
+  "description": "Tells tools such as Flags Explorer how to build links to the dashboard of a flag management system (system), from the variables of a connection of the Flags SDK. URL templates use level 1 of RFC 6570: {name} placeholders, which are replaced with URL-encoded values. A placeholder must not be in the origin.",
   "type": "object",
   "required": ["version", "name", "links"],
   "additionalProperties": false,
