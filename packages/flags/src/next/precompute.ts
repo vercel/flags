@@ -35,10 +35,24 @@ const TRUE = 254;
 // The value follows as JSON after the bytes of all flags
 const UNLISTED = 255;
 
+/**
+ * `FLAGS_PRECOMPUTE_SECRET`, or else the secret of the build which
+ * `withFlags` of `flags/next/plugin` puts into the server code. The
+ * bundler replaces `process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET` with a
+ * string. Nothing sets it at runtime, so without the plugin it is
+ * `undefined`.
+ */
+function defaultSecret(): string | undefined {
+  return (
+    process.env.FLAGS_PRECOMPUTE_SECRET ||
+    process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET
+  );
+}
+
 function secretOrThrow(secret: string | undefined, name: string): string {
   if (!secret) {
     throw new Error(
-      `flags: ${name} needs a secret. Set the environment variable FLAGS_PRECOMPUTE_SECRET.`,
+      `flags: ${name} needs a secret. Use withFlags of flags/next/plugin, or set the environment variable FLAGS_PRECOMPUTE_SECRET.`,
     );
   }
   return secret;
@@ -57,7 +71,8 @@ export interface PrecomputeOptions<In> {
   evaluationContext: In;
   /**
    * The secret which signs the code. The default is
-   * `FLAGS_PRECOMPUTE_SECRET`.
+   * `FLAGS_PRECOMPUTE_SECRET`, or else the secret of the build of
+   * `withFlags`.
    */
   secret?: string;
 }
@@ -124,7 +139,7 @@ export function combine(
 export async function serialize(
   flags: Flags,
   values: readonly unknown[],
-  secret: string | undefined = process.env.FLAGS_PRECOMPUTE_SECRET,
+  secret: string | undefined = defaultSecret(),
 ): Promise<string> {
   const key = secretOrThrow(secret, 'serialize');
   if (flags.length === 0) return NO_FLAGS;
@@ -191,7 +206,7 @@ function verify(code: string, secret: string): Promise<Uint8Array> {
 export async function deserialize(
   flags: Flags,
   code: string,
-  secret: string | undefined = process.env.FLAGS_PRECOMPUTE_SECRET,
+  secret: string | undefined = defaultSecret(),
 ): Promise<Record<string, FlagValue>> {
   const key = secretOrThrow(secret, 'deserialize');
   if (code === NO_FLAGS) return {};
@@ -256,7 +271,7 @@ export async function getPrecomputed(
   flagOrFlags: FlagDefinition | Flags,
   group: Flags,
   code: string,
-  secret: string | undefined = process.env.FLAGS_PRECOMPUTE_SECRET,
+  secret: string | undefined = defaultSecret(),
 ): Promise<unknown> {
   secretOrThrow(secret, 'getPrecomputed');
   const values = await deserialize(group, code, secret);
@@ -294,7 +309,7 @@ function* combinations<T>(lists: readonly (readonly T[])[]): Generator<T[]> {
 export async function generatePermutations(
   flags: Flags,
   filter: ((values: Record<string, FlagValue>) => boolean) | null = null,
-  secret: string | undefined = process.env.FLAGS_PRECOMPUTE_SECRET,
+  secret: string | undefined = defaultSecret(),
 ): Promise<string[]> {
   const key = secretOrThrow(secret, 'generatePermutations');
   if (flags.length === 0) return [NO_FLAGS];

@@ -11,9 +11,10 @@ parts are not done yet (see "Not supported yet").
 
 ## Requirements
 
-- Next.js 15.1 or newer, with the App Router. It was tested with Next.js
-  16.3.8. The integration uses `headers()` and `cookies()` as promises, and
-  `unstable_rethrow`.
+- Next.js 15.4 or newer, with the App Router. It was tested with Next.js
+  16.3.8. The integration uses `headers()` and `cookies()` as promises,
+  `unstable_rethrow`, and `compiler.defineServer` (since Next.js 15.4) for
+  the secret of precompute.
 - Node.js 20.19, or 22.12 or newer.
 - The flags run only on the server: in server components, route handlers and
   other server code.
@@ -315,10 +316,13 @@ export default async function Page({
 }
 ```
 
-- The code is signed with `FLAGS_PRECOMPUTE_SECRET`, so a visitor can not
-  set the values in the URL. Set it for the build and for the runtime, e.g.
-  a new random value for each build. It is not `FLAGS_SECRET` of the
-  override cookies. Each function also accepts an explicit `secret`.
+- The code is signed, so a visitor can not set the values in the URL.
+  `withFlags` puts a random secret for each build into the server code, so
+  precompute needs no configuration. To set the secret, set
+  `FLAGS_PRECOMPUTE_SECRET` for the build and for the runtime. It is not
+  `FLAGS_SECRET` of the override cookies. Each function also accepts an
+  explicit `secret`.
+- Without `withFlags`, set `FLAGS_PRECOMPUTE_SECRET`, or precompute throws.
 - To keep codes of v4 valid during the upgrade, set
   `FLAGS_PRECOMPUTE_SECRET` to the value of `FLAGS_SECRET` for that time.
 - `getPrecomputed` reads the code. It does not evaluate the flags again, so

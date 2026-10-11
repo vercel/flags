@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { NextConfig } from 'next';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findConfigFile, withFlags } from './plugin';
 
 function projectWith(file?: string) {
@@ -78,5 +78,46 @@ describe('withFlags', () => {
       'flags/integration$': 'flags/next',
     });
     expect(own).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the secret of precompute for the build', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const secretOf = (config: NextConfig) =>
+    config.compiler?.defineServer?.[
+      'process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET'
+    ];
+
+  it('puts one random key into the server code for the whole build', () => {
+    vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
+    vi.stubEnv('__FLAGS_PRECOMPUTE_BUILD_KEY', undefined);
+    const first = secretOf(withFlags({}, { dir: projectWith() }));
+    // e.g. a worker of the build, which loads the configuration again
+    const second = secretOf(withFlags({}, { dir: projectWith() }));
+
+    expect(first).toMatch(/^[\w-]{43}$/);
+    expect(second).toBe(first);
+    // Not in process.env with the name which the runtime reads
+    expect(process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET).toBeUndefined();
+  });
+
+  it('uses FLAGS_PRECOMPUTE_SECRET of the build', () => {
+    vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', 'from-the-build');
+
+    expect(secretOf(withFlags({}, { dir: projectWith() }))).toBe(
+      'from-the-build',
+    );
+  });
+
+  it('keeps the defines of the configuration', () => {
+    const config = withFlags(
+      { compiler: { defineServer: { OWN: 'value' } } },
+      { dir: projectWith() },
+    );
+
+    expect(config.compiler?.defineServer).toMatchObject({ OWN: 'value' });
   });
 });
