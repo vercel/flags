@@ -11,6 +11,7 @@
  * `flags/integration` and `flags/config`), so that Next.js could take it
  * over.
  */
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import type { NextConfig } from 'next';
@@ -46,12 +47,32 @@ export function findConfigFile(dir: string): string | undefined {
   return undefined;
 }
 
+// Next.js can load the configuration more than once during one build, e.g.
+// in the workers of the build. They inherit the environment of the main
+// process, so the key stays the same for the whole build.
+const BUILD_KEY_SEED = '__FLAGS_PRECOMPUTE_BUILD_KEY';
+
+/**
+ * The secret of precompute for this build: `FLAGS_PRECOMPUTE_SECRET`, or a
+ * random key.
+ *
+ * @internal
+ */
+export function buildPrecomputeSecret(): string {
+  const fromEnv = process.env.FLAGS_PRECOMPUTE_SECRET;
+  if (fromEnv) return fromEnv;
+  process.env[BUILD_KEY_SEED] ??= randomBytes(32).toString('base64url');
+  return process.env[BUILD_KEY_SEED];
+}
+
 /**
  * Adds the Flags SDK to the configuration of Next.js:
  *
  * - The alias `flags/integration` points to `flags/next`, which gives the
  *   runtime the current request of Next.js, and loads the configuration.
  * - The alias `flags/config` points to `flags.config.ts`, if it exists.
+ * - The secret of precompute for this build goes into the server code, so
+ *   that `flags/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  *
  * It sets the aliases for Turbopack and for webpack, and keeps the aliases
  * and the `webpack` function of the configuration.
@@ -79,6 +100,14 @@ export function withFlags(
 
   return {
     ...nextConfig,
+    compiler: {
+      ...nextConfig.compiler,
+      // Only in the server code (Node.js and Edge), never in the client
+      defineServer: {
+        ...nextConfig.compiler?.defineServer,
+        'process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET': buildPrecomputeSecret(),
+      },
+    },
     turbopack: {
       ...nextConfig.turbopack,
       resolveAlias: {

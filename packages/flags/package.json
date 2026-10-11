@@ -108,7 +108,7 @@
     "jose": "^6.2.12"
   },
   "peerDependencies": {
-    "next": ">=15.1.0"
+    "next": ">=15.4.0"
   },
   "peerDependenciesMeta": {
     "next": {

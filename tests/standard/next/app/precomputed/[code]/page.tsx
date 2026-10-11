@@ -1,21 +1,12 @@
 import { generatePermutations, getPrecomputed } from 'flags/next/precompute';
-import {
-  newCheckout,
-  PRECOMPUTE_SECRET,
-  precomputeFlags,
-  summerSale,
-} from '../../../flags';
+import { newCheckout, precomputeFlags, summerSale } from '../../../flags';
 
 // Only the pages of generateStaticParams exist. Thus, a response shows that
 // the page was built at build time.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const codes = await generatePermutations(
-    precomputeFlags,
-    null,
-    PRECOMPUTE_SECRET,
-  );
+  const codes = await generatePermutations(precomputeFlags);
   return codes.map((code) => ({ code }));
 }
 
@@ -29,7 +20,6 @@ export default async function Page({
     [summerSale, newCheckout],
     precomputeFlags,
     code,
-    PRECOMPUTE_SECRET,
   );
   return (
     <main>

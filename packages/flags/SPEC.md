@@ -65,10 +65,39 @@ built on the standard of this SDK. The usage is in
   which is not an option), then the other values as JSON, signed with
   HS256. A test reads a code which v4 created, and v5 creates the same code.
 - The secret is `FLAGS_PRECOMPUTE_SECRET`, not `FLAGS_SECRET`: one secret
-  for each purpose. `FLAGS_SECRET` encrypts the override cookies. The user
-  sets `FLAGS_PRECOMPUTE_SECRET`, e.g. a new value for each build, because
-  a code is only used inside one deployment: the proxy rewrites to a static
-  page of the same deployment. There is no fallback to `FLAGS_SECRET`.
+  for each purpose. `FLAGS_SECRET` encrypts the override cookies. There is
+  no fallback to `FLAGS_SECRET`.
+- Zero configuration: `withFlags` puts a secret for each build into the
+  server code, with `compiler.defineServer` as
+  `process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET`. It is
+  `FLAGS_PRECOMPUTE_SECRET` of the build, or else a random key. The runtime
+  uses `FLAGS_PRECOMPUTE_SECRET`, else the secret of the build.
+  - One secret for each build is enough, because a code is only used inside
+    one deployment: the proxy rewrites to a static page of the same
+    deployment.
+  - The value is in the compiled code, so `generateStaticParams` at build
+    time, the proxy, `next start` and the functions on Vercel use the same
+    secret. `next start` loads the configuration again, and makes a new
+    random key, but the compiled code does not change.
+  - Next.js can load the configuration more than once during one build,
+    e.g. in its workers. The first key is kept in the environment, which
+    the workers inherit, so all compilers of one build get the same key.
+  - The plugin never sets `__FLAGS_PRECOMPUTE_BUILD_SECRET` in
+    `process.env`. Without the plugin, or if the bundler does not inline
+    it, the value is `undefined`, and precompute throws. It never uses a
+    different key without a warning.
+  - `compiler.defineServer` exists since Next.js 15.4.0, so the peer
+    dependency is `next >=15.4.0`. It applies only to the Node.js and Edge
+    compilers, not to the client. `tests/standard/next` checks that the key is in the server
+    chunks of the proxy and of the page, and in no file of
+    `.next/static`. It was tested with Turbopack and webpack, with
+    `next build` and `next start`, with `next dev`, and with the platform
+    adapter.
+  - `next dev` makes a new key when the dev server starts. Old codes are
+    then not valid, which is acceptable in development.
+  - Set `FLAGS_PRECOMPUTE_SECRET` for the build and for the runtime, or for
+    neither. If it is set only at runtime, the proxy and the pages of
+    `generateStaticParams` use different secrets.
 - To keep the codes of v4 valid during the upgrade, e.g. while v4 and v5
   are deployed at the same time, set `FLAGS_PRECOMPUTE_SECRET` to the value
   of `FLAGS_SECRET` for that time.
@@ -91,12 +120,14 @@ built on the standard of this SDK. The usage is in
   pages. And each visitor can choose each combination of options, e.g. an
   unreleased feature. The code is signed, not encrypted: the values are
   readable.
-- Open question: zero configuration. The SDK can not sign with Vercel KMS:
-  the key pair belongs to Flags Explorer, not to the application. Next.js
-  creates a key for each build for Server Actions, in a manifest of the
-  build, and `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` replaces it. A plugin can
-  not write into that manifest. Under investigation: `withFlags` inlines a
-  key for each build into the compiled code.
+- Other options which were examined: Vercel KMS can not sign, because the
+  key pair belongs to Flags Explorer, not to the application. Next.js keeps
+  the key of Server Actions in a manifest of the build (with
+  `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` as the override, and a cache of 14
+  days in `.next/cache`), but a plugin can not write into that manifest,
+  and reading it needs an internal module. A public API of Next.js to
+  derive a key for a purpose would be better than the define, and would
+  keep codes valid over more than one deployment.
 
 ### Tests with real frameworks
 

@@ -163,12 +163,34 @@ describe('precompute', () => {
     );
   });
 
+  it('uses the secret of the build which withFlags inlines', async () => {
+    vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
+    // What the bundler does with compiler.defineServer of withFlags
+    vi.stubEnv('__FLAGS_PRECOMPUTE_BUILD_SECRET', secret);
+    const { summerSale, group } = createFlags();
+
+    const code = await precompute(group);
+    await expect(getPrecomputed(summerSale, group, code, secret)).resolves.toBe(
+      false,
+    );
+  });
+
+  it('prefers FLAGS_PRECOMPUTE_SECRET to the secret of the build', async () => {
+    vi.stubEnv('__FLAGS_PRECOMPUTE_BUILD_SECRET', 'b3RoZXI');
+    const { summerSale, group } = createFlags();
+
+    const code = await precompute(group);
+    await expect(getPrecomputed(summerSale, group, code, secret)).resolves.toBe(
+      false,
+    );
+  });
+
   it('throws without a secret, also when FLAGS_SECRET is set', async () => {
     vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
     const { group } = createFlags();
 
     await expect(precompute(group)).rejects.toThrow(
-      'flags: serialize needs a secret. Set the environment variable FLAGS_PRECOMPUTE_SECRET.',
+      'flags: serialize needs a secret. Use withFlags of flags/next/plugin, or set the environment variable FLAGS_PRECOMPUTE_SECRET.',
     );
   });
 
