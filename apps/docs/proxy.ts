@@ -24,8 +24,9 @@ const proxy = createProxy({
 
 export const config = {
   // Matcher ignoring `/_next/`, `/api/`, static assets, favicon, sitemap, robots, etc.
+  // `/schemas/` and `/provider-manifests/` are the files of the Flags SDK in `public`.
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags).*)",
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags|schemas/|provider-manifests/).*)",
   ],
 };
 

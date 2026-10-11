@@ -11,6 +11,7 @@
  * not a public endpoint.
  */
 import { createManifest, type FlagsManifest } from '../manifest';
+import { runtime } from '../runtime';
 
 interface FlagsModuleImport {
   readonly id: string;
@@ -28,6 +29,8 @@ const modules: readonly FlagsModuleImport[] = /* flags:use-flags-modules */ [];
  * @internal
  */
 export async function loadManifest(): Promise<FlagsManifest> {
+  // Flags without a connection use the default connection of flags.config.ts
+  await runtime.prepare();
   return createManifest(
     await Promise.all(
       modules.map(async (module) => ({

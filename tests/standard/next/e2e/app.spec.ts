@@ -146,27 +146,34 @@ test('writes the manifest of the flags into the build', () => {
 
   expect(manifest).toEqual({
     version: 1,
+    connections: {
+      'in-memory': { platform: 'in-memory', variables: {} },
+    },
     definitions: {
       'banner-text': {
         type: 'string',
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'flags.ts', export: 'bannerText' }],
       },
       'new-checkout': {
         type: 'boolean',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'flags.ts', export: 'newCheckout' }],
       },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'lazy-flags.ts', export: 'plainFlag' }],
       },
       'summer-sale': {
         type: 'boolean',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'flags.ts', export: 'summerSale' }],
       },
     },

@@ -36,8 +36,9 @@ changed, update the walkthrough in the same change.
     request"), and precompute for Next.js as the separate export
     `flags/next/precompute` (see "Precompute").
 12. Tooling. Flag discovery for tools such as Flags Explorer (done, see
-    "Discovery"), links to the dashboard of the platform (`origin`), and
-    the overrides from end to end with the Vercel Toolbar.
+    "Discovery"), links to the dashboard of the platform (done, see "Links
+    to the dashboard"), and the overrides from end to end with the Vercel
+    Toolbar.
 13. More frameworks: SvelteKit, then Hono and Express.
 14. Standard. Write the spec with normative words (MUST, SHOULD). Add
     conformance tests for framework integrations. The provider contract is
@@ -1231,12 +1232,76 @@ from the exports of the flags modules. It evaluates nothing.
 ```
 
 - The fields have the names of the definitions of Flags Explorer
-  (`options`, `defaultValue`, `description`, `declaredInCode`), plus `type`
-  and `sources`. `origin` comes later.
+  (`options`, `defaultValue`, `description`, `declaredInCode`), plus `type`,
+  `connection` and `sources`. The links come from the connection (see
+  "Links to the dashboard").
 - `defineFlag` has an optional `description` for it.
 - An export which is not a flag throws. Two exports with the same key must
   declare the same flag; then the flag has two sources.
 - The keys are sorted, so the file is stable.
+
+### Links to the dashboard
+
+The links to the dashboard of a platform (the `origin` of v4) are not in
+the manifest. The manifest has only the variables. A tool builds the links
+when it shows a flag. Thus, a platform can change its links without a new
+build of the application.
+
+1. Each connection is in `connections` of the manifest: its platform, the
+   URL of its provider manifest, and the variables of its project (the
+   fields of `project`, without `platform` and `providerManifest`). The
+   definitions refer to it by an id: the platform, and a number if two
+   connections have the same platform. Two connection objects with the same
+   project are one connection. A flag without a connection has the default
+   connection, so the Next.js route loads `flags.config.ts` first
+   (`runtime.prepare()`).
+2. For Vercel Flags, the variables `projectId`, `environment` and `teamId`
+   come from the environment of the build, like the project of the
+   overrides (`findVercelProject`).
+3. The platform publishes a provider manifest: JSON, with the schema
+   `https://flags-sdk.dev/schemas/provider-manifest.v1.json`. It has the
+   name, a logo, the variables, and the URL templates `flag`, `createFlag`
+   and `project`.
+4. A tool fetches the provider manifest, with HTTP caching, and calls
+   `resolveFlagLinks(providerManifest, variables, flagKey)` of
+   `flags/manifest`. The SDK itself fetches nothing.
+
+```json
+{
+  "$schema": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "version": 1,
+  "name": "LaunchDarkly",
+  "variables": {
+    "projectId": { "description": "The key of the project" },
+    "environment": { "description": "The key of the environment" }
+  },
+  "links": {
+    "flag": "https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting"
+  }
+}
+```
+
+- The templates use level 1 of RFC 6570: `{name}` placeholders, replaced
+  with URL-encoded values. `flagKey` is always a variable of the link of a
+  flag.
+- Only HTTPS. A placeholder must not be in the origin, so a value can not
+  send the user to a different site. No credentials and no fragment.
+- A link whose variables are not all known is left out: no broken links.
+- The URL of the provider manifest comes from the list of the SDK
+  (`providerManifestUrls`, next to `ProjectFieldsByPlatform`). A project
+  can give its own URL in `project.providerManifest`, an HTTPS URL.
+- A new platform adds itself with a pull request: its fields in
+  `ProjectFieldsByPlatform`, and its URL in `providerManifestUrls`.
+- The hosted files have only the link of a flag: for Vercel Flags
+  `https://vercel.com/{teamId}/{projectId}/flag/{flagKey}` (the dashboard
+  accepts the ID of the project), for LaunchDarkly the link of v4,
+  `https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting`.
+  A LaunchDarkly project without `environment` has no link.
+- Until a platform publishes its own file, the SDK hosts it in `apps/docs`
+  (`public/provider-manifests/<platform>.json`), at
+  `https://flags-sdk.dev/provider-manifests/<platform>.json`. When the
+  platform publishes its file, the hosted file can redirect to it, so the
+  URL in the SDK does not change.
 
 ### Where the manifest is
 

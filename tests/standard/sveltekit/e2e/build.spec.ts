@@ -30,6 +30,9 @@ test('writes the manifest of the flags into the server output', () => {
 
   expect(manifest).toEqual({
     version: 1,
+    connections: {
+      'in-memory': { platform: 'in-memory', variables: {} },
+    },
     definitions: {
       'banner-text': {
         type: 'string',
@@ -37,17 +40,20 @@ test('writes the manifest of the flags into the server output', () => {
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'src/lib/flags.ts', export: 'bannerText' }],
       },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'src/lib/lazy-flags.ts', export: 'plainFlag' }],
       },
       'summer-sale': {
         type: 'boolean',
         defaultValue: false,
         declaredInCode: true,
+        connection: 'in-memory',
         sources: [{ module: 'src/lib/flags.ts', export: 'summerSale' }],
       },
     },

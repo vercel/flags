@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { createManifest } from './manifest';
@@ -17,7 +17,21 @@ const connection = () =>
 beforeEach(() => {
   runtime.reset();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // The project of Vercel Flags, as in a build on Vercel
+  vi.stubEnv('VERCEL_PROJECT_ID', 'prj_shop');
+  vi.stubEnv('VERCEL_TARGET_ENV', 'production');
+  vi.stubEnv('VERCEL_OIDC_TOKEN', '');
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+const vercel = {
+  platform: 'vercel',
+  providerManifest: 'https://flags-sdk.dev/provider-manifests/vercel.json',
+  variables: { projectId: 'prj_shop', environment: 'production' },
+};
 
 describe('createManifest', () => {
   it('reads the flags from the exports of the modules', () => {
@@ -39,6 +53,8 @@ describe('createManifest', () => {
 
     expect(manifest).toEqual({
       version: 1,
+      // Without a connection, the flags use the default connection
+      connections: { vercel },
       definitions: {
         checkout: {
           type: 'string',
@@ -49,11 +65,13 @@ describe('createManifest', () => {
           defaultValue: 'control',
           description: 'The checkout flow',
           declaredInCode: true,
+          connection: 'vercel',
           sources: [{ module: 'flags.ts', export: 'checkout' }],
         },
         'summer-sale': {
           type: 'boolean',
           declaredInCode: true,
+          connection: 'vercel',
           sources: [{ module: 'flags.ts', export: 'summerSale' }],
         },
       },
@@ -74,7 +92,74 @@ describe('createManifest', () => {
       type: 'string',
       options: [{ value: 'light' }, { value: 'dark' }],
       declaredInCode: true,
+      connection: 'vercel',
       sources: [{ module: 'other.ts', export: 'theme' }],
+    });
+  });
+
+  it('gives each connection its platform and the variables of its project', () => {
+    const launchdarkly = (projectId: string) =>
+      defineConnection({
+        provider: {
+          metadata: { name: 'ld' },
+          resolveBooleanEvaluation: async () => ({ value: true }),
+        },
+        project: { platform: 'launchdarkly', projectId, teamId: 'acme' },
+      });
+    const manifest = createManifest([
+      {
+        id: 'flags.ts',
+        exports: {
+          a: defineFlag(launchdarkly('shop'), 'a'),
+          b: defineFlag(launchdarkly('shop'), 'b'),
+          c: defineFlag(launchdarkly('blog'), 'c'),
+          d: defineFlag(connection(), 'd'),
+        },
+      },
+    ]);
+
+    // Two connection objects with the same project are one connection
+    expect(manifest.connections).toEqual({
+      launchdarkly: {
+        platform: 'launchdarkly',
+        providerManifest:
+          'https://flags-sdk.dev/provider-manifests/launchdarkly.json',
+        variables: { projectId: 'shop', teamId: 'acme' },
+      },
+      'launchdarkly-2': {
+        platform: 'launchdarkly',
+        providerManifest:
+          'https://flags-sdk.dev/provider-manifests/launchdarkly.json',
+        variables: { projectId: 'blog', teamId: 'acme' },
+      },
+      // No provider manifest for in-memory
+      'in-memory': { platform: 'in-memory', variables: {} },
+    });
+    expect(manifest.definitions.a?.connection).toBe('launchdarkly');
+    expect(manifest.definitions.b?.connection).toBe('launchdarkly');
+    expect(manifest.definitions.c?.connection).toBe('launchdarkly-2');
+    expect(manifest.definitions.d?.connection).toBe('in-memory');
+  });
+
+  it('uses the provider manifest of the project instead of the one of the platform', () => {
+    const own = defineConnection({
+      provider: {
+        metadata: { name: 'own' },
+        resolveBooleanEvaluation: async () => ({ value: true }),
+      },
+      project: {
+        platform: 'in-memory',
+        providerManifest: 'https://flags.example/provider.json',
+      },
+    });
+
+    const manifest = createManifest([
+      { id: 'flags.ts', exports: { a: defineFlag(own, 'a') } },
+    ]);
+    expect(manifest.connections['in-memory']).toEqual({
+      platform: 'in-memory',
+      providerManifest: 'https://flags.example/provider.json',
+      variables: {},
     });
   });
 

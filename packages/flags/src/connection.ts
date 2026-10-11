@@ -1,3 +1,4 @@
+import { isSafeUrl } from './provider-manifest';
 import { sharedState } from './shared-state';
 import type { EvaluationContext, FlagsRequest, Hook, Provider } from './types';
 
@@ -10,16 +11,48 @@ export interface ProjectFieldsByPlatform {
    * Vercel Flags. The project of Vercel comes from the environment.
    */
   vercel: Record<never, never>;
-  launchdarkly: { projectId: string; teamId: string };
+  /**
+   * `projectId` is the key of the project in LaunchDarkly. The link to a
+   * flag needs `environment`, the key of the environment.
+   */
+  launchdarkly: { projectId: string; teamId: string; environment?: string };
 }
 
 export type Platform = keyof ProjectFieldsByPlatform;
+
+const PROVIDER_MANIFESTS = 'https://flags-sdk.dev/provider-manifests';
+
+/**
+ * The URL of the provider manifest of each platform (see
+ * `provider-manifest.ts`). A tool builds the links to the dashboard of the
+ * platform from it. A platform adds itself with a pull request, and, until it
+ * publishes its own file, the SDK hosts it.
+ *
+ * @internal
+ */
+export const providerManifestUrls: Readonly<
+  Record<Platform, string | undefined>
+> = {
+  'in-memory': undefined,
+  vercel: `${PROVIDER_MANIFESTS}/vercel.json`,
+  launchdarkly: `${PROVIDER_MANIFESTS}/launchdarkly.json`,
+};
+
+/**
+ * Fields which each project can have.
+ */
+interface CommonProjectFields {
+  /**
+   * The URL of the provider manifest, instead of the one of the platform.
+   */
+  providerManifest?: string;
+}
 
 /**
  * The project on a platform a connection points to.
  */
 export type Project<N extends Platform = Platform> = {
-  [K in N]: { platform: K } & ProjectFieldsByPlatform[K];
+  [K in N]: { platform: K } & CommonProjectFields & ProjectFieldsByPlatform[K];
 }[N];
 
 /**
@@ -51,7 +84,7 @@ export interface ConnectionOptions<
    * The OpenFeature provider used to evaluate flags.
    */
   provider: P;
-  project: { platform: N } & ProjectFieldsByPlatform[N];
+  project: { platform: N } & CommonProjectFields & ProjectFieldsByPlatform[N];
   /**
    * OpenFeature hooks for the flags of this connection. They run after the
    * hooks of the configuration, and before the hooks of the call side and of
@@ -123,6 +156,12 @@ export function defineConnection<
   C extends EvaluationContext = EvaluationContext,
   In = DefaultConnectionInput,
 >(options: ConnectionOptions<P, N, C, In>): Connection<P, N, C, In> {
+  const { providerManifest } = options.project as CommonProjectFields;
+  if (providerManifest !== undefined && !isSafeUrl(providerManifest)) {
+    throw new TypeError(
+      'flags: The providerManifest of a project must be an HTTPS URL.',
+    );
+  }
   const connection: Connection<P, N, C, In> = Object.freeze({
     provider: options.provider,
     project: Object.freeze({ ...options.project }) as unknown as Project<N>,

@@ -6,6 +6,10 @@
  * The manifest comes only from the exported objects. It does not evaluate
  * flags, and it does not depend on how the flags were created.
  */
+import stringify from 'fast-json-stable-stringify';
+import { providerManifestUrls } from './connection';
+import { findVercelProject } from './overrides/vercel';
+import { runtime } from './runtime';
 import {
   describeValue,
   type FlagOptionObject,
@@ -52,13 +56,40 @@ export interface FlagManifestDefinition {
    */
   readonly declaredInCode: true;
   /**
+   * The id of the connection of the flag in `connections`.
+   */
+  readonly connection?: string;
+  /**
    * The exports which declare the flag. Usually one.
    */
   readonly sources: readonly FlagSource[];
 }
 
+/**
+ * A connection of the flags: its platform, and the variables of its
+ * project. A tool builds the links to the dashboard from the provider
+ * manifest and the variables (see `resolveFlagLinks`). The links are not in
+ * the file, so a platform can change them without a new build.
+ */
+export interface FlagManifestConnection {
+  readonly platform: string;
+  /**
+   * The URL of the provider manifest of the platform, if it has one.
+   */
+  readonly providerManifest?: string;
+  /**
+   * The fields of the project, e.g. `projectId`. Public identifiers, never
+   * credentials.
+   */
+  readonly variables: Readonly<Record<string, string>>;
+}
+
 export interface FlagsManifest {
   readonly version: 1;
+  /**
+   * The connections, by an id which the definitions use.
+   */
+  readonly connections: Readonly<Record<string, FlagManifestConnection>>;
   /**
    * The flags, by key, in the order of their keys.
    */
@@ -70,6 +101,7 @@ export interface FlagsManifest {
  */
 interface ExportedFlag {
   readonly key: string;
+  readonly connection?: unknown;
   readonly type?: unknown;
   readonly options?: unknown;
   readonly defaultValue?: unknown;
@@ -127,6 +159,39 @@ function definitionOf(
 }
 
 /**
+ * The connection of a flag in the manifest. A flag without a connection uses
+ * the default connection.
+ */
+function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
+  const connection = (flag.connection ?? runtime.defaultConnection) as {
+    project?: unknown;
+  };
+  const project = connection?.project as Record<string, unknown> | undefined;
+  if (typeof project !== 'object' || project === null) return undefined;
+  const { platform, providerManifest, ...fields } = project;
+  if (typeof platform !== 'string') return undefined;
+  const variables: Record<string, string> = {};
+  // Vercel Flags: the project comes from the environment of the build
+  if (platform === 'vercel') {
+    for (const [name, value] of Object.entries(findVercelProject())) {
+      if (value) variables[name] = value;
+    }
+  }
+  for (const [name, value] of Object.entries(fields)) {
+    if (typeof value === 'string') variables[name] = value;
+  }
+  const url =
+    typeof providerManifest === 'string'
+      ? providerManifest
+      : providerManifestUrls[platform as keyof typeof providerManifestUrls];
+  return {
+    platform,
+    ...(url ? { providerManifest: url } : {}),
+    variables,
+  };
+}
+
+/**
  * Creates the manifest from the exports of the modules with the
  * `'use flags'` directive.
  *
@@ -144,7 +209,8 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
   const found = new Map<
     string,
     {
-      definition: Omit<FlagManifestDefinition, 'sources'>;
+      definition: Omit<FlagManifestDefinition, 'sources' | 'connection'>;
+      connection: FlagManifestConnection | undefined;
       sources: FlagSource[];
     }
   >();
@@ -157,13 +223,17 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
       }
       const where = `flag "${value.key}" (export "${name}" of ${module.id})`;
       const definition = definitionOf(value, where);
+      const connection = connectionOf(value);
       const source = { module: module.id, export: name };
       const existing = found.get(value.key);
       if (!existing) {
-        found.set(value.key, { definition, sources: [source] });
+        found.set(value.key, { definition, connection, sources: [source] });
         continue;
       }
-      if (JSON.stringify(existing.definition) !== JSON.stringify(definition)) {
+      if (
+        stringify(existing.definition) !== stringify(definition) ||
+        stringify(existing.connection ?? null) !== stringify(connection ?? null)
+      ) {
         const first = existing.sources[0];
         throw new Error(
           `flags: Flag "${value.key}" is declared two times with different values: export "${first?.export}" of ${first?.module}, and export "${name}" of ${module.id}.`,
@@ -172,13 +242,44 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
       existing.sources.push(source);
     }
   }
-  const definitions = Object.fromEntries(
-    [...found.entries()]
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, { definition, sources }]) => [
-        key,
-        { ...definition, sources },
-      ]),
+
+  // The ids of the connections: the platform, and a number if two
+  // connections have the same platform. In the order of the keys of the
+  // flags, so that the file is stable.
+  const connections: Record<string, FlagManifestConnection> = {};
+  const ids = new Map<string, string>();
+  const entries = [...found.entries()].sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
   );
-  return { version: 1, definitions };
+  const definitions = Object.fromEntries(
+    entries.map(([key, { definition, connection, sources }]) => {
+      let id: string | undefined;
+      if (connection) {
+        const content = stringify(connection);
+        id = ids.get(content);
+        if (!id) {
+          id = connection.platform;
+          for (let n = 2; Object.hasOwn(connections, id); n++) {
+            id = `${connection.platform}-${n}`;
+          }
+          ids.set(content, id);
+          connections[id] = connection;
+        }
+      }
+      return [
+        key,
+        { ...definition, ...(id ? { connection: id } : {}), sources },
+      ];
+    }),
+  );
+  return { version: 1, connections, definitions };
 }
+
+export {
+  expandTemplate,
+  type FlagLinks,
+  type ProviderManifest,
+  type ProviderManifestLinks,
+  resolveFlagLinks,
+  validateProviderManifest,
+} from './provider-manifest';

@@ -24,7 +24,7 @@ import {
   runtime,
   track,
 } from './index';
-import { createManifest } from './manifest';
+import { createManifest, resolveFlagLinks } from './manifest';
 import {
   generatePermutations,
   getPrecomputed,
@@ -1065,9 +1065,50 @@ describe('15. Discovery for Flags Explorer', () => {
       defaultValue: 'control',
       description: 'The checkout flow',
       declaredInCode: true,
+      // Without a connection: the default connection, here Vercel Flags
+      connection: 'vercel',
       sources: [{ module: 'flags.ts', export: 'checkout' }],
     });
     expect(Object.keys(manifest.definitions)).toEqual(['checkout', 'theme']);
+  });
+
+  it('lets a tool build the links to the dashboard of the platform', () => {
+    const launchdarkly = defineConnection({
+      provider: createProvider(),
+      project: { platform: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+    });
+    const manifest = createManifest([
+      {
+        id: 'flags.ts',
+        exports: { summerSale: defineFlag(launchdarkly, 'summer-sale') },
+      },
+    ]);
+
+    // The manifest has only the variables, not the links
+    const connection = manifest.connections.launchdarkly;
+    expect(connection?.variables).toEqual({
+      projectId: 'shop',
+      teamId: 'acme',
+    });
+
+    // A tool fetches connection.providerManifest, which the platform can
+    // change at any time, and builds the links
+    const providerManifest = {
+      version: 1,
+      name: 'LaunchDarkly',
+      links: {
+        flag: 'https://app.launchdarkly.com/projects/{projectId}/flags/{flagKey}',
+      },
+    } as const;
+    expect(
+      resolveFlagLinks(
+        providerManifest,
+        connection?.variables ?? {},
+        'summer-sale',
+      ),
+    ).toEqual({
+      flag: 'https://app.launchdarkly.com/projects/shop/flags/summer-sale',
+    });
   });
 
   it('registers the flags of a use flags module', () => {

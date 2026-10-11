@@ -1,0 +1,19 @@
+{
+  "$schema": "https://flags-sdk.dev/schemas/provider-manifest.v1.json",
+  "version": 1,
+  "name": "Vercel Flags",
+  "variables": {
+    "projectId": {
+      "description": "The ID of the Vercel project."
+    },
+    "teamId": {
+      "description": "The ID of the Vercel team."
+    },
+    "environment": {
+      "description": "The environment, e.g. production or preview."
+    }
+  },
+  "links": {
+    "flag": "https://vercel.com/{teamId}/{projectId}/flag/{flagKey}"
+  }
+}

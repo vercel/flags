@@ -25,4 +25,11 @@ test('gives the platform the manifest of the flags', () => {
     'plain-flag',
     'summer-sale',
   ]);
+  // Without a default connection, the flags use Vercel Flags. A tool builds
+  // the links from its provider manifest.
+  expect(manifest.connections.vercel).toMatchObject({
+    platform: 'vercel',
+    providerManifest: 'https://flags-sdk.dev/provider-manifests/vercel.json',
+  });
+  expect(manifest.definitions['summer-sale'].connection).toBe('vercel');
 });
