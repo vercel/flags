@@ -64,7 +64,8 @@ export interface ConnectionOptions<
    * what the flags of this connection must give. The return type defines
    * what the provider receives.
    *
-   * Runs once per request for each input object. Outside of a request, it
+   * Runs once per request for each input. Plain data is compared by its
+   * content, other objects by identity. Outside of a request, it
    * runs on each evaluation, and `request` is `undefined`.
    *
    * @example
