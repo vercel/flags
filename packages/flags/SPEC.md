@@ -29,8 +29,10 @@ management system (system)".
 | **Integration** (OpenFeature) | Only in the meaning of OpenFeature: a secondary function, e.g. telemetry. | a hook for tracing |
 
 Vercel is both: Vercel Flags is a system (ID `vercel-flags`), and Vercel is
-a platform. Vercel Flags uses the platform project of Vercel as its flag
-project.
+a platform. By default, Vercel Flags uses the platform project of Vercel as
+its flag project. A connection can name a different project with
+`projectId` and `teamId`, because one project can use the flags of a
+different project.
 
 Roles: the roles of OpenFeature (Application Author, Application
 Integrator, Provider Author, Integration Author, Library Author), plus the
@@ -281,6 +283,9 @@ const launchdarkly = defineConnection({
 - `project.system` is one of a fixed list of systems. The system
   determines which other fields are required (`ProjectFieldsBySystem`), e.g.
   `launchdarkly` requires `projectId` and `teamId`, `in-memory` requires none.
+  `vercel-flags` has an optional `projectId` and an optional `teamId`, for
+  the flags of a different project. Without them, it uses the platform
+  project.
 - The connection is a new frozen object exposing `provider`, `project` and
   `getEvaluationContext`. The provider is not modified.
 - `getEvaluationContext(context, request)` is the last step of the
@@ -1406,7 +1411,8 @@ build of the application.
 2. Vercel Flags uses the platform project of Vercel as its flag project.
    Thus, its variables `projectId`, `environment` and `teamId` come from
    the environment of the build, like the platform project of the
-   overrides (`findPlatformProject`).
+   overrides (`findPlatformProject`). The fields `projectId` and `teamId`
+   of the connection override them, for the flags of a different project.
 3. The system publishes a system manifest: JSON, with the schema
    `https://flags-sdk.dev/schemas/system-manifest.v1.json`. It has the
    name, a logo, the variables, and the URL templates `flag`, `createFlag`
@@ -1522,7 +1528,9 @@ of Turbopack works on a collection of the whole application.
   (`resolveFlagLinks`). Write the override cookies of section 10 of
   `STANDARD.md`.
 - **OFREP.** The endpoint of Vercel Flags for OFREP, with the OIDC token of
-  the project as the credential (`VERCEL_OFREP_BASE_URL` is `TEMPORARY:`).
+  the project as the credential. It runs locally at
+  `http://localhost:3031/ofrep/v1/` now (`VERCEL_OFREP_BASE_URL` is
+  `TEMPORARY:`). The production endpoint follows.
 - **KMS for flag overrides.** Flags Explorer signs override tokens with Vercel
   KMS (`vercel-flag-overrides`), with the claims of section 10.2 of
   `STANDARD.md`, and publishes the public keys at its issuer
@@ -1598,7 +1606,8 @@ a file in `src` contains this marker.
   `src/overrides/vercel.ts`): replace it with the real issuer of the Vercel
   Toolbar.
 - The OFREP base URL of Vercel Flags (`VERCEL_OFREP_BASE_URL` in
-  `src/default-provider.ts`): replace it with the real endpoint.
+  `src/default-provider.ts`): it is the local endpoint
+  `http://localhost:3031` now. Replace it with the production endpoint.
 
 ## Open questions
 

@@ -141,6 +141,33 @@ describe('createManifest', () => {
     expect(manifest.definitions.d?.connection).toBe('in-memory');
   });
 
+  it('uses the fields of a vercel-flags project instead of the environment', () => {
+    const other = defineConnection({
+      provider: {
+        metadata: { name: 'vercel' },
+        resolveBooleanEvaluation: async () => ({ value: true }),
+      },
+      // The flags of a different project, e.g. of a different team
+      project: {
+        system: 'vercel-flags',
+        projectId: 'prj_blog',
+        teamId: 'team_blog',
+      },
+    });
+
+    const manifest = createManifest([
+      { id: 'flags.ts', exports: { a: defineFlag(other, 'a') } },
+    ]);
+    expect(manifest.connections['vercel-flags']).toEqual({
+      ...vercel,
+      variables: {
+        projectId: 'prj_blog',
+        teamId: 'team_blog',
+        environment: 'production',
+      },
+    });
+  });
+
   it('uses the system manifest of the project instead of the one of the system', () => {
     const own = defineConnection({
       provider: {

@@ -86,6 +86,32 @@ describe('defineConnection', () => {
     connection.project.projectId;
   });
 
+  it('accepts a vercel-flags project with or without projectId and teamId', () => {
+    const provider = new TypedInMemoryProvider(myFlags);
+
+    // The platform project of Vercel
+    defineConnection({ provider, project: { system: 'vercel-flags' } });
+    // A different project of the same team
+    defineConnection({
+      provider,
+      project: { system: 'vercel-flags', projectId: 'prj_blog' },
+    });
+    // A project of a different team
+    const connection = defineConnection({
+      provider,
+      project: {
+        system: 'vercel-flags',
+        projectId: 'prj_blog',
+        teamId: 'team_blog',
+      },
+    });
+
+    expectTypeOf(connection.project.projectId).toEqualTypeOf<
+      string | undefined
+    >();
+    expectTypeOf(connection.project.teamId).toEqualTypeOf<string | undefined>();
+  });
+
   it('rejects invalid projects at the type level', () => {
     const provider = new TypedInMemoryProvider(myFlags);
 

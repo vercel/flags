@@ -49,22 +49,42 @@ That is the only required step.
 
 ### 2️⃣ Optional: `flags.config.ts`
 
+Without `flags.config.ts`, flags use Vercel Flags with zero configuration:
+locally through OFREP with the OIDC token of `vercel env pull`, and in a
+build on Vercel with the fast provider of `@vercel/flags-core`, if the
+project has it. Write `flags.config.ts` for an evaluation context, or for
+fast evaluations also in development:
+
+```sh
+pnpm add @vercel/flags-core @openfeature/server-sdk
+```
+
 Put it in the directory of the project or in `src`:
 
 ```ts
 // src/flags.config.ts
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineConfig, defineConnection } from 'flags';
 
 export const config = defineConfig({
   defaultConnection: defineConnection({
-    provider: myOpenFeatureProvider,
-    project: { system: 'in-memory' },
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
       user: request?.cookies?.get('user')?.value ?? 'anonymous',
     }),
   }),
 });
+
+// Gives flags without a connection the types of this connection
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
 ```
+
+Any other OpenFeature provider works in the same way.
 
 ## Usage
 

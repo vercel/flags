@@ -10,9 +10,8 @@ const sale = await summerSale();
 
 ## Features
 
-- **Any flag management system.** Use the OpenFeature provider of
-  LaunchDarkly, Statsig, Vercel Flags or any other system, without a
-  wrapper.
+- **Any flag management system.** Use the OpenFeature provider of Vercel
+  Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
 - **Zero configuration on Vercel.** Without configuration, flags use Vercel
   Flags. A deployment on Vercel uses a fast provider, and development uses
   the OIDC token of `vercel env pull`.
@@ -52,9 +51,12 @@ Without an SDK, each place which needs a flag talks to the provider itself:
 
 ```ts
 // app/page.tsx
-const client = await getLaunchDarklyClient();
+import { flagsClient } from '@vercel/flags-core';
+
 const user = await loadUser(await cookies());
-const sale = await client.variation('summer-sale', { key: user.id }, false);
+const { value: sale } = await flagsClient.evaluate('summer-sale', false, {
+  user: { id: user.id },
+});
 ```
 
 This works, until:
@@ -103,17 +105,21 @@ redirect.
 Optional. Without `flags.config.ts`, flags use Vercel Flags. With it, you
 choose the OpenFeature provider, and how the evaluation context is created:
 
+```sh
+pnpm add @vercel/flags-core @openfeature/server-sdk
+```
+
 ```ts
 // flags.config.ts
-import { LaunchDarklyProvider } from '@launchdarkly/openfeature-node-server';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineConfig, defineConnection } from 'flags';
 
 export const config = defineConfig({
   defaultConnection: defineConnection({
-    provider: new LaunchDarklyProvider(process.env.LAUNCHDARKLY_SDK_KEY!),
-    project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
-      targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
     }),
   }),
 });
@@ -205,13 +211,25 @@ Flags without a connection use the default connection. Other flags name
 their connection:
 
 ```ts
+// The flags of a different Vercel project, e.g. of a different team
 const blog = defineConnection({
-  provider: new LaunchDarklyProvider(process.env.BLOG_SDK_KEY!),
-  project: { system: 'launchdarkly', projectId: 'blog', teamId: 'acme' },
+  provider: new VercelProvider(process.env.BLOG_FLAGS!),
+  project: {
+    system: 'vercel-flags',
+    projectId: 'prj_blog',
+    teamId: 'team_acme',
+  },
 });
 
 export const newSearch = defineFlag(blog, 'new-search');
 ```
+
+- With `project: { system: 'vercel-flags' }`, the flag project is the
+  Vercel project of the deployment. `projectId`, and `teamId` for a
+  different team, select a different project. The SDK key of the provider
+  must be of the same project.
+- Any other OpenFeature provider works in the same way, e.g.
+  `{ system: 'launchdarkly', projectId, teamId }`.
 
 A system which the SDK does not list yet adds itself with a pull request
 (see [For framework authors](./FRAMEWORK-AUTHORS.md)).

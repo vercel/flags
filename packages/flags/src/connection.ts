@@ -9,10 +9,12 @@ import type { EvaluationContext, FlagsRequest, Hook, Provider } from './types';
 export interface ProjectFieldsBySystem {
   'in-memory': Record<never, never>;
   /**
-   * Vercel Flags. It uses the platform project of Vercel as its flag
-   * project, so the fields come from the environment.
+   * Vercel Flags. Without fields, it uses the platform project of Vercel as
+   * its flag project, so the fields come from the environment. Set
+   * `projectId`, and `teamId` for a project of a different team, to use the
+   * flags of a different project.
    */
-  'vercel-flags': Record<never, never>;
+  'vercel-flags': { projectId?: string; teamId?: string };
   /**
    * `projectId` is the key of the project in LaunchDarkly. The link to a
    * flag needs `environment`, the key of the environment.
