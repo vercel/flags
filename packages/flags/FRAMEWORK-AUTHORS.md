@@ -44,6 +44,11 @@ The runtime calls `setupFramework` one time, before the first evaluation.
 - **The rethrow** throws an error again if the framework must receive it,
   e.g. a redirect. The runtime calls it before it uses the default value of
   a flag. Use the check functions of the framework, e.g. `isRedirect()`.
+- **Rendering and caches.** If the framework prerenders, the request
+  source makes an evaluation part of the render at request time, e.g. with
+  `connection()` of Next.js. In a cache scope of the framework, e.g.
+  `'use cache'`, the request source throws, and the rethrow throws this
+  error again (see [STANDARD.md](./STANDARD.md), section 5.4).
 - **The config source** loads `flags.config.ts` through the alias
   `flags/config`. In development, the runtime calls it before each
   evaluation, so a change applies without a restart.

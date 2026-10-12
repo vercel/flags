@@ -164,8 +164,8 @@ Some frameworks control the flow of a request with thrown values, e.g. a
 redirect. These are **signals**.
 
 - A framework with signals MUST call `runtime.setRethrow(rethrow)`.
-- `rethrow(error)` MUST throw `error` again if it is a signal, and MUST
-  return otherwise.
+- `rethrow(error)` MUST throw `error` again if it is a signal, or the
+  error of a cache scope (section 5.4), and MUST return otherwise.
 - The runtime calls `rethrow` before it uses the default value of a flag.
   Thus, a signal from a provider or from a step of the evaluation context
   chain reaches the framework unchanged.
@@ -180,6 +180,22 @@ where `source` returns the export `config` of `flags/config`.
 
 - In development, the runtime calls the source before each evaluation, and
   applies a new configuration. In production, it calls it one time.
+
+### 5.4 Rendering and caches
+
+A flag value can change at any time, and depends on the request. Thus, an
+evaluation belongs to the request.
+
+- If the framework prerenders, the binding MUST make an evaluation part of
+  the render at request time, e.g. with `connection()` of Next.js. Thus, a
+  provider can read the time or do I/O.
+- A precomputed value does not use the request. It MAY be prerendered.
+- A binding MUST NOT let an evaluation run in a cache scope of the
+  framework, e.g. `'use cache'` of Next.js, if it can recognize one. The
+  request source MUST throw an error there, and `rethrow` MUST throw it
+  again, so that the flag does not return its default value. The
+  application evaluates the flag outside, and passes the value into the
+  cache scope.
 
 ## 6. `flags.config.ts`
 
