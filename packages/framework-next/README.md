@@ -317,10 +317,9 @@ the configuration, the providers and their clients.
   `TypedInMemoryProvider`. OpenFeature requires a default, so the SDK passes
   a placeholder (`false`, `''`, `0` or `{}`), and the flag returns it. The
   reasons `DEFAULT` and `DISABLED` can not be used to detect this, because
-  providers also use them for real values: `VercelProvider` reports `DEFAULT`
-  for the fallthrough of a flag, and LaunchDarkly reports `DISABLED` with the
-  "off" value of the system. Set `defaultValue` when the difference
-  matters.
+  providers also use them for real values, e.g. `VercelProvider` reports
+  `DEFAULT` for the fallthrough of a flag. Set `defaultValue` when the
+  difference matters.
 - **Flags evaluated in `generateStaticParams` or at build time** have no
   request. They use the evaluation context without a request.
 

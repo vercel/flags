@@ -173,7 +173,8 @@ function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
   if (typeof system !== 'string') return undefined;
   const variables: Record<string, string> = {};
   // Vercel Flags uses the platform project of Vercel as its flag project, so
-  // the variables come from the environment of the build
+  // the variables come from the environment of the build. The fields of the
+  // project override them, for the flags of a different project.
   if (system === 'vercel-flags') {
     for (const [name, value] of Object.entries(findPlatformProject())) {
       if (value) variables[name] = value;

@@ -5,13 +5,15 @@ import type { Provider } from './types';
 /**
  * The base URL of the OFREP endpoint of Vercel Flags.
  *
- * TEMPORARY: The endpoint does not exist yet. Replace this value with the
- * real one before publishing. `prepublishOnly` stops a publish while this
- * comment is here.
+ * The OFREP provider appends `/ofrep/v1/...`, so the base URL has no path.
+ *
+ * TEMPORARY: This is a local endpoint for development of the SDK. Replace it
+ * with the production endpoint before publishing. `prepublishOnly` stops a
+ * publish while this comment is here.
  *
  * @internal
  */
-export const VERCEL_OFREP_BASE_URL = 'https://flags.vercel.com';
+export const VERCEL_OFREP_BASE_URL = 'http://localhost:3031';
 
 let warnedAboutProduction = false;
 

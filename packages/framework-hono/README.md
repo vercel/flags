@@ -27,6 +27,8 @@ Your code imports only `flags`. `@flags-sdk/hono` is only for the setup.
 
 ## Setup
 
+### 1️⃣ Add the middleware
+
 ```ts
 import { flags } from '@flags-sdk/hono';
 import { evaluate } from 'flags';
@@ -42,6 +44,45 @@ app.get('/', async (c) => {
   return c.json({ sale, banner });
 });
 ```
+
+### 2️⃣ Optional: `flags.config.ts`
+
+Without a configuration, flags use Vercel Flags through OFREP, with the
+OIDC token of the project (locally from `vercel env pull`). Without a
+bundler, a platform can not replace the default provider, so OFREP sends
+one request for each evaluation, also on Vercel. For fast evaluations, give
+the middleware a configuration with the provider of Vercel Flags:
+
+```sh
+pnpm add @vercel/flags-core @openfeature/server-sdk
+```
+
+```ts
+// src/flags.config.ts
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineConnection } from 'flags';
+
+export const config = defineConfig({
+  defaultConnection: defineConnection({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => ({
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    }),
+  }),
+});
+
+// Gives flags without a connection the types of this connection
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+Any other OpenFeature provider works in the same way.
+
+### Notes
 
 - `config` is optional.
 - To initialize the providers before the first request, call
