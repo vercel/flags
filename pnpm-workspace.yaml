@@ -4,6 +4,7 @@ packages:
   - tests/standard/*
   - examples/*
   - examples/providers/*
+  - examples/playgrounds/*
   - apps/*
 
 catalog:
