@@ -168,10 +168,12 @@ function turbopackRules(
  * It supports only Turbopack, and keeps the aliases and the rules of the
  * configuration. A build with webpack throws.
  */
-export function withFlags(
-  nextConfig: NextConfig = {},
+export function withFlags<T extends object>(
+  config: T = {} as T,
   options: FlagsPluginOptions = {},
-): NextConfig {
+): T {
+  // Typed loosely, so a `next` version other than ours does not clash.
+  const nextConfig: NextConfig = config;
   const dir = options.dir ?? process.cwd();
   const configFile = findConfigFile(dir);
 
@@ -184,7 +186,7 @@ export function withFlags(
       `./${relative(dir, configFile).split(sep).join('/')}`;
   }
 
-  return {
+  const result: NextConfig = {
     ...nextConfig,
     compiler: {
       ...nextConfig.compiler,
@@ -213,4 +215,5 @@ export function withFlags(
       );
     },
   };
+  return result as T;
 }
