@@ -19,7 +19,7 @@ type WebpackFn = NonNullable<NextConfig['webpack']>;
 
 describe('withFlags', () => {
   it('points flags/framework to the binding', () => {
-    const config = withFlags({}, { dir: projectWith() });
+    const config = withFlags<NextConfig>({}, { dir: projectWith() });
 
     expect(config.turbopack?.resolveAlias).toEqual({
       'flags/framework': '@flags-sdk/next/binding',
@@ -28,7 +28,7 @@ describe('withFlags', () => {
 
   it('points flags/config to flags.config.ts', () => {
     const dir = projectWith('flags.config.ts');
-    const config = withFlags({}, { dir });
+    const config = withFlags<NextConfig>({}, { dir });
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
       'flags/config': './flags.config.ts',
@@ -39,7 +39,9 @@ describe('withFlags', () => {
     const dir = projectWith('src/flags.config.ts');
 
     expect(findConfigFile(dir)).toBe(join(dir, 'src', 'flags.config.ts'));
-    expect(withFlags({}, { dir }).turbopack?.resolveAlias).toMatchObject({
+    expect(
+      withFlags<NextConfig>({}, { dir }).turbopack?.resolveAlias,
+    ).toMatchObject({
       'flags/config': './src/flags.config.ts',
     });
   });
@@ -68,7 +70,7 @@ describe('withFlags', () => {
   });
 
   it('adds the loader for use flags modules to Turbopack', () => {
-    const config = withFlags({}, { dir: projectWith() });
+    const config = withFlags<NextConfig>({}, { dir: projectWith() });
 
     expect(config.turbopack?.rules?.['*.ts']).toEqual([
       {
@@ -79,7 +81,7 @@ describe('withFlags', () => {
   });
 
   it('throws for a build with webpack', () => {
-    const config = withFlags({}, { dir: projectWith() });
+    const config = withFlags<NextConfig>({}, { dir: projectWith() });
 
     expect(() => config.webpack?.({}, {} as Parameters<WebpackFn>[1])).toThrow(
       'flags: withFlags supports only Turbopack. Remove --webpack from next dev and next build.',
@@ -100,9 +102,9 @@ describe('the secret of precompute for the build', () => {
   it('puts one random key into the server code for the whole build', () => {
     vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
     vi.stubEnv('__FLAGS_PRECOMPUTE_BUILD_KEY', undefined);
-    const first = secretOf(withFlags({}, { dir: projectWith() }));
+    const first = secretOf(withFlags<NextConfig>({}, { dir: projectWith() }));
     // e.g. a worker of the build, which loads the configuration again
-    const second = secretOf(withFlags({}, { dir: projectWith() }));
+    const second = secretOf(withFlags<NextConfig>({}, { dir: projectWith() }));
 
     expect(first).toMatch(/^[\w-]{43}$/);
     expect(second).toBe(first);
@@ -113,7 +115,7 @@ describe('the secret of precompute for the build', () => {
   it('uses FLAGS_PRECOMPUTE_SECRET of the build', () => {
     vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', 'from-the-build');
 
-    expect(secretOf(withFlags({}, { dir: projectWith() }))).toBe(
+    expect(secretOf(withFlags<NextConfig>({}, { dir: projectWith() }))).toBe(
       'from-the-build',
     );
   });
