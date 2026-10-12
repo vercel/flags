@@ -1,0 +1,24 @@
+{
+  "name": "standard-next-cache-components",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 4312",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@flags-sdk/next": "workspace:*",
+    "flags": "workspace:*",
+    "next": "16.3.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.1",
+    "@types/node": "22.14.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "^5.9.3"
+  }
+}

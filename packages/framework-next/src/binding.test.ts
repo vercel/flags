@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRequest, setupFramework } from './binding';
+import { getRequest, rethrow, setupFramework } from './binding';
 
 const headers = vi.fn();
 const cookies = vi.fn();
+const connection = vi.fn();
 const unstable_rethrow = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => headers(),
   cookies: () => cookies(),
+}));
+vi.mock('next/server', () => ({
+  connection: () => connection(),
 }));
 vi.mock('next/navigation', () => ({
   unstable_rethrow: (error: unknown) => unstable_rethrow(error),
@@ -15,6 +19,7 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   headers.mockReset();
   cookies.mockReset();
+  connection.mockReset().mockResolvedValue(undefined);
   unstable_rethrow.mockReset();
 });
 
@@ -29,6 +34,48 @@ describe('getRequest', () => {
       headers: requestHeaders,
       cookies: requestCookies,
     });
+  });
+
+  it('waits for connection(), so that the evaluation is not prerendered', async () => {
+    headers.mockResolvedValue(new Headers());
+    cookies.mockResolvedValue({});
+    let connect = () => {};
+    connection.mockReturnValue(
+      new Promise<void>((resolve) => {
+        connect = resolve;
+      }),
+    );
+
+    let done = false;
+    const request = getRequest().then(() => {
+      done = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(done).toBe(false);
+    connect();
+    await request;
+    expect(done).toBe(true);
+  });
+
+  it('throws its own error in a cache scope, also for a flag with a default value', async () => {
+    const error = new Error(
+      'Route / used `headers()` inside "use cache". Accessing Dynamic data sources inside a cache scope is not supported.',
+    );
+    headers.mockImplementation(() => {
+      throw error;
+    });
+
+    const thrown = await getRequest().catch((e: unknown) => e);
+    expect(thrown).toMatchObject({
+      name: 'FlagInCacheError',
+      message: expect.stringContaining(
+        'can not be evaluated inside a cache scope',
+      ),
+      cause: error,
+    });
+    // The runtime calls rethrow before it uses the default value
+    expect(() => rethrow(thrown)).toThrow(thrown as Error);
+    expect(() => rethrow(new Error('other'))).not.toThrow();
   });
 
   it('gives no request outside of a request', async () => {

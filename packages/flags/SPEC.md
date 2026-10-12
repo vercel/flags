@@ -1179,6 +1179,18 @@ Rules for each binding:
   development uses OFREP or the configuration.
 - Set the aliases for each bundler that the framework supports. For
   Next.js, the SDK supports only Turbopack.
+- Make an evaluation part of the render at request time, if the framework
+  prerenders. The Next.js binding waits for `connection()` in its request
+  source. Thus, a provider can call `Date.now()` or do I/O, also with
+  `cacheComponents` and Partial Prefetching. `connection()` gives one
+  promise for each request, so this adds no work. `getPrecomputed` does not
+  use the request, so a precomputed page stays static.
+- Do not let an evaluation run in a cache scope (`'use cache'`). A flag
+  value must not be cached: the application evaluates the flag outside,
+  and passes the value in. The Next.js binding finds a cache scope by the
+  message of the error of `headers()`, because Next.js has no public API
+  for it. It throws a `FlagInCacheError`, and its rethrow throws it again,
+  so that the flag does not return its `defaultValue`.
 
 ### Notes for each framework
 

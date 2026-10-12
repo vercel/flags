@@ -116,6 +116,23 @@ export default async function Page() {
   evaluated one time for each request, so all components get the same
   value.
 - **Route handlers** call flags in the same way.
+- **No `await connection()`.** With `cacheComponents`, the SDK waits for
+  `connection()` itself, so a provider can read the time or send requests.
+- **Not in `'use cache'`.** A flag value must not be cached, so a flag in a
+  cache scope throws, also with a `defaultValue`. Evaluate the flag outside,
+  and pass the value in:
+
+  ```tsx
+  async function Prices({ sale }: { sale: boolean }) {
+    'use cache';
+    return <PriceList sale={sale} />;
+  }
+
+  // With cacheComponents, render it in <Suspense>
+  async function Sale() {
+    return <Prices sale={await summerSale()} />;
+  }
+  ```
 - **Client components:** flags run only on the server. Evaluate a flag in a
   server component, and give the value to the client component as a prop.
   Do not import `flags` in a file with `'use client'`.
@@ -261,11 +278,16 @@ Before the first evaluation, the SDK calls `setupFramework` of
    page, but `headers()` and `cookies()` give the current request at any
    time. `headers()` returns the same object during one request, so the SDK
    identifies the request by it. It creates the evaluation context, and
-   evaluates each flag, one time for each request. Outside of a request, `headers()` throws, and the source
-   gives no request.
+   evaluates each flag, one time for each request. The source also waits
+   for `connection()`, so an evaluation belongs to the render at request
+   time, not to a prerender. Outside of a request, `headers()` throws, and
+   the source gives no request. In a cache scope, it throws a
+   `FlagInCacheError`.
 2. **The rethrow.** Next.js uses errors as signals, e.g. "Dynamic server
    usage" during the build, to detect that a page is dynamic. The SDK gives
    such errors to `unstable_rethrow`, so that they reach Next.js unchanged.
+   It also throws a `FlagInCacheError` again, so that a flag in a cache
+   scope does not return its default value.
 3. **The config source.** It loads `flags.config.ts` with
    `import('flags/config')`. In production, the SDK loads it one time. In
    development, it loads it again before each evaluation, so a change of
@@ -282,11 +304,17 @@ the configuration, the providers and their clients.
   chain is `undefined`. A route handler can give a value of the URL to a
   flag with `evaluationContext`.
 
-- **A page with a flag is dynamic.** The request source reads `headers()`,
-  so Next.js renders the page for each request. This is correct: flags are
-  dynamic, and overrides read the cookies of each request. Use
-  `export const dynamic = 'force-static'` only when the page must not depend
-  on the request.
+- **A page with a flag is dynamic.** The request source reads `headers()`
+  and waits for `connection()`, so Next.js renders the page for each
+  request. This is correct: flags are dynamic, and overrides read the
+  cookies of each request. With `cacheComponents`, put a component which
+  evaluates a flag in `<Suspense>`. Use precompute for a static page with
+  flags. Use `export const dynamic = 'force-static'` only when the page must
+  not depend on the request.
+- **A cache scope is found by the message of the error of Next.js.**
+  Next.js has no public API for it. If a later version of Next.js changes
+  the message, the flag gets no request instead, but Next.js still fails
+  the route with its own error.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
 - **The registration of the type must be in the TypeScript program.** If
