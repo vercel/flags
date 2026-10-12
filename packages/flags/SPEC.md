@@ -1512,6 +1512,72 @@ documented, they only exist with Turbopack and Next.js 16.4 or newer, and
 in development they only find the modules of the current route. The team
 of Turbopack works on a collection of the whole application.
 
+## Next steps
+
+### The Vercel platform
+
+- **Flags Explorer.** Read the flags manifest of v5: in development at
+  `/.well-known/flags/manifest.json`, and from the build output on Vercel.
+  Build the links to the dashboard from the system manifests
+  (`resolveFlagLinks`). Write the override cookies of section 10 of
+  `STANDARD.md`.
+- **OFREP.** The endpoint of Vercel Flags for OFREP, with the OIDC token of
+  the project as the credential (`VERCEL_OFREP_BASE_URL` is `TEMPORARY:`).
+- **KMS for flag overrides.** Flags Explorer signs override tokens with Vercel
+  KMS (`vercel-flag-overrides`), with the claims of section 10.2 of
+  `STANDARD.md`, and publishes the public keys at its issuer
+  (`VERCEL_TOOLBAR_ISSUER` is `TEMPORARY:`).
+- **The overrides from end to end** with the real Vercel Toolbar, in a test.
+- **The build output.** Where the Build Output API of Vercel takes
+  `flags-manifest.json`, so that Flags Explorer can read it from a
+  deployment.
+- **The deployment adapter of Vercel for Next.js.** It sets the alias of
+  `flags/default-provider` to `@vercel/flags-core/default-provider`, and puts
+  the manifest into the build output, as `tests/standard/next/adapter.mjs`
+  does.
+
+### The release
+
+- Replace the `TEMPORARY:` values (see "Before publishing").
+- Changesets for `flags` v5 and the first versions of the `@flags-sdk/*`
+  packages, which have the version `0.0.0`.
+- Absolute links in the READMEs: npm does not resolve the relative links
+  between the packages.
+- Publish the schemas and the system manifests: deploy `apps/docs`.
+- A review of `STANDARD.md`, version 1, which is a draft.
+
+### The migration from v4
+
+- A skill or a codemod, e.g. for `flag()` to `defineFlag`, adapters to
+  OpenFeature providers, `flags/next` to `@flags-sdk/next`, and
+  `(code, group)` to `getPrecomputed`.
+- The packages of the monorepo which still use v4: `apps/docs`, the
+  adapters (`packages/adapter-*`), the examples and the templates.
+- The docs of v5 on flags-sdk.dev.
+
+### Candidates
+
+Not decided yet.
+
+- **Flag values for the client and for analytics.** v4 had `FlagValues` and
+  `reportValue`, so that the Toolbar shows the current values and Web
+  Analytics gets them. v5 has no equivalent yet.
+- **More systems.** Fields and system manifests for the systems of the
+  adapters of v4: Statsig, PostHog, GrowthBook, Flagsmith, Hypertune,
+  Optimizely, Split, Reflag.
+- **Batch evaluation with OFREP.** `evaluate([…])` could use the bulk
+  endpoint of OFREP, with one request instead of one for each flag.
+- **Next.js:** a helper for flags in the proxy, tests of server actions,
+  and a public API of Next.js to derive the secret of precompute.
+- **Turbopack collect/emit** instead of the scan, when it collects the whole
+  application.
+- **Tracing** with OpenTelemetry, as v4 had, e.g. as a hook.
+- **More checks in the conformance suite:** `onInit` and `onShutdown`, the
+  reload of `flags.config.ts` in development, and the default provider of a
+  platform.
+- **More frameworks:** Astro, React Router, Remix.
+- **A security review** of the overrides and of the precompute codes.
+
 ## Deferred
 
 - Hooks registered at runtime, e.g. `runtime.addHooks`, and hooks of one
