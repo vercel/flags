@@ -1,10 +1,8 @@
 import Image from 'next/image';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { myTestFlag, testBooleanFlag } from '@/flags';
 
 async function FlagPanel() {
-  await connection();
   const testBoolean = await testBooleanFlag();
   const myTest = await myTestFlag();
 
