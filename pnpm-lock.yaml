@@ -774,7 +774,7 @@ importers:
         version: 1.2.1
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(8a50398eea982028fef31409bb4e88b8)
+        version: 0.2.7(6e80d2bf2457a59dbc6453a57f7c3aeb)
       cookie:
         specifier: ^0.7.0
         version: 0.7.2
@@ -1790,7 +1790,7 @@ importers:
     dependencies:
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(6e80d2bf2457a59dbc6453a57f7c3aeb)
+        version: 0.2.7(8a50398eea982028fef31409bb4e88b8)
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
@@ -25126,7 +25126,7 @@ snapshots:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.27
-      caniuse-lite: 1.0.30001777
+      caniuse-lite: 1.0.30001814
       postcss: 8.5.26
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -25153,7 +25153,7 @@ snapshots:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.27
-      caniuse-lite: 1.0.30001777
+      caniuse-lite: 1.0.30001814
       postcss: 8.5.26
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -25180,7 +25180,7 @@ snapshots:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.27
-      caniuse-lite: 1.0.30001777
+      caniuse-lite: 1.0.30001814
       postcss: 8.5.26
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -25207,7 +25207,7 @@ snapshots:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.27
-      caniuse-lite: 1.0.30001777
+      caniuse-lite: 1.0.30001814
       postcss: 8.5.26
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
@@ -25234,7 +25234,7 @@ snapshots:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.27
-      caniuse-lite: 1.0.30001777
+      caniuse-lite: 1.0.30001814
       postcss: 8.5.26
       react: 19.3.0-canary-b618bbb4-20261007
       react-dom: 19.3.0(react@19.3.0-canary-b618bbb4-20261007)
