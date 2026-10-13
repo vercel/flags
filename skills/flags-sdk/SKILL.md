@@ -1,16 +1,11 @@
 ---
 name: flags-sdk
 description: >
-  Set up and use feature flags and A/B tests with the Flags SDK (`flags` npm package) and Vercel Flags.
-  Use when installing or configuring the SDK, adding a new or existing flag, wiring `vercelAdapter`
-  (OIDC or SDK keys), declaring flags with `flag()`, using the `vercel flags` CLI (create, inspect, list,
-  enable, disable, set, update, split, rollout, rules, segments, use-targeting, evaluations, versions,
-  open, archive, unarchive, rm, sdk-keys, override, prepare), setting up providers/adapters (Vercel, Statsig, LaunchDarkly,
-  PostHog, GrowthBook, Global Config, OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom),
-  precompute, `identify`/`dedupe`, Flags Explorer/Toolbar, Next.js or SvelteKit, or encrypting flag values.
-  Triggers: feature flags, feature gates, A/B testing, experimentation, gradual rollout, traffic split,
-  targeting rules, flag overrides, precompute, Flags Explorer, Vercel Flags, vercel flags CLI,
-  `flags/next`, `flags/sveltekit`, `flags/react`, `@flags-sdk/*`.
+  Feature flags, A/B tests, and gradual rollouts in any app or framework. Use whenever the user is
+  planning, adding, or changing a feature flag, toggle, kill switch, experiment, or percentage rollout,
+  or wants to gate or hide a feature for some users, even before a library or provider is chosen.
+  Covers Vercel Flags, the Flags SDK (`flags`, `@flags-sdk/*`), `@vercel/flags-core`, OpenFeature,
+  provider adapters such as Statsig, LaunchDarkly, and PostHog, Flags Explorer, and the `vercel flags` CLI.
 ---
 
 # Set up and use the Flags SDK
@@ -21,6 +16,16 @@ The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and S
 - Repo: https://github.com/vercel/flags
 
 When the user asks to install, configure, or set up feature flags, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `.env.local` is missing). When they ask to create or add a flag, follow [Create a flag](#create-a-flag). A request is CLI-only when the user asks to inspect, create, or change a remote flag and the request involves no code; then follow [CLI-only flag management](#cli-only-flag-management). Inside an app repository, treat an ambiguous request as the full flow. Do not leave CLI steps as "next steps" for the user — execute them yourself.
+
+## Choose an approach
+
+Check the project's stack before writing code. Vercel Flags works with three integrations ([SDKs](https://vercel.com/docs/flags/vercel-flags/sdks)):
+
+- **Next.js or SvelteKit**: use the Flags SDK, as described in the rest of this skill. It adds automatic Flags Explorer integration and precompute for static pages.
+- **Any other framework or a plain server** (for example Express): use `@vercel/flags-core` directly. Follow [Core client in other frameworks](references/providers.md#core-client-in-other-frameworks-for-example-express) and skip the Toolbar and Flags Explorer steps in [Set up the SDK](#set-up-the-sdk).
+- **Already on OpenFeature, or the user wants provider portability**: register the Vercel Flags OpenFeature provider ([Using OpenFeature with Vercel Flags](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)).
+
+When the project already uses another flag provider, keep it and connect it through its adapter ([references/providers.md](references/providers.md)). The `vercel flags` CLI steps work the same for every integration.
 
 ## Core concepts
 
