@@ -7,8 +7,8 @@ description: >
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
   set, split, rollout, rules, segments, evaluations, archive), OIDC vs SDK keys, `FLAGS_SECRET`, and
-  Flags Explorer. For `flag()` declarations, adapters, and precompute in Next.js or SvelteKit code,
-  load the `flags-sdk` skill.
+  Flags Explorer overrides. For `flag()` declarations, adapters, precompute, and the Flags Explorer
+  endpoint in Next.js or SvelteKit code, load the `flags-sdk` skill.
 ---
 
 # Vercel Flags
@@ -30,7 +30,7 @@ Use this skill to decide how a feature should be flagged, to create and change f
 
 Check the project before writing code.
 
-- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. The Flags SDK connects to it through an adapter; load the `flags-sdk` skill.
+- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. On Next.js or SvelteKit, the Flags SDK connects to it through an adapter; load the `flags-sdk` skill. On any other stack, use the provider's own SDK; this skill does not cover it.
 - **No provider yet**: use Vercel Flags. Pick the integration by stack ([SDKs](https://vercel.com/docs/flags/vercel-flags/sdks)):
   - **Next.js or SvelteKit**: the Flags SDK (`flags` + `@flags-sdk/vercel`). It adds Flags Explorer integration and precompute for static pages. Load the `flags-sdk` skill. If it is not available, suggest `npx skills add vercel/flags --skill flags-sdk` (do not auto-install).
   - **Any other framework or a plain server** (for example Express): `@vercel/flags-core`. See [Other frameworks](#other-frameworks).
@@ -80,7 +80,7 @@ Always `inspect` first so you know what each environment serves today, and match
 
 - **OIDC**: on Vercel, the app authenticates with the project's OIDC token and evaluates the configuration of the current environment. `vercel env pull` writes the Development token to `.env.local` for local development ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)).
 - **SDK keys (`FLAGS`)**: only for apps outside Vercel, custom environments, or flags owned by another project. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
-- **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes. Preserve existing values; a missing local value does not mean the remote value is missing, so check the target environment before generating one. If you must generate one, use 32 cryptographically random bytes, base64-encoded, one distinct value per environment, mark Preview and Production values Sensitive, and send it straight to `vercel env add` via stdin. Do not print secrets to the terminal, logs, or chat.
+- **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes, and `vercel flags override` reads it from the environment or `.env.local`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
 
 ## Flags Explorer
 
@@ -88,14 +88,15 @@ Flags Explorer is the Vercel Toolbar panel that lists the app's flags and lets y
 
 ## Other frameworks
 
-For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)). Create one client at module scope and call `evaluate()` or `bulkEvaluate()` inside a request handler; both initialize the client on first use.
+For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)). Create one client at module scope and call `evaluate()` or `bulkEvaluate()` inside a request handler; both initialize the client on first use. Do not add a module-scope `client.initialize()` call or cache its promise for handlers to await.
 
 ```ts
 // src/flags.ts
 import { createClient } from '@vercel/flags-core';
 
-const client = createClient(); // OIDC on Vercel and after `vercel env pull`; pass process.env.FLAGS outside Vercel
+const client = createClient();
 
+// Call from a request handler, not during module loading.
 export async function showNewCheckout(userId: string): Promise<boolean> {
   const result = await client.evaluate<boolean>('new-checkout', false, {
     user: { id: userId },
@@ -104,7 +105,9 @@ export async function showNewCheckout(userId: string): Promise<boolean> {
 }
 ```
 
-With OIDC the token can come from request context and may not exist during module loading, so do not add a module-scope `client.initialize()` call. The third argument is the evaluation context; its entity and attribute names must match the ones defined under Flags → Entities so rollouts and rules can bucket on them.
+With OIDC the token can come from request context and may not exist during module loading. Even embedded definitions need it to select the entry by the token's `project_id`, and local `.env.local` credentials can hide this timing problem. Explicit initialization is optional and must wait until authentication is available; awaiting an already-started initialization promise later does not move it into request context. Outside Vercel, pass the SDK key: `createClient(process.env.FLAGS)`.
+
+The third argument to `evaluate()` is the evaluation context; its entity and attribute names must match the ones defined under Flags → Entities so rollouts and rules can bucket on them.
 
 ## References
 
