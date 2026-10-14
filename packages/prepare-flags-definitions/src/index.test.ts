@@ -434,6 +434,39 @@ describe('prepareFlagsDefinitions', () => {
     expect(datafileCalls(mockFetch)).toHaveLength(1);
   });
 
+  it('skips a connected project whose datafile is unauthorized', async () => {
+    const mockFetch = mockFetchWithSources(
+      (_url, init) => {
+        const headers = init?.headers as Record<string, string>;
+        if (headers['x-vercel-flags-project-id'] === 'prj_source') {
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            statusText: 'Unauthorized',
+          });
+        }
+        return okJson({ flag_a: { value: true } })();
+      },
+      [{ sourceProjectId: 'prj_source' }],
+    );
+
+    const cwd = '/tmp/test-connected-source-unauthorized';
+    const result = await prepareFlagsDefinitions({
+      cwd,
+      env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_consumer') },
+      fetch: mockFetch,
+    });
+
+    expect(result).toEqual({ created: true, entryCount: 2 });
+    expect(datafileCalls(mockFetch)).toHaveLength(2);
+    const definitionsJs = await readFile(
+      `${cwd}/node_modules/@vercel/flags-definitions/index.js`,
+      'utf8',
+    );
+    expect(definitionsJs).toContain('"prj_consumer": _d0');
+    expect(definitionsJs).not.toContain('prj_source');
+  });
+
   it('stores OIDC definitions under the token project_id', async () => {
     const mockFetch = mockFetchWithSources(okJson({ flag_a: { value: true } }));
 
