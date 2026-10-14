@@ -1,4 +1,72 @@
+import { createVercelAdapter } from '@flags-sdk/vercel';
+import { trackExposure } from '@vercel/analytics/server';
+import {
+  createClient,
+  type experimental_Exposure as Exposure,
+} from '@vercel/flags-core';
 import { flag } from 'flags/next';
+
+export const flagsClient = createClient({
+  experimental_reportExposures: reportExposures,
+});
+
+export const vercelAdapter = createVercelAdapter(flagsClient);
+
+function getUnitValue(
+  entity: unknown,
+  base: Exposure['base'],
+): string | undefined {
+  const value = base.reduce<unknown>((current, key) => {
+    if (typeof current !== 'object' || current === null || !(key in current)) {
+      return undefined;
+    }
+
+    return (current as Record<PropertyKey, unknown>)[key];
+  }, entity);
+
+  return typeof value === 'string' ? value : undefined;
+}
+
+/**
+ * Reports Vercel Experiments exposures to Web Analytics.
+ *
+ * Pass it as `experimental_reportExposures` to `createClient` from
+ * `@vercel/flags-core`. The exposure unit is resolved from the `identify()`
+ * entity using the experiment's base path, so conversion events only need to
+ * carry the same unit (for example `visitorId`) to be joined to exposures.
+ */
+async function reportExposures(
+  exposures: readonly Exposure[],
+  entity: unknown,
+): Promise<void> {
+  await Promise.all(
+    exposures.map((exposure) => {
+      const unitValue = getUnitValue(entity, exposure.base);
+
+      if (unitValue === undefined) {
+        return Promise.resolve();
+      }
+
+      return trackExposure({
+        experimentId: exposure.experimentId,
+        variantId: exposure.variantId ?? 'override',
+        unitKey: 'user',
+        unitValue,
+        assignmentReason: exposure.assignmentReason,
+        rampId: exposure.rampId,
+        rampPercentage: exposure.rampPercentage,
+      });
+    }),
+  );
+}
+
+export const andyCheckoutFlag = flag({
+  adapter: vercelAdapter,
+  key: 'andy-flag-checkout',
+  options: [false, true],
+});
+
+// ================================
 
 export const enableBannerFlag = flag({
   key: 'enable-banner-flag',
