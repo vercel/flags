@@ -1,4 +1,15 @@
 import { flag } from 'flags/next';
+import { type Entities, identify } from './lib/flags/identify';
+import { vercelAdapter } from './lib/flags/vercel-adapter';
+
+export const checkoutFlag = flag<boolean, Entities>({
+  key: 'checkout-flag-vincent',
+  description: 'Experiment-owned flag',
+  defaultValue: false,
+  options: [false, true],
+  identify,
+  adapter: vercelAdapter,
+});
 
 export const enableBannerFlag = flag({
   key: 'enable-banner-flag',
@@ -49,6 +60,7 @@ export const installAudienceFlag = flag<'humans' | 'agents'>({
 });
 
 export const rootFlags = [
+  checkoutFlag,
   enableBannerFlag,
   enableHeroTextFlag,
   enableDitheredHeroFlag,

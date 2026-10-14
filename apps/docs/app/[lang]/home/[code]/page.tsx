@@ -13,6 +13,7 @@ import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  checkoutFlag,
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
@@ -26,6 +27,7 @@ import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
 import { HighlightedCode } from './highlighted-code';
 import { InstallCommand } from './install-command';
+import { PurchaseButton } from './purchase-button';
 import { FlagSelect, FlagToggle } from './toggles';
 
 const FEATURES = [
@@ -101,6 +103,8 @@ export default async function HomePage({
       installAudienceFlag(code, rootFlags),
     ]);
 
+  const checkoutFlagValue = await checkoutFlag(code, rootFlags);
+
   return (
     <div className="mx-auto w-full max-w-[1448px] px-4 sm:px-6">
       <FlagValues
@@ -130,6 +134,15 @@ export default async function HomePage({
         </div>
         <div className="relative col-span-12 lg:col-span-5 p-4">
           {ditheredHeroFlag ? <HeroImage /> : null}
+
+          <div className="mb-6 flex flex-col items-start gap-3">
+            <div className="text-heading-20">
+              Checkout flag: {checkoutFlagValue ? 'treatment' : 'control'}
+            </div>
+            <PurchaseButton
+              label={checkoutFlagValue ? 'Buy now' : 'Proceed to checkout'}
+            />
+          </div>
 
           <div className="relative rounded-xl bg-background-100 p-4 md:p-6 shadow-(--ds-shadow-menu)">
             <div className="flex flex-col gap-y-1 px-2">
