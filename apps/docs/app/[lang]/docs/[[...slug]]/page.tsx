@@ -2,6 +2,7 @@ import { MobileDocsBar } from "@vercel/geistdocs/mobile-docs-bar";
 import { createDocsPage } from "@vercel/geistdocs/pages/docs";
 import type { MDXComponents } from "mdx/types";
 import { getMDXComponents } from "@/components/geistdocs/mdx-components";
+import { FlagsAsCodeTitleExperiment } from "@/components/custom/flags-as-code-title-experiment";
 import { IframeBrowser } from "@/components/custom/iframe-browser";
 import { LearnMore } from "@/components/custom/learn-more";
 import { ProviderList } from "@/components/custom/provider-list";
@@ -28,7 +29,14 @@ const docsPage = createDocsPage({
   tableOfContentPopover: {
     enabled: false,
   },
-  renderTop: ({ data }) => <MobileDocsBar toc={data.toc} />,
+  renderTop: ({ data, page }) => (
+    <>
+      <MobileDocsBar toc={data.toc} />
+      {page.slugs.join("/") === "principles/flags-as-code" ? (
+        <FlagsAsCodeTitleExperiment />
+      ) : null}
+    </>
+  ),
 });
 
 export default docsPage.Page;
