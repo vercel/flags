@@ -17,7 +17,7 @@ type Entity = {
  * entity using the experiment's base path, so conversion events only need to
  * carry the same unit (for example `visitorId`) to be joined to exposures.
  */
-export async function reportExposures(
+async function reportExposures(
   exposures: readonly Exposure[],
   entity: Readonly<Entity>,
 ): Promise<void> {

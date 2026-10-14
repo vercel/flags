@@ -96,14 +96,14 @@ importers:
   apps/docs:
     dependencies:
       '@flags-sdk/vercel':
-        specifier: 1.5.1
-        version: 1.5.1(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))(flags@packages+flags)(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+        specifier: workspace:*
+        version: link:../../packages/adapter-vercel
       '@vercel/analytics':
         specifier: 2.1.0-canary.5
         version: 2.1.0-canary.5(@sveltejs/kit@2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.56.7(@typescript-eslint/types@8.46.1))
       '@vercel/flags-core':
-        specifier: 1.10.0
-        version: 1.10.0(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+        specifier: workspace:*
+        version: link:../../packages/vercel-flags-core
       '@vercel/geistdocs':
         specifier: 2.7.4
         version: 2.7.4(@sveltejs/kit@2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.46.1))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.46.1))(typescript@5.9.3)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(@svta/cml-cta@1.0.1(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1))(@svta/cml-structured-field-values@1.0.1(@svta/cml-utils@1.0.1))(@svta/cml-utils@1.0.1)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@vercel/functions@3.4.3)(lucide-react@0.555.0(react@19.2.4))(micromark-util-types@2.0.2)(micromark@4.0.2)(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
@@ -1836,11 +1836,6 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
-  '@flags-sdk/vercel@1.5.1':
-    resolution: {integrity: sha512-LYXGpeBLv96DIGVwyj/8exer2/D8+FjurwWb/RVGJsm7n5wm62JBn7miKYKc+96oUJ7VNd97eyY6yuyoPz+vDg==}
-    peerDependencies:
-      flags: '*'
 
   '@flagsmith/nodejs@9.0.3':
     resolution: {integrity: sha512-SN/bpKI3VaEZe+lEHdy9ljR+SQGI3aQWS4UE9VfaxcN1z/lB7Bwc/6pI8QOJd6Xn+CTWpsGlUWDVveM+yYR63w==}
@@ -5637,17 +5632,6 @@ packages:
   '@vercel/edge@1.2.1':
     resolution: {integrity: sha512-1++yncEyIAi68D3UEOlytYb1IUcIulMWdoSzX2h9LuSeeyR7JtaIgR8DcTQ6+DmYOQn+5MCh6LY+UmK6QBByNA==}
     deprecated: This package is deprecated. You should to use `@vercel/functions` instead.
-
-  '@vercel/flags-core@1.10.0':
-    resolution: {integrity: sha512-RBK6MABz+Xc9DYc03tavofJbOz07tiVNYQZmAKRFnIq7eq54rIoQBQRIdjxGPtwYkszcs9hemmYPO5ksh0Vn+A==}
-    peerDependencies:
-      '@openfeature/server-sdk': 1.18.0
-      next: '*'
-    peerDependenciesMeta:
-      '@openfeature/server-sdk':
-        optional: true
-      next:
-        optional: true
 
   '@vercel/functions@1.6.0':
     resolution: {integrity: sha512-R6FKQrYT5MZs5IE1SqeCJWxMuBdHawFcCZboKKw8p7s+6/mcd55Gx6tWmyKnQTyrSEA04NH73Tc9CbqpEle8RA==}
@@ -10463,15 +10447,6 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
-  '@flags-sdk/vercel@1.5.1(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))(flags@packages+flags)(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
-    dependencies:
-      '@vercel/flags-core': 1.10.0(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
-      flags: link:packages/flags
-    transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-web-identity'
-      - '@openfeature/server-sdk'
-      - next
-
   '@flagsmith/nodejs@9.0.3':
     dependencies:
       jsonpath-plus: 10.4.0
@@ -14223,19 +14198,6 @@ snapshots:
       next: 16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.3.0-canary-ff8f88fc-20260915))(react@19.3.0-canary-ff8f88fc-20260915)
 
   '@vercel/edge@1.2.1': {}
-
-  '@vercel/flags-core@1.10.0(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))(next@16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
-    dependencies:
-      '@vercel/functions': 3.4.3
-      '@vercel/oidc': 3.5.0
-      dequal: 2.0.3
-      jose: 5.10.0
-      js-xxhash: 4.0.0
-    optionalDependencies:
-      '@openfeature/server-sdk': 1.18.0(@openfeature/core@1.9.1)
-      next: 16.3.6(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-    transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-web-identity'
 
   '@vercel/functions@1.6.0': {}
 
