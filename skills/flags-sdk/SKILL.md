@@ -83,7 +83,7 @@ Check the project state to adapt commands and decide which steps you can skip:
    ```
 
 2. **Link the project to Vercel** (required for `vercel env pull` and local OIDC token refresh):
-   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel --skill vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
    Verify the link with `vercel project inspect --non-interactive` and check the reported owner and project name; a `.vercel/` directory alone does not prove a link. If it reports `link_required`, run `vercel link`. If the user named a project or team and the output differs, stop and ask instead of relinking.
 

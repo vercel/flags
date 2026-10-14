@@ -54,7 +54,7 @@ Decide these before creating the flag; the kind cannot be changed later.
 
 The CLI uses your Vercel account authentication. SDK keys and `vercel env pull` are application credentials, not CLI prerequisites.
 
-> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
+> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel --skill vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
 
 Run `vercel flags --help` for the current subcommand list and `vercel flags <cmd> --help` before using a subcommand. [references/cli.md](references/cli.md) covers what `--help` cannot: how CLI concepts map to the app, promotion order, static value vs targeting mode, and the checks to run before archiving or deleting.
 

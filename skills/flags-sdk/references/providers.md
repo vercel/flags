@@ -27,7 +27,7 @@ pnpm i flags @flags-sdk/vercel
 
 ### Setup
 
-> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel --skill vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
 The following steps integrate a flag into an app and need a linked project for `vercel env pull` ([Set up the SDK](../SKILL.md#set-up-the-sdk), step 2). To only inspect or change remote flags, use the `vercel-flags` skill instead.
 
