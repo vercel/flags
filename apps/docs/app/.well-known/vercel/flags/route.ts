@@ -1,6 +1,6 @@
 import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/next';
-import * as flags from '../../../../flags';
+import { rootFlags } from '../../../../flags';
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return getProviderData(flags);
+  return getProviderData({ rootFlags });
 });
