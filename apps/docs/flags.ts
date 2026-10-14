@@ -64,6 +64,7 @@ export const andyCheckoutFlag = flag({
   adapter: vercelAdapter,
   key: 'andy-flag-checkout',
   options: [false, true],
+  defaultValue: false,
   identify({ cookies }) {
     return {
       user: {

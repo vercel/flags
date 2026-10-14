@@ -22,6 +22,7 @@ import {
 } from '@/flags';
 import { config } from '@/lib/geistdocs/config';
 import { buildHomeMetadata } from '@/lib/site/home-metadata';
+import { AndyButton } from './components/button';
 import HeroImage from './components/hero-image';
 import { Adaptable, Effortless, Flexible } from './components/illustrations';
 import Testimonials from './components/testimonials';
@@ -123,6 +124,8 @@ export default async function HomePage({
       {/* Hero */}
 
       {checkoutFlag ? "Andy's flag is on" : "Andy's flag is off"}
+
+      <AndyButton />
 
       <section className="mt-(--fd-nav-height) grid grid-cols-12 gap-y-12 pt-16 pb-16 sm:pt-40 lg:gap-x-12">
         <div className="col-span-12 flex flex-col justify-center lg:col-span-7">
