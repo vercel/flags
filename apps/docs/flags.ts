@@ -37,7 +37,7 @@ function getUnitValue(
  */
 async function reportExposures(
   exposures: readonly Exposure[],
-  entity: unknown,
+  entity: any,
 ): Promise<void> {
   await Promise.all(
     exposures.map((exposure) => {
@@ -50,8 +50,8 @@ async function reportExposures(
       return trackExposure({
         experimentId: exposure.experimentId,
         variantId: exposure.variantId ?? 'override',
-        unitKey: 'user',
-        unitValue,
+        unitKey: 'event_data.visitorId',
+        unitValue: entity.visitor.id,
         assignmentReason: exposure.assignmentReason,
         rampId: exposure.rampId,
         rampPercentage: exposure.rampPercentage,
@@ -67,7 +67,7 @@ export const andyCheckoutFlag = flag({
   defaultValue: false,
   identify({ cookies }) {
     return {
-      user: {
+      visitor: {
         id: cookies.get('visitorId')?.value ?? '',
       },
     };
