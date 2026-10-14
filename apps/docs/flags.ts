@@ -62,13 +62,13 @@ async function reportExposures(
 
 export const andyCheckoutFlag = flag({
   adapter: vercelAdapter,
-  key: 'andy-flag-checkout',
+  key: 'andy-checkout-flag',
   options: [false, true],
   defaultValue: false,
   identify({ cookies }) {
     return {
       user: {
-        id: cookies.get('userId')?.value ?? '',
+        id: cookies.get('visitorId')?.value ?? '',
       },
     };
   },
