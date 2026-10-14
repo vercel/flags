@@ -69,6 +69,12 @@
       "pinVersion": "latest"
     },
     {
+      "label": "Geistdocs uses the analytics canary for experiment exposures",
+      "packages": ["docs"],
+      "dependencies": ["@vercel/analytics"],
+      "pinVersion": "2.1.0-canary.5"
+    },
+    {
       "label": "Next.js 15 compatibility fixture must stay on 15.x",
       "packages": ["next-15"],
       "dependencies": ["next"],
