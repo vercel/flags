@@ -13,6 +13,7 @@ import { FlagValues } from 'flags/react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  andyCheckoutFlag,
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
@@ -93,13 +94,19 @@ export default async function HomePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [bannerFlag, ditheredHeroFlag, heroTextFlag, installAudience] =
-    await Promise.all([
-      enableBannerFlag(code, rootFlags),
-      enableDitheredHeroFlag(code, rootFlags),
-      enableHeroTextFlag(code, rootFlags),
-      installAudienceFlag(code, rootFlags),
-    ]);
+  const [
+    bannerFlag,
+    ditheredHeroFlag,
+    heroTextFlag,
+    installAudience,
+    checkoutFlag,
+  ] = await Promise.all([
+    enableBannerFlag(code, rootFlags),
+    enableDitheredHeroFlag(code, rootFlags),
+    enableHeroTextFlag(code, rootFlags),
+    installAudienceFlag(code, rootFlags),
+    andyCheckoutFlag(code, rootFlags),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1448px] px-4 sm:px-6">
@@ -109,10 +116,13 @@ export default async function HomePage({
           [enableDitheredHeroFlag.key]: ditheredHeroFlag,
           [enableHeroTextFlag.key]: heroTextFlag,
           [installAudienceFlag.key]: installAudience,
+          [andyCheckoutFlag.key]: checkoutFlag,
         }}
       />
 
       {/* Hero */}
+
+      {checkoutFlag ? "Andy's flag is on" : "Andy's flag is off"}
 
       <section className="mt-(--fd-nav-height) grid grid-cols-12 gap-y-12 pt-16 pb-16 sm:pt-40 lg:gap-x-12">
         <div className="col-span-12 flex flex-col justify-center lg:col-span-7">

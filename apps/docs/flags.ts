@@ -64,6 +64,13 @@ export const andyCheckoutFlag = flag({
   adapter: vercelAdapter,
   key: 'andy-flag-checkout',
   options: [false, true],
+  identify({ cookies }) {
+    return {
+      user: {
+        id: cookies.get('userId')?.value ?? '',
+      },
+    };
+  },
 });
 
 // ================================
@@ -121,4 +128,5 @@ export const rootFlags = [
   enableHeroTextFlag,
   enableDitheredHeroFlag,
   installAudienceFlag,
+  andyCheckoutFlag,
 ] as const;
