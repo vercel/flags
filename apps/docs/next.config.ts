@@ -18,6 +18,26 @@ const config: NextConfig = {
     ],
   },
 
+  // The production insights endpoint has no CORS headers, so a browser on
+  // localhost cannot post to it directly. Proxy it instead when local
+  // analytics testing is enabled through NEXT_PUBLIC_WEB_ANALYTICS_MODE.
+  rewrites: async () => {
+    const analyticsOrigin = process.env.VERCEL_WEB_ANALYTICS_ENDPOINT;
+    if (
+      process.env.NODE_ENV !== "development" ||
+      process.env.NEXT_PUBLIC_WEB_ANALYTICS_MODE !== "production" ||
+      !analyticsOrigin
+    ) {
+      return [];
+    }
+    return [
+      {
+        source: "/_vercel/insights/:path*",
+        destination: `${analyticsOrigin}/_vercel/insights/:path*`,
+      },
+    ];
+  },
+
   redirects: async () => {
     /**
      * At first all docs pages were at /docs/*, but we moved them to the root

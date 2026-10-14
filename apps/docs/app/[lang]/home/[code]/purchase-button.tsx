@@ -1,8 +1,7 @@
 'use client';
-import { identify, track } from '@vercel/analytics';
+import { track } from '@vercel/analytics';
 import { Button } from '@vercel/geistdocs/components/button';
 import { useToasts } from '@vercel/geistdocs/components/toasts';
-import { useEffect } from 'react';
 import { USER_ID_COOKIE } from '@/lib/flags/constants';
 
 function readUserId(): string | undefined {
@@ -15,21 +14,19 @@ function readUserId(): string | undefined {
 export function PurchaseButton({ label }: { label: string }) {
   const { success } = useToasts();
 
-  // Exposures are reported with `unitKey: 'user'`, so the browser SDK has to
-  // know the same user id for the purchase event to join to them.
-  useEffect(() => {
-    const userId = readUserId();
-    if (userId) {
-      identify(userId);
-    }
-  }, []);
-
   return (
     <Button
       className="rounded-full"
       onClick={() => {
-        track('purchase');
-        success({ text: 'Tracked a purchase event.' });
+        const userId = readUserId();
+        if (!userId) {
+          success({ text: 'No userId cookie, purchase not tracked.' });
+          return;
+        }
+        // Exposures are reported with `unitKey: 'event_data.userId'`, so the
+        // event must carry the same id as a property to be joined to them.
+        track('purchase', { userId });
+        success({ text: `Tracked a purchase for ${userId}.` });
       }}
       size="large"
     >

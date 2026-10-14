@@ -27,7 +27,7 @@ export async function reportExposures(
         {
           experimentId: exposure.experimentId,
           variantId: exposure.variantId ?? 'override',
-          unitKey: 'user',
+          unitKey: 'event_data.userId',
           unitValue,
           assignmentReason: exposure.assignmentReason,
           rampId: exposure.rampId,
