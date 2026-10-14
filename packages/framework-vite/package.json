@@ -2,6 +2,7 @@
   "name": "@flags-sdk/vite",
   "description": "The Vite plugin of the Flags SDK, for the framework packages",
   "version": "0.0.0",
+  "private": true,
   "license": "MIT",
   "author": "Dominik Ferber <dominik@vercel.com>",
   "homepage": "https://flags-sdk.dev",

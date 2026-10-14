@@ -2,10 +2,17 @@ name: Release
 
 # This workflow handles two release modes:
 #
-#   1. Regular release (push to main): runs changesets/action, which either
-#      opens a "chore: release" PR with version bumps from queued changesets,
-#      or publishes the bumped versions to npm if the release PR has been
-#      merged.
+#   1. Regular release (push to main or standard): runs changesets/action,
+#      which either opens a "chore: release" PR with version bumps from queued
+#      changesets, or publishes the bumped versions to npm if the release PR
+#      has been merged. The PR targets the branch that was pushed.
+#
+#      The long-running `standard` branch is in changesets pre mode
+#      (`.changeset/pre.json`, tag `standard`). Its releases get versions like
+#      `1.2.0-standard.0` and go to the `standard` dist-tag, not `latest`.
+#      Run `pnpm changeset pre exit` before `standard` merges into `main`.
+#      Snapshot releases are not possible from `standard`, because changesets
+#      does not allow snapshots in pre mode.
 #
 #   2. Snapshot release (workflow_dispatch): publishes a one-off version for
 #      the current branch under the `snapshot` dist-tag, so changes can be
@@ -38,6 +45,7 @@ on:
   push:
     branches:
       - main
+      - standard
   workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
@@ -70,6 +78,17 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+
+      # `main` publishes to `latest` and must never be in pre mode. This stops
+      # the job if `.changeset/pre.json` came to `main` in a merge from
+      # `standard`. Exit mode (after `changeset pre exit`) is permitted.
+      - name: Check pre mode
+        if: github.ref_name == 'main'
+        run: |
+          if [ -f .changeset/pre.json ] && [ "$(jq -r .mode .changeset/pre.json)" = "pre" ]; then
+            echo "::error::main is in changesets pre mode. Run 'pnpm changeset pre exit' first."
+            exit 1
+          fi
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
