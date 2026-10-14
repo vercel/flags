@@ -23,16 +23,17 @@ Use this skill to decide how a feature should be flagged, to create and change f
 ## Route the request
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
-- **Manage an existing flag with no code change** (inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local`.
-- **Implement in code**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
+- **Manage an existing flag with no code change** (inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
+- **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
+- **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
 
 ## Choose an approach
 
 Check the project before writing code.
 
-- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. On Next.js or SvelteKit, the Flags SDK connects to it through an adapter; load the `flags-sdk` skill. On any other stack, use the provider's own SDK; this skill does not cover it.
+- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. On Next.js or SvelteKit, the Flags SDK connects to it through an adapter; load the `flags-sdk` skill. On any other stack, use the provider's own SDK. Rollouts, targeting, and experiments for that provider are configured in its own dashboard, not with `vercel flags`; the CLI and lifecycle sections of this skill do not apply.
 - **No provider yet**: use Vercel Flags. Pick the integration by stack ([SDKs](https://vercel.com/docs/flags/vercel-flags/sdks)):
-  - **Next.js or SvelteKit**: the Flags SDK (`flags` + `@flags-sdk/vercel`). It adds Flags Explorer integration and precompute for static pages. Load the `flags-sdk` skill. If it is not available, suggest `npx skills add vercel/flags --skill flags-sdk` (do not auto-install).
+  - **Next.js or SvelteKit**: the Flags SDK (`flags` + `@flags-sdk/vercel`). It adds Flags Explorer integration and precompute for static pages. Load the `flags-sdk` skill. If it is not available, suggest `npx skills add vercel/flags@flags-sdk` (do not auto-install).
   - **Any other framework or a plain server** (for example Express): `@vercel/flags-core`. See [Other frameworks](#other-frameworks).
   - **The user wants provider portability or already uses OpenFeature**: the Vercel Flags OpenFeature provider ([Using OpenFeature with Vercel Flags](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)).
 
@@ -54,7 +55,7 @@ Decide these before creating the flag; the kind cannot be changed later.
 
 The CLI uses your Vercel account authentication. SDK keys and `vercel env pull` are application credentials, not CLI prerequisites.
 
-> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel --skill vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
+> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
 
 Run `vercel flags --help` for the current subcommand list and `vercel flags <cmd> --help` before using a subcommand. [references/cli.md](references/cli.md) covers what `--help` cannot: how CLI concepts map to the app, promotion order, static value vs targeting mode, and the checks to run before archiving or deleting.
 

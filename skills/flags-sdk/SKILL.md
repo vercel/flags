@@ -7,8 +7,8 @@ description: >
   OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom), using `identify`, `dedupe`, or
   `evaluate`, keeping pages static with precompute, setting up Flags Explorer and the Vercel
   Toolbar, or encrypting flag values. Triggers: `flags/next`, `flags/sveltekit`, `flags/react`,
-  `@flags-sdk/*`, `vercelAdapter`, precompute. For planning a flag, rollouts, experiments, other
-  frameworks, or managing flags with the `vercel flags` CLI, use the `vercel-flags` skill.
+  `@flags-sdk/*`, `vercelAdapter`, precompute. For planning a flag, for Vercel Flags rollouts,
+  experiments, and the `vercel flags` CLI, or for other frameworks, use the `vercel-flags` skill.
 ---
 
 # Set up and use the Flags SDK
@@ -18,7 +18,7 @@ The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and S
 - Docs: https://flags-sdk.dev
 - Repo: https://github.com/vercel/flags
 
-This skill covers the code. Planning a flag, choosing between the Flags SDK, `@vercel/flags-core`, and OpenFeature, and managing flags in the dashboard or with the `vercel flags` CLI belong to the `vercel-flags` skill; if it is not available, suggest `npx skills add vercel/flags --skill vercel-flags` (do not auto-install) and run `vercel flags <cmd> --help` in the meantime. For a project on another framework, `@vercel/flags-core` replaces this SDK ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)).
+This skill covers the code. Planning a flag, choosing between the Flags SDK, `@vercel/flags-core`, and OpenFeature, and managing flags in the dashboard or with the `vercel flags` CLI belong to the `vercel-flags` skill; if it is not available, suggest `npx skills add vercel/flags@vercel-flags` (do not auto-install) and run `vercel flags <cmd> --help` in the meantime. For a project on another framework, `@vercel/flags-core` replaces this SDK ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)).
 
 When the user asks to install, configure, or set up the SDK, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `.env.local` is missing). When they ask to add a flag to the code, follow [Create a flag](#create-a-flag) or [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel). Inside an app repository, treat an ambiguous request as the full flow. Do not leave CLI steps as "next steps" for the user; execute them yourself.
 
@@ -83,7 +83,7 @@ Check the project state to adapt commands and decide which steps you can skip:
    ```
 
 2. **Link the project to Vercel** (required for `vercel env pull` and local OIDC token refresh):
-   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel --skill vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
 
    Verify the link with `vercel project inspect --non-interactive` and check the reported owner and project name; a `.vercel/` directory alone does not prove a link. If it reports `link_required`, run `vercel link`. If the user named a project or team and the output differs, stop and ask instead of relinking.
 
