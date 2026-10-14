@@ -1,4 +1,59 @@
 import { flag } from 'flags/next';
+import { trackExposure } from '@vercel/analytics/server';
+import { createClient, type experimental_Exposure as Exposure } from '@vercel/flags-core';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+type Entity = {
+  visitor: {
+    id: string
+  }
+}
+
+/**
+ * Reports Vercel Experiments exposures to Web Analytics.
+ *
+ * Pass it as `experimental_reportExposures` to `createClient` from
+ * `@vercel/flags-core`. The exposure unit is resolved from the `identify()`
+ * entity using the experiment's base path, so conversion events only need to
+ * carry the same unit (for example `visitorId`) to be joined to exposures.
+ */
+export async function reportExposures(
+  exposures: readonly Exposure[],
+  entity: Readonly<Entity>,
+): Promise<void> {
+  await Promise.all(
+    exposures.map((exposure) => {
+      return trackExposure({
+        experimentId: exposure.experimentId,
+        variantId: exposure.variantId ?? 'override',
+        unitKey: "event_data.visitorId",
+        unitValue: entity.visitor.id,
+        assignmentReason: exposure.assignmentReason,
+        rampId: exposure.rampId,
+        rampPercentage: exposure.rampPercentage,
+      });
+    }),
+  );
+}
+
+ const flagsClient = createClient({
+  experimental_reportExposures: reportExposures,
+});
+
+const vercelAdapter = createVercelAdapter(flagsClient);
+
+export const experimentFlag = flag<boolean, Entity>({
+  key: 'luis-checkout-flag',
+  options: [false, true],
+  adapter: vercelAdapter,
+  identify({cookies}) {
+    return {
+      visitor: {
+        id: cookies.get('visitorId')?.value ?? ''
+      }
+    }
+  }
+});
 
 export const enableBannerFlag = flag({
   key: 'enable-banner-flag',
@@ -53,4 +108,5 @@ export const rootFlags = [
   enableHeroTextFlag,
   enableDitheredHeroFlag,
   installAudienceFlag,
+  experimentFlag
 ] as const;

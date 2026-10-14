@@ -15,6 +15,7 @@ import {
   serializeStructuredData,
 } from "@/lib/site/organization";
 import { cn } from "@/lib/utils";
+import { experimentFlag } from "@/flags";
 
 export const generateStaticParams = () =>
   i18n.languages.map((lang) => ({ lang }));

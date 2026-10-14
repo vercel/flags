@@ -1,0 +1,28 @@
+{
+  "name": "Luis Checkout experiment",
+  "slug": "luis-checkout-experiment",
+  "flagSlug": "luis-checkout-flag",
+  "kind": "boolean",
+  "base": {
+    "type": "entity",
+    "kind": "visitor",
+    "attribute": "id"
+  },
+  "variants": [
+    { "id": "control", "value": false },
+    { "id": "treatment", "value": true }
+  ],
+  "controlVariantId": "control",
+  "weights": {
+    "control": 50,
+    "treatment": 50
+  },
+  "targetPercentage": 100,
+  "metrics": {
+      "purchase": {
+        "type": "conversion",
+        "eventName": "purchase"
+      }
+    },
+    "primaryMetric": "purchase"
+}

@@ -24,7 +24,7 @@ export const GeistdocsProvider = ({
   return (
     <>
       <PackageProvider config={config} lang={lang} {...props} />
-      <Analytics />
+      <Analytics mode="production" />
       <SpeedInsights />
     </>
   );

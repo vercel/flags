@@ -16,6 +16,7 @@ import {
   enableBannerFlag,
   enableDitheredHeroFlag,
   enableHeroTextFlag,
+  experimentFlag,
   installAudienceFlag,
   rootFlags,
 } from '@/flags';
@@ -27,6 +28,8 @@ import Testimonials from './components/testimonials';
 import { HighlightedCode } from './highlighted-code';
 import { InstallCommand } from './install-command';
 import { FlagSelect, FlagToggle } from './toggles';
+import { Success } from './success';
+import { Suspense } from 'react';
 
 const FEATURES = [
   {
@@ -93,16 +96,21 @@ export default async function HomePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [bannerFlag, ditheredHeroFlag, heroTextFlag, installAudience] =
+  const [bannerFlag, ditheredHeroFlag, heroTextFlag, installAudience, on] =
     await Promise.all([
       enableBannerFlag(code, rootFlags),
       enableDitheredHeroFlag(code, rootFlags),
       enableHeroTextFlag(code, rootFlags),
       installAudienceFlag(code, rootFlags),
+      experimentFlag(code, rootFlags),
     ]);
 
   return (
     <div className="mx-auto w-full max-w-[1448px] px-4 sm:px-6">
+      {on ? <div>Experiment is on</div> : <div>Experiment is off</div>}
+      <Suspense>
+        <Success />
+      </Suspense>
       <FlagValues
         values={{
           [enableBannerFlag.key]: bannerFlag,
