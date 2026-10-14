@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isValidProjectId,
   isValidSdkKey,
   parseSdkKeyFromFlagsConnectionString,
 } from './sdk-keys';
+
+describe('isValidProjectId', () => {
+  it('accepts prj_ ids and legacy ids', () => {
+    expect(isValidProjectId('prj_abc123XYZ')).toBe(true);
+    expect(
+      isValidProjectId('Qmc52npNy86S8VV4Mt8a8dP1LEkRNbgosW3pBCQytkcgf2'),
+    ).toBe(true);
+    expect(isValidProjectId('a'.repeat(64))).toBe(true);
+  });
+
+  it('rejects separators, whitespace, and overlong values', () => {
+    expect(isValidProjectId('')).toBe(false);
+    expect(isValidProjectId('prj_a/b')).toBe(false);
+    expect(isValidProjectId('prj_a:b')).toBe(false);
+    expect(isValidProjectId('prj_a b')).toBe(false);
+    expect(isValidProjectId('prj_a\nb')).toBe(false);
+    expect(isValidProjectId('a'.repeat(65))).toBe(false);
+  });
+});
 
 describe('isValidSdkKey', () => {
   it('should return true for vf_server_ keys', () => {
