@@ -208,6 +208,40 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@24.10.13)(msw@2.6.4(@types/node@24.10.13)(typescript@5.9.3))(vite@8.1.5(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
+  apps/ofrep:
+    dependencies:
+      '@vercel/flags-core':
+        specifier: workspace:*
+        version: link:../../packages/vercel-flags-core
+      next:
+        specifier: 16.3.8
+        version: 16.3.8(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@openfeature/ofrep-provider':
+        specifier: 0.2.5
+        version: 0.2.5(@openfeature/core@1.9.1)(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))
+      '@openfeature/server-sdk':
+        specifier: ^1.17.1
+        version: 1.18.0(@openfeature/core@1.9.1)
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.5(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
   apps/playground:
     dependencies:
       '@flags-sdk/vercel':
@@ -2393,6 +2427,16 @@ packages:
 
   '@openfeature/core@1.9.1':
     resolution: {integrity: sha512-YySPtH4s/rKKnHRU0xyFGrqMU8XA+OIPNWDrlEFxE6DCVWCIrxE5YpiB94YD2jMFn6SSdA0cwQ8vLkCkl8lm8A==}
+
+  '@openfeature/ofrep-core@2.3.0':
+    resolution: {integrity: sha512-PgUoEp0nGDYUeZ2fIU2IczEe/5B+gQVDpGXc5o05wpo3sj69pbcpq/a3p8MT/mhv9fqODiqqwu29g/YEq/huaw==}
+    peerDependencies:
+      '@openfeature/core': ^1.6.0
+
+  '@openfeature/ofrep-provider@0.2.5':
+    resolution: {integrity: sha512-UMQiTdJYJdBMPWs+AvIhEdIgutCTbk0sMlcrlQeH99Ieacka0GKG0oeGtDB0hHPVGaNGHSGLfGYXSfBoXRXSQA==}
+    peerDependencies:
+      '@openfeature/server-sdk': ^1.6.0
 
   '@openfeature/server-sdk@1.18.0':
     resolution: {integrity: sha512-uP8nqEGBS58s3iWXx6d8vnJ6ZVt3DACJL4PWADOAuwIS4xXpID91783e9f6zQ0i1ijQpj3yx+3ZuCB2LfQMUMA==}
@@ -10954,6 +10998,17 @@ snapshots:
   '@open-draft/until@2.1.0': {}
 
   '@openfeature/core@1.9.1': {}
+
+  '@openfeature/ofrep-core@2.3.0(@openfeature/core@1.9.1)':
+    dependencies:
+      '@openfeature/core': 1.9.1
+
+  '@openfeature/ofrep-provider@0.2.5(@openfeature/core@1.9.1)(@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1))':
+    dependencies:
+      '@openfeature/ofrep-core': 2.3.0(@openfeature/core@1.9.1)
+      '@openfeature/server-sdk': 1.18.0(@openfeature/core@1.9.1)
+    transitivePeerDependencies:
+      - '@openfeature/core'
 
   '@openfeature/server-sdk@1.18.0(@openfeature/core@1.9.1)':
     dependencies:
