@@ -1,5 +1,11 @@
 # @vercel/prepare-flags-definitions
 
+## 0.6.1
+
+### Patch Changes
+
+- [#553](https://github.com/vercel/flags/pull/553) [`bc7a562`](https://github.com/vercel/flags/commit/bc7a562ba33b369c94aee3b266f55e9f3a0c35f2) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Skip connected projects whose definitions cannot be fetched instead of failing the build.
+
 ## 0.6.0
 
 ### Minor Changes
