@@ -23,7 +23,7 @@ Use this skill to decide how a feature should be flagged, to create and change f
 ## Route the request
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
-- **Manage an existing flag with no code change** (inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
+- **Create or manage a flag with no code change** (create, inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
 - **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
 - **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
 
