@@ -130,6 +130,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
       flagKey,
       variant: null,
       reason: result.reason,
+      revision: datafile.revision,
     });
     return result;
   }
@@ -160,6 +161,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     flagKey,
     variant: result.variantId,
     reason: result.reason,
+    revision: datafile.revision,
   });
 
   return Object.assign(result, {
@@ -241,6 +243,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
         flagKey: key,
         variant: null,
         reason: ResolutionReason.ERROR,
+        revision: datafile.revision,
       });
       continue;
     }
@@ -273,6 +276,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
       flagKey: key,
       variant: result.variantId,
       reason: result.reason,
+      revision: datafile.revision,
     });
     results[key] = Object.assign(result, {
       metrics: { evaluationMs: evaluationDurationMs, ...baseMetrics },

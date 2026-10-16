@@ -6,6 +6,7 @@ export interface TrackEvaluationOptions {
   variant: VariantId | null;
   reason: ResolutionReason;
   clientName?: string;
+  revision?: number;
 }
 
 const MINUTE_MS = 60_000;
@@ -26,6 +27,7 @@ export function evaluationBatchKey(
     options.variant,
     options.reason,
     options.clientName ?? null,
+    options.revision ?? null,
     options.bucketTs,
   ]);
 }
@@ -38,6 +40,7 @@ export class FlagsEvaluationEvent implements UsageEvent {
     variant?: string;
     reason: ResolutionReason;
     clientName?: string;
+    revision?: string;
     evaluationCount: number;
     periodStartedAt: number;
   };
@@ -53,6 +56,10 @@ export class FlagsEvaluationEvent implements UsageEvent {
 
     if (eventOptions.clientName) {
       this.payload.clientName = eventOptions.clientName;
+    }
+
+    if (eventOptions.revision !== undefined) {
+      this.payload.revision = String(eventOptions.revision);
     }
   }
 
