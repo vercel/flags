@@ -326,11 +326,18 @@ An override sets the value of a flag for one browser, with a cookie.
 
 - The cookie is `vercel-flag-overrides`. Its value is a JWS with `ES256` or
   `RS512`, signed by a key of the issuer of the platform.
+- The protected header MUST have a `kid` of a key in the key set of the
+  issuer. The runtime MUST reject a token with `jwk`, `jku`, `x5u` or
+  `crit` in its header.
+- The payload MUST have `iss` with the issuer, exactly as the runtime
+  knows it.
 - The payload MUST have `aud` with `vercel:flag-overrides`, `pur` with
   `flag-overrides`, `ver` with `1`, the integers `iat` and `exp`, the
   object `overrides` with flag keys and values, and the object `scope`
   with `projectId`, `environments` (a non-empty list) and an optional
   `teamId`.
+- The runtime reads `flag-overrides` before `vercel-flag-overrides`. Thus,
+  a tool which writes one of them SHOULD delete the other.
 - The runtime MUST reject a token of an other platform project, of an
   environment which is not in `environments`, with a scope which has
   other fields, or with a lifetime (`exp` minus `iat`) longer than the
