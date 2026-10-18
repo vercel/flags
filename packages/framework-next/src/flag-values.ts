@@ -4,15 +4,17 @@
  * 11 of the standard of the Flags SDK.
  */
 
+// Through the package name, so that withFlags can replace the module
 import {
-  type EncryptFlagValuesOptions,
-  encryptFlagValues,
+  type EncryptValuesOptions,
+  encryptValues,
+} from '@flags-sdk/next/encrypt-values';
+import {
   evaluate,
   type FlagDefinition,
   type FlagValuesType,
   serializeFlagValues,
 } from 'flags';
-import { connection } from 'next/server';
 import { createElement, type ReactElement, Suspense } from 'react';
 
 export interface FlagValuesProps {
@@ -32,9 +34,10 @@ export interface FlagValuesProps {
    */
   readonly plain?: boolean;
   /**
-   * Options of `encryptFlagValues`, e.g. `method`.
+   * Options of `encryptFlagValues`, e.g. `method`. They must be
+   * serializable, so `fetch` is not available.
    */
-  readonly encryption?: EncryptFlagValuesOptions;
+  readonly encryption?: EncryptValuesOptions;
 }
 
 /**
@@ -48,7 +51,9 @@ export interface FlagValuesProps {
  * Vercel. With `FLAGS_SECRET`, they use the format of v4.
  *
  * It is a server component. It has its own `<Suspense>`, so that it can be
- * in a static part of a page, e.g. in a layout.
+ * in a static part of a page, e.g. in a layout. With only `values`, e.g. of
+ * `getPrecomputed`, it does not use the request, so the page can be
+ * static, also with Cache Components.
  *
  * @example
  * ```tsx
@@ -71,12 +76,6 @@ async function FlagValuesElement({
   plain = false,
   encryption,
 }: FlagValuesProps): Promise<ReactElement | null> {
-  // The encryption uses random values. With Cache Components, Next.js does
-  // not allow them in a prerender, so the element is rendered for each
-  // request. withFlags sets this value.
-  if (process.env.__FLAGS_NEXT_CACHE_COMPONENTS === 'true') {
-    await connection();
-  }
   const results = flags.length > 0 ? await evaluate(flags) : [];
   const all: FlagValuesType = {};
   flags.forEach((flag, index) => {
@@ -87,7 +86,7 @@ async function FlagValuesElement({
   let data: FlagValuesType | string = all;
   if (!plain) {
     try {
-      data = await encryptFlagValues(all, encryption);
+      data = await encryptValues(all, encryption);
     } catch (error) {
       // The flag values are only for tools, so the page does not fail
       warnOnce(error);

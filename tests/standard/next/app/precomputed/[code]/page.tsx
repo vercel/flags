@@ -1,3 +1,4 @@
+import { FlagValues } from '@flags-sdk/next/flag-values';
 import {
   generatePermutations,
   getPrecomputed,
@@ -28,6 +29,10 @@ export default async function Page({
   return (
     <main>
       <pre id="precomputed">{JSON.stringify({ sale, checkout })}</pre>
+      {/* Known values: the page stays static, and gets the token at build time */}
+      <FlagValues
+        values={{ [summerSale.key]: sale, [newCheckout.key]: checkout }}
+      />
     </main>
   );
 }

@@ -1384,13 +1384,24 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
   of the same project. `apps/docs/scripts/generate-flag-values-keys.mjs`
   creates a key pair.
 - `FlagValues` of `@flags-sdk/next/flag-values` is a server component with
-  its own `<Suspense>`. The encryption uses random values (the ephemeral
-  key and the IV) and the time (`iat`). Next.js does not allow them in a
-  prerender of Cache Components, so the component waits for `connection()`
-  in this case. Without Cache Components, `connection()` would make the
-  whole route dynamic, e.g. a precomputed page, so the component calls it
-  only with Cache Components. `withFlags` tells the server code which case
-  applies (`process.env.__FLAGS_NEXT_CACHE_COMPONENTS`).
+  its own `<Suspense>`. It must not make a page dynamic: a precomputed page
+  has values which the proxy selected, and it must stay fully static.
+  - The encryption uses random values (the ephemeral key and the IV) and
+    the time (`iat`). Next.js allows them in a prerender of Cache Components
+    only in a cache scope. The values of a static page are the same for each
+    visitor, so one token for them is correct.
+  - Thus, with Cache Components, the component encrypts in `'use cache'`,
+    with `cacheLife('max')`. The token goes into the static HTML. With
+    `flags`, the evaluation is dynamic anyway, and the cache gives one token
+    for each set of values.
+  - Without Cache Components, `'use cache'` is an error of the build, and a
+    prerender allows random values, so the component encrypts without a
+    cache.
+  - `withFlags` selects the module: it points the alias
+    `@flags-sdk/next/encrypt-values` to `@flags-sdk/next/encrypt-values-cached`
+    only with Cache Components.
+  - The options of the encryption must be serializable, so `FlagValues` has
+    no `fetch` option.
 - `reportValue` is a different mechanism: it reports values on the server,
   through `@vercel/request-context`. `@vercel/flags-core` already reports
   each evaluation of `VercelProvider` in this way.

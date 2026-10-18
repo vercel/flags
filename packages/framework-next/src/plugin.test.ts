@@ -131,23 +131,23 @@ describe('the secret of precompute for the build', () => {
 });
 
 describe('Cache Components', () => {
-  const defineOf = (config: NextConfig) =>
-    config.compiler?.defineServer?.[
-      'process.env.__FLAGS_NEXT_CACHE_COMPONENTS'
+  const aliasOf = (config: NextConfig) =>
+    (config.turbopack?.resolveAlias as Record<string, string> | undefined)?.[
+      '@flags-sdk/next/encrypt-values'
     ];
 
-  it('tells the server code whether Cache Components are enabled', () => {
+  it('lets FlagValues encrypt in use cache only with Cache Components', () => {
     const dir = projectWith();
 
-    expect(defineOf(withFlags<NextConfig>({}, { dir }))).toBe('false');
+    expect(aliasOf(withFlags<NextConfig>({}, { dir }))).toBeUndefined();
     expect(
-      defineOf(withFlags<NextConfig>({ cacheComponents: true }, { dir })),
-    ).toBe('true');
+      aliasOf(withFlags<NextConfig>({ cacheComponents: true }, { dir })),
+    ).toBe('@flags-sdk/next/encrypt-values-cached');
     // The name of Next.js 15
     expect(
-      defineOf(
+      aliasOf(
         withFlags({ experimental: { dynamicIO: true } } as NextConfig, { dir }),
       ),
-    ).toBe('true');
+    ).toBe('@flags-sdk/next/encrypt-values-cached');
   });
 });
