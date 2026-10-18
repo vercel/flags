@@ -774,7 +774,7 @@ importers:
         version: 1.2.1
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(6e80d2bf2457a59dbc6453a57f7c3aeb)
+        version: 0.2.7(8a50398eea982028fef31409bb4e88b8)
       cookie:
         specifier: ^0.7.0
         version: 0.7.2
@@ -1802,7 +1802,7 @@ importers:
     dependencies:
       '@vercel/toolbar':
         specifier: 0.2.7
-        version: 0.2.7(8a50398eea982028fef31409bb4e88b8)
+        version: 0.2.7(6e80d2bf2457a59dbc6453a57f7c3aeb)
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
