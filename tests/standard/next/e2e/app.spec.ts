@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { decryptFlagValues, encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
 
 // The app: withFlags loads flags.config.ts, and the flags use its default
@@ -177,5 +177,42 @@ test('writes the manifest of the flags into the build', () => {
         sources: [{ module: 'flags.ts', export: 'summerSale' }],
       },
     },
+  });
+});
+
+/** The content of the element of the flag values in a page. */
+function flagValuesOf(html: string): unknown {
+  const match = html.match(
+    /<script type="application\/json" data-flag-values="">(.*?)<\/script>/,
+  );
+  if (!match?.[1]) throw new Error('no element of the flag values');
+  return JSON.parse(match[1]);
+}
+
+test('writes the flag values into the page, encrypted with FLAGS_SECRET', async ({
+  request,
+}) => {
+  const html = await (
+    await request.get('/values', { headers: { cookie: 'user=alice' } })
+  ).text();
+  const token = flagValuesOf(html);
+
+  expect(typeof token).toBe('string');
+  expect(await decryptFlagValues(token as string, FLAGS_SECRET)).toEqual({
+    'summer-sale': true,
+    'new-checkout': true,
+    'banner-text': 'Summer sale!',
+  });
+});
+
+test('writes plain flag values only if the page selects them', async ({
+  request,
+}) => {
+  const html = await (await request.get('/values?plain')).text();
+
+  expect(flagValuesOf(html)).toEqual({
+    'summer-sale': true,
+    'new-checkout': false,
+    'banner-text': 'Summer sale!',
   });
 });

@@ -129,3 +129,25 @@ describe('the secret of precompute for the build', () => {
     expect(config.compiler?.defineServer).toMatchObject({ OWN: 'value' });
   });
 });
+
+describe('Cache Components', () => {
+  const defineOf = (config: NextConfig) =>
+    config.compiler?.defineServer?.[
+      'process.env.__FLAGS_NEXT_CACHE_COMPONENTS'
+    ];
+
+  it('tells the server code whether Cache Components are enabled', () => {
+    const dir = projectWith();
+
+    expect(defineOf(withFlags<NextConfig>({}, { dir }))).toBe('false');
+    expect(
+      defineOf(withFlags<NextConfig>({ cacheComponents: true }, { dir })),
+    ).toBe('true');
+    // The name of Next.js 15
+    expect(
+      defineOf(
+        withFlags({ experimental: { dynamicIO: true } } as NextConfig, { dir }),
+      ),
+    ).toBe('true');
+  });
+});

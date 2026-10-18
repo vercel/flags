@@ -37,6 +37,10 @@
       "import": "./dist/precompute.js",
       "require": "./dist/precompute.cjs"
     },
+    "./flag-values": {
+      "import": "./dist/flag-values.js",
+      "require": "./dist/flag-values.cjs"
+    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
@@ -63,6 +67,10 @@
       "precompute": [
         "dist/precompute.d.ts",
         "dist/precompute.d.cts"
+      ],
+      "flag-values": [
+        "dist/flag-values.d.ts",
+        "dist/flag-values.d.cts"
       ],
       "manifest": [
         "dist/manifest.d.ts",
@@ -93,7 +101,8 @@
   },
   "peerDependencies": {
     "flags": "workspace:*",
-    "next": ">=15.4.0"
+    "next": ">=15.4.0",
+    "react": ">=19.0.0"
   },
   "devDependencies": {
     "flags": "workspace:*",
@@ -103,6 +112,10 @@
     "vitest": "4.1.11",
     "next": "16.3.8",
     "@openfeature/server-sdk": "1.23.0",
-    "@openfeature/core": "1.12.0"
+    "@openfeature/core": "1.12.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }

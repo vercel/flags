@@ -153,6 +153,43 @@ export default async function Page() {
 See the [Flags SDK](../flags) for flags, the evaluation context, overrides,
 hooks and tracking.
 
+## Flag values in the page
+
+`FlagValues` writes the values of flags into the page, for Flags Explorer
+and for the analytics of Vercel:
+
+```tsx
+// app/layout.tsx
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { checkout, summerSale } from '../flags';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <FlagValues flags={[summerSale, checkout]} />
+      </body>
+    </html>
+  );
+}
+```
+
+- It evaluates the flags. Each flag is evaluated one time for each request,
+  so the page and the component get the same value.
+- `values` adds values which are already known, e.g. of `getPrecomputed`.
+- The values are encrypted. Without `FLAGS_SECRET`, with the public key of
+  Vercel, so that only Vercel can read them. With `FLAGS_SECRET`, in the
+  format of v4.
+- `plain` writes the values without encryption. Each visitor can then read
+  them.
+- It has its own `<Suspense>`. With Cache Components, it waits for
+  `connection()`, because the encryption uses random values, which Next.js
+  does not allow in a prerender. The rest of the page stays static.
+- If the values can not be encrypted, e.g. because the public key can not be
+  loaded, it writes no element and logs one warning. The page does not
+  fail.
+
 ## Precompute
 
 Precompute evaluates flags in the proxy, puts their values into a signed

@@ -254,7 +254,8 @@ const cookie = await encryptOverrides({ 'summer-sale': true }); // e.g. in a tes
 
 A page can contain the values of its flags, for Flags Explorer and for
 analytics. The framework packages write the element, e.g. `<FlagValues>`
-of `@flags-sdk/next`. Other code uses the functions of `flags`:
+of `@flags-sdk/next/flag-values`. Other code uses the functions of
+`flags`:
 
 ```ts
 import { encryptFlagValues, serializeFlagValues } from 'flags';
