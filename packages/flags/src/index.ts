@@ -31,6 +31,13 @@ export {
   type Flag,
   type FlagOptions,
 } from './flag';
+export {
+  decryptFlagValues,
+  type EncryptFlagValuesOptions,
+  encryptFlagValues,
+  type FlagValuesType,
+  serializeFlagValues,
+} from './flag-values';
 export type { SetupFramework } from './framework';
 export { OVERRIDE_REASON } from './hooks';
 export {

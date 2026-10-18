@@ -1347,6 +1347,46 @@ tested by hand, with a change of `flags.config.ts` during the run.
 - The framework plugins call `registerFlags` for each `'use flags'` module
   (see "Discovery").
 
+## Flag values in the page
+
+A page can contain the values of its flags, for Flags Explorer and for the
+analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
+`<script type="application/json" data-flag-values>`, as in v4.
+
+- `flags` has the standard: `encryptFlagValues`, `decryptFlagValues` (only
+  for `FLAGS_SECRET`) and `serializeFlagValues`. The type is
+  `FlagValuesType`, as in v4, so that it does not conflict with the
+  component `FlagValues`.
+- The framework packages have the components, e.g. `<FlagValues>` of
+  `@flags-sdk/next`, because a component belongs to the framework.
+- The default encryption:
+  - with `FLAGS_SECRET`: the format of v4 (`dir`, `pur: 'values'`, `v`), so
+    that the current Vercel Toolbar can read it;
+  - without it: `ECDH-ES` with `A256GCM` and the public key of Vercel. The
+    browser sends the token to Vercel, and the intake decrypts it with the
+    private key.
+- Plain values only if the application selects them, because each visitor
+  can read them.
+- Why `ECDH-ES` with P-256: Web Crypto supports it in each runtime, the keys
+  are small, and the token has no encrypted key. `RSA-OAEP` would give
+  larger keys and tokens.
+- The public keys are a JWK Set. The SDK loads it on the first use, keeps it
+  for 5 minutes, and shares one request between concurrent calls. After an
+  error, it throws the same error for 30 seconds, so that a missing key set
+  does not cause one request for each page. The key ID (`kid`) in the header
+  lets the platform rotate its keys.
+- No authenticity: each visitor can encrypt other values with the public
+  key. This is acceptable for analytics, as for each data from the client.
+  The intake must not trust the values for other purposes.
+- For now, flags-sdk.dev publishes the key set at
+  `/api/flag-values/jwks.json`, from the environment variable
+  `FLAG_VALUES_PUBLIC_KEY`. The private key is in `FLAG_VALUES_PRIVATE_KEY`
+  of the same project. `apps/docs/scripts/generate-flag-values-keys.mjs`
+  creates a key pair.
+- `reportValue` is a different mechanism: it reports values on the server,
+  through `@vercel/request-context`. `@vercel/flags-core` already reports
+  each evaluation of `VercelProvider` in this way.
+
 ## Discovery
 
 Discovery is optional, on top of the rest: everything else works without
@@ -1548,6 +1588,15 @@ of Turbopack works on a collection of the whole application.
   `STANDARD.md`, and publishes the public keys at its issuer
   (`VERCEL_TOOLBAR_ISSUER` is `TEMPORARY:`).
 - **The overrides from end to end** with the real Vercel Toolbar, in a test.
+- **Flag values.** The intake decrypts the tokens of section 11.3 of
+  `STANDARD.md` with the private key. Flags Explorer reads the elements of
+  the page, and sends the tokens to Vercel. Vercel publishes its key set,
+  and the SDK uses its URL (see "Before publishing").
+- **`<FlagValues>` of `@flags-sdk/next`**, and the same for the other
+  frameworks.
+- **`reportValue` for overrides.** The runtime resolves an override without
+  the provider, so `@vercel/flags-core` does not report it. A hook of
+  `VercelProvider` can report it with the reason `override`, as v4 did.
 - **The build output.** Where the Build Output API of Vercel takes
   `flags-manifest.json`, so that Flags Explorer can read it from a
   deployment.
@@ -1579,9 +1628,6 @@ of Turbopack works on a collection of the whole application.
 
 Not decided yet.
 
-- **Flag values for the client and for analytics.** v4 had `FlagValues` and
-  `reportValue`, so that the Toolbar shows the current values and Web
-  Analytics gets them. v5 has no equivalent yet.
 - **More systems.** Fields and system manifests for the systems of the
   adapters of v4: Statsig, PostHog, GrowthBook, Flagsmith, Hypertune,
   Optimizely, Split, Reflag.
@@ -1617,6 +1663,11 @@ a file in `src` contains this marker.
 - The issuer of the Vercel overrides (`VERCEL_TOOLBAR_ISSUER` in
   `src/overrides/vercel.ts`): replace it with the real issuer of the Vercel
   Toolbar.
+- The key set of the flag values (`VERCEL_FLAG_VALUES_JWKS_URL` in
+  `src/flag-values.ts`): it is
+  `https://flags-sdk.dev/api/flag-values/jwks.json` now. Move the key pair
+  (`FLAG_VALUES_PUBLIC_KEY` and `FLAG_VALUES_PRIVATE_KEY` of the project
+  `flags-sdk-dev`) to flags.vercel.com, and replace the URL.
 - The OFREP base URL of Vercel Flags (`VERCEL_OFREP_BASE_URL` in
   `src/default-provider.ts`): it is the local endpoint
   `http://localhost:3031` now. Replace it with the production endpoint.
