@@ -5,6 +5,7 @@ export default defineConfig({
     binding: 'src/binding.ts',
     plugin: 'src/plugin.ts',
     precompute: 'src/precompute.ts',
+    'flag-values': 'src/flag-values.ts',
     manifest: 'src/manifest.ts',
     'use-flags-loader': 'src/use-flags-loader.ts',
     'manifest-loader': 'src/manifest-loader.ts',

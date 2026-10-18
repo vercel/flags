@@ -1,5 +1,9 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { expect, test } from '@playwright/test';
+import { decryptFlagValues } from 'flags';
+
+// 32 bytes as base64url
+const FLAGS_SECRET = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
 
 // The app with cacheComponents and partialPrefetching. In development,
 // Next.js prerenders each page with the request data, and logs an error if
@@ -13,7 +17,7 @@ let output = '';
 test.beforeAll(async () => {
   server = spawn('pnpm', ['next', 'dev', '--port', String(port)], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, FLAGS_SECRET, NEXT_TELEMETRY_DISABLED: '1' },
   });
   server.stdout?.on('data', (chunk) => {
     output += chunk;
@@ -57,4 +61,20 @@ test('a flag in "use cache" fails with the error of the SDK', async () => {
   expect(log).toContain(
     'flags: A flag can not be evaluated inside a cache scope',
   );
+});
+
+test('FlagValues encrypts in a static page, without an error of the prerender', async () => {
+  const { response, html, log } = await outputOf('/values');
+
+  expect(response.status).toBe(200);
+  expect(html).toContain('<p id="static">Static</p>');
+  const match = html.match(
+    /<script type="application\/json" data-flag-values="">(.*?)<\/script>/,
+  );
+  expect(match).not.toBeNull();
+  const token = JSON.parse(match?.[1] ?? '""') as string;
+  expect(await decryptFlagValues(token, FLAGS_SECRET)).toEqual({
+    'summer-sale': true,
+  });
+  expect(log).not.toMatch(/Error/);
 });

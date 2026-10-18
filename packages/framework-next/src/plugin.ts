@@ -48,6 +48,24 @@ export function buildPrecomputeSecret(): string {
   return process.env[BUILD_KEY_SEED];
 }
 
+/**
+ * Whether the configuration enables Cache Components, also with the names of
+ * Next.js 15.
+ *
+ * @internal
+ */
+export function usesCacheComponents(config: NextConfig): boolean {
+  const loose = config as {
+    cacheComponents?: unknown;
+    experimental?: { cacheComponents?: unknown; dynamicIO?: unknown };
+  };
+  return Boolean(
+    loose.cacheComponents ??
+      loose.experimental?.cacheComponents ??
+      loose.experimental?.dynamicIO,
+  );
+}
+
 const LOADER = '@flags-sdk/next/use-flags-loader';
 const MANIFEST_LOADER = '@flags-sdk/next/manifest-loader';
 // The module of the route of the manifest, in the build of the SDK
@@ -164,6 +182,8 @@ function turbopackRules(
  *   and the build writes `flags-manifest.json` into `distDir`.
  * - The secret of precompute for this build goes into the server code, so
  *   that `@flags-sdk/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
+ * - The server code knows whether Cache Components are enabled, for
+ *   `@flags-sdk/next/flag-values`.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
  * configuration. A build with webpack throws.
@@ -194,6 +214,11 @@ export function withFlags<T extends object>(
       defineServer: {
         ...nextConfig.compiler?.defineServer,
         'process.env.__FLAGS_PRECOMPUTE_BUILD_SECRET': buildPrecomputeSecret(),
+        // For FlagValues, which must not encrypt in a prerender of Cache
+        // Components
+        'process.env.__FLAGS_NEXT_CACHE_COMPONENTS': String(
+          usesCacheComponents(nextConfig),
+        ),
       },
       async runAfterProductionCompile(metadata) {
         await nextConfig.compiler?.runAfterProductionCompile?.(metadata);

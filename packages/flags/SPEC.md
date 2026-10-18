@@ -1383,6 +1383,14 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
   `FLAG_VALUES_PUBLIC_KEY`. The private key is in `FLAG_VALUES_PRIVATE_KEY`
   of the same project. `apps/docs/scripts/generate-flag-values-keys.mjs`
   creates a key pair.
+- `FlagValues` of `@flags-sdk/next/flag-values` is a server component with
+  its own `<Suspense>`. The encryption uses random values (the ephemeral
+  key and the IV) and the time (`iat`). Next.js does not allow them in a
+  prerender of Cache Components, so the component waits for `connection()`
+  in this case. Without Cache Components, `connection()` would make the
+  whole route dynamic, e.g. a precomputed page, so the component calls it
+  only with Cache Components. `withFlags` tells the server code which case
+  applies (`process.env.__FLAGS_NEXT_CACHE_COMPONENTS`).
 - `reportValue` is a different mechanism: it reports values on the server,
   through `@vercel/request-context`. `@vercel/flags-core` already reports
   each evaluation of `VercelProvider` in this way.
@@ -1592,8 +1600,8 @@ of Turbopack works on a collection of the whole application.
   `STANDARD.md` with the private key. Flags Explorer reads the elements of
   the page, and sends the tokens to Vercel. Vercel publishes its key set,
   and the SDK uses its URL (see "Before publishing").
-- **`<FlagValues>` of `@flags-sdk/next`**, and the same for the other
-  frameworks.
+- **`FlagValues` for the other frameworks.** `@flags-sdk/next/flag-values`
+  has it for Next.js.
 - **`reportValue` for overrides.** The runtime resolves an override without
   the provider, so `@vercel/flags-core` does not report it. A hook of
   `VercelProvider` can report it with the reason `override`, as v4 did.
