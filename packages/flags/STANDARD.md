@@ -43,12 +43,12 @@ An implementation conforms to one or more of these classes:
 | --- | --- | --- |
 | Framework binding | a framework, or its package `@flags-sdk/<framework>` | 3, 4, 5, 6 |
 | Build plugin | a framework with a bundler | 4, 7 |
-| Deployment platform | e.g. Vercel | 4.3, 8 |
+| Deployment platform | e.g. Vercel | 4.3, 8, 11.3 |
 | Flag management system | e.g. LaunchDarkly | 9 |
-| Tool | e.g. Flags Explorer | 7.3, 9.2, 10 |
+| Tool | e.g. Flags Explorer | 7.3, 9.2, 10, 11 |
 
 A framework binding SHOULD pass the conformance suite
-`@flags-sdk/conformance` (section 11).
+`@flags-sdk/conformance` (section 12).
 
 ## 3. The request
 
@@ -343,7 +343,54 @@ An override sets the value of a flag for one browser, with a cookie.
 - An evaluation with an override MUST have the reason `OVERRIDE` in its
   evaluation details, and runs all hooks.
 
-## 11. The conformance suite
+## 11. Flag values in the page
+
+A page can contain the values of its flags, so that a tool can show them,
+e.g. Flags Explorer, or send them to an analytics service of the platform.
+
+### 11.1 The element
+
+```html
+<script type="application/json" data-flag-values>…</script>
+```
+
+- The content MUST be JSON: an object of flag keys and values (the plain
+  form), or a string, which is a token of section 11.2 or 11.3.
+- The content MUST have each `<` escaped as `\u003c`. Thus, the content
+  can not end the element. `serializeFlagValues` of `flags` does this.
+- A page MAY have more than one element. A tool MUST merge them in the
+  order of the document. A later value of a flag replaces an earlier one.
+- The plain form shows the values to each visitor. An implementation MUST
+  NOT use it unless the application selects it.
+
+### 11.2 Shared secret
+
+- The format of v4: a JWE with the algorithm `dir` and the encryption
+  `A256GCM`, with the key `FLAGS_SECRET`.
+- The payload MUST have the claim `pur` with the value `values`, and the
+  claim `v` with the object of flag keys and values. It MAY have `exp`.
+- If `FLAGS_SECRET` is set, an implementation SHOULD use this form, unless
+  the application selects a different form.
+
+### 11.3 Encrypted for the platform
+
+- A JWE with the algorithm `ECDH-ES` and the encryption `A256GCM`, with a
+  public key of the platform (P-256). The protected header MUST have the
+  `kid` of the key.
+- The platform publishes its public keys as a JWK Set. The set MUST NOT
+  contain private or secret keys. The implementation MUST use the first
+  key with `kty` `EC`, `crv` `P-256`, and, if they are present, `use` `enc`
+  and `alg` `ECDH-ES`.
+- The payload MUST have `aud` with `vercel:flag-values`, `pur` with
+  `flag-values`, `ver` with `1`, the integer `iat`, and `values` with the
+  object of flag keys and values. It SHOULD have `scope` with the
+  `projectId`, the `environment` and, if it is known, the `teamId` of the
+  platform project. It MAY have `exp`.
+- Only the platform can decrypt the token. The token gives no
+  authenticity: each visitor can encrypt other values with the public key.
+  A receiver MUST NOT trust the values for decisions, e.g. for access.
+
+## 12. The conformance suite
 
 `@flags-sdk/conformance` checks a framework binding in a running
 application over HTTP. The application MUST:
@@ -357,7 +404,7 @@ application over HTTP. The application MUST:
 The suite checks sections 3, 5 and 10.1, and optionally 7.2. See
 [the README of the suite](../conformance/README.md).
 
-## 12. Versioning
+## 13. Versioning
 
 - This is version 1 of the standard. The manifest formats have their own
   `version`.

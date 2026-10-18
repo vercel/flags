@@ -250,6 +250,25 @@ import { encryptOverrides } from 'flags';
 const cookie = await encryptOverrides({ 'summer-sale': true }); // e.g. in a test
 ```
 
+## Flag values in the page
+
+A page can contain the values of its flags, for Flags Explorer and for
+analytics. The framework packages write the element, e.g. `<FlagValues>`
+of `@flags-sdk/next`. Other code uses the functions of `flags`:
+
+```ts
+import { encryptFlagValues, serializeFlagValues } from 'flags';
+
+const content = serializeFlagValues(await encryptFlagValues(values));
+// <script type="application/json" data-flag-values>${content}</script>
+```
+
+- Without `FLAGS_SECRET`, the values are encrypted with the public key of
+  Vercel. Only Vercel can decrypt them.
+- With `FLAGS_SECRET`, they use the format of v4.
+- `serializeFlagValues(values)` without encryption shows the values to each
+  visitor. Use it only if this is acceptable.
+
 ## Hooks, events and tracking
 
 The SDK runs the OpenFeature parts which the OpenFeature client usually runs:

@@ -1,5 +1,5 @@
 import { StandardResolutionReasons } from '@openfeature/server-sdk';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fns from './controller-fns';
 import { createCreateRawClient } from './create-raw-client';
 import { VercelProvider } from './openfeature.default';
@@ -343,6 +343,78 @@ describe('VercelProvider', () => {
 
       expect(result.value).toBe('variant-b');
       expect(result.reason).toBe(StandardResolutionReasons.TARGETING_MATCH);
+    });
+  });
+
+  describe('hooks', () => {
+    const SYMBOL_FOR_REQ_CONTEXT = Symbol.for('@vercel/request-context');
+
+    afterEach(() => {
+      Reflect.deleteProperty(globalThis, SYMBOL_FOR_REQ_CONTEXT);
+    });
+
+    function setUp() {
+      const reportValue = vi.fn();
+      Reflect.set(globalThis, SYMBOL_FOR_REQ_CONTEXT, {
+        get: () => ({ flags: { reportValue } }),
+      });
+      const experimental_reportOverride = vi.fn(async () => {});
+      const client = {
+        ...createRawClient({
+          controller: createStaticController({
+            data: { definitions: {}, segments: {} },
+            projectId: 'test',
+            environment: 'production',
+          }),
+        }),
+        experimental_reportOverride,
+      };
+      const provider = new VercelProvider(client);
+      const runAfter = provider.hooks[0]?.after;
+      if (!runAfter) throw new Error('no hook');
+      return { reportValue, experimental_reportOverride, runAfter };
+    }
+
+    const hookContext = (flagKey: string) =>
+      ({ flagKey, context: { user: { id: 'u1' } } }) as never;
+
+    it('reports an override of the Flags SDK, as v4 did', async () => {
+      const { reportValue, experimental_reportOverride, runAfter } = setUp();
+
+      await runAfter(hookContext('my-flag'), {
+        flagKey: 'my-flag',
+        value: true,
+        reason: 'OVERRIDE',
+        flagMetadata: {},
+      });
+
+      expect(reportValue).toHaveBeenCalledWith(
+        'my-flag',
+        true,
+        expect.objectContaining({
+          originProvider: 'vercel',
+          reason: 'override',
+        }),
+      );
+      expect(experimental_reportOverride).toHaveBeenCalledWith({
+        key: 'my-flag',
+        value: true,
+        entities: { user: { id: 'u1' } },
+      });
+    });
+
+    it('does not report other evaluations, because the client reports them', async () => {
+      const { reportValue, experimental_reportOverride, runAfter } = setUp();
+
+      await runAfter(hookContext('my-flag'), {
+        flagKey: 'my-flag',
+        value: true,
+        reason: StandardResolutionReasons.TARGETING_MATCH,
+        flagMetadata: {},
+      });
+
+      expect(reportValue).not.toHaveBeenCalled();
+      expect(experimental_reportOverride).not.toHaveBeenCalled();
     });
   });
 });

@@ -421,8 +421,10 @@ function createKeyCache(
 
 /**
  * Reads the body in chunks, and stops when it is larger than the limit.
+ *
+ * @internal
  */
-async function readLimited(response: Response, maxBytes: number) {
+export async function readLimited(response: Response, maxBytes: number) {
   if (!response.body) throw new Error('the key set is empty');
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];

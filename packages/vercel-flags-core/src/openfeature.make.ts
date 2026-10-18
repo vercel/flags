@@ -11,6 +11,7 @@
 import {
   ErrorCode,
   type EvaluationContext,
+  type Hook,
   type JsonValue,
   type Provider,
   type ProviderMetadata,
@@ -18,7 +19,14 @@ import {
   type ResolutionReason,
   StandardResolutionReasons,
 } from '@openfeature/server-sdk';
+import { internalReportValue } from './lib/report-value';
 import { type FlagsClient, ResolutionReason as Reason } from './types';
+
+/**
+ * The reason of an override in the Flags SDK. The SDK resolves an override
+ * without the provider, but runs the hooks of the provider.
+ */
+const OVERRIDE_REASON = 'OVERRIDE';
 
 function mapReason(reason: Reason): ResolutionReason {
   switch (reason) {
@@ -47,6 +55,35 @@ export function make(
 
     readonly runsOn = 'server';
     readonly client: FlagsClient;
+
+    /**
+     * Reports an override, as v4 of the Flags SDK did. The client reports
+     * each other evaluation itself.
+     */
+    readonly hooks: Hook[] = [
+      {
+        after: (hookContext, details) => {
+          if (details.reason !== OVERRIDE_REASON) return;
+          internalReportValue(hookContext.flagKey, details.value, {
+            originProvider: 'vercel',
+            reason: 'override',
+          });
+          // Not awaited, so that the report does not delay the evaluation
+          this.client
+            .experimental_reportOverride?.({
+              key: hookContext.flagKey,
+              value: details.value,
+              entities: hookContext.context,
+            })
+            .catch((error: unknown) => {
+              console.error(
+                '@vercel/flags-core: Failed to report flag override',
+                error,
+              );
+            });
+        },
+      },
+    ];
 
     constructor();
     constructor(client: FlagsClient);
