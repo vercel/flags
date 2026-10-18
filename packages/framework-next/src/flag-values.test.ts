@@ -5,9 +5,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlagValues, type FlagValuesProps } from './flag-values';
 
-const connection = vi.fn();
-vi.mock('next/server', () => ({ connection: () => connection() }));
-
 // 32 bytes as base64url
 const secret = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
 
@@ -50,12 +47,12 @@ function contentOf(html: string): unknown {
 }
 
 beforeEach(() => {
-  connection.mockReset().mockResolvedValue(undefined);
   vi.stubEnv('FLAGS_SECRET', secret);
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -93,24 +90,18 @@ describe('FlagValues', () => {
   it('writes no element if the values can not be encrypted, and warns one time', async () => {
     vi.stubEnv('FLAGS_SECRET', '');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const fetch = vi.fn(async () => new Response('', { status: 503 }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 503 })),
+    );
     const props = {
       flags: [summerSale],
-      encryption: { jwksUrl: 'https://keys.example/jwks.json', fetch },
+      encryption: { jwksUrl: 'https://keys.example/jwks.json' },
     };
 
     await expect(render(props)).resolves.toBe('');
     await expect(render(props)).resolves.toBe('');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toContain('status 503');
-  });
-
-  it('waits for connection() only with Cache Components', async () => {
-    await render({ values: { a: true }, plain: true });
-    expect(connection).not.toHaveBeenCalled();
-
-    vi.stubEnv('__FLAGS_NEXT_CACHE_COMPONENTS', 'true');
-    await render({ values: { a: true }, plain: true });
-    expect(connection).toHaveBeenCalledTimes(1);
   });
 });

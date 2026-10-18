@@ -389,6 +389,10 @@ e.g. Flags Explorer, or send them to an analytics service of the platform.
 - Only the platform can decrypt the token. The token gives no
   authenticity: each visitor can encrypt other values with the public key.
   A receiver MUST NOT trust the values for decisions, e.g. for access.
+- A token can be part of a static page, e.g. of a precomputed page, for the
+  lifetime of a deployment. Thus, the platform SHOULD keep a private key
+  for decryption after it stops publishing the key, as long as deployments
+  can contain tokens of it.
 
 ## 12. The conformance suite
 

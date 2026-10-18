@@ -183,9 +183,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   format of v4.
 - `plain` writes the values without encryption. Each visitor can then read
   them.
-- It has its own `<Suspense>`. With Cache Components, it waits for
-  `connection()`, because the encryption uses random values, which Next.js
-  does not allow in a prerender. The rest of the page stays static.
+- **Static pages.** With only `values`, it does not use the request, so a
+  precomputed page stays fully static, and gets the token at build time.
+  With Cache Components, it encrypts in `'use cache'` (`cacheLife('max')`),
+  because Next.js allows random values and the time in a prerender only in
+  a cache scope. The values of a static page are the same for each visitor,
+  so one token for them is correct.
+- It has its own `<Suspense>`, so that a part with `flags` can be dynamic
+  while the rest of the page stays static.
 - If the values can not be encrypted, e.g. because the public key can not be
   loaded, it writes no element and logs one warning. The page does not
   fail.

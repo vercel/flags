@@ -41,6 +41,14 @@
       "import": "./dist/flag-values.js",
       "require": "./dist/flag-values.cjs"
     },
+    "./encrypt-values": {
+      "import": "./dist/encrypt-values.js",
+      "require": "./dist/encrypt-values.cjs"
+    },
+    "./encrypt-values-cached": {
+      "import": "./dist/encrypt-values-cached.js",
+      "require": "./dist/encrypt-values-cached.cjs"
+    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
@@ -71,6 +79,14 @@
       "flag-values": [
         "dist/flag-values.d.ts",
         "dist/flag-values.d.cts"
+      ],
+      "encrypt-values": [
+        "dist/encrypt-values.d.ts",
+        "dist/encrypt-values.d.cts"
+      ],
+      "encrypt-values-cached": [
+        "dist/encrypt-values-cached.d.ts",
+        "dist/encrypt-values-cached.d.cts"
       ],
       "manifest": [
         "dist/manifest.d.ts",

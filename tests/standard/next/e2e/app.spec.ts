@@ -108,6 +108,19 @@ test('precomputes the flags in the proxy for a static page', async ({
   );
 });
 
+test('writes the precomputed flag values into the static page', async ({
+  request,
+}) => {
+  const html = await (
+    await request.get('/precomputed', { headers: { cookie: 'user=alice' } })
+  ).text();
+
+  // Encrypted at build time with FLAGS_SECRET
+  expect(
+    await decryptFlagValues(flagValuesOf(html) as string, FLAGS_SECRET),
+  ).toEqual({ 'summer-sale': true, 'new-checkout': true });
+});
+
 test('applies an override cookie to precomputed flags', async ({ request }) => {
   const token = await encryptOverrides({ 'summer-sale': false }, FLAGS_SECRET);
   const response = await request.get('/precomputed', {
