@@ -1701,4 +1701,15 @@ a file in `src` contains this marker.
 - Add a timeout for the wait for an initialization? The LaunchDarkly provider
   waits up to 10 seconds by default.
 
+- `FlagValues` with Cache Components: `cacheLife('max')` revalidates a
+  static page every 30 days, so the page gets a new token. This helps with
+  a rotation of the keys. Alternative: a custom profile without
+  revalidation. Not decided.
+
+- `FlagValues` from a published package: the tests use `@flags-sdk/next` as
+  a workspace link, so its files are not in `node_modules`. Does Next.js
+  compile `'use cache'` of `encrypt-values-cached` also from `node_modules`?
+  `@vercel/flags-core` ships `'use cache'` in the same way, which is a good
+  sign. A test with a packed tarball would prove it. Not decided.
+
 
