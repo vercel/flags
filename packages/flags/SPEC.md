@@ -884,10 +884,10 @@ secret and no configuration.
   `issuer` replaces it, e.g. for a local test issuer. `jwksUrl` is
   `<issuer>/jwks.json`. Both must use HTTPS. `allowInsecureLocalhost` allows
   `http://localhost` for a local test issuer.
-- The issuer in the code is temporary: a test issuer of the team
-  testing-internal (`https://kms.vercel.com/e97b43ed-…`). It signs with RS512.
-  It must be replaced with the real issuer before publishing (see "Before
-  publishing").
+- The issuer in the code is the official issuer of the overrides in Vercel
+  KMS (`https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864`). It
+  signs with ES256. The SDK also accepts RS512, which the earlier test
+  issuer used.
 - The project of the host comes from the configuration, never from the token
   or from a header:
   - `projectId`: the option, else `VERCEL_PROJECT_ID`, else the claim
@@ -1604,8 +1604,8 @@ of Turbopack works on a collection of the whole application.
   `TEMPORARY:`). The production endpoint follows.
 - **KMS for flag overrides.** Flags Explorer signs override tokens with Vercel
   KMS (`vercel-flag-overrides`), with the claims of section 10.2 of
-  `STANDARD.md`, and publishes the public keys at its issuer
-  (`VERCEL_TOOLBAR_ISSUER` is `TEMPORARY:`).
+  `STANDARD.md`. The official issuer exists, and the SDK uses it
+  (`VERCEL_TOOLBAR_ISSUER`).
 - **The overrides from end to end** with the real Vercel Toolbar, in a test.
 - **Flag values.** The intake decrypts the tokens of section 11.3 of
   `STANDARD.md` with the private key. Flags Explorer reads the elements of
@@ -1679,9 +1679,6 @@ Values that must be replaced are marked with `TEMPORARY:` in the source. The
 `prepublishOnly` script (`scripts/check-temporary.mjs`) stops a publish while
 a file in `src` contains this marker.
 
-- The issuer of the Vercel overrides (`VERCEL_TOOLBAR_ISSUER` in
-  `src/overrides/vercel.ts`): replace it with the real issuer of the Vercel
-  Toolbar.
 - The key set of the flag values (`VERCEL_FLAG_VALUES_JWKS_URL` in
   `src/flag-values.ts`): it is
   `https://flags-sdk.dev/api/flag-values/jwks.json` now. Move the key pair

@@ -71,17 +71,13 @@ export interface VercelOverridesOptions {
 }
 
 /**
- * The issuer of the Vercel Toolbar in Vercel KMS. Its public keys are at
- * `<issuer>/jwks.json`.
- *
- * TEMPORARY: This is a test issuer of the team testing-internal. Replace it
- * with the real issuer before publishing. `prepublishOnly` stops a publish
- * while this value is here.
+ * The issuer of the Vercel Toolbar in Vercel KMS. It signs with ES256. Its
+ * public keys are at `<issuer>/jwks.json`.
  *
  * @internal
  */
 export const VERCEL_TOOLBAR_ISSUER =
-  'https://kms.vercel.com/e97b43ed-736f-40db-808a-eec9b59d9f5e';
+  'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
 
 /**
  * The rules for signed override tokens. They are part of the protocol, see
