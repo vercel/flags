@@ -1670,6 +1670,12 @@ Not decided yet.
   side and the provider.
 - Groups of projects that share overrides, e.g. for microfrontends (see the
   RFC).
+- Plaintext overrides without `FLAGS_SECRET`: the Vercel Toolbar signs the
+  overrides of these projects now. Applications which read the plaintext
+  cookie of v4 ask for it in `overrideEncryptionMode` of
+  `/.well-known/vercel/flags`. The toolbar loads it without a secret too,
+  but only without authentication, and v5 has no such endpoint. A setting
+  of the project, managed in the toolbar, could replace it.
 - A configurable logger, e.g. to write debug messages or to send errors to a
   monitoring service.
 
