@@ -1,4 +1,5 @@
 import { withFlags } from '@flags-sdk/next/plugin';
+import withVercelToolbar from '@vercel/toolbar/plugins/next';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -18,4 +19,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withFlags(nextConfig);
+export default withVercelToolbar()(withFlags(nextConfig));
