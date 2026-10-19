@@ -324,7 +324,7 @@ An override sets the value of a flag for one browser, with a cookie.
 
 ### 10.2 Signed by the platform
 
-- The cookie is `vercel-flag-overrides`. Its value is a JWS with `ES256` or
+- The cookie is `flag-overrides`. Its value is a JWS with `ES256` or
   `RS512`, signed by a key of the issuer of the platform.
 - The protected header MUST have a `kid` of a key in the key set of the
   issuer. The runtime MUST reject a token with `jwk`, `jku`, `x5u` or

@@ -1593,17 +1593,23 @@ of Turbopack works on a collection of the whole application.
 
 ### The Vercel platform
 
-- **Flags Explorer.** Read the flags manifest of v5: in development at
-  `/.well-known/flags/manifest.json`, and from the build output on Vercel.
-  Build the links to the dashboard from the system manifests
-  (`resolveFlagLinks`). Write the override cookies of section 10 of
-  `STANDARD.md`.
+- **Flags Explorer.** It reads the flags manifest of v5 in development at
+  `/.well-known/flags/manifest.json`, and writes the override cookies of
+  section 10 of `STANDARD.md`. Open:
+  - The manifest of a deployment, from the build output (see "The build
+    output"). Until then, Flags Explorer shows the flags of a deployment
+    only from the page and from the flags of the deployment of v4.
+  - The links to the dashboard from the system manifests
+    (`resolveFlagLinks`). Flags Explorer builds them only for Vercel Flags
+    now, from the `projectId` of the connection. The system manifests on
+    flags-sdk.dev do not exist yet (404). The toolbar should load them
+    through vercel.live, not from the page, with the checks of section 9.2.
 - **OFREP.** The endpoint of Vercel Flags for OFREP, with the OIDC token of
   the project as the credential. It runs locally at
   `http://localhost:3031/ofrep/v1/` now (`VERCEL_OFREP_BASE_URL` is
   `TEMPORARY:`). The production endpoint follows.
 - **KMS for flag overrides.** Flags Explorer signs override tokens with Vercel
-  KMS (`vercel-flag-overrides`), with the claims of section 10.2 of
+  KMS (`flag-overrides`), with the claims of section 10.2 of
   `STANDARD.md`. The official issuer exists, and the SDK uses it
   (`VERCEL_TOOLBAR_ISSUER`).
 - **The overrides from end to end** with the real Vercel Toolbar, in a test.
@@ -1617,8 +1623,9 @@ of Turbopack works on a collection of the whole application.
   the provider, so `@vercel/flags-core` does not report it. A hook of
   `VercelProvider` can report it with the reason `override`, as v4 did.
 - **The build output.** Where the Build Output API of Vercel takes
-  `flags-manifest.json`, so that Flags Explorer can read it from a
-  deployment.
+  `flags-manifest.json`, and how the deployment gives it to Flags Explorer,
+  e.g. as the flags of the deployment in the internal scope of the toolbar,
+  as the definitions of v4 are today.
 - **The deployment adapter of Vercel for Next.js.** It sets the alias of
   `flags/default-provider` to `@vercel/flags-core/default-provider`, and puts
   the manifest into the build output, as `tests/standard/next/adapter.mjs`
