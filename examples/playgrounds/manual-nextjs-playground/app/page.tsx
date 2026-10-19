@@ -1,3 +1,4 @@
+import { FlagValues } from '@flags-sdk/next/flag-values';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import { myTestFlag, testBooleanFlag } from '@/flags';
@@ -50,6 +51,8 @@ export default async function Home() {
         <Suspense fallback={<pre>loading… (ppr fallback)</pre>}>
           <FlagPanel />
         </Suspense>
+        {/* Plain values for Flags Explorer, without encryption for now */}
+        <FlagValues flags={[myTestFlag, testBooleanFlag]} plain />
         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
           <a
             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
