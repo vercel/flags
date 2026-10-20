@@ -24,6 +24,12 @@ Install the Vercel adapter package:
 pnpm i flags @flags-sdk/vercel
 ```
 
+If you use an AI coding assistant, install the agent skills: `flags-sdk` for the code, and `vercel-flags` for planning flags, the `vercel flags` CLI, rollouts, and experiments:
+
+```bash
+npx skills add vercel/flags --skill flags-sdk --skill vercel-flags
+```
+
 ## Quickstart
 
 ### 1. Create a feature flag in Vercel
