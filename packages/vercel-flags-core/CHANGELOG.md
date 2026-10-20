@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.10.1
+
+### Patch Changes
+
+- [#552](https://github.com/vercel/flags/pull/552) [`f02cc66`](https://github.com/vercel/flags/commit/f02cc661a8364aa54994d8ce324bf74dd628d6af) Thanks [@luismeyer](https://github.com/luismeyer)! - Report the flags config `revision` on `FLAG_EVALUATION` usage events, so evaluations can be broken down by the config revision that was served. Evaluations of different revisions are no longer merged into the same aggregated event.
+
 ## 1.10.0
 
 ### Minor Changes
