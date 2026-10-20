@@ -39,6 +39,7 @@ type SerializedEvaluationEvent = {
     variant: string;
     reason: ResolutionReason;
     clientName?: string;
+    revision?: string;
     evaluationCount: number;
     periodStartedAt: number;
   };
@@ -435,6 +436,90 @@ describe('UsageTracker', () => {
   });
 
   describe('trackEvaluation', () => {
+    it('should include the config revision as a string when provided', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        revision: 7,
+      });
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(1);
+      expect(events[0]?.payload.revision).toBe('7');
+    });
+
+    it('should include revision 0', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+        revision: 0,
+      });
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events[0]?.payload.revision).toBe('0');
+    });
+
+    it('should omit revision when it is undefined', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      tracker.trackEvaluation({
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      });
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(1);
+      expect(events[0]?.payload).not.toHaveProperty('revision');
+    });
+
+    it('should not merge evaluations of different revisions', async () => {
+      fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
+
+      const tracker = createTracker();
+
+      const base = {
+        flagKey: 'flag-a',
+        variant: 'var_enabled',
+        reason: ResolutionReason.FALLTHROUGH,
+      };
+      tracker.trackEvaluation({ ...base, revision: 1 });
+      tracker.trackEvaluation({ ...base, revision: 1 });
+      tracker.trackEvaluation({ ...base, revision: 2 });
+      tracker.trackEvaluation(base);
+      await tracker.shutdown();
+
+      const events = getBody() as SerializedEvaluationEvent[];
+      expect(events).toHaveLength(3);
+      expect(
+        events.map((event) => [
+          event.payload.revision,
+          event.payload.evaluationCount,
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          ['1', 2],
+          ['2', 1],
+          [undefined, 1],
+        ]),
+      );
+    });
+
     it('should aggregate matching evaluations into counted buckets', async () => {
       fetchMock.mockImplementation(() => jsonResponse({ ok: true }));
 

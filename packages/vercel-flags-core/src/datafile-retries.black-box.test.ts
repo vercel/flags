@@ -133,10 +133,7 @@ describe('datafile retries through the public API', () => {
     dataFetch.mockReset().mockRejectedValue(failure);
     await vi.advanceTimersByTimeAsync(30_300);
 
-    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
-      '@vercel/flags-core: Poll failed:',
-      failure,
-    );
+    expect(errorSpy).not.toHaveBeenCalled();
     expect(dataFetch).toHaveBeenCalledTimes(3);
     expect((await instance.evaluate('feature')).value).toBe(true);
 
@@ -155,7 +152,9 @@ describe('datafile retries through the public API', () => {
     if (phase === 'scheduled') await instance.initialize();
     dataFetch.mockReset().mockRejectedValue(new Error('Network unavailable'));
     const initializing =
-      phase === 'initial' ? instance.initialize() : undefined;
+      phase === 'initial'
+        ? expect(instance.initialize()).rejects.toThrow()
+        : undefined;
     await vi.advanceTimersByTimeAsync(phase === 'initial' ? 0 : 30_000);
     expect(dataFetch).toHaveBeenCalledTimes(1);
     const signal = dataFetch.mock.calls[0]?.[1]?.signal;

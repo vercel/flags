@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/reflag",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Reflag provider for the Flags SDK",
   "keywords": [
     "flags-sdk",

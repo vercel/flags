@@ -3,6 +3,7 @@ import type { BundledDefinitions } from '../types';
 import { isBun } from '../utils/runtime';
 import { sleep } from '../utils/sleep';
 import { authHeaders, unauthorizedMessage } from './auth';
+import { debug } from './debug';
 
 export type PrimedMessage = {
   type: 'primed';
@@ -19,7 +20,9 @@ export type StreamMessage =
 const MAX_RETRY_COUNT = 15;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60_000;
-const PING_TIMEOUT_MS = 90_000;
+export const PING_MS = 30_000;
+export const PING_TIMEOUT_MS = PING_MS * 3;
+const PING_TIMEOUT = new Error('stream: ping timeout');
 
 function backoff(retryCount: number): number {
   if (retryCount === 1) return 0;
@@ -47,10 +50,13 @@ class TokenResolutionError extends Error {
 export type StreamCallbacks = {
   onDatafile: (data: BundledDefinitions) => void;
   onPrimed?: (message: PrimedMessage) => void;
+  onPing?: () => void;
   onDisconnect?: () => void;
+  onError?: (error: Error) => void;
 };
 
 export type StreamConfig = {
+  clientName?: string;
   host: string;
   abortController: AbortController;
   fetch?: typeof globalThis.fetch;
@@ -71,9 +77,19 @@ export async function connectStream(
   callbacks: StreamCallbacks,
 ): Promise<void> {
   const { host, abortController, fetch: fetchFn = globalThis.fetch } = config;
-  const { onDatafile, onPrimed, onDisconnect } = callbacks;
+  const { onDatafile, onPrimed, onPing, onDisconnect, onError } = callbacks;
   let retryCount = 0;
   let lastAttemptTime = 0;
+
+  const reportError = (error: unknown): void => {
+    // Deliberate shutdown must not start a stale-if-error deadline.
+    if (abortController.signal.aborted) return;
+    onError?.(
+      error instanceof Error
+        ? error
+        : new Error('Unknown stream error', { cause: error }),
+    );
+  };
 
   let resolveInit: () => void;
   let rejectInit: (error: unknown) => void;
@@ -88,6 +104,9 @@ export async function connectStream(
 
     while (!abortController.signal.aborted) {
       if (retryCount > MAX_RETRY_COUNT) {
+        debug(config.clientName, 'stream.retries.exhausted', () => ({
+          retryCount,
+        }));
         console.error(
           '@vercel/flags-core: Max retry count exceeded',
           lastError ?? 'stream closed repeatedly without an error',
@@ -97,6 +116,9 @@ export async function connectStream(
             new Error('stream: max retry count exceeded before receiving data'),
           );
         }
+        // Silent reconnects may exhaust retries without an earlier disconnect.
+        reportError(new Error('stream: max retry count exceeded'));
+        onDisconnect?.();
         abortController.abort();
         break;
       }
@@ -110,21 +132,23 @@ export async function connectStream(
       });
 
       let pingTimeoutId: ReturnType<typeof setTimeout> | undefined;
-      // Reference to the response body so the ping timeout can cancel it
-      // to break out of the for-await loop.
-      let responseBody: ReadableStream<Uint8Array> | undefined;
       const resetPingTimeout = (): void => {
         if (pingTimeoutId !== undefined) clearTimeout(pingTimeoutId);
         if (!initialDataReceived) return;
         pingTimeoutId = setTimeout(() => {
-          responseBody?.cancel().catch(() => {});
-          connectionAbort.abort();
+          debug(config.clientName, 'stream.ping.timeout', () => ({
+            timeoutMs: PING_TIMEOUT_MS,
+          }));
+          lastError = PING_TIMEOUT;
+          connectionAbort.abort(PING_TIMEOUT);
         }, PING_TIMEOUT_MS);
       };
 
       try {
+        debug(config.clientName, 'stream.connect', () => ({ retryCount }));
         lastAttemptTime = Date.now();
         const token = await config.resolveToken().catch((error) => {
+          debug(config.clientName, 'stream.auth.failed');
           throw new TokenResolutionError(error);
         });
         const headers: Record<string, string> = {
@@ -155,15 +179,22 @@ export async function connectStream(
           signal: connectionAbort.signal,
         });
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            if (!initialDataReceived) {
-              rejectInit!(new UnauthorizedError(config.sourceProjectId));
-            }
-            abortController.abort();
-            break;
+        debug(config.clientName, 'stream.response', () => ({
+          status: response.status,
+          revision,
+        }));
+        if (!response.ok && response.status === 401) {
+          const error = new UnauthorizedError(config.sourceProjectId);
+          reportError(error);
+          if (!initialDataReceived) {
+            rejectInit!(error);
           }
+          onDisconnect?.();
+          abortController.abort();
+          break;
+        }
 
+        if (!response.ok) {
           throw new Error(`stream was not ok: ${response.status}`);
         }
 
@@ -171,7 +202,6 @@ export async function connectStream(
           throw new Error('stream body was not present');
         }
 
-        responseBody = response.body;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         const bufferChunks: string[] = [];
@@ -184,11 +214,15 @@ export async function connectStream(
         connectionAbort.signal.addEventListener('abort', onConnectionAbort, {
           once: true,
         });
+        // Replacement connections also need a watchdog before their first message.
+        resetPingTimeout();
 
         try {
           while (true) {
             const { done, value: chunk } = await reader.read();
-            if (done || abortController.signal.aborted) break;
+            if (done || connectionAbort.signal.aborted) {
+              break;
+            }
 
             bufferChunks.push(decoder.decode(chunk, { stream: true }));
             const combined = bufferChunks.join('');
@@ -235,6 +269,7 @@ export async function connectStream(
               // Pings prove the connection is alive — reset retry count
               // once initial data has been received
               if (message.type === 'ping' && initialDataReceived) {
+                onPing?.();
                 retryCount = 0;
                 resetPingTimeout();
               }
@@ -251,11 +286,24 @@ export async function connectStream(
         clearTimeout(pingTimeoutId);
         abortController.signal.removeEventListener('abort', onMainAbort);
         if (!abortController.signal.aborted) {
-          onDisconnect?.();
+          // A suspended runtime can resume with an overdue heartbeat timer.
+          // Renew the transport internally, without triggering source fallback.
+          if (connectionAbort.signal.reason !== PING_TIMEOUT) {
+            onDisconnect?.();
+          }
           retryCount++;
           const elapsed = Date.now() - lastAttemptTime;
           const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-          await sleep(Math.max(backoff(retryCount), minGap));
+          const delayMs = Math.max(backoff(retryCount), minGap);
+          debug(config.clientName, 'stream.reconnect', () => ({
+            retryCount,
+            delayMs,
+            reason:
+              connectionAbort.signal.reason === PING_TIMEOUT
+                ? 'ping-timeout'
+                : 'connection-closed',
+          }));
+          await sleep(delayMs);
           continue;
         }
       } catch (error) {
@@ -263,6 +311,10 @@ export async function connectStream(
         abortController.signal.removeEventListener('abort', onMainAbort);
         if (abortController.signal.aborted) {
           break;
+        }
+        // A heartbeat timeout renews the transport; it is not service failure evidence.
+        if (connectionAbort.signal.reason !== PING_TIMEOUT) {
+          reportError(error);
         }
         if (error instanceof TokenResolutionError && !initialDataReceived) {
           rejectInit!(error.cause);
@@ -272,14 +324,23 @@ export async function connectStream(
         // Ping timeout aborts only the per-connection controller; this is
         // an expected reconnect, not a real error. Stay silent on retryable
         // failures too — the error is only logged once retries are exhausted.
-        if (!connectionAbort.signal.aborted) {
+        if (connectionAbort.signal.reason !== PING_TIMEOUT) {
           lastError = error;
+          onDisconnect?.();
         }
-        onDisconnect?.();
         retryCount++;
         const elapsed = Date.now() - lastAttemptTime;
         const minGap = Math.max(0, BASE_RETRY_DELAY_MS - elapsed);
-        await sleep(Math.max(backoff(retryCount), minGap));
+        const delayMs = Math.max(backoff(retryCount), minGap);
+        debug(config.clientName, 'stream.reconnect', () => ({
+          retryCount,
+          delayMs,
+          reason:
+            connectionAbort.signal.reason === PING_TIMEOUT
+              ? 'ping-timeout'
+              : 'connection-error',
+        }));
+        await sleep(delayMs);
       }
     }
 

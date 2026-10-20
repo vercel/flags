@@ -199,7 +199,9 @@ async function fetchDatafile(
     }
 
     if (res.ok) {
-      return res.json() as Promise<BundledDefinitions>;
+      const definitions = (await res.json()) as BundledDefinitions;
+      // Preserve fetch time so loading the bundle does not make old data fresh.
+      return { ...definitions, fetchedAt: Date.now() };
     }
 
     if (res.status === 404) {
@@ -326,6 +328,35 @@ async function fetchConnectedSourceProjectIds(
 }
 
 /**
+ * A connected project's definitions are an optimization for the consumer, so
+ * a failed fetch (for example a grant that is not in place yet) must not fail
+ * the build. The consumer falls back to fetching that project at runtime.
+ */
+async function fetchSourceProjectDatafile(
+  entry: { key: string; projectId: string },
+  env: Record<string, string | undefined>,
+  fetchFn: typeof globalThis.fetch,
+  userAgentSuffix: string | undefined,
+  output: Output | undefined,
+): Promise<BundledDefinitions | undefined> {
+  try {
+    return await fetchDatafile(
+      entry.key,
+      env,
+      fetchFn,
+      userAgentSuffix,
+      output,
+      entry.projectId,
+    );
+  } catch (error) {
+    output?.debug(
+      `vercel-flags: skipping connected project ${entry.projectId} (${error instanceof Error ? error.message : String(error)})`,
+    );
+    return undefined;
+  }
+}
+
+/**
  * Collect all possible flag entries the need embedding from the environment
  * and from the project's connections.
  */
@@ -429,20 +460,26 @@ export async function prepareFlagsDefinitions(options: {
   // fetch all datafiles for sdk keys and oidc tokens
   const resolvedEntries = await Promise.all(
     entries.map(async (entry) => {
+      if (entry.type === 'sourceProject') {
+        const definitions = await fetchSourceProjectDatafile(
+          entry,
+          env,
+          fetchFn,
+          userAgentSuffix,
+          output,
+        );
+        return definitions ? { key: entry.projectId, definitions } : undefined;
+      }
+
       const definitions = await fetchDatafile(
         entry.key,
         env,
         fetchFn,
         userAgentSuffix,
         output,
-        entry.type === 'sourceProject' ? entry.projectId : undefined,
       );
       if (!definitions) {
         return;
-      }
-
-      if (entry.type === 'sourceProject') {
-        return { key: entry.projectId, definitions };
       }
 
       if (entry.type === 'oidcToken') {

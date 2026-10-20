@@ -12,6 +12,7 @@ const DEFAULT_STREAM_INIT_TIMEOUT_MS = 3000;
 const DEFAULT_POLLING_INTERVAL_MS = 30_000;
 const MIN_POLLING_INTERVAL_MS = 30_000;
 const DEFAULT_POLLING_INIT_TIMEOUT_MS = 3_000;
+const DEFAULT_STALE_WHILE_REVALIDATE = 10;
 
 /**
  * Configuration options for Controller
@@ -44,6 +45,41 @@ export type ControllerOptions = {
    * @default true
    */
   polling?: boolean | PollingOptions;
+
+  /**
+   * Use request version headers instead of streaming or polling at runtime.
+   * Initialization starts no network activity; reads fetch only when needed.
+   * An evaluation without a version header permanently falls back to stream/poll.
+   * Disabling both stream and polling still selects offline mode.
+   * @default process.env.VERCEL === '1'
+   */
+  vercel?: boolean;
+
+  /**
+   * How long reads may serve stale cached data while refreshing in the background.
+   * Header-driven reads measure from the last fetch or matching version header.
+   * Polling data is fresh for its interval plus the 10-second fetch deadline; this
+   * window follows, after which reads wait for the refresh. Streaming reads never
+   * wait: the stream keeps the cache current and reconnects on its own. Accepts
+   * finite, non-negative seconds, including fractional seconds. Set to 0 to block as
+   * soon as header or polling data is no longer fresh.
+   * @default 10
+   */
+  staleWhileRevalidate?: number;
+
+  /**
+   * How long runtime reads may use cached data after the first consecutive
+   * stream/poll/header failure or stream disconnect. Accepts nonnegative seconds or Infinity.
+   * Fractional seconds are supported.
+   * Zero disables fallback immediately; positive windows include the deadline.
+   * Any successful source response, or a matching stream primed revision, resets the
+   * allowance. A routine stream reconnect takes about a second, so keep this above
+   * the reconnect delay. Applies to evaluations and getDatafile(). Without a live
+   * source, data older than staleWhileRevalidate plus this window waits for a refresh.
+   * Build/offline behavior is unchanged.
+   * @default Infinity
+   */
+  staleIfError?: number;
 
   /**
    * Override build step detection
@@ -91,6 +127,9 @@ export type NormalizedOptions = {
   datafile: DatafileInput | undefined;
   stream: { enabled: boolean; initTimeoutMs: number };
   polling: { enabled: boolean; intervalMs: number; initTimeoutMs: number };
+  vercel: boolean;
+  staleWhileRevalidateMs: number;
+  staleIfErrorMs: number;
   buildStep: boolean;
   fetch: typeof globalThis.fetch;
   waitUntil: WaitUntil;
@@ -103,6 +142,13 @@ export type NormalizedOptions = {
 export function normalizeOptions(
   options: ControllerOptions,
 ): NormalizedOptions {
+  const staleIfError = options.staleIfError ?? Infinity;
+  if (typeof staleIfError !== 'number' || !(staleIfError >= 0)) {
+    throw new Error(
+      '@vercel/flags-core: staleIfError must be a nonnegative number of seconds or Infinity.',
+    );
+  }
+
   const autoDetectedBuildStep =
     process.env.CI === '1' ||
     process.env.NEXT_PHASE === 'phase-production-build';
@@ -139,11 +185,22 @@ export function normalizeOptions(
     };
   }
 
+  const staleWhileRevalidate =
+    options.staleWhileRevalidate ?? DEFAULT_STALE_WHILE_REVALIDATE;
+  if (!Number.isFinite(staleWhileRevalidate) || staleWhileRevalidate < 0) {
+    throw new Error(
+      '@vercel/flags-core: staleWhileRevalidate must be a finite, non-negative number of seconds.',
+    );
+  }
+
   return {
     auth: options.auth,
     datafile: options.datafile,
     stream,
     polling,
+    vercel: options.vercel ?? process.env.VERCEL === '1',
+    staleWhileRevalidateMs: staleWhileRevalidate * 1000,
+    staleIfErrorMs: staleIfError * 1000,
     buildStep,
     fetch: options.fetch ?? globalThis.fetch,
     waitUntil: options.waitUntil ?? defaultWaitUntil,
