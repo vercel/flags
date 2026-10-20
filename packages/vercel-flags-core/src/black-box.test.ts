@@ -131,7 +131,9 @@ describe('Controller (black-box)', () => {
       reason: string;
       evaluationCount: number;
       periodStartedAt?: number;
+      revision?: string;
     }> = [],
+    revision = '1',
   ) {
     const periodStartedAt = minuteBucketTs(date.getTime());
 
@@ -148,15 +150,21 @@ describe('Controller (black-box)', () => {
               reason: 'paused',
               evaluationCount,
               periodStartedAt,
+              revision,
             },
           },
           ...extraEvents.map(
-            ({ periodStartedAt: eventPeriod, ...payload }) => ({
+            ({
+              periodStartedAt: eventPeriod,
+              revision: eventRevision = revision,
+              ...payload
+            }) => ({
               type: 'FLAG_EVALUATION',
               ts: date.getTime(),
               payload: {
                 ...payload,
                 periodStartedAt: eventPeriod ?? periodStartedAt,
+                revision: eventRevision,
               },
             }),
           ),
@@ -668,6 +676,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -1548,6 +1557,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -1642,6 +1652,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -2541,6 +2552,7 @@ describe('Controller (black-box)', () => {
                   reason: 'paused',
                   evaluationCount: 1,
                   periodStartedAt: minuteBucketTs(date.getTime()),
+                  revision: '1',
                 },
               },
             ]),
@@ -2934,6 +2946,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime() + 60),
+                revision: '1',
               },
             },
           ]),
@@ -3651,6 +3664,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 3,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -3867,6 +3881,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime() + 300),
+                revision: '1',
               },
             },
           ]),
@@ -3978,6 +3993,40 @@ describe('Controller (black-box)', () => {
           '@vercel/flags-core: No flag definitions available',
         ),
       });
+    });
+
+    it('should report FLAG_EVALUATION without revision when no datafile is available', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      const evaluation = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(600);
+      await evaluation;
+      await client.shutdown();
+
+      const ingestCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/ingest'),
+      );
+      const events = JSON.parse(String(ingestCall?.[1]?.body)) as Array<{
+        type: string;
+        payload: Record<string, unknown>;
+      }>;
+      const evaluations = events.filter(
+        (event) => event.type === 'FLAG_EVALUATION',
+      );
+
+      expect(evaluations).toHaveLength(1);
+      expect(evaluations[0]?.payload).toMatchObject({ reason: 'error' });
+      expect(evaluations[0]?.payload).not.toHaveProperty('revision');
     });
 
     it('should throw when all data sources fail and no defaultValue provided', async () => {
@@ -4393,6 +4442,78 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
+    it('should report FLAG_EVALUATION events separately per config revision', async () => {
+      const makeDatafile = (revision: number) =>
+        makeBundled({
+          configUpdatedAt: revision * 1000,
+          revision,
+          definitions: {
+            flagA: {
+              environments: { production: 1 },
+              variants: [false, true],
+            },
+          },
+        });
+
+      const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response());
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      const initPromise = client.initialize();
+      stream.push({ type: 'datafile', data: makeDatafile(1) });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      await client.evaluate('flagA', undefined, undefined);
+      await client.evaluate('flagA', undefined, undefined);
+
+      stream.push({ type: 'datafile', data: makeDatafile(2) });
+      await vi.advanceTimersByTimeAsync(50);
+
+      await client.evaluate('flagA', undefined, undefined);
+
+      stream.close();
+      await client.shutdown();
+
+      const ingestCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/ingest'),
+      );
+      const events = JSON.parse(String(ingestCall?.[1]?.body)) as Array<{
+        type: string;
+        payload: { revision?: string; evaluationCount: number };
+      }>;
+      const evaluations = events
+        .filter((event) => event.type === 'FLAG_EVALUATION')
+        .map((event) => [
+          event.payload.revision,
+          event.payload.evaluationCount,
+        ]);
+
+      expect(evaluations).toHaveLength(2);
+      expect(evaluations).toEqual(
+        expect.arrayContaining([
+          ['1', 2],
+          ['2', 1],
+        ]),
+      );
+      cleanupCtx();
+    });
+
     it('should report counted FLAG_EVALUATION events', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       fetchMock.mockImplementation((input) => {
@@ -4464,6 +4585,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 2,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
             {
@@ -4476,6 +4598,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
             {
@@ -4488,6 +4611,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
           ]),
@@ -4609,7 +4733,7 @@ describe('Controller (black-box)', () => {
 
       // Config reads skip without request context, but evaluations are still reported.
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expectEvaluationOnlyIngest();
+      expectEvaluationOnlyIngest(1, [], '2');
     });
 
     it('should not track FLAGS_CONFIG_READ during build step (no request context)', async () => {
@@ -4706,6 +4830,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -4752,7 +4877,7 @@ describe('Controller (black-box)', () => {
 
       // Config reads skip without request context, but evaluations are still reported.
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expectEvaluationOnlyIngest();
+      expectEvaluationOnlyIngest(1, [], '2');
     });
   });
 });
