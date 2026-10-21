@@ -71,7 +71,7 @@ Always `inspect` first so you know what each environment serves today, and match
 - **Turn on or off**: `enable` / `disable` for boolean flags, `set <key>` to serve one variant of any kind. These put the environment in static value mode.
 - **Gradual rollout**: `rollout <key> --by user.id ...` ([Roll out a feature](https://vercel.com/docs/flags/vercel-flags/cli/roll-out-feature)).
 - **A/B test**: `split <key> --by user.id ...` ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).
-- **Targeting rules and segments**: `rules`, `segments`, and `use-targeting <key>` to switch an environment from a static value back to targets and rules.
+- **Targeting rules and segments**: `rules`, `segments`, and `targeting enable <key>` to switch an environment from a static value back to targets and rules (CLI versions before 65 call it `use-targeting <key>`).
 - **Verify**: `inspect` for the served state, `versions` for history, `evaluations` to confirm traffic reaches the new variant.
 - **Retire**: remove the code first, verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
 
