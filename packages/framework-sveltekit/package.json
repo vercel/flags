@@ -2,7 +2,6 @@
   "name": "@flags-sdk/sveltekit",
   "description": "The SvelteKit binding of the Flags SDK",
   "version": "0.0.0",
-  "private": true,
   "license": "MIT",
   "author": "Dominik Ferber <dominik@vercel.com>",
   "homepage": "https://flags-sdk.dev",
