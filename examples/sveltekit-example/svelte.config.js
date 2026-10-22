@@ -11,6 +11,10 @@ const config = {
     // You can switch out the Vercel adapter with another one, though keep in mind that the precompute
     // approach needs another approach then, as middleware.ts is Vercel concept.
     adapter: adapter(),
+    experimental: {
+      tracing: { server: true },
+      instrumentation: { server: true },
+    },
   },
 };
 
