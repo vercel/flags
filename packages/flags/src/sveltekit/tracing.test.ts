@@ -267,6 +267,142 @@ describe('tracing', () => {
     ]);
   });
 
+  it('does not treat a plain redirect-shaped object as control flow', async () => {
+    const thrown = { status: 302, location: '/x' };
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toEqual({ code: 2, message: undefined });
+  });
+
+  it('does not treat an Error with redirect fields as control flow', async () => {
+    const thrown = Object.assign(new Error('boom'), {
+      status: 302,
+      location: '/x',
+    });
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toEqual({ code: 2, message: 'boom' });
+  });
+
+  it('does not treat an action-failure shape as control flow', async () => {
+    const thrown = { status: 400, data: { message: 'no' } };
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toMatchObject({ code: 2 });
+  });
+
+  it('does not swallow a decide throw when defaultValue is set', async () => {
+    const thrown = new Error('boom');
+    const a = flag<string>({
+      key: 'a',
+      defaultValue: 'fallback',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(a).toHaveProperty('defaultValue', 'fallback');
+    expect(spans[0]!.status).toEqual({ code: 2, message: 'boom' });
+  });
+
+  it('does not stamp method when override decrypt throws', async () => {
+    const a = flag<string>({ key: 'a', decide: () => 'A' });
+    const spans = recordSpans();
+    const request = new Request('https://example.com', {
+      headers: { cookie: 'vercel-flag-overrides=not-a-jwe' },
+    });
+
+    await expect(a(request, 'too-short')).rejects.toThrow('Invalid secret');
+    await spansSettled();
+
+    expect(spans[0]!.status).toMatchObject({ code: 2 });
+    expect(spans[0]!.attributes).toEqual({ key: 'a' });
+  });
+
+  it('stamps precomputed before a bad code rejects', async () => {
+    const a = flag<string>({ key: 'a', decide: () => 'A' });
+    const request = new Request('https://example.com');
+    const spans = recordSpans();
+
+    const rejection = await inHandle(request, async () => {
+      try {
+        return await a('not-a-code', [a]);
+      } catch (e) {
+        return e;
+      }
+    });
+    await spansSettled();
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect(spans[0]!.attributes.method).toBe('precomputed');
+    expect(spans[0]!.status).toMatchObject({ code: 2 });
+  });
+
+  it('caches a rejected decide and reports the second call as cached', async () => {
+    const decide = vi.fn(() => Promise.reject(new Error('boom')));
+    const a = flag<string>({ key: 'a', decide });
+    const spans = recordSpans();
+    const request = new Request('https://example.com');
+
+    await expect(a(request, secret)).rejects.toThrow('boom');
+    await expect(a(request, secret)).rejects.toThrow('boom');
+    await spansSettled();
+
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(spans.map((s) => [s.attributes.method, s.status?.code])).toEqual([
+      ['decided', 2],
+      ['cached', 2],
+    ]);
+  });
+
+  it('does not cache a synchronous redirect', async () => {
+    const decide = vi.fn(() => redirect(307, '/login'));
+    const a = flag<string>({ key: 'a', decide });
+    const spans = recordSpans();
+    const request = new Request('https://example.com');
+
+    await expect(a(request, secret)).rejects.toSatisfy(isRedirect);
+    await expect(a(request, secret)).rejects.toSatisfy(isRedirect);
+    await spansSettled();
+
+    expect(decide).toHaveBeenCalledTimes(2);
+    expect(spans.map((s) => s.attributes.method)).toEqual([
+      'decided',
+      'decided',
+    ]);
+  });
+
   it('without a provider returns the same values and errors', async () => {
     const thrown = new Error('boom');
     const ok = flag<string>({ key: 'ok', decide: () => 'A' });

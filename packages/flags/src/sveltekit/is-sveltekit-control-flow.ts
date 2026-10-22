@@ -1,4 +1,9 @@
-import type { HttpError, Redirect } from '@sveltejs/kit';
+import {
+  type HttpError,
+  isHttpError,
+  isRedirect,
+  type Redirect,
+} from '@sveltejs/kit';
 
 function hasStatusInRange(
   error: object,
@@ -22,31 +27,46 @@ function isRedirectShape(error: object): error is Redirect {
 }
 
 function isHttpErrorShape(error: object): error is HttpError {
-  if (!hasStatusInRange(error, 400, 599) || !('body' in error)) {
-    return false;
-  }
-  const body = error.body;
   return (
-    typeof body === 'object' &&
-    body !== null &&
-    'message' in body &&
-    typeof body.message === 'string'
+    hasStatusInRange(error, 400, 599) &&
+    'body' in error &&
+    typeof error.body === 'object' &&
+    error.body !== null
   );
+}
+
+function constructorName(error: object): string | undefined {
+  const name = error.constructor?.name;
+  if (typeof name !== 'string') {
+    return undefined;
+  }
+  return name;
 }
 
 /**
  * Whether `error` was thrown by `redirect()` or `error()` from `@sveltejs/kit`.
  *
- * Matches the public `Redirect` / `HttpError` shapes instead of using
- * `isRedirect` / `isHttpError`, which are `instanceof` checks against this
- * package's copy of `@sveltejs/kit` and miss instances thrown by the app's
- * copy when the two resolve to different module instances.
+ * `isRedirect` and `isHttpError` are `instanceof` checks against this package's
+ * copy of `@sveltejs/kit`. A second copy misses them, including when a build
+ * keeps the class name. A shape-only check would also match a plain object or
+ * an `Error` that happens to have the same fields. SvelteKit itself only
+ * treats the classes as control flow, so those stay span errors.
  */
 export function isSvelteKitControlFlow(
   error: unknown,
 ): error is Redirect | HttpError {
-  if (typeof error !== 'object' || error === null) {
+  if (isRedirect(error) || isHttpError(error)) {
+    return true;
+  }
+  if (typeof error !== 'object' || error === null || error instanceof Error) {
     return false;
   }
-  return isRedirectShape(error) || isHttpErrorShape(error);
+  const name = constructorName(error);
+  if (name === 'Redirect') {
+    return isRedirectShape(error);
+  }
+  if (name === 'HttpError') {
+    return isHttpErrorShape(error);
+  }
+  return false;
 }
