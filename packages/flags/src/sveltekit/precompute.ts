@@ -1,5 +1,7 @@
 import type { JsonValue } from '..';
 import * as s from '../lib/serialization';
+import { trace } from '../lib/tracing';
+import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import type { Flag, FlagsArray } from './types';
 
 type ValuesArray = readonly any[];
@@ -9,7 +11,7 @@ type ValuesArray = readonly any[];
  * @param flags - list of flags
  * @returns - an array of evaluated flag values with one entry per flag
  */
-async function evaluate<T extends FlagsArray>(
+async function evaluateImpl<T extends FlagsArray>(
   flags: T,
   request: Request,
 ): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
@@ -17,6 +19,13 @@ async function evaluate<T extends FlagsArray>(
     [K in keyof T]: Awaited<ReturnType<T[K]>>;
   }>;
 }
+
+const evaluate = trace(evaluateImpl, {
+  name: 'evaluate',
+  isVerboseTrace: false,
+  isIgnoredError: isSvelteKitControlFlow,
+  attributesSuccess: (values) => ({ flagCount: values.length }),
+});
 
 /**
  * Evaluate a list of feature flags and generate a signed string representing their values.
