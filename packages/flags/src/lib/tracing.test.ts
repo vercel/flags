@@ -99,6 +99,28 @@ describe('trace', () => {
     expect(span.end).toHaveBeenCalledOnce();
   });
 
+  it('ends the span when isIgnoredError throws', async () => {
+    const span = createMockSpan();
+    installMockTracer(span);
+
+    const traced = trace(() => Promise.reject(new Error('boom')), {
+      name: 'test',
+      isVerboseTrace: false,
+      isIgnoredError: () => {
+        throw new Error('classifier');
+      },
+    });
+
+    await expect(traced()).rejects.toThrow('boom');
+    await flushMicrotasks();
+
+    expect(span.setStatus).toHaveBeenCalledWith({
+      code: 2,
+      message: 'boom',
+    });
+    expect(span.end).toHaveBeenCalledOnce();
+  });
+
   it('does not apply attributesError for ignored errors', async () => {
     const span = createMockSpan();
     installMockTracer(span);

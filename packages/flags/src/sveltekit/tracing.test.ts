@@ -403,6 +403,166 @@ describe('tracing', () => {
     ]);
   });
 
+  it('keeps identify raw and does not trace decide', async () => {
+    const identify = vi.fn(() => ({ user: 'u' }));
+    const decide = vi.fn(() => 'A');
+    const a = flag<string>({ key: 'a', identify, decide });
+    const spans = recordSpans();
+    const callDecide = (a as { decide?: (params: unknown) => Promise<string> })
+      .decide;
+
+    expect(a).toHaveProperty('identify', identify);
+    expect(callDecide?.({})).toBe('A');
+    expect(spans.map((span) => span.name)).toEqual([]);
+  });
+
+  it('recognises an HttpError from another @sveltejs/kit copy', async () => {
+    class HttpError {
+      status: number;
+      body: { message: string };
+      constructor(status: number, message: string) {
+        this.status = status;
+        this.body = { message };
+      }
+    }
+    const thrown = new HttpError(404, 'nope');
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(isHttpError(thrown)).toBe(false);
+    expect(spans[0]!.status).toEqual({ code: 1 });
+  });
+
+  it('does not treat a Redirect class without a location as control flow', async () => {
+    class Redirect {
+      status = 303;
+    }
+    const thrown = new Redirect();
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toMatchObject({ code: 2 });
+  });
+
+  it('does not treat an Error subclass named Redirect as control flow', async () => {
+    class Redirect extends Error {
+      status = 303;
+      location = '/x';
+    }
+    const thrown = new Redirect('boom');
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toEqual({ code: 2, message: 'boom' });
+  });
+
+  it('records an Error span when inspecting the throw throws', async () => {
+    const thrown = new Proxy(Object.create(null), {
+      get() {
+        throw new Error('trap');
+      },
+      has() {
+        throw new Error('trap');
+      },
+      getPrototypeOf() {
+        throw new Error('trap');
+      },
+    });
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw thrown;
+      },
+    });
+    const spans = recordSpans();
+
+    await expect(a(new Request('https://e.com'), secret)).rejects.toBe(thrown);
+    await spansSettled();
+
+    expect(spans[0]!.status).toMatchObject({ code: 2 });
+    expect(spans[0]!.ended).toBe(true);
+  });
+
+  it('keeps evaluate Ok when serialization fails', async () => {
+    const a = flag<string>({
+      key: 'a',
+      decide: () => undefined as unknown as string,
+    });
+    const request = new Request('https://example.com');
+    const spans = recordSpans();
+
+    await inHandle(request, () =>
+      expect(precompute([a], request, secret)).rejects.toThrow('Missing value'),
+    );
+    await spansSettled();
+
+    const evaluateSpan = spans.find((span) => span.name === 'evaluate');
+    expect(evaluateSpan).toMatchObject({
+      attributes: { flagCount: 1 },
+      status: { code: 1 },
+      ended: true,
+    });
+  });
+
+  it('marks evaluate as Error when a flag throws', async () => {
+    const a = flag<string>({
+      key: 'a',
+      decide: () => {
+        throw new Error('boom');
+      },
+    });
+    const request = new Request('https://example.com');
+    const spans = recordSpans();
+
+    await inHandle(request, () =>
+      expect(precompute([a], request, secret)).rejects.toThrow('boom'),
+    );
+    await spansSettled();
+
+    expect(spans.map((span) => [span.name, span.status?.code])).toEqual([
+      ['evaluate', 2],
+      ['flag', 2],
+    ]);
+  });
+
+  it('records flagCount 0 for an empty precompute', async () => {
+    const request = new Request('https://example.com');
+    const spans = recordSpans();
+
+    await expect(precompute([], request, secret)).resolves.toBe('__no_flags__');
+
+    expect(spans.map((span) => span.name)).toEqual(['evaluate']);
+    expect(spans[0]).toMatchObject({
+      attributes: { flagCount: 0 },
+      status: { code: 1 },
+      ended: true,
+    });
+  });
+
   it('without a provider returns the same values and errors', async () => {
     const thrown = new Error('boom');
     const ok = flag<string>({ key: 'ok', decide: () => 'A' });

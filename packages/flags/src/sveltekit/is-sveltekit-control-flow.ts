@@ -55,6 +55,18 @@ function constructorName(error: object): string | undefined {
 export function isSvelteKitControlFlow(
   error: unknown,
 ): error is Redirect | HttpError {
+  try {
+    return matchesSvelteKitControlFlow(error);
+  } catch {
+    // A throwing getter or proxy trap is not a kit redirect. Returning false
+    // lets the tracer record an Error span and still end it.
+    return false;
+  }
+}
+
+function matchesSvelteKitControlFlow(
+  error: unknown,
+): error is Redirect | HttpError {
   if (isRedirect(error) || isHttpError(error)) {
     return true;
   }
