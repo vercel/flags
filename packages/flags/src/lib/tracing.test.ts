@@ -121,6 +121,54 @@ describe('trace', () => {
     expect(span.end).toHaveBeenCalledOnce();
   });
 
+  it('rethrows the original error when isIgnoredError throws synchronously', () => {
+    const span = createMockSpan();
+    installMockTracer(span);
+    const boom = new Error('boom');
+
+    const traced = trace(
+      () => {
+        throw boom;
+      },
+      {
+        name: 'test',
+        isVerboseTrace: false,
+        isIgnoredError: () => {
+          throw new Error('classifier');
+        },
+      },
+    );
+
+    expect(() => traced()).toThrow(boom);
+    expect(span.setStatus).toHaveBeenCalledWith({
+      code: 2,
+      message: 'boom',
+    });
+    expect(span.end).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the error message when attributesError throws', async () => {
+    const span = createMockSpan();
+    installMockTracer(span);
+
+    const traced = trace(() => Promise.reject(new Error('boom')), {
+      name: 'test',
+      isVerboseTrace: false,
+      attributesError: () => {
+        throw new Error('attrs');
+      },
+    });
+
+    await expect(traced()).rejects.toThrow('boom');
+    await flushMicrotasks();
+
+    expect(span.setStatus).toHaveBeenCalledWith({
+      code: 2,
+      message: 'boom',
+    });
+    expect(span.end).toHaveBeenCalledOnce();
+  });
+
   it('does not apply attributesError for ignored errors', async () => {
     const span = createMockSpan();
     installMockTracer(span);

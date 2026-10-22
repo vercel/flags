@@ -84,14 +84,19 @@ export function trace<F extends (...args: any) => any>(
 
     let message: string | undefined;
     try {
-      if (options.attributesError) {
-        span.setAttributes(options.attributesError(error as Error));
-      }
       if (error instanceof Error) {
         message = error.message;
       }
     } catch {
       message = undefined;
+    }
+
+    try {
+      if (options.attributesError) {
+        span.setAttributes(options.attributesError(error as Error));
+      }
+    } catch {
+      // A throwing attributes callback must not drop the status message.
     }
 
     span.setStatus({
