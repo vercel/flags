@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@flags-sdk/launchdarkly": "^1.1.1",
-    "flags": "^4.3.1",
+    "flags": "^4.4.0",
     "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",
