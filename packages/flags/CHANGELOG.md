@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.4.0
+
+### Minor Changes
+
+- [#570](https://github.com/vercel/flags/pull/570) [`c03fba8`](https://github.com/vercel/flags/commit/c03fba8c033bba8d7c9d54de3a94c2d20e38a257) Thanks [@kakadiadarpan](https://github.com/kakadiadarpan)! - Emit OpenTelemetry spans from the SvelteKit adapter when a tracer provider is set.
+
 ## 4.3.1
 
 ### Patch Changes

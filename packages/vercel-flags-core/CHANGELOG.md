@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.10.2
+
+### Patch Changes
+
+- [#567](https://github.com/vercel/flags/pull/567) [`5f738f0`](https://github.com/vercel/flags/commit/5f738f08f182838d0efb13fd3efb89751d48cb0a) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Improve guidance for authorization errors.
+
 ## 1.10.1
 
 ### Patch Changes
