@@ -5,4 +5,4 @@ import { setTracerProvider } from 'flags';
 registerOTel({ serviceName: 'sveltekit-example' });
 
 // flags reads this provider. registerOTel does not register it.
-setTracerProvider(trace.getTracerProvider());
+setTracerProvider(trace);
