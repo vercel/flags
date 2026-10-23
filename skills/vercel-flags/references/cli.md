@@ -4,6 +4,27 @@ Manage Vercel Flags from the terminal with an authenticated CLI and a targeted p
 
 For the current subcommand list and options, run `vercel flags --help` or `vercel flags <cmd> --help`. For CLI-wide contracts (linking, `--non-interactive`, `--yes`, parsing stdout) follow the `vercel-cli` skill. This file covers only what `--help` cannot tell you.
 
+## Read the served configuration
+
+Use `vc flags datafile --environment production --json` to see the flag configuration that Vercel Flags currently serves in production. This is useful for agents that need the project's flag definitions and targeting rules before proposing a change. `vc` is an alias for `vercel`.
+
+Use the confirmed linked project, or pass an explicit project and team:
+
+```bash
+vc flags datafile --project my-project --scope my-team --environment production --json
+```
+
+Read the full configuration from the `datafile` property in the JSON output. Without `--json`, the command prints a summary of the variants each flag can serve, rule and target counts, and reused environments. The datafile contains configuration, not per-user evaluation results. Use `evaluations` to check actual evaluation traffic.
+
+The command defaults to `development`. Authentication follows the selected environment:
+
+- **Development**: the CLI requests a project OpenID Connect (OIDC) token. If OIDC is unavailable, it uses your Vercel CLI token.
+- **Preview and production**: the CLI uses your Vercel CLI token from `vercel login` or the global `--token` option. Your account or token must have permission to read the project's flags.
+
+No SDK setup or `vercel env pull` is required. Do not create an SDK key to read production configuration with your Vercel account.
+
+To inspect configuration with an existing SDK key, run `vercel flags datafile --sdk-key --json < sdk-key.txt`. This mode needs no CLI login or linked project. The key selects the project and environment, so do not combine `--sdk-key` with `--project` or `--environment`. `--sdk-key` takes no command-line value: supply the full key through stdin, or a masked prompt in an interactive terminal without `--json`. With `--json` or in non-interactive mode, use stdin.
+
 ## How the CLI maps to the app
 
 - **Key**: the flag slug you pass to the CLI is the `key` in `flag()` (Flags SDK) or the first argument of `evaluate()` (`@vercel/flags-core`). The flag returns one of the variants you created on Vercel ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).

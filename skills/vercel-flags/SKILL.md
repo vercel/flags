@@ -6,7 +6,7 @@ description: >
   experiment, percentage rollout, or targeting rule, or wants to gate or hide a feature for some
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
-  set, split, rollout, rules, segments, evaluations, archive), OIDC vs SDK keys, `FLAGS_SECRET`, and
+  datafile, set, split, rollout, rules, segments, evaluations, archive), OIDC vs SDK keys, `FLAGS_SECRET`, and
   Flags Explorer overrides. For `flag()` declarations, adapters, precompute, and the Flags Explorer
   endpoint in Next.js or SvelteKit code, load the `flags-sdk` skill.
 ---
@@ -23,6 +23,7 @@ Use this skill to decide how a feature should be flagged, to create and change f
 ## Route the request
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
+- **Read current production configuration** ("what flags are live?", "check the production targeting rules"): use `vc flags datafile --environment production --json` after confirming the [project target](#project-targeting). See [Read the served configuration](references/cli.md#read-the-served-configuration) for output and authentication.
 - **Create or manage a flag with no code change** (create, inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
 - **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
 - **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
@@ -53,9 +54,9 @@ Decide these before creating the flag; the kind cannot be changed later.
 
 ## Manage flags with the CLI
 
-The CLI uses your Vercel account authentication. SDK keys and `vercel env pull` are application credentials, not CLI prerequisites.
+Flag management commands use your Vercel account authentication. `datafile` defaults to development OIDC and uses your Vercel CLI token for preview and production. SDK keys and `vercel env pull` are not CLI prerequisites; `datafile --sdk-key` is an optional way to inspect configuration with an existing SDK key.
 
-> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
+> **Prerequisite**: The Vercel CLI must be installed and authenticated, except that `datafile --sdk-key` does not require a CLI login. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel@vercel-cli` (do not auto-install it) and rely on `vercel <command> --help` in the meantime.
 
 Run `vercel flags --help` for the current subcommand list and `vercel flags <cmd> --help` before using a subcommand. [references/cli.md](references/cli.md) covers what `--help` cannot: how CLI concepts map to the app, promotion order, static value vs targeting mode, and the checks to run before archiving or deleting.
 
@@ -72,7 +73,7 @@ Always `inspect` first so you know what each environment serves today, and match
 - **Gradual rollout**: `rollout <key> --by user.id ...` ([Roll out a feature](https://vercel.com/docs/flags/vercel-flags/cli/roll-out-feature)).
 - **A/B test**: `split <key> --by user.id ...` ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).
 - **Targeting rules and segments**: `rules`, `segments`, and `targeting enable <key>` to switch an environment from a static value back to targets and rules (CLI versions before 65 call it `use-targeting <key>`).
-- **Verify**: `inspect` for the served state, `versions` for history, `evaluations` to confirm traffic reaches the new variant.
+- **Verify**: `inspect` for one flag, `datafile --environment production --json` for the configuration currently served in production, `versions` for history, and `evaluations` to confirm traffic reaches the new variant. The datafile contains configuration, not per-user evaluation results.
 - **Retire**: remove the code first, verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
 
 `archive`, `unarchive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
@@ -80,7 +81,7 @@ Always `inspect` first so you know what each environment serves today, and match
 ## Credentials
 
 - **OIDC**: on Vercel, the app authenticates with the project's OIDC token and evaluates the configuration of the current environment. `vercel env pull` writes the Development token to `.env.local` for local development ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)).
-- **SDK keys (`FLAGS`)**: only for apps outside Vercel, custom environments, or flags owned by another project. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
+- **SDK keys (`FLAGS`)**: use for apps outside Vercel, custom environments, or flags owned by another project. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). You can inspect its datafile with `vercel flags datafile --sdk-key --json < sdk-key.txt` without a CLI login. Do not create an SDK key as a recovery path for failed CLI authentication.
 - **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes, and `vercel flags override` reads it from the environment or `.env.local`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
 
 ## Flags Explorer
