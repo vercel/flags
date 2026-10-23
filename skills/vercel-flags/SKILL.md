@@ -73,6 +73,7 @@ Always `inspect` first so you know what each environment serves today, and match
 - **A/B test**: `split <key> --by user.id ...` ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).
 - **Targeting rules and segments**: `rules`, `segments`, and `targeting enable <key>` to switch an environment from a static value back to targets and rules (CLI versions before 65 call it `use-targeting <key>`).
 - **Verify**: `inspect` for the served state, `versions` for history, `evaluations` to confirm traffic reaches the new variant.
+- **Datafile**: `datafile --environment <production|preview|development> --json` to see the current datafile used by SDKs to evaluate flags. Returns minimal representation of the of all active flags of a given project for a given environment.
 - **Retire**: remove the code first, verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
 
 `archive`, `unarchive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
@@ -93,13 +94,13 @@ For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly
 
 ```ts
 // src/flags.ts
-import { createClient } from '@vercel/flags-core';
+import { createClient } from "@vercel/flags-core";
 
 const client = createClient();
 
 // Call from a request handler, not during module loading.
 export async function showNewCheckout(userId: string): Promise<boolean> {
-  const result = await client.evaluate<boolean>('new-checkout', false, {
+  const result = await client.evaluate<boolean>("new-checkout", false, {
     user: { id: userId },
   });
   return result.value;
@@ -112,4 +113,4 @@ The third argument to `evaluate()` is the evaluation context; its entity and att
 
 ## References
 
-- **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
+- **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions, datafiles), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
