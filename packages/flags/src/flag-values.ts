@@ -15,14 +15,10 @@ export type FlagValuesType = Record<string, JsonValue>;
 /**
  * Where the public keys of Vercel for the flag values are.
  *
- * TEMPORARY: The key set is published by flags-sdk.dev until Vercel
- * publishes its own. Replace it with the URL of Vercel before publishing.
- * `prepublishOnly` stops a publish while this comment is here.
- *
  * @internal
  */
 export const VERCEL_FLAG_VALUES_JWKS_URL =
-  'https://flags-sdk.dev/api/flag-values/jwks.json';
+  'https://keys.vercel-flags.com/.well-known/jwks.json';
 
 /**
  * The rules for flag values which are encrypted with the public key of the
@@ -40,6 +36,8 @@ export const FLAG_VALUES_POLICY = Object.freeze({
   cooldownMs: 30_000,
   maxKeySetBytes: 65_536,
   maxKeys: 100,
+  maxProjectIds: 100,
+  maxProjectIdLength: 150,
 });
 
 export interface EncryptFlagValuesOptions {
@@ -67,10 +65,15 @@ export interface EncryptFlagValuesOptions {
    */
   readonly jwksUrl?: string;
   /**
-   * For `platform`: the project in the scope of the token. The default
-   * comes from the environment, as for the overrides.
+   * For `platform`: the project whose ID is put in the protected header.
+   * The default comes from the environment, as for the overrides.
    */
   readonly project?: Partial<PlatformProject>;
+  /**
+   * For `platform`: the project IDs which can use the token. The default is
+   * the ID of `project` or the project from the environment.
+   */
+  readonly projectIds?: readonly string[];
   /**
    * For `platform`: the `fetch` function which loads the public keys. The
    * default is the global `fetch`.
@@ -112,16 +115,23 @@ export async function encryptFlagValues(
   }
 
   const policy = FLAG_VALUES_POLICY;
+  const projectIds = options.projectIds
+    ? options.projectIds
+    : projectIdsFromProject(options.project ?? findPlatformProject());
+  if (options.projectIds === undefined && projectIds.length === 0) {
+    throw new Error(
+      'flags: Missing a project ID for the encrypted flag values.',
+    );
+  }
+  validateProjectIds(projectIds);
   const { kid, key } = await loadPublicKey(
     options.jwksUrl ?? VERCEL_FLAG_VALUES_JWKS_URL,
     options.fetch,
   );
-  const scope = definedStrings(options.project ?? findPlatformProject());
   const jwt = new EncryptJWT({
     pur: policy.purpose,
     ver: policy.version,
     values,
-    ...(Object.keys(scope).length > 0 ? { scope } : {}),
   })
     .setAudience(policy.audience)
     .setIssuedAt()
@@ -129,6 +139,7 @@ export async function encryptFlagValues(
       alg: policy.algorithm,
       enc: policy.encryption,
       kid,
+      projectIds,
     });
   if (options.expirationTime !== undefined) {
     jwt.setExpirationTime(options.expirationTime);
@@ -293,14 +304,29 @@ function parseKeySetUrl(value: string): URL {
   return url;
 }
 
-function definedStrings(
-  project: Partial<PlatformProject>,
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [name, value] of Object.entries(project)) {
-    if (typeof value === 'string' && value) result[name] = value;
+function projectIdsFromProject(project: Partial<PlatformProject>): string[] {
+  return typeof project.projectId === 'string' && project.projectId
+    ? [project.projectId]
+    : [];
+}
+
+function validateProjectIds(projectIds: readonly string[]): void {
+  const policy = FLAG_VALUES_POLICY;
+  if (
+    projectIds.length === 0 ||
+    projectIds.length > policy.maxProjectIds ||
+    projectIds.some(
+      (id) =>
+        typeof id !== 'string' ||
+        id.length === 0 ||
+        id.length > policy.maxProjectIdLength,
+    ) ||
+    new Set(projectIds).size !== projectIds.length
+  ) {
+    throw new Error(
+      `flags: projectIds must contain 1 to ${policy.maxProjectIds} distinct, non-empty strings of at most ${policy.maxProjectIdLength} characters.`,
+    );
   }
-  return result;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

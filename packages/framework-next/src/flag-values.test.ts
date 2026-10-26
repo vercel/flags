@@ -96,7 +96,10 @@ describe('FlagValues', () => {
     );
     const props = {
       flags: [summerSale],
-      encryption: { jwksUrl: 'https://keys.example/jwks.json' },
+      encryption: {
+        jwksUrl: 'https://keys.example/jwks.json',
+        project: { projectId: 'prj_shop' },
+      },
     };
 
     await expect(render(props)).resolves.toBe('');
