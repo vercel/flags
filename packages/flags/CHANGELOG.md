@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.3.2-standard.0
+
+### Patch Changes
+
+- [#575](https://github.com/vercel/flags/pull/575) [`2921a96`](https://github.com/vercel/flags/commit/2921a96e8711c9bd738a4e0338908381ddf41927) Thanks [@luismeyer](https://github.com/luismeyer)! - Align platform-encrypted flag values with Vercel's decryption API by putting the allowed project IDs in the protected header and using the platform JWKS.
+
 ## 4.3.1
 
 ### Patch Changes
