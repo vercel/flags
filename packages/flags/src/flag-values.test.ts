@@ -49,7 +49,7 @@ function keySet(keys: unknown[], status = 200) {
 beforeEach(() => {
   resetFlagValuesKeys();
   vi.stubEnv('FLAGS_SECRET', '');
-  vi.stubEnv('VERCEL_PROJECT_ID', '');
+  vi.stubEnv('VERCEL_PROJECT_ID', 'prj_default');
   vi.stubEnv('VERCEL_TARGET_ENV', '');
   vi.stubEnv('VERCEL_ENV', '');
   vi.stubEnv('VERCEL_OIDC_TOKEN', '');
@@ -73,6 +73,7 @@ describe('encryptFlagValues with the public key of the platform', () => {
       alg: 'ECDH-ES',
       enc: 'A256GCM',
       kid: 'key-1',
+      projectIds: ['prj_shop'],
       epk: expect.any(Object),
     });
     const { payload } = await jwtDecrypt(token, privateKey, {
@@ -84,23 +85,57 @@ describe('encryptFlagValues with the public key of the platform', () => {
       ver: 1,
       iat: expect.any(Number),
       values,
-      scope: { projectId: 'prj_shop', environment: 'production' },
     });
   });
 
-  it('takes the scope from the environment', async () => {
+  it('takes the project ID from the environment', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', 'prj_blog');
-    vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
     const token = await encryptFlagValues(values, {
       jwksUrl,
       fetch: keySet([publicJwk]),
     });
 
-    const { payload } = await jwtDecrypt(token, privateKey);
-    expect(payload.scope).toEqual({
-      projectId: 'prj_blog',
-      environment: 'preview',
+    expect(decodeProtectedHeader(token)).toMatchObject({
+      projectIds: ['prj_blog'],
     });
+  });
+
+  it('encrypts for explicit project IDs', async () => {
+    const token = await encryptFlagValues(values, {
+      jwksUrl,
+      fetch: keySet([publicJwk]),
+      projectIds: ['prj_shell', 'prj_microfrontend'],
+    });
+
+    expect(decodeProtectedHeader(token)).toMatchObject({
+      projectIds: ['prj_shell', 'prj_microfrontend'],
+    });
+  });
+
+  it('requires a project ID before loading the key', async () => {
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    const fetch = keySet([publicJwk]);
+
+    await expect(encryptFlagValues(values, { jwksUrl, fetch })).rejects.toThrow(
+      'flags: Missing a project ID',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: 'an empty list', projectIds: [] },
+    { name: 'an empty ID', projectIds: [''] },
+    { name: 'a long ID', projectIds: ['x'.repeat(151)] },
+    { name: 'duplicate IDs', projectIds: ['prj_a', 'prj_a'] },
+    { name: 'too many IDs', projectIds: Array(101).fill('prj_a') },
+  ])('rejects $name', async ({ projectIds }) => {
+    await expect(
+      encryptFlagValues(values, {
+        jwksUrl,
+        fetch: keySet([publicJwk]),
+        projectIds,
+      }),
+    ).rejects.toThrow('flags: projectIds must contain');
   });
 
   it('loads the keys one time for concurrent and later calls', async () => {

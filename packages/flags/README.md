@@ -265,7 +265,9 @@ const content = serializeFlagValues(await encryptFlagValues(values));
 ```
 
 - Without `FLAGS_SECRET`, the values are encrypted with the public key of
-  Vercel. Only Vercel can decrypt them.
+  Vercel. Only Vercel can decrypt them. The protected header contains the
+  Vercel project ID. Pass `projectIds` to `encryptFlagValues` for more than
+  one project, e.g. for microfrontends.
 - With `FLAGS_SECRET`, they use the format of v4.
 - `serializeFlagValues(values)` without encryption shows the values to each
   visitor. Use it only if this is acceptable.

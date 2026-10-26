@@ -1375,14 +1375,16 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
   error, it throws the same error for 30 seconds, so that a missing key set
   does not cause one request for each page. The key ID (`kid`) in the header
   lets the platform rotate its keys.
+- The protected header has the key ID and the project IDs which may use the
+  token. By default, the SDK uses the ID of the Vercel project. An application
+  can give up to 100 distinct project IDs, e.g. for microfrontends. The intake
+  checks its authorized project before decrypting. The payload has the
+  audience, purpose, version and values; it has no project scope.
 - No authenticity: each visitor can encrypt other values with the public
   key. This is acceptable for analytics, as for each data from the client.
   The intake must not trust the values for other purposes.
-- For now, flags-sdk.dev publishes the key set at
-  `/api/flag-values/jwks.json`, from the environment variable
-  `FLAG_VALUES_PUBLIC_KEY`. The private key is in `FLAG_VALUES_PRIVATE_KEY`
-  of the same project. `apps/docs/scripts/generate-flag-values-keys.mjs`
-  creates a key pair.
+- Vercel publishes the key set at
+  `https://keys.vercel-flags.com/.well-known/jwks.json`.
 - `FlagValues` of `@flags-sdk/next/flag-values` is a server component with
   its own `<Suspense>`. It must not make a page dynamic: a precomputed page
   has values which the proxy selected, and it must stay fully static.
@@ -1692,11 +1694,6 @@ Values that must be replaced are marked with `TEMPORARY:` in the source. The
 `prepublishOnly` script (`scripts/check-temporary.mjs`) stops a publish while
 a file in `src` contains this marker.
 
-- The key set of the flag values (`VERCEL_FLAG_VALUES_JWKS_URL` in
-  `src/flag-values.ts`): it is
-  `https://flags-sdk.dev/api/flag-values/jwks.json` now. Move the key pair
-  (`FLAG_VALUES_PUBLIC_KEY` and `FLAG_VALUES_PRIVATE_KEY` of the project
-  `flags-sdk-dev`) to flags.vercel.com, and replace the URL.
 - The OFREP base URL of Vercel Flags (`VERCEL_OFREP_BASE_URL` in
   `src/default-provider.ts`): it is the local endpoint
   `http://localhost:3031` now. Replace it with the production endpoint.
