@@ -1,5 +1,13 @@
 # @vercel/flags-core
 
+## 1.10.2
+
+### Patch Changes
+
+- [#567](https://github.com/vercel/flags/pull/567) [`5f738f0`](https://github.com/vercel/flags/commit/5f738f08f182838d0efb13fd3efb89751d48cb0a) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Improve guidance for authorization errors.
+
+- [#573](https://github.com/vercel/flags/pull/573) [`e2a1a39`](https://github.com/vercel/flags/commit/e2a1a394e3de4b271c8305bae6cbcf053814ab70) Thanks [@luismeyer](https://github.com/luismeyer)! - Read embedded flag definitions when the client is created, using the SDK key or `VERCEL_PROJECT_ID` in OIDC mode.
+
 ## 1.10.1
 
 ### Patch Changes
