@@ -11,7 +11,7 @@
   "dependencies": {
     "@flags-sdk/statsig": "^0.3.1",
     "flags": "^4.3.1",
-    "next": "16.3.6",
+    "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "@vercel/toolbar": "0.2.7"

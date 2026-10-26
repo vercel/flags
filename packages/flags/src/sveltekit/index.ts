@@ -23,6 +23,7 @@ import {
   version,
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
+import { setSpanAttribute, trace } from '../lib/tracing';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -40,6 +41,7 @@ import type {
   ResolvedFlagDeclaration,
 } from '../types';
 import { tryGetSecret } from './env';
+import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
   precompute as _precompute,
@@ -173,6 +175,7 @@ export function flag<
       typeof requestOrCode === 'string' &&
       Array.isArray(flagsArrayOrSecret)
     ) {
+      setSpanAttribute('method', 'precomputed');
       return getPrecomputed(
         definition.key,
         flagsArrayOrSecret,
@@ -184,6 +187,7 @@ export function flag<
     if (hasOwnProperty(store.usedFlags, definition.key)) {
       const valuePromise = store.usedFlags[definition.key];
       if (typeof valuePromise !== 'undefined') {
+        setSpanAttribute('method', 'cached');
         return valuePromise as Promise<ValueType>;
       }
     }
@@ -199,12 +203,14 @@ export function flag<
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
       if (typeof value !== 'undefined') {
+        setSpanAttribute('method', 'override');
         reportValue(definition.key, value);
         store.usedFlags[definition.key] = Promise.resolve(value as JsonValue);
         return value;
       }
     }
 
+    setSpanAttribute('method', 'decided');
     let entities: EntitiesType | undefined;
     if (identify) {
       // Deduplicate calls to identify, key being the function itself
@@ -231,15 +237,22 @@ export function flag<
     return value;
   };
 
-  flagImpl.key = definition.key;
-  flagImpl.defaultValue = definition.defaultValue;
-  flagImpl.origin = definition.origin;
-  flagImpl.description = definition.description;
-  flagImpl.options = normalizeOptions(definition.options);
-  flagImpl.decide = decide;
-  flagImpl.identify = identify;
+  const api = trace(flagImpl, {
+    name: 'flag',
+    isVerboseTrace: false,
+    isIgnoredError: isSvelteKitControlFlow,
+    attributes: { key: definition.key },
+  });
 
-  return flagImpl;
+  return Object.assign(api, {
+    key: definition.key,
+    defaultValue: definition.defaultValue,
+    origin: definition.origin,
+    description: definition.description,
+    options: normalizeOptions(definition.options),
+    decide,
+    identify,
+  });
 }
 
 export function getProviderData(flags: Record<string, Flag<any>>): ApiData {

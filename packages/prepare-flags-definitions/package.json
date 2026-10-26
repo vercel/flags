@@ -1,6 +1,6 @@
 {
   "name": "@vercel/prepare-flags-definitions",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "description": "A utility for preparing flags definitions for embedding",
   "keywords": [
     "flags",
@@ -49,8 +49,8 @@
     "@types/node": "22.14.0",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vite": "8.1.5",
-    "vitest": "4.1.10"
+    "vite": "8.1.6",
+    "vitest": "4.1.11"
   },
   "publishConfig": {
     "access": "public"

@@ -131,7 +131,9 @@ describe('Controller (black-box)', () => {
       reason: string;
       evaluationCount: number;
       periodStartedAt?: number;
+      revision?: string;
     }> = [],
+    revision = '1',
   ) {
     const periodStartedAt = minuteBucketTs(date.getTime());
 
@@ -148,15 +150,21 @@ describe('Controller (black-box)', () => {
               reason: 'paused',
               evaluationCount,
               periodStartedAt,
+              revision,
             },
           },
           ...extraEvents.map(
-            ({ periodStartedAt: eventPeriod, ...payload }) => ({
+            ({
+              periodStartedAt: eventPeriod,
+              revision: eventRevision = revision,
+              ...payload
+            }) => ({
               type: 'FLAG_EVALUATION',
               ts: date.getTime(),
               payload: {
                 ...payload,
                 periodStartedAt: eventPeriod ?? periodStartedAt,
+                revision: eventRevision,
               },
             }),
           ),
@@ -186,6 +194,63 @@ describe('Controller (black-box)', () => {
     // Reset env vars that affect build step detection
     delete process.env.CI;
     delete process.env.NEXT_PHASE;
+  });
+
+  it.each([
+    ['poll', 3, false, 3],
+    ['poll', 2, true, 2],
+    ['poll', 1, true, 2],
+    ['stream', 3, false, 3],
+    ['stream', 2, true, 2],
+    ['stream', 1, true, 2],
+  ] as const)('applies the version guard to %s version %i', async (source, configUpdatedAt, expectedValue, expectedVersion) => {
+    const stream = createMockStream();
+    const incoming = makeBundled({
+      configUpdatedAt,
+      definitions: {
+        flagA: {
+          environments: { production: 0 },
+          variants: [false, true],
+        },
+      },
+    });
+    const dataFetch = vi.fn<typeof fetch>(async () => Response.json(incoming));
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith('/v1/stream')) return stream.response;
+      if (url.endsWith('/v1/datafile')) return dataFetch(input, init);
+      if (url.endsWith('/v1/ingest')) return Promise.resolve(new Response());
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    const client = createClient(sdkKey, {
+      datafile: makeBundled({ configUpdatedAt: 2 }),
+      fetch: fetchMock,
+      buildStep: false,
+      stream: source === 'stream',
+      polling: source === 'poll',
+    });
+    const cleanupContext = setRequestContext({});
+    try {
+      const initial = client.evaluate('flagA');
+      if (source === 'stream') {
+        stream.push({ type: 'datafile', data: incoming });
+      }
+      expect((await initial).value).toBe(expectedValue);
+      expect((await client.getDatafile()).configUpdatedAt).toBe(
+        expectedVersion,
+      );
+      // An older response keeps the seed but still renews its freshness, so
+      // neither API starts a refresh of its own.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dataFetch).toHaveBeenCalledTimes(source === 'poll' ? 1 : 0);
+    } finally {
+      cleanupContext();
+      try {
+        await client.shutdown();
+      } finally {
+        stream.close();
+      }
+    }
   });
 
   afterEach(() => {
@@ -480,20 +545,21 @@ describe('Controller (black-box)', () => {
       );
     });
 
-    it('should resume usage tracking once polling recovers from a 401', async () => {
+    it('should resume usage tracking after recovering from a 401', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
-      let datafileCalls = 0;
+      let authorized = false;
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/datafile')) {
-          datafileCalls++;
           return Promise.resolve(
-            datafileCalls === 1
-              ? new Response(null, { status: 401, statusText: 'Unauthorized' })
-              : Response.json(makeBundled({ projectId: 'prj_source' })),
+            authorized
+              ? Response.json(makeBundled({ projectId: 'prj_source' }))
+              : new Response(null, { status: 401, statusText: 'Unauthorized' }),
           );
         }
-        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response());
+        }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -503,19 +569,19 @@ describe('Controller (black-box)', () => {
         fetch: fetchMock,
         stream: false,
         polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
-        datafile: makeBundled({ projectId: 'prj_source', revision: 0 }),
       });
 
-      await client.initialize();
-      expect(errorSpy).toHaveBeenCalledTimes(1);
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes('/v1/ingest'),
+        ),
+      ).toHaveLength(0);
 
-      // Unauthorized: evaluations are not tracked.
-      await client.evaluate('flagA');
-      await vi.advanceTimersByTimeAsync(30_000);
-      expect(datafileCalls).toBe(2);
-
-      // Recovered: evaluations are tracked again and flushed on shutdown.
-      await client.evaluate('flagA');
+      authorized = true;
+      expect((await client.evaluate('flagA')).value).toBe(true);
       await client.shutdown();
 
       const ingestCalls = fetchMock.mock.calls.filter((call) =>
@@ -528,7 +594,8 @@ describe('Controller (black-box)', () => {
       }>;
       const evaluation = body.find((e) => e.type === 'FLAG_EVALUATION');
       expect(evaluation?.payload.evaluationCount).toBe(1);
-
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
       cleanupCtx();
     });
 
@@ -662,7 +729,7 @@ describe('Controller (black-box)', () => {
     it('should name the source project when the stream is unauthorized and no fallback exists', async () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/v1/stream')) {
+        if (url.includes('/v1/stream') || url.includes('/v1/datafile')) {
           return Promise.resolve(new Response(null, { status: 401 }));
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -680,6 +747,11 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(100);
       await expectation;
 
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes('/v1/stream'),
+        ),
+      ).toHaveLength(1);
       await client.shutdown();
     });
 
@@ -703,16 +775,10 @@ describe('Controller (black-box)', () => {
       });
 
       await expect(client.evaluate('flagA')).rejects.toThrow(
-        'No flag definitions available. Provide a datafile or bundled definitions. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+        'Failed to fetch data: unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
       );
-      expect(errorSpy).toHaveBeenCalledWith(
-        '@vercel/flags-core: Poll failed:',
-        expect.objectContaining({
-          message: expect.stringContaining(
-            'not allowed to read the flags of project "prj_source"',
-          ),
-        }),
-      );
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
 
       await client.shutdown();
     });
@@ -979,6 +1045,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -1354,7 +1421,7 @@ describe('Controller (black-box)', () => {
 
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/v1/stream')) {
+        if (url.includes('/v1/stream') || url.includes('/v1/datafile')) {
           return Promise.resolve(new Response(null, { status: 401 }));
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1375,11 +1442,19 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
+      // Polling gave up on the 401 as well, so the read revalidates the
+      // unconfirmed bundled entry once in the background and logs the failure.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Revalidation failed:',
+        expect.objectContaining({ status: 401 }),
+      );
       errorSpy.mockRestore();
 
-      // Only one stream call — 401 does not trigger retries
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      // One stream call, one immediate fallback poll, one read revalidation; none retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: {
@@ -1392,8 +1467,9 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenLastCalledWith(
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         'https://flags.vercel.com/v1/stream',
         {
           headers: { ...streamRequestHeaders, 'X-Revision': '1' },
@@ -1403,8 +1479,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // still only one call, no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Still only the stream, the poll, and the revalidation, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1602,6 +1678,9 @@ describe('Controller (black-box)', () => {
       fetchMock.mockImplementation((input) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
+        }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       });
@@ -1639,6 +1718,9 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/stream')) {
           const body = new ReadableStream<Uint8Array>({ start() {} });
           return Promise.resolve(new Response(body, { status: 200 }));
+        }
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 403 }));
         }
         return Promise.resolve(new Response('', { status: 200 }));
       });
@@ -1780,7 +1862,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1802,13 +1884,18 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      expect(pollCount).toBe(0);
+      // The stream keeps connecting in the background; polling never starts, but
+      // the read revalidates the unconfirmed bundled entry once over HTTP.
+      expect(pollCount).toBe(1);
 
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       warnSpy.mockRestore();
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      await client.shutdown();
       expect(fetchMock).toHaveBeenCalledTimes(2);
+      await client.shutdown();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock).toHaveBeenLastCalledWith(
         'https://flags.vercel.com/v1/ingest',
         {
@@ -1839,6 +1926,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -1866,7 +1954,7 @@ describe('Controller (black-box)', () => {
         if (url.includes('/v1/datafile')) {
           pollCount++;
           return Promise.resolve(
-            Response.json(makeBundled({ projectId: 'polled' })),
+            Response.json(makeBundled({ projectId: 'bundled' })),
           );
         }
         if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
@@ -1891,9 +1979,14 @@ describe('Controller (black-box)', () => {
 
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.metrics?.source).toBe('embedded');
-      // No polling should have started
-      expect(pollCount).toBe(0);
+      // The stream is still retrying, so polling has not taken over; the read
+      // revalidates the unconfirmed bundled entry once over HTTP.
+      expect(pollCount).toBe(1);
 
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
       errorSpy.mockRestore();
       warnSpy.mockRestore();
 
@@ -1928,6 +2021,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(after.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -2285,10 +2379,17 @@ describe('Controller (black-box)', () => {
 
       // Stream retries with backoff; advance timers so the init timeout fires
       const initPromise = client.initialize();
-      await vi.advanceTimersByTimeAsync(5100);
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(pollCount).toBe(0);
+      await vi.advanceTimersByTimeAsync(101);
       await initPromise;
 
+      // Disconnects during retries never start polling; only an exhausted stream does.
       expect(pollCount).toBe(0);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith(
+        '@vercel/flags-core: Stream initialization timeout, falling back while continuing to connect in the background',
+      );
 
       await client.shutdown();
       errorSpy.mockRestore();
@@ -2428,14 +2529,27 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(90_000);
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should have transitioned to degraded
+      // Renew the zombie transport without degrading the selected source.
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith('/v1/datafile'),
+        ),
+      ).toHaveLength(0);
+      expect(streamCount).toBe(2);
+
+      streams[1]!.push({ type: 'datafile', data: datafile });
+      await vi.advanceTimersByTimeAsync(0);
       const result2 = await client.evaluate('flagA');
-      expect(result2.metrics?.connectionState).toBe('disconnected');
+      expect(result2.value).toBe(result1.value);
+      expect(result2.metrics).toMatchObject({
+        mode: 'streaming',
+        connectionState: 'connected',
+        cacheStatus: 'HIT',
+      });
 
-      // Should have attempted reconnection
-      expect(streamCount).toBeGreaterThanOrEqual(2);
-
+      expect(errorSpy).not.toHaveBeenCalled();
       await client.shutdown();
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 
@@ -2726,10 +2840,11 @@ describe('Controller (black-box)', () => {
       streams[1]!.push({ type: 'datafile', data: olderData });
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should still have newer data (configUpdatedAt guard rejected older)
+      // The version guard rejects the older response after reconnection.
       const result2 = await client.evaluate('flagA');
       expect(result2.value).toBe(true); // still variant 1
       expect(result2.metrics?.connectionState).toBe('connected');
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       await client.shutdown();
     });
@@ -2806,6 +2921,7 @@ describe('Controller (black-box)', () => {
                   reason: 'paused',
                   evaluationCount: 1,
                   periodStartedAt: minuteBucketTs(date.getTime()),
+                  revision: '1',
                 },
               },
             ]),
@@ -2839,7 +2955,7 @@ describe('Controller (black-box)', () => {
 
       const result = await client.getDatafile();
       expect(result.metrics.source).toBe('embedded');
-      expect(result.metrics.cacheStatus).toBe('MISS');
+      expect(result.metrics.cacheStatus).toBe('STALE');
       expect(result.metrics.connectionState).toBe('disconnected');
 
       await client.shutdown();
@@ -2907,7 +3023,8 @@ describe('Controller (black-box)', () => {
       const rejection = expect(client.getDatafile()).rejects.toThrow(
         '@vercel/flags-core: No flag definitions available',
       );
-      await vi.advanceTimersByTimeAsync(300);
+      // Lazy initialization and the read use the same fallback sequence as evaluate.
+      await vi.advanceTimersByTimeAsync(600);
       await rejection;
 
       await client.shutdown();
@@ -2980,7 +3097,7 @@ describe('Controller (black-box)', () => {
 
       const result1 = await client.getDatafile();
       expect(result1.metrics).toEqual({
-        cacheStatus: 'MISS',
+        cacheStatus: 'STALE',
         connectionState: 'disconnected',
         mode: 'offline',
         readMs: 0,
@@ -3149,9 +3266,10 @@ describe('Controller (black-box)', () => {
       stream.push({ type: 'datafile', data: olderDatafile });
       await vi.advanceTimersByTimeAsync(50);
 
-      // Should still have newer data (older message was rejected)
+      // Keep the newer data; the older message was rejected.
       const result = await client.evaluate('flagA', undefined, undefined);
       expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe(2000);
 
       stream.close();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -3197,6 +3315,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime() + 60),
+                revision: '1',
               },
             },
           ]),
@@ -3206,8 +3325,6 @@ describe('Controller (black-box)', () => {
     });
 
     it('should skip stream data with equal configUpdatedAt', async () => {
-      vi.useRealTimers();
-
       const data1 = makeBundled({
         configUpdatedAt: 1000,
         definitions: {
@@ -3245,15 +3362,17 @@ describe('Controller (black-box)', () => {
       const initPromise = client.initialize();
 
       stream.push({ type: 'datafile', data: data1 });
-      await new Promise((r) => setTimeout(r, 10));
+      await vi.advanceTimersByTimeAsync(0);
       await initPromise;
+      expect((await client.evaluate('flagA')).value).toBe(false);
 
       stream.push({ type: 'datafile', data: data2 });
-      await new Promise((r) => setTimeout(r, 50));
+      await vi.advanceTimersByTimeAsync(0);
 
-      // Should have kept first data (equal configUpdatedAt is not newer)
+      // Keep the first data; equal configUpdatedAt is not newer.
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(false); // variant 0 = data1
+      expect((await client.getDatafile()).configUpdatedAt).toBe(1000);
 
       stream.close();
       await client.shutdown();
@@ -3312,9 +3431,7 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should handle configUpdatedAt as string', async () => {
-      vi.useRealTimers();
-
+    it('should reject older stream responses with string configUpdatedAt', async () => {
       const newerDatafile = {
         ...makeBundled({
           definitions: {
@@ -3356,15 +3473,16 @@ describe('Controller (black-box)', () => {
       const initPromise = client.initialize();
 
       stream.push({ type: 'datafile', data: newerDatafile });
-      await new Promise((r) => setTimeout(r, 10));
+      await vi.advanceTimersByTimeAsync(0);
       await initPromise;
+      expect((await client.evaluate('flagA')).value).toBe(true);
 
       stream.push({ type: 'datafile', data: olderDatafile });
-      await new Promise((r) => setTimeout(r, 50));
+      await vi.advanceTimersByTimeAsync(0);
 
-      // Should still have newer data
       const result = await client.evaluate('flagA');
       expect(result.value).toBe(true); // variant 1 = newer
+      expect((await client.getDatafile()).configUpdatedAt).toBe('2000');
 
       stream.close();
       await client.shutdown();
@@ -3915,6 +4033,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 3,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -4131,6 +4250,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime() + 300),
+                revision: '1',
               },
             },
           ]),
@@ -4242,6 +4362,40 @@ describe('Controller (black-box)', () => {
           '@vercel/flags-core: No flag definitions available',
         ),
       });
+    });
+
+    it('should report FLAG_EVALUATION without revision when no datafile is available', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'missing-file',
+        definitions: null,
+      });
+
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      const evaluation = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(600);
+      await evaluation;
+      await client.shutdown();
+
+      const ingestCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/ingest'),
+      );
+      const events = JSON.parse(String(ingestCall?.[1]?.body)) as Array<{
+        type: string;
+        payload: Record<string, unknown>;
+      }>;
+      const evaluations = events.filter(
+        (event) => event.type === 'FLAG_EVALUATION',
+      );
+
+      expect(evaluations).toHaveLength(1);
+      expect(evaluations[0]?.payload).toMatchObject({ reason: 'error' });
+      expect(evaluations[0]?.payload).not.toHaveProperty('revision');
     });
 
     it('should throw when all data sources fail and no defaultValue provided', async () => {
@@ -4657,6 +4811,78 @@ describe('Controller (black-box)', () => {
       cleanupCtx();
     });
 
+    it('should report FLAG_EVALUATION events separately per config revision', async () => {
+      const makeDatafile = (revision: number) =>
+        makeBundled({
+          configUpdatedAt: revision * 1000,
+          revision,
+          definitions: {
+            flagA: {
+              environments: { production: 1 },
+              variants: [false, true],
+            },
+          },
+        });
+
+      const stream = createMockStream();
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) {
+          return stream.response;
+        }
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response());
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      const initPromise = client.initialize();
+      stream.push({ type: 'datafile', data: makeDatafile(1) });
+      await vi.advanceTimersByTimeAsync(10);
+      await initPromise;
+
+      await client.evaluate('flagA', undefined, undefined);
+      await client.evaluate('flagA', undefined, undefined);
+
+      stream.push({ type: 'datafile', data: makeDatafile(2) });
+      await vi.advanceTimersByTimeAsync(50);
+
+      await client.evaluate('flagA', undefined, undefined);
+
+      stream.close();
+      await client.shutdown();
+
+      const ingestCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/ingest'),
+      );
+      const events = JSON.parse(String(ingestCall?.[1]?.body)) as Array<{
+        type: string;
+        payload: { revision?: string; evaluationCount: number };
+      }>;
+      const evaluations = events
+        .filter((event) => event.type === 'FLAG_EVALUATION')
+        .map((event) => [
+          event.payload.revision,
+          event.payload.evaluationCount,
+        ]);
+
+      expect(evaluations).toHaveLength(2);
+      expect(evaluations).toEqual(
+        expect.arrayContaining([
+          ['1', 2],
+          ['2', 1],
+        ]),
+      );
+      cleanupCtx();
+    });
+
     it('should report counted FLAG_EVALUATION events', async () => {
       const cleanupCtx = setRequestContext({ host: 'example.com' });
       fetchMock.mockImplementation((input) => {
@@ -4728,6 +4954,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 2,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
             {
@@ -4740,6 +4967,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
             {
@@ -4752,6 +4980,7 @@ describe('Controller (black-box)', () => {
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
                 clientName: 'checkout',
+                revision: '1',
               },
             },
           ]),
@@ -4873,7 +5102,7 @@ describe('Controller (black-box)', () => {
 
       // Config reads skip without request context, but evaluations are still reported.
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expectEvaluationOnlyIngest();
+      expectEvaluationOnlyIngest(1, [], '2');
     });
 
     it('should not track FLAGS_CONFIG_READ during build step (no request context)', async () => {
@@ -4970,6 +5199,7 @@ describe('Controller (black-box)', () => {
                 reason: 'paused',
                 evaluationCount: 1,
                 periodStartedAt: minuteBucketTs(date.getTime()),
+                revision: '1',
               },
             },
           ]),
@@ -5016,7 +5246,7 @@ describe('Controller (black-box)', () => {
 
       // Config reads skip without request context, but evaluations are still reported.
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expectEvaluationOnlyIngest();
+      expectEvaluationOnlyIngest(1, [], '2');
     });
   });
 });

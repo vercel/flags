@@ -20,6 +20,27 @@ export const exampleFlag = flag({
 });
 ```
 
+### Read a connected project's flags
+
+In the source project's **Flags → Connections** page, grant your project read access. Both projects must belong to the same team. Pass the source project's ID to the adapter:
+
+```ts
+import { flag } from 'flags/next';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const sharedAdapter = createVercelAdapter({ projectId: 'prj_source' });
+
+export const sharedFeature = flag({
+  key: 'shared-feature',
+  adapter: sharedAdapter,
+  defaultValue: false,
+});
+```
+
+This uses your project's OIDC token, without an SDK key. Keep `vercelAdapter` for your project's own flags. Connections apply across environments; the token selects the source environment, with custom environments mapped to preview. For local development, run `vercel env pull` in your project.
+
+See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
+
 ### Using your own client (e.g. for singleton)
 
 If your app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both use the same instance:

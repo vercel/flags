@@ -25,6 +25,7 @@ import type {
   Value,
   WaitUntil,
 } from './types';
+import { hasRequestHeaders } from './utils/request-context';
 
 let idCount = 0;
 
@@ -115,25 +116,36 @@ export function createCreateRawClient(fns: {
       };
     }
 
+    /** Sets the controller up once; concurrent callers share the attempt. */
+    async function setUp(): Promise<void> {
+      let instance = controllerInstanceMap.get(id);
+      if (!instance) {
+        instance = { controller, initialized: false, initPromise: null };
+        controllerInstanceMap.set(id, instance);
+      }
+
+      // skip if already initialized
+      if (instance.initialized) {
+        return;
+      }
+
+      if (!instance.initPromise) {
+        instance.initPromise = performInitialize(instance, () =>
+          fns.initialize(id, { prepareRequest: false }),
+        );
+      }
+
+      return instance.initPromise;
+    }
+
     const api = {
       origin,
       initialize: async () => {
-        let instance = controllerInstanceMap.get(id);
-        if (!instance) {
-          instance = { controller, initialized: false, initPromise: null };
-          controllerInstanceMap.set(id, instance);
+        await setUp();
+        // Inside a request, also prepare the cache for that request.
+        if (hasRequestHeaders()) {
+          await fns.initialize(id);
         }
-
-        // skip if already initialized
-        if (instance.initialized) return;
-
-        if (!instance.initPromise) {
-          instance.initPromise = performInitialize(instance, () =>
-            fns.initialize(id),
-          );
-        }
-
-        return instance.initPromise;
       },
       shutdown: async () => {
         await fns.shutdown(id);
@@ -144,6 +156,7 @@ export function createCreateRawClient(fns: {
       },
       getDatafile: async () => {
         const instance = controllerInstanceMap.get(id);
+        // A snapshot shares initialization already in flight but never starts it.
         if (instance?.initPromise) {
           try {
             await instance.initPromise;
@@ -165,7 +178,7 @@ export function createCreateRawClient(fns: {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
           try {
-            await api.initialize();
+            await setUp();
           } catch {
             // Initialization failed — let evaluate() handle the fallback
             // chain (last known value → datafile → bundled → defaultValue → throw)
@@ -197,7 +210,7 @@ export function createCreateRawClient(fns: {
         const instance = controllerInstanceMap.get(id);
         if (!instance?.initialized) {
           try {
-            await api.initialize();
+            await setUp();
           } catch {
             // Initialization failed — let bulkEvaluate() handle the fallback
             // chain (last known value → datafile → bundled → defaultValue → throw)
@@ -236,7 +249,7 @@ export function createCreateRawClient(fns: {
 
         try {
           const instance = controllerInstanceMap.get(id);
-          if (!instance?.initialized) await api.initialize();
+          if (!instance?.initialized) await setUp();
           const datafile = await fns.getDatafile(id);
           const definition = datafile.definitions[key] as Packed.FlagDefinition;
           const experiment = definition?.experiment;

@@ -33,8 +33,10 @@ export function authHeaders(
 }
 
 export function unauthorizedMessage(sourceProjectId?: string): string {
-  if (!sourceProjectId) return 'unauthorized (401)';
-  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected.`;
+  if (!sourceProjectId) {
+    return 'unauthorized (401)';
+  }
+  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected. See https://vercel.com/docs/flags/vercel-flags/project-connections`;
 }
 
 async function getOidcToken(): Promise<string> {
