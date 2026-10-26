@@ -1384,7 +1384,7 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
   key. This is acceptable for analytics, as for each data from the client.
   The intake must not trust the values for other purposes.
 - Vercel publishes the key set at
-  `https://flags-keys.vercel.app/.well-known/jwks.json`.
+  `https://keys.vercel-flags.com/.well-known/jwks.json`.
 - `FlagValues` of `@flags-sdk/next/flag-values` is a server component with
   its own `<Suspense>`. It must not make a page dynamic: a precomputed page
   has values which the proxy selected, and it must stay fully static.

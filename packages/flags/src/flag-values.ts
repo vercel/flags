@@ -18,7 +18,7 @@ export type FlagValuesType = Record<string, JsonValue>;
  * @internal
  */
 export const VERCEL_FLAG_VALUES_JWKS_URL =
-  'https://flags-keys.vercel.app/.well-known/jwks.json';
+  'https://keys.vercel-flags.com/.well-known/jwks.json';
 
 /**
  * The rules for flag values which are encrypted with the public key of the
