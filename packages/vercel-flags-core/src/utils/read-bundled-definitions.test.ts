@@ -11,6 +11,7 @@ describe('readBundledDefinitions', () => {
   const auth: Auth = {
     sdkKey: 'test-id',
     resolveToken: () => Promise.resolve('test-id'),
+    getStaticBundledDefinitionsLookup: () => undefined,
     resolveBundledDefinitionsLookup: () =>
       Promise.resolve({ type: 'sdk-key', sdkKey: 'test-id' }),
   };
@@ -86,6 +87,7 @@ describe('readBundledDefinitions', () => {
 
     const oidcAuth: Auth = {
       resolveToken: () => Promise.resolve('token'),
+      getStaticBundledDefinitionsLookup: () => undefined,
       resolveBundledDefinitionsLookup: () =>
         Promise.resolve({ type: 'project-id', projectId: 'prj_test' }),
     };

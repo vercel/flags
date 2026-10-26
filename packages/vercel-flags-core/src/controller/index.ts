@@ -189,7 +189,7 @@ export class Controller implements ControllerInterface {
     // lookup needs no token, so they are ready by the first evaluation.
     if (
       !this.options.datafile &&
-      this.options.auth.getStaticBundledDefinitionsLookup?.()
+      this.options.auth.getStaticBundledDefinitionsLookup()
     ) {
       this.bundledSource.preload();
     }

@@ -18,7 +18,7 @@ export interface Auth {
   resolveToken(): Promise<string>;
   resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup>;
   /** Returns the lookup when it is known without resolving a token. */
-  getStaticBundledDefinitionsLookup?(): BundledDefinitionsLookup | undefined;
+  getStaticBundledDefinitionsLookup(): BundledDefinitionsLookup | undefined;
 }
 
 export function authHeaders(
