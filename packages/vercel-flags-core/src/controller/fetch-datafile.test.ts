@@ -17,6 +17,7 @@ const options = {
   host: 'https://flags.example.com',
   auth: {
     resolveToken,
+    getStaticBundledDefinitionsLookup: () => undefined,
     resolveBundledDefinitionsLookup: async () => ({
       type: 'project-id' as const,
       projectId: 'prj_test',
