@@ -383,16 +383,19 @@ e.g. Flags Explorer, or send them to an analytics service of the platform.
 
 - A JWE with the algorithm `ECDH-ES` and the encryption `A256GCM`, with a
   public key of the platform (P-256). The protected header MUST have the
-  `kid` of the key.
+  `kid` of the key and `projectIds`, a non-empty list of at most 100
+  distinct, non-empty strings of at most 150 characters each. The platform
+  MUST reject the token unless the protected list contains the authorized
+  project. A list in the payload or an unprotected header grants nothing.
 - The platform publishes its public keys as a JWK Set. The set MUST NOT
   contain private or secret keys. The implementation MUST use the first
   key with `kty` `EC`, `crv` `P-256`, and, if they are present, `use` `enc`
   and `alg` `ECDH-ES`.
 - The payload MUST have `aud` with `vercel:flag-values`, `pur` with
-  `flag-values`, `ver` with `1`, the integer `iat`, and `values` with the
-  object of flag keys and values. It SHOULD have `scope` with the
-  `projectId`, the `environment` and, if it is known, the `teamId` of the
-  platform project. It MAY have `exp`.
+  `flag-values`, `ver` with `1`, and `values` with the object of flag keys
+  and values. It MAY have `exp`, `nbf`, `iat` and other claims. When present,
+  the platform MUST check `exp` and `nbf`.
+- The token MUST have at most 65,536 characters.
 - Only the platform can decrypt the token. The token gives no
   authenticity: each visitor can encrypt other values with the public key.
   A receiver MUST NOT trust the values for decisions, e.g. for access.
