@@ -2,7 +2,7 @@
 name: vercel-flags
 description: >
   Feature flags, A/B tests, and gradual rollouts with Vercel Flags, in any app or framework.
-  Use whenever the user is planning, adding, or changing a feature flag, toggle, kill switch,
+  Use whenever the user is planning, adding, changing, or cleaning up a feature flag, toggle, kill switch,
   experiment, percentage rollout, or targeting rule, or wants to gate or hide a feature for some
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
@@ -24,6 +24,7 @@ Use this skill to decide how a feature should be flagged, to create and change f
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
 - **Create or manage a flag with no code change** (create, inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
+- **Clean up or remove a flag** ("remove this flag", "clean up stale flags", "inline this flag"): follow [references/cleanup.md](references/cleanup.md), then [Lifecycle and safety](references/cli.md#lifecycle-and-safety) before archiving.
 - **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
 - **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
 
@@ -73,7 +74,7 @@ Always `inspect` first so you know what each environment serves today, and match
 - **A/B test**: `split <key> --by user.id ...` ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).
 - **Targeting rules and segments**: `rules`, `segments`, and `targeting enable <key>` to switch an environment from a static value back to targets and rules (CLI versions before 65 call it `use-targeting <key>`).
 - **Verify**: `inspect` for the served state, `versions` for history, `evaluations` to confirm traffic reaches the new variant.
-- **Retire**: remove the code first, verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
+- **Retire**: remove the code first ([references/cleanup.md](references/cleanup.md)), verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
 
 `archive`, `unarchive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
 
@@ -113,3 +114,4 @@ The third argument to `evaluate()` is the evaluation context; its entity and att
 ## References
 
 - **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
+- **[references/cleanup.md](references/cleanup.md)**: removing a flag from code: the evidence to gather, which value to inline, when to stop, what to delete, and what the cleanup PR should contain.
