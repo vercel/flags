@@ -17,6 +17,8 @@ export interface Auth {
   sourceProjectId?: string;
   resolveToken(): Promise<string>;
   resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup>;
+  /** Returns the lookup when it is known without resolving a token. */
+  getStaticBundledDefinitionsLookup?(): BundledDefinitionsLookup | undefined;
 }
 
 export function authHeaders(
@@ -102,13 +104,30 @@ export class Authentication implements Auth {
     return await getOidcToken();
   }
 
-  public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
+  public getStaticBundledDefinitionsLookup():
+    | BundledDefinitionsLookup
+    | undefined {
     if (this.sdkKey) {
       return { type: 'sdk-key', sdkKey: this.sdkKey };
     }
 
     if (this.sourceProjectId) {
       return { type: 'project-id', projectId: this.sourceProjectId };
+    }
+
+    // The OIDC token belongs to the deployment's own project.
+    const projectId = process.env.VERCEL_PROJECT_ID;
+    if (projectId) {
+      return { type: 'project-id', projectId };
+    }
+
+    return undefined;
+  }
+
+  public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
+    const lookup = this.getStaticBundledDefinitionsLookup();
+    if (lookup) {
+      return lookup;
     }
 
     const oidcToken = await this.resolveToken();

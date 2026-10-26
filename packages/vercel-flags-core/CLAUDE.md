@@ -55,7 +55,7 @@ createClient(sdkKey, options)
 `Authentication` (`controller/auth.ts`) is built from the value passed to `createClient`:
 
 - `vf_server_*` / `vf_client_*` or `flags:…&sdkKey=vf_…` → SDK key mode. The key is the bearer token and the bundled-definitions lookup key (hashed).
-- `undefined` → OIDC mode for the deployment's own project. The bearer token comes from `@vercel/oidc`; bundled definitions are looked up by the token's `project_id`.
+- `undefined` → OIDC mode for the deployment's own project. The bearer token comes from `@vercel/oidc`; bundled definitions are looked up by `VERCEL_PROJECT_ID`, falling back to the token's `project_id`.
 
 `Auth.sourceProjectId` names another project to read with the same OIDC token: `X-Vercel-Flags-Project-Id` is added on datafile, stream, and ingest requests (`authHeaders()`), bundled definitions are looked up by that id, and events bypass the runtime ingest transport because it attributes to the calling project. Nothing sets it yet.
 
@@ -176,7 +176,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 5. **One-time fetch** - Last resort (only when stream and polling are both disabled)
 
 Key behaviors:
-- Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
+- Bundled definitions are read on client creation (no provided datafile) when the lookup needs no token: an SDK key, `sourceProjectId`, or `VERCEL_PROJECT_ID`. Otherwise they load during initialization, so their revision can be sent to the stream via `X-Revision` header
 - When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
