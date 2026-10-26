@@ -1,0 +1,204 @@
+---
+title: 'Wingify'
+description: 'Evaluate Wingify Feature Management flags with the Flags SDK.'
+---
+
+The [Wingify](https://www.wingify.com/) provider for the [Flags SDK](https://flags-sdk.dev/) evaluates Wingify Feature Management flags and variables.
+
+The `@flags-sdk/wingify` provider package exports
+
+- An [adapter](#provider-instance) for flags from Wingify.
+- Flags Explorer helpers (`getProviderData`, `mergeWingifyExplorerData`).
+
+<LearnMore icon="arrow" href="/providers">
+  Learn more about Adapters
+</LearnMore>
+
+<LearnMore
+  icon="arrow"
+  href="https://vercel.com/docs/flags/flags-explorer"
+  target="_blank"
+>
+  Learn more about the Flags Explorer
+</LearnMore>
+
+## Setup
+
+The Wingify provider is available in the `@flags-sdk/wingify` module. Install it with
+
+```bash
+npm i @flags-sdk/wingify
+```
+
+Set the required environment variables:
+
+```sh
+export WINGIFY_ACCOUNT_ID="your-account-id"
+export WINGIFY_SDK_KEY="your-sdk-key"
+```
+
+## Provider instance
+
+Import the default adapter instance `wingifyAdapter` from `@flags-sdk/wingify`:
+
+```ts
+import { wingifyAdapter } from '@flags-sdk/wingify';
+```
+
+This adapter reads credentials from environment variables on first use:
+
+- `WINGIFY_ACCOUNT_ID` (required)
+- `WINGIFY_SDK_KEY` (required)
+
+`entities.id` (from `identify`) is required. The adapter throws if it is missing, because Wingify needs a stable user identifier to evaluate the flag.
+
+```ts
+import { flag } from 'flags/next';
+import { wingifyAdapter } from '@flags-sdk/wingify';
+
+export const checkoutV2 = flag<boolean>({
+  key: 'checkout-v2',
+  defaultValue: false,
+  adapter: wingifyAdapter.variation(),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+```
+
+### Feature variables
+
+Pass `variableName` to resolve a Wingify feature variable instead of the boolean enabled state:
+
+```ts
+export const themeColor = flag<string>({
+  key: 'theme',
+  defaultValue: 'blue',
+  adapter: wingifyAdapter.variation({
+    variableName: 'color',
+    defaultValue: 'blue',
+  }),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+```
+
+When the Flags SDK key is a composite Explorer key such as `checkoutFlow:discount`, set `featureKey` to the Wingify feature key:
+
+```ts
+export const checkoutDiscount = flag<number>({
+  key: 'checkoutFlow:discount',
+  defaultValue: 0,
+  adapter: wingifyAdapter.variation({
+    featureKey: 'checkoutFlow',
+    variableName: 'discount',
+    defaultValue: 0,
+  }),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+```
+
+## Identify users
+
+`identify()` returns a `WingifyContext` (re-exported from the Wingify Node SDK). Anything you return is forwarded to `getFlag()`.
+
+```ts
+import { flag } from 'flags/next';
+import { wingifyAdapter, type WingifyContext } from '@flags-sdk/wingify';
+
+export const checkoutV2 = flag<boolean, WingifyContext>({
+  key: 'checkout-v2',
+  defaultValue: false,
+  adapter: wingifyAdapter.variation(),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+    userAgent: headers.get('user-agent') ?? undefined,
+    ipAddress: headers.get('x-forwarded-for') ?? undefined,
+    customVariables: { plan: 'pro', country: 'US' },
+  }),
+});
+```
+
+| Field | Description | Required |
+| --- | --- | --- |
+| `id` | Unique identifier for the user | Yes |
+| `userAgent` | Browser or device targeting | No |
+| `ipAddress` | Location-based targeting | No |
+| `customVariables` | Custom attributes for targeting | No |
+| `postSegmentationVariables` | Variables used for post-segmentation | No |
+| `bucketingSeed` | Custom string used for bucketing instead of `id` | No |
+
+See the [Wingify Node SDK docs](https://developers.wingify.com/v3/docs/fme-node-install) for targeting details.
+
+## Custom adapter
+
+Use `createWingifyAdapter` to pass credentials explicitly, use more than one Wingify account, or set extra SDK options such as `pollInterval`, `batchEventData`, `isDevelopmentMode`, `gatewayService`, `storage`, or `logger`.
+
+```ts
+import { flag } from 'flags/next';
+import { createWingifyAdapter } from '@flags-sdk/wingify';
+
+const adapter = createWingifyAdapter({
+  accountId: '12345',
+  sdkKey: 'your-sdk-key',
+  pollInterval: 60000,
+  isDevelopmentMode: true,
+});
+
+export const myFlag = flag<boolean>({
+  key: 'my-flag',
+  defaultValue: false,
+  adapter: adapter.variation(),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+```
+
+`shouldWaitForTrackingCalls` defaults to `true` so impression calls finish before the serverless function exits. Pass `shouldWaitForTrackingCalls: false` to opt out.
+
+## Flags Explorer
+
+Import Explorer helpers from `@flags-sdk/wingify`.
+
+1. Call `getProviderData(client)` to load definitions from Wingify settings.
+2. Merge flags declared in code so overrides still apply to `flag()` keys your app uses.
+
+Auto-map behavior:
+
+| Wingify feature | Explorer rows |
+| --- | --- |
+| No variables | `featureKey` with Disabled / Enabled |
+| Has variables | One row per variable as `featureKey:variableName` |
+
+```ts title="app/.well-known/vercel/flags/route.ts#next"
+import {
+  getProviderData as getCodeFlagsProviderData,
+  createFlagsDiscoveryEndpoint,
+} from 'flags/next';
+import {
+  getProviderData,
+  mergeWingifyExplorerData,
+  wingifyAdapter,
+} from '@flags-sdk/wingify';
+import { appFlags } from '@/flags';
+
+export const GET = createFlagsDiscoveryEndpoint(async () => {
+  const client = await wingifyAdapter.wingifyClient;
+  return mergeWingifyExplorerData(
+    await getProviderData(client),
+    getCodeFlagsProviderData(appFlags),
+  );
+});
+```
+
+You can also set `options` on `flag({ options: [...] })`. Those replace Wingify-generated options after merge.
+
+## Read more
+
+- [Adapter Source Code](https://github.com/vercel/flags/tree/main/packages/adapter-wingify)
+- [Wingify Node SDK](https://developers.wingify.com/v3/docs/fme-node-install)
+- [Flags Explorer](https://vercel.com/docs/flags/flags-explorer)

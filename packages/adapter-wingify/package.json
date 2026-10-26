@@ -1,0 +1,78 @@
+{
+  "name": "@flags-sdk/wingify",
+  "version": "0.0.1",
+  "description": "Wingify provider for the Flags SDK",
+  "keywords": [
+    "flags-sdk",
+    "wingify",
+    "vercel",
+    "feature flags",
+    "flags",
+    "fm"
+  ],
+  "homepage": "https://flags-sdk.dev",
+  "bugs": {
+    "url": "https://github.com/vercel/flags/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git"
+  },
+  "license": "MIT",
+  "author": "Wingify Software Pvt. Ltd.",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./provider": {
+      "types": "./dist/provider/index.d.ts",
+      "import": "./dist/provider/index.js",
+      "require": "./dist/provider/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/index.d.ts",
+        "./dist/index.d.cts"
+      ],
+      "provider": [
+        "./dist/provider/index.d.ts",
+        "./dist/provider/index.d.cts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "dev": "tsup --watch --clean=false",
+    "check": "biome check",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "wingify-fme-node-sdk": "^1.60.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "flags": "workspace:*",
+    "rimraf": "6.1.2",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "vite": "8.1.5",
+    "vitest": "4.1.11"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
