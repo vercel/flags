@@ -1,11 +1,6 @@
-// The @vercel/flags-definitions module is created at build time by Vercel CLI
-// in node_modules/. This is a fallback mechanism used so the app can always
-// fall back to a bundled version of the definitions, even if the flags network
-// is degraded or unavailable.
-//
-
 import type { Auth, BundledDefinitionsLookup } from '../controller/auth';
 import type { BundledDefinitions, BundledDefinitionsResult } from '../types';
+import { readDefinitionsFile } from './read-definitions-file';
 
 /** In-memory cache of SDK key to its hashed value, so we don't re-hash repeatedly. */
 const sdkKeyHashCache = new Map<string, Promise<string>>();
@@ -40,11 +35,21 @@ export async function readBundledDefinitions(
 ): Promise<BundledDefinitionsResult> {
   let get: (sdkKey: string) => BundledDefinitions | null;
   try {
-    const module = await import(
-      /* turbopackOptional: true */
-      '@vercel/flags-definitions'
-    );
-    get = module.get as (sdkKey: string) => BundledDefinitions | null;
+    const snapshot = await readDefinitionsFile();
+    if (snapshot) {
+      get = (key) => {
+        if (Object.hasOwn(snapshot.entries, key)) {
+          return snapshot.entries[key] ?? null;
+        }
+        return null;
+      };
+    } else {
+      const module = await import(
+        /* turbopackOptional: true */
+        '@vercel/flags-definitions'
+      );
+      get = module.get as (sdkKey: string) => BundledDefinitions | null;
+    }
   } catch (error) {
     // If the module doesn't exist, the prepare script didn't run
     if (
