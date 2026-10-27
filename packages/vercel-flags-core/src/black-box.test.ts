@@ -4319,7 +4319,7 @@ describe('Controller (black-box)', () => {
   // Lazy initialization
   // ---------------------------------------------------------------------------
   describe('lazy initialization', () => {
-    it('should not load bundled definitions or stream or poll on creation', () => {
+    it('should load bundled definitions but not stream or poll on creation', () => {
       const client = createClient(sdkKey, {
         buildStep: false,
         fetch: fetchMock,
@@ -4327,7 +4327,71 @@ describe('Controller (black-box)', () => {
 
       expect(client).toBeDefined();
       expect(fetchMock).not.toHaveBeenCalled();
-      // Bundled definitions are loaded lazily, not at construction time
+      // Bundled definitions are read eagerly when the SDK key is known
+      expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+    });
+
+    it('should read bundled definitions only once across creation and evaluation', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled(),
+      });
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        stream: false,
+        polling: false,
+        fetch: fetchMock,
+      });
+
+      const result = await client.evaluate('flagA');
+
+      expect(result.metrics?.source).toBe('embedded');
+      expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+      await client.shutdown();
+    });
+
+    it('should load bundled definitions on creation by VERCEL_PROJECT_ID in OIDC mode', async () => {
+      vi.stubEnv('VERCEL_PROJECT_ID', 'prj_env');
+      getVercelOidcTokenMock.mockClear();
+      try {
+        createClient({ buildStep: false, fetch: fetchMock });
+
+        expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+        const auth = vi.mocked(readBundledDefinitions).mock.calls[0]![0];
+        await expect(auth.resolveBundledDefinitionsLookup()).resolves.toEqual({
+          type: 'project-id',
+          projectId: 'prj_env',
+        });
+        expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('should not load bundled definitions on creation in OIDC mode without VERCEL_PROJECT_ID', () => {
+      vi.stubEnv('VERCEL_PROJECT_ID', '');
+      getVercelOidcTokenMock.mockClear();
+      try {
+        createClient({ buildStep: false, fetch: fetchMock });
+
+        expect(readBundledDefinitions).not.toHaveBeenCalled();
+        expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('should not load bundled definitions on creation when a datafile is provided', () => {
+      createClient(sdkKey, {
+        buildStep: false,
+        datafile: {
+          definitions: {},
+          environment: 'production',
+          projectId: 'prj_123',
+        },
+        fetch: fetchMock,
+      });
+
       expect(readBundledDefinitions).not.toHaveBeenCalled();
     });
   });

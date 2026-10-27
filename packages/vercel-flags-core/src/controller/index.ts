@@ -185,6 +185,15 @@ export class Controller implements ControllerInterface {
       readBundledDefinitions,
     });
 
+    // Read bundled definitions eagerly when no datafile is provided and the
+    // lookup needs no token, so they are ready by the first evaluation.
+    if (
+      !this.options.datafile &&
+      this.options.auth.getStaticBundledDefinitionsLookup()
+    ) {
+      this.bundledSource.preload();
+    }
+
     // Wire source events to state machine
     this.wireSourceEvents();
 

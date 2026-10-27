@@ -71,6 +71,14 @@ export class BundledSource {
     return undefined;
   }
 
+  /**
+   * Starts reading bundled definitions without waiting for the result.
+   */
+  preload(): void {
+    // Callers that await the result later still see the rejection.
+    this.getResult().catch(() => {});
+  }
+
   private getResult(): Promise<BundledDefinitionsResult> {
     if (!this.promise) {
       this.promise = this.options.readBundledDefinitions(this.options.auth);

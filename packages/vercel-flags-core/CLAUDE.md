@@ -55,7 +55,7 @@ createClient(sdkKey, options)
 `Authentication` (`controller/auth.ts`) is built from the value passed to `createClient`:
 
 - `vf_server_*` / `vf_client_*` or `flags:…&sdkKey=vf_…` → SDK key mode. The key is the bearer token and the bundled-definitions lookup key (hashed).
-- `undefined` → OIDC mode for the deployment's own project. The bearer token comes from `@vercel/oidc`; bundled definitions are looked up by the token's `project_id`.
+- `undefined` → OIDC mode for the deployment's own project. The bearer token comes from `@vercel/oidc`; bundled definitions are looked up by `VERCEL_PROJECT_ID`, falling back to the token's `project_id`.
 - `createClient({ projectId: 'prj_…' })` → OIDC mode for another project. Same token, plus `X-Vercel-Flags-Project-Id` on datafile, stream, and ingest requests (`authHeaders()`); bundled definitions are looked up by that project id without resolving a token. Events bypass the runtime ingest transport because it attributes to the calling project. Combining `projectId` with an SDK key, or a `projectId` outside `[A-Za-z0-9_]{1,64}`, throws. `@vercel/prepare-flags-definitions` learns which projects to embed from `GET api.vercel.com/v1/feature-flags/connections/sources` with the deployment's OIDC token.
 
 The Controller's `unauthorized` flag gates usage tracking. It is set on a 401 from any source (stream init, poll, one-time fetch) and cleared when a source delivers data again, so a transient 401 does not silence tracking for the client's lifetime.
@@ -175,7 +175,7 @@ Build-step reads are deduplicated: data is loaded once via a shared promise (`bu
 5. **One-time fetch** - Last resort (only when stream and polling are both disabled)
 
 Key behaviors:
-- Bundled definitions are loaded eagerly so their revision can be sent to the stream via `X-Revision` header
+- Bundled definitions are read on client creation (no provided datafile) when the lookup needs no token: an SDK key, `sourceProjectId`, or `VERCEL_PROJECT_ID`. Otherwise they load during initialization, so their revision can be sent to the stream via `X-Revision` header
 - When streaming or polling is enabled and data already exists (bundled or provided), `initialize()` still waits for fresh data (stream confirmation or first poll) up to `initTimeoutMs`, then falls back to existing data on timeout
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
