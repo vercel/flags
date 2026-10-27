@@ -48,12 +48,17 @@ function isUnauthorizedError(error: unknown): boolean {
   );
 }
 
+/** Retrying cannot fix a rejected credential or a missing OIDC token. */
+function isAuthError(error: unknown): boolean {
+  return isUnauthorizedError(error) || error instanceof OidcTokenError;
+}
+
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
 
 /** How a stream startup attempt ended; `connecting` keeps trying in the background. */
-type StreamStartup = 'connected' | 'connecting' | 'failed';
+type StreamStartup = 'connected' | 'connecting' | 'failed' | 'auth-failed';
 
 /**
  * Explicit states for the controller state machine.
@@ -88,7 +93,8 @@ type State =
  * - Streams exclusively; a startup timeout keeps connecting in the background
  * - Retains provided/bundled data during startup; fetches if the cache remains empty
  * - Reads always serve the cache while streaming; old data is labeled stale, never refetched over HTTP
- * - Polling starts only once the stream gives up (retries exhausted, 401, or token failure)
+ * - Polling starts only once the stream exhausts its retries; an auth failure (401 or
+ *   missing OIDC token) skips polling, which would fail the same way
  * - Without a live source (`degraded`), reads apply stale-while-revalidate over HTTP
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
@@ -141,8 +147,9 @@ export class Controller implements ControllerInterface {
   private buildDataPromise: Promise<TaggedData> | null = null;
   private buildReadTracked = false;
 
-  // Suppresses usage tracking while the credential is rejected. Set on a 401
-  // from any source, cleared as soon as a source delivers data again.
+  // Suppresses usage tracking while the credential is rejected or no OIDC
+  // token is available. Set on an auth failure from any source, cleared as
+  // soon as a source delivers data again.
   private unauthorized = false;
 
   constructor(options: ControllerOptions) {
@@ -258,11 +265,18 @@ export class Controller implements ControllerInterface {
       this.transition('degraded', 'stream-disconnected');
     }
   };
-  private onStreamExhausted = () => {
+  private onStreamExhausted = (reason: unknown) => {
     // Startup handles a stream that gives up before it connects. Later the
     // client is streaming (silent reconnects) or degraded (after a disconnect),
     // and the source chain continues with polling or HTTP revalidation.
     if (this.state !== 'streaming' && this.state !== 'degraded') {
+      return;
+    }
+    // Polling uses the same credential, so it would fail the same way.
+    if (isAuthError(reason)) {
+      if (this.state === 'streaming') {
+        this.transition('degraded', 'stream-auth-failed');
+      }
       return;
     }
     // Reads can await this shared startup, but the event handler has no caller.
@@ -278,15 +292,9 @@ export class Controller implements ControllerInterface {
     // Polling again will not fix a rejected credential or a missing OIDC
     // token. Give up like the stream does; degraded reads revalidate over
     // HTTP once it is fixed.
-    if (this.state !== 'polling') {
-      return;
-    }
-    if (isUnauthorizedError(error)) {
+    if (this.state === 'polling' && isAuthError(error)) {
       this.pollingSource.stop();
-      this.transition('degraded', 'polling-unauthorized');
-    } else if (error instanceof OidcTokenError) {
-      this.pollingSource.stop();
-      this.transition('degraded', 'polling-token-failed');
+      this.transition('degraded', 'polling-auth-failed');
     }
   };
 
@@ -782,6 +790,11 @@ export class Controller implements ControllerInterface {
         this.transition('degraded', 'stream-still-connecting');
         return;
       }
+      if (outcome === 'auth-failed') {
+        // Polling uses the same credential, so it would fail the same way.
+        this.transition('degraded', 'stream-auth-failed');
+        return;
+      }
     }
 
     if (this.options.polling.enabled) {
@@ -819,7 +832,7 @@ export class Controller implements ControllerInterface {
         return 'connected';
       } catch (error) {
         this.noteUnauthorized(error);
-        return 'failed';
+        return isAuthError(error) ? 'auth-failed' : 'failed';
       }
     }
 
@@ -860,7 +873,7 @@ export class Controller implements ControllerInterface {
     } catch (error) {
       clearTimeout(timeoutId!);
       this.noteUnauthorized(error);
-      return 'failed';
+      return isAuthError(error) ? 'auth-failed' : 'failed';
     }
   }
 
@@ -919,7 +932,7 @@ export class Controller implements ControllerInterface {
   }
 
   private noteUnauthorized(error: unknown): void {
-    if (isUnauthorizedError(error)) {
+    if (isAuthError(error)) {
       this.unauthorized = true;
       debug(this.options.clientName, 'client.unauthorized', this.debugState);
     }

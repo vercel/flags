@@ -59,7 +59,7 @@ createClient(sdkKey, options)
 
 `Auth.sourceProjectId` names another project to read with the same OIDC token: `X-Vercel-Flags-Project-Id` is added on datafile, stream, and ingest requests (`authHeaders()`), bundled definitions are looked up by that id, and events bypass the runtime ingest transport because it attributes to the calling project. Nothing sets it yet.
 
-The Controller's `unauthorized` flag gates usage tracking. It is set on a 401 from any source (stream init, poll, one-time fetch) and cleared when a source delivers data again, so a transient 401 does not silence tracking for the client's lifetime.
+The Controller's `unauthorized` flag gates usage tracking and skips the final blocking fetch during initialization. It is set on an auth failure from any source (stream init, poll, one-time fetch), meaning a 401 or a missing OIDC token (`OidcTokenError` from `auth.ts`), and cleared when a source delivers data again, so a transient failure does not silence tracking for the client's lifetime.
 
 ### Design principles
 
@@ -181,20 +181,25 @@ Key behaviors:
 - For offline mode with existing data, `initialize()` returns immediately
 - **Never stream AND poll simultaneously**
 - `degraded` means no live source is active: the stream is reconnecting after a startup
-  timeout or disconnect, the stream gave up with polling disabled, polling gave up on a
-  401 or missing OIDC token, or the client is offline with data. Degraded reads apply plain stale-while-revalidate
-  over HTTP (`retryOnFailure`) from the public windows only: fresh within
+  timeout or disconnect, the stream gave up with polling disabled, the stream or polling
+  gave up on an auth failure, or the client is offline with data. Degraded reads apply
+  plain stale-while-revalidate over HTTP (`retryOnFailure`) from the public windows only: fresh within
   `staleWhileRevalidateMs`, stale (background refresh) until `staleWhileRevalidateMs +
   staleIfErrorMs`, expired (blocking refresh) beyond that. An unknown age is stale because
   nothing else will confirm it. Offline clients keep the `unknown` policy and never refresh.
-- Polling starts only when the stream gives up for good (`exhausted` event: retries
-  exhausted, 401, or token failure). During startup `tryInitializeStream()` reports
-  `failed` and the source chain moves on; afterwards the detached handler calls
-  `activateFallbackSource()` from `streaming`/`degraded` and catches its rejection. There
-  is no separate exhausted flag: the state and `StreamSource.active` carry it.
-- Polling gives up on a 401 or a missing OIDC token: `onPollingError` stops the interval
-  and transitions to `degraded`. A retried `initialize()` after a failed first poll keeps the active polling
-  source and only waits for its next poll.
+- Polling starts only when the stream gives up for good on its retries (`exhausted` event).
+  During startup `tryInitializeStream()` reports `failed` and the source chain moves on;
+  afterwards the detached handler calls `activateFallbackSource()` from
+  `streaming`/`degraded` and catches its rejection. There is no separate exhausted flag:
+  the state and `StreamSource.active` carry it.
+- An auth failure (401 or missing OIDC token, `isAuthError()`) fails the chain right away.
+  Polling uses the same credential, so when the stream gives up on one the client goes
+  straight to `degraded` without polling: startup reports `auth-failed`, and `exhausted`
+  carries the error as its reason. When polling is the primary source, the first poll's
+  auth failure makes `onPollingError` stop the interval and transition to `degraded`.
+  Without this, a client with no credentials would poll forever and keep a script or test
+  process alive. A retried `initialize()` after a failed first poll for another reason
+  keeps the active polling source and only waits for its next poll.
 - Ping timeouts reconnect quietly without recording a failure.
 - `shutdown()` followed by `initialize()` rewires source events and starts with a clean
   cache and failure deadline.
@@ -313,7 +318,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - 401 errors abort immediately (invalid SDK key) and reject the init promise, so fallback kicks in without waiting for the stream timeout
 - A ping timeout reconnects the transport internally without emitting a disconnect or starting polling, including when a suspended runtime resumes. Replacement streams keep a watchdog before their first message. Reconnecting alone does not renew cache age or clear failures; stale/expired reads still refresh through HTTP.
 - On connection errors or server closure: state transitions to `'degraded'` while the connection loop retries; polling does not start, and reads revalidate stale data over HTTP meanwhile
-- On retry exhaustion, 401, or token failure the loop aborts its own controller; `StreamSource` emits `'exhausted'` (its `stop()` clears the fields first so an external stop does not) and the Controller starts polling if enabled
+- On retry exhaustion, 401, or token failure the loop aborts its own controller, with the 401 or token error as the abort reason; `StreamSource` emits `'exhausted'` with that reason (its `stop()` clears the fields first so an external stop does not). The Controller starts polling if enabled, unless the reason is an auth failure
 - On reconnect: Controller listens for `'connected'` event and transitions back to `'streaming'`
 - Background stream promises (from init timeout) are `.catch`-ed by the Controller to prevent unhandled rejections when the stream is aborted before receiving data
 
@@ -322,8 +327,8 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Interval-based HTTP requests to `/v1/datafile`
 - Default `intervalMs`: 30000ms (30s)
 - Default `initTimeoutMs`: 3000ms (3s)
-- Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
-- Once polling takes over from an exhausted stream it keeps running for the client's lifetime unless it receives a 401 or cannot get an OIDC token (`OidcTokenError`), which stops it (state `degraded`); the stream is not restarted. Without the stop, a client with no credentials would poll forever and keep a script or test process alive
+- Datafile fetches use three total attempts with 100ms and 200ms backoff for network, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors and a missing OIDC token fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
+- Once polling takes over from an exhausted stream it keeps running for the client's lifetime unless it hits an auth failure, which stops it (state `degraded`); the stream is not restarted
 - `PollingSource` shares the cache's HTTP refresh for initialization, immediate fallback, and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
 - Every transition to polling (configured source, or takeover after the stream is exhausted) waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback subject to stale-if-error without renewing cache age or failure allowance; the pending poll and recurring interval continue. Zero waits for the poll, subject to its ten-second fetch deadline.
 - After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.

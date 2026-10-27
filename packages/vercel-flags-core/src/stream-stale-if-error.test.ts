@@ -668,7 +668,7 @@ describe('stream stale-if-error through the public API', () => {
     expect(streamFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('stops fallback polling once it exhausts its OIDC token retries', async () => {
+  it('skips polling when the stream has no OIDC token', async () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
       new Error('OIDC unavailable'),
     );
@@ -676,9 +676,7 @@ describe('stream stale-if-error through the public API', () => {
     const evaluation = instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
-    // The stream and the first poll fail, polling gives up, and the read
-    // retries the token itself.
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(0);
     const failure = await evaluation;
     expect(failure).toMatchObject({
       message: 'stream: token resolution failed',
@@ -688,20 +686,18 @@ describe('stream stale-if-error through the public API', () => {
         ),
       }),
     });
-    expect(Date.now()).toBe(600);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(7);
+    // The stream and the read's own fetch each ask once; nothing retries.
+    expect(Date.now()).toBe(0);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(2);
 
-    // Nothing retries the token in the background.
-    await vi.advanceTimersByTimeAsync(59_400);
-    expect(Date.now()).toBe(60_000);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(7);
+    // Nothing asks for the token in the background.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
 
-    // Later reads retry it again.
-    const read = instance.evaluate('flagA').catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(300);
-    expect(await read).toBe(failure);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(10);
+    // Later reads ask again.
+    await expectExpired(instance, failure as Error);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(4);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
