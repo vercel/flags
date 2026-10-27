@@ -668,7 +668,7 @@ describe('stream stale-if-error through the public API', () => {
     expect(streamFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards initial OIDC resolution failure after fallback polling exhausts its token retries', async () => {
+  it('stops fallback polling once it exhausts its OIDC token retries', async () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
       new Error('OIDC unavailable'),
     );
@@ -676,9 +676,10 @@ describe('stream stale-if-error through the public API', () => {
     const evaluation = instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(300);
+    // The stream and the first poll fail, polling gives up, and the read
+    // retries the token itself.
+    await vi.advanceTimersByTimeAsync(600);
     const failure = await evaluation;
-    expect(failure).toBeInstanceOf(Error);
     expect(failure).toMatchObject({
       message: 'stream: token resolution failed',
       cause: expect.objectContaining({
@@ -687,12 +688,20 @@ describe('stream stale-if-error through the public API', () => {
         ),
       }),
     });
-    await expectExpired(instance, failure as Error);
-    expect(Date.now()).toBe(300);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(4);
-    await vi.advanceTimersByTimeAsync(59_700);
+    expect(Date.now()).toBe(600);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(7);
+
+    // Nothing retries the token in the background.
+    await vi.advanceTimersByTimeAsync(59_400);
     expect(Date.now()).toBe(60_000);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(8);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(7);
+    expect(vi.getTimerCount()).toBe(0);
+
+    // Later reads retry it again.
+    const read = instance.evaluate('flagA').catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await read).toBe(failure);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(10);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -1274,34 +1274,27 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    it('should not keep the process alive while polling', async () => {
-      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    it('should stop polling when no OIDC token is available', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      fetchMock.mockImplementation((input) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/v1/datafile')) {
-          return Promise.resolve(Response.json(makeBundled()));
-        }
-        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
-        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-      });
+      const client = createClient({ buildStep: false, fetch: fetchMock });
 
-      const client = createClient(sdkKey, {
-        fetch: fetchMock,
-        stream: false,
-        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
-      });
+      const evalPromise = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect((await evalPromise).value).toBe(false);
 
-      await client.initialize();
+      // Neither the stream nor polling keeps a timer running without a token.
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+      // Only the usage flush logs, since it cannot authenticate either.
+      expect(errorSpy).toHaveBeenCalledTimes(4);
+      expect(errorSpy).toHaveBeenLastCalledWith(
+        '@vercel/flags-core: Dropped 1 events after 3 attempts (flushId=1)',
+      );
 
-      const pollingTimer = setIntervalSpy.mock.results.find(
-        (result) => result.type === 'return',
-      )?.value as NodeJS.Timeout | undefined;
-      expect(pollingTimer).toBeDefined();
-      expect(pollingTimer?.hasRef()).toBe(false);
-
+      errorSpy.mockRestore();
       await client.shutdown();
-      setIntervalSpy.mockRestore();
     });
 
     it('should disable polling when polling: false', async () => {

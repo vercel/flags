@@ -11,7 +11,7 @@ import { hasRequestHeaders } from '../utils/request-context';
 import type { TrackReadOptions } from '../utils/usage/flags-config-read';
 import type { TrackEvaluationOptions } from '../utils/usage/flags-evaluation';
 import { UsageTracker } from '../utils/usage-tracker';
-import { unauthorizedMessage } from './auth';
+import { OidcTokenError, unauthorizedMessage } from './auth';
 import { BundledSource } from './bundled-source';
 import { type CacheReadPolicy, DatafileCache } from './datafile-cache';
 import { debug } from './debug';
@@ -92,7 +92,7 @@ type State =
  * - Without a live source (`degraded`), reads apply stale-while-revalidate over HTTP
  *
  * **Runtime — polling mode** (polling enabled, stream disabled):
- * - Uses polling exclusively; a 401 stops polling and reads revalidate over HTTP
+ * - Uses polling exclusively; a 401 or missing OIDC token stops polling and reads revalidate over HTTP
  * - Same fallback chains as streaming mode
  *
  * **Runtime — Vercel mode** (vercel enabled, with stream or polling enabled):
@@ -275,11 +275,18 @@ export class Controller implements ControllerInterface {
   };
   private onPollingError = (error: Error) => {
     this.onSourceError(error);
-    // Polling again will not fix a rejected credential. Give up like the
-    // stream does; degraded reads revalidate over HTTP once it is fixed.
-    if (this.state === 'polling' && isUnauthorizedError(error)) {
+    // Polling again will not fix a rejected credential or a missing OIDC
+    // token. Give up like the stream does; degraded reads revalidate over
+    // HTTP once it is fixed.
+    if (this.state !== 'polling') {
+      return;
+    }
+    if (isUnauthorizedError(error)) {
       this.pollingSource.stop();
       this.transition('degraded', 'polling-unauthorized');
+    } else if (error instanceof OidcTokenError) {
+      this.pollingSource.stop();
+      this.transition('degraded', 'polling-token-failed');
     }
   };
 

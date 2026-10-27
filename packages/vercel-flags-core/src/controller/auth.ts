@@ -38,17 +38,26 @@ export function unauthorizedMessage(sourceProjectId?: string): string {
   return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected. See https://vercel.com/docs/flags/vercel-flags/project-connections`;
 }
 
-async function getOidcToken(): Promise<string> {
-  try {
-    return await getVercelOidcToken();
-  } catch {
-    throw new Error(
+/** No OIDC token is available, so requests cannot authenticate. */
+export class OidcTokenError extends Error {
+  constructor(cause: unknown) {
+    super(
       [
         '@vercel/flags-core: Failed to get OIDC token.',
         'Are you running in a Vercel Environment where OIDC tokens are available?',
         'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
       ].join(' '),
+      { cause },
     );
+    this.name = 'OidcTokenError';
+  }
+}
+
+async function getOidcToken(): Promise<string> {
+  try {
+    return await getVercelOidcToken();
+  } catch (error) {
+    throw new OidcTokenError(error);
   }
 }
 

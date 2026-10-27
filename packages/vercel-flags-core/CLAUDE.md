@@ -182,7 +182,7 @@ Key behaviors:
 - **Never stream AND poll simultaneously**
 - `degraded` means no live source is active: the stream is reconnecting after a startup
   timeout or disconnect, the stream gave up with polling disabled, polling gave up on a
-  401, or the client is offline with data. Degraded reads apply plain stale-while-revalidate
+  401 or missing OIDC token, or the client is offline with data. Degraded reads apply plain stale-while-revalidate
   over HTTP (`retryOnFailure`) from the public windows only: fresh within
   `staleWhileRevalidateMs`, stale (background refresh) until `staleWhileRevalidateMs +
   staleIfErrorMs`, expired (blocking refresh) beyond that. An unknown age is stale because
@@ -192,8 +192,8 @@ Key behaviors:
   `failed` and the source chain moves on; afterwards the detached handler calls
   `activateFallbackSource()` from `streaming`/`degraded` and catches its rejection. There
   is no separate exhausted flag: the state and `StreamSource.active` carry it.
-- Polling gives up on a 401: `onPollingError` stops the interval and transitions to
-  `degraded`. A retried `initialize()` after a failed first poll keeps the active polling
+- Polling gives up on a 401 or a missing OIDC token: `onPollingError` stops the interval
+  and transitions to `degraded`. A retried `initialize()` after a failed first poll keeps the active polling
   source and only waits for its next poll.
 - Ping timeouts reconnect quietly without recording a failure.
 - `shutdown()` followed by `initialize()` rewires source events and starts with a clean
@@ -323,8 +323,7 @@ When updating tests for new behavior, preserve the strength of existing assertio
 - Default `intervalMs`: 30000ms (30s)
 - Default `initTimeoutMs`: 3000ms (3s)
 - Datafile fetches use three total attempts with 100ms and 200ms backoff for network, token, body parsing, and transient HTTP failures (408, 429, and 5xx). Other HTTP errors fail immediately. After exhausted retries, polling emits an error event and waits for the next interval.
-- Once polling takes over from an exhausted stream it keeps running for the client's lifetime unless it receives a 401, which stops it (state `degraded`); the stream is not restarted
-- The interval is unref'd, so polling never keeps a Node.js process alive on its own (a missing OIDC token is not a 401, so polling would otherwise run forever in a script or test file)
+- Once polling takes over from an exhausted stream it keeps running for the client's lifetime unless it receives a 401 or cannot get an OIDC token (`OidcTokenError`), which stops it (state `degraded`); the stream is not restarted. Without the stop, a client with no credentials would poll forever and keep a script or test process alive
 - `PollingSource` shares the cache's HTTP refresh for initialization, immediate fallback, and scheduled polls. Cache confirmation cancels superseded refreshes for stream evidence; the controller clears them on shutdown. Stopping the poller suppresses errors from its pending work.
 - Every transition to polling (configured source, or takeover after the stream is exhausted) waits for the first poll up to `initTimeoutMs`. A timeout permits cached fallback subject to stale-if-error without renewing cache age or failure allowance; the pending poll and recurring interval continue. Zero waits for the poll, subject to its ten-second fetch deadline.
 - After runtime suspension, delayed intervals resume polling without changing sources. A request pending across suspension can hit its fetch deadline; the interval continues and a later successful poll clears the failure.
