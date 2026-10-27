@@ -110,6 +110,11 @@ export class PollingSource extends TypedEmitter<PollingSourceEvents> {
       () => void this.poll().catch(() => {}),
       this.config.polling.intervalMs,
     );
+    // Background polling must not keep a short-lived process (a script, a
+    // test file) alive. Edge runtimes return a number without `unref`.
+    if (typeof this.intervalId === 'object') {
+      this.intervalId.unref?.();
+    }
   }
 
   /**

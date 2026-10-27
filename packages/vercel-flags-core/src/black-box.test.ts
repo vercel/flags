@@ -1274,6 +1274,36 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    it('should not keep the process alive while polling', async () => {
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(Response.json(makeBundled()));
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+      });
+
+      await client.initialize();
+
+      const pollingTimer = setIntervalSpy.mock.results.find(
+        (result) => result.type === 'return',
+      )?.value as NodeJS.Timeout | undefined;
+      expect(pollingTimer).toBeDefined();
+      expect(pollingTimer?.hasRef()).toBe(false);
+
+      await client.shutdown();
+      setIntervalSpy.mockRestore();
+    });
+
     it('should disable polling when polling: false', async () => {
       const datafile = makeBundled();
 
