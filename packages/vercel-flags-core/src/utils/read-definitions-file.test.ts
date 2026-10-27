@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,10 @@ import type { Auth } from '../controller/auth';
 
 const legacy = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@vercel/flags-definitions', () => legacy);
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...fs, readFile: vi.fn(fs.readFile) };
+});
 
 const definitions = {
   definitions: {},
@@ -30,6 +34,7 @@ describe('filesystem definitions', () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.mocked(readFile).mockClear();
     legacy.get.mockReset().mockReturnValue(null);
     directory = await mkdtemp(join(tmpdir(), 'flags-snapshot-'));
     path = join(directory, 'definitions.json');
@@ -56,6 +61,20 @@ describe('filesystem definitions', () => {
   it('reads a project snapshot without loading the generated package', async () => {
     await write({ prj_test: definitions });
     expect(await read()).toEqual({ state: 'ok', definitions });
+    expect(legacy.get).not.toHaveBeenCalled();
+  });
+
+  it('reads the function path when system environment variables are hidden', async () => {
+    vi.stubEnv('VERCEL_FLAGS_DEFINITIONS_PATH', undefined);
+    vi.stubEnv('VERCEL', undefined);
+    vi.mocked(readFile).mockResolvedValueOnce(
+      JSON.stringify({ version: 1, entries: { prj_test: definitions } }),
+    );
+    expect(await read()).toEqual({ state: 'ok', definitions });
+    expect(readFile).toHaveBeenCalledWith(
+      '/var/task/.vc-flags-definitions.json',
+      'utf8',
+    );
     expect(legacy.get).not.toHaveBeenCalled();
   });
 

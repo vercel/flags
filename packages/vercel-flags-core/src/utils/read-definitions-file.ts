@@ -41,13 +41,9 @@ async function readSnapshot(path: string): Promise<Snapshot | undefined> {
 }
 
 export async function readDefinitionsFile(): Promise<Snapshot | undefined> {
-  let path = process.env.VERCEL_FLAGS_DEFINITIONS_PATH;
-  if (!path && process.env.VERCEL === '1') {
-    path = '/var/task/.vc-flags-definitions.json';
-  }
-  if (!path) {
-    return;
-  }
+  const path =
+    process.env.VERCEL_FLAGS_DEFINITIONS_PATH ||
+    '/var/task/.vc-flags-definitions.json';
 
   let snapshot = snapshots.get(path);
   if (!snapshot) {
