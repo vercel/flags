@@ -192,7 +192,7 @@ Key behaviors:
   afterwards the detached handler calls `activateFallbackSource()` from
   `streaming`/`degraded` and catches its rejection. There is no separate exhausted flag:
   the state and `StreamSource.active` carry it.
-- An auth failure (401 or missing OIDC token, `isAuthError()`) fails the chain right away.
+- An auth failure (401 or missing OIDC token, `isUnauthorizedError()`) fails the chain right away.
   Polling uses the same credential, so when the stream gives up on one the client goes
   straight to `degraded` without polling: startup reports `auth-failed`, and `exhausted`
   carries the error as its reason. When polling is the primary source, the first poll's

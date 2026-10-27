@@ -36,8 +36,9 @@ const UNKNOWN_FRESHNESS: CacheReadPolicy = {
   assess: () => ({ status: 'unknown' }),
 };
 
+/** Retrying cannot fix a rejected credential (401) or a missing OIDC token. */
 function isUnauthorizedError(error: unknown): boolean {
-  if (error instanceof UnauthorizedError) {
+  if (error instanceof UnauthorizedError || error instanceof OidcTokenError) {
     return true;
   }
   if (!(error instanceof Error)) {
@@ -46,11 +47,6 @@ function isUnauthorizedError(error: unknown): boolean {
   return (
     error.message.includes('401') || ('status' in error && error.status === 401)
   );
-}
-
-/** Retrying cannot fix a rejected credential or a missing OIDC token. */
-function isAuthError(error: unknown): boolean {
-  return isUnauthorizedError(error) || error instanceof OidcTokenError;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +269,7 @@ export class Controller implements ControllerInterface {
       return;
     }
     // Polling uses the same credential, so it would fail the same way.
-    if (isAuthError(reason)) {
+    if (isUnauthorizedError(reason)) {
       if (this.state === 'streaming') {
         this.transition('degraded', 'stream-auth-failed');
       }
@@ -292,7 +288,7 @@ export class Controller implements ControllerInterface {
     // Polling again will not fix a rejected credential or a missing OIDC
     // token. Give up like the stream does; degraded reads revalidate over
     // HTTP once it is fixed.
-    if (this.state === 'polling' && isAuthError(error)) {
+    if (this.state === 'polling' && isUnauthorizedError(error)) {
       this.pollingSource.stop();
       this.transition('degraded', 'polling-auth-failed');
     }
@@ -832,7 +828,7 @@ export class Controller implements ControllerInterface {
         return 'connected';
       } catch (error) {
         this.noteUnauthorized(error);
-        return isAuthError(error) ? 'auth-failed' : 'failed';
+        return isUnauthorizedError(error) ? 'auth-failed' : 'failed';
       }
     }
 
@@ -873,7 +869,7 @@ export class Controller implements ControllerInterface {
     } catch (error) {
       clearTimeout(timeoutId!);
       this.noteUnauthorized(error);
-      return isAuthError(error) ? 'auth-failed' : 'failed';
+      return isUnauthorizedError(error) ? 'auth-failed' : 'failed';
     }
   }
 
@@ -932,7 +928,7 @@ export class Controller implements ControllerInterface {
   }
 
   private noteUnauthorized(error: unknown): void {
-    if (isAuthError(error)) {
+    if (isUnauthorizedError(error)) {
       this.unauthorized = true;
       debug(this.options.clientName, 'client.unauthorized', this.debugState);
     }
