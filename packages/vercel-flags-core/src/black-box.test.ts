@@ -30,7 +30,12 @@ vi.mock('./lib/report-value', () => ({
 
 const getVercelOidcTokenMock = vi.hoisted(() =>
   vi.fn<() => Promise<string>>(() =>
-    Promise.reject(new Error('no oidc token')),
+    // What @vercel/oidc throws outside Vercel in a project that is not linked.
+    Promise.reject(
+      new Error(
+        "The 'x-vercel-oidc-token' header is missing from the request.\nUnable to find project root directory. Have you linked your project with `vc link?`",
+      ),
+    ),
   ),
 );
 

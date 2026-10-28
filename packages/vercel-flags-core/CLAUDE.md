@@ -59,7 +59,7 @@ createClient(sdkKey, options)
 
 `Auth.sourceProjectId` names another project to read with the same OIDC token: `X-Vercel-Flags-Project-Id` is added on datafile, stream, and ingest requests (`authHeaders()`), bundled definitions are looked up by that id, and events bypass the runtime ingest transport because it attributes to the calling project. Nothing sets it yet.
 
-The Controller's `unauthorized` flag gates usage tracking and skips the final blocking fetch during initialization. It is set on an auth failure from any source (stream init, poll, one-time fetch), meaning a 401 or a missing OIDC token (`OidcTokenError` from `auth.ts`), and cleared when a source delivers data again, so a transient failure does not silence tracking for the client's lifetime.
+The Controller's `unauthorized` flag gates usage tracking and skips the final blocking fetch during initialization. It is set on an auth failure from any source (stream init, poll, one-time fetch), meaning a 401 or a missing OIDC token (`OidcTokenError` from `auth.ts`). `@vercel/oidc` also refreshes tokens over the network and flattens every failure into one message, so `auth.ts` raises `OidcTokenError` only for messages that mean there are no credentials (project not linked, CLI not logged in, edge token header missing); a failed refresh stays a retryable error. The flag is cleared when a source delivers data again, so a transient failure does not silence tracking for the client's lifetime.
 
 ### Design principles
 

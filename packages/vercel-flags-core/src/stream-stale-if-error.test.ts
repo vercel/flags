@@ -670,7 +670,9 @@ describe('stream stale-if-error through the public API', () => {
 
   it('skips polling when the stream has no OIDC token', async () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
-      new Error('OIDC unavailable'),
+      new Error(
+        'project.json not found, have you linked your project with `vc link?`',
+      ),
     );
     const instance = client({ datafile: data(), staleIfError: 0 }, true);
     const evaluation = instance

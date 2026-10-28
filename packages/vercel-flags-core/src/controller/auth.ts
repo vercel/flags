@@ -38,17 +38,25 @@ export function unauthorizedMessage(sourceProjectId?: string): string {
   return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected. See https://vercel.com/docs/flags/vercel-flags/project-connections`;
 }
 
-/** No OIDC token is available, so requests cannot authenticate. */
+const oidcTokenMessage = [
+  '@vercel/flags-core: Failed to get OIDC token.',
+  'Are you running in a Vercel Environment where OIDC tokens are available?',
+  'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
+].join(' ');
+
+/**
+ * `@vercel/oidc` refreshes a missing or expired token over the network, so it
+ * can also fail transiently. It flattens every failure into one message, and
+ * these parts mean there are no credentials at all: the project is not linked,
+ * the CLI is not logged in, or (on the edge) the token header is missing.
+ */
+const missingCredentials =
+  /`vc link|vercel login|^The 'x-vercel-oidc-token' header is missing from the request\.$/;
+
+/** No OIDC credentials are available, so requests cannot authenticate. */
 export class OidcTokenError extends Error {
   constructor(cause: unknown) {
-    super(
-      [
-        '@vercel/flags-core: Failed to get OIDC token.',
-        'Are you running in a Vercel Environment where OIDC tokens are available?',
-        'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
-      ].join(' '),
-      { cause },
-    );
+    super(oidcTokenMessage, { cause });
     this.name = 'OidcTokenError';
   }
 }
@@ -57,7 +65,11 @@ async function getOidcToken(): Promise<string> {
   try {
     return await getVercelOidcToken();
   } catch (error) {
-    throw new OidcTokenError(error);
+    if (error instanceof Error && missingCredentials.test(error.message)) {
+      throw new OidcTokenError(error);
+    }
+    // Refreshing the token failed, which a retry can fix.
+    throw new Error(oidcTokenMessage, { cause: error });
   }
 }
 
