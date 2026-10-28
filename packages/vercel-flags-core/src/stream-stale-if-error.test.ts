@@ -668,17 +668,18 @@ describe('stream stale-if-error through the public API', () => {
     expect(streamFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards initial OIDC resolution failure after fallback polling exhausts its token retries', async () => {
+  it('skips polling when the stream has no OIDC token', async () => {
     vi.mocked(getVercelOidcToken).mockRejectedValue(
-      new Error('OIDC unavailable'),
+      new Error(
+        'project.json not found, have you linked your project with `vc link?`',
+      ),
     );
     const instance = client({ datafile: data(), staleIfError: 0 }, true);
     const evaluation = instance
       .evaluate('flagA')
       .catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(0);
     const failure = await evaluation;
-    expect(failure).toBeInstanceOf(Error);
     expect(failure).toMatchObject({
       message: 'stream: token resolution failed',
       cause: expect.objectContaining({
@@ -687,12 +688,18 @@ describe('stream stale-if-error through the public API', () => {
         ),
       }),
     });
+    // The stream and the read's own fetch each ask once; nothing retries.
+    expect(Date.now()).toBe(0);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(2);
+
+    // Nothing asks for the token in the background.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(getVercelOidcToken).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+
+    // Later reads ask again.
     await expectExpired(instance, failure as Error);
-    expect(Date.now()).toBe(300);
     expect(getVercelOidcToken).toHaveBeenCalledTimes(4);
-    await vi.advanceTimersByTimeAsync(59_700);
-    expect(Date.now()).toBe(60_000);
-    expect(getVercelOidcToken).toHaveBeenCalledTimes(8);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

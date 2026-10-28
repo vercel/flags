@@ -289,7 +289,7 @@ it('keeps a watchdog on silent replacement streams without starting polling', as
   expect(streamFetch).toHaveBeenCalledTimes(3);
 });
 
-it('falls back to polling when the replacement stream returns 401', async () => {
+it('skips polling when the replacement stream returns 401', async () => {
   const first = stream();
   streamFetch
     .mockResolvedValueOnce(first.response)
@@ -299,16 +299,19 @@ it('falls back to polling when the replacement stream returns 401', async () => 
   first.push({ type: 'datafile', data: data(2) });
   await initial;
   await vi.advanceTimersByTimeAsync(90_001);
-  // A 401 ends the stream for good, so polling takes over with an immediate poll.
-  expect(dataFetch).toHaveBeenCalledTimes(1);
-  expect((await instance.getDatafile()).metrics.mode).toBe('polling');
+  // Polling would get the same 401, so the read itself refreshes over HTTP.
+  expect(dataFetch).not.toHaveBeenCalled();
   dataFetch.mockResolvedValueOnce(Response.json(data(3, false)));
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
   await vi.advanceTimersByTimeAsync(30_000);
-  expect(dataFetch).toHaveBeenCalledTimes(2);
   expect(await instance.evaluate('feature')).toMatchObject({
     value: false,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+    metrics: { mode: 'offline' },
   });
+  expect(dataFetch).toHaveBeenCalledTimes(2);
   expect(streamFetch).toHaveBeenCalledTimes(2);
 });
 

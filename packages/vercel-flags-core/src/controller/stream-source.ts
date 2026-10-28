@@ -19,8 +19,11 @@ export type StreamSourceEvents = {
   connected: () => void;
   disconnected: () => void;
   error: (error: Error) => void;
-  /** The connection loop gave up (retries exhausted, 401, or token failure). */
-  exhausted: () => void;
+  /**
+   * The connection loop gave up (retries exhausted, 401, or token failure).
+   * Carries the 401 or token error when that is why it gave up.
+   */
+  exhausted: (reason: unknown) => void;
 };
 
 /**
@@ -87,7 +90,7 @@ export class StreamSource extends TypedEmitter<StreamSourceEvents> {
         if (this.abortController === abortController) {
           this.promise = undefined;
           this.abortController = undefined;
-          this.emit('exhausted');
+          this.emit('exhausted', abortController.signal.reason);
         }
       },
       { once: true },

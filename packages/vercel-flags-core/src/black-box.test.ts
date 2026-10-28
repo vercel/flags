@@ -30,7 +30,12 @@ vi.mock('./lib/report-value', () => ({
 
 const getVercelOidcTokenMock = vi.hoisted(() =>
   vi.fn<() => Promise<string>>(() =>
-    Promise.reject(new Error('no oidc token')),
+    // What @vercel/oidc throws outside Vercel in a project that is not linked.
+    Promise.reject(
+      new Error(
+        "The 'x-vercel-oidc-token' header is missing from the request.\nUnable to find project root directory. Have you linked your project with `vc link?`",
+      ),
+    ),
   ),
 );
 
@@ -1073,8 +1078,8 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
-      // Polling gave up on the 401 as well, so the read revalidates the
-      // unconfirmed bundled entry once in the background and logs the failure.
+      // Polling would get the same 401, so the client skips it and the read
+      // revalidates the unconfirmed bundled entry once in the background.
       await vi.advanceTimersByTimeAsync(0);
       expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Revalidation failed:',
@@ -1082,8 +1087,8 @@ describe('Controller (black-box)', () => {
       );
       errorSpy.mockRestore();
 
-      // One stream call, one immediate fallback poll, one read revalidation; none retries a 401
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // One stream call and one read revalidation; nothing polls or retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1098,7 +1103,7 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1110,8 +1115,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // Still only the stream, the poll, and the revalidation, with no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // Still only the stream and the revalidation, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1270,6 +1275,43 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(90_000);
 
       expect(pollCount).toBeGreaterThanOrEqual(3);
+
+      await client.shutdown();
+    });
+
+    it('should not poll when the stream has no OIDC token', async () => {
+      const client = createClient({ buildStep: false, fetch: fetchMock });
+
+      const evalPromise = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await evalPromise).value).toBe(false);
+
+      // Polling would need the same token, so nothing keeps a timer running.
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await client.shutdown();
+    });
+
+    it('should stop polling after the first poll has no OIDC token', async () => {
+      getVercelOidcTokenMock.mockClear();
+      const client = createClient({
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+      });
+
+      const evalPromise = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await evalPromise).value).toBe(false);
+
+      // The first poll gives up without retrying, and no interval remains.
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+      // The poll and the read's own fetch each ask for a token once.
+      expect(getVercelOidcTokenMock).toHaveBeenCalledTimes(2);
 
       await client.shutdown();
     });
