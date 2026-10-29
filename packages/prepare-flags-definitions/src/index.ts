@@ -537,6 +537,15 @@ export async function prepareFlagsDefinitions(options: {
     writeFile(indexPath, definitionsJs),
     writeFile(dtsPath, dts),
     writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2)),
+    writeFile(
+      join(storageDir, 'definitions.json'),
+      JSON.stringify({
+        version: 1,
+        entries: Object.fromEntries(
+          validEntries.map(({ key, definitions }) => [key, definitions]),
+        ),
+      }),
+    ),
   ]);
 
   output?.debug('vercel-flags: created module');
