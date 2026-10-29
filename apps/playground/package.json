@@ -2,20 +2,25 @@
   "name": "playground",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "flags:sync": "node --experimental-strip-types flags/generate.ts",
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test flags/*.test.ts"
   },
   "dependencies": {
-    "@flags-sdk/vercel": "workspace:*",
-    "flags": "workspace:*",
+    "@vercel/flags-core": "workspace:*",
+    "@vercel/oidc": "3.5.0",
     "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@next/env": "16.3.8",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^20",
     "@types/react": "catalog:",
