@@ -6,6 +6,7 @@ import {
 } from '@vercel/flags-core';
 import { getVercelOidcToken } from '@vercel/oidc';
 import type { Catalog, Provider } from './connection.ts';
+import { getDemoDescription } from './demo-descriptions.ts';
 
 // The datafile API does not expose a project context schema yet.
 export type VercelContext = Record<string, unknown>;
@@ -20,7 +21,13 @@ export function catalogFromDatafile(datafile: DatafileInput): Catalog {
       if (!Array.isArray(definition.variants) || !definition.variants.length) {
         throw new Error(`Flag ${JSON.stringify(key)} has no variants.`);
       }
-      return [key, { variants: definition.variants }];
+      return [
+        key,
+        {
+          variants: definition.variants,
+          description: getDemoDescription(key),
+        },
+      ];
     }),
   );
 

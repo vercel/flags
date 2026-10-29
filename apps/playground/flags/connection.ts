@@ -3,7 +3,7 @@ export interface Catalog {
   /** Identifies the provider project and environment. */
   id: string;
   revision?: number;
-  flags: Record<string, { variants: readonly unknown[] }>;
+  flags: Record<string, { variants: readonly unknown[]; description?: string }>;
 }
 
 export interface Provider<Context> {

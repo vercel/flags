@@ -18,6 +18,16 @@ export function renderModule(connection: string, catalog: Catalog): string {
     .entries()) {
     // Use private identifiers, so keys can include punctuation or reserved words.
     const local = `flag_${index}`;
+    if (flag.description) {
+      lines.push(
+        '/**',
+        ...flag.description
+          .replace(/\*\//g, '*\\/')
+          .split(/\r?\n/)
+          .map((line) => ` * ${line}`),
+        ' */',
+      );
+    }
     lines.push(
       `const ${local} = createFlag(connections[${JSON.stringify(connection)}], ${JSON.stringify(key)}, ${JSON.stringify(flag.variants)} as const, ${JSON.stringify(catalog.id)});`,
       `export { ${local} as ${JSON.stringify(key)} };`,

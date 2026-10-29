@@ -1,9 +1,13 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadEnvConfig } from '@next/env';
 import { renderModule } from './codegen.ts';
 
+// This entry point runs in both native ESM and Next.js's config loader.
+const { loadEnvConfig } = createRequire(import.meta.url)(
+  '@next/env',
+) as typeof import('@next/env');
 const appDirectory = path.resolve(import.meta.dirname, '..');
 const outputDirectory = path.join(appDirectory, '.flags');
 

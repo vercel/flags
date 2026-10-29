@@ -1,9 +1,4 @@
-import {
-  'fake-hat-checkout-experiment' as checkout,
-  flag0,
-  'test-string' as offer,
-  'json-flag' as settings,
-} from 'flags:site';
+import { flag0 } from 'flags:site';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -12,6 +7,9 @@ import { getScope } from '../flags/next';
 
 async function changeVisitor(formData: FormData) {
   'use server';
+
+  const enabled = await flag0();
+
   const id = formData.get('visitor');
   if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) {
     throw new Error(
@@ -29,7 +27,7 @@ async function changeVisitor(formData: FormData) {
 
 export default async function Home() {
   // All four calls share one connection context within this request.
-  const [enabled, checkoutVariant, currentOffer, configuration] =
+  const [enabled0, checkoutVariant, currentOffer, configuration] =
     await Promise.all([flag0(), checkout(), offer(), settings()]);
   const scope = await getScope();
   const visitor =

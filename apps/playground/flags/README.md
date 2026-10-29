@@ -30,6 +30,10 @@ that type. Vercel currently uses `Record<string, unknown>` because the API does
 not yet expose a context schema. The connection does not invent a schema from
 targeting rules.
 
+Catalog descriptions become JSDoc on the generated exports. For this demo,
+`demo-descriptions.ts` supplies sample text. Replace that source with provider
+descriptions when the API supports them. Hover over an imported flag to see it.
+
 Each framework owns the scope lifetime. The Next.js adapter supports Server
 Components. Route handlers and jobs must create and pass an explicit scope:
 
