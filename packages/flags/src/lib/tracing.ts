@@ -69,20 +69,39 @@ export function trace<F extends (...args: any) => any>(
   // Records an error on the span unless the caller classifies it as control
   // flow. Shared by the async-rejection and synchronous-throw paths below.
   const recordError = (span: Span, error: unknown): void => {
-    if (options.isIgnoredError?.(error)) {
-      // Control-flow errors are not failures of the traced function, so the
-      // span itself was successful.
+    // A throwing classifier or a hostile error object must not skip span.end().
+    let ignored = false;
+    try {
+      ignored = options.isIgnoredError?.(error) === true;
+    } catch {
+      ignored = false;
+    }
+
+    if (ignored) {
       span.setStatus({ code: 1 }); // 1 = Ok
       return;
     }
 
-    if (options.attributesError) {
-      span.setAttributes(options.attributesError(error as Error));
+    let message: string | undefined;
+    try {
+      if (error instanceof Error) {
+        message = error.message;
+      }
+    } catch {
+      message = undefined;
+    }
+
+    try {
+      if (options.attributesError) {
+        span.setAttributes(options.attributesError(error as Error));
+      }
+    } catch {
+      // A throwing attributes callback must not drop the status message.
     }
 
     span.setStatus({
       code: 2, // 2 = Error
-      message: error instanceof Error ? error.message : undefined,
+      message,
     });
   };
   const traced = function (this: unknown, ...args: unknown[]): unknown {
@@ -122,13 +141,15 @@ export function trace<F extends (...args: any) => any>(
                 span.end();
               })
               .catch((error) => {
-                recordError(span, error);
+                try {
+                  recordError(span, error);
 
-                spanContext.getStore()?.forEach((value, key) => {
-                  span.setAttribute(key, value);
-                });
-
-                span.end();
+                  spanContext.getStore()?.forEach((value, key) => {
+                    span.setAttribute(key, value);
+                  });
+                } finally {
+                  span.end();
+                }
               });
           } else {
             if (options.attributesSuccess) {
@@ -145,13 +166,15 @@ export function trace<F extends (...args: any) => any>(
 
           return result as unknown;
         } catch (error: any) {
-          recordError(span, error);
+          try {
+            recordError(span, error);
 
-          spanContext.getStore()?.forEach((value, key) => {
-            span.setAttribute(key, value);
-          });
-
-          span.end();
+            spanContext.getStore()?.forEach((value, key) => {
+              span.setAttribute(key, value);
+            });
+          } finally {
+            span.end();
+          }
 
           throw error;
         }

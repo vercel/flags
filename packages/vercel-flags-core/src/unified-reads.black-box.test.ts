@@ -505,33 +505,35 @@ it('shuts down safely while the stream reconnects after a disconnect', async () 
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it('starts polling and waits when a missing project header falls back to a stream that gives up', async () => {
+it('revalidates over HTTP without polling when a missing project header falls back to a stream that returns 401', async () => {
   context('flags_other=1');
   streamFetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
+  const instance = client();
+  // Polling would get the same 401, so the read serves the provided datafile
+  // right away and nothing polls.
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
+  });
+  expect(Date.now()).toBe(now);
+  expect(streamFetch).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(dataFetch).not.toHaveBeenCalled();
+  // Past staleWhileRevalidate the read refreshes over HTTP in the background.
   const pending = deferred<Response>();
   dataFetch.mockReturnValueOnce(pending.promise);
-  const instance = client();
-  const settled = vi.fn();
-  const reading = instance.evaluate('feature').then((result) => {
-    settled();
-    return result;
+  expect(await instance.evaluate('feature')).toMatchObject({
+    value: true,
+    metrics: { mode: 'offline', cacheStatus: 'STALE' },
   });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(settled).not.toHaveBeenCalled();
-  expect(Date.now()).toBe(now);
   expect(dataFetch).toHaveBeenCalledTimes(1);
-  expect(streamFetch).toHaveBeenCalledTimes(1);
   pending.resolve(Response.json(data('prj_a', 2)));
-  expect(await reading).toMatchObject({
-    value: false,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
-  });
   await vi.advanceTimersByTimeAsync(0);
   expect(await instance.getDatafile()).toMatchObject({
     revision: 2,
-    metrics: { mode: 'polling', cacheStatus: 'HIT' },
+    metrics: { mode: 'offline', cacheStatus: 'HIT' },
   });
-  expect(dataFetch).toHaveBeenCalledTimes(1);
+  expect(streamFetch).toHaveBeenCalledTimes(1);
 });
 
 it('starts the HTTP refresh only after the stream disconnects and finishes it without polling', async () => {

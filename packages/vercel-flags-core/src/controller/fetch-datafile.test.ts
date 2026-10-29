@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
+import { OidcTokenError } from './auth';
 import { fetchDatafile } from './fetch-datafile';
 
 const data: BundledDefinitions = {
@@ -17,6 +18,7 @@ const options = {
   host: 'https://flags.example.com',
   auth: {
     resolveToken,
+    getStaticBundledDefinitionsLookup: () => undefined,
     resolveBundledDefinitionsLookup: async () => ({
       type: 'project-id' as const,
       projectId: 'prj_test',
@@ -145,6 +147,14 @@ describe('fetchDatafile', () => {
     await vi.advanceTimersByTimeAsync(100);
     await expect(result).resolves.toEqual(data);
     expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a missing OIDC token', async () => {
+    const error = new OidcTokenError(new Error('no token'));
+    resolveToken.mockRejectedValueOnce(error);
+    await expect(fetchDatafile(options)).rejects.toBe(error);
+    expect(resolveToken).toHaveBeenCalledTimes(1);
+    expect(transport).not.toHaveBeenCalled();
   });
 
   it.each([
