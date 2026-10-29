@@ -3,4 +3,4 @@
 '@flags-sdk/vercel': minor
 ---
 
-Add a `projectId` option to read the flags of a connected project.
+Prepare for upcoming Vercel Flags Project Connections with a new `projectId` option. This option requires Project Connections to be enabled for your team.
