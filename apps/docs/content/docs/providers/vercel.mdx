@@ -4,8 +4,8 @@ title: 'Vercel Flags'
 
 Vercel Flags is a feature flag provider built into Vercel's platform, allowing you to manage flags directly in your Vercel projects. The `@flags-sdk/vercel` package connects the Flags SDK to Vercel Flags.
 
-<CopyPrompt text="Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, first configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.">
-  Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, first configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.
+<CopyPrompt text="Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, use `@flags-sdk/vercel` version 1.6.0 or later, configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.">
+  Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, use `@flags-sdk/vercel` version 1.6.0 or later, configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/blog/vercel-flags-platform-native-feature-flags" target="_blank">
@@ -148,7 +148,7 @@ This endpoint allows Flags Explorer to:
 
 ### Read a connected project's flags
 
-Project Connections let your project read flags from another project in the same team without an SDK key. In the source project's **Flags → Connections** page, grant your project access. Then pass the source project's ID to `createVercelAdapter`:
+Project Connections let your project read flags from another project in the same team without an SDK key. With the Flags SDK, use `@flags-sdk/vercel` version 1.6.0 or later. In the source project's **Flags → Connections** page, grant your project access. Then pass the source project's ID to `createVercelAdapter`:
 
 ```ts title="flags.ts"
 import { flag } from 'flags/next';
@@ -167,7 +167,9 @@ The adapter uses your project's OIDC token. Keep `vercelAdapter` for flags owned
 
 Connections grant read access across environments. Your deployment's token selects the source environment: production reads production, preview reads preview, and local development reads development. Custom environments use preview. The `projectId` option cannot be combined with an SDK key.
 
-See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and connection management.
+If you use the [core library](https://vercel.com/docs/flags/vercel-flags/sdks/core) directly, use `@vercel/flags-core` version 1.11.0 or later. The adapter includes the required core library version.
+
+Managing connections with `vercel flags connections` requires Vercel CLI version 63.0.0 or later. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and connection management.
 
 ### SDK keys
 
