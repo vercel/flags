@@ -33,6 +33,18 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
+### Read a connected project's flags
+
+Grant your project access from the source project's **Flags → Connections** page, then create a client with the source project's ID:
+
+```ts
+const sharedClient = createClient({ projectId: 'prj_source' });
+```
+
+The client uses your project's OIDC token. Both projects must belong to the same team. Connections apply across environments; the token selects the source environment, with custom environments mapped to preview. Run `vercel env pull` in your project for local development. The `projectId` option cannot be combined with an SDK key.
+
+See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
+
 ## Header-driven reads on Vercel
 
 When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided

@@ -98,6 +98,27 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 });
 ```
 
+### Project Connections
+
+To read flags from another project in the same team, first grant the consumer project access from the source project's **Flags → Connections** page. Then pass the source project's ID:
+
+```ts
+import { flag } from 'flags/next';
+import { createVercelAdapter } from '@flags-sdk/vercel';
+
+const sharedAdapter = createVercelAdapter({ projectId: 'prj_source' });
+
+export const sharedFeature = flag({
+  key: 'shared-feature',
+  adapter: sharedAdapter,
+  defaultValue: false,
+});
+```
+
+Use `vercelAdapter` alongside this adapter for the consumer's own flags. Both use the consumer's OIDC token; do not mint an SDK key for a connection. Run `vercel env pull` in the consumer project for local development. Connections apply across environments, and the token selects the source environment; custom environments use preview.
+
+For direct core access, use `createClient({ projectId: 'prj_source' })`. The `projectId` option cannot be combined with an SDK key. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
+
 ### Custom configuration
 
 ```ts
