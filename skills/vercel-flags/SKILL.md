@@ -115,4 +115,4 @@ The third argument to `evaluate()` is the evaluation context; its entity and att
 ## References
 
 - **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions, datafiles), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
-- **[references/cleanup.md](references/cleanup.md)**: removing a flag from code: the evidence to gather, which value to inline, when to stop, what to delete, and what the cleanup PR should contain.
+- **[references/cleanup.md](references/cleanup.md)**: removing a flag from code: the repository rules to follow, the evidence to gather, which value to inline, when to stop, what to delete, and what the cleanup PR should contain.
