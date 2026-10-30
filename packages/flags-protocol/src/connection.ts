@@ -1,4 +1,4 @@
-/** The small provider contract used by this prototype. */
+/** The build-time catalog contract used by this prototype. */
 export interface Catalog {
   /** Identifies the provider project and environment. */
   id: string;
@@ -7,15 +7,19 @@ export interface Catalog {
 }
 
 export interface Provider<Context> {
-  loadCatalog(): Promise<Catalog>;
   evaluate(
     key: string,
     context: Context,
   ): Promise<{ value: unknown; catalogId: string }>;
 }
 
+export type CatalogLoader = () => Catalog | Promise<Catalog>;
+
+/** Framework adapters supply this read-only request view. */
 export interface RequestInputs {
+  /** Case-insensitive lookup; a missing header returns null. */
   headers: Pick<Headers, 'get'>;
+  /** A missing cookie returns undefined. */
   cookies: { get(name: string): { value: string } | undefined };
 }
 

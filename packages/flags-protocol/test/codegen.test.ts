@@ -1,43 +1,50 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
-import { renderModule } from './codegen.ts';
-import { catalogFromDatafile } from './vercel.ts';
+import { renderModule } from '../src/codegen.ts';
+import type { Catalog } from '../src/connection.ts';
 
-test('generated imports have exact keys and variant types without declarations', async () => {
+test('generated imports check keys, variants, and the provider context contract', async () => {
   const app = path.resolve(import.meta.dirname, '..');
   const directory = await mkdtemp(path.join(app, '.flags-test-'));
   try {
-    const catalog = catalogFromDatafile({
-      projectId: 'test',
-      environment: 'development',
-      definitions: {
-        flag0: {
-          seed: 0,
-          variants: [true, false],
-          environments: { development: 0 },
+    const output = path.join(directory, '.flags');
+    const source = path.join(directory, 'flags/sources/site');
+    await mkdir(output);
+    await mkdir(source, { recursive: true });
+    await mkdir(path.join(directory, 'node_modules'));
+    await symlink(app, path.join(directory, 'node_modules/flags'), 'dir');
+    await writeFile(
+      path.join(source, 'provider.ts'),
+      `import type { Provider } from 'flags';
+      const provider: Provider<{ user: { id: string } }> = {
+        async evaluate(_key, context) {
+          return { value: context.user.id, catalogId: 'test/development' };
         },
+      };
+      export default provider;`,
+    );
+    await writeFile(
+      path.join(source, 'context.ts'),
+      "export default async function getEvaluationContext() { return { user: { id: 'alice' } }; }",
+    );
+    const catalog: Catalog = {
+      id: 'test/development',
+      flags: {
+        flag0: { variants: [true, false] },
         'with-dashes': {
-          seed: 0,
           variants: ['control', 'treatment'],
-          environments: { development: 0 },
         },
         default: {
-          seed: 0,
           variants: [null, { mode: 'dark', sizes: [1, 2] }],
-          environments: { development: 0 },
         },
-        'with"quote': {
-          seed: 0,
-          variants: [1],
-          environments: { development: 0 },
-        },
+        'with"quote': { variants: [1] },
       },
-    });
+    };
     await writeFile(
-      path.join(directory, 'site.ts'),
+      path.join(output, 'site.ts'),
       renderModule('site', catalog),
     );
     const consumer = path.join(directory, 'consumer.ts');
@@ -64,11 +71,12 @@ test('generated imports have exact keys and variant types without declarations',
       ts.sys.readFile,
     );
     const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, app);
-    const program = ts.createProgram([consumer], {
+    const options = {
       ...parsed.options,
       incremental: false,
-      paths: { 'flags:site': [path.join(directory, 'site.ts')] },
-    });
+      paths: { 'flags:site': [path.join(output, 'site.ts')] },
+    };
+    const program = ts.createProgram([consumer], options);
     const diagnostics = ts.getPreEmitDiagnostics(program);
     assert.equal(
       diagnostics.length,
@@ -79,14 +87,30 @@ test('generated imports have exact keys and variant types without declarations',
         getNewLine: () => '\n',
       }),
     );
+
+    await writeFile(
+      path.join(source, 'context.ts'),
+      'export default async function getEvaluationContext() { return { user: { id: 123 } }; }',
+    );
+    const invalid = ts.getPreEmitDiagnostics(
+      ts.createProgram([consumer], options),
+    );
+    assert.ok(
+      invalid.some(
+        (diagnostic) =>
+          diagnostic.code === 2322 &&
+          diagnostic.file?.fileName === path.join(output, 'site.ts'),
+      ),
+      'The generated connection must reject a context that the provider cannot accept.',
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test('connection names cannot escape the generated module directory', () => {
+test('source names cannot escape the generated module directory', () => {
   assert.throws(
     () => renderModule('../outside', { id: 'test', flags: {} }),
-    /Invalid connection/,
+    /Invalid flags source/,
   );
 });

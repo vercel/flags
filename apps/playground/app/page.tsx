@@ -4,11 +4,11 @@ import {
   'test-string' as offer,
   'json-flag' as settings,
 } from 'flags:site';
+import { getScope } from 'flags/next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import catalog from '../.flags/catalog.json';
-import { getScope } from '../flags/next';
 
 async function changeVisitor(formData: FormData) {
   'use server';
@@ -189,17 +189,14 @@ export default async function Home() {
           </p>
         </div>
         <pre>
-          <code>{`// flags.config.ts
-export const connections = {
-  site: defineConnection({
-    provider: vercel(),
-    getEvaluationContext: async ({ cookies }) => {
-      const id = cookies.get('demo-visitor')?.value
-        ?? 'visitor-1';
-      return { user: { id }, visitor: { id } };
-    },
-  }),
-};`}</code>
+          <code>{`// flags/sources/site/context.ts
+import type { RequestInputs } from 'flags';
+
+export default async function getEvaluationContext({ cookies }: RequestInputs) {
+  const id = cookies.get('demo-visitor')?.value
+    ?? 'visitor-1';
+  return { user: { id }, visitor: { id } };
+}`}</code>
         </pre>
       </section>
 

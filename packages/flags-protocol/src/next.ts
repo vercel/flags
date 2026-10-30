@@ -10,7 +10,18 @@ export const getScope = cache(async () => {
     headers(),
     cookies(),
   ]);
-  return createScope({ headers: requestHeaders, cookies: requestCookies });
+  return createScope({
+    headers: { get: (name) => requestHeaders.get(name) },
+    cookies: {
+      get(name) {
+        const cookie = requestCookies.get(name);
+        if (!cookie) {
+          return undefined;
+        }
+        return { value: cookie.value };
+      },
+    },
+  });
 });
 
 export function createFlag<Context, const Variants extends readonly unknown[]>(

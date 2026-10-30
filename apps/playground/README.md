@@ -1,8 +1,10 @@
 # Flags protocol playground
 
-A self-contained Next.js demo of provider-owned flags. It uses the workspace
-`@vercel/flags-core` package directly. No changes to the published `flags` API
-are required.
+A Next.js demo of provider-owned flags. The proposed runtime and tooling live in
+`packages/flags-protocol`. The playground installs that package as `flags` with
+`"flags": "workspace:../../packages/flags-protocol"`. The existing SDK in
+`packages/flags` is unchanged. The source provider uses the workspace
+`@vercel/flags-core` directly.
 
 ```ts
 import { flag0 } from 'flags:site';
@@ -10,9 +12,9 @@ import { flag0 } from 'flags:site';
 const enabled = await flag0(); // boolean
 ```
 
-`site` is a connection in `flags.config.ts`. The provider supplies the available
-flag keys and variants. The application supplies evaluation context. No flag
-needs an application declaration.
+`site` is the directory `flags/sources/site`. Its catalog supplies flag keys and
+variants. Its provider evaluates flags, and its context module identifies the
+request. No flag needs an application declaration or central registration.
 
 ## Run
 
@@ -20,6 +22,7 @@ From the repository root, use Node.js 22.19 or later:
 
 ```sh
 pnpm install
+pnpm --filter @flags-sdk/protocol build
 pnpm --filter @vercel/flags-core build
 cd apps/playground
 vercel link
@@ -29,6 +32,8 @@ pnpm dev
 
 Skip `vercel link` if this app is already linked to the intended project.
 Open <http://localhost:3000>. Use `pnpm dev --port 3100` to select another port.
+Rebuild `@flags-sdk/protocol` after editing its source, or run
+`pnpm --filter @flags-sdk/protocol dev` in another terminal to watch it.
 
 The current page uses these flags from the linked playground project:
 
@@ -42,34 +47,70 @@ Use `visitor-1` and `visitor-2` in the visitor form to compare the current
 playground experiment assignments. Assignments depend on the provider's rules.
 The form changes a local demo cookie. It does not change provider configuration.
 
-## Configure a connection
+## Configure a source
 
-```ts
-export const connections = {
-  site: defineConnection({
-    provider: vercel(),
-    async getEvaluationContext({ cookies }) {
-      const id = cookies.get('demo-visitor')?.value ?? 'visitor-1';
-      return { user: { id }, visitor: { id } };
-    },
-  }),
-};
+Create one directory per source, with these three files:
+
+```text
+flags/sources/site/
+  catalog.ts   # Default export: a catalog loader. Runs in Node.js during sync.
+  provider.ts  # Default export: a runtime provider. Loaded by the application.
+  context.ts   # Default export: a context resolver. Called once per request.
 ```
 
-OIDC selects the linked Vercel project and environment. The provider reads
+The directory name selects the import: `flags:site`. Names must start with a
+letter and contain only letters, digits, underscores, or dashes. Each source
+must contain all three files. The generator checks their paths, but only imports
+`catalog.ts`. Its dependencies must work in ordinary Node.js.
+
+The Vercel implementation lives directly in these files. `catalog.ts` fetches
+the datafile and returns metadata. `provider.ts` exports an evaluator that
+creates its `@vercel/flags-core` client on the first call.
+
+```ts
+// flags/sources/site/context.ts
+import type { RequestInputs } from 'flags';
+
+export default async function getEvaluationContext({ cookies }: RequestInputs) {
+  const id = cookies.get('demo-visitor')?.value ?? 'visitor-1';
+  return { user: { id }, visitor: { id } };
+}
+```
+
+The request scope calls the context resolver with normalized
+`{ cookies, headers }` supplied by the framework adapter. Both expose read methods:
+
+- `cookies.get(name)` returns `{ value: string }` or `undefined`.
+- `headers.get(name)` uses case-insensitive lookup and returns a string or `null`.
+
+The source uses no Next.js request APIs. The same context function works with
+any framework adapter that supplies this contract. The Next.js adapter reads
+the request APIs and wraps them in this view. Generated connection code checks
+that the resolver returns the context type accepted by the provider. Generated
+modules enforce the server boundary in Next.js.
+
+OIDC selects the linked Vercel project and environment for both source modules.
+The catalog loader reads
 `https://flags.vercel.com/v1/datafile` with `Authorization: Bearer <OIDC token>`.
 It uses `@vercel/oidc` to obtain and refresh the token. It does not use `FLAGS`
-or `FLAGS_SECRET`. No token is written to generated modules.
+or `FLAGS_SECRET`. Runtime obtains its own token through `@vercel/flags-core`.
+No token is written to generated modules. For a provider that needs explicit
+project settings, both modules can import a shared settings file that is safe
+to load in Node.js. Neither catalog code nor shared settings may import the
+runtime provider or context module.
 
 The visitor cookie is for this demo. Use trusted session data to identify users
 in an application.
 
 ## Imports and types
 
-Next.js generates `.flags/site.ts` before development and production builds.
-It maps `flags:site` to that module. `tsconfig.json` maps the same import to the
-same file for editor completion and type checks. Unknown flags and connections
-fail resolution without a custom linter.
+`pnpm dev` and `pnpm build` run `flags:sync` before starting Next.js. Sync writes
+`.flags/site.ts`, a catalog summary, and a resolution manifest. `next.config.ts`
+uses `withFlags()` from `flags/next/config`. That entry only reads the manifest
+to map `flags:site` to its generated module. It does not load source modules or
+contact a provider. `tsconfig.json` maps the same import
+to the same file for editor completion and type checks. Unknown flags and
+connections fail resolution without a custom linter.
 
 Provider keys are preserved. For keys with punctuation, use a string import:
 
@@ -92,16 +133,15 @@ pnpm flags:sync
 ```
 
 Next.js picks up changed generated modules during development. Restart it after
-adding or removing a connection. The `.flags/` directory is ignored by Git and
-contains only the catalog summary and typed server modules. Each generated
-module uses `server-only`, so a Client Component cannot import it.
+adding or removing a source directory. The `.flags/` directory is ignored by Git
+and contains the catalog summary, resolution manifest, and typed server modules.
+Each generated module uses `server-only`, so a Client Component cannot import it.
 
 Runtime targeting updates are handled by `@vercel/flags-core`. Catalog sync is
 required for new keys or variants. A runtime value that is absent from the
 catalog fails with a sync instruction. Rebuild production after a catalog
 change. `pnpm start` uses the compiled catalog and does not fetch metadata.
-The context schema remains local until
-the provider API supports it.
+The context schema remains broad until the provider API supports it.
 
 ## Check
 
@@ -115,12 +155,16 @@ pnpm lint
 pnpm build
 ```
 
-`pnpm test` uses local fixtures. It checks generated import types, unknown keys,
-context sharing, request isolation, core targeting, and catalog drift. It does
-not require OIDC. The sync and build commands require provider access.
+The app test checks the source context against the real core evaluator with
+local fixtures. Run `pnpm --filter @flags-sdk/protocol test` from the repo root
+for the shared package tests: module separation, generated types, source
+discovery, context sharing, request isolation, and catalog drift. Tests do not
+require OIDC. The sync and app build commands require provider access.
 
 Turbopack is the default. The config also includes a Webpack resolver, selected
 with `pnpm dev --webpack` or `pnpm build --webpack`.
 
-See [flags/README.md](flags/README.md) for the provider, scope, and framework
-boundaries. This is a prototype of the import API, not a complete standard.
+See [flags/README.md](flags/README.md) for the application source files and
+[the package README](../../packages/flags-protocol/README.md) for shared
+contracts and framework integration. This is a prototype of the import API,
+not a complete standard.

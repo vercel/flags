@@ -4,23 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm flags:sync && next dev",
+    "build": "pnpm flags:sync --production && next build",
     "start": "next start",
     "lint": "eslint",
-    "flags:sync": "node --experimental-strip-types flags/generate.ts",
+    "flags:sync": "flags sync",
     "type-check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test flags/*.test.ts"
   },
   "dependencies": {
     "@vercel/flags-core": "workspace:*",
     "@vercel/oidc": "3.5.0",
+    "flags": "workspace:../../packages/flags-protocol",
     "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@next/env": "16.3.8",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^20",
     "@types/react": "catalog:",

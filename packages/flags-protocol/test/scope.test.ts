@@ -1,27 +1,31 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { evaluate, type Packed, Reason } from '@vercel/flags-core';
-import { defineConnection, type RequestInputs } from './connection.ts';
-import { createScope } from './scope.ts';
+import { defineConnection, type RequestInputs } from '../src/connection.ts';
+import { createScope } from '../src/scope.ts';
 
 function inputs(id: string): RequestInputs {
-  return { headers: new Headers(), cookies: { get: () => ({ value: id }) } };
+  return {
+    headers: new Headers({ 'x-demo-visitor': id }),
+    cookies: { get: () => ({ value: id }) },
+  };
 }
 
 test('parallel flag calls resolve one context; separate requests stay isolated', async () => {
   const seen: string[] = [];
   const connection = defineConnection({
     provider: {
-      async loadCatalog() {
-        return { id: 'test', flags: {} };
-      },
       async evaluate(_key: string, context: { id: string }) {
         seen.push(context.id);
         return { value: context.id, catalogId: 'test' };
       },
     },
-    async getEvaluationContext({ cookies }) {
+    async getEvaluationContext({ cookies, headers }) {
       await Promise.resolve();
+      assert.equal(
+        headers.get('X-Demo-Visitor'),
+        cookies.get('visitor')!.value,
+      );
+      assert.equal(headers.get('missing'), null);
       return { id: cookies.get('visitor')!.value };
     },
   });
@@ -43,9 +47,6 @@ test('a rejected context is shared within a request, then retried in the next', 
   let evaluations = 0;
   const connection = defineConnection({
     provider: {
-      async loadCatalog() {
-        return { id: 'test', flags: {} };
-      },
       async evaluate() {
         evaluations += 1;
         return { value: true, catalogId: 'test' };
@@ -73,62 +74,9 @@ test('a rejected context is shared within a request, then retried in the next', 
   assert.equal(attempts, 2);
 });
 
-test('context reaches the real core evaluator and affects targeting', async () => {
-  const definition: Packed.FlagDefinition = {
-    seed: 1,
-    variants: [false, true],
-    environments: {
-      development: {
-        targets: [{}, { user: { id: ['alice'] } }],
-        fallthrough: 0,
-      },
-    },
-  };
-  const connection = defineConnection({
-    provider: {
-      async loadCatalog() {
-        return { id: 'test', flags: { enabled: { variants: [false, true] } } };
-      },
-      async evaluate(_key: string, context: { user: { id: string } }) {
-        const result = evaluate<boolean>({
-          definition,
-          environment: 'development',
-          entities: context,
-        });
-        assert.notEqual(result.reason, Reason.ERROR);
-        return { value: result.value, catalogId: 'test' };
-      },
-    },
-    getEvaluationContext({ cookies }) {
-      return { user: { id: cookies.get('visitor')!.value } };
-    },
-  });
-  assert.equal(
-    await createScope(inputs('alice')).evaluate(
-      connection,
-      'enabled',
-      [false, true],
-      'test',
-    ),
-    true,
-  );
-  assert.equal(
-    await createScope(inputs('bob')).evaluate(
-      connection,
-      'enabled',
-      [false, true],
-      'test',
-    ),
-    false,
-  );
-});
-
 test('catalog drift and a different runtime project cannot violate generated types', async () => {
   const connection = defineConnection({
     provider: {
-      async loadCatalog() {
-        return { id: 'test', flags: {} };
-      },
       async evaluate() {
         return { value: { newVariant: true }, catalogId: 'test' };
       },
