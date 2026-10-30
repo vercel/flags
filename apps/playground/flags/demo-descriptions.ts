@@ -12,6 +12,7 @@ const descriptions: Record<string, string> = {
     'Select the offer shown in the storefront.\n\nReturns `normal`, `discount-50`, or `discount-20`, based on the provider targeting rules.',
   'json-flag':
     'Load the storefront presentation settings.\n\nThe value can be a settings object, a headline string, or `null`. Check the value type before reading its properties.',
+  enableDemoDaysFlag: 'This is a test description, hi demo days!!',
 };
 
 export function getDemoDescription(key: string): string {
