@@ -38,6 +38,7 @@ Rebuild `@flags-sdk/protocol` after editing its source, or run
 The current page uses these flags from the linked playground project:
 
 - `flag0`
+- `enable-example-feature`
 - `fake-hat-checkout-experiment`
 - `test-string`
 - `json-flag`
@@ -46,6 +47,14 @@ When you link another project, change the page imports to flags in that project.
 Use `visitor-1` and `visitor-2` in the visitor form to compare the current
 playground experiment assignments. Assignments depend on the provider's rules.
 The form changes a local demo cookie. It does not change provider configuration.
+
+`app/example-feature.tsx` is an async Server Component. It imports
+`enable-example-feature` from `flags:site` and shows the feature only when the
+flag returns `true`. When it returns `false`, the component shows an off message.
+Change the flag in Vercel Flags, then reload the page to see the result for the
+current visitor. No catalog sync is needed to switch an existing boolean flag.
+The page call counter covers the four calls in `app/page.tsx`; the component
+makes one additional call with the same request context.
 
 ## Configure a source
 

@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import catalog from '../.flags/catalog.json';
+import ExampleFeature from './example-feature';
 
 async function changeVisitor(formData: FormData) {
   'use server';
@@ -87,6 +88,26 @@ export default async function Home() {
 
       <section
         className="evaluation-section"
+        aria-labelledby="example-feature-title"
+      >
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Conditional rendering</p>
+            <h2 id="example-feature-title">A feature you can switch.</h2>
+          </div>
+          <span className="connection-label">app/example-feature.tsx</span>
+        </div>
+        <ExampleFeature />
+        <p className="lede">
+          Change <code>enable-example-feature</code> in Vercel Flags, then reload
+          this page. The Server Component evaluates the flag for the
+          current
+       visitor.
+        </p>
+      </section>
+
+      <section
+        className="evaluation-section"
         aria-labelledby="evaluation-title"
       >
         <div className="section-heading">
@@ -122,7 +143,9 @@ export default async function Home() {
               <strong data-testid="evaluations">
                 {scope.stats.evaluations}
               </strong>
-              <span>Flag calls</span>
+              <span title="Calls in app/page.tsx. ExampleFeature makes one more call.">
+                Page flag calls
+              </span>
             </div>
             <div>
               <strong data-testid="context-loads">
