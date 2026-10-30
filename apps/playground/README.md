@@ -32,6 +32,9 @@ pnpm dev
 
 Skip `vercel link` if this app is already linked to the intended project.
 Open <http://localhost:3000>. Use `pnpm dev --port 3100` to select another port.
+`pnpm dev` generates the initial flag catalog, starts Next.js, and keeps a catalog
+subscription open. New keys, variants, and descriptions update `.flags/`
+automatically. Ctrl+C stops both the watcher and Next.js.
 Rebuild `@flags-sdk/protocol` after editing its source, or run
 `pnpm --filter @flags-sdk/protocol dev` in another terminal to watch it.
 
@@ -62,7 +65,7 @@ Create one directory per source, with these three files:
 
 ```text
 flags/sources/site/
-  catalog.ts   # Default export: a catalog loader. Runs in Node.js during sync.
+  catalog.ts   # Default export: a catalog loader. Yields snapshots in Node.js.
   provider.ts  # Default export: a runtime provider. Loaded by the application.
   context.ts   # Default export: a context resolver. Called once per request.
 ```
@@ -72,9 +75,9 @@ letter and contain only letters, digits, underscores, or dashes. Each source
 must contain all three files. The generator checks their paths, but only imports
 `catalog.ts`. Its dependencies must work in ordinary Node.js.
 
-The Vercel implementation lives directly in these files. `catalog.ts` fetches
-the datafile and returns metadata. `provider.ts` exports an evaluator that
-creates its `@vercel/flags-core` client on the first call.
+The Vercel implementation lives directly in these files. `catalog.ts` yields
+metadata from the datafile subscription in `stream.ts`. `provider.ts` exports an
+evaluator that creates its `@vercel/flags-core` client on the first call.
 
 ```ts
 // flags/sources/site/context.ts
@@ -99,9 +102,10 @@ that the resolver returns the context type accepted by the provider. Generated
 modules enforce the server boundary in Next.js.
 
 OIDC selects the linked Vercel project and environment for both source modules.
-The catalog loader reads
-`https://flags.vercel.com/v1/datafile` with `Authorization: Bearer <OIDC token>`.
-It uses `@vercel/oidc` to obtain and refresh the token. It does not use `FLAGS`
+The catalog loader subscribes to
+`https://flags.vercel.com/v1/stream` with `Authorization: Bearer <OIDC token>`.
+The endpoint sends newline-delimited JSON with an initial datafile and updates.
+It uses `@vercel/oidc` to obtain a token for each connection. It does not use `FLAGS`
 or `FLAGS_SECRET`. Runtime obtains its own token through `@vercel/flags-core`.
 No token is written to generated modules. For a provider that needs explicit
 project settings, both modules can import a shared settings file that is safe
@@ -113,8 +117,9 @@ in an application.
 
 ## Imports and types
 
-`pnpm dev` and `pnpm build` run `flags:sync` before starting Next.js. Sync writes
-`.flags/site.ts`, a catalog summary, and a resolution manifest. `next.config.ts`
+`pnpm dev` runs `flags watch -- next dev`. `pnpm build` runs `flags:sync` once
+before building. Both write `.flags/site.ts`, a catalog summary, and a resolution
+manifest. `next.config.ts`
 uses `withFlags()` from `flags/next/config`. That entry only reads the manifest
 to map `flags:site` to its generated module. It does not load source modules or
 contact a provider. `tsconfig.json` maps the same import
@@ -135,21 +140,32 @@ A direct import gives the same behavior without the `flags:` resolver:
 import { flag0 } from '../.flags/site';
 ```
 
-To refresh editor types after a provider catalog change, run:
+To watch editor types without running Next.js, run:
+
+```sh
+pnpm flags:watch
+```
+
+To refresh once and exit, run:
 
 ```sh
 pnpm flags:sync
 ```
 
-Next.js picks up changed generated modules during development. Restart it after
-adding or removing a source directory. The `.flags/` directory is ignored by Git
-and contains the catalog summary, resolution manifest, and typed server modules.
+Next.js picks up changed generated modules during development. Restart `pnpm dev`
+after changing source modules or adding or removing a source directory. The
+`.flags/` directory is ignored by Git and contains the catalog summary,
+resolution manifest, and typed server modules.
 Each generated module uses `server-only`, so a Client Component cannot import it.
 
-Runtime targeting updates are handled by `@vercel/flags-core`. Catalog sync is
-required for new keys or variants. A runtime value that is absent from the
-catalog fails with a sync instruction. Rebuild production after a catalog
+Runtime targeting updates are handled by `@vercel/flags-core`. Catalog watch
+updates the imports and types for new keys or variants. A runtime value that is
+absent from the catalog fails with a sync instruction. Rebuild production after a catalog
 change. `pnpm start` uses the compiled catalog and does not fetch metadata.
+The catalog stream reconnects after a connection failure and keeps existing files
+until new data arrives. Authentication failures stop watch with a refresh
+instruction. Initial connection failures stop startup. Unchanged modules are not
+rewritten, and changed files are replaced atomically.
 The context schema remains broad until the provider API supports it.
 
 ## Check
@@ -164,11 +180,12 @@ pnpm lint
 pnpm build
 ```
 
-The app test checks the source context against the real core evaluator with
-local fixtures. Run `pnpm --filter @flags-sdk/protocol test` from the repo root
+The app tests check catalog parsing, stream updates, reconnects, and cancellation
+with local fixtures. Run `pnpm --filter @flags-sdk/protocol test` from the repo root
 for the shared package tests: module separation, generated types, source
-discovery, context sharing, request isolation, and catalog drift. Tests do not
-require OIDC. The sync and app build commands require provider access.
+discovery, continuous generation, context sharing, request isolation, and catalog
+drift. Tests do not require OIDC. The sync and app build commands require provider
+access.
 
 Turbopack is the default. The config also includes a Webpack resolver, selected
 with `pnpm dev --webpack` or `pnpm build --webpack`.

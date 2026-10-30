@@ -1,6 +1,7 @@
 export type {
   Catalog,
   CatalogLoader,
+  CatalogLoadOptions,
   Connection,
   Provider,
   RequestInputs,

@@ -1,7 +1,7 @@
 import type { DatafileInput } from '@vercel/flags-core';
-import { getVercelOidcToken } from '@vercel/oidc';
-import type { Catalog } from 'flags';
+import type { Catalog, CatalogLoadOptions } from 'flags';
 import { getDemoDescription } from '../../demo-descriptions.ts';
+import { streamDatafiles } from './stream.ts';
 
 export function catalogFromDatafile(datafile: DatafileInput): Catalog {
   if (!datafile.projectId || !datafile.environment || !datafile.definitions) {
@@ -30,17 +30,10 @@ export function catalogFromDatafile(datafile: DatafileInput): Catalog {
   };
 }
 
-export default async function loadCatalog(): Promise<Catalog> {
-  const token = await getVercelOidcToken();
-  const response = await fetch('https://flags.vercel.com/v1/datafile', {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(15_000),
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Flags catalog request failed (${response.status}). Run vercel env pull .env.local in apps/playground, then retry.`,
-    );
+export default async function* loadCatalog({
+  signal,
+}: CatalogLoadOptions): AsyncGenerator<Catalog> {
+  for await (const datafile of streamDatafiles({ signal })) {
+    yield catalogFromDatafile(datafile);
   }
-  return catalogFromDatafile(await response.json());
 }

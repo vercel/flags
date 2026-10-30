@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm flags:sync && next dev",
+    "dev": "flags watch -- next dev",
     "build": "pnpm flags:sync --production && next build",
     "start": "next start",
     "lint": "eslint",
     "flags:sync": "flags sync",
+    "flags:watch": "flags watch",
     "type-check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test flags/*.test.ts"
   },

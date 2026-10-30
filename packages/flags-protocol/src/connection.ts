@@ -13,7 +13,18 @@ export interface Provider<Context> {
   ): Promise<{ value: unknown; catalogId: string }>;
 }
 
-export type CatalogLoader = () => Catalog | Promise<Catalog>;
+export interface CatalogLoadOptions {
+  /** Stop network requests and subscriptions when this signal is aborted. */
+  signal: AbortSignal;
+}
+
+/** Yield a complete snapshot initially, then again whenever the catalog changes. */
+export type CatalogLoader = (
+  options: CatalogLoadOptions,
+) =>
+  | Catalog
+  | AsyncIterable<Catalog>
+  | Promise<Catalog | AsyncIterable<Catalog>>;
 
 /** Framework adapters supply this read-only request view. */
 export interface RequestInputs {
