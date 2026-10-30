@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@flags-sdk/vercel": "^1.5.4",
+    "@flags-sdk/vercel": "^1.6.0",
     "flags": "^4.4.0",
     "next": "16.4.3",
     "react": "19.2.4",

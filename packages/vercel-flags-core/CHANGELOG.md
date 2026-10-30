@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.11.0
+
+### Minor Changes
+
+- [#539](https://github.com/vercel/flags/pull/539) [`24983f9`](https://github.com/vercel/flags/commit/24983f90eec9789fbed1a7a556d41070218aecb6) Thanks [@vincent-derks](https://github.com/vincent-derks)! - Prepare for upcoming Vercel Flags Project Connections with a new `projectId` option.
+
 ## 1.10.3
 
 ### Patch Changes
