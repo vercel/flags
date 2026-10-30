@@ -20,8 +20,9 @@ The directory name registers the source. Each directory needs all three files;
 there is no central config. Generation imports only `catalog.ts`. The generated
 server module imports `provider.ts` and `context.ts` and assembles the connection.
 
-`pnpm dev` starts catalog watch before Next.js. `pnpm flags:watch` watches without
-starting the app. `pnpm flags:sync` takes the first snapshot and exits. The stream
+The Next.js `withFlags()` plugin starts catalog watch during `pnpm dev` and
+generates once during `pnpm build`. `pnpm flags:watch` watches without starting
+the app. `pnpm flags:sync` takes the first snapshot and exits. The stream
 receives a complete datafile on connection and after changes. It uses a new OIDC
 token on reconnect, ignores pings and older revisions, and retains generated
 files during a connection failure. Authentication errors stop the watcher.

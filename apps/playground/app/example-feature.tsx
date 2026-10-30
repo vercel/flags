@@ -1,22 +1,26 @@
 export default async function ExampleFeature() {
   const enabled = false;
 
-  if (!enabled) {
-    return (
-      <article
-        className="result-card"
-        data-testid="example-feature"
-        data-state="off"
-      >
-        <div className="card-label">enable-example-feature</div>
-        <p className="flag-value">Off</p>
-        <p className="card-note">
-          The example feature is hidden for this visitor.
-        </p>
-      </article>
-    );
-  }
+  return enabled ? <On /> : <Off />;
+}
 
+function Off() {
+  return (
+    <article
+      className="result-card"
+      data-testid="example-feature"
+      data-state="off"
+    >
+      <div className="card-label">enable-example-feature</div>
+      <p className="flag-value">Off</p>
+      <p className="card-note">
+        The example feature is hidden for this visitor.
+      </p>
+    </article>
+  );
+}
+
+function On() {
   return (
     <article
       className="result-card"

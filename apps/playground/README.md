@@ -32,9 +32,10 @@ pnpm dev
 
 Skip `vercel link` if this app is already linked to the intended project.
 Open <http://localhost:3000>. Use `pnpm dev --port 3100` to select another port.
-`pnpm dev` generates the initial flag catalog, starts Next.js, and keeps a catalog
-subscription open. New keys, variants, and descriptions update `.flags/`
-automatically. Ctrl+C stops both the watcher and Next.js.
+`pnpm dev` runs `next dev`. The `withFlags()` plugin generates the initial catalog
+before Next.js resolves flag imports and keeps a catalog subscription open.
+New keys, variants, and descriptions update `.flags/` automatically. The
+subscription closes when Next.js stops.
 Rebuild `@flags-sdk/protocol` after editing its source, or run
 `pnpm --filter @flags-sdk/protocol dev` in another terminal to watch it.
 
@@ -117,14 +118,18 @@ in an application.
 
 ## Imports and types
 
-`pnpm dev` runs `flags watch -- next dev`. `pnpm build` runs `flags:sync` once
-before building. Both write `.flags/site.ts`, a catalog summary, and a resolution
-manifest. `next.config.ts`
-uses `withFlags()` from `flags/next/config`. That entry only reads the manifest
-to map `flags:site` to its generated module. It does not load source modules or
-contact a provider. `tsconfig.json` maps the same import
-to the same file for editor completion and type checks. Unknown flags and
-connections fail resolution without a custom linter.
+The scripts use plain `next dev` and `next build`. `next.config.ts` uses
+`withFlags()` from `flags/next/config`. During development, the plugin generates
+the initial files and watches for updates. During a build, it generates once
+and closes the subscription. `next start` uses the compiled output without
+starting catalog work.
+
+The plugin loads only the build-safe catalog modules. It does not import
+runtime providers or request context. It reads the generated manifest to map
+`flags:site` to its module. Repeated config loads share initialization, and
+compiler workers reuse their parent process's catalog. `tsconfig.json` maps the
+same import to the same file for editor completion and type checks. Unknown
+flags and connections fail resolution without a custom linter.
 
 Provider keys are preserved. For keys with punctuation, use a string import:
 
@@ -163,8 +168,9 @@ updates the imports and types for new keys or variants. A runtime value that is
 absent from the catalog fails with a sync instruction. Rebuild production after a catalog
 change. `pnpm start` uses the compiled catalog and does not fetch metadata.
 The catalog stream reconnects after a connection failure and keeps existing files
-until new data arrives. Authentication failures stop watch with a refresh
-instruction. Initial connection failures stop startup. Unchanged modules are not
+until new data arrives. A fatal watch error is printed in the Next.js terminal;
+refresh credentials if needed, then restart `next dev`. Initial connection
+failures stop startup. Unchanged modules are not
 rewritten, and changed files are replaced atomically.
 The context schema remains broad until the provider API supports it.
 
@@ -173,7 +179,7 @@ The context schema remains broad until the provider API supports it.
 Run these commands from `apps/playground`:
 
 ```sh
-pnpm flags:sync
+pnpm flags:sync # Optional when Next.js is not running.
 pnpm type-check
 pnpm test
 pnpm lint
