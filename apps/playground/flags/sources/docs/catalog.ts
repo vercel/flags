@@ -1,6 +1,6 @@
 import type { DatafileInput } from '@vercel/flags-core';
 import type { Catalog, CatalogLoadOptions } from 'flags';
-import { getDemoDescription } from '../../demo-descriptions.ts';
+import { getDemoDescription } from '../../../utils/demo-descriptions.ts';
 import { streamDatafiles } from './stream.ts';
 
 export function catalogFromDatafile(datafile: DatafileInput): Catalog {
