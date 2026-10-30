@@ -19,17 +19,9 @@ For the current subcommand list and options, run `vercel flags --help` or `verce
 
 ## Project Connections
 
-Connections grant a consumer project read access to a source project's flags within the same team. Run `vercel --version` and use Vercel CLI 63.0.0 or later. If the command is missing from help, try `vercel flags connections --help`; earlier supporting releases hide it from the command list.
+Connections grant a consumer project read access to a source project's flags within the same team. Use Vercel CLI 63.0.0 or later. Run `vercel flags connections --help` for commands and options, even if connections are absent from the top-level help in an older release.
 
-Confirm both projects and the team before creating a connection. Use `--project` for the source and the positional argument for the consumer. For example, let `storefront` read flags from `checkout` on `my-team`:
-
-```bash
-vercel flags connections list --project checkout --scope my-team --json
-vercel flags connections add storefront --project checkout --scope my-team
-vercel flags connections list --project storefront --scope my-team --role consumer --json
-```
-
-Skip `add` if the connection already exists. Creating a connection requires team Member or Owner access, or Project Admin access on the source project, plus permission to view the consumer project. See [required permissions](https://vercel.com/docs/flags/vercel-flags/project-connections#required-permissions).
+Confirm the source project, consumer project, and team before creating a connection. Reuse an existing connection. Creation requires team Member or Owner access, or Project Admin access on the source project, plus permission to view the consumer project. See [required permissions](https://vercel.com/docs/flags/vercel-flags/project-connections#required-permissions).
 
 Configure the consumer with `@flags-sdk/vercel` 1.6.0 or later and `createVercelAdapter({ projectId: 'prj_source' })`, or `@vercel/flags-core` 1.11.0 or later and `createClient({ projectId: 'prj_source' })`. Replace `prj_source` with the source project's ID. Follow [the SDK connection example](https://flags-sdk.dev/docs/providers/vercel) or the [core guide](https://vercel.com/docs/flags/vercel-flags/sdks/core). Do not create an SDK key for a connection; link to the consumer project and run `vercel env pull` for local OIDC credentials. The consumer's token selects the source environment, with custom environments mapped to preview.
 
