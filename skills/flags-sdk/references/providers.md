@@ -10,6 +10,7 @@
 - [GrowthBook](#growthbook)
 - [Flagsmith](#flagsmith)
 - [Reflag](#reflag)
+- [Wingify](#wingify)
 - [OpenFeature](#openfeature)
 - [Split](#split)
 - [Optimizely](#optimizely)
@@ -529,6 +530,48 @@ export const myFeature = flag<boolean, Context>({
   adapter: reflagAdapter.isEnabled(),
 });
 ```
+
+---
+
+## Wingify
+
+Package: `@flags-sdk/wingify`
+
+```bash
+pnpm i @flags-sdk/wingify
+```
+
+Env: `WINGIFY_ACCOUNT_ID` and `WINGIFY_SDK_KEY` (both required)
+
+`identify` must return `entities.id`. The adapter throws if it is missing.
+
+```ts
+import { flag } from 'flags/next';
+import { wingifyAdapter } from '@flags-sdk/wingify';
+
+export const checkoutV2 = flag<boolean>({
+  key: 'checkout-v2',
+  defaultValue: false,
+  adapter: wingifyAdapter.variation(),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+
+export const themeColor = flag<string>({
+  key: 'theme',
+  defaultValue: 'blue',
+  adapter: wingifyAdapter.variation({
+    variableName: 'color',
+    defaultValue: 'blue',
+  }),
+  identify: ({ headers }) => ({
+    id: headers.get('x-user-id') ?? 'anonymous',
+  }),
+});
+```
+
+For a composite Explorer key such as `checkoutFlow:discount`, pass `featureKey: 'checkoutFlow'` along with `variableName`. Use `createWingifyAdapter({ accountId, sdkKey })` when credentials should not come from the environment.
 
 ---
 

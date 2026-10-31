@@ -9,6 +9,7 @@ import { OptimizelyLogo } from './logos/optimizely';
 import { PostHogLogo } from './logos/posthog';
 import { ReflagLogo } from './logos/reflag';
 import { StatsigLogo } from './logos/statsig';
+import { WingifyLogo } from './logos/wingify';
 
 type Provider = {
   key: string;
@@ -94,6 +95,14 @@ const providers: Provider[] = [
     logo: FlagsmithLogo,
     badges: ['Adapter', 'Flags Explorer'],
     glowColor: '#5d5dff',
+  },
+  {
+    key: 'wingify',
+    name: 'Wingify',
+    href: '/providers/wingify',
+    logo: WingifyLogo,
+    badges: ['Adapter', 'Flags Explorer'],
+    glowColor: '#4a90d9',
   },
   {
     key: 'openfeature',
