@@ -100,6 +100,8 @@ export const GET = createFlagsDiscoveryEndpoint(async () => {
 
 ### Project Connections
 
+Check the installed `@flags-sdk/vercel` version before changing the code. Project Connections require version 1.6.0 or later; upgrade it if needed. The adapter includes the required core library version.
+
 To read flags from another project in the same team, first grant the consumer project access from the source project's **Flags → Connections** page. Then pass the source project's ID:
 
 ```ts
@@ -117,7 +119,7 @@ export const sharedFeature = flag({
 
 Use `vercelAdapter` alongside this adapter for the consumer's own flags. Both use the consumer's OIDC token; do not mint an SDK key for a connection. Run `vercel env pull` in the consumer project for local development. Connections apply across environments, and the token selects the source environment; custom environments use preview.
 
-For direct core access, use `createClient({ projectId: 'prj_source' })`. The `projectId` option cannot be combined with an SDK key. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
+For direct core access, use `@vercel/flags-core` version 1.11.0 or later with `createClient({ projectId: 'prj_source' })`. The `projectId` option cannot be combined with an SDK key. CLI management requires Vercel CLI version 63.0.0 or later; use the `vercel-flags` skill for the connection workflow, or see the [CLI reference](https://vercel.com/docs/cli/flags#project-connections). See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
 
 ### Custom configuration
 

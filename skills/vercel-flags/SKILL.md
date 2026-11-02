@@ -6,7 +6,7 @@ description: >
   experiment, percentage rollout, or targeting rule, or wants to gate or hide a feature for some
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
-  set, split, rollout, rules, segments, evaluations, archive), OIDC vs SDK keys, `FLAGS_SECRET`, and
+  set, split, rollout, rules, segments, evaluations, archive, connections), Project Connections, OIDC vs SDK keys, `FLAGS_SECRET`, and
   Flags Explorer overrides. For `flag()` declarations, adapters, precompute, and the Flags Explorer
   endpoint in Next.js or SvelteKit code, load the `flags-sdk` skill.
 ---
@@ -24,6 +24,7 @@ Use this skill to decide how a feature should be flagged, to create and change f
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
 - **Create or manage a flag with no code change** (create, inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
+- **Share flags between projects**: follow [Project Connections](references/cli.md#project-connections) to connect projects in the same team, then configure the consumer application.
 - **Clean up or remove a flag** ("remove this flag", "clean up stale flags", "inline this flag"): follow [references/cleanup.md](references/cleanup.md), then [Lifecycle and safety](references/cli.md#lifecycle-and-safety) before archiving.
 - **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
 - **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
@@ -82,7 +83,8 @@ Always `inspect` first so you know what each environment serves today, and match
 ## Credentials
 
 - **OIDC**: on Vercel, the app authenticates with the project's OIDC token and evaluates the configuration of the current environment. `vercel env pull` writes the Development token to `.env.local` for local development ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)).
-- **SDK keys (`FLAGS`)**: only for apps outside Vercel, custom environments, or flags owned by another project. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
+- **Project Connections**: read another same-team project's flags with the consumer project's OIDC token, without an SDK key. Follow [Project Connections](references/cli.md#project-connections) for setup and minimum versions.
+- **SDK keys (`FLAGS`)**: for apps outside Vercel, selecting an environment explicitly, or reading flags across teams. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
 - **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes, and `vercel flags override` reads it from the environment or `.env.local`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
 
 ## Flags Explorer
