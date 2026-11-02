@@ -11,6 +11,10 @@ import type {
   FlagOverridesType,
   FlagValuesType,
 } from '../types';
+import {
+  encryptFlagValuesForPlatform,
+  type PlatformEncryptionOptions,
+} from './flag-values-platform';
 
 type ExpirationTime = string | number | Date;
 type PurposeClaim = 'overrides' | 'values' | 'definitions' | 'proof';
@@ -132,22 +136,55 @@ export async function decryptOverrides(
   return contents?.o;
 }
 
+export interface EncryptFlagValuesOptions extends PlatformEncryptionOptions {
+  /**
+   * - `secret`: encrypts with `FLAGS_SECRET`. The Vercel Toolbar decrypts
+   *   the values with the secret of the project.
+   * - `platform`: encrypts with the public key of Vercel. Only Vercel can
+   *   decrypt the values.
+   *
+   * The default is `secret` if a secret is set, and `platform` otherwise.
+   */
+  readonly method?: 'secret' | 'platform';
+  /**
+   * For `secret`. The default is the environment variable `FLAGS_SECRET`.
+   */
+  readonly secret?: string;
+}
+
 /**
  * Encrypts flag values data.
  *
+ * With `FLAGS_SECRET`, it encrypts with the secret. Without it, it encrypts
+ * with the public key of Vercel, for the project of the host.
+ *
  * @param flagValues - The flag values to encrypt
- * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
- * @param expirationTime - When the encrypted data should expire (defaults to 1 year)
+ * @param secretOrOptions - The secret (defaults to FLAGS_SECRET env var), or the options
+ * @param expirationTime - When the encrypted data should expire (defaults to 1 year for the secret, and no expiry for the platform)
  * @returns A promise resolving to the encrypted JWE string
- * @throws Error if the secret is missing or invalid
+ * @throws Error if the secret is invalid, or neither a secret nor a project ID is available
  */
 export async function encryptFlagValues(
   flagValues: FlagValuesType,
-  secret: string | undefined = process?.env?.FLAGS_SECRET,
-  expirationTime: ExpirationTime = '1y',
+  secretOrOptions?: string | EncryptFlagValuesOptions,
+  expirationTime?: ExpirationTime,
 ) {
+  const options: EncryptFlagValuesOptions =
+    typeof secretOrOptions === 'object'
+      ? secretOrOptions
+      : { secret: secretOrOptions, expirationTime };
+  const secret = options.secret ?? process?.env?.FLAGS_SECRET;
+  const method = options.method ?? (secret ? 'secret' : 'platform');
+
+  if (method === 'platform') {
+    return encryptFlagValuesForPlatform(flagValues, options);
+  }
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
-  return encryptJwe({ v: flagValues, pur: 'values' }, secret, expirationTime);
+  return encryptJwe(
+    { v: flagValues, pur: 'values' },
+    secret,
+    options.expirationTime ?? '1y',
+  );
 }
 
 /**
