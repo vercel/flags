@@ -4,6 +4,7 @@ export {
   decryptFlagDefinitions,
   decryptFlagValues,
   decryptOverrides,
+  type EncryptFlagValuesOptions,
   encryptFlagDefinitions,
   encryptFlagValues,
   encryptOverrides,
