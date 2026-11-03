@@ -25,6 +25,10 @@ import {
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
+  isVercelSignedToken,
+  verifyVercelSignedOverrides,
+} from '../lib/vercel-overrides';
+import {
   HeadersAdapter,
   type ReadonlyHeaders,
 } from '../spec-extension/adapters/headers';
@@ -196,10 +200,13 @@ export function flag<
     const cookies = sealCookies(store.request.headers);
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides =
-      overridesCookie && store.secret
-        ? await _decryptOverrides(overridesCookie, store.secret)
-        : undefined;
+    const overrides = !overridesCookie
+      ? undefined
+      : isVercelSignedToken(overridesCookie)
+        ? await verifyVercelSignedOverrides(overridesCookie)
+        : store.secret
+          ? await _decryptOverrides(overridesCookie, store.secret)
+          : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
