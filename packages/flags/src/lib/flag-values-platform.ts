@@ -25,57 +25,33 @@ export const FLAG_VALUES_POLICY = Object.freeze({
   cooldownMs: 30_000,
   maxKeySetBytes: 65_536,
   maxKeys: 100,
-  maxProjectIds: 100,
   maxProjectIdLength: 150,
 });
 
-export interface PlatformEncryptionOptions {
-  /**
-   * When the token expires. The default is no expiry.
-   */
-  readonly expirationTime?: string | number | Date;
-  /**
-   * Where the public keys are. Must use HTTPS, except for `localhost`. The
-   * default is the key set of Vercel.
-   */
-  readonly jwksUrl?: string;
-  /**
-   * The project IDs which can use the token. The default is the project of
-   * the host: `VERCEL_PROJECT_ID`, the `VERCEL_OIDC_TOKEN` of
-   * `vercel env pull`, or the `.vercel/project.json` of `vercel link`.
-   */
-  readonly projectIds?: readonly string[];
-  /**
-   * The `fetch` function which loads the public keys. The default is the
-   * global `fetch`.
-   */
-  readonly fetch?: typeof fetch;
-}
-
 /**
- * Encrypts flag values with the public key of Vercel. Only Vercel can
- * decrypt them, for the projects in the protected header.
+ * Encrypts flag values with the public key of Vercel, for the project of the
+ * host. Only Vercel can decrypt them.
  *
  * Encryption with a public key gives no authenticity: each visitor can
  * encrypt other values. A receiver must not trust the values.
  */
 export async function encryptFlagValuesForPlatform(
   values: FlagValuesType,
-  options: PlatformEncryptionOptions = {},
+  expirationTime?: string | number | Date,
 ): Promise<string> {
   const policy = FLAG_VALUES_POLICY;
-  const projectId = options.projectIds ? undefined : findProjectId();
-  const projectIds = options.projectIds ?? (projectId ? [projectId] : []);
-  if (!options.projectIds && projectIds.length === 0) {
+  const projectId = findProjectId();
+  if (!projectId) {
     throw new Error(
       'flags: Missing FLAGS_SECRET or a project ID for the encrypted flag values.',
     );
   }
-  validateProjectIds(projectIds);
-  const { kid, key } = await loadPublicKey(
-    options.jwksUrl ?? VERCEL_FLAG_VALUES_JWKS_URL,
-    options.fetch,
-  );
+  if (projectId.length > policy.maxProjectIdLength) {
+    throw new Error(
+      `flags: The project ID must have at most ${policy.maxProjectIdLength} characters.`,
+    );
+  }
+  const { kid, key } = await loadPublicKey();
   const jwt = new EncryptJWT({
     pur: policy.purpose,
     ver: policy.version,
@@ -87,11 +63,9 @@ export async function encryptFlagValuesForPlatform(
       alg: policy.algorithm,
       enc: policy.encryption,
       kid,
-      projectIds: [...projectIds],
+      projectIds: [projectId],
     });
-  if (options.expirationTime !== undefined) {
-    jwt.setExpirationTime(options.expirationTime);
-  }
+  if (expirationTime !== undefined) jwt.setExpirationTime(expirationTime);
   return jwt.encrypt(key);
 }
 
@@ -105,7 +79,10 @@ type KeyCacheEntry = {
   failedAt: number;
 };
 
-const keyCache = new Map<string, KeyCacheEntry>();
+let keyCache: KeyCacheEntry = {
+  loadedAt: Number.NEGATIVE_INFINITY,
+  failedAt: 0,
+};
 
 /**
  * Loads the current public key, and keeps it for the process. Concurrent
@@ -113,19 +90,11 @@ const keyCache = new Map<string, KeyCacheEntry>();
  * the cooldown ends, so that a missing key set does not cause one request
  * for each page.
  */
-function loadPublicKey(
-  jwksUrl: string,
-  customFetch: typeof fetch | undefined,
-): Promise<PublicKey> {
+function loadPublicKey(): Promise<PublicKey> {
   const policy = FLAG_VALUES_POLICY;
-  const url = parseKeySetUrl(jwksUrl);
+  const url = VERCEL_FLAG_VALUES_JWKS_URL;
   const now = Date.now();
-  let entry = keyCache.get(url.href);
-  if (!entry) {
-    entry = { loadedAt: Number.NEGATIVE_INFINITY, failedAt: 0 };
-    keyCache.set(url.href, entry);
-  }
-  const current = entry;
+  const current = keyCache;
   if (current.value && now - current.loadedAt < policy.cacheMaxAgeMs) {
     return Promise.resolve(current.value);
   }
@@ -137,7 +106,7 @@ function loadPublicKey(
     try {
       // Read the global fetch at each load, because a framework can
       // replace it
-      const response = await (customFetch ?? globalThis.fetch)(url, {
+      const response = await globalThis.fetch(url, {
         redirect: 'error',
         cache: 'no-store',
       });
@@ -223,22 +192,6 @@ async function readLimited(response: Response, maxBytes: number) {
   return new TextDecoder().decode(bytes);
 }
 
-function parseKeySetUrl(value: string): URL {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error('flags: The jwksUrl of the flag values is not a URL.');
-  }
-  const isLocal =
-    url.protocol === 'http:' &&
-    ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !isLocal) {
-    throw new Error('flags: The jwksUrl of the flag values must use HTTPS.');
-  }
-  return url;
-}
-
 /**
  * Finds the Vercel project of the host: the environment of a deployment, the
  * `VERCEL_OIDC_TOKEN` of `vercel env pull`, and the `.vercel/project.json` of
@@ -280,25 +233,6 @@ function readLinkedProjectId(): string | undefined {
   }
 }
 
-function validateProjectIds(projectIds: readonly string[]): void {
-  const policy = FLAG_VALUES_POLICY;
-  if (
-    projectIds.length === 0 ||
-    projectIds.length > policy.maxProjectIds ||
-    projectIds.some(
-      (id) =>
-        typeof id !== 'string' ||
-        id.length === 0 ||
-        id.length > policy.maxProjectIdLength,
-    ) ||
-    new Set(projectIds).size !== projectIds.length
-  ) {
-    throw new Error(
-      `flags: projectIds must contain 1 to ${policy.maxProjectIds} distinct, non-empty strings of at most ${policy.maxProjectIdLength} characters.`,
-    );
-  }
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -309,5 +243,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @internal
  */
 export function resetFlagValuesKeys(): void {
-  keyCache.clear();
+  keyCache = { loadedAt: Number.NEGATIVE_INFINITY, failedAt: 0 };
 }
