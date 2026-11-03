@@ -156,6 +156,46 @@ describe('generateDefinitionsModule', () => {
   });
 });
 
+it('writes a JSON snapshot from the same fetched definitions as the module', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'flags-json-'));
+  const sdkKey = 'vf_server_snapshot';
+  const definitions = {
+    definitions: {},
+    configUpdatedAt: 123,
+    digest: 'snapshot',
+    revision: 1,
+  };
+  const fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => definitions,
+  });
+  try {
+    await prepareFlagsDefinitions({ cwd, env: { FLAGS: sdkKey }, fetch });
+    const packagePath = join(cwd, 'node_modules/@vercel/flags-definitions');
+    const contents = await readFile(
+      join(packagePath, 'definitions.json'),
+      'utf8',
+    );
+    const snapshot = JSON.parse(contents);
+    const module = await import(
+      /* @vite-ignore */ pathToFileURL(join(packagePath, 'index.js')).href
+    );
+    expect(snapshot).toEqual({
+      version: 1,
+      entries: {
+        [hashSdkKey(sdkKey)]: { ...definitions, fetchedAt: FETCH_TIME },
+      },
+    });
+    expect(snapshot.entries[hashSdkKey(sdkKey)]).toEqual(
+      module.get(hashSdkKey(sdkKey)),
+    );
+    expect(contents).not.toContain(sdkKey);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 describe('prepareFlagsDefinitions', () => {
   it('embeds fetch completion time and preserves it when loaded later', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'flags-fetched-at-'));
