@@ -6,6 +6,7 @@ import {
   createLocalJWKSet,
   decodeProtectedHeader,
   type JSONWebKeySet,
+  type JWTPayload,
   type JWTVerifyGetKey,
   jwtVerify,
 } from 'jose';
@@ -43,6 +44,27 @@ export function isVercelSignedToken(token: string): boolean {
 export async function verifyVercelSignedOverrides(
   token: string,
 ): Promise<FlagOverridesType | undefined> {
+  const payload = await verifyVercelSignedToken(token, {
+    audience: AUDIENCE,
+    purpose: PURPOSE,
+    maxLifetimeSeconds: MAX_LIFETIME_SECONDS,
+  });
+  return payload && isRecord(payload.overrides)
+    ? (payload.overrides as FlagOverridesType)
+    : undefined;
+}
+
+/**
+ * Verifies a token which Vercel signed for the given audience and purpose.
+ * Returns `undefined` for a token which is not valid, or not for this project
+ * and environment.
+ *
+ * @internal
+ */
+export async function verifyVercelSignedToken(
+  token: string,
+  options: { audience: string; purpose: string; maxLifetimeSeconds: number },
+): Promise<JWTPayload | undefined> {
   const project = getProject();
   if (!project || token.length > MAX_TOKEN_LENGTH) return undefined;
 
@@ -60,23 +82,22 @@ export async function verifyVercelSignedOverrides(
     const { payload } = await jwtVerify(token, getKey, {
       algorithms: ['ES256'],
       issuer: ISSUER,
-      audience: AUDIENCE,
+      audience: options.audience,
       requiredClaims: ['iat', 'exp'],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
-      maxTokenAge: MAX_LIFETIME_SECONDS,
+      maxTokenAge: options.maxLifetimeSeconds,
     });
 
     if (
       (payload.exp as number) - (payload.iat as number) >
-        MAX_LIFETIME_SECONDS ||
-      payload.pur !== PURPOSE ||
+        options.maxLifetimeSeconds ||
+      payload.pur !== options.purpose ||
       payload.ver !== VERSION ||
-      !isRecord(payload.overrides) ||
       !isInScope(payload.scope, project)
     ) {
       return undefined;
     }
-    return payload.overrides as FlagOverridesType;
+    return payload;
   } catch {
     return undefined;
   }

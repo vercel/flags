@@ -1,9 +1,16 @@
 import { verifyAccessProof } from './crypto';
 import { trace } from './tracing';
+import {
+  isVercelSignedToken,
+  verifyVercelSignedToken,
+} from './vercel-overrides';
 
 /**
  * This function lets you verify whether a request to your application's .well-known/vercel/flags endpoint was made by the toolbar.
  * You can use verifyAccess to keep this endpoint private, to avoid public access of your feature flag definitions through that endpoint.
+ *
+ * It accepts a proof encrypted with the FLAGS_SECRET, and, on Vercel (or locally after `vercel env pull`),
+ * a short-lived token which Vercel signs for this project and environment. The latter works without a FLAGS_SECRET.
  *
  * @example Using verifyAccess in .well-known/vercel/flags to verify access and respond with unencrypted data.
  * ```
@@ -19,7 +26,7 @@ import { trace } from './tracing';
  * ```
  * @param authHeader the Authorization header to check
  * @param secret the FLAGS_SECRET
- * @returns True when the authorization header was valid
+ * @returns True when the authorization header was valid. False for an encrypted proof when there is no secret.
  */
 export const verifyAccess = trace(
   async function verifyAccess(
@@ -30,17 +37,20 @@ export const verifyAccess = trace(
     secret: string | undefined = process?.env?.FLAGS_SECRET,
   ) {
     if (!authHeader) return false;
-    if (!secret)
-      throw new Error(
-        'flags: verifyAccess was called without a secret. Please set FLAGS_SECRET environment variable.',
+    const token = authHeader.replace(/^Bearer /i, '');
+
+    if (isVercelSignedToken(token)) {
+      return Boolean(
+        await verifyVercelSignedToken(token, {
+          audience: 'vercel:flags-discovery',
+          purpose: 'flags-discovery',
+          maxLifetimeSeconds: 300,
+        }),
       );
+    }
 
-    const valid = await verifyAccessProof(
-      authHeader.replace(/^Bearer /i, ''),
-      secret,
-    );
-
-    return valid;
+    if (!secret) return false;
+    return verifyAccessProof(token, secret);
   },
   {
     isVerboseTrace: false,

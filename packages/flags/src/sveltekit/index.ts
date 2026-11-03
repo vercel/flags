@@ -375,7 +375,6 @@ async function handleWellKnownFlagsRoute(
   secret: string | undefined,
   flags: Record<string, Flag<any>>,
 ) {
-  if (!secret) return new Response(null, { status: 401 });
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
     secret,

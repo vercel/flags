@@ -8,7 +8,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetFlagValuesKeys } from '../lib/flag-values-platform';
 import { resetVercelKeys } from '../lib/vercel-overrides';
-import { createHandle, encryptFlagValues, flag } from '.';
+import {
+  createFlagsDiscoveryEndpoint,
+  createHandle,
+  encryptFlagValues,
+  flag,
+} from '.';
 
 vi.hoisted(() => {
   delete process.env.FLAGS_SECRET;
@@ -35,6 +40,27 @@ beforeEach(async () => {
     vi.fn(async () => Response.json({ keys: [jwk] })),
   );
 });
+
+/**
+ * Signs a token like Vercel KMS, with a key which the mocked fetch serves.
+ */
+async function signWithVercelKey(claims: Record<string, unknown>) {
+  resetVercelKeys();
+  vi.stubEnv('VERCEL', '1');
+  vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
+  const { privateKey, publicKey } = await generateKeyPair('ES256');
+  const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'ES256' };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json({ keys: [jwk] })),
+  );
+  return new SignJWT(claims)
+    .setProtectedHeader({ alg: 'ES256', kid: 'k' })
+    .setIssuer('https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864')
+    .setIssuedAt()
+    .setExpirationTime('2m')
+    .sign(privateKey);
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -66,7 +92,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     });
   });
 
-  it('does not serve the flags discovery endpoint', async () => {
+  it('does not serve the flags discovery endpoint without a token', async () => {
     const handle = createHandle({ flags: { summerSale } });
     const response = await handle({
       event: event('/.well-known/vercel/flags'),
@@ -76,6 +102,38 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     expect(response.status).toBe(401);
   });
 
+  it('serves the flags discovery endpoint for a token which Vercel signs', async () => {
+    const authorization = `Bearer ${await signWithVercelKey({
+      ver: 1,
+      pur: 'flags-discovery',
+      aud: 'vercel:flags-discovery',
+      scope: { projectId: 'prj_shop', environments: ['preview'] },
+    })}`;
+    const withToken = {
+      request: new Request('https://shop.example/.well-known/vercel/flags', {
+        headers: { authorization },
+      }),
+      params: {},
+    } as unknown as RequestEvent;
+
+    const handle = createHandle({ flags: { summerSale } });
+    const response = await handle({
+      event: withToken,
+      resolve: async () => new Response('page'),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toHaveProperty(
+      'definitions.summer-sale',
+    );
+
+    const endpoint = createFlagsDiscoveryEndpoint(() => ({ definitions: {} }));
+    const endpointResponse = await endpoint(withToken as never);
+    expect(endpointResponse.status).toBe(200);
+    await expect(
+      endpoint(event('/.well-known/vercel/flags') as never),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
   it('encrypts with the public key of Vercel', async () => {
     const token = await encryptFlagValues({ 'summer-sale': true });
 
@@ -83,27 +141,13 @@ describe('SvelteKit without FLAGS_SECRET', () => {
   });
 
   it('accepts overrides which Vercel signs', async () => {
-    resetVercelKeys();
-    vi.stubEnv('VERCEL', '1');
-    vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
-    const { privateKey, publicKey } = await generateKeyPair('ES256');
-    const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'ES256' };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => Response.json({ keys: [jwk] })),
-    );
-    const token = await new SignJWT({
+    const token = await signWithVercelKey({
       ver: 1,
       pur: 'flag-overrides',
+      aud: 'vercel:flag-overrides',
       scope: { projectId: 'prj_shop', environments: ['preview'] },
       overrides: { 'summer-sale': false },
-    })
-      .setProtectedHeader({ alg: 'ES256', kid: 'k' })
-      .setIssuer('https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864')
-      .setAudience('vercel:flag-overrides')
-      .setIssuedAt()
-      .setExpirationTime('2m')
-      .sign(privateKey);
+    });
 
     let value: boolean | undefined;
     const handle = createHandle({ flags: { summerSale } });
