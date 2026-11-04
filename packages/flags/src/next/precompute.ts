@@ -72,7 +72,19 @@ export async function deserialize(
     throw new Error('flags: Can not serialize due to missing secret');
   }
 
-  if (code === '__no_flags__') return {};
+  if (code === '__no_flags__') {
+    if (flags.length === 0) return {};
+    throw new Error(
+      'flags: Received a code for an empty flags array, but the flags array is not empty',
+    );
+  }
+
+  if (flags.length === 0) {
+    throw new Error(
+      'flags: Received a code for a non-empty flags array, but the flags array is empty',
+    );
+  }
+
   return s.deserialize(code, flags, secret);
 }
 
