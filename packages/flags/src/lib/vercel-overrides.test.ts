@@ -141,8 +141,8 @@ describe('verifyVercelSignedOverrides', () => {
         ),
     ],
     [
-      'a lifetime above 24 hours',
-      () => sign({}, { lifetime: 24 * 60 * 60 + 1 }),
+      'a lifetime above 7 days',
+      () => sign({}, { lifetime: 7 * 24 * 60 * 60 + 1 }),
     ],
     [
       'a different issuer',
