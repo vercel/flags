@@ -21,7 +21,7 @@ const JWKS_URL = `${ISSUER}/jwks.json`;
 const AUDIENCE = 'vercel:flag-overrides';
 const PURPOSE = 'flag-overrides';
 const VERSION = 1;
-const MAX_LIFETIME_SECONDS = 24 * 60 * 60;
+const MAX_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
 const CLOCK_TOLERANCE_SECONDS = 5;
 const MAX_TOKEN_LENGTH = 16_384;
 
