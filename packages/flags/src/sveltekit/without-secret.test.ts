@@ -6,8 +6,8 @@ import {
   SignJWT,
 } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
 import { resetFlagValuesKeys } from '../lib/flag-values-platform';
-import { resetVercelKeys } from '../lib/vercel-overrides';
 import {
   createFlagsDiscoveryEndpoint,
   createHandle,
@@ -15,15 +15,15 @@ import {
   flag,
 } from '.';
 
-const FLAGS_KEYS_ISSUER = vi.hoisted(() => {
+const VERCEL_FLAGS_DISCOVERY_ISSUER = vi.hoisted(() => {
   delete process.env.FLAGS_SECRET;
   return 'https://kms.vercel.com/00000000-0000-4000-8000-000000000001';
 });
 
 // The id of the flags-keys-issuer is not known yet
-vi.mock('../lib/vercel-overrides', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/vercel-overrides')>()),
-  FLAGS_KEYS_ISSUER,
+vi.mock('../lib/flags-discovery-platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/flags-discovery-platform')>()),
+  VERCEL_FLAGS_DISCOVERY_ISSUER,
 }));
 
 const summerSale = flag<boolean>({ key: 'summer-sale', decide: () => true });
@@ -55,7 +55,7 @@ async function signWithVercelKey(
   claims: Record<string, unknown>,
   issuer = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864',
 ) {
-  resetVercelKeys();
+  resetFlagOverridesKeys();
   vi.stubEnv('VERCEL', '1');
   vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
   const { privateKey, publicKey } = await generateKeyPair('ES256');
@@ -120,7 +120,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
         aud: 'vercel:flags-discovery',
         scope: { projectIds: ['prj_shop'], environments: ['preview'] },
       },
-      FLAGS_KEYS_ISSUER,
+      VERCEL_FLAGS_DISCOVERY_ISSUER,
     )}`;
     const withToken = {
       request: new Request('https://shop.example/.well-known/vercel/flags', {

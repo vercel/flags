@@ -22,12 +22,12 @@ import {
   verifyAccess,
   version,
 } from '..';
+import {
+  isFlagOverridesFromPlatform,
+  verifyFlagOverridesFromPlatform,
+} from '../lib/flag-overrides-platform';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
-import {
-  isVercelSignedToken,
-  verifyVercelSignedOverrides,
-} from '../lib/vercel-overrides';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -202,8 +202,8 @@ export function flag<
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
     const overrides = !overridesCookie
       ? undefined
-      : isVercelSignedToken(overridesCookie)
-        ? await verifyVercelSignedOverrides(overridesCookie)
+      : isFlagOverridesFromPlatform(overridesCookie)
+        ? await verifyFlagOverridesFromPlatform(overridesCookie)
         : store.secret
           ? await _decryptOverrides(overridesCookie, store.secret)
           : undefined;

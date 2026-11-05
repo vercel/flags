@@ -1,10 +1,13 @@
 import { verifyAccessProof } from './crypto';
+import {
+  FLAGS_DISCOVERY_POLICY,
+  VERCEL_FLAGS_DISCOVERY_ISSUER,
+} from './flags-discovery-platform';
 import { trace } from './tracing';
 import {
-  FLAGS_KEYS_ISSUER,
   isVercelSignedToken,
   verifyVercelSignedToken,
-} from './vercel-overrides';
+} from './vercel-platform';
 
 /**
  * This function lets you verify whether a request to your application's .well-known/vercel/flags endpoint was made by the toolbar.
@@ -42,12 +45,11 @@ export const verifyAccess = trace(
 
     if (isVercelSignedToken(token)) {
       return Boolean(
-        await verifyVercelSignedToken(token, {
-          issuer: FLAGS_KEYS_ISSUER,
-          audience: 'vercel:flags-discovery',
-          purpose: 'flags-discovery',
-          maxLifetimeSeconds: 300,
-        }),
+        await verifyVercelSignedToken(
+          token,
+          VERCEL_FLAGS_DISCOVERY_ISSUER,
+          FLAGS_DISCOVERY_POLICY,
+        ),
       );
     }
 

@@ -19,10 +19,11 @@ import {
 import { createFlagsDiscoveryEndpoint } from '../next/create-flags-discovery-endpoint';
 import { createAccessProof } from './crypto';
 import {
-  resetVercelKeys,
-  verifyVercelSignedOverrides,
-  verifyVercelSignedToken,
-} from './vercel-overrides';
+  resetFlagOverridesKeys,
+  verifyFlagOverridesFromPlatform,
+} from './flag-overrides-platform';
+import { FLAGS_DISCOVERY_POLICY } from './flags-discovery-platform';
+import { verifyVercelSignedToken } from './vercel-platform';
 import { verifyAccess } from './verify-access';
 
 const ISSUER = vi.hoisted(
@@ -31,10 +32,11 @@ const ISSUER = vi.hoisted(
 const OVERRIDES_ISSUER =
   'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
 
-// The id of the flags-keys-issuer is not known yet, see FLAGS_KEYS_ISSUER
-vi.mock('./vercel-overrides', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./vercel-overrides')>()),
-  FLAGS_KEYS_ISSUER: ISSUER,
+// The id of the flags-keys-issuer is not known yet, see
+// VERCEL_FLAGS_DISCOVERY_ISSUER
+vi.mock('./flags-discovery-platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./flags-discovery-platform')>()),
+  VERCEL_FLAGS_DISCOVERY_ISSUER: ISSUER,
 }));
 const secret = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
 
@@ -55,7 +57,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  resetVercelKeys();
+  resetFlagOverridesKeys();
   for (const name of ['FLAGS_SECRET', 'VERCEL_OIDC_TOKEN', 'VERCEL_ENV']) {
     vi.stubEnv(name, '');
   }
@@ -210,23 +212,23 @@ describe('verifyAccess with a token which Vercel signs', () => {
 
   it('does not accept a discovery token as overrides', async () => {
     await expect(
-      signOverrides().then(verifyVercelSignedOverrides),
+      signOverrides().then(verifyFlagOverridesFromPlatform),
     ).resolves.toBeDefined();
     await expect(
-      verifyVercelSignedOverrides(await sign({ overrides: { a: true } })),
+      verifyFlagOverridesFromPlatform(await sign({ overrides: { a: true } })),
     ).resolves.toBeUndefined();
   });
 
   it('does not accept overrides of the flags-keys issuer', async () => {
     await expect(
-      verifyVercelSignedOverrides(await signOverrides(ISSUER)),
+      verifyFlagOverridesFromPlatform(await signOverrides(ISSUER)),
     ).resolves.toBeUndefined();
   });
 
   it('loads the keys of each issuer from its own key set', async () => {
     await expect(verifyAccess(await sign())).resolves.toBe(true);
     await expect(
-      signOverrides().then(verifyVercelSignedOverrides),
+      signOverrides().then(verifyFlagOverridesFromPlatform),
     ).resolves.toBeDefined();
     expect(fetchKeys.mock.calls.map(([url]) => String(url))).toEqual([
       `${ISSUER}/jwks.json`,
@@ -235,19 +237,18 @@ describe('verifyAccess with a token which Vercel signs', () => {
   });
 
   it('rejects all tokens while the flags-keys issuer is a placeholder', async () => {
-    const { FLAGS_KEYS_ISSUER: placeholder } =
-      await vi.importActual<typeof import('./vercel-overrides')>(
-        './vercel-overrides',
+    const { VERCEL_FLAGS_DISCOVERY_ISSUER: placeholder } =
+      await vi.importActual<typeof import('./flags-discovery-platform')>(
+        './flags-discovery-platform',
       );
     expect(placeholder).toContain('TODO');
     for (const issuer of [placeholder, '', 'https://kms.vercel.com/']) {
       await expect(
-        verifyVercelSignedToken(await sign({}, { issuer }), {
+        verifyVercelSignedToken(
+          await sign({}, { issuer }),
           issuer,
-          audience: 'vercel:flags-discovery',
-          purpose: 'flags-discovery',
-          maxLifetimeSeconds: 300,
-        }),
+          FLAGS_DISCOVERY_POLICY,
+        ),
       ).resolves.toBeUndefined();
     }
     expect(fetchKeys).not.toHaveBeenCalled();
