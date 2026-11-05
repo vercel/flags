@@ -1,6 +1,7 @@
 import { verifyAccessProof } from './crypto';
 import { trace } from './tracing';
 import {
+  FLAGS_KEYS_ISSUER,
   isVercelSignedToken,
   verifyVercelSignedToken,
 } from './vercel-overrides';
@@ -42,6 +43,7 @@ export const verifyAccess = trace(
     if (isVercelSignedToken(token)) {
       return Boolean(
         await verifyVercelSignedToken(token, {
+          issuer: FLAGS_KEYS_ISSUER,
           audience: 'vercel:flags-discovery',
           purpose: 'flags-discovery',
           maxLifetimeSeconds: 300,

@@ -21,10 +21,21 @@ import { createAccessProof } from './crypto';
 import {
   resetVercelKeys,
   verifyVercelSignedOverrides,
+  verifyVercelSignedToken,
 } from './vercel-overrides';
 import { verifyAccess } from './verify-access';
 
-const ISSUER = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
+const ISSUER = vi.hoisted(
+  () => 'https://kms.vercel.com/00000000-0000-4000-8000-000000000001',
+);
+const OVERRIDES_ISSUER =
+  'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
+
+// The id of the flags-keys-issuer is not known yet, see FLAGS_KEYS_ISSUER
+vi.mock('./vercel-overrides', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./vercel-overrides')>()),
+  FLAGS_KEYS_ISSUER: ISSUER,
+}));
 const secret = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
 
 let privateKey: KeyLike;
@@ -93,10 +104,10 @@ function sign(
     .sign(options.key ?? privateKey);
 }
 
-function signOverrides() {
+function signOverrides(issuer = OVERRIDES_ISSUER) {
   return sign(
     { pur: 'flag-overrides', overrides: { a: true } },
-    { audience: 'vercel:flag-overrides' },
+    { audience: 'vercel:flag-overrides', issuer },
   );
 }
 
@@ -134,7 +145,11 @@ describe('verifyAccess with a token which Vercel signs', () => {
     ],
     ['a key in the header', () => sign({}, { header: { jwk: publicJwk } })],
     ['a key URL in the header', () => sign({}, { header: { jku: '' } })],
-    ['an overrides token', signOverrides],
+    ['an overrides token', () => signOverrides()],
+    [
+      'a discovery token of the overrides issuer',
+      () => sign({}, { issuer: OVERRIDES_ISSUER }),
+    ],
     [
       'a different project',
       () =>
@@ -196,6 +211,42 @@ describe('verifyAccess with a token which Vercel signs', () => {
     await expect(
       verifyVercelSignedOverrides(await sign({ overrides: { a: true } })),
     ).resolves.toBeUndefined();
+  });
+
+  it('does not accept overrides of the flags-keys issuer', async () => {
+    await expect(
+      verifyVercelSignedOverrides(await signOverrides(ISSUER)),
+    ).resolves.toBeUndefined();
+  });
+
+  it('loads the keys of each issuer from its own key set', async () => {
+    await expect(verifyAccess(await sign())).resolves.toBe(true);
+    await expect(
+      signOverrides().then(verifyVercelSignedOverrides),
+    ).resolves.toBeDefined();
+    expect(fetchKeys.mock.calls.map(([url]) => String(url))).toEqual([
+      `${ISSUER}/jwks.json`,
+      `${OVERRIDES_ISSUER}/jwks.json`,
+    ]);
+  });
+
+  it('rejects all tokens while the flags-keys issuer is a placeholder', async () => {
+    const { FLAGS_KEYS_ISSUER: placeholder } =
+      await vi.importActual<typeof import('./vercel-overrides')>(
+        './vercel-overrides',
+      );
+    expect(placeholder).toContain('TODO');
+    for (const issuer of [placeholder, '', 'https://kms.vercel.com/']) {
+      await expect(
+        verifyVercelSignedToken(await sign({}, { issuer }), {
+          issuer,
+          audience: 'vercel:flags-discovery',
+          purpose: 'flags-discovery',
+          maxLifetimeSeconds: 300,
+        }),
+      ).resolves.toBeUndefined();
+    }
+    expect(fetchKeys).not.toHaveBeenCalled();
   });
 });
 

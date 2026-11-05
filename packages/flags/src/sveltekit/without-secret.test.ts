@@ -15,9 +15,16 @@ import {
   flag,
 } from '.';
 
-vi.hoisted(() => {
+const FLAGS_KEYS_ISSUER = vi.hoisted(() => {
   delete process.env.FLAGS_SECRET;
+  return 'https://kms.vercel.com/00000000-0000-4000-8000-000000000001';
 });
+
+// The id of the flags-keys-issuer is not known yet
+vi.mock('../lib/vercel-overrides', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/vercel-overrides')>()),
+  FLAGS_KEYS_ISSUER,
+}));
 
 const summerSale = flag<boolean>({ key: 'summer-sale', decide: () => true });
 
@@ -44,7 +51,10 @@ beforeEach(async () => {
 /**
  * Signs a token like Vercel KMS, with a key which the mocked fetch serves.
  */
-async function signWithVercelKey(claims: Record<string, unknown>) {
+async function signWithVercelKey(
+  claims: Record<string, unknown>,
+  issuer = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864',
+) {
   resetVercelKeys();
   vi.stubEnv('VERCEL', '1');
   vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
@@ -56,7 +66,7 @@ async function signWithVercelKey(claims: Record<string, unknown>) {
   );
   return new SignJWT(claims)
     .setProtectedHeader({ alg: 'ES256', kid: 'k' })
-    .setIssuer('https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864')
+    .setIssuer(issuer)
     .setIssuedAt()
     .setExpirationTime('2m')
     .sign(privateKey);
@@ -103,12 +113,15 @@ describe('SvelteKit without FLAGS_SECRET', () => {
   });
 
   it('serves the flags discovery endpoint for a token which Vercel signs', async () => {
-    const authorization = `Bearer ${await signWithVercelKey({
-      ver: 1,
-      pur: 'flags-discovery',
-      aud: 'vercel:flags-discovery',
-      scope: { projectId: 'prj_shop', environments: ['preview'] },
-    })}`;
+    const authorization = `Bearer ${await signWithVercelKey(
+      {
+        ver: 1,
+        pur: 'flags-discovery',
+        aud: 'vercel:flags-discovery',
+        scope: { projectId: 'prj_shop', environments: ['preview'] },
+      },
+      FLAGS_KEYS_ISSUER,
+    )}`;
     const withToken = {
       request: new Request('https://shop.example/.well-known/vercel/flags', {
         headers: { authorization },
