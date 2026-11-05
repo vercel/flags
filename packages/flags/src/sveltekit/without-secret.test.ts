@@ -95,7 +95,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     const token = await new SignJWT({
       ver: 1,
       pur: 'flag-overrides',
-      scope: { projectId: 'prj_shop', environments: ['preview'] },
+      scope: { projectIds: ['prj_shop'], environments: ['preview'] },
       overrides: { 'summer-sale': false },
     })
       .setProtectedHeader({ alg: 'ES256', kid: 'k' })

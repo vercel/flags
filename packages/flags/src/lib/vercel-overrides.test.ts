@@ -78,7 +78,11 @@ function sign(
   return new SignJWT({
     pur: 'flag-overrides',
     ver: 1,
-    scope: { teamId: 'team_1', projectId: 'prj_1', environments: ['preview'] },
+    scope: {
+      teamId: 'team_1',
+      projectIds: ['prj_1'],
+      environments: ['preview'],
+    },
     overrides: { 'new-checkout': true },
     ...claims,
   })
@@ -172,7 +176,7 @@ describe('verifyVercelSignedOverrides', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_2',
+            projectIds: ['prj_2'],
             environments: ['preview'],
           },
         }),
@@ -183,7 +187,7 @@ describe('verifyVercelSignedOverrides', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_1',
+            projectIds: ['prj_1'],
             environments: ['production'],
           },
         }),
@@ -194,7 +198,7 @@ describe('verifyVercelSignedOverrides', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_1',
+            projectIds: ['prj_1'],
             environments: ['preview'],
             deploymentId: 'dpl_1',
           },
@@ -203,6 +207,34 @@ describe('verifyVercelSignedOverrides', () => {
   ])('rejects %s', async (_, token) => {
     await expect(
       verifyVercelSignedOverrides(await token()),
+    ).resolves.toBeUndefined();
+  });
+
+  it('accepts a token of all projects of a microfrontends group', async () => {
+    await expect(
+      verifyVercelSignedOverrides(
+        await sign({
+          scope: {
+            teamId: 'team_1',
+            projectIds: ['prj_2', 'prj_1'],
+            environments: ['preview'],
+          },
+        }),
+      ),
+    ).resolves.toEqual({ 'new-checkout': true });
+  });
+
+  it('rejects a single projectId', async () => {
+    await expect(
+      verifyVercelSignedOverrides(
+        await sign({
+          scope: {
+            teamId: 'team_1',
+            projectId: 'prj_1',
+            environments: ['preview'],
+          },
+        }),
+      ),
     ).resolves.toBeUndefined();
   });
 

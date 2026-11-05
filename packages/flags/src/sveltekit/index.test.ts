@@ -68,7 +68,7 @@ describe('overrides', () => {
       const token = await new SignJWT({
         ver: 1,
         pur: 'flag-overrides',
-        scope: { projectId: 'prj_1', environments: ['preview'] },
+        scope: { projectIds: ['prj_1'], environments: ['preview'] },
         overrides: { 'first-flag': 'signed' },
       })
         .setProtectedHeader({ alg: 'ES256', kid: 'k' })
