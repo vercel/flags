@@ -6,8 +6,8 @@ import {
   SignJWT,
 } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
 import { resetFlagValuesKeys } from '../lib/flag-values-platform';
-import { resetVercelKeys } from '../lib/vercel-overrides';
 import { createHandle, encryptFlagValues, flag } from '.';
 
 vi.hoisted(() => {
@@ -83,7 +83,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
   });
 
   it('accepts overrides which Vercel signs', async () => {
-    resetVercelKeys();
+    resetFlagOverridesKeys();
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
     const { privateKey, publicKey } = await generateKeyPair('ES256');
