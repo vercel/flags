@@ -38,6 +38,26 @@ const openFeatureAdapter = createOpenFeatureAdapter(async () => {
 });
 ```
 
+## Shutdown
+
+Call `close()` to revert the adapter to its uninitialized state. The next flag evaluation initializes it again, which re-runs the `init` function you passed in. Any initialization still in flight is awaited first, and calling `close()` repeatedly without an intervening evaluation does nothing further.
+
+Pass `onClose` to dispose of whatever your `init` function set up. The adapter can not do this for you: an OpenFeature client can not be closed on its own, and shutting down providers means closing them on the global `OpenFeature` API, which would also affect providers this adapter never registered.
+
+```ts
+const openFeatureAdapter = createOpenFeatureAdapter(
+  async () => {
+    await OpenFeature.setProviderAndWait(new YourProviderOfChoice());
+    return OpenFeature.getClient();
+  },
+  { onClose: () => OpenFeature.close() },
+);
+
+await openFeatureAdapter.close();
+```
+
+Note that when you pass a client directly instead of an `init` function, the adapter has nothing to re-create, so evaluations after a `close()` keep using that same client.
+
 ## Documentation
 
 Please check out the [OpenFeature provider documentation](https://flags-sdk.dev/docs/api-reference/adapters/openfeature) for more information.
