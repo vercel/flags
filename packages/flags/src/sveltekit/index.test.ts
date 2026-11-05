@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encryptOverrides } from '..';
-import { resetVercelKeys } from '../lib/vercel-overrides';
+import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
 import { createHandle, flag, getProviderData } from '.';
 
 vi.mock('$env/dynamic/private', () => ({ FLAGS_SECRET: 'secret' }));
@@ -52,7 +52,7 @@ describe('overrides', () => {
 
   describe('with a token which Vercel signs', () => {
     afterEach(() => {
-      resetVercelKeys();
+      resetFlagOverridesKeys();
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
     });
@@ -64,7 +64,7 @@ describe('overrides', () => {
         async () => new Response(JSON.stringify({ keys: [jwk] })),
       );
       vi.stubGlobal('fetch', fetch);
-      resetVercelKeys();
+      resetFlagOverridesKeys();
       const token = await new SignJWT({
         ver: 1,
         pur: 'flag-overrides',

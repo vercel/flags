@@ -18,10 +18,11 @@ import {
 import { getOverrides } from '../next/overrides';
 import { encryptOverrides } from './crypto';
 import {
-  isVercelSignedToken,
-  resetVercelKeys,
-  verifyVercelSignedOverrides,
-} from './vercel-overrides';
+  isFlagOverridesFromPlatform,
+  resetFlagOverridesKeys,
+  VERCEL_FLAG_OVERRIDES_JWKS_URL,
+  verifyFlagOverridesFromPlatform,
+} from './flag-overrides-platform';
 
 const ISSUER = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
 const secret = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
@@ -43,7 +44,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  resetVercelKeys();
+  resetFlagOverridesKeys();
   for (const name of ['FLAGS_SECRET', 'VERCEL_OIDC_TOKEN', 'VERCEL_ENV']) {
     vi.stubEnv(name, '');
   }
@@ -98,21 +99,25 @@ function sign(
     .sign(options.key ?? privateKey);
 }
 
-describe('verifyVercelSignedOverrides', () => {
+describe('verifyFlagOverridesFromPlatform', () => {
   it('returns the overrides of a valid token', async () => {
-    await expect(verifyVercelSignedOverrides(await sign())).resolves.toEqual({
+    await expect(
+      verifyFlagOverridesFromPlatform(await sign()),
+    ).resolves.toEqual({
       'new-checkout': true,
     });
-    expect(String(fetchKeys.mock.calls[0]?.[0])).toBe(`${ISSUER}/jwks.json`);
+    expect(String(fetchKeys.mock.calls[0]?.[0])).toBe(
+      VERCEL_FLAG_OVERRIDES_JWKS_URL,
+    );
   });
 
   it('loads the public keys once, not per token', async () => {
     const token = await sign();
     await Promise.all([
-      verifyVercelSignedOverrides(token),
-      verifyVercelSignedOverrides(token),
+      verifyFlagOverridesFromPlatform(token),
+      verifyFlagOverridesFromPlatform(token),
     ]);
-    await verifyVercelSignedOverrides(await sign({ overrides: { a: 1 } }));
+    await verifyFlagOverridesFromPlatform(await sign({ overrides: { a: 1 } }));
     expect(fetchKeys).toHaveBeenCalledTimes(1);
   });
 
@@ -130,7 +135,9 @@ describe('verifyVercelSignedOverrides', () => {
         .setProtectedHeader({ alg: 'ES256' })
         .sign(otherKey),
     );
-    await expect(verifyVercelSignedOverrides(await sign())).resolves.toEqual({
+    await expect(
+      verifyFlagOverridesFromPlatform(await sign()),
+    ).resolves.toEqual({
       'new-checkout': true,
     });
   });
@@ -206,13 +213,13 @@ describe('verifyVercelSignedOverrides', () => {
     ],
   ])('rejects %s', async (_, token) => {
     await expect(
-      verifyVercelSignedOverrides(await token()),
+      verifyFlagOverridesFromPlatform(await token()),
     ).resolves.toBeUndefined();
   });
 
   it('accepts a token of all projects of a microfrontends group', async () => {
     await expect(
-      verifyVercelSignedOverrides(
+      verifyFlagOverridesFromPlatform(
         await sign({
           scope: {
             teamId: 'team_1',
@@ -226,7 +233,7 @@ describe('verifyVercelSignedOverrides', () => {
 
   it('rejects a single projectId', async () => {
     await expect(
-      verifyVercelSignedOverrides(
+      verifyFlagOverridesFromPlatform(
         await sign({
           scope: {
             teamId: 'team_1',
@@ -241,7 +248,7 @@ describe('verifyVercelSignedOverrides', () => {
   it('rejects an unsigned token', async () => {
     const part = (value: object) => base64url.encode(JSON.stringify(value));
     await expect(
-      verifyVercelSignedOverrides(
+      verifyFlagOverridesFromPlatform(
         `${part({ alg: 'none', kid: 'key-1' })}.${part({})}.`,
       ),
     ).resolves.toBeUndefined();
@@ -255,29 +262,29 @@ describe('verifyVercelSignedOverrides', () => {
         .sign(otherKey),
     );
     await expect(
-      verifyVercelSignedOverrides(await sign()),
+      verifyFlagOverridesFromPlatform(await sign()),
     ).resolves.toBeUndefined();
   });
 
   it('rejects tokens when the project is not known', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', '');
     await expect(
-      verifyVercelSignedOverrides(await sign()),
+      verifyFlagOverridesFromPlatform(await sign()),
     ).resolves.toBeUndefined();
     expect(fetchKeys).not.toHaveBeenCalled();
   });
 
   it('loads the keys again for a new key, but not more often than every 30 seconds', async () => {
     vi.useFakeTimers({ now: Date.now(), toFake: ['Date'] });
-    await verifyVercelSignedOverrides(await sign());
+    await verifyFlagOverridesFromPlatform(await sign());
     const unknown = await sign({}, { header: { kid: 'key-2' } });
 
-    await verifyVercelSignedOverrides(unknown);
-    await verifyVercelSignedOverrides(unknown);
+    await verifyFlagOverridesFromPlatform(unknown);
+    await verifyFlagOverridesFromPlatform(unknown);
     expect(fetchKeys).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(30_000);
-    await verifyVercelSignedOverrides(unknown);
+    await verifyFlagOverridesFromPlatform(unknown);
     expect(fetchKeys).toHaveBeenCalledTimes(2);
   });
 
@@ -286,31 +293,35 @@ describe('verifyVercelSignedOverrides', () => {
     fetchKeys.mockResolvedValueOnce(new Response('error', { status: 500 }));
     const token = await sign();
 
-    await expect(verifyVercelSignedOverrides(token)).resolves.toBeUndefined();
-    await expect(verifyVercelSignedOverrides(token)).resolves.toBeUndefined();
+    await expect(
+      verifyFlagOverridesFromPlatform(token),
+    ).resolves.toBeUndefined();
+    await expect(
+      verifyFlagOverridesFromPlatform(token),
+    ).resolves.toBeUndefined();
     expect(fetchKeys).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(30_000);
-    await expect(verifyVercelSignedOverrides(token)).resolves.toEqual({
+    await expect(verifyFlagOverridesFromPlatform(token)).resolves.toEqual({
       'new-checkout': true,
     });
   });
 });
 
-describe('isVercelSignedToken', () => {
+describe('isFlagOverridesFromPlatform', () => {
   it('is true for a JWS on Vercel', async () => {
-    expect(isVercelSignedToken(await sign())).toBe(true);
+    expect(isFlagOverridesFromPlatform(await sign())).toBe(true);
   });
 
   it('is false outside of Vercel', async () => {
     vi.stubEnv('VERCEL', '');
-    expect(isVercelSignedToken(await sign())).toBe(false);
+    expect(isFlagOverridesFromPlatform(await sign())).toBe(false);
   });
 
   it('is false for a JWE', async () => {
-    expect(isVercelSignedToken(await encryptOverrides({ a: 1 }, secret))).toBe(
-      false,
-    );
+    expect(
+      isFlagOverridesFromPlatform(await encryptOverrides({ a: 1 }, secret)),
+    ).toBe(false);
   });
 });
 
