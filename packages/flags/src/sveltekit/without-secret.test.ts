@@ -118,7 +118,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
         ver: 1,
         pur: 'flags-discovery',
         aud: 'vercel:flags-discovery',
-        scope: { projectId: 'prj_shop', environments: ['preview'] },
+        scope: { projectIds: ['prj_shop'], environments: ['preview'] },
       },
       FLAGS_KEYS_ISSUER,
     )}`;
@@ -158,7 +158,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
       ver: 1,
       pur: 'flag-overrides',
       aud: 'vercel:flag-overrides',
-      scope: { projectId: 'prj_shop', environments: ['preview'] },
+      scope: { projectIds: ['prj_shop'], environments: ['preview'] },
       overrides: { 'summer-sale': false },
     });
 

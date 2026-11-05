@@ -89,7 +89,11 @@ function sign(
   return new SignJWT({
     pur: 'flags-discovery',
     ver: 1,
-    scope: { teamId: 'team_1', projectId: 'prj_1', environments: ['preview'] },
+    scope: {
+      teamId: 'team_1',
+      projectIds: ['prj_1'],
+      environments: ['preview'],
+    },
     ...claims,
   })
     .setProtectedHeader({
@@ -156,7 +160,7 @@ describe('verifyAccess with a token which Vercel signs', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_2',
+            projectIds: ['prj_2'],
             environments: ['preview'],
           },
         }),
@@ -167,7 +171,7 @@ describe('verifyAccess with a token which Vercel signs', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_1',
+            projectIds: ['prj_1'],
             environments: ['production'],
           },
         }),
@@ -178,7 +182,7 @@ describe('verifyAccess with a token which Vercel signs', () => {
         sign({
           scope: {
             teamId: 'team_1',
-            projectId: 'prj_1',
+            projectIds: ['prj_1'],
             environments: ['preview'],
             deploymentId: 'dpl_1',
           },

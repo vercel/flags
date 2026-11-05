@@ -164,13 +164,15 @@ function isInScope(scope: unknown, project: Project): boolean {
   // An unknown key could restrict the scope in a way this SDK can not check
   if (
     Object.keys(scope).some(
-      (key) => !['teamId', 'projectId', 'environments'].includes(key),
+      (key) => !['teamId', 'projectIds', 'environments'].includes(key),
     )
   ) {
     return false;
   }
   return (
-    scope.projectId === project.projectId &&
+    // All projects of a microfrontends group share the cookie
+    Array.isArray(scope.projectIds) &&
+    scope.projectIds.includes(project.projectId) &&
     (project.teamId === undefined || scope.teamId === project.teamId) &&
     Array.isArray(scope.environments) &&
     scope.environments.includes(project.environment)
