@@ -412,6 +412,9 @@ export async function encryptOverrides(
 }
 
 export async function decryptOverrides(encryptedData: string, secret?: string) {
+  if (isFlagOverridesFromPlatform(encryptedData)) {
+    return verifyFlagOverridesFromPlatform(encryptedData);
+  }
   return _decryptOverrides(encryptedData, await tryGetSecret(secret));
 }
 
