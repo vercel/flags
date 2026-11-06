@@ -22,6 +22,10 @@ import {
   verifyAccess,
   version,
 } from '..';
+import {
+  isFlagOverridesFromPlatform,
+  verifyFlagOverridesFromPlatform,
+} from '../lib/flag-overrides-platform';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
@@ -196,10 +200,13 @@ export function flag<
     const cookies = sealCookies(store.request.headers);
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides =
-      overridesCookie && store.secret
-        ? await _decryptOverrides(overridesCookie, store.secret)
-        : undefined;
+    const overrides = !overridesCookie
+      ? undefined
+      : isFlagOverridesFromPlatform(overridesCookie)
+        ? await verifyFlagOverridesFromPlatform(overridesCookie)
+        : store.secret
+          ? await _decryptOverrides(overridesCookie, store.secret)
+          : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
@@ -405,6 +412,9 @@ export async function encryptOverrides(
 }
 
 export async function decryptOverrides(encryptedData: string, secret?: string) {
+  if (isFlagOverridesFromPlatform(encryptedData)) {
+    return verifyFlagOverridesFromPlatform(encryptedData);
+  }
   return _decryptOverrides(encryptedData, await tryGetSecret(secret));
 }
 
