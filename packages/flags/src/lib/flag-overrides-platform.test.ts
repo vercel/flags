@@ -16,7 +16,7 @@ import {
   vi,
 } from 'vitest';
 import { getOverrides } from '../next/overrides';
-import { encryptOverrides } from './crypto';
+import { decryptOverrides, encryptOverrides } from './crypto';
 import {
   isFlagOverridesFromPlatform,
   resetFlagOverridesKeys,
@@ -354,5 +354,33 @@ describe('getOverrides', () => {
 
     vi.useFakeTimers({ now: (issuedAt + 60) * 1000, toFake: ['Date'] });
     await expect(getOverrides(token)).resolves.toBeNull();
+  });
+});
+
+describe('decryptOverrides', () => {
+  it('accepts signed tokens on Vercel without FLAGS_SECRET, for apps which read the cookie', async () => {
+    await expect(decryptOverrides(await sign())).resolves.toEqual({
+      'new-checkout': true,
+    });
+  });
+
+  it('accepts signed tokens on Vercel with FLAGS_SECRET set', async () => {
+    await expect(decryptOverrides(await sign(), secret)).resolves.toEqual({
+      'new-checkout': true,
+    });
+  });
+
+  it('decrypts FLAGS_SECRET tokens like before', async () => {
+    const token = await encryptOverrides({ a: 1 }, secret);
+    await expect(decryptOverrides(token, secret)).resolves.toEqual({ a: 1 });
+    expect(fetchKeys).not.toHaveBeenCalled();
+  });
+
+  it('does not accept signed tokens outside of Vercel', async () => {
+    vi.stubEnv('VERCEL', '');
+    await expect(
+      decryptOverrides(await sign(), secret),
+    ).resolves.toBeUndefined();
+    expect(fetchKeys).not.toHaveBeenCalled();
   });
 });
