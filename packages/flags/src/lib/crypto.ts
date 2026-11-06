@@ -11,6 +11,7 @@ import type {
   FlagOverridesType,
   FlagValuesType,
 } from '../types';
+import { encryptFlagValuesForPlatform } from './flag-values-platform';
 
 type ExpirationTime = string | number | Date;
 type PurposeClaim = 'overrides' | 'values' | 'definitions' | 'proof';
@@ -135,19 +136,26 @@ export async function decryptOverrides(
 /**
  * Encrypts flag values data.
  *
+ * Without a secret, it encrypts with the public key of Vercel, for the
+ * project of the host. Only Vercel can decrypt the values.
+ *
  * @param flagValues - The flag values to encrypt
  * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
- * @param expirationTime - When the encrypted data should expire (defaults to 1 year)
+ * @param expirationTime - When the encrypted data should expire (defaults to 1 year with a secret, and no expiry without)
  * @returns A promise resolving to the encrypted JWE string
- * @throws Error if the secret is missing or invalid
+ * @throws Error if the secret is invalid, or neither a secret nor a project ID is available
  */
 export async function encryptFlagValues(
   flagValues: FlagValuesType,
   secret: string | undefined = process?.env?.FLAGS_SECRET,
-  expirationTime: ExpirationTime = '1y',
+  expirationTime?: ExpirationTime,
 ) {
-  if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
-  return encryptJwe({ v: flagValues, pur: 'values' }, secret, expirationTime);
+  if (!secret) return encryptFlagValuesForPlatform(flagValues, expirationTime);
+  return encryptJwe(
+    { v: flagValues, pur: 'values' },
+    secret,
+    expirationTime ?? '1y',
+  );
 }
 
 /**

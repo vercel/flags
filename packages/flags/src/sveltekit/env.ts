@@ -2,7 +2,7 @@
 // as well as other environments that don't know about '$env/dynamic/private', such as Routing Middleware
 let default_secret: string | undefined = process.env.FLAGS_SECRET;
 
-export async function tryGetSecret(secret?: string): Promise<string> {
+export async function getSecret(secret?: string): Promise<string | undefined> {
   if (!default_secret) {
     try {
       // @ts-expect-error SvelteKit will know about this
@@ -15,7 +15,11 @@ export async function tryGetSecret(secret?: string): Promise<string> {
     }
   }
 
-  secret = secret || default_secret;
+  return secret || default_secret;
+}
+
+export async function tryGetSecret(secret?: string): Promise<string> {
+  secret = await getSecret(secret);
 
   if (!secret) {
     throw new Error(
