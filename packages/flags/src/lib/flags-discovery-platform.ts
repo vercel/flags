@@ -2,14 +2,10 @@
  * The `flags-keys-issuer` in Vercel KMS, which signs the tokens of the flags
  * discovery endpoint.
  *
- * TODO(flags-keys-issuer): replace the placeholder with the id of the issuer
- * once it exists. The placeholder is not a valid issuer, so no token verifies
- * against it and its keys are never loaded (fail closed).
- *
  * @internal
  */
 export const VERCEL_FLAGS_DISCOVERY_ISSUER =
-  'https://kms.vercel.com/TODO-flags-keys-issuer';
+  'https://kms.vercel.com/d0efbb30-566d-48b6-b173-0062e54ec49c';
 
 /**
  * The rules for tokens of the flags discovery endpoint which are signed by the

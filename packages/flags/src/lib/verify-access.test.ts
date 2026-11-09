@@ -236,13 +236,21 @@ describe('verifyAccess with a token which Vercel signs', () => {
     ]);
   });
 
-  it('rejects all tokens while the flags-keys issuer is a placeholder', async () => {
-    const { VERCEL_FLAGS_DISCOVERY_ISSUER: placeholder } =
-      await vi.importActual<typeof import('./flags-discovery-platform')>(
-        './flags-discovery-platform',
-      );
-    expect(placeholder).toContain('TODO');
-    for (const issuer of [placeholder, '', 'https://kms.vercel.com/']) {
+  it('uses the flags-keys issuer', async () => {
+    const { VERCEL_FLAGS_DISCOVERY_ISSUER: issuer } = await vi.importActual<
+      typeof import('./flags-discovery-platform')
+    >('./flags-discovery-platform');
+    expect(issuer).toBe(
+      'https://kms.vercel.com/d0efbb30-566d-48b6-b173-0062e54ec49c',
+    );
+  });
+
+  it('rejects all tokens from an issuer that is not a KMS issuer id', async () => {
+    for (const issuer of [
+      'https://kms.vercel.com/not-an-issuer',
+      '',
+      'https://kms.vercel.com/',
+    ]) {
       await expect(
         verifyVercelSignedToken(
           await sign({}, { issuer }),
