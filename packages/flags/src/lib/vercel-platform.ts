@@ -1,4 +1,12 @@
-import { decodeJwt } from 'jose';
+import {
+  createLocalJWKSet,
+  decodeJwt,
+  decodeProtectedHeader,
+  type JSONWebKeySet,
+  type JWTPayload,
+  type JWTVerifyGetKey,
+  jwtVerify,
+} from 'jose';
 
 /**
  * The Vercel project of the host. A part which is not known is `undefined`.
@@ -210,4 +218,163 @@ async function readLimited(response: Response, maxBytes: number) {
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The rules for a token which Vercel KMS signs. They are part of the
+ * protocol.
+ */
+export interface SignedTokenPolicy {
+  readonly algorithm: string;
+  readonly audience: string;
+  readonly purpose: string;
+  readonly version: number;
+  readonly maxLifetimeSeconds: number;
+  readonly clockToleranceSeconds: number;
+  readonly maxTokenLength: number;
+}
+
+/**
+ * An issuer of Vercel KMS. Any other value, e.g. a placeholder, never verifies.
+ */
+const KMS_ISSUER_PATTERN =
+  /^https:\/\/kms\.vercel\.com\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Whether the token is signed by Vercel (a JWS, which has three parts) and the
+ * host can verify it: on Vercel, or locally after `vercel env pull`.
+ *
+ * @internal
+ */
+export function isVercelSignedToken(token: string): boolean {
+  return (
+    Boolean(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN) &&
+    token.split('.').length === 3
+  );
+}
+
+/**
+ * Verifies a token which the issuer signed with the rules of the policy.
+ * Returns `undefined` for a token which is not valid, or not for the project
+ * and environment of the host.
+ *
+ * @internal
+ */
+export async function verifyVercelSignedToken(
+  token: string,
+  issuer: string,
+  policy: SignedTokenPolicy,
+): Promise<JWTPayload | undefined> {
+  // The project comes from the host, never from the token
+  const { projectId, environment, teamId } = findVercelProject();
+  if (
+    !projectId ||
+    !environment ||
+    token.length > policy.maxTokenLength ||
+    !KMS_ISSUER_PATTERN.test(issuer)
+  ) {
+    return undefined;
+  }
+
+  try {
+    const header = decodeProtectedHeader(token);
+    // Keys or URLs in the token never select which keys are trusted
+    if (
+      typeof header.kid !== 'string' ||
+      !header.kid ||
+      ['jku', 'jwk', 'x5u', 'crit'].some((name) => Object.hasOwn(header, name))
+    ) {
+      return undefined;
+    }
+
+    const { payload } = await jwtVerify(token, getPublicKey(issuer), {
+      algorithms: [policy.algorithm],
+      issuer,
+      audience: policy.audience,
+      requiredClaims: ['iat', 'exp'],
+      clockTolerance: policy.clockToleranceSeconds,
+      maxTokenAge: policy.maxLifetimeSeconds,
+    });
+
+    if (
+      (payload.exp as number) - (payload.iat as number) >
+        policy.maxLifetimeSeconds ||
+      payload.pur !== policy.purpose ||
+      payload.ver !== policy.version ||
+      !isInScope(payload.scope, { projectId, environment, teamId })
+    ) {
+      return undefined;
+    }
+    return payload;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The team is only checked when it is known, which needs a `VERCEL_OIDC_TOKEN`
+ * in the environment, e.g. after `vercel env pull`. A deployment has no such
+ * variable at runtime (the token is only a header of each request), and none
+ * of the system environment variables of Vercel contains the team, so a
+ * deployment can not check the team. The project id is unique across all
+ * teams, so the project and the environment still bind the token to it.
+ */
+function isInScope(
+  scope: unknown,
+  host: { projectId: string; environment: string; teamId?: string },
+): boolean {
+  if (!isRecord(scope)) return false;
+  // An unknown key could restrict the scope in a way this SDK can not check
+  if (
+    Object.keys(scope).some(
+      (key) => !['teamId', 'projectIds', 'environments'].includes(key),
+    )
+  ) {
+    return false;
+  }
+  return (
+    // All projects of a microfrontends group share the cookie
+    Array.isArray(scope.projectIds) &&
+    scope.projectIds.includes(host.projectId) &&
+    (host.teamId === undefined || scope.teamId === host.teamId) &&
+    Array.isArray(scope.environments) &&
+    scope.environments.includes(host.environment)
+  );
+}
+
+/**
+ * The public keys of each issuer, so the keys of one issuer never verify a
+ * token of another.
+ */
+const publicKeys = new Map<string, KeySetCache<JWTVerifyGetKey>>();
+
+function getPublicKey(issuer: string): JWTVerifyGetKey {
+  const keys =
+    publicKeys.get(issuer) ??
+    createKeySetCache(
+      `${issuer}/jwks.json`,
+      'the public keys of Vercel KMS',
+      (keySet) => createLocalJWKSet(keySet as unknown as JSONWebKeySet),
+    );
+  publicKeys.set(issuer, keys);
+  return async (header, token) => {
+    try {
+      return await (await keys.get())(header, token);
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'ERR_JWKS_NO_MATCHING_KEY') {
+        throw error;
+      }
+      // A new key, e.g. after a rotation
+      return (await keys.get({ refresh: true }))(header, token);
+    }
+  };
+}
+
+/**
+ * Only for tests.
+ *
+ * @internal
+ */
+export function resetVercelSignedTokenKeys(): void {
+  publicKeys.clear();
 }
