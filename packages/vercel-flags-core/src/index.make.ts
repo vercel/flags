@@ -81,6 +81,7 @@ export function make(
       createClientOptions ?? {};
     const auth = new Authentication(sdkKeyOrConnectionString, { projectId });
     const waitUntil = controllerOptions.waitUntil ?? defaults.waitUntil;
+    const lookup = auth.getStaticBundledDefinitionsLookup();
 
     // sdk key contains the environment
     const controller = new Controller({
@@ -93,7 +94,9 @@ export function make(
       origin: {
         provider: 'vercel',
         sdkKey: auth.sdkKey,
-        ...(auth.sourceProjectId ? { projectId: auth.sourceProjectId } : null),
+        ...(lookup?.type === 'project-id'
+          ? { projectId: lookup.projectId }
+          : null),
       },
       waitUntil,
       ...(experimental_reportExposures ? { experimental_reportExposures } : {}),
