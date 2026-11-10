@@ -46,14 +46,14 @@ export const showSummerSale = flag<boolean>({
 
 Creates the flags discovery endpoint, a Next.js API route handler that returns flag metadata about your app's feature flags for the Flags Explorer.
 
-This function automatically calls `verifyAccess` to ensure the request has a valid `Authorization` header and rejects unauthorized requests with a 401 status code. It also automatically adds the `x-flags-sdk-version` response header.
+This function automatically calls `verifyAccess` to ensure the request has a valid `Authorization` header and rejects unauthorized requests with a 401 status code. On Vercel, this works without a `FLAGS_SECRET`. It also automatically adds the `x-flags-sdk-version` response header.
 
 
 | Parameter           | Type       | Description                                                                            |
 | ------------------- | ---------- | -------------------------------------------------------------------------------------- |
 | `getApiData`        | `Function` | An async function that returns the flag metadata.                                      |
 | `options`           | `Object`   | An optional options object.                                                            |
-| `options.secret`    | `secret`   | The secret used to ensure valid authorization. Defaults to `process.env.FLAGS_SECRET`. |
+| `options.secret`    | `secret`   | The secret used to ensure valid authorization. Defaults to `process.env.FLAGS_SECRET`. Optional on Vercel. |
 
 ```tsx title="app/.well-known/vercel/flags/route.ts#next"
 import { getProviderData, createFlagsDiscoveryEndpoint } from 'flags/next';

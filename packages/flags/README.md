@@ -24,7 +24,11 @@ npm install flags
 
 ## Setup
 
-Create an environment variable called `FLAGS_SECRET`.
+On Vercel, the SDK works without a `FLAGS_SECRET`. Flags Explorer overrides and the flags discovery endpoint use tokens that Vercel signs, and `encryptFlagValues` encrypts flag values with the public key of Vercel. For local development, run `vercel env pull` so the SDK can identify your project.
+
+### `FLAGS_SECRET` (optional)
+
+You still need a `FLAGS_SECRET` to [precompute](https://flags-sdk.dev/principles/precompute) flags, to use Flags Explorer outside of Vercel or locally without `vercel env pull`, or to create your own encrypted overrides, for example in end-to-end tests. Projects that already have a `FLAGS_SECRET` keep working without changes.
 
 The `FLAGS_SECRET` value must have a specific length (32 random bytes encoded in base64) to work as an encryption key. Create one using node:
 
@@ -40,7 +44,7 @@ vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
 vercel env add FLAGS_SECRET development --value <development-secret>
 ```
 
-This secret is required to use the SDK. It is used to read overrides and to encrypt flag values in case they are sent to the client and should stay secret.
+When set, the SDK uses this secret to read overrides, to encrypt flag values in case they are sent to the client and should stay secret, and to sign precomputed codes.
 
 ## Usage
 

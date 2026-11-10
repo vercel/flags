@@ -50,17 +50,18 @@ export const showSummerSale = flag<boolean>({
 
 **Description**: A `handle` hook that establishes context for flags, so they have access to the event object.
 
-| Parameter | Type                                               | Description                                                           |
-| --------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| `options` | `{ secret: string, flags?: Record<string, Flag> }` | The `FLAGS_SECRET` environment variable and a record of all the flags |
+| Parameter | Type                                                | Description                                                                                                   |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `options` | `{ secret?: string, flags?: Record<string, Flag> }` | An optional secret, which defaults to the `FLAGS_SECRET` environment variable, and a record of all the flags |
 
 ```ts title="src/hooks.server.ts"
 import { createHandle } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 
-export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+export const handle = createHandle({ flags });
 ```
+
+On Vercel, `createHandle` works without a secret: it accepts flag overrides and flags discovery requests that Vercel signs for your project, and flag values are encrypted with the public key of Vercel. Locally, run `vercel env pull` first. With a `FLAGS_SECRET`, overrides and discovery requests encrypted with the secret are accepted as well.
 
 Note that when composing `createHandle` with other handlers using SvelteKit's `sequence` utility then `createHandle` should come first. Only handlers after it will be able to access feature flags.
 

@@ -5,8 +5,8 @@ description: Using the Flags SDK in SvelteKit
 
 [SvelteKit](https://svelte.dev/docs/kit/introduction) is a framework for building web applications with [Svelte](https://svelte.dev/). The Flags SDK supports SvelteKit out of the box.
 
-<CopyPrompt text="Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.">
-  Add Flags SDK to my existing SvelteKit app. Configure `FLAGS_SECRET`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.
+<CopyPrompt text="Add Flags SDK to my existing SvelteKit app. Run `vercel env pull`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.">
+  Add Flags SDK to my existing SvelteKit app. Run `vercel env pull`, install and wire the Vercel Toolbar for local development, create a typed flag in `src/lib/flags.ts` using `flags/sveltekit`, add the server hook with `createHandle`, use the flag from server and client code where appropriate, and run the relevant type checks or build when finished.
 </CopyPrompt>
 
 A minimal feature flag declaration for SvelteKit looks like this:
@@ -46,22 +46,12 @@ npm i -g vercel@latest
    ```sh title="Terminal"
    vc link
    ```
-3. Add the `FLAGS_SECRET` environment variable. Use a separate value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
-
-   Run this command once per environment to generate distinct secrets:
-   ```sh title="Terminal"
-   node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
-   ```
-   Then store each secret as the `FLAGS_SECRET` environment variable for the matching environment:
-   ```sh title="Terminal"
-   vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
-   vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
-   vercel env add FLAGS_SECRET development --value <development-secret>
-   ```
-4. Finally, pull any env vars from your project on Vercel locally
+3. Pull the env vars of your project on Vercel locally. The Flags SDK uses them to identify your project, so the Vercel Toolbar can read your flags and set overrides without a `FLAGS_SECRET`:
    ```sh title="Terminal"
    vc env pull
    ```
+
+   You only need a `FLAGS_SECRET` to [precompute](/frameworks/sveltekit/precompute) flags, or to use Flags Explorer outside of Vercel.
 
 ## Add the toolbar locally
 
@@ -107,7 +97,7 @@ npm i -g vercel@latest
    npm run dev
    ```
 
-   You will see an error about `SvelteKitError: Not found: /.well-known/vercel/flags`. This happens because we already created the `FLAGS_SECRET` but we did not set up the flags package yet. Set it up next.
+   You will see an error about `SvelteKitError: Not found: /.well-known/vercel/flags`. This happens because the toolbar looks for your flags, but we did not set up the flags package yet. Set it up next.
 
 ## Set up `flags`
 
@@ -144,11 +134,12 @@ npm i -g vercel@latest
 
    ```ts title="src/hooks.server.ts"
    import { createHandle } from 'flags/sveltekit';
-   import { FLAGS_SECRET } from '$env/static/private';
    import * as flags from '$lib/flags';
 
-   export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+   export const handle = createHandle({ flags });
    ```
+
+   If your project has a `FLAGS_SECRET`, `createHandle` reads it from `$env/static/private`, or you can pass it as `createHandle({ secret, flags })`.
 
 4. You can now use this flag in code. Evaluate the flag on the server, and forward the value to the client:
 
