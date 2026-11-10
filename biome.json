@@ -29,7 +29,8 @@
       "!apps/docs/next.config.ts",
       "!apps/docs/postcss.config.mjs",
       "!apps/docs/source.config.ts",
-      "!apps/docs/proxy.ts"
+      "!apps/docs/proxy.ts",
+      "!go"
     ]
   },
   "formatter": {
