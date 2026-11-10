@@ -83,7 +83,19 @@ async function serialize(
  * @returns - An object consisting of each flag's key and its resolved value.
  */
 async function deserialize(flags: FlagsArray, code: string, secret: string) {
-  if (code === '__no_flags__') return {};
+  if (code === '__no_flags__') {
+    if (flags.length === 0) return {};
+    throw new Error(
+      'flags: Received a code for an empty flags array, but the flags array is not empty',
+    );
+  }
+
+  if (flags.length === 0) {
+    throw new Error(
+      'flags: Received a code for a non-empty flags array, but the flags array is empty',
+    );
+  }
+
   return s.deserialize(code, flags, secret);
 }
 

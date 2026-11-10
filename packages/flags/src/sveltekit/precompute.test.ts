@@ -37,6 +37,23 @@ describe('getPrecomputed', () => {
     warnSpy.mockRestore();
   });
 
+  it('should reject when an empty-group code is used with a non-empty group', async () => {
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    await expect(
+      getPrecomputed('a', [flagA], '__no_flags__', secret),
+    ).rejects.toThrow(
+      'Received a code for an empty flags array, but the flags array is not empty',
+    );
+  });
+
+  it('should reject when a non-empty-group code is used with an empty group', async () => {
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const code = await s.serialize({ a: true }, [flagA], secret);
+    await expect(getPrecomputed('a', [], code, secret)).rejects.toThrow(
+      'Received a code for a non-empty flags array, but the flags array is empty',
+    );
+  });
+
   it('should warn when flag is not part of precomputed flags', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 

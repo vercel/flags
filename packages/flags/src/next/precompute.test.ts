@@ -206,6 +206,40 @@ describe('precompute', () => {
   });
 });
 
+describe('deserialize', () => {
+  it('should return the precomputed value', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const code = await serialize([flagA], [true]);
+    await expect(deserialize([flagA], code)).resolves.toEqual({ a: true });
+  });
+
+  it('should return an empty object for an empty group and __no_flags__ code', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+    await expect(deserialize([], '__no_flags__')).resolves.toEqual({});
+  });
+
+  it('should reject an empty-group code with a non-empty group', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    await expect(deserialize([flagA], '__no_flags__')).rejects.toThrow(
+      'Received a code for an empty flags array, but the flags array is not empty',
+    );
+  });
+
+  it('should reject a non-empty-group code with an empty group', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    const code = await serialize([flagA], [true]);
+    await expect(deserialize([], code)).rejects.toThrow(
+      'Received a code for a non-empty flags array, but the flags array is empty',
+    );
+  });
+});
+
 describe('getPrecomputed', () => {
   it('should return the precomputed value', async () => {
     process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
@@ -246,6 +280,28 @@ describe('getPrecomputed', () => {
     expect(result).toEqual([undefined]);
 
     warnSpy.mockRestore();
+  });
+
+  it('should reject when an empty-group code is used with a non-empty group', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    await expect(
+      getPrecomputed(flagA, [flagA], '__no_flags__'),
+    ).rejects.toThrow(
+      'Received a code for an empty flags array, but the flags array is not empty',
+    );
+  });
+
+  it('should reject when an empty-group code is used with a non-empty group of flags', async () => {
+    process.env.FLAGS_SECRET = crypto.randomBytes(32).toString('base64url');
+
+    const flagA = flag<boolean>({ key: 'a', decide: () => true });
+    await expect(
+      getPrecomputed([flagA], [flagA], '__no_flags__'),
+    ).rejects.toThrow(
+      'Received a code for an empty flags array, but the flags array is not empty',
+    );
   });
 
   it('should warn when flag is not part of precomputed flags', async () => {
