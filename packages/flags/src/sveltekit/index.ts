@@ -45,7 +45,7 @@ import type {
   Identify,
   ResolvedFlagDeclaration,
 } from '../types';
-import { getSecret, tryGetSecret } from './env';
+import { getSecret, loadEnv, tryGetSecret } from './env';
 import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
@@ -167,7 +167,7 @@ export function flag<
         if (!store) {
           store = createContext(
             requestOrCode,
-            (flagsArrayOrSecret as string) ?? (await getSecret()),
+            await getSecret(flagsArrayOrSecret as string | undefined),
           );
           requestMap.set(requestOrCode, store);
         }
@@ -201,13 +201,14 @@ export function flag<
     const cookies = sealCookies(store.request.headers);
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides = !overridesCookie
-      ? undefined
-      : isFlagOverridesFromPlatform(overridesCookie)
-        ? await verifyFlagOverridesFromPlatform(overridesCookie)
-        : store.secret
-          ? await _decryptOverrides(overridesCookie, store.secret)
-          : undefined;
+    let overrides: FlagOverridesType | undefined;
+    // Without a secret, the host can only read a token which Vercel signed
+    if (
+      overridesCookie &&
+      (store.secret || isFlagOverridesFromPlatform(overridesCookie))
+    ) {
+      overrides = await _decryptOverrides(overridesCookie, store.secret);
+    }
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
@@ -331,7 +332,8 @@ export function createHandle({
   flags?: Record<string, Flag<any>>;
 }): Handle {
   return async function handle({ event, resolve }) {
-    secret ??= await getSecret();
+    // Also loads the environment of SvelteKit when there is a secret
+    secret = await getSecret(secret);
 
     if (
       flags &&
@@ -429,6 +431,8 @@ export async function encryptOverrides(
 }
 
 export async function decryptOverrides(encryptedData: string, secret?: string) {
+  // The check of the token needs the environment of SvelteKit
+  await loadEnv();
   if (isFlagOverridesFromPlatform(encryptedData)) {
     return verifyFlagOverridesFromPlatform(encryptedData);
   }

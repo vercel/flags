@@ -165,12 +165,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     let value: boolean | undefined;
     const handle = createHandle({ flags: { summerSale } });
     await handle({
-      event: {
-        request: new Request('https://shop.example/', {
-          headers: { cookie: `vercel-flag-overrides=${token}` },
-        }),
-        params: {},
-      } as unknown as RequestEvent,
+      event: event('/', { cookie: `vercel-flag-overrides=${token}` }),
       resolve: async () => {
         value = await summerSale();
         return new Response('page');

@@ -131,6 +131,11 @@ function parseLinkedProjectId(
   }
 }
 
+/**
+ * The key set did not load.
+ */
+class KeySetError extends Error {}
+
 const KEY_SET_POLICY = Object.freeze({
   cacheMaxAgeMs: 300_000,
   cooldownMs: 30_000,
@@ -214,7 +219,7 @@ export function createKeySetCache<T>(
       if (cause instanceof Error && 'digest' in cause) {
         throw cause;
       }
-      error = new Error(
+      error = new KeySetError(
         `flags: Could not load ${description} from ${url}: ${
           cause instanceof Error ? cause.message : String(cause)
         }.`,
@@ -344,16 +349,33 @@ const KMS_ISSUER_PATTERN =
   /^https:\/\/kms\.vercel\.com\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
+ * Whether the host can verify tokens which Vercel signs: on Vercel, or locally
+ * after `vercel env pull`.
+ *
+ * @internal
+ */
+export function canVerifyVercelSignedTokens(): boolean {
+  return Boolean(readEnv('VERCEL') || readEnv('VERCEL_OIDC_TOKEN'));
+}
+
+/**
  * Whether the token is signed by Vercel (a JWS, which has three parts) and the
- * host can verify it: on Vercel, or locally after `vercel env pull`.
+ * host can verify it. Warns about a signed token which the host can not
+ * verify, because such a token is ignored.
  *
  * @internal
  */
 export function isVercelSignedToken(token: string): boolean {
-  return (
-    Boolean(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN) &&
-    token.split('.').length === 3
-  );
+  if (token.split('.').length !== 3) {
+    return false;
+  }
+  if (!canVerifyVercelSignedTokens()) {
+    warnWithCooldown(
+      'flags: Ignored a token which Vercel signed, because this host can not verify it. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+    );
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -370,9 +392,13 @@ export async function verifyVercelSignedToken(
 ): Promise<JWTPayload | undefined> {
   // The project comes from the host, never from the token
   const { projectId, environment, teamId } = findVercelProject();
+  if (!projectId || !environment) {
+    warnWithCooldown(
+      'flags: Ignored a token which Vercel signed, because the project or the environment of this host is not known. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+    );
+    return undefined;
+  }
   if (
-    !projectId ||
-    !environment ||
     token.length > policy.maxTokenLength ||
     !KMS_ISSUER_PATTERN.test(issuer)
   ) {
@@ -403,13 +429,24 @@ export async function verifyVercelSignedToken(
       (payload.exp as number) - (payload.iat as number) >
         policy.maxLifetimeSeconds ||
       payload.pur !== policy.purpose ||
-      payload.ver !== policy.version ||
-      !isInScope(payload.scope, { projectId, environment, teamId })
+      payload.ver !== policy.version
     ) {
       return undefined;
     }
+    if (!isInScope(payload.scope, { projectId, environment, teamId })) {
+      // The signature is valid, so the token is from Vercel
+      warnWithCooldown(
+        `flags: Ignored a token which Vercel signed, because it is not for the project ${projectId} and the environment ${environment} of this host.`,
+      );
+      return undefined;
+    }
     return payload;
-  } catch {
+  } catch (error) {
+    if (error instanceof KeySetError) {
+      warnWithCooldown(
+        `${error.message} A token which Vercel signed is ignored.`,
+      );
+    }
     return undefined;
   }
 }
@@ -426,7 +463,9 @@ function isInScope(
   scope: unknown,
   host: { projectId: string; environment: string; teamId?: string },
 ): boolean {
-  if (!isRecord(scope)) return false;
+  if (!isRecord(scope)) {
+    return false;
+  }
   // An unknown key could restrict the scope in a way this SDK can not check
   if (
     Object.keys(scope).some(
@@ -452,14 +491,15 @@ function isInScope(
 const publicKeys = new Map<string, KeySetCache<JWTVerifyGetKey>>();
 
 function getPublicKey(issuer: string): JWTVerifyGetKey {
-  const keys =
-    publicKeys.get(issuer) ??
-    createKeySetCache(
+  let keys = publicKeys.get(issuer);
+  if (!keys) {
+    keys = createKeySetCache(
       `${issuer}/jwks.json`,
       'the public keys of Vercel KMS',
       (keySet) => createLocalJWKSet(keySet as unknown as JSONWebKeySet),
     );
-  publicKeys.set(issuer, keys);
+    publicKeys.set(issuer, keys);
+  }
   return async (header, token) => {
     try {
       return await (await keys.get())(header, token);

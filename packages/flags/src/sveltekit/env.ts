@@ -10,7 +10,7 @@ let loaded: Promise<void> | undefined;
  * variables of `.env.local` (e.g. from `vercel env pull`) are in `$env`, but
  * not in `process.env`.
  */
-function loadEnv(): Promise<void> {
+export function loadEnv(): Promise<void> {
   loaded ??= (async () => {
     try {
       // @ts-expect-error SvelteKit will know about this
