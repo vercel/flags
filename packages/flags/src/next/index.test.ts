@@ -1,11 +1,28 @@
 import { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { Readable } from 'node:stream';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { NextApiRequestCookies } from 'next/dist/server/api-utils';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type Adapter, encryptOverrides, setTracerProvider } from '..';
+import type { NextRequest } from 'next/server';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import {
+  type Adapter,
+  createAccessProof,
+  encryptOverrides,
+  setTracerProvider,
+} from '..';
+import { VERCEL_FLAGS_DISCOVERY_ISSUER } from '../lib/flags-discovery-platform';
 import {
   clearDedupeCacheForCurrentRequest,
+  createFlagsDiscoveryEndpoint,
   dedupe,
   evaluate,
   flag,
@@ -1530,5 +1547,60 @@ describe('tracing', () => {
       keys: ['a', 'b'],
       decidedCount: 2,
     });
+  });
+});
+
+describe('createFlagsDiscoveryEndpoint without FLAGS_SECRET', () => {
+  const secret = 'yuhyxaVI0Zue85SguKlMIUQojvJyBPzm95fFYvOa4Rc';
+  const endpoint = createFlagsDiscoveryEndpoint(() => ({ definitions: {} }));
+  const request = (authorization?: string) =>
+    new Request('https://shop.example/.well-known/vercel/flags', {
+      headers: authorization ? { authorization } : {},
+    }) as unknown as NextRequest;
+  let token: string;
+
+  beforeAll(async () => {
+    vi.stubEnv('FLAGS_SECRET', '');
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('VERCEL_PROJECT_ID', 'prj_1');
+    vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'ES256' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ keys: [jwk] })),
+    );
+    token = await new SignJWT({
+      ver: 1,
+      pur: 'flags-discovery',
+      scope: { projectIds: ['prj_1'], environments: ['preview'] },
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'k' })
+      .setIssuer(VERCEL_FLAGS_DISCOVERY_ISSUER)
+      .setAudience('vercel:flags-discovery')
+      .setIssuedAt()
+      .setExpirationTime('1m')
+      .sign(privateKey);
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('responds with the data for a token which Vercel signs', async () => {
+    const response = await endpoint(request(`Bearer ${token}`));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ definitions: {} });
+  });
+
+  it('responds with 401 for an invalid token, a proof, or no header', async () => {
+    for (const authorization of [
+      `Bearer ${token}x`,
+      `Bearer ${await createAccessProof(secret)}`,
+      undefined,
+    ]) {
+      expect((await endpoint(request(authorization))).status).toBe(401);
+    }
   });
 });

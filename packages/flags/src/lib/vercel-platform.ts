@@ -8,6 +8,31 @@ import {
   jwtVerify,
 } from 'jose';
 
+type Env = Record<string, string | undefined>;
+
+let frameworkEnv: Env | undefined;
+
+/**
+ * Adds environment variables which are not in `process.env`. E.g. SvelteKit
+ * has the variables of `.env.local` only in `$env` during `vite dev`. A
+ * variable of `process.env` has priority.
+ *
+ * @internal
+ */
+export function addEnv(env: Env): void {
+  frameworkEnv = env;
+}
+
+/**
+ * Reads an environment variable of the host. An empty variable counts as
+ * missing. A runtime with no `process` global has no variables.
+ *
+ * @internal
+ */
+export function readEnv(name: string): string | undefined {
+  return globalThis.process?.env?.[name] || frameworkEnv?.[name] || undefined;
+}
+
 /**
  * The Vercel project of the host. A part which is not known is `undefined`.
  */
@@ -23,28 +48,40 @@ export interface VercelProject {
 /**
  * Finds the Vercel project of the host: the environment of a deployment, the
  * `VERCEL_OIDC_TOKEN` of `vercel env pull`, and the `.vercel/project.json` of
- * `vercel link`, in this order. An empty environment variable counts as
- * missing.
+ * `vercel link`, in this order.
  *
  * @internal
  */
 export function findVercelProject(): VercelProject {
-  const env = process.env;
   const oidc = readOidcClaims();
   return {
-    projectId: env.VERCEL_PROJECT_ID || oidc.projectId || readLinkedProjectId(),
-    environment: env.VERCEL_TARGET_ENV || env.VERCEL_ENV || oidc.environment,
+    projectId:
+      readEnv('VERCEL_PROJECT_ID') || oidc.projectId || readLinkedProjectId(),
+    environment:
+      readEnv('VERCEL_TARGET_ENV') || readEnv('VERCEL_ENV') || oidc.environment,
     teamId: oidc.teamId,
   };
 }
 
+let oidc: { token: string; claims: VercelProject } | undefined;
+
 /**
  * The token is only decoded, not verified: it is configuration of the host,
- * like the other environment variables, not an input of a request.
+ * like the other environment variables, not an input of a request. It is
+ * decoded one time for each token, not for each call.
  */
 function readOidcClaims(): VercelProject {
-  const token = process.env.VERCEL_OIDC_TOKEN;
-  if (!token) return {};
+  const token = readEnv('VERCEL_OIDC_TOKEN');
+  if (!token) {
+    return {};
+  }
+  if (oidc?.token !== token) {
+    oidc = { token, claims: decodeOidcClaims(token) };
+  }
+  return oidc.claims;
+}
+
+function decodeOidcClaims(token: string): VercelProject {
   try {
     const claims = decodeJwt(token);
     const text = (value: unknown) =>
@@ -59,14 +96,33 @@ function readOidcClaims(): VercelProject {
   }
 }
 
+let linked: { path: string; projectId: string | undefined } | undefined;
+
+/**
+ * The file is read one time for each working directory, not for each call.
+ */
 function readLinkedProjectId(): string | undefined {
-  // getBuiltinModule needs no import, so runtimes other than Node.js work
-  const fs = process.getBuiltinModule?.('node:fs');
-  if (!fs) return undefined;
+  // No direct use of `process`, so a build for the Edge Runtime has no
+  // warnings. getBuiltinModule needs no import, so runtimes other than Node.js
+  // work.
+  const proc = globalThis.process;
+  const fs = proc?.getBuiltinModule?.('node:fs');
+  if (!fs) {
+    return undefined;
+  }
+  const path = `${proc.cwd()}/.vercel/project.json`;
+  if (linked?.path !== path) {
+    linked = { path, projectId: parseLinkedProjectId(fs, path) };
+  }
+  return linked.projectId;
+}
+
+function parseLinkedProjectId(
+  fs: typeof import('node:fs'),
+  path: string,
+): string | undefined {
   try {
-    const data: unknown = JSON.parse(
-      fs.readFileSync(`${process.cwd()}/.vercel/project.json`, 'utf8'),
-    );
+    const data: unknown = JSON.parse(fs.readFileSync(path, 'utf8'));
     return isRecord(data) && typeof data.projectId === 'string'
       ? data.projectId || undefined
       : undefined;
@@ -75,9 +131,15 @@ function readLinkedProjectId(): string | undefined {
   }
 }
 
+/**
+ * The key set did not load.
+ */
+class KeySetError extends Error {}
+
 const KEY_SET_POLICY = Object.freeze({
   cacheMaxAgeMs: 300_000,
   cooldownMs: 30_000,
+  timeoutMs: 5_000,
   maxKeySetBytes: 65_536,
   maxKeys: 100,
 });
@@ -100,9 +162,10 @@ export interface KeySetCache<T> {
  * Creates a cache for the public key set at `url`. `parse` turns the valid
  * key set into the keys which the caller needs.
  *
- * Concurrent loads share one request. After an error, it throws the same
- * error until the cooldown ends, so that a missing key set does not cause one
- * request for each page. A failed reload keeps the keys which it has.
+ * Concurrent loads share one request, which stops after a timeout of five
+ * seconds. After an error, it throws the same error until the cooldown ends,
+ * so that a missing key set does not cause one request for each page. A failed
+ * reload keeps the keys which it has.
  *
  * @internal
  */
@@ -125,8 +188,12 @@ export function createKeySetCache<T>(
       const response = await globalThis.fetch(url, {
         redirect: 'error',
         cache: 'no-store',
+        // A key host which does not respond must not block the requests
+        signal: AbortSignal.timeout(policy.timeoutMs),
       });
-      if (!response.ok) throw new Error(`status ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`status ${response.status}`);
+      }
       const data: unknown = JSON.parse(
         await readLimited(response, policy.maxKeySetBytes),
       );
@@ -146,14 +213,22 @@ export function createKeySetCache<T>(
       error = undefined;
       return value;
     } catch (cause) {
-      error = new Error(
+      // A framework can throw an error to control the render, e.g. Next.js
+      // to make a static page dynamic. It has a digest, and it is not a
+      // failure of the key host.
+      if (cause instanceof Error && 'digest' in cause) {
+        throw cause;
+      }
+      error = new KeySetError(
         `flags: Could not load ${description} from ${url}: ${
           cause instanceof Error ? cause.message : String(cause)
         }.`,
         { cause },
       );
       failedAt = Date.now();
-      if (value !== undefined) return value;
+      if (value !== undefined) {
+        return value;
+      }
       throw error;
     }
   }
@@ -189,16 +264,22 @@ export function createKeySetCache<T>(
  * Reads the body in chunks, and stops when it is larger than the limit.
  */
 async function readLimited(response: Response, maxBytes: number) {
-  if (!response.body) throw new Error('the key set is empty');
+  if (!response.body) {
+    throw new Error('the key set is empty');
+  }
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
   try {
     for (;;) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        break;
+      }
       size += value.byteLength;
-      if (size > maxBytes) throw new Error('the key set is too large');
+      if (size > maxBytes) {
+        throw new Error('the key set is too large');
+      }
       chunks.push(value);
     }
   } finally {
@@ -211,6 +292,33 @@ async function readLimited(response: Response, maxBytes: number) {
     offset += chunk.byteLength;
   }
   return new TextDecoder().decode(bytes);
+}
+
+const warnedAt = new Map<string, number>();
+
+/**
+ * Logs a warning, at most one time per cooldown for each message, so that a
+ * problem which occurs for each request does not fill the logs.
+ *
+ * @internal
+ */
+export function warnWithCooldown(message: string): void {
+  const now = Date.now();
+  const last = warnedAt.get(message) ?? Number.NEGATIVE_INFINITY;
+  if (now - last < KEY_SET_POLICY.cooldownMs) {
+    return;
+  }
+  warnedAt.set(message, now);
+  console.warn(message);
+}
+
+/**
+ * Only for tests.
+ *
+ * @internal
+ */
+export function resetWarnings(): void {
+  warnedAt.clear();
 }
 
 /**
@@ -241,16 +349,33 @@ const KMS_ISSUER_PATTERN =
   /^https:\/\/kms\.vercel\.com\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
+ * Whether the host can verify tokens which Vercel signs: on Vercel, or locally
+ * after `vercel env pull`.
+ *
+ * @internal
+ */
+export function canVerifyVercelSignedTokens(): boolean {
+  return Boolean(readEnv('VERCEL') || readEnv('VERCEL_OIDC_TOKEN'));
+}
+
+/**
  * Whether the token is signed by Vercel (a JWS, which has three parts) and the
- * host can verify it: on Vercel, or locally after `vercel env pull`.
+ * host can verify it. Warns about a signed token which the host can not
+ * verify, because such a token is ignored.
  *
  * @internal
  */
 export function isVercelSignedToken(token: string): boolean {
-  return (
-    Boolean(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN) &&
-    token.split('.').length === 3
-  );
+  if (token.split('.').length !== 3) {
+    return false;
+  }
+  if (!canVerifyVercelSignedTokens()) {
+    warnWithCooldown(
+      'flags: Ignored a token which Vercel signed, because this host can not verify it. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+    );
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -267,9 +392,13 @@ export async function verifyVercelSignedToken(
 ): Promise<JWTPayload | undefined> {
   // The project comes from the host, never from the token
   const { projectId, environment, teamId } = findVercelProject();
+  if (!projectId || !environment) {
+    warnWithCooldown(
+      'flags: Ignored a token which Vercel signed, because the project or the environment of this host is not known. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+    );
+    return undefined;
+  }
   if (
-    !projectId ||
-    !environment ||
     token.length > policy.maxTokenLength ||
     !KMS_ISSUER_PATTERN.test(issuer)
   ) {
@@ -300,13 +429,24 @@ export async function verifyVercelSignedToken(
       (payload.exp as number) - (payload.iat as number) >
         policy.maxLifetimeSeconds ||
       payload.pur !== policy.purpose ||
-      payload.ver !== policy.version ||
-      !isInScope(payload.scope, { projectId, environment, teamId })
+      payload.ver !== policy.version
     ) {
       return undefined;
     }
+    if (!isInScope(payload.scope, { projectId, environment, teamId })) {
+      // The signature is valid, so the token is from Vercel
+      warnWithCooldown(
+        `flags: Ignored a token which Vercel signed, because it is not for the project ${projectId} and the environment ${environment} of this host.`,
+      );
+      return undefined;
+    }
     return payload;
-  } catch {
+  } catch (error) {
+    if (error instanceof KeySetError) {
+      warnWithCooldown(
+        `${error.message} A token which Vercel signed is ignored.`,
+      );
+    }
     return undefined;
   }
 }
@@ -323,7 +463,9 @@ function isInScope(
   scope: unknown,
   host: { projectId: string; environment: string; teamId?: string },
 ): boolean {
-  if (!isRecord(scope)) return false;
+  if (!isRecord(scope)) {
+    return false;
+  }
   // An unknown key could restrict the scope in a way this SDK can not check
   if (
     Object.keys(scope).some(
@@ -349,14 +491,15 @@ function isInScope(
 const publicKeys = new Map<string, KeySetCache<JWTVerifyGetKey>>();
 
 function getPublicKey(issuer: string): JWTVerifyGetKey {
-  const keys =
-    publicKeys.get(issuer) ??
-    createKeySetCache(
+  let keys = publicKeys.get(issuer);
+  if (!keys) {
+    keys = createKeySetCache(
       `${issuer}/jwks.json`,
       'the public keys of Vercel KMS',
       (keySet) => createLocalJWKSet(keySet as unknown as JSONWebKeySet),
     );
-  publicKeys.set(issuer, keys);
+    publicKeys.set(issuer, keys);
+  }
   return async (header, token) => {
     try {
       return await (await keys.get())(header, token);
