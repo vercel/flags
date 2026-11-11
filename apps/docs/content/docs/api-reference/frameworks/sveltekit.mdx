@@ -69,6 +69,8 @@ Note that when composing `createHandle` with other handlers using SvelteKit's `s
 
 These APIs are relevant for [precomputing feature flags](/principles/precompute). See the [marketing pages guide](/frameworks/sveltekit/guides/marketing-pages) to learn how to use it in SvelteKit.
 
+On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Without a secret and outside of a Vercel deployment, for example in local development, they throw.
+
 ### `precompute`
 
 **Description**: Evaluates multiple feature flags. Returns their values encoded to a single signed string.

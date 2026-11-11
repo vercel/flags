@@ -62,9 +62,17 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 ### Prerequisites
 
-Ensure you have a `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work, even though the rest of the Flags SDK works without it on Vercel. It must contain a random string of 32 characters, encoded as Base64.
+On Vercel, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it.
 
-Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
+You need a `FLAGS_SECRET` environment variable in these cases:
+
+- Local development
+- Outside of Vercel, or when you build with `vercel build`
+- When a code must be valid in another deployment or project
+
+When set, `precompute` uses the `FLAGS_SECRET` to encrypt the precomputation result into the URL. It must contain a random string of 32 characters, encoded as Base64.
+
+Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive. For local development only, the Development value is enough.
 
 Generate a random value using the following command, and run it once per environment to produce distinct values:
 
