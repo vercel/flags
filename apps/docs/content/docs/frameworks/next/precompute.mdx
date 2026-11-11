@@ -74,6 +74,13 @@ When set, `precompute` uses the `FLAGS_SECRET` to encrypt the precomputation res
 
 Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive. For local development only, the Development value is enough.
 
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` instead. It has the same format. Precompute uses the first of these that is set:
+
+1. The `secret` you pass to the function
+2. `FLAGS_PRECOMPUTE_SECRET`
+3. `FLAGS_SECRET`
+4. The key that Vercel provides for the deployment
+
 Generate a random value using the following command, and run it once per environment to produce distinct values:
 
 ```sh title="Terminal"
