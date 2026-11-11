@@ -62,7 +62,9 @@ export async function encryptFlagValuesForPlatform(
       kid,
       projectIds: [projectId],
     });
-  if (expirationTime !== undefined) jwt.setExpirationTime(expirationTime);
+  if (expirationTime !== undefined) {
+    jwt.setExpirationTime(expirationTime);
+  }
   return jwt.encrypt(key);
 }
 
@@ -74,7 +76,9 @@ const publicKey = createKeySetCache<PublicKey>(
   async (keySet) => {
     const jwk = selectKey(keySet.keys);
     const key = await importJWK(jwk, FLAG_VALUES_POLICY.algorithm);
-    if (key instanceof Uint8Array) throw new Error('the key is not public');
+    if (key instanceof Uint8Array) {
+      throw new Error('the key is not public');
+    }
     return { kid: jwk.kid as string, key };
   },
 );
@@ -92,7 +96,9 @@ function selectKey(keys: Record<string, unknown>[]): JWK {
       (key.use === undefined || key.use === 'enc') &&
       (key.alg === undefined || key.alg === FLAG_VALUES_POLICY.algorithm),
   );
-  if (!key) throw new Error('the key set has no key for ECDH-ES with P-256');
+  if (!key) {
+    throw new Error('the key set has no key for ECDH-ES with P-256');
+  }
   return key as unknown as JWK;
 }
 

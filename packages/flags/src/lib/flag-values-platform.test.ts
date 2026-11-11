@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   decodeProtectedHeader,
   exportJWK,
@@ -98,6 +101,37 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     });
   });
 
+  it('takes the project ID from the .vercel/project.json of vercel link', async () => {
+    stubKeySet([publicJwk]);
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'flags-'));
+    fs.mkdirSync(path.join(cwd, '.vercel'));
+    fs.writeFileSync(
+      path.join(cwd, '.vercel/project.json'),
+      JSON.stringify({ projectId: 'prj_linked', orgId: 'team_1' }),
+    );
+    vi.spyOn(process, 'cwd').mockReturnValue(cwd);
+    const readFileSync = vi.spyOn(fs, 'readFileSync');
+
+    try {
+      const tokens = [
+        await encryptFlagValues(values),
+        await encryptFlagValues(values),
+        await encryptFlagValues(values),
+      ];
+
+      for (const token of tokens) {
+        expect(decodeProtectedHeader(token)).toMatchObject({
+          projectIds: ['prj_linked'],
+        });
+      }
+      // The file is read one time, not for each call
+      expect(readFileSync).toHaveBeenCalledTimes(1);
+    } finally {
+      fs.rmSync(cwd, { recursive: true });
+    }
+  });
+
   it('requires a project ID before loading the key', async () => {
     const fetch = stubKeySet([publicJwk]);
     vi.stubEnv('VERCEL_PROJECT_ID', '');
@@ -171,6 +205,32 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     await expect(encryptFlagValues(values)).rejects.toThrow(
       'no key for ECDH-ES with P-256',
     );
+  });
+
+  it('loads the keys with a timeout', async () => {
+    const fetch = stubKeySet([publicJwk]);
+    await encryptFlagValues(values);
+
+    expect(fetch).toHaveBeenCalledWith(
+      VERCEL_FLAG_VALUES_JWKS_URL,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('does not wrap an error with which a framework controls the render', async () => {
+    // Next.js throws such an error for a fetch with no-store in a static page
+    const controlFlow = Object.assign(new Error('Dynamic server usage'), {
+      digest: 'DYNAMIC_SERVER_USAGE',
+    });
+    const fetch = vi.fn(async () => {
+      throw controlFlow;
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(encryptFlagValues(values)).rejects.toBe(controlFlow);
+    // It is not a failure of the key host, so there is no cooldown
+    await expect(encryptFlagValues(values)).rejects.toBe(controlFlow);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('does not load the keys again during the cooldown after an error', async () => {
