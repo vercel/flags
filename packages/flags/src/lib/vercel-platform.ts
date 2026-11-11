@@ -378,7 +378,7 @@ const KMS_ISSUER_PATTERN =
  * @internal
  */
 export function canVerifyVercelSignedTokens(): boolean {
-  return Boolean(readEnv('VERCEL') || readEnv('VERCEL_OIDC_TOKEN'));
+  return Boolean(readEnv('VERCEL') || readOidcToken());
 }
 
 /**
@@ -475,12 +475,11 @@ export async function verifyVercelSignedToken(
 }
 
 /**
- * The team is only checked when it is known, which needs a `VERCEL_OIDC_TOKEN`
- * in the environment, e.g. after `vercel env pull`. A deployment has no such
- * variable at runtime (the token is only a header of each request), and none
- * of the system environment variables of Vercel contains the team, so a
- * deployment can not check the team. The project id is unique across all
- * teams, so the project and the environment still bind the token to it.
+ * The team is only checked when it is known, which needs the OIDC token: the
+ * header of a request on a deployment, or the `VERCEL_OIDC_TOKEN` of
+ * `vercel env pull`. Without it (e.g. at module scope), the project id, which
+ * is unique across all teams, and the environment still bind the token to the
+ * host.
  */
 function isInScope(
   scope: unknown,

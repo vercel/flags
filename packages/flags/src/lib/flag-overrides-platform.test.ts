@@ -345,6 +345,61 @@ describe('verifyFlagOverridesFromPlatform', () => {
     ).resolves.toBeUndefined();
   });
 
+  describe('with the OIDC token of a request', () => {
+    const symbol = Symbol.for('@vercel/request-context');
+    const oidcToken = (claims: Record<string, unknown>) =>
+      new SignJWT(claims).setProtectedHeader({ alg: 'ES256' }).sign(otherKey);
+    const setRequestToken = (token: string) => {
+      Reflect.set(globalThis, symbol, {
+        get: () => ({ headers: { 'x-vercel-oidc-token': token } }),
+      });
+    };
+
+    afterEach(() => {
+      Reflect.deleteProperty(globalThis, symbol);
+    });
+
+    it('rejects a different team on a deployment', async () => {
+      setRequestToken(await oidcToken({ owner_id: 'team_2' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toBeUndefined();
+    });
+
+    it('accepts the team of the deployment', async () => {
+      setRequestToken(await oidcToken({ owner_id: 'team_1' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toEqual({ 'new-checkout': true });
+    });
+
+    it('prefers the token of the request over VERCEL_OIDC_TOKEN', async () => {
+      vi.stubEnv('VERCEL_OIDC_TOKEN', await oidcToken({ owner_id: 'team_2' }));
+      setRequestToken(await oidcToken({ owner_id: 'team_1' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toEqual({ 'new-checkout': true });
+    });
+
+    it('reads the project without the system environment variables', async () => {
+      vi.stubEnv('VERCEL', '');
+      vi.stubEnv('VERCEL_PROJECT_ID', '');
+      vi.stubEnv('VERCEL_TARGET_ENV', '');
+      setRequestToken(
+        await oidcToken({
+          project_id: 'prj_1',
+          environment: 'preview',
+          owner_id: 'team_1',
+        }),
+      );
+      const token = await sign();
+      expect(isFlagOverridesFromPlatform(token)).toBe(true);
+      await expect(verifyFlagOverridesFromPlatform(token)).resolves.toEqual({
+        'new-checkout': true,
+      });
+    });
+  });
+
   it('rejects tokens when the project is not known', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', '');
     await expect(
