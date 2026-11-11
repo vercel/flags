@@ -23,6 +23,7 @@ import {
   resetFlagValuesKeys,
   VERCEL_FLAG_VALUES_JWKS_URL,
 } from './flag-values-platform';
+import { resetWarnings } from './vercel-platform';
 
 const secret = 'a'.repeat(43);
 const values = { 'summer-sale': true, banner: 'Welcome' };
@@ -49,6 +50,7 @@ function stubKeySet(keys: unknown[], status = 200) {
 
 beforeEach(() => {
   resetFlagValuesKeys();
+  resetWarnings();
   vi.stubEnv('FLAGS_SECRET', '');
   vi.stubEnv('VERCEL_PROJECT_ID', 'prj_default');
   vi.stubEnv('VERCEL_OIDC_TOKEN', '');
@@ -284,5 +286,35 @@ describe('encryptFlagValues with FLAGS_SECRET', () => {
       enc: 'A256GCM',
     });
     await expect(decryptFlagValues(token)).resolves.toEqual(values);
+  });
+});
+
+describe('decryptFlagValues', () => {
+  it('warns for flag values which only Vercel can decrypt', async () => {
+    stubKeySet([publicJwk]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const token = await encryptFlagValues(values);
+
+    await expect(decryptFlagValues(token, secret)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('Only Vercel can decrypt them.'),
+    );
+  });
+
+  it('does not warn for flag values of another secret', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const token = await encryptFlagValues(values, 'b'.repeat(43));
+
+    await expect(decryptFlagValues(token, secret)).resolves.toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('throws without FLAGS_SECRET', async () => {
+    stubKeySet([publicJwk]);
+    const token = await encryptFlagValues(values);
+
+    await expect(decryptFlagValues(token)).rejects.toThrow(
+      'flags: Missing FLAGS_SECRET',
+    );
   });
 });
