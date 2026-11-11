@@ -1,4 +1,5 @@
 import type { JsonValue } from '..';
+import { precomputeSecretOrThrow } from '../lib/precompute-secret';
 import * as s from '../lib/serialization';
 import { evaluate } from './evaluate';
 import type { Flag } from './types';
@@ -48,12 +49,13 @@ export async function serialize(
   values: ValuesArray,
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
-  if (!secret) {
-    throw new Error('flags: Can not serialize due to missing secret');
-  }
+  const key = await precomputeSecretOrThrow(
+    secret,
+    'flags: Can not serialize due to missing secret',
+  );
 
   if (flags.length === 0) return '__no_flags__';
-  return s.serialize(combine(flags, values), flags, secret);
+  return s.serialize(combine(flags, values), flags, key);
 }
 
 /**
@@ -68,9 +70,10 @@ export async function deserialize(
   code: string,
   secret: string | undefined = process.env.FLAGS_SECRET,
 ) {
-  if (!secret) {
-    throw new Error('flags: Can not serialize due to missing secret');
-  }
+  const key = await precomputeSecretOrThrow(
+    secret,
+    'flags: Can not serialize due to missing secret',
+  );
 
   if (code === '__no_flags__') {
     if (flags.length === 0) return {};
@@ -85,7 +88,7 @@ export async function deserialize(
     );
   }
 
-  return s.deserialize(code, flags, secret);
+  return s.deserialize(code, flags, key);
 }
 
 /**
@@ -135,11 +138,10 @@ export async function getPrecomputed<T extends JsonValue>(
   code: string,
   secret: string | undefined = process.env.FLAGS_SECRET,
 ): Promise<any> {
-  if (!secret) {
-    throw new Error(
-      'flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
-    );
-  }
+  const key = await precomputeSecretOrThrow(
+    secret,
+    'flags: getPrecomputed was called without a secret. Please set FLAGS_SECRET environment variable.',
+  );
 
   if (code === '__no_flags__') {
     const keys = Array.isArray(flagOrFlags)
@@ -150,7 +152,7 @@ export async function getPrecomputed<T extends JsonValue>(
     );
   }
 
-  const flagSet = await deserialize(precomputeFlags, code, secret);
+  const flagSet = await deserialize(precomputeFlags, code, key);
 
   if (Array.isArray(flagOrFlags)) {
     // Handle case when an array of flags is passed
@@ -190,13 +192,12 @@ function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
 export async function generatePermutations(
   flags: FlagsArray,
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
-  secret: string = process.env.FLAGS_SECRET!,
+  secret: string | undefined = process.env.FLAGS_SECRET,
 ): Promise<string[]> {
-  if (!secret) {
-    throw new Error(
-      'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
-    );
-  }
+  const key = await precomputeSecretOrThrow(
+    secret,
+    'flags: generatePermutations was called without a secret. Please set FLAGS_SECRET environment variable.',
+  );
 
   if (flags.length === 0) return ['__no_flags__'];
 
@@ -221,5 +222,5 @@ export async function generatePermutations(
     if (!filter || filter(permObject)) list.push(permObject);
   }
 
-  return Promise.all(list.map((values) => s.serialize(values, flags, secret)));
+  return Promise.all(list.map((values) => s.serialize(values, flags, key)));
 }
