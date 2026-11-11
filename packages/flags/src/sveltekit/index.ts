@@ -24,6 +24,7 @@ import {
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
+import { warnWithCooldown } from '../lib/vercel-platform';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -348,10 +349,24 @@ export function createHandle({
           // This is for reporting which flags were used when this page was generated,
           // so the value shows up in Vercel Toolbar, without the client ever being
           // aware of this feature flag.
-          const encryptedFlagValues = await _encryptFlagValues(
-            await resolveObjectPromises(store.usedFlags),
-            secret,
-          );
+          const flagValues = await resolveObjectPromises(store.usedFlags);
+          let encryptedFlagValues: string;
+          try {
+            encryptedFlagValues = await _encryptFlagValues(flagValues, secret);
+          } catch (cause) {
+            if (secret) {
+              throw cause;
+            }
+            // Without a secret, the public key of Vercel or the project can
+            // be missing. The values are only for the Vercel Toolbar, so the
+            // page renders without them.
+            warnWithCooldown(
+              `flags: Could not encrypt the flag values for the Vercel Toolbar. ${
+                cause instanceof Error ? cause.message : String(cause)
+              }`,
+            );
+            return html;
+          }
 
           return html.replace(
             '</body>',
@@ -368,7 +383,9 @@ async function handleWellKnownFlagsRoute(
   secret: string | undefined,
   flags: Record<string, Flag<any>>,
 ) {
-  if (!secret) return new Response(null, { status: 401 });
+  if (!secret) {
+    return new Response(null, { status: 401 });
+  }
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
     secret,
