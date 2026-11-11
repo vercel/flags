@@ -5,8 +5,10 @@ import {
 } from './flags-discovery-platform';
 import { trace } from './tracing';
 import {
+  canVerifyVercelSignedTokens,
   isVercelSignedToken,
   verifyVercelSignedToken,
+  warnWithCooldown,
 } from './vercel-platform';
 
 /**
@@ -43,6 +45,15 @@ export const verifyAccess = trace(
     if (!authHeader) return false;
     const token = authHeader.replace(/^Bearer /i, '');
 
+    // Before, a missing secret was an error. Keep the hint for a host which
+    // can not accept any token.
+    if (!secret && !canVerifyVercelSignedTokens()) {
+      warnWithCooldown(
+        'flags: verifyAccess denied a request, because there is no FLAGS_SECRET and this host can not verify the tokens which Vercel signs. Set FLAGS_SECRET, or run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+      );
+      return false;
+    }
+
     if (isVercelSignedToken(token)) {
       return Boolean(
         await verifyVercelSignedToken(
@@ -53,7 +64,9 @@ export const verifyAccess = trace(
       );
     }
 
-    if (!secret) return false;
+    if (!secret) {
+      return false;
+    }
     return verifyAccessProof(token, secret);
   },
   {

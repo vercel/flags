@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encryptOverrides } from '../lib/crypto';
 import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
 import { resetFlagValuesKeys } from '../lib/flag-values-platform';
+import { VERCEL_FLAGS_DISCOVERY_ISSUER } from '../lib/flags-discovery-platform';
 import { resetWarnings } from '../lib/vercel-platform';
 import {
   createFlagsDiscoveryEndpoint,
@@ -17,16 +18,9 @@ import {
   flag,
 } from '.';
 
-const VERCEL_FLAGS_DISCOVERY_ISSUER = vi.hoisted(() => {
+vi.hoisted(() => {
   delete process.env.FLAGS_SECRET;
-  return 'https://kms.vercel.com/00000000-0000-4000-8000-000000000001';
 });
-
-// The id of the flags-keys-issuer is not known yet
-vi.mock('../lib/flags-discovery-platform', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/flags-discovery-platform')>()),
-  VERCEL_FLAGS_DISCOVERY_ISSUER,
-}));
 
 const summerSale = flag<boolean>({ key: 'summer-sale', decide: () => true });
 

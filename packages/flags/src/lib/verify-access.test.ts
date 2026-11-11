@@ -6,7 +6,6 @@ import {
   type KeyLike,
   SignJWT,
 } from 'jose';
-import type { NextRequest } from 'next/server';
 import {
   afterEach,
   beforeAll,
@@ -16,34 +15,27 @@ import {
   it,
   vi,
 } from 'vitest';
-import { createFlagsDiscoveryEndpoint } from '../next/create-flags-discovery-endpoint';
 import { createAccessProof } from './crypto';
 import {
   resetFlagOverridesKeys,
   verifyFlagOverridesFromPlatform,
 } from './flag-overrides-platform';
-import { FLAGS_DISCOVERY_POLICY } from './flags-discovery-platform';
-import { verifyVercelSignedToken } from './vercel-platform';
+import {
+  FLAGS_DISCOVERY_POLICY,
+  VERCEL_FLAGS_DISCOVERY_ISSUER as ISSUER,
+} from './flags-discovery-platform';
+import { resetWarnings } from './vercel-platform';
 import { verifyAccess } from './verify-access';
 
-const ISSUER = vi.hoisted(
-  () => 'https://kms.vercel.com/00000000-0000-4000-8000-000000000001',
-);
 const OVERRIDES_ISSUER =
   'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
-
-// The id of the flags-keys-issuer is not known yet, see
-// VERCEL_FLAGS_DISCOVERY_ISSUER
-vi.mock('./flags-discovery-platform', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./flags-discovery-platform')>()),
-  VERCEL_FLAGS_DISCOVERY_ISSUER: ISSUER,
-}));
 const secret = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
 
 let privateKey: KeyLike;
 let otherKey: KeyLike;
 let publicJwk: JWK;
 let fetchKeys: ReturnType<typeof vi.fn>;
+let warn: ReturnType<typeof vi.spyOn>;
 
 beforeAll(async () => {
   const pair = await generateKeyPair('ES256');
@@ -58,6 +50,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   resetFlagOverridesKeys();
+  resetWarnings();
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   for (const name of ['FLAGS_SECRET', 'VERCEL_OIDC_TOKEN', 'VERCEL_ENV']) {
     vi.stubEnv(name, '');
   }
@@ -73,6 +67,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function sign(
@@ -137,6 +132,10 @@ describe('verifyAccess with a token which Vercel signs', () => {
         ),
     ],
     ['a lifetime above 300 seconds', () => sign({}, { lifetime: 301 })],
+    [
+      'a token which is too long',
+      () => sign({ a: 'x'.repeat(FLAGS_DISCOVERY_POLICY.maxTokenLength) }),
+    ],
     [
       'a different issuer',
       () => sign({}, { issuer: 'https://kms.vercel.com/other' }),
@@ -204,6 +203,25 @@ describe('verifyAccess with a token which Vercel signs', () => {
     await expect(verifyAccess(await sign())).resolves.toBe(false);
   });
 
+  it('accepts only the name of a custom environment for a host in it', async () => {
+    // For a custom environment, VERCEL_ENV is `preview`, and Vercel puts the
+    // name of the custom environment in the scope
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('VERCEL_TARGET_ENV', 'staging');
+    const scope = (environment: string) => ({
+      teamId: 'team_1',
+      projectIds: ['prj_1'],
+      environments: [environment],
+    });
+
+    await expect(
+      verifyAccess(await sign({ scope: scope('staging') })),
+    ).resolves.toBe(true);
+    await expect(
+      verifyAccess(await sign({ scope: scope('preview') })),
+    ).resolves.toBe(false);
+  });
+
   it('rejects tokens when the project is not known', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', '');
     await expect(verifyAccess(await sign())).resolves.toBe(false);
@@ -235,32 +253,6 @@ describe('verifyAccess with a token which Vercel signs', () => {
       `${OVERRIDES_ISSUER}/jwks.json`,
     ]);
   });
-
-  it('uses the flags-keys issuer', async () => {
-    const { VERCEL_FLAGS_DISCOVERY_ISSUER: issuer } = await vi.importActual<
-      typeof import('./flags-discovery-platform')
-    >('./flags-discovery-platform');
-    expect(issuer).toBe(
-      'https://kms.vercel.com/d0efbb30-566d-48b6-b173-0062e54ec49c',
-    );
-  });
-
-  it('rejects all tokens from an issuer that is not a KMS issuer id', async () => {
-    for (const issuer of [
-      'https://kms.vercel.com/not-an-issuer',
-      '',
-      'https://kms.vercel.com/',
-    ]) {
-      await expect(
-        verifyVercelSignedToken(
-          await sign({}, { issuer }),
-          issuer,
-          FLAGS_DISCOVERY_POLICY,
-        ),
-      ).resolves.toBeUndefined();
-    }
-    expect(fetchKeys).not.toHaveBeenCalled();
-  });
 });
 
 describe('verifyAccess with a proof encrypted with FLAGS_SECRET', () => {
@@ -288,33 +280,25 @@ describe('verifyAccess with a proof encrypted with FLAGS_SECRET', () => {
     await expect(verifyAccess(await createAccessProof(secret))).resolves.toBe(
       false,
     );
+    // The host can verify signed tokens, so the secret is not necessary
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns without a secret on a host which can not verify signed tokens', async () => {
+    vi.stubEnv('VERCEL', '');
+    const proof = await createAccessProof(secret);
+
+    await expect(verifyAccess(proof)).resolves.toBe(false);
+    await expect(verifyAccess(await sign())).resolves.toBe(false);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/no FLAGS_SECRET.*vercel env pull/),
+    );
+    expect(fetchKeys).not.toHaveBeenCalled();
   });
 
   it('returns false without a header', async () => {
     await expect(verifyAccess(null, secret)).resolves.toBe(false);
-  });
-});
-
-describe('createFlagsDiscoveryEndpoint without FLAGS_SECRET', () => {
-  const endpoint = createFlagsDiscoveryEndpoint(() => ({ definitions: {} }));
-  const request = (authorization?: string) =>
-    new Request('https://shop.example/.well-known/vercel/flags', {
-      headers: authorization ? { authorization } : {},
-    }) as unknown as NextRequest;
-
-  it('responds with the data for a token which Vercel signs', async () => {
-    const response = await endpoint(request(`Bearer ${await sign()}`));
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ definitions: {} });
-  });
-
-  it('responds with 401 for an invalid token, a proof, or no header', async () => {
-    for (const authorization of [
-      `Bearer ${await signOverrides()}`,
-      `Bearer ${await createAccessProof(secret)}`,
-      undefined,
-    ]) {
-      expect((await endpoint(request(authorization))).status).toBe(401);
-    }
   });
 });
