@@ -24,7 +24,7 @@ npm install flags
 
 ## Setup
 
-On Vercel, the SDK works without a `FLAGS_SECRET`. Flags Explorer overrides and the flags discovery endpoint use tokens that Vercel signs, and `encryptFlagValues` encrypts flag values with the public key of Vercel. For local development, run `vercel env pull` so the SDK can identify your project.
+On Vercel, the SDK works without a `FLAGS_SECRET`. Flags Explorer overrides and the flags discovery endpoint use tokens that Vercel signs, and `encryptFlagValues` encrypts flag values with the public key of Vercel. For local development, run `vercel env pull` so the SDK can identify your project. On Vercel, your project must expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
 ### `FLAGS_SECRET` (optional)
 
