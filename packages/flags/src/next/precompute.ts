@@ -47,7 +47,7 @@ export function combine(flags: FlagsArray, values: ValuesArray) {
 export async function serialize(
   flags: FlagsArray,
   values: ValuesArray,
-  secret: string | undefined = process.env.FLAGS_SECRET,
+  secret?: string,
 ) {
   const key = await precomputeSecretOrThrow(
     secret,
@@ -68,7 +68,7 @@ export async function serialize(
 export async function deserialize(
   flags: FlagsArray,
   code: string,
-  secret: string | undefined = process.env.FLAGS_SECRET,
+  secret?: string,
 ) {
   const key = await precomputeSecretOrThrow(
     secret,
@@ -136,7 +136,7 @@ export async function getPrecomputed<T extends JsonValue>(
   flagOrFlags: Flag<T, any> | readonly Flag<T, any>[],
   precomputeFlags: FlagsArray,
   code: string,
-  secret: string | undefined = process.env.FLAGS_SECRET,
+  secret?: string,
 ): Promise<any> {
   const key = await precomputeSecretOrThrow(
     secret,
@@ -192,7 +192,7 @@ function* cartesianIterator<T>(items: T[][]): Generator<T[]> {
 export async function generatePermutations(
   flags: FlagsArray,
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
-  secret: string | undefined = process.env.FLAGS_SECRET,
+  secret?: string,
 ): Promise<string[]> {
   const key = await precomputeSecretOrThrow(
     secret,

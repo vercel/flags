@@ -45,12 +45,18 @@ export async function tryGetSecret(secret?: string): Promise<string> {
 }
 
 /**
- * The secret of precompute: `secret`, or else `FLAGS_SECRET`, or else the
- * secret which Vercel provides for the deployment.
+ * The secret of precompute: `secret`, or else `FLAGS_PRECOMPUTE_SECRET`, or
+ * else `FLAGS_SECRET`, or else the secret which Vercel provides for the
+ * deployment.
+ *
+ * The handle fills a missing secret with `FLAGS_SECRET`, so a `secret` which
+ * equals `FLAGS_SECRET` does not count as passed. Otherwise the handle and
+ * `precompute` would disagree when `FLAGS_PRECOMPUTE_SECRET` is set too.
  */
 export async function getPrecomputeSecret(secret?: string): Promise<string> {
+  await loadEnv();
   return precomputeSecretOrThrow(
-    await getSecret(secret),
+    secret === default_secret ? undefined : secret,
     'flags: No secret provided. Set an environment variable FLAGS_SECRET or provide a secret to the function.',
   );
 }

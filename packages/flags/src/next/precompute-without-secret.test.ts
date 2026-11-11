@@ -12,6 +12,7 @@ const group = [flagA];
 
 beforeEach(() => {
   vi.stubEnv('FLAGS_SECRET', '');
+  vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
 });
 
 afterEach(() => {
@@ -42,12 +43,34 @@ describe('precompute without FLAGS_SECRET', () => {
     await expect(deserialize(group, code)).rejects.toThrow();
   });
 
-  it('prefers FLAGS_SECRET', async () => {
+  it('prefers a passed secret, FLAGS_PRECOMPUTE_SECRET, then FLAGS_SECRET', async () => {
+    const passed = 'a'.repeat(43);
+    const precomputeSecret = 'b'.repeat(43);
+    const flagsSecret = 'c'.repeat(43);
+
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
     const withDeploymentKey = await serialize(group, [true]);
 
-    vi.stubEnv('FLAGS_SECRET', 'a'.repeat(43));
-    await expect(serialize(group, [true])).resolves.not.toBe(withDeploymentKey);
+    vi.stubEnv('FLAGS_SECRET', flagsSecret);
+    const withFlagsSecret = await serialize(group, [true]);
+    expect(withFlagsSecret).not.toBe(withDeploymentKey);
+    expect(withFlagsSecret).toBe(await serialize(group, [true], flagsSecret));
+
+    vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', precomputeSecret);
+    const withPrecomputeSecret = await serialize(group, [true]);
+    expect(withPrecomputeSecret).toBe(
+      await serialize(group, [true], precomputeSecret),
+    );
+    await expect(generatePermutations(group)).resolves.toContain(
+      withPrecomputeSecret,
+    );
+    await expect(
+      getPrecomputed(flagA, group, withPrecomputeSecret),
+    ).resolves.toBe(true);
+
+    expect(await serialize(group, [true], passed)).not.toBe(
+      withPrecomputeSecret,
+    );
   });
 
   it('throws when there is no key of the deployment either', async () => {
