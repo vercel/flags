@@ -56,8 +56,16 @@ async function derive(deploymentKey: string): Promise<string> {
 }
 
 /**
- * Returns `secret`, or else the secret of the deployment. Throws `message`
- * when there is neither.
+ * The secret of precompute. The first of these which is set:
+ *
+ * 1. `secret`, which the caller passed
+ * 2. `FLAGS_PRECOMPUTE_SECRET`
+ * 3. `FLAGS_SECRET`
+ * 4. the secret of the deployment, see `deploymentPrecomputeSecret`
+ *
+ * A secret of the user is before the secret of the deployment, so that the
+ * build and the runtime agree when only one of them has the deployment key
+ * (e.g. a build with `vercel build`). Throws `message` when there is none.
  *
  * @internal
  */
@@ -65,7 +73,11 @@ export async function precomputeSecretOrThrow(
   secret: string | undefined,
   message: string,
 ): Promise<string> {
-  const resolved = secret || (await deploymentPrecomputeSecret());
+  const resolved =
+    secret ||
+    readEnv('FLAGS_PRECOMPUTE_SECRET') ||
+    readEnv('FLAGS_SECRET') ||
+    (await deploymentPrecomputeSecret());
   if (!resolved) throw new Error(message);
   return resolved;
 }
