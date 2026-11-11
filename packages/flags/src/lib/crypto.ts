@@ -147,7 +147,9 @@ export async function decryptOverrides(
  * Encrypts flag values data.
  *
  * Without a secret, it encrypts with the public key of Vercel, for the
- * project of the host. Only Vercel can decrypt the values.
+ * project of the host. Only Vercel can decrypt the values: `decryptFlagValues`
+ * can not read them. There is no error or warning for a secret which is
+ * `undefined` or empty, e.g. a typo in the name of the environment variable.
  *
  * @param flagValues - The flag values to encrypt
  * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
@@ -160,7 +162,9 @@ export async function encryptFlagValues(
   secret: string | undefined = process?.env?.FLAGS_SECRET,
   expirationTime?: ExpirationTime,
 ) {
-  if (!secret) return encryptFlagValuesForPlatform(flagValues, expirationTime);
+  if (!secret) {
+    return encryptFlagValuesForPlatform(flagValues, expirationTime);
+  }
   return encryptJwe(
     { v: flagValues, pur: 'values' },
     secret,

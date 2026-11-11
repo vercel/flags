@@ -18,11 +18,13 @@ import {
 import { getOverrides } from '../next/overrides';
 import { decryptOverrides, encryptOverrides } from './crypto';
 import {
+  FLAG_OVERRIDES_POLICY,
   isFlagOverridesFromPlatform,
   resetFlagOverridesKeys,
   VERCEL_FLAG_OVERRIDES_JWKS_URL,
   verifyFlagOverridesFromPlatform,
 } from './flag-overrides-platform';
+import { resetWarnings, verifyVercelSignedToken } from './vercel-platform';
 
 const ISSUER = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';
 const secret = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
@@ -31,6 +33,7 @@ let privateKey: KeyLike;
 let otherKey: KeyLike;
 let publicJwk: JWK;
 let fetchKeys: ReturnType<typeof vi.fn>;
+let warn: ReturnType<typeof vi.spyOn>;
 
 beforeAll(async () => {
   const pair = await generateKeyPair('ES256');
@@ -45,6 +48,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   resetFlagOverridesKeys();
+  resetWarnings();
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   for (const name of ['FLAGS_SECRET', 'VERCEL_OIDC_TOKEN', 'VERCEL_ENV']) {
     vi.stubEnv(name, '');
   }
@@ -61,6 +66,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 function sign(
@@ -73,10 +79,11 @@ function sign(
     audience?: string;
     lifetime?: number;
     issuedAt?: number;
+    omit?: 'iat' | 'exp';
   } = {},
 ) {
   const issuedAt = options.issuedAt ?? Math.floor(Date.now() / 1000);
-  return new SignJWT({
+  const jwt = new SignJWT({
     pur: 'flag-overrides',
     ver: 1,
     scope: {
@@ -93,10 +100,14 @@ function sign(
       ...options.header,
     })
     .setIssuer(options.issuer ?? ISSUER)
-    .setAudience(options.audience ?? 'vercel:flag-overrides')
-    .setIssuedAt(issuedAt)
-    .setExpirationTime(issuedAt + (options.lifetime ?? 120))
-    .sign(options.key ?? privateKey);
+    .setAudience(options.audience ?? 'vercel:flag-overrides');
+  if (options.omit !== 'iat') {
+    jwt.setIssuedAt(issuedAt);
+  }
+  if (options.omit !== 'exp') {
+    jwt.setExpirationTime(issuedAt + (options.lifetime ?? 120));
+  }
+  return jwt.sign(options.key ?? privateKey);
 }
 
 describe('verifyFlagOverridesFromPlatform', () => {
@@ -156,6 +167,23 @@ describe('verifyFlagOverridesFromPlatform', () => {
       () => sign({}, { lifetime: 7 * 24 * 60 * 60 + 1 }),
     ],
     [
+      'a token which is issued in the future',
+      () => sign({}, { issuedAt: Math.floor(Date.now() / 1000) + 600 }),
+    ],
+    [
+      'a token which is not valid yet',
+      () => sign({ nbf: Math.floor(Date.now() / 1000) + 600 }),
+    ],
+    ['a token without iat', () => sign({}, { omit: 'iat' })],
+    ['a token without exp', () => sign({}, { omit: 'exp' })],
+    [
+      'a token which is too long',
+      () =>
+        sign({
+          overrides: { a: 'x'.repeat(FLAG_OVERRIDES_POLICY.maxTokenLength) },
+        }),
+    ],
+    [
       'a different issuer',
       () => sign({}, { issuer: 'https://kms.vercel.com/other' }),
     ],
@@ -172,6 +200,14 @@ describe('verifyFlagOverridesFromPlatform', () => {
     [
       'a key URL in the header, even when empty',
       () => sign({}, { header: { jku: '' } }),
+    ],
+    [
+      'a certificate URL in the header',
+      () => sign({}, { header: { x5u: 'https://example.com/cert' } }),
+    ],
+    [
+      'a critical header',
+      () => sign({}, { header: { crit: ['b64'], b64: true } }),
     ],
     [
       'a key which the issuer does not have',
@@ -215,6 +251,49 @@ describe('verifyFlagOverridesFromPlatform', () => {
     await expect(
       verifyFlagOverridesFromPlatform(await token()),
     ).resolves.toBeUndefined();
+  });
+
+  it('rejects all tokens of an issuer which is not an issuer of Vercel KMS', async () => {
+    for (const issuer of [
+      'https://kms.vercel.com/not-an-issuer',
+      '',
+      'https://kms.vercel.com/',
+    ]) {
+      await expect(
+        verifyVercelSignedToken(
+          await sign({}, { issuer }),
+          issuer,
+          FLAG_OVERRIDES_POLICY,
+        ),
+      ).resolves.toBeUndefined();
+    }
+    expect(fetchKeys).not.toHaveBeenCalled();
+  });
+
+  it('warns about a token for a different project, but not about an expired token', async () => {
+    await verifyFlagOverridesFromPlatform(
+      await sign(
+        {},
+        { issuedAt: Math.floor(Date.now() / 1000) - 600, lifetime: 60 },
+      ),
+    );
+    expect(warn).not.toHaveBeenCalled();
+
+    const token = await sign({
+      scope: {
+        teamId: 'team_1',
+        projectIds: ['prj_2'],
+        environments: ['preview'],
+      },
+    });
+    await verifyFlagOverridesFromPlatform(token);
+    await verifyFlagOverridesFromPlatform(token);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'it is not for the project prj_1 and the environment preview',
+      ),
+    );
   });
 
   it('accepts a token of all projects of a microfrontends group', async () => {
@@ -272,6 +351,11 @@ describe('verifyFlagOverridesFromPlatform', () => {
       verifyFlagOverridesFromPlatform(await sign()),
     ).resolves.toBeUndefined();
     expect(fetchKeys).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'the project or the environment of this host is not known',
+      ),
+    );
   });
 
   it('loads the keys again for a new key, but not more often than every 30 seconds', async () => {
@@ -300,6 +384,12 @@ describe('verifyFlagOverridesFromPlatform', () => {
       verifyFlagOverridesFromPlatform(token),
     ).resolves.toBeUndefined();
     expect(fetchKeys).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /Could not load the public keys of Vercel KMS .* status 500\. A token which Vercel signed is ignored\./,
+      ),
+    );
 
     vi.advanceTimersByTime(30_000);
     await expect(verifyFlagOverridesFromPlatform(token)).resolves.toEqual({
@@ -313,15 +403,22 @@ describe('isFlagOverridesFromPlatform', () => {
     expect(isFlagOverridesFromPlatform(await sign())).toBe(true);
   });
 
-  it('is false outside of Vercel', async () => {
+  it('is false outside of Vercel, with one warning which names the fix', async () => {
     vi.stubEnv('VERCEL', '');
-    expect(isFlagOverridesFromPlatform(await sign())).toBe(false);
+    const token = await sign();
+    expect(isFlagOverridesFromPlatform(token)).toBe(false);
+    expect(isFlagOverridesFromPlatform(token)).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('vercel env pull'),
+    );
   });
 
   it('is false for a JWE', async () => {
     expect(
       isFlagOverridesFromPlatform(await encryptOverrides({ a: 1 }, secret)),
     ).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
@@ -343,6 +440,15 @@ describe('getOverrides', () => {
   it('does not accept signed tokens outside of Vercel', async () => {
     vi.stubEnv('VERCEL', '');
     vi.stubEnv('FLAGS_SECRET', secret);
+    await expect(getOverrides(await sign())).resolves.toBeNull();
+    expect(fetchKeys).not.toHaveBeenCalled();
+  });
+
+  it('ignores a cookie which the host can not read without FLAGS_SECRET', async () => {
+    const encrypted = await encryptOverrides({ a: 1 }, secret);
+    await expect(getOverrides(encrypted)).resolves.toBeNull();
+
+    vi.stubEnv('VERCEL', '');
     await expect(getOverrides(await sign())).resolves.toBeNull();
     expect(fetchKeys).not.toHaveBeenCalled();
   });

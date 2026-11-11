@@ -5,3 +5,9 @@
 Accept flag overrides which the Vercel Toolbar signs with Vercel KMS, so overrides work on Vercel without a `FLAGS_SECRET`.
 
 On Vercel, or locally after `vercel env pull`, the SDK verifies signed override tokens with the public keys of Vercel, which it keeps in memory. `decryptOverrides` accepts them too, for apps which read the cookie themselves. Tokens encrypted with the `FLAGS_SECRET` keep working exactly as before. The cookie is still `vercel-flag-overrides`.
+
+The host must know that it runs for a Vercel project. On Vercel, the project must expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables) (`VERCEL`, `VERCEL_PROJECT_ID`). Locally, `vercel env pull` supplies the `VERCEL_OIDC_TOKEN`. SvelteKit also reads it from `$env` during `vite dev`.
+
+A signed token which the host can not use is ignored, with a warning which names the cause: the host can not verify signed tokens, the public keys do not load, or the token is for a different project or environment.
+
+Without a `FLAGS_SECRET`, a Next.js flag now ignores an overrides cookie which the host can not read (e.g. an encrypted cookie from before the secret was removed). Before, it threw `flags: Missing FLAGS_SECRET`.
