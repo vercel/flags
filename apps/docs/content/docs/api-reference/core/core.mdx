@@ -144,6 +144,8 @@ export function Page() {
 
 Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise`.
 
+It works only with a `FLAGS_SECRET`. It can not read flag values which `encryptFlagValues` encrypted without a secret, because only Vercel can decrypt them. For such values it logs a warning and returns `undefined`.
+
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |
 | `encryptedData`     | `string` | Encrypted flag values to be decrypted                                         |
@@ -152,6 +154,8 @@ Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise
 #### `encryptFlagDefinitions`
 
 Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`. Without one, return the definitions from the [Flags Discovery Endpoint](/docs/api-reference/core/core#verifyaccess) instead.
 
 | Parameter                | Type                  | Description                                                              |
 | ----------------------- | --------------------- | ------------------------------------------------------------------------ |
@@ -162,6 +166,8 @@ Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
 #### `decryptFlagDefinitions`
 
 Decrypts flag definitions data, ensuring the proper purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`.
 
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |
