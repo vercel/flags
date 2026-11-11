@@ -118,6 +118,42 @@ describe('make', () => {
       expect(client).toBeDefined();
     });
 
+    it('should name the own project in the origin of an OIDC-authenticated client', () => {
+      process.env.VERCEL_PROJECT_ID = 'prj_own';
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
+
+      createClient();
+
+      expect(createRawClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: {
+            provider: 'vercel',
+            sdkKey: undefined,
+            projectId: 'prj_own',
+          },
+        }),
+      );
+    });
+
+    it('should not name the own project in the origin of a client with an SDK key', () => {
+      process.env.VERCEL_PROJECT_ID = 'prj_own';
+      const createRawClient = createMockCreateRawClient();
+      const { createClient } = make(createRawClient, {
+        waitUntil: defaultWaitUntil,
+      });
+
+      createClient('vf_server_test_key');
+
+      expect(createRawClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: { provider: 'vercel', sdkKey: 'vf_server_test_key' },
+        }),
+      );
+    });
+
     it('should pass clientName to the controller', () => {
       const createRawClient = createMockCreateRawClient();
       const { createClient } = make(createRawClient, {
