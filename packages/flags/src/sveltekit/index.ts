@@ -45,7 +45,7 @@ import type {
   Identify,
   ResolvedFlagDeclaration,
 } from '../types';
-import { getSecret, loadEnv, tryGetSecret } from './env';
+import { getPrecomputeSecret, getSecret, loadEnv, tryGetSecret } from './env';
 import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
@@ -185,7 +185,7 @@ export function flag<
         definition.key,
         flagsArrayOrSecret,
         requestOrCode,
-        store.secret ?? (await tryGetSecret()),
+        await getPrecomputeSecret(store.secret),
       );
     }
 
@@ -463,7 +463,7 @@ export async function precompute<T extends FlagsArray>(
   request: Request,
   secret?: string,
 ): Promise<string> {
-  return _precompute(flags, request, await tryGetSecret(secret));
+  return _precompute(flags, request, await getPrecomputeSecret(secret));
 }
 
 /**
@@ -478,7 +478,11 @@ export async function generatePermutations(
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
   secret?: string,
 ): Promise<string[]> {
-  return _generatePermutations(flags, filter, await tryGetSecret(secret));
+  return _generatePermutations(
+    flags,
+    filter,
+    await getPrecomputeSecret(secret),
+  );
 }
 
 /**

@@ -1,3 +1,4 @@
+import { precomputeSecretOrThrow } from '../lib/precompute-secret';
 import { addEnv } from '../lib/vercel-platform';
 
 // We're doing this dance so that the flags package is usable both in the SvelteKit environment
@@ -41,4 +42,15 @@ export async function tryGetSecret(secret?: string): Promise<string> {
   }
 
   return secret;
+}
+
+/**
+ * The secret of precompute: `secret`, or else `FLAGS_SECRET`, or else the
+ * secret which Vercel provides for the deployment.
+ */
+export async function getPrecomputeSecret(secret?: string): Promise<string> {
+  return precomputeSecretOrThrow(
+    await getSecret(secret),
+    'flags: No secret provided. Set an environment variable FLAGS_SECRET or provide a secret to the function.',
+  );
 }
