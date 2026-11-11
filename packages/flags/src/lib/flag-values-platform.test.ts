@@ -101,6 +101,29 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     });
   });
 
+  it('prefers the OIDC token of the request over VERCEL_OIDC_TOKEN', async () => {
+    stubKeySet([publicJwk]);
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    const oidcToken = (projectId: string) =>
+      `e30.${Buffer.from(JSON.stringify({ project_id: projectId })).toString('base64url')}.x`;
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken('prj_env'));
+    const symbol = Symbol.for('@vercel/request-context');
+    Reflect.set(globalThis, symbol, {
+      get: () => ({
+        headers: { 'x-vercel-oidc-token': oidcToken('prj_request') },
+      }),
+    });
+    try {
+      const token = await encryptFlagValues(values);
+
+      expect(decodeProtectedHeader(token)).toMatchObject({
+        projectIds: ['prj_request'],
+      });
+    } finally {
+      Reflect.deleteProperty(globalThis, symbol);
+    }
+  });
+
   it('takes the project ID from the .vercel/project.json of vercel link', async () => {
     stubKeySet([publicJwk]);
     vi.stubEnv('VERCEL_PROJECT_ID', '');
