@@ -47,8 +47,9 @@ export interface VercelProject {
 
 /**
  * Finds the Vercel project of the host: the environment of a deployment, the
- * `VERCEL_OIDC_TOKEN` of `vercel env pull`, and the `.vercel/project.json` of
- * `vercel link`, in this order.
+ * OIDC token (of the request, or the `VERCEL_OIDC_TOKEN` of
+ * `vercel env pull`), and the `.vercel/project.json` of `vercel link`, in this
+ * order.
  *
  * @internal
  */
@@ -66,12 +67,34 @@ export function findVercelProject(): VercelProject {
 let oidc: { token: string; claims: VercelProject } | undefined;
 
 /**
+ * Reads the OIDC token of the host: on a deployment, Vercel adds it to each
+ * request as the `x-vercel-oidc-token` header; `vercel env pull` and a build
+ * have it as `VERCEL_OIDC_TOKEN`. The header has priority, like in
+ * `@vercel/oidc`.
+ */
+function readOidcToken(): string | undefined {
+  try {
+    const context = Reflect.get(
+      globalThis,
+      Symbol.for('@vercel/request-context'),
+    )?.get?.();
+    const token: unknown = context?.headers?.['x-vercel-oidc-token'];
+    if (typeof token === 'string' && token) {
+      return token;
+    }
+  } catch {
+    // No request context
+  }
+  return readEnv('VERCEL_OIDC_TOKEN');
+}
+
+/**
  * The token is only decoded, not verified: it is configuration of the host,
- * like the other environment variables, not an input of a request. It is
+ * which the platform sets, like the other environment variables. It is
  * decoded one time for each token, not for each call.
  */
 function readOidcClaims(): VercelProject {
-  const token = readEnv('VERCEL_OIDC_TOKEN');
+  const token = readOidcToken();
   if (!token) {
     return {};
   }
@@ -355,7 +378,7 @@ const KMS_ISSUER_PATTERN =
  * @internal
  */
 export function canVerifyVercelSignedTokens(): boolean {
-  return Boolean(readEnv('VERCEL') || readEnv('VERCEL_OIDC_TOKEN'));
+  return Boolean(readEnv('VERCEL') || readOidcToken());
 }
 
 /**
@@ -452,12 +475,11 @@ export async function verifyVercelSignedToken(
 }
 
 /**
- * The team is only checked when it is known, which needs a `VERCEL_OIDC_TOKEN`
- * in the environment, e.g. after `vercel env pull`. A deployment has no such
- * variable at runtime (the token is only a header of each request), and none
- * of the system environment variables of Vercel contains the team, so a
- * deployment can not check the team. The project id is unique across all
- * teams, so the project and the environment still bind the token to it.
+ * The team is only checked when it is known, which needs the OIDC token: the
+ * header of a request on a deployment, or the `VERCEL_OIDC_TOKEN` of
+ * `vercel env pull`. Without it (e.g. at module scope), the project id, which
+ * is unique across all teams, and the environment still bind the token to the
+ * host.
  */
 function isInScope(
   scope: unknown,
