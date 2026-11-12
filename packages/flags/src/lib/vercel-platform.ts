@@ -71,8 +71,10 @@ let oidc: { token: string; claims: VercelProject } | undefined;
  * request as the `x-vercel-oidc-token` header; `vercel env pull` and a build
  * have it as `VERCEL_OIDC_TOKEN`. The header has priority, like in
  * `@vercel/oidc`.
+ *
+ * @internal
  */
-function readOidcToken(): string | undefined {
+export function readOidcToken(): string | undefined {
   try {
     const context = Reflect.get(
       globalThis,
