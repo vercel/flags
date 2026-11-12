@@ -82,8 +82,10 @@ function readOidcToken(): string | undefined {
 
 /**
  * The token is only decoded, not verified: it is configuration of the host,
- * which the platform sets, like the other environment variables. It is
- * decoded one time for each token, not for each call.
+ * which the platform sets, like the other environment variables. A visitor
+ * can not set it: Vercel removes an `x-vercel-oidc-token` header from each
+ * incoming request, and only adds its own. It is decoded one time for each
+ * token, not for each call.
  */
 function readOidcClaims(): VercelProject {
   const token = readOidcToken();
