@@ -42,10 +42,9 @@ One-time setup that makes the toolbar aware of your flags:
 ```ts
 // src/hooks.server.ts
 import { createHandle } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 
-export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+export const handle = createHandle({ flags });
 ```
 
 When composing with other handlers via SvelteKit's `sequence`, `createHandle` must come first.

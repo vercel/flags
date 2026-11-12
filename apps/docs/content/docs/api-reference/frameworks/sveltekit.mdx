@@ -73,6 +73,8 @@ On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a k
 
 To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_PRECOMPUTE_SECRET`, `FLAGS_SECRET`, the key of the deployment.
 
+A `secret` passed to `createHandle` is the only one that reads a code in a page. Pass the same secret to `precompute` and `generatePermutations`, or pass none to all of them.
+
 ### `precompute`
 
 **Description**: Evaluates multiple feature flags. Returns their values encoded to a single signed string.
