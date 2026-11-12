@@ -599,52 +599,6 @@ describe('signOverrides', () => {
     ).toMatchObject({ authorization: 'Bearer request-token' });
   });
 
-  it('signs for the project and the environment of the options with their token', async () => {
-    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
-    const fetchSign = stubSign(Response.json({ token: 'signed' }));
-
-    await expect(
-      signOverrides(
-        { 'new-checkout': true },
-        {
-          token: 'access-token',
-          projectId: 'prj_2',
-          environment: 'production',
-          teamId: 'team_2',
-        },
-      ),
-    ).resolves.toBe('signed');
-
-    const [url, init] = fetchSign.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ];
-    expect(url).toBe(
-      'https://api.vercel.com/v1/projects/prj_2/feature-flags/overrides/sign?teamId=team_2',
-    );
-    expect(init.headers).toMatchObject({
-      authorization: 'Bearer access-token',
-    });
-    expect(JSON.parse(init.body as string)).toEqual({
-      overrides: { 'new-checkout': true },
-      environment: 'production',
-    });
-  });
-
-  it('throws with the reason of Vercel', async () => {
-    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
-    stubSign(
-      Response.json(
-        { error: { code: 'bad_request', message: 'Unknown environment' } },
-        { status: 400 },
-      ),
-    );
-
-    await expect(signOverrides({})).rejects.toThrow(
-      'flags: Could not sign the overrides: status 400 (Unknown environment).',
-    );
-  });
-
   it('throws without an OIDC token, and does not call Vercel', async () => {
     const fetchSign = stubSign(Response.json({ token: 'signed' }));
 

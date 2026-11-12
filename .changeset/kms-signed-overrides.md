@@ -12,4 +12,4 @@ A signed token which the host can not use is ignored, with a warning which names
 
 Without a `FLAGS_SECRET`, a Next.js flag now ignores an overrides cookie which the host can not read (e.g. an encrypted cookie from before the secret was removed). Before, it threw `flags: Missing FLAGS_SECRET`.
 
-Add `signOverrides`, which asks Vercel to sign flag overrides for the project and the environment of the host, e.g. for end-to-end tests of a project without a `FLAGS_SECRET`. It uses the OIDC token of the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`. Pass a `token`, a `projectId`, an `environment` and a `teamId` to sign for another project or environment, e.g. with a Vercel access token.
+Add `signOverrides`, which asks Vercel to sign flag overrides for the project and the environment of the host, e.g. for end-to-end tests of a project without a `FLAGS_SECRET`. It uses the OIDC token of the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`.

@@ -188,10 +188,6 @@ Vercel signs them for the project and the environment of the OIDC token of the h
 | ------------------------ | ------------------- | ------------------------------------------------------------------------- |
 | `overrides`              | `FlagOverridesType` | Flag overrides to be signed                                               |
 | `options.ttl` (Optional) | `number`            | The lifetime of the token in seconds. Defaults to 1 hour, at most 1 day   |
-| `options.token` (Optional) | `string`          | The token which authorizes the request, e.g. a Vercel access token. Defaults to the OIDC token of the host |
-| `options.projectId` (Optional) | `string`      | The project to sign for. Defaults to the project of the host              |
-| `options.environment` (Optional) | `string`    | The environment to sign for. Defaults to the environment of the OIDC token |
-| `options.teamId` (Optional) | `string`         | The team of the project, which an access token needs                      |
 
 #### `decryptOverrides`
 
