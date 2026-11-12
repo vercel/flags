@@ -1,4 +1,10 @@
-import { EncryptJWT, importJWK, type JWK, type KeyLike } from 'jose';
+import {
+  decodeProtectedHeader,
+  EncryptJWT,
+  importJWK,
+  type JWK,
+  type KeyLike,
+} from 'jose';
 import type { FlagValuesType } from '../types';
 import { createKeySetCache, findVercelProject } from './vercel-platform';
 
@@ -66,6 +72,18 @@ export async function encryptFlagValuesForPlatform(
     jwt.setExpirationTime(expirationTime);
   }
   return jwt.encrypt(key);
+}
+
+/**
+ * Whether the flag values are encrypted with the public key of Vercel, so
+ * that only Vercel can decrypt them.
+ */
+export function isFlagValuesForPlatform(token: string): boolean {
+  try {
+    return decodeProtectedHeader(token).alg === FLAG_VALUES_POLICY.algorithm;
+  } catch {
+    return false;
+  }
 }
 
 type PublicKey = { readonly kid: string; readonly key: KeyLike };

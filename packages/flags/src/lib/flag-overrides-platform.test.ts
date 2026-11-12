@@ -21,6 +21,7 @@ import {
   FLAG_OVERRIDES_POLICY,
   isFlagOverridesFromPlatform,
   resetFlagOverridesKeys,
+  signOverrides,
   VERCEL_FLAG_OVERRIDES_JWKS_URL,
   verifyFlagOverridesFromPlatform,
 } from './flag-overrides-platform';
@@ -345,6 +346,61 @@ describe('verifyFlagOverridesFromPlatform', () => {
     ).resolves.toBeUndefined();
   });
 
+  describe('with the OIDC token of a request', () => {
+    const symbol = Symbol.for('@vercel/request-context');
+    const oidcToken = (claims: Record<string, unknown>) =>
+      new SignJWT(claims).setProtectedHeader({ alg: 'ES256' }).sign(otherKey);
+    const setRequestToken = (token: string) => {
+      Reflect.set(globalThis, symbol, {
+        get: () => ({ headers: { 'x-vercel-oidc-token': token } }),
+      });
+    };
+
+    afterEach(() => {
+      Reflect.deleteProperty(globalThis, symbol);
+    });
+
+    it('rejects a different team on a deployment', async () => {
+      setRequestToken(await oidcToken({ owner_id: 'team_2' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toBeUndefined();
+    });
+
+    it('accepts the team of the deployment', async () => {
+      setRequestToken(await oidcToken({ owner_id: 'team_1' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toEqual({ 'new-checkout': true });
+    });
+
+    it('prefers the token of the request over VERCEL_OIDC_TOKEN', async () => {
+      vi.stubEnv('VERCEL_OIDC_TOKEN', await oidcToken({ owner_id: 'team_2' }));
+      setRequestToken(await oidcToken({ owner_id: 'team_1' }));
+      await expect(
+        verifyFlagOverridesFromPlatform(await sign()),
+      ).resolves.toEqual({ 'new-checkout': true });
+    });
+
+    it('reads the project without the system environment variables', async () => {
+      vi.stubEnv('VERCEL', '');
+      vi.stubEnv('VERCEL_PROJECT_ID', '');
+      vi.stubEnv('VERCEL_TARGET_ENV', '');
+      setRequestToken(
+        await oidcToken({
+          project_id: 'prj_1',
+          environment: 'preview',
+          owner_id: 'team_1',
+        }),
+      );
+      const token = await sign();
+      expect(isFlagOverridesFromPlatform(token)).toBe(true);
+      await expect(verifyFlagOverridesFromPlatform(token)).resolves.toEqual({
+        'new-checkout': true,
+      });
+    });
+  });
+
   it('rejects tokens when the project is not known', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', '');
     await expect(
@@ -488,5 +544,80 @@ describe('decryptOverrides', () => {
       decryptOverrides(await sign(), secret),
     ).resolves.toBeUndefined();
     expect(fetchKeys).not.toHaveBeenCalled();
+  });
+});
+
+describe('signOverrides', () => {
+  const oidcToken = 'oidc-token';
+
+  function stubSign(response: Response) {
+    const fetchSign = vi.fn(async () => response);
+    vi.stubGlobal('fetch', fetchSign);
+    return fetchSign;
+  }
+
+  it('signs the overrides for the project of the host with its OIDC token', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
+    const fetchSign = stubSign(Response.json({ token: 'signed' }));
+
+    await expect(
+      signOverrides({ 'new-checkout': true }, { ttl: 120 }),
+    ).resolves.toBe('signed');
+
+    const [url, init] = fetchSign.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe(
+      'https://api.vercel.com/v1/projects/prj_1/feature-flags/overrides/sign',
+    );
+    expect(init.method).toBe('POST');
+    expect(init.headers).toMatchObject({
+      authorization: `Bearer ${oidcToken}`,
+    });
+    expect(JSON.parse(init.body as string)).toEqual({
+      overrides: { 'new-checkout': true },
+      ttl: 120,
+    });
+  });
+
+  it('prefers the OIDC token of the request', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
+    const symbol = Symbol.for('@vercel/request-context');
+    Reflect.set(globalThis, symbol, {
+      get: () => ({ headers: { 'x-vercel-oidc-token': 'request-token' } }),
+    });
+    const fetchSign = stubSign(Response.json({ token: 'signed' }));
+    try {
+      await signOverrides({});
+    } finally {
+      Reflect.deleteProperty(globalThis, symbol);
+    }
+
+    expect(
+      (fetchSign.mock.calls[0] as unknown as [string, RequestInit])[1].headers,
+    ).toMatchObject({ authorization: 'Bearer request-token' });
+  });
+
+  it('throws without an OIDC token, and does not call Vercel', async () => {
+    const fetchSign = stubSign(Response.json({ token: 'signed' }));
+
+    await expect(signOverrides({})).rejects.toThrow(
+      'flags: Could not sign the overrides, because the OIDC token',
+    );
+    expect(fetchSign).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a rejected request', new Response('{}', { status: 403 }), 403],
+    ['a response without a token', Response.json({}), 200],
+    ['a response which is not JSON', new Response('<html>'), 200],
+  ])('throws for %s', async (_name, response, status) => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken);
+    stubSign(response);
+
+    await expect(signOverrides({})).rejects.toThrow(
+      `flags: Could not sign the overrides: status ${status}.`,
+    );
   });
 });
