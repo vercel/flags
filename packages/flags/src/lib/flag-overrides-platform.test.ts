@@ -443,7 +443,7 @@ describe('verifyFlagOverridesFromPlatform', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringMatching(
-        /Could not load the public keys of Vercel KMS .* status 500\. A token which Vercel signed is ignored\./,
+        /Could not load the public keys of Vercel KMS .* status 500\. A signed token is ignored\./,
       ),
     );
 
