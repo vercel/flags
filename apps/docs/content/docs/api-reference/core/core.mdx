@@ -148,6 +148,8 @@ export function Page() {
 
 Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise`.
 
+It works only with a `FLAGS_SECRET`. It can not read flag values which `encryptFlagValues` encrypted without a secret, because only Vercel can decrypt them. For such values it logs a warning and returns `undefined`.
+
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |
 | `encryptedData`     | `string` | Encrypted flag values to be decrypted                                         |
@@ -156,6 +158,8 @@ Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise
 #### `encryptFlagDefinitions`
 
 Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`. Without one, return the definitions from the [Flags Discovery Endpoint](/docs/api-reference/core/core#verifyaccess) instead.
 
 | Parameter                | Type                  | Description                                                              |
 | ----------------------- | --------------------- | ------------------------------------------------------------------------ |
@@ -166,6 +170,8 @@ Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
 #### `decryptFlagDefinitions`
 
 Decrypts flag definitions data, ensuring the proper purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`.
 
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |
@@ -181,6 +187,17 @@ Encrypts flag overrides data with a purpose claim. Returns a `Promise`.
 | `overrides`             | `FlagOverridesType`  | Flag overrides to be encrypted                                           |
 | `secret` (Optional)     | `string`             | The secret being used to encrypt. Defaults to `process.env.FLAGS_SECRET` |
 | `expirationTime` (Optional) | `string \| number \| Date` | When the encrypted data should expire. Defaults to '1y' (1 year) |
+
+#### `signOverrides`
+
+Signs flag overrides with Vercel, so that a deployment without a `FLAGS_SECRET` accepts them in the `vercel-flag-overrides` cookie. Returns a `Promise`.
+
+Vercel signs them for the project and the environment of the OIDC token of the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`. With the token, a visitor overrides the flags of that project and environment, so only return it to callers you trust, e.g. your end-to-end tests.
+
+| Parameter                | Type                | Description                                                               |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------- |
+| `overrides`              | `FlagOverridesType` | Flag overrides to be signed                                               |
+| `options.ttl` (Optional) | `number`            | The lifetime of the token in seconds. Defaults to 1 hour, at most 1 day   |
 
 #### `decryptOverrides`
 
