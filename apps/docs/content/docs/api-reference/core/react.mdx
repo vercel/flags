@@ -83,7 +83,7 @@ export function Page() {
 }
 ```
 
-To keep your flags confidential, encrypt the input:
+To keep your flags confidential, encrypt the input. `encryptFlagDefinitions` works only with a `FLAGS_SECRET`:
 
 ```tsx title="app/page.tsx"
 import { encryptFlagDefinitions, type FlagDefinitionsType } from 'flags';

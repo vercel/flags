@@ -23,6 +23,7 @@ import {
   resetFlagValuesKeys,
   VERCEL_FLAG_VALUES_JWKS_URL,
 } from './flag-values-platform';
+import { resetWarnings } from './vercel-platform';
 
 const secret = 'a'.repeat(43);
 const values = { 'summer-sale': true, banner: 'Welcome' };
@@ -49,6 +50,7 @@ function stubKeySet(keys: unknown[], status = 200) {
 
 beforeEach(() => {
   resetFlagValuesKeys();
+  resetWarnings();
   vi.stubEnv('FLAGS_SECRET', '');
   vi.stubEnv('VERCEL_PROJECT_ID', 'prj_default');
   vi.stubEnv('VERCEL_OIDC_TOKEN', '');
@@ -240,6 +242,27 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     );
   });
 
+  it('loads the keys with the fetch which Next.js replaced, so a static page stays static', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const original = vi.fn(async () => Response.json({ keys: [publicJwk] }));
+    // The fetch of Next.js makes a static page dynamic for no-store
+    const patched = Object.assign(vi.fn(), { _nextOriginalFetch: original });
+    vi.stubGlobal('fetch', patched);
+
+    await Promise.all([encryptFlagValues(values), encryptFlagValues(values)]);
+    expect(original).toHaveBeenCalledTimes(1);
+    expect(original).toHaveBeenCalledWith(
+      VERCEL_FLAG_VALUES_JWKS_URL,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+
+    // The cache still loads the keys again, for a rotation
+    vi.setSystemTime(Date.now() + 300_001);
+    await encryptFlagValues(values);
+    expect(original).toHaveBeenCalledTimes(2);
+    expect(patched).not.toHaveBeenCalled();
+  });
+
   it('does not wrap an error with which a framework controls the render', async () => {
     // Next.js throws such an error for a fetch with no-store in a static page
     const controlFlow = Object.assign(new Error('Dynamic server usage'), {
@@ -284,5 +307,35 @@ describe('encryptFlagValues with FLAGS_SECRET', () => {
       enc: 'A256GCM',
     });
     await expect(decryptFlagValues(token)).resolves.toEqual(values);
+  });
+});
+
+describe('decryptFlagValues', () => {
+  it('warns for flag values which only Vercel can decrypt', async () => {
+    stubKeySet([publicJwk]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const token = await encryptFlagValues(values);
+
+    await expect(decryptFlagValues(token, secret)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('Only Vercel can decrypt them.'),
+    );
+  });
+
+  it('does not warn for flag values of another secret', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const token = await encryptFlagValues(values, 'b'.repeat(43));
+
+    await expect(decryptFlagValues(token, secret)).resolves.toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('throws without FLAGS_SECRET', async () => {
+    stubKeySet([publicJwk]);
+    const token = await encryptFlagValues(values);
+
+    await expect(decryptFlagValues(token)).rejects.toThrow(
+      'flags: Missing FLAGS_SECRET',
+    );
   });
 });
