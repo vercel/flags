@@ -242,6 +242,27 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     );
   });
 
+  it('loads the keys with the fetch which Next.js replaced, so a static page stays static', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const original = vi.fn(async () => Response.json({ keys: [publicJwk] }));
+    // The fetch of Next.js makes a static page dynamic for no-store
+    const patched = Object.assign(vi.fn(), { _nextOriginalFetch: original });
+    vi.stubGlobal('fetch', patched);
+
+    await Promise.all([encryptFlagValues(values), encryptFlagValues(values)]);
+    expect(original).toHaveBeenCalledTimes(1);
+    expect(original).toHaveBeenCalledWith(
+      VERCEL_FLAG_VALUES_JWKS_URL,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+
+    // The cache still loads the keys again, for a rotation
+    vi.setSystemTime(Date.now() + 300_001);
+    await encryptFlagValues(values);
+    expect(original).toHaveBeenCalledTimes(2);
+    expect(patched).not.toHaveBeenCalled();
+  });
+
   it('does not wrap an error with which a framework controls the render', async () => {
     // Next.js throws such an error for a fetch with no-store in a static page
     const controlFlow = Object.assign(new Error('Dynamic server usage'), {
