@@ -185,14 +185,29 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the keys again after five minutes, for a rotation', async () => {
+  it('loads the keys again after five minutes, for a rotation, without blocking', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    const fetch = stubKeySet([publicJwk]);
-    await encryptFlagValues(values);
-    vi.setSystemTime(Date.now() + 300_001);
+    stubKeySet([publicJwk]);
     await encryptFlagValues(values);
 
-    expect(fetch).toHaveBeenCalledTimes(2);
+    // The key host does not respond until `respond` is called
+    let respond = (_: Response) => {};
+    const fetch = vi.fn(
+      () => new Promise<Response>((resolve) => (respond = resolve)),
+    );
+    vi.stubGlobal('fetch', fetch);
+    vi.setSystemTime(Date.now() + 300_001);
+
+    // The key which it has, while the new one loads
+    const kid = async () =>
+      decodeProtectedHeader(await encryptFlagValues(values)).kid;
+    await expect(kid()).resolves.toBe('key-1');
+    await expect(kid()).resolves.toBe('key-1');
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    respond(Response.json({ keys: [{ ...publicJwk, kid: 'key-2' }] }));
+    await vi.waitFor(async () => expect(await kid()).toBe('key-2'));
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('uses the first key for encryption, not a signing key', async () => {

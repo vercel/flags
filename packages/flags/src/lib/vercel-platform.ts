@@ -162,7 +162,9 @@ export interface KeySetCache<T> {
   /**
    * Returns the keys. Loads them on the first use, after five minutes, and
    * with `refresh` (e.g. for a key which is not known) when they are older
-   * than the cooldown of 30 seconds.
+   * than the cooldown of 30 seconds. Only the first load and a `refresh` wait
+   * for the key host: after five minutes, it returns the keys which it has,
+   * and loads the new ones for the next call.
    */
   get(options?: { refresh?: boolean }): Promise<T>;
   reset(): void;
@@ -257,6 +259,11 @@ export function createKeySetCache<T>(
       pending ??= load().finally(() => {
         pending = undefined;
       });
+      if (value !== undefined && !refresh) {
+        // A reload must not block the request
+        pending.catch(() => {});
+        return Promise.resolve(value);
+      }
       return pending;
     },
     reset() {
