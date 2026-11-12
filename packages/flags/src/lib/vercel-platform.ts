@@ -421,7 +421,7 @@ export function isVercelSignedToken(token: string): boolean {
   }
   if (!canVerifyVercelSignedTokens()) {
     warnWithCooldown(
-      'flags: Ignored a token which Vercel signed, because this host can not verify it. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+      'flags: Ignored a signed token, because this host can not verify the tokens which Vercel signs. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
     );
     return false;
   }
@@ -444,7 +444,7 @@ export async function verifyVercelSignedToken(
   const { projectId, environment, teamId } = findVercelProject();
   if (!projectId || !environment) {
     warnWithCooldown(
-      'flags: Ignored a token which Vercel signed, because the project or the environment of this host is not known. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
+      'flags: Ignored a signed token, because the project or the environment of this host is not known. Run `vercel env pull` for local development. On Vercel, expose the system environment variables of the project.',
     );
     return undefined;
   }
@@ -493,9 +493,7 @@ export async function verifyVercelSignedToken(
     return payload;
   } catch (error) {
     if (error instanceof KeySetError) {
-      warnWithCooldown(
-        `${error.message} A token which Vercel signed is ignored.`,
-      );
+      warnWithCooldown(`${error.message} A signed token is ignored.`);
     }
     return undefined;
   }
