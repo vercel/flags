@@ -15,13 +15,13 @@ vi.hoisted(() => {
 });
 
 // During `vite dev`, the variables of `.env.local` are only in `$env`
-vi.mock('$env/static/private', () => {
+vi.mock('$env/static/private', () => ({ FLAGS_SECRET: undefined }));
+vi.mock('$env/dynamic/private', () => {
   const claims = Buffer.from(
     JSON.stringify({ project_id: 'prj_env', environment: 'development' }),
   );
   return {
-    FLAGS_SECRET: undefined,
-    VERCEL_OIDC_TOKEN: `e30.${claims.toString('base64url')}.x`,
+    env: { VERCEL_OIDC_TOKEN: `e30.${claims.toString('base64url')}.x` },
   };
 });
 

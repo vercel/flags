@@ -71,8 +71,10 @@ let oidc: { token: string; claims: VercelProject } | undefined;
  * request as the `x-vercel-oidc-token` header; `vercel env pull` and a build
  * have it as `VERCEL_OIDC_TOKEN`. The header has priority, like in
  * `@vercel/oidc`.
+ *
+ * @internal
  */
-function readOidcToken(): string | undefined {
+export function readOidcToken(): string | undefined {
   try {
     const context = Reflect.get(
       globalThis,
@@ -206,9 +208,8 @@ export function createKeySetCache<T>(
 
   async function load(): Promise<T> {
     try {
-      // Read the global fetch at each load, because a framework can replace
-      // it. no-store, so a framework which caches fetch never keeps old keys.
-      const response = await globalThis.fetch(url, {
+      // no-store, so a framework which caches fetch never keeps old keys
+      const response = await getFetch()(url, {
         redirect: 'error',
         cache: 'no-store',
         // A key host which does not respond must not block the requests
@@ -281,6 +282,23 @@ export function createKeySetCache<T>(
       failedAt = Number.NEGATIVE_INFINITY;
     },
   };
+}
+
+/**
+ * The fetch which loads the keys. Read at each load, because a framework can
+ * replace the global fetch.
+ *
+ * Next.js replaces it with a fetch which tracks the data of a page: a request
+ * with no-store makes a static page dynamic, and fails the build of a page
+ * with `dynamic = 'error'`. The keys are not data of the page, and this cache
+ * keeps them fresh, so they are loaded with the fetch of the runtime, which
+ * Next.js keeps as `_nextOriginalFetch`.
+ */
+function getFetch(): typeof globalThis.fetch {
+  const fetch: typeof globalThis.fetch & {
+    _nextOriginalFetch?: typeof globalThis.fetch;
+  } = globalThis.fetch;
+  return fetch._nextOriginalFetch ?? fetch;
 }
 
 /**
