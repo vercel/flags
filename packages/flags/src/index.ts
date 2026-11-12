@@ -9,6 +9,7 @@ export {
   encryptOverrides,
   verifyAccessProof,
 } from './lib/crypto';
+export { signOverrides } from './lib/flag-overrides-platform';
 export { mergeProviderData } from './lib/merge-provider-data';
 export { reportValue } from './lib/report-value';
 export { safeJsonStringify } from './lib/safe-json-stringify';
