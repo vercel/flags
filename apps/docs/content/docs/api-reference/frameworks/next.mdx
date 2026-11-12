@@ -222,7 +222,7 @@ const sale = await showSummerSale(code, precomputeFlags);
 | ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | `flags`             | `function[]` | Flags                                                                                                               |
 | `filter` (Optional) | `function`   | This function is called with every possible precomputation of the flag's options. Return `true` to keep the option. |
-| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `FLAGS_PRECOMPUTE_SECRET`, then `FLAGS_SECRET`              |
+| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `FLAGS_PRECOMPUTE_SECRET`, then `FLAGS_SECRET`, then the key of the deployment |
 
 Example usage in `generateStaticParams`:
 
