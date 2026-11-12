@@ -20,7 +20,7 @@ let frameworkEnv: Env | undefined;
  * @internal
  */
 export function addEnv(env: Env): void {
-  frameworkEnv = env;
+  frameworkEnv = { ...frameworkEnv, ...env };
 }
 
 /**

@@ -23,6 +23,12 @@ async function loadSecret(): Promise<void> {
     // and in case it's not available through that it should be via process.env above.
     const env = await import('$env/static/private');
     default_secret ||= env.FLAGS_SECRET;
+    // The secrets which precompute reads, by name: the other variables of the
+    // build stay out of the server bundle
+    addEnv({
+      FLAGS_SECRET: env.FLAGS_SECRET,
+      FLAGS_PRECOMPUTE_SECRET: env.FLAGS_PRECOMPUTE_SECRET,
+    });
   } catch {
     // ignore, could happen when importing from an environment that doesn't know this import
   }
@@ -32,7 +38,8 @@ async function loadSecret(): Promise<void> {
  * Reads the variables of the Vercel project from the dynamic environment,
  * which is read at runtime: the static one puts the values of the build
  * (e.g. its `VERCEL_OIDC_TOKEN`) into the server bundle. Only the names which
- * `findVercelProject` and `canVerifyVercelSignedTokens` read are copied.
+ * `findVercelProject`, `canVerifyVercelSignedTokens` and
+ * `deploymentPrecomputeSecret` read are copied.
  */
 async function loadVercelEnv(): Promise<void> {
   try {
@@ -44,6 +51,7 @@ async function loadVercelEnv(): Promise<void> {
       VERCEL_TARGET_ENV: env.VERCEL_TARGET_ENV,
       VERCEL_ENV: env.VERCEL_ENV,
       VERCEL_OIDC_TOKEN: env.VERCEL_OIDC_TOKEN,
+      VERCEL_DEPLOYMENT_KEY: env.VERCEL_DEPLOYMENT_KEY,
     });
   } catch {
     // ignore: not SvelteKit, or prerendering, where the dynamic environment
