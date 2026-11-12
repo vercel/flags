@@ -77,40 +77,65 @@ export async function verifyFlagOverridesFromPlatform(
  * `vercel env pull`. The caller decides who gets the token: with it, a
  * visitor overrides the flags of that project and environment.
  *
+ * With a `token`, e.g. a Vercel access token, Vercel signs them for any
+ * project and environment which the token can access.
+ *
  * @param overrides - The flag overrides to sign
  * @param options.ttl - The lifetime of the token in seconds (defaults to 1 hour, at most 1 day)
+ * @param options.token - The token which authorizes the request (defaults to the OIDC token of the host)
+ * @param options.projectId - The project to sign for (defaults to the project of the host)
+ * @param options.environment - The environment to sign for (defaults to the environment of the OIDC token)
+ * @param options.teamId - The team of the project, which an access token needs
  * @returns A promise resolving to the signed JWS string
- * @throws Error if the host has no OIDC token or project, or Vercel does not sign the overrides
+ * @throws Error if there is no token or project, or Vercel does not sign the overrides
  */
 export async function signOverrides(
   overrides: FlagOverridesType,
-  options: { ttl?: number } = {},
+  options: {
+    ttl?: number;
+    token?: string;
+    projectId?: string;
+    environment?: string;
+    teamId?: string;
+  } = {},
 ): Promise<string> {
-  const oidcToken = readOidcToken();
-  const { projectId } = findVercelProject();
-  if (!oidcToken || !projectId) {
+  const token = options.token ?? readOidcToken();
+  const projectId = options.projectId ?? findVercelProject().projectId;
+  if (!token || !projectId) {
     throw new Error(
-      'flags: Could not sign the overrides, because the OIDC token or the project of this host is not known. Run `vercel env pull` for local development. On Vercel, call it during a request.',
+      'flags: Could not sign the overrides, because the OIDC token or the project of this host is not known. Run `vercel env pull` for local development. On Vercel, call it during a request. Or pass a `token` and a `projectId`.',
     );
   }
+  const query = options.teamId
+    ? `?teamId=${encodeURIComponent(options.teamId)}`
+    : '';
   // Read the global fetch at each call, because a framework can replace it.
   const response = await globalThis.fetch(
-    `https://api.vercel.com/v1/projects/${encodeURIComponent(projectId)}/feature-flags/overrides/sign`,
+    `https://api.vercel.com/v1/projects/${encodeURIComponent(projectId)}/feature-flags/overrides/sign${query}`,
     {
       method: 'POST',
       headers: {
-        authorization: `Bearer ${oidcToken}`,
+        authorization: `Bearer ${token}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ overrides, ttl: options.ttl }),
+      body: JSON.stringify({
+        overrides,
+        ttl: options.ttl,
+        environment: options.environment,
+      }),
       cache: 'no-store',
       signal: AbortSignal.timeout(SIGN_TIMEOUT_MS),
     },
   );
   const data: unknown = await response.json().catch(() => undefined);
   if (!response.ok || !isRecord(data) || typeof data.token !== 'string') {
+    // The reason of Vercel, e.g. an environment which the project does not have
+    const reason =
+      isRecord(data) && isRecord(data.error) ? data.error.message : undefined;
     throw new Error(
-      `flags: Could not sign the overrides: status ${response.status}.`,
+      `flags: Could not sign the overrides: status ${response.status}${
+        typeof reason === 'string' ? ` (${reason})` : ''
+      }.`,
     );
   }
   return data.token;
