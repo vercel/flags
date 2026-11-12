@@ -101,4 +101,18 @@ describe.each([
       await expect(read(handle, other)).rejects.toThrow();
     }
   });
+
+  it('reads a code of the default secret when only the handle has a secret', async () => {
+    const { createHandle, precompute, group, read } = await load(env);
+
+    const code = await precompute(group, request);
+    for (const secret of [env.FLAGS_SECRET, secretC]) {
+      const handle = createHandle({ secret });
+      await expect(read(handle, code)).resolves.toBe(true);
+
+      // A code of another secret is not valid
+      const other = await precompute(group, request, secretD);
+      await expect(read(handle, other)).rejects.toThrow();
+    }
+  });
 });

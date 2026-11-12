@@ -114,7 +114,7 @@ The flags package provides multiple purpose-specific encryption and decryption f
 
 Encrypts flag values data with a purpose claim. Returns a `Promise`.
 
-Without a secret, the values are encrypted with the public key of Vercel, so that only Vercel can decrypt them for the project of the host. The project ID comes from `VERCEL_PROJECT_ID`, the `VERCEL_OIDC_TOKEN` of `vercel env pull`, or the `.vercel/project.json` of `vercel link`.
+Without a secret, the values are encrypted with the public key of Vercel, so that only Vercel can decrypt them for the project of the host. The project ID comes from `VERCEL_PROJECT_ID`, the OIDC token of the project (of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`), or the `.vercel/project.json` of `vercel link`.
 
 | Parameter                | Type             | Description                                                              |
 | ----------------------- | ---------------- | ------------------------------------------------------------------------ |
