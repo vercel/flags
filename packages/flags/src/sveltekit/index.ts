@@ -179,11 +179,20 @@ export function flag<
       Array.isArray(flagsArrayOrSecret)
     ) {
       setSpanAttribute('method', 'precomputed');
-      return getPrecomputed(
-        definition.key,
-        flagsArrayOrSecret,
-        requestOrCode,
-        await getPrecomputeSecret(store.passedSecret),
+      const read = async (secret?: string): Promise<ValueType> =>
+        getPrecomputed(
+          definition.key,
+          flagsArrayOrSecret,
+          requestOrCode,
+          await getPrecomputeSecret(secret),
+        );
+      if (!store.passedSecret) return read();
+      // `precompute` does not know the secret of the handle: without a secret
+      // of its own, it signs the code with the default secret
+      return read(store.passedSecret).catch((error) =>
+        read().catch(() => {
+          throw error;
+        }),
       );
     }
 
