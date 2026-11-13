@@ -179,7 +179,10 @@ export interface KeySetCache<T> {
  * key set into the keys which the caller needs.
  *
  * Concurrent loads share one request, which stops after a timeout of five
- * seconds. After an error, it throws the same error until the cooldown ends,
+ * seconds. After a timeout it tries one more time: a busy process (e.g. a
+ * build which renders many pages) can reach the timeout before it reads a
+ * response which is there, and the cooldown would then fail all the attempts
+ * of the build for the page. After an error, it throws the same error until the cooldown ends,
  * so that a missing key set does not cause one request for each page. A failed
  * reload keeps the keys which it has.
  *
@@ -197,15 +200,26 @@ export function createKeySetCache<T>(
   let error: Error | undefined;
   let failedAt = Number.NEGATIVE_INFINITY;
 
-  async function load(): Promise<T> {
+  async function request(retry = true): Promise<Response> {
     try {
       // no-store, so a framework which caches fetch never keeps old keys
-      const response = await getFetch()(url, {
+      return await getFetch()(url, {
         redirect: 'error',
         cache: 'no-store',
         // A key host which does not respond must not block the requests
         signal: AbortSignal.timeout(policy.timeoutMs),
       });
+    } catch (cause) {
+      if (retry && cause instanceof Error && cause.name === 'TimeoutError') {
+        return request(false);
+      }
+      throw cause;
+    }
+  }
+
+  async function load(): Promise<T> {
+    try {
+      const response = await request();
       if (!response.ok) {
         throw new Error(`status ${response.status}`);
       }

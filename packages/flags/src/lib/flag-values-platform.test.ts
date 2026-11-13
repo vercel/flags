@@ -285,6 +285,30 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     );
   });
 
+  it('loads the keys one more time after a timeout', async () => {
+    const timeout = new DOMException('The operation timed out', 'TimeoutError');
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValue(Response.json({ keys: [publicJwk] }));
+    vi.stubGlobal('fetch', fetch);
+
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-1',
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after two timeouts, and does not load the keys during the cooldown', async () => {
+    const timeout = new DOMException('The operation timed out', 'TimeoutError');
+    const fetch = vi.fn().mockRejectedValue(timeout);
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
+    await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it('loads the keys with the fetch which Next.js replaced, so a static page stays static', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     const original = vi.fn(async () => Response.json({ keys: [publicJwk] }));
