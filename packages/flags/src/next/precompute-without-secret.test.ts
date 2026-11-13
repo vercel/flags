@@ -17,6 +17,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe('precompute without FLAGS_SECRET', () => {
@@ -73,9 +74,10 @@ describe('precompute without FLAGS_SECRET', () => {
     );
   });
 
-  it('signs and reads codes with a fixed secret in development', async () => {
+  it('signs and reads codes with a public secret outside of Vercel', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
-    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('VERCEL', '');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const [codeFalse, codeTrue] = await generatePermutations(group);
     await expect(serialize(group, [true])).resolves.toBe(codeTrue);
@@ -84,8 +86,9 @@ describe('precompute without FLAGS_SECRET', () => {
     ).resolves.toBe(false);
   });
 
-  it('throws when there is no key of the deployment either', async () => {
+  it('throws on Vercel when there is no key of the deployment either', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
+    vi.stubEnv('VERCEL', '1');
 
     await expect(serialize(group, [true])).rejects.toThrow('missing secret');
     await expect(generatePermutations(group)).rejects.toThrow(
