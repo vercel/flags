@@ -6,8 +6,8 @@ description: Using the precompute pattern in Next.js
 This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
 Ensure you've read about the general precompute concept to understand the pattern and benefits:
 
-<CopyPrompt text="Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.">
-  Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.
+<CopyPrompt text="Implement precomputed feature flags in my Next.js app. Group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.">
+  Implement precomputed feature flags in my Next.js app. Group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.
 </CopyPrompt>
 
 <LearnMore href="/principles/precompute" icon="arrow">
@@ -62,9 +62,30 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 ### Prerequisites
 
-Ensure you have a `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work. It must contain a random string of 32 characters, encoded as Base64.
+On Vercel, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Outside of Vercel, for example in local development (`next dev`) or in a local production build (`next build && next start`), it uses a fixed, public secret when there is none.
+
+You need a `FLAGS_SECRET` environment variable in these cases:
+
+- Production apps outside of Vercel. Without it, anyone can create a valid code, and the Flags SDK logs a warning.
+- Prebuilt deployments (`vercel build` and `vercel deploy --prebuilt`)
+- Projects that do not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), because Vercel provides the key as one of them
+- When a code must be valid in another deployment or project
+
+<Callout type="warn">
+  A prebuilt deployment is built outside of Vercel, so the build has no key of the deployment. Without a `FLAGS_SECRET`, `generatePermutations` throws during the build.
+</Callout>
+
+When set, `precompute` uses the `FLAGS_SECRET` to sign the precomputation result in the URL. It must contain 32 random bytes, encoded as base64url.
 
 Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
+
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` instead. It has the same format. Precompute uses the first of these that is set:
+
+1. The `secret` you pass to the function
+2. `FLAGS_PRECOMPUTE_SECRET`
+3. `FLAGS_SECRET`
+4. The key that Vercel provides for the deployment
+5. The fixed, public secret, outside of Vercel
 
 Generate a random value using the following command, and run it once per environment to produce distinct values:
 

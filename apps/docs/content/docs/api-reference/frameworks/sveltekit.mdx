@@ -50,23 +50,30 @@ export const showSummerSale = flag<boolean>({
 
 **Description**: A `handle` hook that establishes context for flags, so they have access to the event object.
 
-| Parameter | Type                                               | Description                                                           |
-| --------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| `options` | `{ secret: string, flags?: Record<string, Flag> }` | The `FLAGS_SECRET` environment variable and a record of all the flags |
+| Parameter | Type                                                | Description                                                                                                   |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `options` | `{ secret?: string, flags?: Record<string, Flag> }` | An optional secret, which defaults to the `FLAGS_SECRET` environment variable, and a record of all the flags |
 
 ```ts title="src/hooks.server.ts"
 import { createHandle } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 
-export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+export const handle = createHandle({ flags });
 ```
+
+On Vercel, `createHandle` works without a secret: it accepts flag overrides and flags discovery requests that Vercel signs for your project, and flag values are encrypted with the public key of Vercel. Locally, run `vercel env pull` first. With a `FLAGS_SECRET`, overrides and discovery requests encrypted with the secret are accepted as well.
 
 Note that when composing `createHandle` with other handlers using SvelteKit's `sequence` utility then `createHandle` should come first. Only handlers after it will be able to access feature flags.
 
 ## Precomputation
 
 These APIs are relevant for [precomputing feature flags](/principles/precompute). See the [marketing pages guide](/frameworks/sveltekit/guides/marketing-pages) to learn how to use it in SvelteKit.
+
+On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Outside of Vercel, for example in local development (`vite dev`), they use a fixed, public secret when there is none, and warn when `NODE_ENV` is not `development`: set a `FLAGS_SECRET` for a production app outside of Vercel. On Vercel, they throw without a secret and without the key of the deployment, for example in a build with `vercel build` for a prebuilt deployment, or in a project that does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
+
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_PRECOMPUTE_SECRET`, `FLAGS_SECRET`, the key of the deployment, the fixed, public secret outside of Vercel.
+
+A `secret` passed to `createHandle` is the only one that reads a code in a page. Pass the same secret to `precompute` and `generatePermutations`, or pass none to all of them.
 
 ### `precompute`
 
@@ -88,7 +95,7 @@ Use it together with `reroute`/`rewrite` to pass a user-visible URL like `/marke
 | ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | `flags`             | `function[]` | Flags                                                                                                               |
 | `filter` (Optional) | `function`   | This function is called with every possible precomputation of the flag's options. Return `true` to keep the option. |
-| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `$env/dynamic/private#env.FLAGS_SECRET`                     |
+| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `FLAGS_PRECOMPUTE_SECRET`, then `FLAGS_SECRET`, then the key of the deployment |
 
 Use this when you're prerendering pages and therefore want to generate all combinations of flag values that a page needs at build time.
 
