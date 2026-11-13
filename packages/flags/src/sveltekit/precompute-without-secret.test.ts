@@ -11,6 +11,7 @@ const group = [flagA];
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe('SvelteKit precompute without FLAGS_SECRET', () => {
@@ -56,9 +57,10 @@ describe('SvelteKit precompute without FLAGS_SECRET', () => {
     expect(value).toBe(true);
   });
 
-  it('signs and reads codes with a fixed secret in development', async () => {
+  it('signs and reads codes with a public secret outside of Vercel', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
-    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('VERCEL', '');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const request = new Request('https://shop.example/');
     const code = await precompute(group, request);
@@ -75,8 +77,9 @@ describe('SvelteKit precompute without FLAGS_SECRET', () => {
     expect(value).toBe(true);
   });
 
-  it('throws when there is no key of the deployment either', async () => {
+  it('throws on Vercel when there is no key of the deployment either', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
+    vi.stubEnv('VERCEL', '1');
 
     await expect(generatePermutations(group)).rejects.toThrow(
       'No secret provided',

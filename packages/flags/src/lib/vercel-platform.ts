@@ -34,6 +34,21 @@ export function readEnv(name: string): string | undefined {
 }
 
 /**
+ * Whether the host is Vercel: a build or a deployment has the `VERCEL`
+ * variable when the project exposes the system environment variables, and a
+ * deployment always has the request context. `vercel build` sets `VERCEL`
+ * too.
+ *
+ * @internal
+ */
+export function isOnVercel(): boolean {
+  return Boolean(
+    readEnv('VERCEL') ||
+      Reflect.get(globalThis, Symbol.for('@vercel/request-context')),
+  );
+}
+
+/**
  * The Vercel project of the host. A part which is not known is `undefined`.
  */
 export interface VercelProject {
