@@ -62,11 +62,11 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 ### Prerequisites
 
-On Vercel, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. In local development (`next dev`), it uses a fixed secret when there is none.
+On Vercel, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Outside of Vercel, for example in local development (`next dev`) or in a local production build (`next build && next start`), it uses a fixed, public secret when there is none.
 
 You need a `FLAGS_SECRET` environment variable in these cases:
 
-- Outside of Vercel, including a local production build (`next build && next start`)
+- Production apps outside of Vercel. Without it, anyone can create a valid code, and the Flags SDK logs a warning.
 - Prebuilt deployments (`vercel build` and `vercel deploy --prebuilt`)
 - Projects that do not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), because Vercel provides the key as one of them
 - When a code must be valid in another deployment or project
@@ -85,7 +85,7 @@ To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` instead. It h
 2. `FLAGS_PRECOMPUTE_SECRET`
 3. `FLAGS_SECRET`
 4. The key that Vercel provides for the deployment
-5. The fixed secret of local development
+5. The fixed, public secret, outside of Vercel
 
 Generate a random value using the following command, and run it once per environment to produce distinct values:
 
