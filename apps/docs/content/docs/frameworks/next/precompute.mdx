@@ -68,6 +68,7 @@ You need a `FLAGS_SECRET` environment variable in these cases:
 
 - Outside of Vercel, including a local production build (`next build && next start`)
 - Prebuilt deployments (`vercel build` and `vercel deploy --prebuilt`)
+- Projects that do not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), because Vercel provides the key as one of them
 - When a code must be valid in another deployment or project
 
 <Callout type="warn">
