@@ -45,7 +45,7 @@ import type {
   Identify,
   ResolvedFlagDeclaration,
 } from '../types';
-import { getSecret, loadEnv, tryGetSecret } from './env';
+import { getPrecomputeSecret, getSecret, loadEnv, tryGetSecret } from './env';
 import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
@@ -165,10 +165,8 @@ export function flag<
       if (requestOrCode instanceof Request) {
         store = requestMap.get(requestOrCode);
         if (!store) {
-          store = createContext(
-            requestOrCode,
-            await getSecret(flagsArrayOrSecret as string | undefined),
-          );
+          const secret = flagsArrayOrSecret as string | undefined;
+          store = createContext(requestOrCode, await getSecret(secret), secret);
           requestMap.set(requestOrCode, store);
         }
       } else {
@@ -181,11 +179,13 @@ export function flag<
       Array.isArray(flagsArrayOrSecret)
     ) {
       setSpanAttribute('method', 'precomputed');
+      // A secret which is passed to the handle is the only one which reads a
+      // code: `precompute` must get the same secret
       return getPrecomputed(
         definition.key,
         flagsArrayOrSecret,
         requestOrCode,
-        store.secret ?? (await tryGetSecret()),
+        await getPrecomputeSecret(store.passedSecret),
       );
     }
 
@@ -283,7 +283,13 @@ export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
 
 interface AsyncLocalContext {
   request: Request;
+  /** The secret which the caller passed, or else `FLAGS_SECRET` */
   secret: string | undefined;
+  /**
+   * Only the secret which the caller passed. Precompute has other defaults
+   * than `FLAGS_SECRET`, so it must know that there is none.
+   */
+  passedSecret: string | undefined;
   params: Record<string, string>;
   usedFlags: Record<string, Promise<JsonValue>>;
   identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
@@ -292,11 +298,13 @@ interface AsyncLocalContext {
 function createContext(
   request: Request,
   secret: string | undefined,
+  passedSecret: string | undefined,
   params?: Record<string, string>,
 ): AsyncLocalContext {
   return {
     request,
     secret,
+    passedSecret,
     params: params ?? {},
     usedFlags: {},
     identifiers: new Map(),
@@ -331,6 +339,9 @@ export function createHandle({
   secret?: string;
   flags?: Record<string, Flag<any>>;
 }): Handle {
+  // Before `secret` is filled with `FLAGS_SECRET`
+  const passedSecret = secret;
+
   return async function handle({ event, resolve }) {
     // Also loads the environment of SvelteKit when there is a secret
     secret = await getSecret(secret);
@@ -347,6 +358,7 @@ export function createHandle({
     const flagContext = createContext(
       event.request,
       secret,
+      passedSecret,
       event.params as Record<string, string>,
     );
     return flagStorage.run(flagContext, () =>
@@ -463,7 +475,7 @@ export async function precompute<T extends FlagsArray>(
   request: Request,
   secret?: string,
 ): Promise<string> {
-  return _precompute(flags, request, await tryGetSecret(secret));
+  return _precompute(flags, request, await getPrecomputeSecret(secret));
 }
 
 /**
@@ -478,7 +490,11 @@ export async function generatePermutations(
   filter: ((permutation: Record<string, JsonValue>) => boolean) | null = null,
   secret?: string,
 ): Promise<string[]> {
-  return _generatePermutations(flags, filter, await tryGetSecret(secret));
+  return _generatePermutations(
+    flags,
+    filter,
+    await getPrecomputeSecret(secret),
+  );
 }
 
 /**
