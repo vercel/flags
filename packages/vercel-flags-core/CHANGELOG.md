@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.11.1
+
+### Patch Changes
+
+- [#595](https://github.com/vercel/flags/pull/595) [`072184f`](https://github.com/vercel/flags/commit/072184fb820e977eecb70ebe833022af96326b73) Thanks [@luismeyer](https://github.com/luismeyer)! - The client's `origin` now includes the `projectId` of the deployment's own project when it authenticates with OIDC and `VERCEL_PROJECT_ID` is set. Flags discovery endpoints that pass the origin through, such as `getProviderData` from `flags/next`, now report which project a Vercel Flags flag belongs to.
+
 ## 1.11.0
 
 ### Minor Changes
