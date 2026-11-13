@@ -392,9 +392,6 @@ async function handleWellKnownFlagsRoute(
   secret: string | undefined,
   flags: Record<string, Flag<any>>,
 ) {
-  if (!secret) {
-    return new Response(null, { status: 401 });
-  }
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
     secret,
@@ -499,7 +496,8 @@ export function createFlagsDiscoveryEndpoint(
   const requestHandler: RequestHandler = async (event) => {
     const access = await verifyAccess(
       event.request.headers.get('Authorization'),
-      options?.secret,
+      // Also loads the environment of SvelteKit, which a signed token needs
+      await getSecret(options?.secret),
     );
     if (!access) error(401);
 
