@@ -91,9 +91,9 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
 
 These APIs are relevant for [precomputing feature flags](/principles/precompute).
 
-On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Without a secret and outside of a Vercel deployment, for example in local development, they throw.
+On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. In local development (`next dev`), they use a fixed secret when there is none. Otherwise they throw without a secret and without the key of the deployment, for example in a build with `vercel build` for a prebuilt deployment.
 
-To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_PRECOMPUTE_SECRET`, `FLAGS_SECRET`, the key of the deployment.
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_PRECOMPUTE_SECRET`, `FLAGS_SECRET`, the key of the deployment, the fixed secret of local development.
 
 ### `precompute`
 
