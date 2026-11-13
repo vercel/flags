@@ -110,11 +110,13 @@ The flags package provides multiple purpose-specific encryption and decryption f
 
 Encrypts flag values data with a purpose claim. Returns a `Promise`.
 
+Without a secret, the values are encrypted with the public key of Vercel, so that only Vercel can decrypt them for the project of the host. The project ID comes from `VERCEL_PROJECT_ID`, the OIDC token of the project (of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`), or the `.vercel/project.json` of `vercel link`.
+
 | Parameter                | Type             | Description                                                              |
 | ----------------------- | ---------------- | ------------------------------------------------------------------------ |
 | `flagValues`            | `FlagValuesType` | Flag values to be encrypted                                              |
-| `secret` (Optional)     | `string`         | The secret being used to encrypt. Defaults to `process.env.FLAGS_SECRET` |
-| `expirationTime` (Optional) | `string \| number \| Date` | When the encrypted data should expire. Defaults to '1y' (1 year) |
+| `secret` (Optional)     | `string`         | The secret being used to encrypt. Defaults to `process.env.FLAGS_SECRET`. Without it, the public key of Vercel is used |
+| `expirationTime` (Optional) | `string \| number \| Date` | When the encrypted data should expire. Defaults to '1y' (1 year) with a secret, and no expiry without |
 
 ```tsx title="app/page.tsx"
 import { encryptFlagValues, type FlagValuesType } from 'flags';
@@ -142,6 +144,8 @@ export function Page() {
 
 Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise`.
 
+It works only with a `FLAGS_SECRET`. It can not read flag values which `encryptFlagValues` encrypted without a secret, because only Vercel can decrypt them. For such values it logs a warning and returns `undefined`.
+
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |
 | `encryptedData`     | `string` | Encrypted flag values to be decrypted                                         |
@@ -150,6 +154,8 @@ Decrypts flag values data, ensuring the proper purpose claim. Returns a `Promise
 #### `encryptFlagDefinitions`
 
 Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`. Without one, return the definitions from the [Flags Discovery Endpoint](/docs/api-reference/core/core#verifyaccess) instead.
 
 | Parameter                | Type                  | Description                                                              |
 | ----------------------- | --------------------- | ------------------------------------------------------------------------ |
@@ -160,6 +166,8 @@ Encrypts flag definitions data with a purpose claim. Returns a `Promise`.
 #### `decryptFlagDefinitions`
 
 Decrypts flag definitions data, ensuring the proper purpose claim. Returns a `Promise`.
+
+It works only with a `FLAGS_SECRET`.
 
 | Parameter           | Type     | Description                                                                   |
 | ------------------- | -------- | ----------------------------------------------------------------------------- |

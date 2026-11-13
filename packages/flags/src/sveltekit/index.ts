@@ -24,6 +24,7 @@ import {
 } from '..';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
+import { warnWithCooldown } from '../lib/vercel-platform';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -40,7 +41,7 @@ import type {
   Identify,
   ResolvedFlagDeclaration,
 } from '../types';
-import { tryGetSecret } from './env';
+import { getSecret, tryGetSecret } from './env';
 import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
@@ -162,7 +163,7 @@ export function flag<
         if (!store) {
           store = createContext(
             requestOrCode,
-            (flagsArrayOrSecret as string) ?? (await tryGetSecret()),
+            (flagsArrayOrSecret as string) ?? (await getSecret()),
           );
           requestMap.set(requestOrCode, store);
         }
@@ -180,7 +181,7 @@ export function flag<
         definition.key,
         flagsArrayOrSecret,
         requestOrCode,
-        store.secret,
+        store.secret ?? (await tryGetSecret()),
       );
     }
 
@@ -196,9 +197,10 @@ export function flag<
     const cookies = sealCookies(store.request.headers);
 
     const overridesCookie = cookies.get('vercel-flag-overrides')?.value;
-    const overrides = overridesCookie
-      ? await _decryptOverrides(overridesCookie, store.secret)
-      : undefined;
+    const overrides =
+      overridesCookie && store.secret
+        ? await _decryptOverrides(overridesCookie, store.secret)
+        : undefined;
 
     if (overrides && hasOwnProperty(overrides, definition.key)) {
       const value = overrides[definition.key];
@@ -273,7 +275,7 @@ export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
 
 interface AsyncLocalContext {
   request: Request;
-  secret: string;
+  secret: string | undefined;
   params: Record<string, string>;
   usedFlags: Record<string, Promise<JsonValue>>;
   identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
@@ -281,7 +283,7 @@ interface AsyncLocalContext {
 
 function createContext(
   request: Request,
-  secret: string,
+  secret: string | undefined,
   params?: Record<string, string>,
 ): AsyncLocalContext {
   return {
@@ -322,7 +324,7 @@ export function createHandle({
   flags?: Record<string, Flag<any>>;
 }): Handle {
   return async function handle({ event, resolve }) {
-    secret ??= await tryGetSecret(secret);
+    secret ??= await getSecret();
 
     if (
       flags &&
@@ -347,10 +349,24 @@ export function createHandle({
           // This is for reporting which flags were used when this page was generated,
           // so the value shows up in Vercel Toolbar, without the client ever being
           // aware of this feature flag.
-          const encryptedFlagValues = await _encryptFlagValues(
-            await resolveObjectPromises(store.usedFlags),
-            secret,
-          );
+          const flagValues = await resolveObjectPromises(store.usedFlags);
+          let encryptedFlagValues: string;
+          try {
+            encryptedFlagValues = await _encryptFlagValues(flagValues, secret);
+          } catch (cause) {
+            if (secret) {
+              throw cause;
+            }
+            // Without a secret, the public key of Vercel or the project can
+            // be missing. The values are only for the Vercel Toolbar, so the
+            // page renders without them.
+            warnWithCooldown(
+              `flags: Could not encrypt the flag values for the Vercel Toolbar. ${
+                cause instanceof Error ? cause.message : String(cause)
+              }`,
+            );
+            return html;
+          }
 
           return html.replace(
             '</body>',
@@ -364,9 +380,12 @@ export function createHandle({
 
 async function handleWellKnownFlagsRoute(
   event: RequestEvent<Record<string, string>, string | null>,
-  secret: string,
+  secret: string | undefined,
   flags: Record<string, Flag<any>>,
 ) {
+  if (!secret) {
+    return new Response(null, { status: 401 });
+  }
   const access = await verifyAccess(
     event.request.headers.get('Authorization'),
     secret,
@@ -385,7 +404,7 @@ export async function encryptFlagValues(
   value: FlagValuesType,
   secret?: string,
 ) {
-  return _encryptFlagValues(value, await tryGetSecret(secret));
+  return _encryptFlagValues(value, await getSecret(secret));
 }
 
 export async function decryptFlagValues(

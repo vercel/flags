@@ -1361,6 +1361,25 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  tests/next-static-build:
+    dependencies:
+      flags:
+        specifier: workspace:*
+        version: link:../../packages/flags
+      next:
+        specifier: 16.4.3
+        version: 16.4.3(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.13)(msw@2.6.4(@types/node@24.10.13)(typescript@5.9.3))(vite@8.1.6(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
   tests/sveltekit-e2e:
     dependencies:
       '@vercel/toolbar':

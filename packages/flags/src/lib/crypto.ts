@@ -11,6 +11,11 @@ import type {
   FlagOverridesType,
   FlagValuesType,
 } from '../types';
+import {
+  encryptFlagValuesForPlatform,
+  isFlagValuesForPlatform,
+} from './flag-values-platform';
+import { warnWithCooldown } from './vercel-platform';
 
 type ExpirationTime = string | number | Date;
 type PurposeClaim = 'overrides' | 'values' | 'definitions' | 'proof';
@@ -135,23 +140,38 @@ export async function decryptOverrides(
 /**
  * Encrypts flag values data.
  *
+ * Without a secret, it encrypts with the public key of Vercel, for the
+ * project of the host. Only Vercel can decrypt the values: `decryptFlagValues`
+ * can not read them. There is no error or warning for a secret which is
+ * `undefined` or empty, e.g. a typo in the name of the environment variable.
+ *
  * @param flagValues - The flag values to encrypt
  * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
- * @param expirationTime - When the encrypted data should expire (defaults to 1 year)
+ * @param expirationTime - When the encrypted data should expire (defaults to 1 year with a secret, and no expiry without)
  * @returns A promise resolving to the encrypted JWE string
- * @throws Error if the secret is missing or invalid
+ * @throws Error if the secret is invalid, or neither a secret nor a project ID is available
  */
 export async function encryptFlagValues(
   flagValues: FlagValuesType,
   secret: string | undefined = process?.env?.FLAGS_SECRET,
-  expirationTime: ExpirationTime = '1y',
+  expirationTime?: ExpirationTime,
 ) {
-  if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
-  return encryptJwe({ v: flagValues, pur: 'values' }, secret, expirationTime);
+  if (!secret) {
+    return encryptFlagValuesForPlatform(flagValues, expirationTime);
+  }
+  return encryptJwe(
+    { v: flagValues, pur: 'values' },
+    secret,
+    expirationTime ?? '1y',
+  );
 }
 
 /**
  * Decrypts and validates flag values data.
+ *
+ * It works only with a `FLAGS_SECRET`. It can not read flag values which
+ * `encryptFlagValues` encrypted without a secret: only Vercel can decrypt
+ * them. For such values it logs a warning and returns `undefined`.
  *
  * @param encryptedData - The encrypted JWE token string
  * @param secret - The decryption secret (defaults to FLAGS_SECRET env var)
@@ -163,6 +183,12 @@ export async function decryptFlagValues(
   secret: string | undefined = process?.env?.FLAGS_SECRET,
 ): Promise<FlagValuesType | undefined> {
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
+  if (isFlagValuesForPlatform(encryptedData)) {
+    warnWithCooldown(
+      'flags: decryptFlagValues can not decrypt flag values which were encrypted without FLAGS_SECRET. Only Vercel can decrypt them.',
+    );
+    return undefined;
+  }
   const contents = await decryptJwe<{
     v: FlagValuesType;
     pur: Purpose;
@@ -176,6 +202,9 @@ export async function decryptFlagValues(
 
 /**
  * Encrypts flag definitions data.
+ *
+ * It works only with a `FLAGS_SECRET`. There is no encryption with the public
+ * key of Vercel like for the flag values.
  *
  * @param flagDefinitions - The flag definitions to encrypt
  * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
@@ -198,6 +227,8 @@ export async function encryptFlagDefinitions(
 
 /**
  * Decrypts and validates flag definitions data.
+ *
+ * It works only with a `FLAGS_SECRET`.
  *
  * @param encryptedData - The encrypted JWE token string
  * @param secret - The decryption secret (defaults to FLAGS_SECRET env var)
