@@ -51,7 +51,7 @@ npm i -g vercel@latest
    vc env pull
    ```
 
-   You only need a `FLAGS_SECRET` to use the Flags SDK outside of Vercel, or to [precompute](/frameworks/sveltekit/precompute) flags in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`).
+   You only need a `FLAGS_SECRET` to use the Flags SDK outside of Vercel, to [precompute](/frameworks/sveltekit/precompute) flags in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), or when your project does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
 ## Add the toolbar locally
 

@@ -42,7 +42,7 @@ Create your first feature flag in the Vercel dashboard:
 
 You can create a boolean feature flag called `example-flag` for this quickstart.
 
-When you create your first flag, Vercel activates Vercel Flags for the project. Flags Explorer overrides work without a `FLAGS_SECRET` environment variable, because Vercel signs them for your project. [Precompute](/principles/precompute) works without one too, except in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`).
+When you create your first flag, Vercel activates Vercel Flags for the project. Flags Explorer overrides work without a `FLAGS_SECRET` environment variable, because Vercel signs them for your project. [Precompute](/principles/precompute) works without one too, except in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`). Both need a project that exposes the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), which is the default.
 
 ### 2. Sync environment variables
 

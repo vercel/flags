@@ -28,7 +28,7 @@ On Vercel, the SDK works without a `FLAGS_SECRET`. Flags Explorer overrides and 
 
 ### `FLAGS_SECRET` (optional)
 
-You still need a `FLAGS_SECRET` to [precompute](https://flags-sdk.dev/principles/precompute) flags outside of Vercel or in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), to use Flags Explorer outside of Vercel or locally without `vercel env pull`, or to create your own encrypted overrides, for example in end-to-end tests. Projects that already have a `FLAGS_SECRET` keep working without changes.
+You still need a `FLAGS_SECRET` to [precompute](https://flags-sdk.dev/principles/precompute) flags outside of Vercel or in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), when your project does not expose the system environment variables, to use Flags Explorer outside of Vercel or locally without `vercel env pull`, or to create your own encrypted overrides, for example in end-to-end tests. Projects that already have a `FLAGS_SECRET` keep working without changes.
 
 The `FLAGS_SECRET` value must have a specific length (32 random bytes encoded in base64) to work as an encryption key. Create one using node:
 
