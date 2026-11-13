@@ -73,6 +73,17 @@ describe('precompute without FLAGS_SECRET', () => {
     );
   });
 
+  it('signs and reads codes with a fixed secret in development', async () => {
+    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
+    vi.stubEnv('NODE_ENV', 'development');
+
+    const [codeFalse, codeTrue] = await generatePermutations(group);
+    await expect(serialize(group, [true])).resolves.toBe(codeTrue);
+    await expect(
+      getPrecomputed(flagA, group, codeFalse as string),
+    ).resolves.toBe(false);
+  });
+
   it('throws when there is no key of the deployment either', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
 

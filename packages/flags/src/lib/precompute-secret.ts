@@ -6,6 +6,10 @@ import { readEnv } from './vercel-platform';
 // makes the codes of a deployment invalid.
 const INFO = 'flags:precompute:v1';
 
+// `flags-development-precompute-key` as base64url. It is public: it only
+// makes precompute work in local development without any setup.
+const DEVELOPMENT_SECRET = 'ZmxhZ3MtZGV2ZWxvcG1lbnQtcHJlY29tcHV0ZS1rZXk';
+
 let cache: { deploymentKey: string; secret: Promise<string> } | undefined;
 
 /**
@@ -62,10 +66,14 @@ async function derive(deploymentKey: string): Promise<string> {
  * 2. `FLAGS_PRECOMPUTE_SECRET`
  * 3. `FLAGS_SECRET`
  * 4. the secret of the deployment, see `deploymentPrecomputeSecret`
+ * 5. a fixed secret, when `NODE_ENV` is `development`
  *
  * A secret of the user is before the secret of the deployment, so that the
  * build and the runtime agree when only one of them has the deployment key
  * (e.g. a build with `vercel build`). Throws `message` when there is none.
+ *
+ * The fixed secret is for `next dev` and `vite dev`, which have no deployment
+ * key. A local production build (e.g. `next build && next start`) has none.
  *
  * @internal
  */
@@ -77,7 +85,8 @@ export async function precomputeSecretOrThrow(
     secret ||
     readEnv('FLAGS_PRECOMPUTE_SECRET') ||
     readEnv('FLAGS_SECRET') ||
-    (await deploymentPrecomputeSecret());
+    (await deploymentPrecomputeSecret()) ||
+    (readEnv('NODE_ENV') === 'development' ? DEVELOPMENT_SECRET : undefined);
   if (!resolved) throw new Error(message);
   return resolved;
 }
