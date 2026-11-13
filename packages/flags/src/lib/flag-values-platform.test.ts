@@ -210,6 +210,34 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('waits for the new keys after ten minutes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    stubKeySet([publicJwk]);
+    await encryptFlagValues(values);
+
+    const fetch = stubKeySet([{ ...publicJwk, kid: 'key-2' }]);
+    vi.setSystemTime(Date.now() + 600_000);
+
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-2',
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the keys after ten minutes when the reload fails', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    stubKeySet([publicJwk]);
+    await encryptFlagValues(values);
+
+    const fetch = stubKeySet([], 503);
+    vi.setSystemTime(Date.now() + 600_000);
+
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-1',
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the first key for encryption, not a signing key', async () => {
     stubKeySet([{ ...publicJwk, kid: 'sig-1', use: 'sig' }, publicJwk]);
     const token = await encryptFlagValues(values);

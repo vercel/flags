@@ -150,6 +150,7 @@ function parseLinkedProjectId(
 
 const KEY_SET_POLICY = Object.freeze({
   cacheMaxAgeMs: 300_000,
+  staleMaxAgeMs: 600_000,
   cooldownMs: 30_000,
   timeoutMs: 5_000,
   maxKeySetBytes: 65_536,
@@ -164,9 +165,10 @@ export interface KeySetCache<T> {
   /**
    * Returns the keys. Loads them on the first use, after five minutes, and
    * with `refresh` (e.g. for a key which is not known) when they are older
-   * than the cooldown of 30 seconds. Only the first load and a `refresh` wait
-   * for the key host: after five minutes, it returns the keys which it has,
-   * and loads the new ones for the next call.
+   * than the cooldown of 30 seconds. After five minutes, it returns the keys
+   * which it has, and loads the new ones for the next call. After ten minutes
+   * (e.g. an instance with no requests), it waits for the new keys, so a
+   * revoked key is not used long after its revocation.
    */
   get(options?: { refresh?: boolean }): Promise<T>;
   reset(): void;
@@ -261,7 +263,11 @@ export function createKeySetCache<T>(
       pending ??= load().finally(() => {
         pending = undefined;
       });
-      if (value !== undefined && !refresh) {
+      if (
+        value !== undefined &&
+        !refresh &&
+        now - loadedAt < policy.staleMaxAgeMs
+      ) {
         // A reload must not block the request
         pending.catch(() => {});
         return Promise.resolve(value);
