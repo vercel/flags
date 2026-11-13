@@ -56,6 +56,25 @@ describe('SvelteKit precompute without FLAGS_SECRET', () => {
     expect(value).toBe(true);
   });
 
+  it('signs and reads codes with a fixed secret in development', async () => {
+    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
+    vi.stubEnv('NODE_ENV', 'development');
+
+    const request = new Request('https://shop.example/');
+    const code = await precompute(group, request);
+    await expect(generatePermutations(group)).resolves.toContain(code);
+
+    let value: boolean | undefined;
+    await createHandle({ flags: { flagA } })({
+      event: { request, params: {} } as unknown as RequestEvent,
+      resolve: async () => {
+        value = await flagA(code, group);
+        return new Response();
+      },
+    });
+    expect(value).toBe(true);
+  });
+
   it('throws when there is no key of the deployment either', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
 
