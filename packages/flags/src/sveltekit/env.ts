@@ -10,7 +10,7 @@ let loaded: Promise<void> | undefined;
  * variables of `.env.local` (e.g. from `vercel env pull`) are in `$env`, but
  * not in `process.env`.
  */
-function loadEnv(): Promise<void> {
+export function loadEnv(): Promise<void> {
   loaded ??= Promise.all([loadSecret(), loadVercelEnv()]).then(() => {});
   return loaded;
 }
@@ -31,13 +31,14 @@ async function loadSecret(): Promise<void> {
  * Reads the variables of the Vercel project from the dynamic environment,
  * which is read at runtime: the static one puts the values of the build
  * (e.g. its `VERCEL_OIDC_TOKEN`) into the server bundle. Only the names which
- * `findVercelProject` reads are copied.
+ * `findVercelProject` and `canVerifyVercelSignedTokens` read are copied.
  */
 async function loadVercelEnv(): Promise<void> {
   try {
     // @ts-expect-error SvelteKit will know about this
     const { env } = await import('$env/dynamic/private');
     addEnv({
+      VERCEL: env.VERCEL,
       VERCEL_PROJECT_ID: env.VERCEL_PROJECT_ID,
       VERCEL_TARGET_ENV: env.VERCEL_TARGET_ENV,
       VERCEL_ENV: env.VERCEL_ENV,

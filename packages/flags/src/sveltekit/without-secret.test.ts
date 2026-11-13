@@ -1,7 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { decodeProtectedHeader, exportJWK, generateKeyPair } from 'jose';
+import {
+  decodeProtectedHeader,
+  exportJWK,
+  generateKeyPair,
+  SignJWT,
+} from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encryptOverrides } from '../lib/crypto';
+import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
 import { resetFlagValuesKeys } from '../lib/flag-values-platform';
 import { resetWarnings } from '../lib/vercel-platform';
 import { createHandle, encryptFlagValues, flag } from '.';
@@ -131,5 +137,41 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     const token = await encryptFlagValues({ 'summer-sale': true });
 
     expect(decodeProtectedHeader(token).alg).toBe('ECDH-ES');
+  });
+
+  it('accepts overrides which Vercel signs', async () => {
+    resetFlagOverridesKeys();
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('VERCEL_TARGET_ENV', 'preview');
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'ES256' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ keys: [jwk] })),
+    );
+    const token = await new SignJWT({
+      ver: 1,
+      pur: 'flag-overrides',
+      scope: { projectIds: ['prj_shop'], environments: ['preview'] },
+      overrides: { 'summer-sale': false },
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'k' })
+      .setIssuer('https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864')
+      .setAudience('vercel:flag-overrides')
+      .setIssuedAt()
+      .setExpirationTime('2m')
+      .sign(privateKey);
+
+    let value: boolean | undefined;
+    const handle = createHandle({ flags: { summerSale } });
+    await handle({
+      event: event('/', { cookie: `vercel-flag-overrides=${token}` }),
+      resolve: async () => {
+        value = await summerSale();
+        return new Response('page');
+      },
+    });
+
+    expect(value).toBe(false);
   });
 });
