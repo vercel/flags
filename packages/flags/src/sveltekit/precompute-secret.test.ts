@@ -60,12 +60,12 @@ describe.each([
     FLAGS_PRECOMPUTE_SECRET: secretA,
   },
 ])('SvelteKit precompute when FLAGS_SECRET and FLAGS_PRECOMPUTE_SECRET $name', (env) => {
-  it('uses FLAGS_PRECOMPUTE_SECRET by default, in precompute and in the handle', async () => {
+  it('uses FLAGS_SECRET by default, in precompute and in the handle', async () => {
     const { createHandle, generatePermutations, precompute, group, read } =
       await load(env);
 
     const code = await precompute(group, request);
-    await expectSignedWith(code, env.FLAGS_PRECOMPUTE_SECRET);
+    await expectSignedWith(code, env.FLAGS_SECRET);
     await expect(generatePermutations(group)).resolves.toContain(code);
 
     // Each request, also after the handle filled its secret with FLAGS_SECRET
@@ -106,10 +106,14 @@ describe.each([
     const { createHandle, precompute, group, read } = await load(env);
 
     const code = await precompute(group, request);
-    await expectSignedWith(code, env.FLAGS_PRECOMPUTE_SECRET);
-    for (const secret of [env.FLAGS_SECRET, secretC]) {
-      if (secret === env.FLAGS_PRECOMPUTE_SECRET) continue;
-      await expect(read(createHandle({ secret }), code)).rejects.toThrow();
-    }
+    await expectSignedWith(code, env.FLAGS_SECRET);
+    await expect(
+      read(createHandle({ secret: secretC }), code),
+    ).rejects.toThrow();
+
+    // A handle with FLAGS_SECRET as its secret reads it
+    await expect(
+      read(createHandle({ secret: env.FLAGS_SECRET }), code),
+    ).resolves.toBe(true);
   });
 });

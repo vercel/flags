@@ -36,7 +36,7 @@ describe('SvelteKit precompute without FLAGS_SECRET', () => {
     expect(value).toBe(true);
   });
 
-  it('prefers FLAGS_PRECOMPUTE_SECRET in precompute and in the handle', async () => {
+  it('prefers FLAGS_PRECOMPUTE_SECRET over the key of the deployment, in precompute and in the handle', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
     const request = new Request('https://shop.example/');
     const withDeploymentKey = await precompute(group, request);
