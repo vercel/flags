@@ -194,6 +194,8 @@ const KEY_SET_POLICY = Object.freeze({
   staleMaxAgeMs: 600_000,
   cooldownMs: 30_000,
   timeoutMs: 5_000,
+  // The waits before the second and the third attempt of a load
+  retryDelaysMs: [250, 1_000],
   maxKeySetBytes: 65_536,
   maxKeys: 100,
 });
@@ -216,14 +218,39 @@ export interface KeySetCache<T> {
 }
 
 /**
+ * Whether a failed fetch can succeed on the next attempt: a timeout, or a
+ * network error, which `fetch` throws as a `TypeError` (e.g. "fetch failed"
+ * for a connection which timed out). An error with which a framework controls
+ * the render has a digest, and is not retried.
+ */
+function isTransientError(cause: unknown): boolean {
+  if (!(cause instanceof Error) || 'digest' in cause) {
+    return false;
+  }
+  return cause.name === 'TimeoutError' || cause instanceof TypeError;
+}
+
+function isTransientStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
  * Creates a cache for the public key set at `url`. `parse` turns the valid
  * key set into the keys which the caller needs.
  *
  * Concurrent loads share one request, which stops after a timeout of five
- * seconds. After a timeout it tries one more time: a busy process (e.g. a
- * build which renders many pages) can reach the timeout before it reads a
- * response which is there, and the cooldown would then fail all the attempts
- * of the build for the page. After an error, it throws the same error until the cooldown ends,
+ * seconds. After a transient failure (a timeout, a network error, or a status
+ * of 429 or 5xx) it tries two more times, after 250 ms and after one second: a
+ * busy process (e.g. a build which renders many pages) can reach the timeout
+ * before it reads a response which is there, and one failed connection must
+ * not fail a build, because the cooldown would then fail all the pages of the
+ * process. After an error, it throws the same error until the cooldown ends,
  * so that a missing key set does not cause one request for each page. A failed
  * reload keeps the keys which it has.
  *
@@ -241,21 +268,30 @@ export function createKeySetCache<T>(
   let error: Error | undefined;
   let failedAt = Number.NEGATIVE_INFINITY;
 
-  async function request(retry = true): Promise<Response> {
+  async function request(attempt = 0): Promise<Response> {
+    const retryDelayMs = policy.retryDelaysMs[attempt];
+    let response: Response;
     try {
       // no-store, so a framework which caches fetch never keeps old keys
-      return await getFetch()(url, {
+      response = await getFetch()(url, {
         redirect: 'error',
         cache: 'no-store',
         // A key host which does not respond must not block the requests
         signal: AbortSignal.timeout(policy.timeoutMs),
       });
     } catch (cause) {
-      if (retry && cause instanceof Error && cause.name === 'TimeoutError') {
-        return request(false);
+      if (retryDelayMs === undefined || !isTransientError(cause)) {
+        throw cause;
       }
-      throw cause;
+      await wait(retryDelayMs);
+      return request(attempt + 1);
     }
+    if (retryDelayMs === undefined || !isTransientStatus(response.status)) {
+      return response;
+    }
+    await response.body?.cancel();
+    await wait(retryDelayMs);
+    return request(attempt + 1);
   }
 
   async function load(): Promise<T> {
