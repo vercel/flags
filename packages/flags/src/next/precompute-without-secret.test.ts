@@ -44,7 +44,7 @@ describe('precompute without FLAGS_SECRET', () => {
     await expect(deserialize(group, code)).rejects.toThrow();
   });
 
-  it('prefers a passed secret, FLAGS_PRECOMPUTE_SECRET, then FLAGS_SECRET', async () => {
+  it('prefers a passed secret, FLAGS_SECRET, then FLAGS_PRECOMPUTE_SECRET', async () => {
     const passed = 'a'.repeat(43);
     const precomputeSecret = 'b'.repeat(43);
     const flagsSecret = 'c'.repeat(43);
@@ -52,26 +52,25 @@ describe('precompute without FLAGS_SECRET', () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
     const withDeploymentKey = await serialize(group, [true]);
 
-    vi.stubEnv('FLAGS_SECRET', flagsSecret);
-    const withFlagsSecret = await serialize(group, [true]);
-    expect(withFlagsSecret).not.toBe(withDeploymentKey);
-    expect(withFlagsSecret).toBe(await serialize(group, [true], flagsSecret));
-
     vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', precomputeSecret);
     const withPrecomputeSecret = await serialize(group, [true]);
+    expect(withPrecomputeSecret).not.toBe(withDeploymentKey);
     expect(withPrecomputeSecret).toBe(
       await serialize(group, [true], precomputeSecret),
     );
-    await expect(generatePermutations(group)).resolves.toContain(
-      withPrecomputeSecret,
-    );
-    await expect(
-      getPrecomputed(flagA, group, withPrecomputeSecret),
-    ).resolves.toBe(true);
 
-    expect(await serialize(group, [true], passed)).not.toBe(
-      withPrecomputeSecret,
+    vi.stubEnv('FLAGS_SECRET', flagsSecret);
+    const withFlagsSecret = await serialize(group, [true]);
+    expect(withFlagsSecret).not.toBe(withPrecomputeSecret);
+    expect(withFlagsSecret).toBe(await serialize(group, [true], flagsSecret));
+    await expect(generatePermutations(group)).resolves.toContain(
+      withFlagsSecret,
     );
+    await expect(getPrecomputed(flagA, group, withFlagsSecret)).resolves.toBe(
+      true,
+    );
+
+    expect(await serialize(group, [true], passed)).not.toBe(withFlagsSecret);
   });
 
   it('signs and reads codes with a public secret outside of Vercel', async () => {

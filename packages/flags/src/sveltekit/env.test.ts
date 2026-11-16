@@ -167,18 +167,18 @@ describe('SvelteKit precompute with variables which are only in $env', () => {
     );
   }
 
-  it('signs with FLAGS_PRECOMPUTE_SECRET, or else FLAGS_SECRET, of the static environment', async () => {
+  it('signs with FLAGS_SECRET, or else FLAGS_PRECOMPUTE_SECRET, of the static environment', async () => {
     const both = await precomputeWith(
       { FLAGS_SECRET: secretA, FLAGS_PRECOMPUTE_SECRET: secretB },
       {},
     );
     await expect(
-      compactVerify(both, base64url.decode(secretB)),
+      compactVerify(both, base64url.decode(secretA)),
     ).resolves.toBeDefined();
 
-    const one = await precomputeWith({ FLAGS_SECRET: secretA }, {});
+    const one = await precomputeWith({ FLAGS_PRECOMPUTE_SECRET: secretB }, {});
     await expect(
-      compactVerify(one, base64url.decode(secretA)),
+      compactVerify(one, base64url.decode(secretB)),
     ).resolves.toBeDefined();
   });
 
