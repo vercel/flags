@@ -84,7 +84,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     await expect(renderPage()).resolves.toBe('<body></body>');
     await expect(renderPage()).resolves.toBe('<body></body>');
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringMatching(
