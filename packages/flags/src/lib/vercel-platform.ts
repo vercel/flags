@@ -79,6 +79,17 @@ export function findVercelProject(): VercelProject {
   };
 }
 
+/**
+ * Whether the host is the local development of a Vercel project: `vercel env
+ * pull` writes a `VERCEL_OIDC_TOKEN` for the environment `development`. A
+ * custom host has no such token.
+ *
+ * @internal
+ */
+export function isVercelDevelopment(): boolean {
+  return readOidcClaims().environment === 'development';
+}
+
 let oidc: { token: string; claims: VercelProject } | undefined;
 
 /**

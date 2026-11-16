@@ -79,7 +79,8 @@ export async function tryGetSecret(secret?: string): Promise<string> {
 /**
  * The secret of precompute: `secret`, or else `FLAGS_SECRET`, or else
  * `FLAGS_PRECOMPUTE_SECRET`, or else the secret which Vercel provides for the
- * deployment, or else a public secret outside of Vercel.
+ * deployment, or else a public secret in local development after
+ * `vercel env pull`.
  */
 export async function getPrecomputeSecret(secret?: string): Promise<string> {
   await loadEnv();

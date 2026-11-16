@@ -8,12 +8,21 @@ import {
 const REQUEST_CONTEXT = Symbol.for('@vercel/request-context');
 const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+/** A `VERCEL_OIDC_TOKEN` of `vercel env pull`, which is only decoded */
+function oidcToken(environment: string): string {
+  const claims = Buffer.from(JSON.stringify({ environment })).toString(
+    'base64url',
+  );
+  return `e30.${claims}.signature`;
+}
+
 beforeEach(() => {
   vi.stubEnv('VERCEL', '');
   vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
   vi.stubEnv('FLAGS_SECRET', '');
   vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
   vi.stubEnv('TURBO_HASH', '');
+  vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken('development'));
   warn.mockClear();
 });
 
@@ -58,7 +67,21 @@ describe('precomputeSecretOrThrow', () => {
     );
   });
 
-  it('uses a public secret outside of Vercel', async () => {
+  it('throws outside of Vercel without the OIDC token of vercel env pull', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', '');
+    await expect(precomputeSecretOrThrow(undefined, 'missing')).rejects.toThrow(
+      'vercel env pull',
+    );
+  });
+
+  it('throws outside of Vercel with an OIDC token of another environment', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken('production'));
+    await expect(precomputeSecretOrThrow(undefined, 'missing')).rejects.toThrow(
+      'missing',
+    );
+  });
+
+  it('uses a public secret in local development of a Vercel project', async () => {
     const secret = await precomputeSecretOrThrow(undefined, 'missing');
     expect(base64url.decode(secret)).toHaveLength(32);
     await expect(precomputeSecretOrThrow(undefined, 'missing')).resolves.toBe(
