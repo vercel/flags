@@ -102,7 +102,7 @@ export async function precomputeSecretOrThrow(
     if (!hasWarnedTurbo && readEnv('TURBO_HASH')) {
       hasWarnedTurbo = true;
       console.warn(
-        'flags: precompute signs with the key of the deployment in a Turborepo task. A cache hit of the task reuses codes of another deployment, which this deployment rejects. Add VERCEL_DEPLOYMENT_KEY to the "env" of the task in turbo.json, or set FLAGS_SECRET.',
+        'flags: precompute signs with the key of the deployment in a Turborepo task. A cache hit of the task reuses codes of another deployment, which this deployment rejects. Add VERCEL_DEPLOYMENT_KEY to the "env" of the task in turbo.json, or set FLAGS_PRECOMPUTE_SECRET.',
       );
     }
     return deploymentSecret;
