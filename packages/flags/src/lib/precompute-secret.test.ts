@@ -77,7 +77,7 @@ describe('precomputeSecretOrThrow', () => {
   it('throws outside of Vercel with an OIDC token of another environment', async () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken('production'));
     await expect(precomputeSecretOrThrow(undefined, 'missing')).rejects.toThrow(
-      'missing',
+      'FLAGS_PRECOMPUTE_SECRET',
     );
   });
 
