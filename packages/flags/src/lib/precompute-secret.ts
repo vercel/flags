@@ -95,12 +95,15 @@ export async function precomputeSecretOrThrow(
   secret: string | undefined,
   message: string,
 ): Promise<string> {
+  // A secret of the user always wins, so build and runtime agree
   const userSecret =
     secret || readEnv('FLAGS_SECRET') || readEnv('FLAGS_PRECOMPUTE_SECRET');
   if (userSecret) return userSecret;
 
+  // On Vercel: the key of the deployment, same for build and runtime
   const deploymentSecret = await deploymentPrecomputeSecret();
   if (deploymentSecret) {
+    // A cache hit of a Turborepo task replays codes of another deployment
     if (!hasWarnedTurbo && readEnv('TURBO_HASH')) {
       hasWarnedTurbo = true;
       console.warn(
@@ -110,12 +113,17 @@ export async function precomputeSecretOrThrow(
     return deploymentSecret;
   }
 
+  // On Vercel without a key, e.g. `vercel build` or no system variables
   if (isOnVercel()) throw new Error(message);
+
+  // Not local development of a Vercel project, e.g. a custom host
   if (!isVercelDevelopment()) {
     throw new Error(
-      `${message} For local development of a Vercel project, run \`vercel env pull\`.`,
+      'flags: precompute has no secret. Run `vercel env pull` for local development, or set FLAGS_PRECOMPUTE_SECRET.',
     );
   }
+
+  // Local development after `vercel env pull`: the public secret
   if (!hasWarned && readEnv('NODE_ENV') !== 'development') {
     hasWarned = true;
     console.warn(
