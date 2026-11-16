@@ -93,7 +93,7 @@ These APIs are relevant for [precomputing feature flags](/principles/precompute)
 
 On Vercel, these APIs work without a `FLAGS_SECRET`: they sign the code with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. Outside of Vercel, for example in local development (`next dev`), they use a fixed, public secret when there is none, and warn when `NODE_ENV` is not `development`: set a `FLAGS_SECRET` for a production app outside of Vercel. On Vercel, they throw without a secret and without the key of the deployment, for example in a build with `vercel build` for a prebuilt deployment, or in a project that does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
-To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_PRECOMPUTE_SECRET`, `FLAGS_SECRET`, the key of the deployment, the fixed, public secret outside of Vercel.
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` and no `FLAGS_SECRET`. The APIs use the first of these that is set: the `secret` you pass, `FLAGS_SECRET`, `FLAGS_PRECOMPUTE_SECRET`, the key of the deployment, the fixed, public secret outside of Vercel.
 
 ### `precompute`
 
@@ -222,7 +222,7 @@ const sale = await showSummerSale(code, precomputeFlags);
 | ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | `flags`             | `function[]` | Flags                                                                                                               |
 | `filter` (Optional) | `function`   | This function is called with every possible precomputation of the flag's options. Return `true` to keep the option. |
-| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `FLAGS_PRECOMPUTE_SECRET`, then `FLAGS_SECRET`, then the key of the deployment |
+| `secret` (Optional) | `string`     | The secret used to sign the generated code. Defaults to `FLAGS_SECRET`, then `FLAGS_PRECOMPUTE_SECRET`, then the key of the deployment |
 
 Example usage in `generateStaticParams`:
 

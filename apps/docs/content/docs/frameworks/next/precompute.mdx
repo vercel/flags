@@ -79,11 +79,11 @@ When set, `precompute` uses the `FLAGS_SECRET` to sign the precomputation result
 
 Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
 
-To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` instead. It has the same format. Precompute uses the first of these that is set:
+To use a secret for precompute only, set `FLAGS_PRECOMPUTE_SECRET` and no `FLAGS_SECRET`. It has the same format. Precompute uses the first of these that is set:
 
 1. The `secret` you pass to the function
-2. `FLAGS_PRECOMPUTE_SECRET`
-3. `FLAGS_SECRET`
+2. `FLAGS_SECRET`
+3. `FLAGS_PRECOMPUTE_SECRET`
 4. The key that Vercel provides for the deployment
 5. The fixed, public secret, outside of Vercel
 
