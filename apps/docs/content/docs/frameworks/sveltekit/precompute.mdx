@@ -278,6 +278,22 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 ```
 
+<Callout type="warn">
+  A build cache that restores the output of another deployment reuses its codes, and they are not valid in the new deployment. This affects Turborepo, which Vercel runs with Remote Cache, because `VERCEL_DEPLOYMENT_KEY` is not part of the hash of a task. Add it to the `env` of the build task, as shown below, or set a `FLAGS_SECRET`.
+
+  For the same reason, do not cache the result of `generatePermutations`.
+</Callout>
+
+```json title="turbo.json"
+{
+  "tasks": {
+    "build": {
+      "env": ["VERCEL_DEPLOYMENT_KEY"]
+    }
+  }
+}
+```
+
 ## Next steps
 
 You now know how to use the precompute pattern within SvelteKit.

@@ -70,10 +70,27 @@ You need a `FLAGS_SECRET` environment variable in these cases:
 - Prebuilt deployments (`vercel build` and `vercel deploy --prebuilt`)
 - Projects that do not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), because Vercel provides the key as one of them
 - When a code must be valid in another deployment or project
+- Monorepos with a build cache such as Turborepo or Nx, unless the key of the deployment is part of the hash of the build task (see below)
 
 <Callout type="warn">
   A prebuilt deployment is built outside of Vercel, so the build has no key of the deployment. Without a `FLAGS_SECRET`, `generatePermutations` throws during the build.
 </Callout>
+
+<Callout type="warn">
+  A build cache that restores the output of another deployment reuses its codes, and they are not valid in the new deployment. This affects Turborepo, which Vercel runs with Remote Cache, because `VERCEL_DEPLOYMENT_KEY` is not part of the hash of a task. Add it to the `env` of the build task, as shown below, or set a `FLAGS_SECRET`.
+
+  For the same reason, do not cache the result of `generatePermutations`, for example with `unstable_cache` or `"use cache"`.
+</Callout>
+
+```json title="turbo.json"
+{
+  "tasks": {
+    "build": {
+      "env": ["VERCEL_DEPLOYMENT_KEY"]
+    }
+  }
+}
+```
 
 When set, `precompute` uses the `FLAGS_SECRET` to sign the precomputation result in the URL. It must contain 32 random bytes, encoded as base64url.
 
