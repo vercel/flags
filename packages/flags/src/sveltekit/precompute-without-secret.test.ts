@@ -57,9 +57,24 @@ describe('SvelteKit precompute without FLAGS_SECRET', () => {
     expect(value).toBe(true);
   });
 
-  it('signs and reads codes with a public secret outside of Vercel', async () => {
+  it('throws outside of Vercel without the OIDC token of vercel env pull', async () => {
     vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
     vi.stubEnv('VERCEL', '');
+    vi.stubEnv('VERCEL_OIDC_TOKEN', '');
+
+    await expect(generatePermutations(group)).rejects.toThrow(
+      'vercel env pull',
+    );
+  });
+
+  it('signs and reads codes with a public secret in local development', async () => {
+    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
+    vi.stubEnv('VERCEL', '');
+    // The OIDC token of `vercel env pull`, which is only decoded
+    vi.stubEnv(
+      'VERCEL_OIDC_TOKEN',
+      `e30.${Buffer.from(JSON.stringify({ environment: 'development' })).toString('base64url')}.signature`,
+    );
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const request = new Request('https://shop.example/');
