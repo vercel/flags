@@ -10,4 +10,6 @@ The new variable `FLAGS_PRECOMPUTE_SECRET` sets a secret for precompute only. It
 
 Outside of Vercel (e.g. `next dev`, a local `next build && next start`, or a self-hosted app), these functions use a fixed, public secret when there is no other one. Anyone can create a code with it, so they warn one time when `NODE_ENV` is not `development`: set `FLAGS_SECRET` for a production app outside of Vercel.
 
+In a Turborepo task, a cache hit replays codes of another deployment, because `VERCEL_DEPLOYMENT_KEY` is not part of the hash of the task. These functions warn one time when they sign with the key of the deployment in a Turborepo task: add `VERCEL_DEPLOYMENT_KEY` to the `env` of the task in `turbo.json`, or set `FLAGS_SECRET`.
+
 On Vercel without a secret and without `VERCEL_DEPLOYMENT_KEY` (a project which does not expose the system environment variables, or a build with `vercel build` which is deployed with `vercel deploy --prebuilt`), these functions throw as before.
