@@ -430,7 +430,11 @@ describe('verifyFlagOverridesFromPlatform', () => {
 
   it('ignores tokens while the keys can not be loaded, and retries after 30 seconds', async () => {
     vi.useFakeTimers({ now: Date.now(), toFake: ['Date'] });
-    fetchKeys.mockResolvedValueOnce(new Response('error', { status: 500 }));
+    // A load tries three times before it fails
+    fetchKeys
+      .mockResolvedValueOnce(new Response('error', { status: 500 }))
+      .mockResolvedValueOnce(new Response('error', { status: 500 }))
+      .mockResolvedValueOnce(new Response('error', { status: 500 }));
     const token = await sign();
 
     await expect(
@@ -439,7 +443,7 @@ describe('verifyFlagOverridesFromPlatform', () => {
     await expect(
       verifyFlagOverridesFromPlatform(token),
     ).resolves.toBeUndefined();
-    expect(fetchKeys).toHaveBeenCalledTimes(1);
+    expect(fetchKeys).toHaveBeenCalledTimes(3);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringMatching(

@@ -235,7 +235,7 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
       'key-1',
     );
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
   it('uses the first key for encryption, not a signing key', async () => {
@@ -299,14 +299,54 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('throws after two timeouts, and does not load the keys during the cooldown', async () => {
+  it('loads the keys again after a network error, e.g. a connection which timed out', async () => {
+    // How undici reports a connection which timed out
+    const networkError = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('connect ETIMEDOUT'), {
+        code: 'ETIMEDOUT',
+      }),
+    });
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(networkError)
+      .mockRejectedValueOnce(networkError)
+      .mockResolvedValue(Response.json({ keys: [publicJwk] }));
+    vi.stubGlobal('fetch', fetch);
+
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-1',
+    );
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('loads the keys again after a status of 5xx', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({}, { status: 503 }))
+      .mockResolvedValue(Response.json({ keys: [publicJwk] }));
+    vi.stubGlobal('fetch', fetch);
+
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-1',
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after three timeouts, and does not load the keys during the cooldown', async () => {
     const timeout = new DOMException('The operation timed out', 'TimeoutError');
     const fetch = vi.fn().mockRejectedValue(timeout);
     vi.stubGlobal('fetch', fetch);
 
     await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
     await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not load the keys again after a status of 4xx', async () => {
+    const fetch = stubKeySet([], 404);
+
+    await expect(encryptFlagValues(values)).rejects.toThrow('status 404');
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('loads the keys with the fetch which Next.js replaced, so a static page stays static', async () => {
@@ -354,11 +394,12 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
       `Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: status 503.`,
     );
     await expect(encryptFlagValues(values)).rejects.toThrow('status 503');
-    expect(fetch).toHaveBeenCalledTimes(1);
+    // Three attempts for the first load, none during the cooldown
+    expect(fetch).toHaveBeenCalledTimes(3);
 
     vi.setSystemTime(Date.now() + 30_001);
     await expect(encryptFlagValues(values)).rejects.toThrow('status 503');
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(6);
   });
 });
 
