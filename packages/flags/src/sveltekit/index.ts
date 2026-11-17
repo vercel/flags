@@ -26,9 +26,9 @@ import {
   isFlagOverridesFromPlatform,
   verifyFlagOverridesFromPlatform,
 } from '../lib/flag-overrides-platform';
+import { warnFlagValuesLeftOut } from '../lib/flag-values-platform';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
-import { warnWithCooldown } from '../lib/vercel-platform';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -366,16 +366,13 @@ export function createHandle({
             if (secret) {
               throw cause;
             }
-            // Without a secret, the public key of Vercel or the project can
-            // be missing. The values are only for the Vercel Toolbar, so the
-            // page renders without them.
-            warnWithCooldown(
-              `flags: Could not encrypt the flag values for the Vercel Toolbar. ${
-                cause instanceof Error ? cause.message : String(cause)
-              }`,
-            );
+            // Without a secret, the project can be missing. The values are
+            // only for the Vercel Toolbar, so the page renders without them.
+            warnFlagValuesLeftOut(cause);
             return html;
           }
+          // Empty when the public key of Vercel did not load
+          if (!encryptedFlagValues) return html;
 
           return html.replace(
             '</body>',
