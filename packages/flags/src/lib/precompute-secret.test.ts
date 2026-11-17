@@ -21,7 +21,6 @@ beforeEach(() => {
   vi.stubEnv('VERCEL_DEPLOYMENT_KEY', '');
   vi.stubEnv('FLAGS_SECRET', '');
   vi.stubEnv('FLAGS_PRECOMPUTE_SECRET', '');
-  vi.stubEnv('TURBO_HASH', '');
   vi.stubEnv('VERCEL_OIDC_TOKEN', oidcToken('development'));
   warn.mockClear();
 });
@@ -112,29 +111,6 @@ describe('precomputeSecretOrThrow', () => {
     await expect(precomputeSecretOrThrow(undefined, 'missing')).resolves.toBe(
       await deploymentPrecomputeSecret(),
     );
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  it('warns one time when it uses the key of the deployment in a Turborepo task', async () => {
-    vi.resetModules();
-    const fresh = await import('./precompute-secret');
-    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
-    vi.stubEnv('TURBO_HASH', 'abc');
-    await fresh.precomputeSecretOrThrow(undefined, 'missing');
-    await fresh.precomputeSecretOrThrow(undefined, 'missing');
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('VERCEL_DEPLOYMENT_KEY'),
-    );
-  });
-
-  it('does not warn in a Turborepo task with FLAGS_SECRET', async () => {
-    vi.resetModules();
-    const fresh = await import('./precompute-secret');
-    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
-    vi.stubEnv('TURBO_HASH', 'abc');
-    vi.stubEnv('FLAGS_SECRET', 'a'.repeat(43));
-    await fresh.precomputeSecretOrThrow(undefined, 'missing');
     expect(warn).not.toHaveBeenCalled();
   });
 

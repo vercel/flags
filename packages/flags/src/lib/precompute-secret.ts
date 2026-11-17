@@ -11,7 +11,6 @@ const INFO = 'flags:precompute:v1';
 const PUBLIC_SECRET = 'ZmxhZ3MtZGV2ZWxvcG1lbnQtcHJlY29tcHV0ZS1rZXk';
 
 let hasWarned = false;
-let hasWarnedTurbo = false;
 
 let cache: { deploymentKey: string; secret: Promise<string> } | undefined;
 
@@ -77,10 +76,6 @@ async function derive(deploymentKey: string): Promise<string> {
  * has the deployment key (e.g. a build with `vercel build`). Throws `message`
  * when there is none.
  *
- * In a task of Turborepo (`TURBO_HASH` is set), the secret of the deployment
- * warns one time: `VERCEL_DEPLOYMENT_KEY` is not part of the hash of the task
- * by default, so a hit of the cache replays the codes of another deployment.
- *
  * The public secret is for local development and local production builds
  * (e.g. `next build && next start`), which have no deployment key. It needs
  * the `VERCEL_OIDC_TOKEN` of `vercel env pull` for the environment
@@ -102,16 +97,7 @@ export async function precomputeSecretOrThrow(
 
   // On Vercel: the key of the deployment, same for build and runtime
   const deploymentSecret = await deploymentPrecomputeSecret();
-  if (deploymentSecret) {
-    // A cache hit of a Turborepo task replays codes of another deployment
-    if (!hasWarnedTurbo && readEnv('TURBO_HASH')) {
-      hasWarnedTurbo = true;
-      console.warn(
-        'flags: precompute signs with the key of the deployment in a Turborepo task. A cache hit of the task reuses codes of another deployment, which this deployment rejects. Add VERCEL_DEPLOYMENT_KEY to the "env" of the task in turbo.json, or set FLAGS_PRECOMPUTE_SECRET.',
-      );
-    }
-    return deploymentSecret;
-  }
+  if (deploymentSecret) return deploymentSecret;
 
   // On Vercel without a key, e.g. `vercel build` or no system variables
   if (isOnVercel()) throw new Error(message);
