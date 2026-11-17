@@ -112,6 +112,8 @@ Encrypts flag values data with a purpose claim. Returns a `Promise`.
 
 Without a secret, the values are encrypted with the public key of Vercel, so that only Vercel can decrypt them for the project of the host. The project ID comes from `VERCEL_PROJECT_ID`, the OIDC token of the project (of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`), or the `.vercel/project.json` of `vercel link`.
 
+The public key is loaded from Vercel and kept in memory. When it does not load, `encryptFlagValues` logs a warning and returns an empty string instead of throwing, so the build or the render does not fail. The page then has no flag values for the Vercel Toolbar until it renders again. [`FlagValues`](/api-reference/core/react#flagvalues) renders nothing for an empty string. If you render the `script` tag yourself, leave it out when the value is empty. `encryptFlagValues` still throws when there is neither a secret nor a project ID, or when the secret is not valid.
+
 | Parameter                | Type             | Description                                                              |
 | ----------------------- | ---------------- | ------------------------------------------------------------------------ |
 | `flagValues`            | `FlagValuesType` | Flag values to be encrypted                                              |

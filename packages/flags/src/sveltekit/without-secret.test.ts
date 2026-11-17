@@ -87,6 +87,17 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     );
   });
 
+  it('returns an empty string from encryptFlagValues when the key does not load', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 404 })),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(encryptFlagValues({ 'summer-sale': true })).resolves.toBe('');
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('renders the page without the flag values when the project is not known', async () => {
     vi.stubEnv('VERCEL_PROJECT_ID', '');
     vi.spyOn(process, 'cwd').mockReturnValue('/nonexistent');
