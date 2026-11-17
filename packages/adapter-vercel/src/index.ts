@@ -169,6 +169,25 @@ function isVercelOrigin(
   );
 }
 
+/**
+ * The `project_id` claim of the `VERCEL_OIDC_TOKEN` of `vercel env pull`.
+ * The token is not verified: the ID only labels the origin of the flags.
+ */
+function projectIdFromOidcToken(): string | undefined {
+  const payload = process.env.VERCEL_OIDC_TOKEN?.split('.')[1];
+  if (!payload) return undefined;
+  try {
+    const { project_id } = JSON.parse(
+      Buffer.from(payload, 'base64url').toString('utf8'),
+    ) as { project_id?: unknown };
+    return typeof project_id === 'string' && project_id
+      ? project_id
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getProviderData(
   flags: Record<
     string,
@@ -197,8 +216,24 @@ export async function getProviderData(
         const fallback = await client.getFallbackDatafile();
         projectIdBySdkKey.set(sdkKey, fallback.projectId);
       } catch {
-        const datafile = await client.getDatafile();
-        projectIdBySdkKey.set(sdkKey, datafile.projectId);
+        try {
+          const datafile = await client.getDatafile();
+          projectIdBySdkKey.set(sdkKey, datafile.projectId);
+        } catch (error) {
+          // Fallback: a project has no datafile until Vercel Flags is
+          // activated, which happens when its first flag is created. Without
+          // this, the discovery endpoint fails before that in local
+          // development, so Flags Explorer shows an error. On Vercel, the
+          // origin already names the project (from VERCEL_PROJECT_ID), so
+          // this lookup does not run there. Locally, `vercel env pull` only
+          // writes VERCEL_OIDC_TOKEN, so the project comes from its claims.
+          // A client without an SDK key uses OIDC for the host project, so
+          // that is the project of its flags.
+          const projectId =
+            sdkKey === undefined ? projectIdFromOidcToken() : undefined;
+          if (!projectId) throw error;
+          projectIdBySdkKey.set(sdkKey, projectId);
+        }
       }
     }),
   );
