@@ -155,10 +155,15 @@ export async function decryptOverrides(
  * can not read them. There is no error or warning for a secret which is
  * `undefined` or empty, e.g. a typo in the name of the environment variable.
  *
+ * The public key is loaded from Vercel. When it does not load (e.g. the key
+ * host is down), this logs a warning and returns an empty string instead of
+ * throwing, so the build or the render does not fail. `FlagValues` of
+ * `flags/react` renders nothing for an empty string.
+ *
  * @param flagValues - The flag values to encrypt
  * @param secret - The encryption secret (defaults to FLAGS_SECRET env var)
  * @param expirationTime - When the encrypted data should expire (defaults to 1 year with a secret, and no expiry without)
- * @returns A promise resolving to the encrypted JWE string
+ * @returns A promise resolving to the encrypted JWE string. Without a secret, it resolves to an empty string when the public key of Vercel does not load
  * @throws Error if the secret is invalid, or neither a secret nor a project ID is available
  */
 export async function encryptFlagValues(

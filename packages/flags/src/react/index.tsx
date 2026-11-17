@@ -30,12 +30,18 @@ export function FlagDefinitions({
 
 /**
  * Registers variant values with the toolbar
+ *
+ * Renders nothing for an empty string, which `encryptFlagValues` returns
+ * when the public key of Vercel does not load.
  */
 export function FlagValues({
   values,
 }: {
   values: FlagValuesType | Encrypted<FlagValuesType>;
 }) {
+  if (values === '') {
+    return null;
+  }
   return (
     <script
       type="application/json"

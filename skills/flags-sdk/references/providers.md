@@ -119,6 +119,14 @@ export const sharedFeature = flag({
 
 Use `vercelAdapter` alongside this adapter for the consumer's own flags. Both use the consumer's OIDC token; do not mint an SDK key for a connection. Run `vercel env pull` in the consumer project for local development. Connections apply across environments, and the token selects the source environment; custom environments use preview.
 
+Verify access before you declare or render connected flags. A client whose first request is rejected with 401 does not retry; it serves `defaultValue` until the process restarts, with no visible error on the page:
+
+1. List the source project's connections: `vercel flags connections list --project <source> --scope <team> --non-interactive`. If the consumer project is missing, add it with `vercel flags connections add <consumer> --project <source> --scope <team> --non-interactive`.
+2. Confirm a real read with the consumer's credentials, outside the running app: a one-off script that calls `createClient({ projectId: 'prj_source' }).evaluate('<flag-key>')` from `@vercel/flags-core`, run with `node --env-file=.env.local`. Continue when it returns the flag's value. If it fails right after adding the connection, wait briefly and try again.
+3. Then add the `flag()` declarations and render them.
+
+If a connected flag only ever returns its `defaultValue`, the client was likely rejected before access was in place. Fix access, then restart the dev server or redeploy.
+
 For direct core access, use `@vercel/flags-core` version 1.11.0 or later with `createClient({ projectId: 'prj_source' })`. The `projectId` option cannot be combined with an SDK key. CLI management requires Vercel CLI version 63.0.0 or later; use the `vercel-flags` skill for the connection workflow, or see the [CLI reference](https://vercel.com/docs/cli/flags#project-connections). See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
 
 ### Custom configuration
