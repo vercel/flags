@@ -8,10 +8,12 @@ import { expect, it } from 'vitest';
 const dir = import.meta.dirname;
 const next = createRequire(import.meta.url).resolve('next/dist/bin/next');
 
-// A production build, with the fetch of Next.js: app/page.js has
-// `dynamic = 'error'`, so the build fails when encryptFlagValues makes the
-// page dynamic.
-it('builds a static page which encrypts flag values without FLAGS_SECRET', () => {
+/**
+ * A production build, with the fetch of Next.js: app/page.js has
+ * `dynamic = 'error'`, so the build fails when encryptFlagValues makes the
+ * page dynamic. Returns the output of the build and the HTML of the page.
+ */
+function buildPage(env = {}) {
   rmSync(path.join(dir, '.next'), { recursive: true, force: true });
 
   const build = spawnSync(process.execPath, [next, 'build'], {
@@ -26,9 +28,11 @@ it('builds a static page which encrypts flag values without FLAGS_SECRET', () =>
       FLAGS_SECRET: '',
       VERCEL_PROJECT_ID: 'prj_test',
       VERCEL_OIDC_TOKEN: '',
+      ...env,
     },
   });
-  expect(build.status, build.stdout + build.stderr).toBe(0);
+  const output = build.stdout + build.stderr;
+  expect(build.status, output).toBe(0);
 
   const manifest = JSON.parse(
     readFileSync(path.join(dir, '.next/prerender-manifest.json'), 'utf8'),
@@ -42,6 +46,12 @@ it('builds a static page which encrypts flag values without FLAGS_SECRET', () =>
     path.join(dir, '.next/server/app/index.html'),
     'utf8',
   );
+  return { output, html };
+}
+
+it('builds a static page which encrypts flag values without FLAGS_SECRET', () => {
+  const { html } = buildPage();
+
   const token = html.match(/data-flag-values[^>]*>"([^"]+)"</)?.[1];
   expect(token).toBeDefined();
   // Encrypted with the public key, not with a secret
@@ -53,4 +63,14 @@ it('builds a static page which encrypts flag values without FLAGS_SECRET', () =>
     kid: 'test-key',
     projectIds: ['prj_test'],
   });
+}, 120_000);
+
+it('builds the page without the flag values when the key host is down', () => {
+  const { output, html } = buildPage({ KEY_HOST_STATUS: '503' });
+
+  expect(html).not.toContain('data-flag-values');
+  expect(output).toContain(
+    'flags: The flag values for the Vercel Toolbar are left out of the page.',
+  );
+  expect(output).toContain('status 503');
 }, 120_000);

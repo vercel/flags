@@ -160,8 +160,10 @@ function parseLinkedProjectId(
 
 /**
  * The key set did not load.
+ *
+ * @internal
  */
-class KeySetError extends Error {}
+export class KeySetError extends Error {}
 
 const KEY_SET_POLICY = Object.freeze({
   cacheMaxAgeMs: 300_000,
