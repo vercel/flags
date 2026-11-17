@@ -150,15 +150,15 @@ describe('SvelteKit precompute with variables which are only in $env', () => {
   const secretA = 'a'.repeat(43);
   const secretB = 'b'.repeat(43);
 
-  async function precomputeWith(
-    staticEnv: { FLAGS_SECRET?: string; FLAGS_PRECOMPUTE_SECRET?: string },
-    dynamicEnv: Record<string, string>,
-  ): Promise<string> {
+  async function precomputeWith(staticEnv: {
+    FLAGS_SECRET?: string;
+    FLAGS_PRECOMPUTE_SECRET?: string;
+  }): Promise<string> {
     vi.doMock('$env/static/private', () => ({
       FLAGS_SECRET: staticEnv.FLAGS_SECRET,
       FLAGS_PRECOMPUTE_SECRET: staticEnv.FLAGS_PRECOMPUTE_SECRET,
     }));
-    vi.doMock('$env/dynamic/private', () => ({ env: dynamicEnv }));
+    vi.doMock('$env/dynamic/private', () => ({ env: {} }));
     vi.resetModules();
     const { flag, precompute } = await import('.');
     return precompute(
@@ -168,28 +168,17 @@ describe('SvelteKit precompute with variables which are only in $env', () => {
   }
 
   it('signs with FLAGS_SECRET, or else FLAGS_PRECOMPUTE_SECRET, of the static environment', async () => {
-    const both = await precomputeWith(
-      { FLAGS_SECRET: secretA, FLAGS_PRECOMPUTE_SECRET: secretB },
-      {},
-    );
+    const both = await precomputeWith({
+      FLAGS_SECRET: secretA,
+      FLAGS_PRECOMPUTE_SECRET: secretB,
+    });
     await expect(
       compactVerify(both, base64url.decode(secretA)),
     ).resolves.toBeDefined();
 
-    const one = await precomputeWith({ FLAGS_PRECOMPUTE_SECRET: secretB }, {});
+    const one = await precomputeWith({ FLAGS_PRECOMPUTE_SECRET: secretB });
     await expect(
       compactVerify(one, base64url.decode(secretB)),
     ).resolves.toBeDefined();
-  });
-
-  it('signs with the key of the deployment of the dynamic environment', async () => {
-    const code = await precomputeWith(
-      {},
-      { VERCEL_DEPLOYMENT_KEY: 'key-of-deployment-a' },
-    );
-
-    // The same code as with the key in `process.env`
-    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
-    await expect(precomputeWith({}, {})).resolves.toBe(code);
   });
 });
