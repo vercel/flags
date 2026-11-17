@@ -35,24 +35,16 @@ async function loadSecret(): Promise<void> {
 }
 
 /**
- * Reads the variables of the Vercel project from the dynamic environment,
- * which is read at runtime: the static one puts the values of the build
- * (e.g. its `VERCEL_OIDC_TOKEN`) into the server bundle. Only the names which
- * `findVercelProject`, `canVerifyVercelSignedTokens` and
- * `deploymentPrecomputeSecret` read are copied.
+ * Reads the OIDC token of `vercel env pull` from the dynamic environment,
+ * which is read at runtime: the static one puts the value of the build into
+ * the server bundle. The other variables of Vercel only exist on Vercel,
+ * where they are in `process.env`.
  */
 async function loadVercelEnv(): Promise<void> {
   try {
     // @ts-expect-error SvelteKit will know about this
     const { env } = await import('$env/dynamic/private');
-    addEnv({
-      VERCEL: env.VERCEL,
-      VERCEL_PROJECT_ID: env.VERCEL_PROJECT_ID,
-      VERCEL_TARGET_ENV: env.VERCEL_TARGET_ENV,
-      VERCEL_ENV: env.VERCEL_ENV,
-      VERCEL_OIDC_TOKEN: env.VERCEL_OIDC_TOKEN,
-      VERCEL_DEPLOYMENT_KEY: env.VERCEL_DEPLOYMENT_KEY,
-    });
+    addEnv({ VERCEL_OIDC_TOKEN: env.VERCEL_OIDC_TOKEN });
   } catch {
     // ignore: not SvelteKit, or prerendering, where the dynamic environment
     // can not be read. `process.env` has the variables then.
