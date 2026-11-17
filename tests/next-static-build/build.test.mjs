@@ -70,7 +70,7 @@ it('builds the page without the flag values when the key host is down', () => {
 
   expect(html).not.toContain('data-flag-values');
   expect(output).toContain(
-    'flags: Could not encrypt the flag values for the Vercel Toolbar.',
+    'flags: The flag values for the Vercel Toolbar are left out of the page.',
   );
   expect(output).toContain('status 503');
 }, 120_000);

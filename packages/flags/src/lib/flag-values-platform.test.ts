@@ -346,7 +346,7 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     await expect(encryptFlagValues(values)).resolves.toBe('');
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(warn).toHaveBeenCalledExactlyOnceWith(
-      `flags: Could not encrypt the flag values for the Vercel Toolbar. flags: Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: The operation timed out.`,
+      `flags: The flag values for the Vercel Toolbar are left out of the page. flags: Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: The operation timed out.`,
     );
   });
 

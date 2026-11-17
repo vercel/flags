@@ -22,7 +22,7 @@ import {
   verifyAccess,
   version,
 } from '..';
-import { warnFlagValuesNotEncrypted } from '../lib/flag-values-platform';
+import { warnFlagValuesLeftOut } from '../lib/flag-values-platform';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
@@ -359,7 +359,7 @@ export function createHandle({
             }
             // Without a secret, the project can be missing. The values are
             // only for the Vercel Toolbar, so the page renders without them.
-            warnFlagValuesNotEncrypted(cause);
+            warnFlagValuesLeftOut(cause);
             return html;
           }
           // Empty when the public key of Vercel did not load

@@ -73,7 +73,7 @@ export async function encryptFlagValuesForPlatform(
     if (!(error instanceof KeySetError)) {
       throw error;
     }
-    warnFlagValuesNotEncrypted(error);
+    warnFlagValuesLeftOut(error);
     return '';
   }
   const jwt = new EncryptJWT({
@@ -100,9 +100,9 @@ export async function encryptFlagValuesForPlatform(
  *
  * @internal
  */
-export function warnFlagValuesNotEncrypted(cause: unknown): void {
+export function warnFlagValuesLeftOut(cause: unknown): void {
   warnWithCooldown(
-    `flags: Could not encrypt the flag values for the Vercel Toolbar. ${
+    `flags: The flag values for the Vercel Toolbar are left out of the page. ${
       cause instanceof Error ? cause.message : String(cause)
     }`,
   );

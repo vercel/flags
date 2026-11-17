@@ -82,7 +82,7 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringMatching(
-        /^flags: Could not encrypt the flag values for the Vercel Toolbar\. .*status 503/,
+        /^flags: The flag values for the Vercel Toolbar are left out of the page\. .*status 503/,
       ),
     );
   });
