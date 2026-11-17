@@ -16,12 +16,17 @@ const keySet = {
   ],
 };
 
+// A key host which is down answers with this status (see build.test.mjs)
+const status = Number(process.env.KEY_HOST_STATUS ?? 200);
+
 const fetch = globalThis.fetch;
 
 globalThis.fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
   if (url === 'https://keys.vercel-flags.com/.well-known/jwks.json') {
-    return Response.json(keySet);
+    return status === 200
+      ? Response.json(keySet)
+      : new Response(null, { status });
   }
   return fetch(input, init);
 };

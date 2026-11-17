@@ -261,17 +261,21 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
   it('rejects a key set with a private key', async () => {
     const pair = await generateKeyPair('ECDH-ES', { extractable: true });
     stubKeySet([{ ...(await exportJWK(pair.privateKey)), kid: 'key-2' }]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(encryptFlagValues(values)).rejects.toThrow(
-      'the key set is not valid',
+    await expect(encryptFlagValues(values)).resolves.toBe('');
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('the key set is not valid'),
     );
   });
 
   it('rejects a key set without a key for ECDH-ES', async () => {
     stubKeySet([{ kty: 'RSA', kid: 'rsa', n: 'AQAB', e: 'AQAB' }]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(encryptFlagValues(values)).rejects.toThrow(
-      'no key for ECDH-ES with P-256',
+    await expect(encryptFlagValues(values)).resolves.toBe('');
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('no key for ECDH-ES with P-256'),
     );
   });
 
@@ -332,21 +336,59 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('throws after three timeouts, and does not load the keys during the cooldown', async () => {
+  it('returns an empty string after three timeouts, warns one time, and does not load the keys during the cooldown', async () => {
     const timeout = new DOMException('The operation timed out', 'TimeoutError');
     const fetch = vi.fn().mockRejectedValue(timeout);
     vi.stubGlobal('fetch', fetch);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
-    await expect(encryptFlagValues(values)).rejects.toThrow('timed out');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
     expect(fetch).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      `flags: The flag values for the Vercel Toolbar are left out of the page. flags: Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: The operation timed out.`,
+    );
   });
 
   it('does not load the keys again after a status of 4xx', async () => {
     const fetch = stubKeySet([], 404);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(encryptFlagValues(values)).rejects.toThrow('status 404');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('status 404'),
+    );
+  });
+
+  it('encrypts again when the keys load after the cooldown', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({}, { status: 404 }))
+      .mockResolvedValue(Response.json({ keys: [publicJwk] }));
+    vi.stubGlobal('fetch', fetch);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(encryptFlagValues(values)).resolves.toBe('');
+
+    vi.setSystemTime(Date.now() + 30_001);
+    expect(decodeProtectedHeader(await encryptFlagValues(values)).kid).toBe(
+      'key-1',
+    );
+  });
+
+  it('still throws without a project when the key host is down', async () => {
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    vi.spyOn(process, 'cwd').mockReturnValue('/nonexistent');
+    const fetch = stubKeySet([], 503);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(encryptFlagValues(values)).rejects.toThrow(
+      'Missing FLAGS_SECRET or a project ID',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('loads the keys with the fetch which Next.js replaced, so a static page stays static', async () => {
@@ -389,17 +431,23 @@ describe('encryptFlagValues without FLAGS_SECRET', () => {
   it('does not load the keys again during the cooldown after an error', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     const fetch = stubKeySet([], 503);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(encryptFlagValues(values)).rejects.toThrow(
-      `Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: status 503.`,
-    );
-    await expect(encryptFlagValues(values)).rejects.toThrow('status 503');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
     // Three attempts for the first load, none during the cooldown
     expect(fetch).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining(
+        `Could not load the public key for the flag values from ${VERCEL_FLAG_VALUES_JWKS_URL}: status 503.`,
+      ),
+    );
 
     vi.setSystemTime(Date.now() + 30_001);
-    await expect(encryptFlagValues(values)).rejects.toThrow('status 503');
+    await expect(encryptFlagValues(values)).resolves.toBe('');
     expect(fetch).toHaveBeenCalledTimes(6);
+    // One warning for each cooldown
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -415,6 +463,13 @@ describe('encryptFlagValues with FLAGS_SECRET', () => {
       enc: 'A256GCM',
     });
     await expect(decryptFlagValues(token)).resolves.toEqual(values);
+  });
+
+  it('throws for a secret which is not valid, and does not use the public key', async () => {
+    const fetch = stubKeySet([], 503);
+
+    await expect(encryptFlagValues(values, 'too-short')).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

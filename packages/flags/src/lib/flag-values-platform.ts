@@ -6,7 +6,12 @@ import {
   type KeyLike,
 } from 'jose';
 import type { FlagValuesType } from '../types';
-import { createKeySetCache, findVercelProject } from './vercel-platform';
+import {
+  createKeySetCache,
+  findVercelProject,
+  KeySetError,
+  warnWithCooldown,
+} from './vercel-platform';
 
 /**
  * Where the public keys of Vercel for the flag values are.
@@ -37,6 +42,10 @@ export const FLAG_VALUES_POLICY = Object.freeze({
  *
  * Encryption with a public key gives no authenticity: each visitor can
  * encrypt other values. A receiver must not trust the values.
+ *
+ * Returns an empty string, and warns, when the public key does not load. The
+ * values are only for the Vercel Toolbar, so a key host which is down must
+ * not fail a build or a render.
  */
 export async function encryptFlagValuesForPlatform(
   values: FlagValuesType,
@@ -54,7 +63,19 @@ export async function encryptFlagValuesForPlatform(
       `flags: The project ID must have at most ${policy.maxProjectIdLength} characters.`,
     );
   }
-  const { kid, key } = await publicKey.get();
+  let kid: string;
+  let key: KeyLike;
+  try {
+    ({ kid, key } = await publicKey.get());
+  } catch (error) {
+    // Not an error with which a framework controls the render, which the
+    // cache does not wrap
+    if (!(error instanceof KeySetError)) {
+      throw error;
+    }
+    warnFlagValuesLeftOut(error);
+    return '';
+  }
   const jwt = new EncryptJWT({
     pur: policy.purpose,
     ver: policy.version,
@@ -72,6 +93,19 @@ export async function encryptFlagValuesForPlatform(
     jwt.setExpirationTime(expirationTime);
   }
   return jwt.encrypt(key);
+}
+
+/**
+ * Warns that a page has no flag values for the Vercel Toolbar.
+ *
+ * @internal
+ */
+export function warnFlagValuesLeftOut(cause: unknown): void {
+  warnWithCooldown(
+    `flags: The flag values for the Vercel Toolbar are left out of the page. ${
+      cause instanceof Error ? cause.message : String(cause)
+    }`,
+  );
 }
 
 /**
