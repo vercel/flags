@@ -148,6 +148,13 @@ function parseLinkedProjectId(
   }
 }
 
+/**
+ * The key set did not load.
+ *
+ * @internal
+ */
+export class KeySetError extends Error {}
+
 const KEY_SET_POLICY = Object.freeze({
   cacheMaxAgeMs: 300_000,
   staleMaxAgeMs: 600_000,
@@ -284,7 +291,7 @@ export function createKeySetCache<T>(
       if (cause instanceof Error && 'digest' in cause) {
         throw cause;
       }
-      error = new Error(
+      error = new KeySetError(
         `flags: Could not load ${description} from ${url}: ${
           cause instanceof Error ? cause.message : String(cause)
         }.`,

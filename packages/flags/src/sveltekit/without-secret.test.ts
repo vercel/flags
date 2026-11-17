@@ -82,9 +82,20 @@ describe('SvelteKit without FLAGS_SECRET', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringMatching(
-        /^flags: Could not encrypt the flag values for the Vercel Toolbar\. .*status 503/,
+        /^flags: The flag values for the Vercel Toolbar are left out of the page\. .*status 503/,
       ),
     );
+  });
+
+  it('returns an empty string from encryptFlagValues when the key does not load', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 404 })),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(encryptFlagValues({ 'summer-sale': true })).resolves.toBe('');
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it('renders the page without the flag values when the project is not known', async () => {
