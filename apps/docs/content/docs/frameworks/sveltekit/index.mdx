@@ -52,6 +52,21 @@ npm i -g vercel@latest
    ```
 
    You only need a `FLAGS_SECRET` to use the Flags SDK outside of Vercel, to [precompute](/frameworks/sveltekit/precompute) flags in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), or when your project does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
+4. On SvelteKit 3, declare the variables that the Flags SDK reads. SvelteKit 3 only exposes the environment variables that `src/env.ts` declares, so without this step the Flags SDK does not see the variables of `.env.local` in local development and local builds:
+
+   ```ts title="src/env.ts"
+   import { defineEnvVars } from '@sveltejs/kit/env';
+
+   const optional = (value: string | undefined) => value;
+
+   export const variables = defineEnvVars({
+     VERCEL_OIDC_TOKEN: { schema: optional },
+   });
+   ```
+
+   Keep the schema optional, because a declaration without a schema requires the variable to be set. If your project has a `FLAGS_SECRET` or a `FLAGS_PRECOMPUTE_SECRET`, declare it the same way.
+
+   SvelteKit 2 needs no declaration.
 
 ## Add the toolbar locally
 
@@ -139,7 +154,7 @@ npm i -g vercel@latest
    export const handle = createHandle({ flags });
    ```
 
-   If your project has a `FLAGS_SECRET`, `createHandle` reads it from `$env/static/private`, or you can pass it as `createHandle({ secret, flags })`.
+   If your project has a `FLAGS_SECRET`, `createHandle` reads it from `$env/static/private`, or you can pass it as `createHandle({ secret, flags })`. On SvelteKit 3, `FLAGS_SECRET` must be declared in `src/env.ts`, as shown above.
 
 4. You can now use this flag in code. Evaluate the flag on the server, and forward the value to the client:
 
