@@ -48,129 +48,81 @@ import { FlagSelect, FlagToggle } from './toggles';
 // Code samples. They use the public API of `flags` v5, and match the docs.
 // -----------------------------------------------------------------------------
 
-const sharedFlagsCode = `import { bindFlag, defineFlag, defineSource } from 'flags';
-import { VercelProvider } from '@vercel/flags-core/openfeature';
+// A gradual reveal: the import first, then where the flag comes from, then
+// what happens behind the scenes.
 
-const vercel = defineSource({
-  provider: new VercelProvider(), // any OpenFeature provider
-  getEvaluationContext: (_input, request) => ({
-    user: request?.cookies?.get('user-id')?.value,
-  }),
-});
+const importCode = `import { enableSale } from 'flags:self';
 
-// A flag of a provider
-export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
+const sale = await enableSale();`;
 
-// A flag which the code decides
-export const betaBanner = defineFlag({
-  key: 'beta-banner',
-  decide: (_context, request) =>
-    request?.cookies?.get('beta')?.value === '1',
+const providerCode = `import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export default new VercelProvider();`;
+
+const contextCode = `export default (_input, request) => ({
+  user: request?.cookies?.get('user-id')?.value,
+});`;
+
+const generatedCode = `const source = defineSource({ provider, getEvaluationContext });
+
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source,
+  options: [false, true],
+});`;
+
+const inlineCode = `import { defineFlag } from 'flags';
+
+export const enableSale = defineFlag({
+  key: 'enableSale',
+  decide: () => Date.now() > SALE_START,
 });`;
 
 const frameworks: { name: string; filename: string; code: string }[] = [
   {
     name: 'Next.js',
     filename: 'app/page.tsx',
-    code: `import { summerSale } from '../flags';
-
-export default async function Page() {
-  const sale = await summerSale();
-  return sale ? <SaleBanner /> : null;
+    code: `export default async function Page() {
+  return (await enableSale()) ? <Sale /> : null;
 }`,
   },
   {
     name: 'SvelteKit',
     filename: 'src/routes/+page.server.ts',
-    code: `import { summerSale } from '$lib/flags';
-
-export async function load() {
-  return { sale: await summerSale() };
-}`,
+    code: `export const load = async () => ({
+  sale: await enableSale(),
+});`,
   },
   {
     name: 'Nuxt',
     filename: 'server/api/sale.get.ts',
-    code: `import { summerSale } from '../../lib/flags';
-
-export default defineEventHandler(async () => ({
-  sale: await summerSale(),
+    code: `export default defineEventHandler(async () => ({
+  sale: await enableSale(),
 }));`,
   },
   {
     name: 'TanStack Start',
     filename: 'src/routes/index.tsx',
-    code: `import { createServerFn } from '@tanstack/react-start';
-import { summerSale } from '../flags';
-
-const getSale = createServerFn({ method: 'GET' }).handler(() =>
-  summerSale(),
-);`,
+    code: `const getSale = createServerFn().handler(() => enableSale());`,
   },
   {
     name: 'Hono',
     filename: 'src/server.ts',
-    code: `import { flags } from '@flags-sdk/hono';
-import { summerSale } from './flags';
-
-app.use(flags());
-app.get('/', async (c) => c.json({ sale: await summerSale() }));`,
+    code: `app.use(flags());
+app.get('/', async (c) => c.json({ sale: await enableSale() }));`,
   },
   {
     name: 'Express',
     filename: 'src/server.ts',
-    code: `import { flags } from '@flags-sdk/express';
-import { summerSale } from './flags';
-
-app.use(flags());
-app.get('/', async (req, res) => res.json({ sale: await summerSale() }));`,
+    code: `app.use(flags());
+app.get('/', async (req, res) => res.json({ sale: await enableSale() }));`,
   },
   {
     name: 'Node.js',
     filename: 'server.ts',
-    code: `import { runtime } from 'flags';
-import { summerSale } from './flags';
-
-// No framework: give the runtime each request
-const sale = await runtime.onInvoke(request, () => summerSale());`,
+    code: `const sale = await runtime.onInvoke(request, () => enableSale());`,
   },
 ];
-
-const inlineFlagCode = `import { defineFlag } from 'flags';
-
-export const newCheckout = defineFlag({
-  key: 'new-checkout',
-  options: [false, true] as const,
-  decide: (context: { plan: string }) => context.plan === 'pro',
-});
-
-await newCheckout({ evaluationContext: { plan: 'pro' } }); // true`;
-
-const boundFlagCode = `import { bindFlag, defineSource } from 'flags';
-import { LaunchDarklyProvider } from '@launchdarkly/openfeature-node-server';
-
-const launchdarkly = defineSource({
-  provider: new LaunchDarklyProvider(process.env.LD_SDK_KEY),
-});
-
-export const pricing = bindFlag({
-  key: 'pricing-page',
-  source: launchdarkly,
-  type: 'string',
-  defaultValue: 'control',
-});`;
-
-const generatedLayoutCode = `flags/sources/shop/
-  catalog.ts    # lists the flags of the provider
-  provider.ts   # export default new VercelProvider()
-  context.ts    # export default (input, request) => ({ ... })`;
-
-const generatedImportCode = `import { evaluate } from 'flags';
-// Generated from the catalog of the source: typed, with JSDoc
-import { checkout, 'summer-sale' as summerSale } from 'flags:shop';
-
-const [sale, flow] = await evaluate([summerSale, checkout]);
-//     ^ boolean  ^ 'control' | 'express' | (string & {})`;
 
 // -----------------------------------------------------------------------------
 // Content
@@ -318,6 +270,29 @@ function DocsButton({ href, label }: { href: string; label: string }) {
   );
 }
 
+function RevealStep({
+  step,
+  title,
+  description,
+  children,
+}: {
+  step: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-20">
+      <div className="grid content-start gap-2">
+        <span className="font-mono text-copy-14 text-gray-900">{step}</span>
+        <h3 className="text-heading-20 sm:text-heading-24">{title}</h3>
+        <p className="max-w-md text-gray-900">{description}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default async function HomePage({
   params,
 }: {
@@ -403,6 +378,104 @@ export default async function HomePage({
       </section>
 
       <div className="grid">
+        {/* The reveal */}
+        <div className="grid gap-10 py-8 sm:py-12">
+          <SectionHeading
+            title="A flag is an import"
+            description="Start with the simplest thing that works. Then look behind the curtain: there is no magic, only a few lines of plain code."
+          >
+            <DocsButton
+              href="/docs/getting-started/quickstart"
+              label="Quickstart"
+            />
+          </SectionHeading>
+          <RevealStep
+            step="1"
+            title="Import a flag, and call it"
+            description="Each flag of your provider is a typed import. Call it on the server, in any framework."
+          >
+            <HighlightedCode
+              code={importCode}
+              lang="typescript"
+              filename="app/page.tsx"
+              caption="The whole API, for most of your code"
+            />
+          </RevealStep>
+          <RevealStep
+            step="2"
+            title="It comes from your provider"
+            description="A folder in flags/sources connects a provider. The provider is any OpenFeature provider. The context tells it who the user is."
+          >
+            <div className="grid gap-6">
+              <HighlightedCode
+                code={providerCode}
+                lang="typescript"
+                filename="flags/sources/self/provider.ts"
+                caption="Any OpenFeature provider"
+              />
+              <HighlightedCode
+                code={contextCode}
+                lang="typescript"
+                filename="flags/sources/self/context.ts"
+                caption="The evaluation context, once per request"
+              />
+            </div>
+          </RevealStep>
+          <RevealStep
+            step="3"
+            title="Behind the scenes"
+            description="Code generation reads the flags of your provider, and writes plain code: one source, and one flag for each key. You can write the same code by hand."
+          >
+            <HighlightedCode
+              code={generatedCode}
+              lang="typescript"
+              filename=".flags/self.ts"
+              caption="What flags:self contains (simplified)"
+            />
+          </RevealStep>
+          <RevealStep
+            step="4"
+            title="Or decide in code"
+            description="Not every flag needs a provider. An inline flag decides its value in your code, and gets the same overrides, caching and types."
+          >
+            <HighlightedCode
+              code={inlineCode}
+              lang="typescript"
+              filename="flags.ts"
+              caption="An inline flag"
+            />
+          </RevealStep>
+        </div>
+
+        {/* Every framework */}
+        <div className="grid gap-8 py-8 sm:py-12">
+          <SectionHeading
+            title="Same flag, every framework"
+            description="Each framework gets a small package that connects the request. Your flags never change."
+          >
+            <DocsButton href="/docs/frameworks" label="All frameworks" />
+          </SectionHeading>
+          <TabsWithChildren
+            ariaLabel="Framework"
+            tabs={frameworks.map((framework) => framework.name)}
+          >
+            {frameworks.map((framework, index) => (
+              <TabContent
+                className="mt-4"
+                key={framework.name}
+                order={index + 1}
+              >
+                <HighlightedCode
+                  code={framework.code}
+                  lang="tsx"
+                  filename={framework.filename}
+                  caption={`enableSale in ${framework.name}`}
+                />
+              </TabContent>
+            ))}
+          </TabsWithChildren>
+        </div>
+
         {/* Pillars */}
         <div className="grid gap-8 py-8 sm:py-20">
           <SectionHeading
@@ -421,94 +494,6 @@ export default async function HomePage({
                 </p>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Define once, use everywhere */}
-        <div className="grid gap-8 py-8 sm:py-12">
-          <SectionHeading
-            title="Define once. Use everywhere."
-            description="Your flags live in plain TypeScript. Each framework gets a small package that connects the request, so your flag code never changes."
-          >
-            <DocsButton href="/docs/frameworks" label="All frameworks" />
-          </SectionHeading>
-          <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
-            <HighlightedCode
-              code={sharedFlagsCode}
-              lang="typescript"
-              filename="flags.ts"
-              caption="One flags file, for every framework"
-            />
-            <TabsWithChildren
-              ariaLabel="Framework"
-              tabs={frameworks.map((framework) => framework.name)}
-            >
-              {frameworks.map((framework, index) => (
-                <TabContent
-                  className="mt-4"
-                  key={framework.name}
-                  order={index + 1}
-                >
-                  <HighlightedCode
-                    code={framework.code}
-                    lang="tsx"
-                    filename={framework.filename}
-                    caption={`Using the flag in ${framework.name}`}
-                  />
-                </TabContent>
-              ))}
-            </TabsWithChildren>
-          </div>
-        </div>
-
-        {/* Two kinds of flags */}
-        <div className="grid gap-8 py-8 sm:py-12">
-          <SectionHeading
-            title="Decide in code, or ask a provider"
-            description="An inline flag decides its value in your code. A provider flag asks an OpenFeature provider. Both get overrides, hooks, caching and types."
-          >
-            <DocsButton href="/docs/flags" label="Learn about flags" />
-          </SectionHeading>
-          <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
-            <HighlightedCode
-              code={inlineFlagCode}
-              lang="typescript"
-              filename="flags.ts"
-              caption="An inline flag with defineFlag"
-            />
-            <HighlightedCode
-              code={boundFlagCode}
-              lang="typescript"
-              filename="flags.ts"
-              caption="A flag of a provider with bindFlag"
-            />
-          </div>
-        </div>
-
-        {/* Code generation */}
-        <div className="grid gap-8 py-8 sm:py-12">
-          <SectionHeading
-            title="Write it by hand, or generate it"
-            description="Point the SDK at your provider, and import its flags by name. Code generation writes the same defineSource and bindFlag code you would write yourself, so you can start by hand and switch any time."
-          >
-            <DocsButton
-              href="/docs/flags/code-generation"
-              label="Code generation"
-            />
-          </SectionHeading>
-          <div className="grid grid-cols-1 gap-6 md:gap-20 md:grid-cols-2">
-            <HighlightedCode
-              code={generatedLayoutCode}
-              lang="bash"
-              filename="flags/sources"
-              caption="One folder for each source"
-            />
-            <HighlightedCode
-              code={generatedImportCode}
-              lang="typescript"
-              filename="app/page.tsx"
-              caption="Typed imports, kept in sync with your provider"
-            />
           </div>
         </div>
 
