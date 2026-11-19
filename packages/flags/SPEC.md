@@ -307,6 +307,10 @@ const launchdarkly = defineSource({
 });
 ```
 
+- `project` is optional. It names the flag project for tools, e.g. the
+  links of Flags Explorer. Without it, the flags work the same, and the
+  flags manifest names no source for them. A system which is not in the
+  list, e.g. Statsig, has no `project` until it adds itself.
 - `project.system` is one of a fixed list of systems. The system
   determines which other fields are required (`ProjectFieldsBySystem`), e.g.
   `launchdarkly` requires `projectId` and `teamId`, `in-memory` requires none.

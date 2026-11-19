@@ -92,7 +92,12 @@ export interface SourceOptions<
    * The OpenFeature provider used to evaluate flags.
    */
   provider: P;
-  project: { system: N } & CommonProjectFields & ProjectFieldsBySystem[N];
+  /**
+   * The flag project in the flag management system, e.g. for the links of
+   * Flags Explorer to the dashboard. Optional: without it, the flags work
+   * the same, but the manifest names no source for them.
+   */
+  project?: { system: N } & CommonProjectFields & ProjectFieldsBySystem[N];
   /**
    * OpenFeature hooks for the flags of this source. They run after the
    * hooks of the configuration, and before the hooks of the call side and of
@@ -137,7 +142,7 @@ export interface Source<
   In = DefaultSourceInput,
 > {
   readonly provider: P;
-  readonly project: Project<N>;
+  readonly project?: Project<N>;
   readonly hooks?: readonly Hook[];
   getEvaluationContext?(
     context: In,
@@ -164,20 +169,26 @@ export function defineSource<
   C extends EvaluationContext = EvaluationContext,
   In = DefaultSourceInput,
 >(options: SourceOptions<P, N, C, In>): Source<P, N, C, In> {
-  if (Object.hasOwn(options.project, 'platform')) {
-    throw new TypeError(
-      'flags: Use `system` instead of `platform` for the flag management system of a project.',
-    );
-  }
-  const { systemManifest } = options.project as CommonProjectFields;
-  if (systemManifest !== undefined && !isSafeUrl(systemManifest)) {
-    throw new TypeError(
-      'flags: The systemManifest of a project must be an HTTPS URL.',
-    );
+  const { project } = options;
+  if (project !== undefined) {
+    if (Object.hasOwn(project, 'platform')) {
+      throw new TypeError(
+        'flags: Use `system` instead of `platform` for the flag management system of a project.',
+      );
+    }
+    const { systemManifest } = project as CommonProjectFields;
+    if (systemManifest !== undefined && !isSafeUrl(systemManifest)) {
+      throw new TypeError(
+        'flags: The systemManifest of a project must be an HTTPS URL.',
+      );
+    }
   }
   const source: Source<P, N, C, In> = Object.freeze({
     provider: options.provider,
-    project: Object.freeze({ ...options.project }) as unknown as Project<N>,
+    project:
+      project === undefined
+        ? undefined
+        : (Object.freeze({ ...project }) as unknown as Project<N>),
     getEvaluationContext: options.getEvaluationContext,
     hooks: options.hooks ? Object.freeze([...options.hooks]) : undefined,
   });

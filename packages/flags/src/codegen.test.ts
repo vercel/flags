@@ -43,10 +43,8 @@ describe('renderSourceModule', () => {
     expect(code).not.toContain('catalog');
   });
 
-  it('uses an in-memory project without a project in the catalog', () => {
-    expect(renderSourceModule('site', { flags: {} })).toContain(
-      'project: {"system":"in-memory"},',
-    );
+  it('writes no project without a project in the catalog', () => {
+    expect(renderSourceModule('site', { flags: {} })).not.toContain('project:');
   });
 
   it('gives a flag with variants of mixed types the type object', () => {

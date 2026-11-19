@@ -69,9 +69,11 @@ describe('defineSource', () => {
     expectTypeOf(source.provider).toEqualTypeOf<
       TypedInMemoryProvider<typeof myFlags>
     >();
-    expectTypeOf(source.project.system).toEqualTypeOf<'launchdarkly'>();
-    expectTypeOf(source.project.projectId).toEqualTypeOf<string>();
-    expectTypeOf(source.project.teamId).toEqualTypeOf<string>();
+    expectTypeOf(source.project?.system).toEqualTypeOf<
+      'launchdarkly' | undefined
+    >();
+    expectTypeOf(source.project?.projectId).toEqualTypeOf<string | undefined>();
+    expectTypeOf(source.project?.teamId).toEqualTypeOf<string | undefined>();
   });
 
   it('supports platforms without project fields', () => {
@@ -81,9 +83,11 @@ describe('defineSource', () => {
     });
 
     expect(source.project).toEqual({ system: 'in-memory' });
-    expectTypeOf(source.project.system).toEqualTypeOf<'in-memory'>();
+    expectTypeOf(source.project?.system).toEqualTypeOf<
+      'in-memory' | undefined
+    >();
     // @ts-expect-error in-memory has no projectId
-    source.project.projectId;
+    source.project?.projectId;
   });
 
   it('accepts a vercel-flags project with or without projectId and teamId', () => {
@@ -106,8 +110,12 @@ describe('defineSource', () => {
       },
     });
 
-    expectTypeOf(source.project.projectId).toEqualTypeOf<string | undefined>();
-    expectTypeOf(source.project.teamId).toEqualTypeOf<string | undefined>();
+    expectTypeOf(source.project?.projectId).toEqualTypeOf<
+      string | undefined | undefined
+    >();
+    expectTypeOf(source.project?.teamId).toEqualTypeOf<
+      string | undefined | undefined
+    >();
   });
 
   it('rejects invalid projects at the type level', () => {
@@ -169,5 +177,22 @@ describe('defineSource', () => {
     ).toThrow(
       'flags: Use `system` instead of `platform` for the flag management system of a project.',
     );
+  });
+});
+
+describe('a source without a project', () => {
+  it('evaluates its flags, and the manifest names no source', async () => {
+    const { bindFlag } = await import('./flag');
+    const { createManifest } = await import('./manifest');
+    const source = defineSource({
+      provider: new TypedInMemoryProvider(myFlags),
+    });
+    const flag = bindFlag({ key: 'v2_enabled', source });
+
+    expect(source.project).toBeUndefined();
+    await expect(flag()).resolves.toBe(true);
+    const manifest = createManifest([{ id: 'flags.ts', exports: { flag } }]);
+    expect(manifest.sources).toEqual({});
+    expect(manifest.definitions.v2_enabled?.source).toBeUndefined();
   });
 });

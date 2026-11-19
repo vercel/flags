@@ -82,7 +82,9 @@ describe('bindFlag', () => {
       teamId: 'y',
     });
     expectTypeOf(flag.key).toEqualTypeOf<'v2_enabled'>();
-    expectTypeOf(flag.source.project.teamId).toEqualTypeOf<string>();
+    expectTypeOf(flag.source.project?.teamId).toEqualTypeOf<
+      string | undefined
+    >();
   });
 
   it('passes an empty context and a logger to the provider', async () => {
