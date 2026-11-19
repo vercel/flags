@@ -119,6 +119,30 @@ describe('flag value types', () => {
     expectTypeOf(flag).returns.resolves.toEqualTypeOf<FlagObjectValue>();
   });
 
+  it('gives an object flag any JSON value, as resolveObjectEvaluation does', async () => {
+    // e.g. a flag whose variants mix objects, null and strings
+    let value: unknown = null;
+    const provider: Provider = {
+      metadata: { name: 'json' },
+      resolveBooleanEvaluation: async () => ({ value: false }),
+      resolveObjectEvaluation: async () => ({ value: value as never }),
+    };
+    const flag = defineFlag({
+      key: 'settings',
+      type: 'object',
+      source: defineSource({ provider, project: { system: 'in-memory' } }),
+    });
+
+    await expect(flag()).resolves.toBeNull();
+    value = 'off';
+    await expect(flag()).resolves.toBe('off');
+    value = [1, 'two'];
+    await expect(flag()).resolves.toEqual([1, 'two']);
+    // A value which is not JSON still fails
+    value = () => {};
+    await expect(flag()).rejects.toMatchObject({ code: 'TYPE_MISMATCH' });
+  });
+
   it('gives the types of the flags to evaluate', async () => {
     const c = source();
     const sale = defineFlag({ key: 'summer-sale', source: c });

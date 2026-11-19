@@ -14,6 +14,7 @@ const catalog: Catalog = {
     checkout: { variants: ['control', 'express'] },
     'max-items': { variants: [10, 20] },
     theme: { variants: [{ color: 'blue' }, { color: 'red' }] },
+    mixed: { variants: [{ mode: 'dark' }, null, 'off'] },
     // A key which is not a valid name of a variable
     'with"quote': { variants: [true] },
   },
@@ -48,21 +49,18 @@ describe('renderSourceModule', () => {
     );
   });
 
-  it('skips a flag whose variants do not have one type', () => {
+  it('gives a flag with variants of mixed types the type object', () => {
     const code = renderSourceModule('site', {
       flags: {
         mixed: { variants: [{ a: 1 }, null, 'text', 1, [1]] },
         empty: { variants: [] },
-        fine: { variants: [true] },
       },
     });
 
     expect(code).toContain(
-      '// Skipped "mixed": its variants are not all booleans, strings, numbers or objects.',
+      'type: "object",\n  options: [{"value":{"a":1}},{"value":null},{"value":"text"},{"value":1},{"value":[1]}],',
     );
-    expect(code).toContain('// Skipped "empty":');
-    expect(code).not.toContain('key: "mixed"');
-    expect(code).toContain('key: "fine"');
+    expect(code).toContain('key: "empty",\n  source,\n  type: "object",');
   });
 
   it('rejects a name which can not be a directory', () => {
@@ -147,12 +145,14 @@ describe('the types of a generated module', () => {
   it('gives each flag its type and its context', () => {
     expect(
       check(`
-        import { checkout, 'max-items' as maxItems, 'summer-sale' as summerSale, theme } from 'flags:site';
+        import { checkout, 'max-items' as maxItems, mixed, 'summer-sale' as summerSale, theme } from 'flags:site';
         const ctx = { evaluationContext: { teamId: 'acme' } };
         const sale: Promise<boolean> = summerSale(ctx);
         const flow: Promise<'control' | 'express' | (string & {})> = checkout(ctx);
         const items: Promise<number> = maxItems(ctx);
         void theme(ctx);
+        const json: Promise<import('flags').FlagObjectValue> = mixed(ctx);
+        void json;
         void [sale, flow, items];
       `),
     ).toEqual([]);

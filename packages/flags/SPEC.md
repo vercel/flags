@@ -423,7 +423,9 @@ const checkout = defineFlag({
   code without TypeScript, `defineFlag` logs a warning, e.g. `The
   defaultValue of flag "a" is not a boolean. Set type to use a different
   type.` An unknown `type` throws.
-- `object` means a JSON object or a JSON array.
+- `object` means any JSON value, as with `resolveObjectEvaluation` of
+  OpenFeature: usually an object or an array, but also a string, a number, a
+  boolean or `null`, e.g. for a flag whose variants mix types.
 - The type selects the method of the provider: `resolveBooleanEvaluation`,
   `resolveStringEvaluation`, `resolveNumberEvaluation` or
   `resolveObjectEvaluation`. Only the boolean method is required in the type
@@ -445,8 +447,8 @@ const checkout = defineFlag({
   the other values of the type, e.g. `'control' | 'express' | (string & {})`.
   The editor suggests the options, and the type stays true at runtime. For
   `boolean`, it is `boolean`.
-- An option of an `object` flag must be `{ value }`, because a JSON object and
-  an option object look the same. Otherwise, `defineFlag` throws.
+- An option of an `object` flag must be `{ value }`, because a JSON value and
+  an option object can look the same. Otherwise, `bindFlag` throws.
 - A `defaultValue` that is not one of the options is a warning at runtime.
 
 #### Overrides and evaluate
@@ -1513,10 +1515,10 @@ source. If a catalog fails, the last modules stay. It also writes
 `.flags/aliases.json` (`{ "flags:shop": "./.flags/shop.ts" }`) for the
 framework plugins, and `.flags/catalog.json`, a summary.
 
-A flag whose variants are not all of one type (boolean, string, number or
-object), e.g. objects and `null`, is skipped: the module has a comment,
-and the generation logs a warning. OpenFeature evaluates a flag with the
-method of one type, so the SDK can not evaluate such a flag.
+The type of a flag is `boolean`, `string` or `number` if all its variants
+have that type, else `object`. A flag of the type `object` takes any JSON
+value, as `resolveObjectEvaluation` of OpenFeature does, so a flag whose
+variants mix types, e.g. objects and `null`, also works.
 
 There is no check that the project of the provider is the project of the
 catalog: OpenFeature providers do not give their project.

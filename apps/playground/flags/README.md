@@ -19,7 +19,8 @@ during `pnpm dev`. `pnpm flags:sync` generates one time without Next.js. The
 generated module is a `'use flags'` module with one `defineSource` and one
 `bindFlag` for each flag.
 
-A flag whose variants mix types, e.g. objects and `null`, is skipped with a
-warning, because OpenFeature evaluates each flag with one type.
+A flag whose variants mix types, e.g. objects and `null`, gets the type
+`object`, which takes any JSON value, as the object method of OpenFeature
+does.
 
 Run `vercel link` and `vercel env pull` for the OIDC token of the project.

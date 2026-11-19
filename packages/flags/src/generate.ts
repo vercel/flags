@@ -20,7 +20,7 @@ import {
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Catalog, CatalogLoader } from './catalog';
-import { assertSourceName, flagTypeOf, renderSourceModule } from './codegen';
+import { assertSourceName, renderSourceModule } from './codegen';
 import { GENERATED_DIRECTORY } from './generated-directory';
 
 export { GENERATED_DIRECTORY };
@@ -152,15 +152,6 @@ async function writeModules(
     catalog,
     code: renderSourceModule(name, catalog),
   }));
-  for (const { name, catalog } of modules) {
-    for (const [key, flag] of Object.entries(catalog.flags)) {
-      if (flagTypeOf(flag.variants) === undefined) {
-        console.warn(
-          `flags: Skipped flag ${JSON.stringify(key)} of the source ${JSON.stringify(name)}, because its variants are not all booleans, strings, numbers or objects.`,
-        );
-      }
-    }
-  }
   const output = path.join(directory, GENERATED_DIRECTORY);
   await mkdir(output, { recursive: true });
   const aliases: FlagsAliases = {};

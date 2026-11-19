@@ -2,7 +2,7 @@ import {
   'fake-hat-checkout-experiment' as checkout,
   flag0,
   'test-string' as offer,
-  'test-object-flag' as settings,
+  'json-flag' as settings,
 } from 'flags:site';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -186,16 +186,15 @@ export default async function Home() {
           </article>
           <article className="result-card">
             <div className="card-label">
-              Object <span>03</span>
+              JSON <span>03</span>
             </div>
-            <h3>test-object-flag</h3>
+            <h3>json-flag</h3>
             <pre className="json-value" data-testid="settings">
               {JSON.stringify(configuration, null, 2)}
             </pre>
             <p className="card-note">
-              An object flag. A flag whose variants mix types, e.g. objects and
-              null, is not generated, because OpenFeature evaluates each flag
-              with one type.
+              Objects, strings, and null in one flag, through the object method
+              of OpenFeature.
             </p>
           </article>
         </div>

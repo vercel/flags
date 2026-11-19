@@ -13,36 +13,28 @@ export function assertSourceName(name: string): void {
   }
 }
 
-function typeOfVariant(value: unknown): FlagType | undefined {
-  if (typeof value === 'boolean') {
-    return 'boolean';
-  }
-  if (typeof value === 'string') {
-    return 'string';
-  }
-  if (typeof value === 'number') {
-    return 'number';
-  }
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return 'object';
-  }
-  return undefined;
-}
-
 /**
- * The type of a flag from its variants, or `undefined` if the variants do
- * not have one type. OpenFeature evaluates each flag with the method of one
- * type, so such a flag can not be generated.
+ * The type of a flag from its variants: `boolean`, `string` or `number` if
+ * all variants have that type, else `object`. A flag of the type `object`
+ * can have any JSON value, as with `resolveObjectEvaluation` of
+ * OpenFeature, so it also takes variants of mixed types, e.g. objects and
+ * `null`.
  *
  * @internal
  */
-export function flagTypeOf(variants: readonly unknown[]): FlagType | undefined {
-  const types = new Set(variants.map(typeOfVariant));
-  const [type] = types;
-  if (types.size !== 1) {
-    return undefined;
+export function flagTypeOf(variants: readonly unknown[]): FlagType {
+  if (variants.length > 0) {
+    if (variants.every((value) => typeof value === 'boolean')) {
+      return 'boolean';
+    }
+    if (variants.every((value) => typeof value === 'string')) {
+      return 'string';
+    }
+    if (variants.every((value) => typeof value === 'number')) {
+      return 'number';
+    }
   }
-  return type;
+  return 'object';
 }
 
 function jsDoc(description: string): string[] {
@@ -61,9 +53,8 @@ function jsDoc(description: string): string[] {
  * `'use flags'` directive, one `defineSource` with the provider and the
  * context of `flags/sources/<source>`, and one `bindFlag` for each flag of
  * the catalog. The module is in `.flags`, so it imports the files of the
- * source with `../flags/sources/<source>/`. A flag whose variants do not
- * have one type is skipped, with a comment in the module (see
- * `flagTypeOf`).
+ * source with `../flags/sources/<source>/`. The type of each flag comes
+ * from its variants (see `flagTypeOf`).
  *
  * The same code can be written by hand.
  */
@@ -91,15 +82,8 @@ export function renderSourceModule(name: string, catalog: Catalog): string {
   );
   for (const [index, [key, flag]] of entries.entries()) {
     const type = flagTypeOf(flag.variants);
-    if (type === undefined) {
-      lines.push(
-        `// Skipped ${JSON.stringify(key)}: its variants are not all booleans, strings, numbers or objects.`,
-        '',
-      );
-      continue;
-    }
-    // An option of an object flag must be { value }, because a JSON object
-    // and an option object look the same
+    // An option of an object flag must be { value }, because a JSON value
+    // and an option object can look the same
     const options =
       type === 'object'
         ? JSON.stringify(flag.variants.map((value) => ({ value })))
