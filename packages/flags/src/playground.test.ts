@@ -5,9 +5,13 @@
  *
  * Keep this file up to date when you add a feature.
  */
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateFlags } from './generate';
 import {
   bindFlag,
   decryptOverrides,
@@ -1064,5 +1068,69 @@ describe('14. Discovery for Flags Explorer', () => {
     registerFlags({ plain: { key: 'plain', source: remote } });
 
     expect(runtime.sources.has(remote)).toBe(true);
+  });
+});
+
+describe('15. Code generation from catalogs', () => {
+  // An application puts each source into flags/sources/<source>:
+  // catalog.ts (the flags, for the code generation), provider.ts (the
+  // OpenFeature provider) and context.ts (getEvaluationContext).
+  // `flags sync`, `flags watch` or a framework plugin write the module of
+  // flags:<source> into .flags. It is the same code as defineSource and
+  // bindFlag by hand.
+
+  it('writes the module of flags:<source> from flags/sources/<source>', async () => {
+    const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
+    try {
+      const shop = join(app, 'flags/sources/shop');
+      await mkdir(shop, { recursive: true });
+      await writeFile(
+        join(shop, 'catalog.ts'),
+        `import type { CatalogLoader } from 'flags';
+        // Usually loaded from the flag management system
+        const loadCatalog: CatalogLoader = async () => ({
+          flags: {
+            'summer-sale': { variants: [false, true], description: 'The sale' },
+          },
+        });
+        export default loadCatalog;`,
+      );
+      await writeFile(
+        join(shop, 'provider.ts'),
+        `import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+        export default new TypedInMemoryProvider({
+          'summer-sale': {
+            variants: { on: true, off: false },
+            defaultVariant: 'off',
+            disabled: false,
+            contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+          },
+        });`,
+      );
+      await writeFile(
+        join(shop, 'context.ts'),
+        `import type { FlagsRequest } from 'flags';
+        export default (_input: unknown, request: FlagsRequest | undefined) => ({
+          user: request?.cookies?.get('user')?.value ?? 'anonymous',
+        });`,
+      );
+
+      // e.g. `flags sync`. The framework plugin points flags:shop to it.
+      expect(await generateFlags(app)).toEqual({
+        'flags:shop': './.flags/shop.ts',
+      });
+
+      // import { 'summer-sale' as summerSale } from 'flags:shop';
+      const { 'summer-sale': summerSale } = await import(
+        pathToFileURL(join(app, '.flags/shop.ts')).href
+      );
+      const request = new Request('https://shop.example', {
+        headers: { cookie: 'user=alice' },
+      });
+      expect(await runtime.onInvoke(request, () => summerSale())).toBe(true);
+      expect(summerSale.description).toBe('The sale');
+    } finally {
+      await rm(app, { recursive: true, force: true });
+    }
   });
 });

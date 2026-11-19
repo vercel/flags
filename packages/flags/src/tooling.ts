@@ -6,9 +6,17 @@
  * Flags SDK itself uses them in the same way.
  */
 export { MANIFEST_FILE, writeManifestFromBuild } from './build-manifest';
+export { renderSourceModule } from './codegen';
 export { findConfigFile } from './config-file';
 export { hasUseFlagsDirective } from './directive';
 export { findFlagsModules } from './find-flags-modules';
+export {
+  type FlagsAliases,
+  GENERATED_DIRECTORY,
+  generateFlags,
+  type WatchResult,
+  watchFlags,
+} from './generate';
 export { addSelfRegistration } from './self-registration';
 export { optionIndex } from './value-types';
 

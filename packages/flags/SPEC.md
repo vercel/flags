@@ -197,7 +197,7 @@ test apps keep working.
 | M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. The Flags Discovery Endpoint with `flags/discovery`, added by hand. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. | Done |
-| M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts`. | |
+| M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
 | M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground`. | |
 | M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | |
 
@@ -1155,8 +1155,10 @@ provide the same itself.
 - `flags/tooling` is the public API for framework packages and build tools:
   `findFlagsModules`, `hasUseFlagsDirective`, `addSelfRegistration`,
   `writeManifestFromBuild`, `MANIFEST_FILE`, `findConfigFile`,
-  `optionIndex`, and `registerFramework`. It is part of the contract of a
-  framework binding.
+  `optionIndex`, `registerFramework`, and the code generation:
+  `generateFlags`, `watchFlags`, `renderSourceModule` and
+  `GENERATED_DIRECTORY` (see "Code generation"). It is part of the
+  contract of a framework binding.
 - `registerFramework(setupFramework)` registers a binding without the
   alias of `flags/framework`, for a runtime which loads `flags` from
   `node_modules`, e.g. Nitro in development. The first binding wins, as
@@ -1460,6 +1462,76 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
 - `reportValue` is a different mechanism: it reports values on the server,
   through `@vercel/request-context`. `@vercel/flags-core` already reports
   each evaluation of `VercelProvider` in this way.
+
+## Code generation
+
+Code generation is optional. It writes the same code as `defineSource`
+and `bindFlag` by hand, from a catalog of the flag management system.
+Then the application imports the flags of a source by its name:
+
+```ts
+import { 'summer-sale' as summerSale } from 'flags:shop';
+```
+
+### The files of a source
+
+Each source is a directory `flags/sources/<source>`, with three files. Each
+file has a default export:
+
+| File | Default export | Runs |
+| --- | --- | --- |
+| `catalog.ts` | A `CatalogLoader`: returns one `Catalog`, or yields a complete `Catalog` first and again after each change | In Node.js, at the generation only |
+| `provider.ts` | The OpenFeature provider | In the application |
+| `context.ts` | `getEvaluationContext(input, request)`, as for `defineSource` | In the application |
+
+A `Catalog` has `flags` (for each key: `variants` and an optional
+`description`), an optional `project` (as for `defineSource`, e.g. for the
+links of Flags Explorer) and an optional `revision`. The name of a source
+must match `[a-z][a-z0-9_-]*`.
+
+### The generated module
+
+`.flags/<source>.ts` starts with `'use flags'`, so the framework plugins
+register it, and `findFlagsModules` finds it (`.flags` is the only hidden
+directory it reads). It has one `defineSource` with `provider.ts`,
+`context.ts` and the `project` of the catalog (`{ system: 'in-memory' }`
+without one), and one `bindFlag` for each flag, sorted by key:
+
+- `type` comes from the variants. All variants of a flag must have one
+  type, because OpenFeature evaluates a flag with the method of one type.
+- `options` are the variants of the catalog. They do not limit the value
+  (see "Options").
+- `description` is also JSDoc, so the editor shows it.
+- The exports have the keys as names (`export { flag_0 as "summer-sale" }`),
+  so a key can have any characters.
+
+The generation imports only `catalog.ts`. It checks that each source has
+the three files before it runs a catalog. It renders all modules before it
+writes one, and writes a file only when its content changes, with a rename,
+so a watcher never sees half a file. It removes the module of a removed
+source. If a catalog fails, the last modules stay. It also writes
+`.flags/aliases.json` (`{ "flags:shop": "./.flags/shop.ts" }`) for the
+framework plugins, and `.flags/catalog.json`, a summary.
+
+There is no check that the project of the provider is the project of the
+catalog: OpenFeature providers do not give their project.
+
+### The commands
+
+- `flags sync [dir] [--production]` generates one time, from the first
+  catalog of each source, and closes the catalogs.
+- `flags watch [dir] [--production] [-- command ...args]` generates again
+  after each change of a catalog. It starts the command after the first
+  generation, and stops when the command ends, or on SIGINT and SIGTERM.
+  A change of a file of a source needs a restart.
+- Both load the `.env` files of the directory first, for the credentials of
+  the catalogs: `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`. An
+  earlier file and a variable which is set already win. The mode is
+  `production` with `--production` or `NODE_ENV=production`.
+
+For TypeScript, the application adds `"paths": { "flags:*": ["./.flags/*"] }`
+to `tsconfig.json`. Because the module imports `.ts` files, it also needs
+`allowImportingTsExtensions`.
 
 ## Discovery
 

@@ -1,3 +1,9 @@
+export type {
+  Catalog,
+  CatalogFlag,
+  CatalogLoader,
+  CatalogLoadOptions,
+} from './catalog';
 export {
   type Config,
   type ConfiguredConnection,
