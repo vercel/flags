@@ -1,7 +1,12 @@
-import type { RequestInputs } from 'flags';
+import type { FlagsRequest } from 'flags';
 
-export default async function getEvaluationContext({ cookies }: RequestInputs) {
-  const id = cookies.get('demo-visitor')?.value ?? 'visitor-1';
+// The evaluation context of all flags of this source, once per request. The
+// visitor cookie is demo identity data.
+export default function getEvaluationContext(
+  _input: unknown,
+  request: FlagsRequest | undefined,
+) {
+  const id = request?.cookies?.get('demo-visitor')?.value ?? 'visitor-1';
   return {
     user: { id },
     visitor: { id },

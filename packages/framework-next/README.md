@@ -268,6 +268,37 @@ export default async function Page({
 - Precompute is not a part of the standard of the SDK. It uses only its
   public API.
 
+## Code generation
+
+With `codeGeneration`, `withFlags` writes the modules of `flags:<source>`
+from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
+"Code generation"):
+
+```ts
+// next.config.ts
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { codeGeneration: true });
+```
+
+```ts
+// app/page.tsx
+import { checkout, 'summer-sale' as summerSale } from 'flags:shop';
+```
+
+- `withFlags` then returns a function of the phase. `next build` generates
+  one time and closes the catalogs. `next dev` generates and watches the
+  catalogs. `next start` does no catalog work.
+- Next.js loads the configuration more than once, also in its workers. One
+  process owns the generation, and the others see its PID in the
+  environment.
+- `withFlags` points the aliases of `.flags/aliases.json` to the modules,
+  also without `codeGeneration`, e.g. after `flags sync` or with
+  `flags watch -- next dev`.
+- Add `"paths": { "flags:*": ["./.flags/*"] }` and
+  `"allowImportingTsExtensions": true` to `tsconfig.json`, and `.flags` to
+  `.gitignore`.
+
 ## Discovery
 
 Put your flags into modules which start with `'use flags'`, and add one

@@ -20,7 +20,7 @@ import {
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Catalog, CatalogLoader } from './catalog';
-import { assertSourceName, renderSourceModule } from './codegen';
+import { assertSourceName, flagTypeOf, renderSourceModule } from './codegen';
 import { GENERATED_DIRECTORY } from './generated-directory';
 
 export { GENERATED_DIRECTORY };
@@ -83,14 +83,39 @@ async function findSources(directory: string): Promise<string[]> {
   return names;
 }
 
+/**
+ * A native `import()`. The CommonJS build turns a plain `import()` into
+ * `require()`, which can not load `catalog.ts` as a module of Node.js with
+ * its types stripped, e.g. when Next.js loads `withFlags` as CommonJS.
+ */
+const nativeImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<unknown>;
+
+async function importModule(specifier: string): Promise<unknown> {
+  try {
+    return await nativeImport(specifier);
+  } catch (error) {
+    // In a VM context without an import callback, e.g. in a test runner
+    if (
+      (error as { code?: unknown } | null)?.code ===
+      'ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING'
+    ) {
+      return import(specifier);
+    }
+    throw error;
+  }
+}
+
 async function importCatalogLoader(
   directory: string,
   name: string,
 ): Promise<CatalogLoader> {
   const file = path.join(directory, 'flags', 'sources', name, 'catalog.ts');
-  const { default: loadCatalog } = (await import(pathToFileURL(file).href)) as {
+  const loaded = (await importModule(pathToFileURL(file).href)) as {
     default?: unknown;
   };
+  const loadCatalog = loaded.default;
   if (typeof loadCatalog !== 'function') {
     throw new Error(
       `flags: flags/sources/${name}/catalog.ts must have a default export which loads the catalog.`,
@@ -127,6 +152,15 @@ async function writeModules(
     catalog,
     code: renderSourceModule(name, catalog),
   }));
+  for (const { name, catalog } of modules) {
+    for (const [key, flag] of Object.entries(catalog.flags)) {
+      if (flagTypeOf(flag.variants) === undefined) {
+        console.warn(
+          `flags: Skipped flag ${JSON.stringify(key)} of the source ${JSON.stringify(name)}, because its variants are not all booleans, strings, numbers or objects.`,
+        );
+      }
+    }
+  }
   const output = path.join(directory, GENERATED_DIRECTORY);
   await mkdir(output, { recursive: true });
   const aliases: FlagsAliases = {};

@@ -30,16 +30,17 @@ function typeOfVariant(value: unknown): FlagType | undefined {
 }
 
 /**
- * The type of a flag from its variants. All variants must have one type,
- * because OpenFeature evaluates each flag with the method of one type.
+ * The type of a flag from its variants, or `undefined` if the variants do
+ * not have one type. OpenFeature evaluates each flag with the method of one
+ * type, so such a flag can not be generated.
+ *
+ * @internal
  */
-function typeOfFlag(key: string, variants: readonly unknown[]): FlagType {
+export function flagTypeOf(variants: readonly unknown[]): FlagType | undefined {
   const types = new Set(variants.map(typeOfVariant));
   const [type] = types;
-  if (types.size !== 1 || type === undefined) {
-    throw new Error(
-      `flags: The variants of flag ${JSON.stringify(key)} must all be booleans, strings, numbers or objects.`,
-    );
+  if (types.size !== 1) {
+    return undefined;
   }
   return type;
 }
@@ -60,7 +61,9 @@ function jsDoc(description: string): string[] {
  * `'use flags'` directive, one `defineSource` with the provider and the
  * context of `flags/sources/<source>`, and one `bindFlag` for each flag of
  * the catalog. The module is in `.flags`, so it imports the files of the
- * source with `../flags/sources/<source>/`.
+ * source with `../flags/sources/<source>/`. A flag whose variants do not
+ * have one type is skipped, with a comment in the module (see
+ * `flagTypeOf`).
  *
  * The same code can be written by hand.
  */
@@ -87,7 +90,14 @@ export function renderSourceModule(name: string, catalog: Catalog): string {
     a.localeCompare(b, 'en'),
   );
   for (const [index, [key, flag]] of entries.entries()) {
-    const type = typeOfFlag(key, flag.variants);
+    const type = flagTypeOf(flag.variants);
+    if (type === undefined) {
+      lines.push(
+        `// Skipped ${JSON.stringify(key)}: its variants are not all booleans, strings, numbers or objects.`,
+        '',
+      );
+      continue;
+    }
     // An option of an object flag must be { value }, because a JSON object
     // and an option object look the same
     const options =

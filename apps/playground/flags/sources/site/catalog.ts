@@ -24,7 +24,8 @@ export function catalogFromDatafile(datafile: DatafileInput): Catalog {
   );
 
   return {
-    id: `${datafile.projectId}/${datafile.environment}`,
+    // For the links of Flags Explorer
+    project: { system: 'vercel-flags', projectId: datafile.projectId },
     revision: datafile.revision,
     flags,
   };

@@ -21,14 +21,30 @@ import type { NextConfig } from 'next';
 export { findConfigFile };
 
 import { findConfigFile, MANIFEST_FILE } from 'flags/tooling';
+import { prepareCodeGeneration, readAliases } from './code-generation';
 
 export interface FlagsPluginOptions {
   /**
    * The directory of the application, where the plugin looks for
-   * `flags.config.ts`. The default is the current directory.
+   * `flags.config.ts` and `flags/sources`. The default is the current
+   * directory.
    */
   readonly dir?: string;
+  /**
+   * Generates the modules of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`: one time for `next build`, and again after
+   * each change of a catalog for `next dev`. Then `withFlags` returns a
+   * function of the phase, which Next.js calls.
+   *
+   * Without it, `withFlags` still gives Turbopack the aliases of
+   * `.flags/aliases.json`, e.g. from `flags sync` or `flags watch`.
+   */
+  readonly codeGeneration?: boolean;
 }
+
+// The phases of Next.js, as in next/constants
+const PHASE_DEVELOPMENT_SERVER = 'phase-development-server';
+const PHASE_PRODUCTION_BUILD = 'phase-production-build';
 
 // Next.js can load the configuration more than once during one build, e.g.
 // in the workers of the build. They inherit the environment of the main
@@ -184,20 +200,52 @@ function turbopackRules(
  *   that `@flags-sdk/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  * - With Cache Components, `FlagValues` encrypts in `'use cache'`, so that
  *   a static page can have encrypted flag values.
+ * - The aliases `flags:<source>` point to the generated modules in
+ *   `.flags`. With `codeGeneration`, it also generates them.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
  * configuration. A build with webpack throws.
  */
 export function withFlags<T extends object>(
+  config?: T,
+  options?: FlagsPluginOptions & { readonly codeGeneration?: false },
+): T;
+/**
+ * Adds the Flags SDK to the configuration of Next.js, and generates the
+ * modules of `flags:<source>` from the catalogs of `flags/sources`. Returns
+ * a function of the phase, which Next.js calls.
+ */
+export function withFlags<T extends object>(
+  config: T,
+  options: FlagsPluginOptions & { readonly codeGeneration: true },
+): (phase: string) => Promise<T>;
+export function withFlags<T extends object>(
   config: T = {} as T,
   options: FlagsPluginOptions = {},
-): T {
+): T | ((phase: string) => Promise<T>) {
+  const dir = options.dir ?? process.cwd();
+  if (!options.codeGeneration) {
+    return addFlags(config, dir);
+  }
+  return async (phase) => {
+    // `next start` and the other phases do no catalog work
+    if (phase === PHASE_DEVELOPMENT_SERVER) {
+      await prepareCodeGeneration(dir, true);
+    } else if (phase === PHASE_PRODUCTION_BUILD) {
+      await prepareCodeGeneration(dir, false);
+    }
+    return addFlags(config, dir);
+  };
+}
+
+function addFlags<T extends object>(config: T, dir: string): T {
   // Typed loosely, so a `next` version other than ours does not clash.
   const nextConfig: NextConfig = config;
-  const dir = options.dir ?? process.cwd();
   const configFile = findConfigFile(dir);
 
   const turbopackAliases: Record<string, string> = {
+    // The generated modules of flags:<source>, relative to the project
+    ...readAliases(dir),
     'flags/framework': '@flags-sdk/next/binding',
   };
   if (usesCacheComponents(nextConfig)) {

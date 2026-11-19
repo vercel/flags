@@ -11,12 +11,15 @@
     "flags:sync": "flags sync",
     "flags:watch": "flags watch",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test flags/*.test.ts"
+    "test": "node --test utils/*.test.ts"
   },
   "dependencies": {
+    "@flags-sdk/next": "workspace:*",
+    "@openfeature/core": "1.12.0",
+    "@openfeature/server-sdk": "1.23.0",
     "@vercel/flags-core": "workspace:*",
     "@vercel/oidc": "3.5.0",
-    "flags": "workspace:../../packages/flags-protocol",
+    "flags": "workspace:*",
     "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"

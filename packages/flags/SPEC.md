@@ -198,7 +198,7 @@ test apps keep working.
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. The Flags Discovery Endpoint with `flags/discovery`, added by hand. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
-| M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground`. | |
+| M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground` on the SDK with real Vercel Flags. | Done |
 | M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | |
 
 In M4, the flags manifest changed its fields: `connections` became
@@ -1497,8 +1497,8 @@ directory it reads). It has one `defineSource` with `provider.ts`,
 `context.ts` and the `project` of the catalog (`{ system: 'in-memory' }`
 without one), and one `bindFlag` for each flag, sorted by key:
 
-- `type` comes from the variants. All variants of a flag must have one
-  type, because OpenFeature evaluates a flag with the method of one type.
+- `type` comes from the variants (see below for variants of more than one
+  type).
 - `options` are the variants of the catalog. They do not limit the value
   (see "Options").
 - `description` is also JSDoc, so the editor shows it.
@@ -1512,6 +1512,11 @@ so a watcher never sees half a file. It removes the module of a removed
 source. If a catalog fails, the last modules stay. It also writes
 `.flags/aliases.json` (`{ "flags:shop": "./.flags/shop.ts" }`) for the
 framework plugins, and `.flags/catalog.json`, a summary.
+
+A flag whose variants are not all of one type (boolean, string, number or
+object), e.g. objects and `null`, is skipped: the module has a comment,
+and the generation logs a warning. OpenFeature evaluates a flag with the
+method of one type, so the SDK can not evaluate such a flag.
 
 There is no check that the project of the provider is the project of the
 catalog: OpenFeature providers do not give their project.

@@ -1,3 +1,5 @@
-import { withFlags } from 'flags/next/config';
+import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({}, { directory: import.meta.dirname });
+// withFlags generates the modules of flags:<source> from flags/sources:
+// one time for next build, and after each change of a catalog for next dev
+export default withFlags({}, { codeGeneration: true });

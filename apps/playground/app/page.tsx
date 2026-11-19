@@ -2,9 +2,8 @@ import {
   'fake-hat-checkout-experiment' as checkout,
   flag0,
   'test-string' as offer,
-  'json-flag' as settings,
+  'test-object-flag' as settings,
 } from 'flags:site';
-import { getScope } from 'flags/next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -29,13 +28,32 @@ async function changeVisitor(formData: FormData) {
   redirect('/');
 }
 
+/**
+ * Whether the variant of the checkout experiment shows free shipping. The
+ * provider can return a variant which the code does not know yet, so the
+ * page checks the shape.
+ */
+function showsFreeShipping(variant: unknown): boolean {
+  const params = (variant as { params?: unknown } | null)?.params;
+  return (
+    typeof params === 'object' &&
+    params !== null &&
+    (params as { displayFreeShippingLabel?: unknown })
+      .displayFreeShippingLabel === true
+  );
+}
+
+function variantIdOf(variant: unknown): string {
+  const id = (variant as { variantId?: unknown } | null)?.variantId;
+  return typeof id === 'string' ? id : 'unknown';
+}
+
 export default async function Home() {
-  // All four calls share one connection context within this request.
+  // All four flags share one evaluation context of the source in this
+  // request: getEvaluationContext runs once.
   const [enabled, checkoutVariant, currentOffer, configuration] =
     await Promise.all([flag0(), checkout(), offer(), settings()]);
-  const scope = await getScope();
-  const visitor =
-    scope.inputs.cookies.get('demo-visitor')?.value ?? 'visitor-1';
+  const visitor = (await cookies()).get('demo-visitor')?.value ?? 'visitor-1';
 
   return (
     <main>
@@ -99,10 +117,9 @@ export default async function Home() {
         </div>
         <ExampleFeature />
         <p className="lede">
-          Change <code>enable-example-feature</code> in Vercel Flags, then reload
-          this page. The Server Component evaluates the flag for the
-          current
-       visitor.
+          Change <code>enable-example-feature</code> in Vercel Flags, then
+          reload this page. The Server Component evaluates the flag for the
+          current visitor.
         </p>
       </section>
 
@@ -138,22 +155,6 @@ export default async function Home() {
               <code>visitor.id</code>.
             </p>
           </form>
-          <div className="request-stats">
-            <div>
-              <strong data-testid="evaluations">
-                {scope.stats.evaluations}
-              </strong>
-              <span title="Calls in app/page.tsx. ExampleFeature makes one more call.">
-                Page flag calls
-              </span>
-            </div>
-            <div>
-              <strong data-testid="context-loads">
-                {scope.stats.contextLoads}
-              </strong>
-              <span>Context resolution</span>
-            </div>
-          </div>
         </div>
         <div className="results-grid">
           <article className="result-card">
@@ -162,13 +163,13 @@ export default async function Home() {
             </div>
             <h3>fake-hat-checkout-experiment</h3>
             <p className="flag-value" data-testid="shipping">
-              {checkoutVariant.params.displayFreeShippingLabel
+              {showsFreeShipping(checkoutVariant)
                 ? 'Free shipping'
                 : 'Standard shipping'}
             </p>
             <p className="card-note">
-              Variant {checkoutVariant.variantId}. Change the visitor ID to test
-              assignment.
+              Variant {variantIdOf(checkoutVariant)}. Change the visitor ID to
+              test assignment.
             </p>
           </article>
           <article className="result-card">
@@ -185,14 +186,16 @@ export default async function Home() {
           </article>
           <article className="result-card">
             <div className="card-label">
-              JSON union <span>03</span>
+              Object <span>03</span>
             </div>
-            <h3>json-flag</h3>
+            <h3>test-object-flag</h3>
             <pre className="json-value" data-testid="settings">
               {JSON.stringify(configuration, null, 2)}
             </pre>
             <p className="card-note">
-              Objects, strings, and null keep their types.
+              An object flag. A flag whose variants mix types, e.g. objects and
+              null, is not generated, because OpenFeature evaluates each flag
+              with one type.
             </p>
           </article>
         </div>
@@ -213,10 +216,13 @@ export default async function Home() {
         </div>
         <pre>
           <code>{`// flags/sources/site/context.ts
-import type { RequestInputs } from 'flags';
+import type { FlagsRequest } from 'flags';
 
-export default async function getEvaluationContext({ cookies }: RequestInputs) {
-  const id = cookies.get('demo-visitor')?.value
+export default function getEvaluationContext(
+  _input: unknown,
+  request: FlagsRequest | undefined,
+) {
+  const id = request?.cookies?.get('demo-visitor')?.value
     ?? 'visitor-1';
   return { user: { id }, visitor: { id } };
 }`}</code>
@@ -227,8 +233,7 @@ export default async function getEvaluationContext({ cookies }: RequestInputs) {
         <span>Next.js × Vercel Flags</span>
         <span>
           {catalog.site.flags} available flags <span aria-hidden="true">·</span>{' '}
-          Catalog revision {catalog.site.revision}{' '}
-          <span aria-hidden="true">·</span> {catalog.site.id.split('/').at(-1)}
+          Catalog revision {catalog.site.revision}
         </span>
       </footer>
     </main>

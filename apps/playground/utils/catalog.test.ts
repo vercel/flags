@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { DatafileInput } from '@vercel/flags-core';
-import { catalogFromDatafile } from './sources/site/catalog.ts';
-import { streamDatafiles } from './sources/site/stream.ts';
+import { catalogFromDatafile } from '../flags/sources/site/catalog.ts';
+import { streamDatafiles } from '../flags/sources/site/stream.ts';
 
 function datafile(revision: number): DatafileInput {
   return {

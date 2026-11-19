@@ -215,6 +215,15 @@ importers:
 
   apps/playground:
     dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../packages/framework-next
+      '@openfeature/core':
+        specifier: 1.12.0
+        version: 1.12.0
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../../packages/vercel-flags-core
@@ -222,8 +231,8 @@ importers:
         specifier: 3.5.0
         version: 3.5.0
       flags:
-        specifier: workspace:../../packages/flags-protocol
-        version: link:../../packages/flags-protocol
+        specifier: workspace:*
+        version: link:../../packages/flags
       next:
         specifier: 16.4.3
         version: 16.4.3(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@20.11.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -768,6 +777,43 @@ importers:
       tailwindcss:
         specifier: ^3.4.1
         version: 3.4.18(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  examples/standard/next-codegen:
+    dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../../packages/framework-next
+      '@openfeature/core':
+        specifier: 1.12.0
+        version: 1.12.0
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
+      flags:
+        specifier: workspace:*
+        version: link:../../../packages/flags
+      next:
+        specifier: 16.3.8
+        version: 16.3.8(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.14)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

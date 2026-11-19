@@ -48,15 +48,21 @@ describe('renderSourceModule', () => {
     );
   });
 
-  it('rejects variants of different types', () => {
-    expect(() =>
-      renderSourceModule('site', {
-        flags: { mixed: { variants: [1, 'one'] } },
-      }),
-    ).toThrow('flags: The variants of flag "mixed" must all be');
-    expect(() =>
-      renderSourceModule('site', { flags: { empty: { variants: [] } } }),
-    ).toThrow('flags: The variants of flag "empty" must all be');
+  it('skips a flag whose variants do not have one type', () => {
+    const code = renderSourceModule('site', {
+      flags: {
+        mixed: { variants: [{ a: 1 }, null, 'text', 1, [1]] },
+        empty: { variants: [] },
+        fine: { variants: [true] },
+      },
+    });
+
+    expect(code).toContain(
+      '// Skipped "mixed": its variants are not all booleans, strings, numbers or objects.',
+    );
+    expect(code).toContain('// Skipped "empty":');
+    expect(code).not.toContain('key: "mixed"');
+    expect(code).toContain('key: "fine"');
   });
 
   it('rejects a name which can not be a directory', () => {

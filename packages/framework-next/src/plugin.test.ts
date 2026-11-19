@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findConfigFile } from 'flags/tooling';
@@ -149,5 +155,62 @@ describe('Cache Components', () => {
         withFlags({ experimental: { dynamicIO: true } } as NextConfig, { dir }),
       ),
     ).toBe('@flags-sdk/next/encrypt-values-cached');
+  });
+});
+
+describe('code generation of flags:<source>', () => {
+  function projectWithSource() {
+    const dir = projectWith();
+    const source = join(dir, 'flags/sources/shop');
+    mkdirSync(source, { recursive: true });
+    writeFileSync(
+      join(source, 'catalog.ts'),
+      "export default () => ({ flags: { 'summer-sale': { variants: [false, true] } } });",
+    );
+    // The generation must not run them
+    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
+    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
+    return dir;
+  }
+
+  it('points flags:<source> to the modules of .flags/aliases.json', () => {
+    const dir = projectWith();
+    mkdirSync(join(dir, '.flags'));
+    writeFileSync(
+      join(dir, '.flags/aliases.json'),
+      JSON.stringify({ 'flags:shop': './.flags/shop.ts' }),
+    );
+
+    expect(
+      withFlags<NextConfig>({}, { dir }).turbopack?.resolveAlias,
+    ).toMatchObject({ 'flags:shop': './.flags/shop.ts' });
+  });
+
+  it('generates the modules for next build, then adds the aliases', async () => {
+    const dir = projectWithSource();
+    const config = withFlags<NextConfig>({}, { dir, codeGeneration: true });
+
+    expect(typeof config).toBe('function');
+    const resolved = await config('phase-production-build');
+
+    expect(resolved.turbopack?.resolveAlias).toMatchObject({
+      'flags:shop': './.flags/shop.ts',
+      'flags/framework': '@flags-sdk/next/binding',
+    });
+    expect(readFileSync(join(dir, '.flags/shop.ts'), 'utf8')).toContain(
+      'key: "summer-sale"',
+    );
+  });
+
+  it('does no catalog work for next start', async () => {
+    const dir = projectWithSource();
+    const config = withFlags<NextConfig>({}, { dir, codeGeneration: true });
+
+    const resolved = await config('phase-production-server');
+
+    expect(existsSync(join(dir, '.flags'))).toBe(false);
+    expect(resolved.turbopack?.resolveAlias).toEqual({
+      'flags/framework': '@flags-sdk/next/binding',
+    });
   });
 });
