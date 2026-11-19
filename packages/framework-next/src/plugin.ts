@@ -253,6 +253,10 @@ function addFlags<T extends object>(config: T, dir: string): T {
     // Without Cache Components, 'use cache' is an error.
     turbopackAliases['@flags-sdk/next/encrypt-values'] =
       '@flags-sdk/next/encrypt-values-cached';
+    // The check of a precomputed code uses WebCrypto, which a prerender
+    // counts as uncached data
+    turbopackAliases['@flags-sdk/next/verify-code'] =
+      '@flags-sdk/next/verify-code-cached';
   }
   if (configFile) {
     // Turbopack resolves a relative path from the directory of the project

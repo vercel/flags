@@ -44,3 +44,24 @@ test('the prerendered HTML has the encrypted flag values', async () => {
     'summer-sale': true,
   });
 });
+
+test('a precomputed page is prerendered for each code', () => {
+  // The codes of the build use its secret, so read the files of the build
+  const files = execFileSync('ls', ['.next/server/app/precomputed'], {
+    cwd: dir,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter((file) => file.endsWith('.html') && !file.startsWith('['));
+  // One page for false, one for true
+  expect(files).toHaveLength(2);
+  const pages = files.map((file) =>
+    readFileSync(new URL(`.next/server/app/precomputed/${file}`, dir), 'utf8'),
+  );
+  expect(pages.some((html) => html.includes('<p id="sale">true</p>'))).toBe(
+    true,
+  );
+  expect(pages.some((html) => html.includes('<p id="sale">false</p>'))).toBe(
+    true,
+  );
+});

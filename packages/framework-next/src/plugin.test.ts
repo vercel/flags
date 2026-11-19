@@ -156,6 +156,19 @@ describe('Cache Components', () => {
       ),
     ).toBe('@flags-sdk/next/encrypt-values-cached');
   });
+
+  it('lets precompute check its code in use cache only with Cache Components', () => {
+    const dir = projectWith();
+    const verifyAlias = (config: NextConfig) =>
+      (config.turbopack?.resolveAlias as Record<string, string> | undefined)?.[
+        '@flags-sdk/next/verify-code'
+      ];
+
+    expect(verifyAlias(withFlags<NextConfig>({}, { dir }))).toBeUndefined();
+    expect(
+      verifyAlias(withFlags<NextConfig>({ cacheComponents: true }, { dir })),
+    ).toBe('@flags-sdk/next/verify-code-cached');
+  });
 });
 
 describe('code generation of flags:<source>', () => {

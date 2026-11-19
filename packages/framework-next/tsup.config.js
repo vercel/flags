@@ -9,7 +9,7 @@ const keepReplaceableImports = {
   name: 'keep-replaceable-imports',
   setup(build) {
     build.onResolve(
-      { filter: /^@flags-sdk\/next\/encrypt-values$/ },
+      { filter: /^@flags-sdk\/next\/(encrypt-values|verify-code)$/ },
       (args) => ({
         path: args.path,
         external: true,
@@ -27,6 +27,8 @@ export default defineConfig({
     // Separate entries, so that withFlags can replace one with the other
     'encrypt-values': 'src/encrypt-values.ts',
     'encrypt-values-cached': 'src/encrypt-values-cached.ts',
+    'verify-code': 'src/verify-code.ts',
+    'verify-code-cached': 'src/verify-code-cached.ts',
     manifest: 'src/manifest.ts',
     'use-flags-loader': 'src/use-flags-loader.ts',
     'manifest-loader': 'src/manifest-loader.ts',
