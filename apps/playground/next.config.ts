@@ -1,7 +1,3 @@
-import type { NextConfig } from 'next';
+import { withFlags } from 'flags/next/config';
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
+export default withFlags({}, { directory: import.meta.dirname });
