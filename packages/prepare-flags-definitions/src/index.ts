@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { version as PACKAGE_VERSION } from '../package.json';
 
@@ -566,13 +566,41 @@ async function writeSnapshots(
   output: Output | undefined,
 ): Promise<void> {
   await mkdir(snapshotsDir, { recursive: true });
+  const stats = await lstat(snapshotsDir);
+  if (!stats.isDirectory()) {
+    output?.debug(
+      `vercel-flags: skipping snapshots, ${snapshotsDir} is not a directory`,
+    );
+    return;
+  }
+
   await Promise.all(
     entries
       .filter((entry) => SNAPSHOT_KEY_REGEX.test(entry.key))
       .map(async (entry) => {
         const snapshotPath = join(snapshotsDir, `${entry.key}.json`);
-        await writeFile(snapshotPath, JSON.stringify(entry.definitions));
+        await writeFileAtomically(
+          snapshotPath,
+          JSON.stringify(entry.definitions),
+        );
         output?.debug(`  → ${snapshotPath}`);
       }),
   );
+}
+
+/**
+ * Writes to a new file and renames it into place, so an existing file or
+ * symlink at `path` is replaced instead of written through.
+ */
+async function writeFileAtomically(
+  path: string,
+  content: string,
+): Promise<void> {
+  const tempPath = `${path}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(tempPath, content, { flag: 'wx' });
+    await rename(tempPath, path);
+  } finally {
+    await rm(tempPath, { force: true });
+  }
 }

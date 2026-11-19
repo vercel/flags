@@ -1,4 +1,13 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -586,6 +595,45 @@ describe('prepareFlagsDefinitions', () => {
           'utf8',
         ).then(JSON.parse),
       ).resolves.toEqual(expected);
+    });
+
+    it('replaces a symlink at a snapshot path instead of writing through it', async () => {
+      const outside = join(snapshotsDir, '..', 'outside.txt');
+      await writeFile(outside, 'original');
+      await mkdir(snapshotsDir, { recursive: true });
+      await symlink(outside, join(snapshotsDir, 'prj_oidc_test.json'));
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-symlink',
+        env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test') },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      await expect(readFile(outside, 'utf8')).resolves.toBe('original');
+      const snapshotPath = join(snapshotsDir, 'prj_oidc_test.json');
+      expect((await lstat(snapshotPath)).isSymbolicLink()).toBe(false);
+      await expect(
+        readFile(snapshotPath, 'utf8').then(JSON.parse),
+      ).resolves.toEqual({ flag_a: { value: true }, fetchedAt: FETCH_TIME });
+      await expect(readdir(snapshotsDir)).resolves.toEqual([
+        'prj_oidc_test.json',
+      ]);
+    });
+
+    it('does not write through a snapshotsDir that is a symlink', async () => {
+      const outsideDir = join(snapshotsDir, '..', 'outside');
+      await mkdir(outsideDir);
+      await symlink(outsideDir, snapshotsDir);
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-symlink-dir',
+        env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test') },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      await expect(readdir(outsideDir)).resolves.toEqual([]);
     });
 
     it('does not create the directory when there are no flags entries', async () => {
