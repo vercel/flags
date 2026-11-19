@@ -283,6 +283,8 @@ const SDK_KEY_REGEX = /^vf_(?:server|client)_/;
 
 /** Same shape the flags service accepts: `prj_…` or legacy `Qm…` ids. */
 const PROJECT_ID_REGEX = /^[A-Za-z0-9_]{1,64}$/;
+/** Project IDs and SDK key hashes; anything else is unsafe as a file name. */
+const SNAPSHOT_KEY_REGEX = /^[A-Za-z0-9_]{1,64}$/;
 
 /**
  * Asks the API which projects granted this deployment's project access to
@@ -436,6 +438,12 @@ export async function prepareFlagsDefinitions(options: {
   userAgentSuffix?: string;
   fetch?: typeof globalThis.fetch;
   output?: Output;
+  /**
+   * When set, each datafile is also written to `<snapshotsDir>/<key>.json`,
+   * keyed by project ID or SDK key hash like the generated module, so build
+   * tools can embed it into the deployment's functions.
+   */
+  snapshotsDir?: string;
 }): Promise<PrepareFlagsDefinitionsResult> {
   const {
     cwd,
@@ -443,6 +451,7 @@ export async function prepareFlagsDefinitions(options: {
     userAgentSuffix,
     fetch: fetchFn = globalThis.fetch,
     output,
+    snapshotsDir,
   } = options;
 
   output?.debug('vercel-flags: checking env vars for SDK Keys and OIDC Token');
@@ -544,5 +553,26 @@ export async function prepareFlagsDefinitions(options: {
   output?.debug(`  → ${dtsPath}`);
   output?.debug(`  → ${packageJsonPath}`);
 
+  if (snapshotsDir) {
+    await writeSnapshots(snapshotsDir, validEntries, output);
+  }
+
   return { created: true, entryCount: entries.length };
+}
+
+async function writeSnapshots(
+  snapshotsDir: string,
+  entries: DefinitionsEntry[],
+  output: Output | undefined,
+): Promise<void> {
+  await mkdir(snapshotsDir, { recursive: true });
+  await Promise.all(
+    entries
+      .filter((entry) => SNAPSHOT_KEY_REGEX.test(entry.key))
+      .map(async (entry) => {
+        const snapshotPath = join(snapshotsDir, `${entry.key}.json`);
+        await writeFile(snapshotPath, JSON.stringify(entry.definitions));
+        output?.debug(`  → ${snapshotPath}`);
+      }),
+  );
 }

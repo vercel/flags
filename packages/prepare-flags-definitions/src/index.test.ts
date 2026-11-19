@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -541,6 +541,82 @@ describe('prepareFlagsDefinitions', () => {
 
       export const version = "1.0.1";"
     `);
+  });
+
+  describe('snapshotsDir', () => {
+    let snapshotsDir: string;
+
+    beforeEach(async () => {
+      snapshotsDir = join(
+        await mkdtemp(join(tmpdir(), 'flags-snapshots-')),
+        'vercel-flags',
+      );
+    });
+
+    afterEach(async () => {
+      await rm(join(snapshotsDir, '..'), { recursive: true, force: true });
+    });
+
+    it('writes each datafile keyed by project ID and SDK key hash', async () => {
+      const mockFetch = mockFetchWithSources(
+        okJson({ flag_a: { value: true } }),
+      );
+
+      const result = await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots',
+        env: {
+          VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test'),
+          FLAGS: 'vf_server_test_key_123',
+        },
+        fetch: mockFetch,
+        snapshotsDir,
+      });
+
+      expect(result).toEqual({ created: true, entryCount: 2 });
+
+      const expected = { flag_a: { value: true }, fetchedAt: FETCH_TIME };
+      await expect(
+        readFile(join(snapshotsDir, 'prj_oidc_test.json'), 'utf8').then(
+          JSON.parse,
+        ),
+      ).resolves.toEqual(expected);
+      await expect(
+        readFile(
+          join(snapshotsDir, `${hashSdkKey('vf_server_test_key_123')}.json`),
+          'utf8',
+        ).then(JSON.parse),
+      ).resolves.toEqual(expected);
+    });
+
+    it('does not create the directory when there are no flags entries', async () => {
+      const result = await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-empty',
+        env: {},
+        fetch: vi.fn(),
+        snapshotsDir,
+      });
+
+      expect(result).toEqual({ created: false, reason: 'no-flags-entries' });
+      await expect(readdir(snapshotsDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    it('does not write snapshots when the option is not set', async () => {
+      const mockFetch = mockFetchWithSources(
+        okJson({ flag_a: { value: true } }),
+      );
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-unset',
+        env: { FLAGS: 'vf_server_test_key_123' },
+        fetch: mockFetch,
+      });
+
+      await expect(readdir(snapshotsDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
   });
 
   it('retries transient failures and succeeds', async () => {
