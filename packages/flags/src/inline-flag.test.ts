@@ -222,7 +222,9 @@ describe('defineFlag with decide', () => {
       decide: (context: { teamId: string }) =>
         context.teamId === 'acme' ? 'pro' : 'free',
     });
-    expectTypeOf(plan).returns.resolves.toEqualTypeOf<'free' | 'pro'>();
+    expectTypeOf(plan).returns.resolves.toEqualTypeOf<
+      'free' | 'pro' | (string & {})
+    >();
     expectTypeOf(plan).toBeCallableWith({
       evaluationContext: { teamId: 'acme' },
     });

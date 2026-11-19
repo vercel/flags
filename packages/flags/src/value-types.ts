@@ -51,13 +51,28 @@ export type FlagOptionsOf<T extends FlagType> = T extends 'object'
 type OptionValue<O> = O extends FlagOptionObject<infer V> ? V : O;
 
 /**
- * The value of a flag: the union of its options, if it has a fixed list of
- * options, else the value of its type.
+ * The values of each type which are not in a fixed list of options. A
+ * provider can return a value which the code does not know yet, e.g. a
+ * variant which was added after the deployment. `string & {}` keeps the
+ * options as suggestions in the editor.
+ */
+interface OtherValues {
+  boolean: never;
+  string: string & {};
+  number: number & {};
+  object: FlagObjectValue;
+}
+
+/**
+ * The value of a flag: the union of its options and of the other values of
+ * its type, if it has a fixed list of options, else the value of its type.
  */
 export type FlagValueFrom<
   T extends FlagType,
   O extends readonly unknown[],
-> = number extends O['length'] ? FlagValueOf<T> : OptionValue<O[number]>;
+> = number extends O['length']
+  ? FlagValueOf<T>
+  : OptionValue<O[number]> | OtherValues[T];
 
 const types: readonly FlagType[] = ['boolean', 'string', 'number', 'object'];
 

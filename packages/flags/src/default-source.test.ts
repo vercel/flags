@@ -10,6 +10,7 @@ import {
 } from 'vitest';
 import { defineConfig } from './config';
 import {
+  createVercelOfrepProvider,
   resetProductionWarning,
   VERCEL_OFREP_BASE_URL,
 } from './default-provider';
@@ -84,13 +85,41 @@ describe('built-in default source', () => {
     );
   });
 
+  it('throws for now, and tells what to do', async () => {
+    await expect(defineFlag({ key: 'a' })()).rejects.toMatchObject({
+      name: 'FlagEvaluationError',
+      message:
+        'flags: Could not evaluate flag "a": A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
+    });
+  });
+
+  it('returns the default value of a flag', async () => {
+    await expect(defineFlag({ key: 'a', defaultValue: false })()).resolves.toBe(
+      false,
+    );
+  });
+});
+
+// The OFREP provider of Vercel Flags. The built-in default source does not
+// use it for now, but it stays for later.
+describe('createVercelOfrepProvider', () => {
+  const ofrepFlag = () => {
+    runtime.configure({
+      defaultSource: defineSource({
+        provider: createVercelOfrepProvider(),
+        project: { system: 'vercel-flags' },
+      }),
+    });
+    return defineFlag({ key: 'a' });
+  };
+
   it('uses OFREP with the OIDC token of vercel env pull', async () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-1');
     const fetch = ofrepServer(true);
     vi.stubGlobal('fetch', fetch);
 
     await expect(
-      defineFlag({ key: 'a' })({ evaluationContext: { user: 'alice' } }),
+      ofrepFlag()({ evaluationContext: { user: 'alice' } }),
     ).resolves.toBe(true);
 
     const [url, init] = fetch.mock.calls[0] ?? [];
@@ -109,7 +138,7 @@ describe('built-in default source', () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-1');
     const fetch = ofrepServer(true);
     vi.stubGlobal('fetch', fetch);
-    const flag = defineFlag({ key: 'a' });
+    const flag = ofrepFlag();
 
     await flag();
     vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-2');
@@ -121,7 +150,7 @@ describe('built-in default source', () => {
   });
 
   it('throws when the project is not connected to Vercel', async () => {
-    await expect(defineFlag({ key: 'a' })()).rejects.toMatchObject({
+    await expect(ofrepFlag()()).rejects.toMatchObject({
       name: 'FlagEvaluationError',
       message:
         'flags: Could not evaluate flag "a": A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
@@ -129,7 +158,7 @@ describe('built-in default source', () => {
   });
 
   it('works after the project is connected', async () => {
-    const flag = defineFlag({ key: 'a' });
+    const flag = ofrepFlag();
     await expect(flag()).rejects.toThrow();
 
     vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-1');
@@ -137,29 +166,17 @@ describe('built-in default source', () => {
     await expect(flag()).resolves.toBe(true);
   });
 
-  describe('in production', () => {
-    beforeEach(() => {
-      vi.stubEnv('NODE_ENV', 'production');
-      vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-1');
-      vi.stubGlobal('fetch', ofrepServer(true));
-    });
+  it('logs one warning in production that OFREP is slow', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_OIDC_TOKEN', 'oidc-token-1');
+    vi.stubGlobal('fetch', ofrepServer(true));
+    const flag = ofrepFlag();
+    await flag();
+    await flag();
 
-    it('logs one warning that OFREP is slow', async () => {
-      const flag = defineFlag({ key: 'a' });
-      await flag();
-      await flag();
-
-      expect(warnings).toEqual([
-        'flags: Flags without a source use OFREP, which sends one request for each evaluation. For production, set a default source in flags.config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
-      ]);
-    });
-
-    it('logs no warning with a configured default source', async () => {
-      runtime.configure({ defaultSource: sourceOf(true) });
-      await defineFlag({ key: 'a' })();
-
-      expect(warnings).toEqual([]);
-    });
+    expect(warnings).toEqual([
+      'flags: Flags without a source use OFREP, which sends one request for each evaluation. For production, set a default source in flags.config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
+    ]);
   });
 });
 

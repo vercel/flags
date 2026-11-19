@@ -143,7 +143,7 @@ describe('flag value types', () => {
   });
 
   describe('options', () => {
-    it('makes the type the union of the options', async () => {
+    it('makes the type the union of the options and of other strings', async () => {
       const flag = defineFlag({
         key: 'checkout',
         type: 'string',
@@ -153,8 +153,9 @@ describe('flag value types', () => {
       });
 
       await expect(flag()).resolves.toBe('express');
+      // A provider can return a value which the code does not know yet
       expectTypeOf(flag).returns.resolves.toEqualTypeOf<
-        'control' | 'express' | 'one-click'
+        'control' | 'express' | 'one-click' | (string & {})
       >();
     });
 
@@ -174,7 +175,7 @@ describe('flag value types', () => {
         { value: 'express', label: 'Express checkout' },
       ]);
       expectTypeOf(flag).returns.resolves.toEqualTypeOf<
-        'control' | 'express'
+        'control' | 'express' | (string & {})
       >();
     });
 
@@ -188,7 +189,8 @@ describe('flag value types', () => {
       expect(flag.options).toEqual([{ value: true }, { value: false }]);
     });
 
-    it('fails for a value which is not one of the options', async () => {
+    it('returns a value which is not one of the options', async () => {
+      // e.g. a variant which the system added after the deployment
       const flag = defineFlag({
         key: 'unknown-checkout',
         type: 'string',
@@ -197,10 +199,8 @@ describe('flag value types', () => {
         source: source(),
       });
 
-      await expect(flag()).resolves.toBe('control');
-      expect(errors).toEqual([
-        'flags: Could not evaluate flag "unknown-checkout": The value is not one of the options: the string "future-variant". Returned the default value: "control".',
-      ]);
+      await expect(flag()).resolves.toBe('future-variant');
+      expect(errors).toEqual([]);
     });
 
     it('compares object options by their content', async () => {
@@ -364,20 +364,13 @@ describe('flag value types', () => {
       void (() => {
         // @ts-expect-error a number flag needs a number
         defineFlag({ key: 'a', type: 'number', defaultValue: 'x' });
-        // @ts-expect-error the defaultValue must be one of the options
-        defineFlag({
-          key: 'a',
-          type: 'string',
-          options: ['a', 'b'],
-          defaultValue: 'c',
-        });
         // @ts-expect-error the options must have the type of the flag
         defineFlag({ key: 'a', type: 'number', options: ['a'] });
       });
     });
 
-    it('warns at runtime about the same problems', () => {
-      // @ts-expect-error the defaultValue must be one of the options
+    it('warns at runtime about a defaultValue which is not an option', () => {
+      // A provider can return other values, so this is no type error
       defineFlag({
         key: 'a',
         type: 'string',
@@ -436,7 +429,7 @@ describe('flag value types', () => {
       ]);
     });
 
-    it('ignores an override which is not one of the options', async () => {
+    it('accepts an override which is not one of the options', async () => {
       const flag = defineFlag({
         key: 'checkout',
         type: 'string',
@@ -446,10 +439,8 @@ describe('flag value types', () => {
 
       await expect(
         withOverride({ checkout: 'unknown' }, () => flag()),
-      ).resolves.toBe('express');
-      expect(warnings).toEqual([
-        'flags: The override of flag "checkout" was ignored, because it is not one of the options.',
-      ]);
+      ).resolves.toBe('unknown');
+      expect(warnings).toEqual([]);
     });
   });
 });

@@ -33,12 +33,10 @@ import type {
   TrackingEventDetails,
 } from './types';
 import {
-  describeValue,
   type FlagOptionObject,
   type FlagType,
   type FlagValue,
   hasType,
-  isOption,
   placeholderOf,
   resolveMethodOf,
 } from './value-types';
@@ -67,8 +65,8 @@ export interface FlagDefinition {
    */
   readonly type?: FlagType;
   /**
-   * The values which the flag can have, as objects with a value. A value
-   * that is not one of them fails.
+   * The known values of the flag, as objects with a value. Other values of
+   * the type also go through.
    */
   readonly options?: readonly FlagOptionObject<FlagValue>[];
   /**
@@ -101,14 +99,9 @@ function defaultSourceOf(config: Config): Source | undefined {
 /**
  * Why a value does not fit a flag, or `undefined` if it fits.
  */
-function valueProblem(
-  value: unknown,
-  type: FlagType,
-  options: readonly FlagOptionObject<FlagValue>[] | undefined,
-): string | undefined {
-  if (!hasType(value, type)) return `it is not a ${type}`;
-  if (options && !isOption(value, options)) {
-    return 'it is not one of the options';
+function valueProblem(value: unknown, type: FlagType): string | undefined {
+  if (!hasType(value, type)) {
+    return `it is not a ${type}`;
   }
   return undefined;
 }
@@ -819,7 +812,7 @@ class RuntimeImpl {
     scope: RequestScope | undefined,
     setupError: unknown,
   ): Promise<FlagValue> {
-    const { key, defaultValue, options } = flag;
+    const { key, defaultValue } = flag;
     const type = flag.type ?? 'boolean';
     const source = flag.source ?? this.defaultSource;
     if (!isSource(source)) {
@@ -851,7 +844,7 @@ class RuntimeImpl {
         ? (await scope.overrides(this.#readOverrides)).get(key)
         : undefined;
       if (override !== undefined) {
-        const problem = valueProblem(override, type, options);
+        const problem = valueProblem(override, type);
         if (problem) {
           logger.warn(
             `flags: The override of flag "${key}" was ignored, because ${problem}.`,
@@ -993,7 +986,7 @@ class RuntimeImpl {
     fallback: FlagValue,
     context: EvaluationContext,
   ): Promise<EvaluationDetails<FlagValue>> {
-    const { key, defaultValue, options } = flag;
+    const { key, defaultValue } = flag;
     const resolution = await resolve.call(
       provider,
       key,
@@ -1031,13 +1024,8 @@ class RuntimeImpl {
         `Expected a ${type}, got ${typeName(resolution.value)}`,
       );
     }
-    if (options && !isOption(resolution.value, options)) {
-      throw new FlagEvaluationError(
-        key,
-        'TYPE_MISMATCH',
-        `The value is not one of the options: ${describeValue(resolution.value)}`,
-      );
-    }
+    // A value which is not one of the options goes through: the system can
+    // add a variant after the deployment, and options are only for tools
     return {
       value: resolution.value as FlagValue,
       variant: resolution.variant,

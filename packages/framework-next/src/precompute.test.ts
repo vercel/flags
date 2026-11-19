@@ -120,7 +120,7 @@ describe('precompute', () => {
     ).toEqualTypeOf<boolean>();
     expectTypeOf(
       await getPrecomputed([summerSale, checkout], group, code),
-    ).toEqualTypeOf<[boolean, 'control' | 'express']>();
+    ).toEqualTypeOf<[boolean, 'control' | 'express' | (string & {})]>();
   });
 
   it('applies the overrides of the request', async () => {
@@ -208,6 +208,21 @@ describe('precompute', () => {
     await expect(getPrecomputed(theme, [theme], code)).resolves.toEqual({
       color: 'blue',
     });
+  });
+
+  it('keeps a value of the provider which is not one of the options', async () => {
+    // e.g. a variant which the system added after the deployment
+    const checkout = defineFlag({
+      key: 'checkout',
+      type: 'string',
+      options: ['control', 'one-click'],
+      connection: createConnection(),
+    });
+    const code = await precompute([checkout]);
+
+    await expect(getPrecomputed(checkout, [checkout], code)).resolves.toBe(
+      'express',
+    );
   });
 
   it('has a code for an empty list', async () => {

@@ -195,7 +195,7 @@ test apps keep working.
 | M0 | Baseline of the tests | Done |
 | M1 | "Connection" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
 | M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
-| M3 | A value which is not in `options` goes through. The OFREP default source throws. | |
+| M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. Demo `examples/standard/next-manual`. | |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts`. | |
 | M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground`. | |
@@ -437,20 +437,22 @@ const checkout = defineFlag({
 - `options` lists the values that the flag can have. An option is a value,
   or `{ value, label }`, as in v4. The label is for tools, e.g. Flags
   Explorer. The flag exposes its options as objects with a value.
-- With options, the type of the value is the union of the options, e.g.
-  `'control' | 'express'`.
-- A value that is not one of the options fails (`TYPE_MISMATCH`), so the type
-  stays true at runtime. This protects the application from a variant that
-  the system added before the code knows it. Objects are compared by their
-  content.
+- Options are for tools, e.g. Flags Explorer and precompute. They do not
+  limit the value: the system can add a variant after the deployment, and
+  the code must not assume that it knows all variants. A value of the
+  correct type which is not one of the options goes through.
+- With options, the type of the value is the union of the options and of
+  the other values of the type, e.g. `'control' | 'express' | (string & {})`.
+  The editor suggests the options, and the type stays true at runtime. For
+  `boolean`, it is `boolean`.
 - An option of an `object` flag must be `{ value }`, because a JSON object and
   an option object look the same. Otherwise, `defineFlag` throws.
-- A `defaultValue` that is not one of the options is a type error, and a
-  warning at runtime.
+- A `defaultValue` that is not one of the options is a warning at runtime.
 
 #### Overrides and evaluate
 
-- An override must fit the type and the options. Otherwise, the SDK logs a
+- An override must fit the type. It does not need to be one of the
+  options. Otherwise, the SDK logs a
   warning, e.g. `The override of flag "a" was ignored, because it is not a
   number.`, and evaluates the flag as usual.
 - `evaluate([a, b])` returns the type of each flag, e.g. `[boolean, string]`.
@@ -759,7 +761,16 @@ The gradual path:
 
 ### The built-in default provider
 
-The built-in implementation of `flags/default-provider` uses OFREP:
+For now, the built-in implementation of `flags/default-provider` throws on
+each evaluation: "A flag without a source uses the default source, which is
+not available yet. Pass a source to bindFlag, or set defaultSource in
+flags.config.ts." The error comes at the evaluation, not at the definition,
+so that imports in tests and scripts do not fail. A flag with `defaultValue`
+returns it and logs the error. A replacement with an alias (see below) and
+the `defaultSource` of the configuration still work.
+
+The OFREP provider stays in the internal `createVercelOfrepProvider`, for
+later, when the OFREP endpoint of Vercel Flags is available:
 
 - After `vercel link` and `vercel env pull`, it uses `VERCEL_OIDC_TOKEN` as
   the bearer credential. It reads the token for each request, because

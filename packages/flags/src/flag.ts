@@ -78,9 +78,10 @@ export interface FlagOptions<
    */
   readonly defaultValue?: NoInfer<FlagValueFrom<T, O>>;
   /**
-   * The values which the flag can have, e.g. for Flags Explorer. A value or
-   * `{ value, label }`. With a fixed list, the type of the flag is the union
-   * of the values, and a value that is not in the list fails.
+   * The values which the flag can have, e.g. for Flags Explorer and
+   * precompute. A value or `{ value, label }`. The editor suggests them, but
+   * the provider can also return other values of the type, e.g. a variant
+   * which was added after the deployment.
    */
   readonly options?: O;
   /**

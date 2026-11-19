@@ -717,32 +717,18 @@ describe('9. Overrides', () => {
 
 describe('10. Zero configuration and flags.config.ts', () => {
   // A flag without a source uses the default source. Without
-  // configuration, that is Vercel Flags: locally with the OpenFeature Remote
-  // Evaluation Protocol (OFREP), after vercel link and vercel env pull. When
-  // a framework builds for Vercel, it replaces this provider with a fast one
-  // (see default-provider-alias.test.ts).
+  // configuration, that will be Vercel Flags, but for now the built-in
+  // default source throws. When a framework builds for Vercel, it can
+  // replace its provider with a fast one (see default-provider-alias.test.ts).
   //
   // To get more, e.g. an evaluation context, the application writes one
   // file, flags.config.ts. The flags do not change.
 
-  it('evaluates with OFREP locally, after vercel env pull', async () => {
-    vi.stubEnv('VERCEL_OIDC_TOKEN', 'token-of-vercel-env-pull');
-    // Only for this walkthrough: the OFREP server of Vercel Flags
-    vi.stubGlobal('fetch', async () =>
-      Response.json({ key: 'summer-sale', value: true, reason: 'STATIC' }),
-    );
-
-    const summerSale = bindFlag({ key: 'summer-sale' });
-
-    expect(await summerSale()).toBe(true);
-  });
-
-  it('tells what to do when the project is not connected to Vercel', async () => {
-    vi.stubEnv('VERCEL_OIDC_TOKEN', '');
+  it('tells what to do without a source', async () => {
     const summerSale = bindFlag({ key: 'summer-sale' });
 
     await expect(summerSale()).rejects.toThrow(
-      'Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
+      'Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
     );
   });
 
@@ -832,11 +818,13 @@ describe('11. Flag value types', () => {
     ]);
   });
 
-  it('limits a flag to its options', async () => {
+  it('lists the options of a flag, e.g. for Flags Explorer', async () => {
     const checkout = bindFlag({
       key: 'checkout',
       type: 'string',
-      // The type of the value is 'control' | 'express'
+      // The editor suggests 'control' and 'express'. The provider can also
+      // return a value which the code does not know yet, so the type is
+      // 'control' | 'express' | (string & {}).
       options: [
         { value: 'control', label: 'Old checkout' },
         { value: 'express', label: 'Express checkout' },
@@ -845,8 +833,7 @@ describe('11. Flag value types', () => {
       source: source(),
     });
 
-    const value: 'control' | 'express' = await checkout();
-    expect(value).toBe('express');
+    expect(await checkout()).toBe('express');
     expect(checkout.options?.map((option) => option.label)).toEqual([
       'Old checkout',
       'Express checkout',

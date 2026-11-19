@@ -26,11 +26,34 @@ let warnedAboutProduction = false;
  * replace it with a bundler alias, e.g. with a fast provider when it builds
  * for Vercel. A replacement must export the same function.
  *
- * This implementation uses OFREP with the `VERCEL_OIDC_TOKEN` of
- * `vercel env pull`. OFREP sends one request for each evaluation, so it is
- * for development.
+ * For now, this implementation throws on each evaluation: the OFREP
+ * endpoint of Vercel Flags is not available yet. The OFREP provider stays
+ * in `createVercelOfrepProvider`, for later.
  */
 export function createDefaultProvider(): Provider {
+  const fail = () =>
+    Promise.reject(
+      new Error(
+        'flags: A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
+      ),
+    );
+  return {
+    metadata: { name: 'vercel' },
+    resolveBooleanEvaluation: fail,
+    resolveStringEvaluation: fail,
+    resolveNumberEvaluation: fail,
+    resolveObjectEvaluation: fail,
+  };
+}
+
+/**
+ * The provider of Vercel Flags with OFREP and the `VERCEL_OIDC_TOKEN` of
+ * `vercel env pull`. OFREP sends one request for each evaluation, so it is
+ * for development. Not used for now (see `createDefaultProvider`).
+ *
+ * @internal
+ */
+export function createVercelOfrepProvider(): Provider {
   let ofrep: ProviderOfAllTypes | undefined;
 
   function current(): ProviderOfAllTypes {
