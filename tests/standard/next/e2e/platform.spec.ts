@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
-// The platform variant: flags.config.ts has no default connection, and the
+// The platform variant: flags.config.ts has no default source, and the
 // test adapter points flags/default-provider to the provider of the platform
 
 test('uses the default provider of the platform', async ({ request }) => {
@@ -25,7 +25,7 @@ test('gives the platform the manifest of the flags', () => {
     'plain-flag',
     'summer-sale',
   ]);
-  // Without a default connection, the flags use Vercel Flags. A tool builds
+  // Without a default source, the flags use Vercel Flags. A tool builds
   // the links from its system manifest.
   expect(manifest.sources['vercel-flags']).toMatchObject({
     system: 'vercel-flags',

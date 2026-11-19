@@ -12,9 +12,13 @@ const sale = await summerSale();
 
 - **Any flag management system.** Use the OpenFeature provider of Vercel
   Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
-- **Zero configuration on Vercel.** Without configuration, flags use Vercel
-  Flags. A deployment on Vercel uses a fast provider, and development uses
-  the OIDC token of `vercel env pull`.
+- **One default source.** Flags without a source use the default source
+  of `flags.config.ts`. A deployment on Vercel can give a fast provider.
+  For now, without a configuration the built-in default source throws.
+- **Code generation, if you want it.** Put each source into
+  `flags/sources/<source>`, and import its flags with
+  `import { summerSale } from 'flags:shop'`. The generated code is the same
+  as `defineSource` and `bindFlag` by hand.
 - **One value for each request.** Each flag is evaluated one time for each
   request, so all parts of a page get the same value.
 - **Typed.** Flags have a type and options, and TypeScript checks the
@@ -74,14 +78,14 @@ Declare a flag one time, and call it where you need it:
 
 ```ts
 // flags.ts
-export const summerSale = defineFlag('summer-sale', false);
+export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
 
 // app/page.tsx
 const sale = await summerSale();
 ```
 
-The connection to the flag management system, and the evaluation context,
-are set up one time, for all flags.
+The source (the provider of the flag management system, and the evaluation
+context) is set up one time, for all flags.
 
 ## How it works
 
@@ -112,10 +116,10 @@ pnpm add @vercel/flags-core @openfeature/server-sdk
 ```ts
 // flags.config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
@@ -124,7 +128,7 @@ export const config = defineConfig({
   }),
 });
 
-// Gives flags without a connection the types of this connection
+// Gives flags without a source the types of this source
 declare module 'flags' {
   interface Register {
     config: typeof config;
@@ -138,10 +142,10 @@ declare module 'flags' {
 // flags.ts
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
 
-export const summerSale = defineFlag('summer-sale', false);
-export const checkout = defineFlag({
+export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+export const checkout = bindFlag({
   key: 'checkout',
   type: 'string',
   options: ['control', 'express'],
@@ -175,15 +179,25 @@ TL;DR:
 ## Flags
 
 ```ts
-defineFlag('summer-sale'); // a boolean, without a default value
-defineFlag('banner-text', 'Welcome'); // the type comes from the default value
-defineFlag(connection, 'max-items', 10); // a flag of a different connection
-defineFlag({ key, type, options, defaultValue, description, connection });
+// A flag of a source: its provider decides the value
+bindFlag({ key: 'summer-sale' }); // the default source, a boolean
+bindFlag({ key: 'banner-text', type: 'string', defaultValue: 'Welcome' });
+bindFlag({ key: 'max-items', source: shop, type: 'number', defaultValue: 10 });
+bindFlag({ key, source, type, options, defaultValue, description, getEvaluationContext });
+
+// An inline flag: the code decides the value
+defineFlag({
+  key: 'beta-banner',
+  decide: (context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const, // optional
+});
 ```
 
-- The types are `boolean` (the default), `string`, `number` and `object`.
-- `options` makes the type a union of the options, and a value which is not
-  an option fails.
+- The types are `boolean` (the default), `string`, `number` and `object`
+  (any JSON value). Set `type` for each type other than `boolean`.
+- `options` are for Flags Explorer and precompute. The editor suggests
+  them, but the provider can also return other values of the type, e.g. a
+  variant which was added after the deployment.
 - **With `defaultValue`**, a flag which can not be evaluated returns it and
   logs one line. **Without `defaultValue`**, it throws a
   `FlagEvaluationError`.
@@ -197,22 +211,23 @@ user. It is created in a chain, one time for each request:
 
 1. the call side can give a context: `teamInsights({ evaluationContext: { teamId } })`;
 2. the flag can convert it with its own `getEvaluationContext`;
-3. the connection creates the context for the provider, also from the
+3. the source creates the context for the provider, also from the
    request: its headers, its cookies and its URL.
 
-TypeScript checks that each flag gets the context which its connection
+TypeScript checks that each flag gets the context which its source
 needs. `evaluate([a, b], { evaluationContext })` gives one context to
 several flags.
 
 ## More than one flag management system
 
-A connection is a provider plus a project in a flag management system.
-Flags without a connection use the default connection. Other flags name
-their connection:
+A source is a provider plus a project in a flag management system, plus
+the function which creates the evaluation context.
+Flags without a source use the default source. Other flags name
+their source:
 
 ```ts
 // The flags of a different Vercel project, e.g. of a different team
-const blog = defineConnection({
+const blog = defineSource({
   provider: new VercelProvider(process.env.BLOG_FLAGS!),
   project: {
     system: 'vercel-flags',
@@ -221,7 +236,7 @@ const blog = defineConnection({
   },
 });
 
-export const newSearch = defineFlag(blog, 'new-search');
+export const newSearch = bindFlag({ key: 'new-search', source: blog });
 ```
 
 - With `project: { system: 'vercel-flags' }`, the flag project is the
@@ -291,7 +306,7 @@ export const config = defineConfig({
 });
 ```
 
-- **Hooks** of the configuration, of a connection, of a call, and of the
+- **Hooks** of the configuration, of a source, of a call, and of the
   provider. An override has the reason `OVERRIDE`.
 - **Events:** `runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', handler)`.
 - **Tracking:** `await track('purchase', { details: { value: 99 } })`.

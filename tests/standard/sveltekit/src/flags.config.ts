@@ -1,8 +1,8 @@
 import { redirect } from '@sveltejs/kit';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 const appConfig = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: {
       metadata: { name: 'app' },
       resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
@@ -21,7 +21,7 @@ const appConfig = defineConfig({
   }),
 });
 
-// The platform variant has no default connection, so the flags use the
+// The platform variant has no default source, so the flags use the
 // default provider, which the plugin replaces with the one of the platform
 export const config =
   process.env.TEST_VARIANT === 'platform' ? defineConfig({}) : appConfig;

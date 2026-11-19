@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
 import { defineSource } from './source';
 import type { Provider } from './types';
@@ -32,7 +32,7 @@ afterEach(() => {
 describe('the cache of each request', () => {
   it('evaluates a flag once per request', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     const values = await runtime.onInvoke(request(), async () => [
       await flag(),
@@ -45,7 +45,7 @@ describe('the cache of each request', () => {
 
   it('shares one evaluation between concurrent calls', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), () =>
       Promise.all([flag(), flag(), evaluate([flag, flag])]),
@@ -55,7 +55,7 @@ describe('the cache of each request', () => {
 
   it('evaluates again in a new request', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     expect(await runtime.onInvoke(request(), () => flag())).toBe(true);
     expect(await runtime.onInvoke(request(), () => flag())).toBe(false);
@@ -63,7 +63,7 @@ describe('the cache of each request', () => {
 
   it('evaluates on each call outside of a request', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     expect(await flag()).toBe(true);
     expect(await flag()).toBe(false);
@@ -71,7 +71,7 @@ describe('the cache of each request', () => {
 
   it('compares plain data of the call side by its content', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       // e.g. two server components, which each create the object
@@ -84,7 +84,7 @@ describe('the cache of each request', () => {
 
   it('compares other objects by identity', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
     const date = new Date(0);
 
     await runtime.onInvoke(request(), async () => {
@@ -100,7 +100,7 @@ describe('the cache of each request', () => {
 
   it('does not fail for a circular input', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
     const circular: Record<string, unknown> = { user: 'alice' };
     circular.self = circular;
 
@@ -113,8 +113,8 @@ describe('the cache of each request', () => {
 
   it('keeps one result for each flag object', async () => {
     const source = createSource();
-    const a = defineFlag({ key: 'a', source });
-    const b = defineFlag({ key: 'a', source });
+    const a = bindFlag({ key: 'a', source });
+    const b = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), () => evaluate([a, b]));
     expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(2);
@@ -122,7 +122,7 @@ describe('the cache of each request', () => {
 
   it('works with a request getter, e.g. in Next.js', async () => {
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
     const headers = new Headers();
     // Next.js returns a new object on each call, but the same headers
     runtime.setGetRequest(() => ({ headers }));
@@ -143,12 +143,12 @@ describe('the cache of each request', () => {
       provider,
       project: { system: 'in-memory' },
     });
-    const withDefault = defineFlag({
+    const withDefault = bindFlag({
       key: 'a',
       source,
       defaultValue: false,
     });
-    const withoutDefault = defineFlag({ key: 'b', source });
+    const withoutDefault = bindFlag({ key: 'b', source });
 
     await runtime.onInvoke(request(), async () => {
       expect(await withDefault()).toBe(false);
@@ -164,7 +164,7 @@ describe('the cache of each request', () => {
     const after = vi.fn();
     const source = createSource();
     runtime.configure({ hooks: [{ after }] });
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       await flag();
@@ -176,7 +176,7 @@ describe('the cache of each request', () => {
   it('gives a call with its own hooks its own evaluation', async () => {
     const after = vi.fn();
     const source = createSource();
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       await flag();

@@ -193,38 +193,3 @@ export function defineSource<
 export function isSource(value: unknown): value is Source {
   return typeof value === 'object' && value !== null && sources.has(value);
 }
-
-/**
- * @deprecated Use `defineSource`. Connections are now sources.
- */
-export const defineConnection: typeof defineSource = defineSource;
-
-/**
- * @deprecated Use `Source`. Connections are now sources.
- */
-export type Connection<
-  P extends Provider = Provider,
-  N extends FlagManagementSystem = FlagManagementSystem,
-  C extends EvaluationContext = EvaluationContext,
-  In = DefaultSourceInput,
-> = Source<P, N, C, In>;
-
-/**
- * @deprecated Use `SourceInput`. Connections are now sources.
- */
-export type ConnectionInput<C extends Source> = SourceInput<C>;
-
-/**
- * @deprecated Use `SourceOptions`. Connections are now sources.
- */
-export type ConnectionOptions<
-  P extends Provider,
-  N extends FlagManagementSystem,
-  C extends EvaluationContext = EvaluationContext,
-  In = DefaultSourceInput,
-> = SourceOptions<P, N, C, In>;
-
-/**
- * @deprecated Use `DefaultSourceInput`. Connections are now sources.
- */
-export type DefaultConnectionInput = DefaultSourceInput;

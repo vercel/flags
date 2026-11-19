@@ -103,8 +103,6 @@ export interface FlagsManifest {
 interface ExportedFlag {
   readonly key: string;
   readonly source?: unknown;
-  /** @deprecated The old name of `source`. */
-  readonly connection?: unknown;
   readonly type?: unknown;
   readonly options?: unknown;
   readonly defaultValue?: unknown;
@@ -166,7 +164,7 @@ function definitionOf(
  * default source.
  */
 function sourceOf(flag: ExportedFlag): FlagManifestSource | undefined {
-  const source = (flag.source ?? flag.connection ?? runtime.defaultSource) as {
+  const source = (flag.source ?? runtime.defaultSource) as {
     project?: unknown;
   };
   const project = source?.project as Record<string, unknown> | undefined;

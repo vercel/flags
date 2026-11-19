@@ -55,11 +55,10 @@ export function registerFlags(moduleExports: Record<string, unknown>): void {
         `flags: registerFlags expects only flags, but export "${name}" is not a flag.`,
       );
     }
-    return value as { source?: unknown; connection?: unknown };
+    return value as { source?: unknown };
   });
   for (const flag of flags) {
-    // `connection` is the deprecated name of `source`
-    const source = flag.source ?? flag.connection;
+    const { source } = flag;
     // A flag without a source uses the default source, which the
     // runtime selects at each evaluation
     if (!isSource(source) || source === runtime.defaultSource) {
@@ -68,8 +67,3 @@ export function registerFlags(moduleExports: Record<string, unknown>): void {
     runtime.registerSource(source);
   }
 }
-
-/**
- * @deprecated Use `registerSources`. Connections are now sources.
- */
-export const registerConnections: typeof registerSources = registerSources;

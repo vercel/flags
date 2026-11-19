@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { logger } from './logger';
 import { registerSources } from './register';
 import { type FlagDefinition, runtime } from './runtime';
@@ -58,7 +58,7 @@ describe('runtime', () => {
 
     it('initializes the providers of defined flags', async () => {
       const source = createSource();
-      defineFlag({ key: 'a', source });
+      bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       expect(source.provider.initialize).toHaveBeenCalledTimes(1);
@@ -96,7 +96,7 @@ describe('runtime', () => {
 
     it('does not initialize again for evaluations', async () => {
       const source = createSource();
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await flag();
@@ -121,7 +121,7 @@ describe('runtime', () => {
     it('lets the next evaluation retry a failed initialization', async () => {
       const source = createSource();
       source.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await expect(flag()).resolves.toBe(true);
@@ -154,8 +154,8 @@ describe('runtime', () => {
       const slowInit = deferred();
       slow.provider.initialize.mockReturnValue(slowInit.promise);
       const fast = createSource('fast');
-      const slowFlag = defineFlag({ key: 'a', source: slow });
-      const fastFlag = defineFlag({ key: 'b', source: fast });
+      const slowFlag = bindFlag({ key: 'a', source: slow });
+      const fastFlag = bindFlag({ key: 'b', source: fast });
 
       await runtime.onInvoke({ headers }, async () => {
         await expect(fastFlag()).resolves.toBe(true);
@@ -171,7 +171,7 @@ describe('runtime', () => {
       const source = createSource();
       const init = deferred();
       source.provider.initialize.mockReturnValue(init.promise);
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       void runtime.onInvoke({ headers }, () => {});
       const pending = flag();
@@ -269,7 +269,7 @@ describe('runtime', () => {
 
     it('closes providers which were initialized by an evaluation', async () => {
       const source = createSource();
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await flag();
       await runtime.onShutdown();
@@ -332,7 +332,7 @@ describe('runtime', () => {
 
     it('initializes providers again when used after a shutdown', async () => {
       const source = createSource();
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await runtime.onShutdown();
@@ -342,9 +342,9 @@ describe('runtime', () => {
   });
 
   describe('evaluate', () => {
-    it('evaluates a flag returned by defineFlag', async () => {
+    it('evaluates a flag returned by bindFlag', async () => {
       const source = createSource();
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await expect(runtime.evaluate(flag)).resolves.toBe(true);
       expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
@@ -457,7 +457,7 @@ describe('runtime', () => {
       runtime.setGetRequest(() => {
         throw signal;
       });
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         defaultValue: false,
         source: createSource(),
@@ -478,7 +478,7 @@ describe('runtime', () => {
       });
 
       await expect(
-        defineFlag({ key: 'a', defaultValue: false, source })(),
+        bindFlag({ key: 'a', defaultValue: false, source })(),
       ).rejects.toBe(signal);
     });
 
@@ -489,7 +489,7 @@ describe('runtime', () => {
       });
 
       await expect(
-        defineFlag({
+        bindFlag({
           key: 'a',
           defaultValue: false,
           source: createSource(),
@@ -512,14 +512,14 @@ describe('runtime', () => {
       const config = { defaultSource: sourceWith(true) };
       runtime.setLoadConfig(() => config);
 
-      await expect(defineFlag({ key: 'a' })()).resolves.toBe(true);
+      await expect(bindFlag({ key: 'a' })()).resolves.toBe(true);
     });
 
     it('loads a changed configuration in development', async () => {
       vi.stubEnv('NODE_ENV', 'development');
       let config = { defaultSource: sourceWith(true) };
       runtime.setLoadConfig(() => config);
-      const flag = defineFlag({ key: 'a' });
+      const flag = bindFlag({ key: 'a' });
 
       await expect(flag()).resolves.toBe(true);
       config = { defaultSource: sourceWith(false) };
@@ -531,7 +531,7 @@ describe('runtime', () => {
       vi.stubEnv('NODE_ENV', 'production');
       const loadConfig = vi.fn(() => ({ defaultSource: sourceWith(true) }));
       runtime.setLoadConfig(loadConfig);
-      const flag = defineFlag({ key: 'a' });
+      const flag = bindFlag({ key: 'a' });
 
       await flag();
       await flag();
@@ -545,7 +545,7 @@ describe('runtime', () => {
       });
 
       await expect(
-        defineFlag({ key: 'a', source: sourceWith(true) })(),
+        bindFlag({ key: 'a', source: sourceWith(true) })(),
       ).rejects.toThrow('flags.config.ts has an error');
     });
   });
@@ -558,7 +558,7 @@ describe('runtime', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInit();
     await runtime.onInvoke({ headers }, () => {});

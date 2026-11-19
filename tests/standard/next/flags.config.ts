@@ -1,5 +1,5 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 // Counts the calls of getEvaluationContext and the evaluations for each
 // request, so that the tests can see the caches of the request. On
@@ -32,7 +32,7 @@ const appConfig = defineConfig({
       },
     },
   ],
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new TypedInMemoryProvider({
       'summer-sale': {
         variants: { on: true, off: false },
@@ -65,7 +65,7 @@ const appConfig = defineConfig({
   }),
 });
 
-// The platform variant has no default connection, so the flags use the
+// The platform variant has no default source, so the flags use the
 // default provider, which the adapter of the platform replaces
 export const config =
   process.env.TEST_VARIANT === 'platform' ? defineConfig({}) : appConfig;

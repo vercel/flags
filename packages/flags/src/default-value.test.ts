@@ -1,6 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { createOfrepProvider } from './ofrep';
 import { runtime } from './runtime';
 import { defineSource } from './source';
@@ -37,7 +37,7 @@ describe('a flag without defaultValue', () => {
         async (_key: string, _defaultValue: boolean) => ({ value: true }),
       ),
     };
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'a',
       source: defineSource({
         provider,
@@ -51,13 +51,13 @@ describe('a flag without defaultValue', () => {
 
   it('returns false when the provider returns the default, e.g. for a disabled flag', async () => {
     await expect(
-      defineFlag({ key: 'old-checkout', source: source() })(),
+      bindFlag({ key: 'old-checkout', source: source() })(),
     ).resolves.toBe(false);
   });
 
   it('returns the defaultValue when the provider returns the default', async () => {
     await expect(
-      defineFlag({
+      bindFlag({
         key: 'old-checkout',
         defaultValue: true,
         source: source(),
@@ -91,7 +91,7 @@ describe('a provider which reports an issue', () => {
 
   it('throws for the reason ERROR without an errorCode', async () => {
     await expect(
-      defineFlag({ key: 'a', source: reportsError() })(),
+      bindFlag({ key: 'a', source: reportsError() })(),
     ).rejects.toMatchObject({
       code: 'GENERAL',
       message:
@@ -101,7 +101,7 @@ describe('a provider which reports an issue', () => {
 
   it('returns the defaultValue for the reason ERROR', async () => {
     await expect(
-      defineFlag({
+      bindFlag({
         key: 'a',
         defaultValue: true,
         source: reportsError(),
@@ -121,7 +121,7 @@ describe('a provider which reports an issue', () => {
 
     it('throws without defaultValue', async () => {
       await expect(
-        defineFlag({ key: 'a', source: ofrep() })(),
+        bindFlag({ key: 'a', source: ofrep() })(),
       ).rejects.toMatchObject({
         message:
           'flags: Could not evaluate flag "a": The provider asks for the default value, but the flag has no defaultValue.',
@@ -130,7 +130,7 @@ describe('a provider which reports an issue', () => {
 
     it('returns the defaultValue', async () => {
       await expect(
-        defineFlag({ key: 'a', defaultValue: true, source: ofrep() })(),
+        bindFlag({ key: 'a', defaultValue: true, source: ofrep() })(),
       ).resolves.toBe(true);
     });
   });

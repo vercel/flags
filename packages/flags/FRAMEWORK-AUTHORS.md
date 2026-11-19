@@ -124,7 +124,7 @@ it, with the functions of `flags/tooling`:
      child process, so they do not run in the process of the build.
 
 Call `runtime.prepare()` before `createManifest`, so that flags without a
-connection get the default connection of `flags.config.ts`.
+source get the default source of `flags.config.ts`.
 
 ## `flags/tooling`
 
@@ -144,7 +144,7 @@ connection get the default connection of `flags.config.ts`.
 - Set the alias of `flags/default-provider` for your builds, not for
   development. The module exports `createDefaultProvider()`, which returns
   an OpenFeature provider. The runtime calls it one time for each process.
-- A `defaultConnection` in `flags.config.ts` always wins over your
+- A `defaultSource` in `flags.config.ts` always wins over your
   provider.
 - Put `flags-manifest.json` of the build into your build output, so that
   tools can read it.
@@ -157,7 +157,7 @@ connection get the default connection of `flags.config.ts`.
 
 A system adds itself with a pull request to `flags`:
 
-- its fields in `ProjectFieldsBySystem` (`src/connection.ts`), e.g.
+- its fields in `ProjectFieldsBySystem` (`src/source.ts`), e.g.
   `{ projectId: string }`;
 - the URL of its system manifest in `systemManifestUrls`. The system
   manifest has the templates of the links to its dashboard (see

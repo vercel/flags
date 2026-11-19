@@ -59,28 +59,22 @@ your aliases and rules of Turbopack. If `flags.config.ts` is not in the
 directory of the application or in its `src`, give the directory:
 `withFlags({}, { dir: '/path/to/the/app' })`.
 
-### 2️⃣ Connect the project to Vercel (zero configuration)
+### 2️⃣ Give the flags a source
 
-Without `flags.config.ts`, flags without a connection use Vercel Flags.
-Locally, they use OFREP with the OIDC token of the project:
+Each flag of a provider has a source (`bindFlag({ key, source })`), or uses
+the default source of `flags.config.ts`. For now, without
+`flags.config.ts`, the built-in default source throws. Code generation can
+write the sources and flags for you (see "Code generation").
 
-```sh
-vercel link
-vercel env pull
-```
-
-The token expires. Run `vercel env pull` again when the flags fail with an
-error about the credential.
-
-### 3️⃣ Optional: `flags.config.ts`
+### 3️⃣ `flags.config.ts`
 
 ```ts
 // flags.config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
@@ -331,17 +325,16 @@ export const GET = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
 
 On Vercel, the deployment adapter of Next.js points the module
 `flags/default-provider` to the fast provider of Vercel Flags
-(`@vercel/flags-core/default-provider`). Thus, flags without a connection
+(`@vercel/flags-core/default-provider`). Thus, flags without a source
 evaluate without a request for each flag, also with zero configuration.
 
-- The adapter does this only for builds. Development uses OFREP, or the
-  connection of `flags.config.ts`.
-- A `defaultConnection` in `flags.config.ts` always wins over the provider of
+- The adapter does this only for builds. Development uses the
+  default source of `flags.config.ts`.
+- A `defaultSource` in `flags.config.ts` always wins over the provider of
   the platform.
 - Without the deployment adapter, e.g. on a different host, flags without a
-  connection use OFREP, and the SDK logs a warning in production: OFREP sends
-  one request for each evaluation. Set a `defaultConnection` in
-  `flags.config.ts` for production.
+  source use the built-in default source, which throws for now. Set a
+  `defaultSource` in `flags.config.ts`.
 
 ## How it works
 
@@ -403,7 +396,7 @@ the configuration, the providers and their clients.
   the server.
 - **The registration of the type must be in the TypeScript program.** If
   `tsconfig.json` does not include `flags.config.ts`, flags without a
-  connection lose the types of the configured connection. The type check
+  source lose the types of the configured source. The type check
   does not fail, but it is less strict.
 - **The export must be `config`.** A default export of `flags.config.ts` is
   not read.
@@ -414,15 +407,11 @@ the configuration, the providers and their clients.
   with each other source file. Only development loads it again without a
   restart.
 - **The adapter of the platform runs only for builds.** In development, the
-  flags use OFREP or `flags.config.ts`, not the fast provider of the
-  platform. Install `@vercel/flags-core` and set it in `flags.config.ts` for
+  flags use `flags.config.ts`, not the fast provider of the platform. Install `@vercel/flags-core` and set it in `flags.config.ts` for
   fast evaluations during development.
-- **`VERCEL_OIDC_TOKEN` expires.** Run `vercel env pull` again when OFREP
-  reports a credential that is not accepted.
 - **Without `defaultValue`, each issue throws a `FlagEvaluationError`**: a
   provider that throws, an `errorCode`, the reason `ERROR`, a value of the
-  wrong type or outside of the options, and an OFREP response which asks for
-  the default of the code. With `defaultValue`, the flag returns it and logs
+  wrong type, and a provider which asks for the default of the code. With `defaultValue`, the flag returns it and logs
   one line instead.
 - **One case can not be detected**: a provider that returns its default value
   without any sign of an issue, e.g. a disabled flag of

@@ -1,6 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { registerFlags, registerSources } from './register';
 import { runtime } from './runtime';
 import { defineSource, type Source } from './source';
@@ -56,8 +56,8 @@ describe('registerFlags', () => {
   it('registers the sources of all exported flags', () => {
     const a = createSource();
     const b = createSource();
-    const flagA = defineFlag({ key: 'a', source: a });
-    const flagB = defineFlag({ key: 'b', source: b });
+    const flagA = bindFlag({ key: 'a', source: a });
+    const flagB = bindFlag({ key: 'b', source: b });
     // Defining flags already registers their sources
     runtime.reset();
 
@@ -71,7 +71,7 @@ describe('registerFlags', () => {
       Object.create(null, {
         myFlag: {
           enumerable: true,
-          value: defineFlag({ key: 'a', source }),
+          value: bindFlag({ key: 'a', source }),
         },
         [Symbol.toStringTag]: { value: 'Module' },
       }),
@@ -84,7 +84,7 @@ describe('registerFlags', () => {
 
   it('throws when an export is not a flag', () => {
     const source = createSource();
-    const myFlag = defineFlag({ key: 'a', source });
+    const myFlag = bindFlag({ key: 'a', source });
 
     runtime.reset();
 

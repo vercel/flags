@@ -90,10 +90,10 @@ for (const check of conformanceChecks) {
 
 ## How it works
 
-- The suite has its own connection. Its provider returns the evaluation
+- The suite has its own source. Its provider returns the evaluation
   context which it receives, so the suite sees exactly what the binding
   gives the SDK.
-- The route evaluates the flags of the suite two times. The connection
+- The route evaluates the flags of the suite two times. The source
   counts how often it creates the evaluation context for each request.
 - The suite sends a header with an ID with each request, to count for each
   request. Thus, the checks can run at the same time.

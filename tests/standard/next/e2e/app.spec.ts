@@ -4,7 +4,7 @@ import { decryptFlagValues, encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
 
 // The app: withFlags loads flags.config.ts, and the flags use its default
-// connection, with the user from a cookie of the request
+// source, with the user from a cookie of the request
 
 test('evaluates the flags in a server component', async ({ request }) => {
   const html = await (await request.get('/')).text();

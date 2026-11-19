@@ -6,7 +6,6 @@ export type {
 } from './catalog';
 export {
   type Config,
-  type ConfiguredConnection,
   type ConfiguredSource,
   defineConfig,
   type Register,
@@ -49,27 +48,16 @@ export {
   type PlatformProject,
   type VercelOverridesOptions,
 } from './overrides';
+export { registerFlags, registerSources } from './register';
 export {
-  registerConnections,
-  registerFlags,
-  registerSources,
-} from './register';
-export {
-  type ConfigSource,
   type FlagDefinition,
   type GetRequest,
   type LoadConfig,
-  type RequestSource,
   type Runtime,
   runtime,
 } from './runtime';
 export {
-  type Connection,
-  type ConnectionInput,
-  type ConnectionOptions,
-  type DefaultConnectionInput,
   type DefaultSourceInput,
-  defineConnection,
   defineSource,
   type FlagManagementSystem,
   type GetEvaluationContext,

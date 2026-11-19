@@ -1,12 +1,12 @@
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
 
 // A 'use flags' module: it exports only flags, and withFlags registers them.
-// No connection: the flags use the default connection of flags.config.ts
-export const summerSale = defineFlag({ key: 'summer-sale' });
-export const newCheckout = defineFlag({ key: 'new-checkout' });
-export const bannerText = defineFlag({
+// No source: the flags use the default source of flags.config.ts
+export const summerSale = bindFlag({ key: 'summer-sale' });
+export const newCheckout = bindFlag({ key: 'new-checkout' });
+export const bannerText = bindFlag({
   key: 'banner-text',
   type: 'string',
   defaultValue: 'Welcome',

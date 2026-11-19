@@ -29,7 +29,7 @@ const modules: readonly FlagsModuleImport[] = /* flags:use-flags-modules */ [];
  * @internal
  */
 export async function loadManifest(): Promise<FlagsManifest> {
-  // Flags without a connection use the default connection of flags.config.ts
+  // Flags without a source use the default source of flags.config.ts
   await runtime.prepare();
   return createManifest(
     await Promise.all(

@@ -1,16 +1,16 @@
 // flags.config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({}),
   }),
 });
 
-// Gives flags without a connection the types of this connection
+// Gives flags without a source the types of this source
 declare module 'flags' {
   interface Register {
     config: typeof config;

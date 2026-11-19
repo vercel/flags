@@ -16,7 +16,7 @@ import {
 } from './default-provider';
 import { type DefaultSource, getBuiltInSource } from './default-source';
 import { evaluate, type FlagEvaluationContext } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
 import { type DefaultSourceInput, defineSource } from './source';
 import type { Provider } from './types';
@@ -57,7 +57,7 @@ afterEach(() => {
 
 describe('built-in default source', () => {
   it('is the source of a flag without a source', () => {
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
 
     expect(flag.source).toBe(getBuiltInSource());
     expect(flag.source.project).toEqual({ system: 'vercel-flags' });
@@ -65,7 +65,7 @@ describe('built-in default source', () => {
   });
 
   it('accepts any evaluation context', () => {
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
     expectTypeOf<
       FlagEvaluationContext<typeof flag>
     >().toEqualTypeOf<DefaultSourceInput>();
@@ -80,13 +80,13 @@ describe('built-in default source', () => {
     vi.resetModules();
     const copy: typeof import('./index') = await import('./index');
 
-    expect(copy.defineFlag({ key: 'a' }).source).toBe(
-      defineFlag({ key: 'a' }).source,
+    expect(copy.bindFlag({ key: 'a' }).source).toBe(
+      bindFlag({ key: 'a' }).source,
     );
   });
 
   it('throws for now, and tells what to do', async () => {
-    await expect(defineFlag({ key: 'a' })()).rejects.toMatchObject({
+    await expect(bindFlag({ key: 'a' })()).rejects.toMatchObject({
       name: 'FlagEvaluationError',
       message:
         'flags: Could not evaluate flag "a": A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
@@ -94,7 +94,7 @@ describe('built-in default source', () => {
   });
 
   it('returns the default value of a flag', async () => {
-    await expect(defineFlag({ key: 'a', defaultValue: false })()).resolves.toBe(
+    await expect(bindFlag({ key: 'a', defaultValue: false })()).resolves.toBe(
       false,
     );
   });
@@ -110,7 +110,7 @@ describe('createVercelOfrepProvider', () => {
         project: { system: 'vercel-flags' },
       }),
     });
-    return defineFlag({ key: 'a' });
+    return bindFlag({ key: 'a' });
   };
 
   it('uses OFREP with the OIDC token of vercel env pull', async () => {
@@ -184,7 +184,7 @@ describe('configured default source', () => {
   it('replaces the built-in default source', async () => {
     const source = sourceOf(true);
     runtime.configure(defineConfig({ defaultSource: source }));
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
 
     expect(flag.source).toBe(source);
     await expect(flag()).resolves.toBe(true);
@@ -192,7 +192,7 @@ describe('configured default source', () => {
   });
 
   it('applies to flags which are defined before the configuration', async () => {
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
     const source = sourceOf(true);
 
     runtime.configure({ defaultSource: source });
@@ -209,7 +209,7 @@ describe('configured default source', () => {
   it('does not change flags with their own source', async () => {
     runtime.configure({ defaultSource: sourceOf(true) });
     const own = sourceOf(false, 'own');
-    const flag = defineFlag({ key: 'a', source: own });
+    const flag = bindFlag({ key: 'a', source: own });
 
     expect(flag.source).toBe(own);
     await expect(flag()).resolves.toBe(false);
@@ -217,7 +217,7 @@ describe('configured default source', () => {
 
   it('is replaced by the next call of configure', async () => {
     runtime.configure({ defaultSource: sourceOf(true) });
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
     await expect(flag()).resolves.toBe(true);
 
     runtime.configure({ defaultSource: sourceOf(false) });
@@ -238,7 +238,7 @@ describe('configured default source', () => {
       }),
     });
 
-    await expect(defineFlag({ key: 'summer-sale' })()).resolves.toBe(true);
+    await expect(bindFlag({ key: 'summer-sale' })()).resolves.toBe(true);
   });
 
   it('only accepts a source returned by defineSource', () => {
@@ -255,7 +255,7 @@ describe('configured default source', () => {
   describe('initialization', () => {
     it('initializes the configured default source in onInit', async () => {
       const source = sourceOf(true);
-      defineFlag({ key: 'a' });
+      bindFlag({ key: 'a' });
       runtime.configure({ defaultSource: source });
 
       await runtime.onInit();
@@ -299,7 +299,7 @@ describe('a replaced default source', () => {
     const shared = sourceOf(true, 'shared');
     const onClose = vi.fn(async () => {});
     Object.assign(shared.provider, { onClose });
-    defineFlag({ key: 'own', source: shared });
+    bindFlag({ key: 'own', source: shared });
     runtime.configure({ defaultSource: shared });
     await runtime.onInit();
 
@@ -320,6 +320,6 @@ describe('configure', () => {
         overrides: { secret: 'not-valid' },
       }),
     ).toThrow('flags: Invalid FLAGS_SECRET.');
-    await expect(defineFlag({ key: 'a' })()).resolves.toBe(true);
+    await expect(bindFlag({ key: 'a' })()).resolves.toBe(true);
   });
 });

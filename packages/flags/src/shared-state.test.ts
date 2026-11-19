@@ -27,7 +27,7 @@ describe('shared state', () => {
     const a = await loadCopy();
     const b = await loadCopy();
 
-    expect(a.defineFlag).not.toBe(b.defineFlag);
+    expect(a.bindFlag).not.toBe(b.bindFlag);
     expect(a.runtime).toBe(b.runtime);
   });
 
@@ -48,7 +48,7 @@ describe('shared state', () => {
       project: { system: 'in-memory' },
     });
 
-    const flag = b.defineFlag({ key: 'a', source });
+    const flag = b.bindFlag({ key: 'a', source });
     await expect(flag()).resolves.toBe(true);
     await expect(b.evaluate({ key: 'a', source })).resolves.toBe(true);
   });
@@ -60,7 +60,7 @@ describe('shared state', () => {
       provider,
       project: { system: 'in-memory' },
     });
-    const flag = a.defineFlag({ key: 'a', source });
+    const flag = a.bindFlag({ key: 'a', source });
 
     expect(() => b.registerFlags({ flag })).not.toThrow();
   });
@@ -87,7 +87,7 @@ describe('shared state', () => {
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const flag = pages.defineFlag({ key: 'a', source });
+    const flag = pages.bindFlag({ key: 'a', source });
 
     await flag();
     expect(contexts).toEqual([{ user: 'alice' }]);

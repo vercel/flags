@@ -47,13 +47,13 @@ export default defineConfig({
 
 That is the only required step.
 
-### 2️⃣ Optional: `flags.config.ts`
+### 2️⃣ `flags.config.ts`
 
-Without `flags.config.ts`, flags use Vercel Flags with zero configuration:
-locally through OFREP with the OIDC token of `vercel env pull`, and in a
-build on Vercel with the fast provider of `@vercel/flags-core`, if the
-project has it. Write `flags.config.ts` for an evaluation context, or for
-fast evaluations also in development:
+Flags without a source use the default source of `flags.config.ts`. In a
+build on Vercel, they use the fast provider of `@vercel/flags-core`, if the
+project has it. For now, without `flags.config.ts`, the built-in default
+source throws in development. Write `flags.config.ts`, e.g. with the
+provider of Vercel Flags:
 
 ```sh
 pnpm add @vercel/flags-core @openfeature/server-sdk
@@ -64,10 +64,10 @@ Put it in the directory of the project or in `src`:
 ```ts
 // src/flags.config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
@@ -76,7 +76,7 @@ export const config = defineConfig({
   }),
 });
 
-// Gives flags without a connection the types of this connection
+// Gives flags without a source the types of this source
 declare module 'flags' {
   interface Register {
     config: typeof config;
@@ -119,9 +119,9 @@ hooks and tracking.
 
 - On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`,
   the plugin replaces `flags/default-provider` with
-  `@vercel/flags-core/default-provider`. Flags without a connection then
-  use the fast provider of Vercel Flags. Development uses OFREP.
-- A `defaultConnection` in `flags.config.ts` always wins.
+  `@vercel/flags-core/default-provider`. Flags without a source then
+  use the fast provider of Vercel Flags. Development uses `flags.config.ts`.
+- A `defaultSource` in `flags.config.ts` always wins.
 - An other platform, or a test, gives the module of its provider:
   `flags({ defaultProvider: './src/provider.ts' })`. The module exports
   `createDefaultProvider()`.

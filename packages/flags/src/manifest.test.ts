@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { createManifest, validateFlagsManifest } from './manifest';
 import { registerFlags } from './register';
 import { runtime } from './runtime';
 import { defineSource } from './source';
 
-const connection = () =>
+const source = () =>
   defineSource({
     provider: {
       metadata: { name: 'test' },
@@ -39,8 +39,8 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          summerSale: defineFlag('summer-sale'),
-          checkout: defineFlag({
+          summerSale: bindFlag({ key: 'summer-sale' }),
+          checkout: bindFlag({
             key: 'checkout',
             type: 'string',
             options: ['control', { value: 'express', label: 'Express' }],
@@ -78,7 +78,7 @@ describe('createManifest', () => {
     });
   });
 
-  it('accepts any object with a key, not only flags of defineFlag', () => {
+  it('accepts any object with a key, not only flags of bindFlag', () => {
     const manifest = createManifest([
       {
         id: 'other.ts',
@@ -110,10 +110,10 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: defineFlag(launchdarkly('shop'), 'a'),
-          b: defineFlag(launchdarkly('shop'), 'b'),
-          c: defineFlag(launchdarkly('blog'), 'c'),
-          d: defineFlag(connection(), 'd'),
+          a: bindFlag({ key: 'a', source: launchdarkly('shop') }),
+          b: bindFlag({ key: 'b', source: launchdarkly('shop') }),
+          c: bindFlag({ key: 'c', source: launchdarkly('blog') }),
+          d: bindFlag({ key: 'd', source: source() }),
         },
       },
     ]);
@@ -156,7 +156,7 @@ describe('createManifest', () => {
     });
 
     const manifest = createManifest([
-      { id: 'flags.ts', exports: { a: defineFlag(other, 'a') } },
+      { id: 'flags.ts', exports: { a: bindFlag({ key: 'a', source: other }) } },
     ]);
     expect(manifest.sources['vercel-flags']).toEqual({
       ...vercel,
@@ -181,7 +181,7 @@ describe('createManifest', () => {
     });
 
     const manifest = createManifest([
-      { id: 'flags.ts', exports: { a: defineFlag(own, 'a') } },
+      { id: 'flags.ts', exports: { a: bindFlag({ key: 'a', source: own }) } },
     ]);
     expect(manifest.sources['in-memory']).toEqual({
       system: 'in-memory',
@@ -191,7 +191,7 @@ describe('createManifest', () => {
   });
 
   it('keeps all declarations of a flag which two modules export', () => {
-    const flag = defineFlag('summer-sale', false);
+    const flag = bindFlag({ key: 'summer-sale', defaultValue: false });
     const manifest = createManifest([
       { id: 'a.ts', exports: { summerSale: flag } },
       { id: 'b.ts', exports: { sale: flag } },
@@ -206,8 +206,14 @@ describe('createManifest', () => {
   it('throws for two different flags with the same key', () => {
     expect(() =>
       createManifest([
-        { id: 'a.ts', exports: { a: defineFlag('sale', false) } },
-        { id: 'b.ts', exports: { b: defineFlag('sale', true) } },
+        {
+          id: 'a.ts',
+          exports: { a: bindFlag({ key: 'sale', defaultValue: false }) },
+        },
+        {
+          id: 'b.ts',
+          exports: { b: bindFlag({ key: 'sale', defaultValue: true }) },
+        },
       ]),
     ).toThrow(
       'flags: Flag "sale" is declared two times with different values: export "a" of a.ts, and export "b" of b.ts.',
@@ -242,7 +248,16 @@ describe('createManifest', () => {
 
   it('is JSON', () => {
     const manifest = createManifest([
-      { id: 'flags.ts', exports: { a: defineFlag('a', { color: 'blue' }) } },
+      {
+        id: 'flags.ts',
+        exports: {
+          a: bindFlag({
+            key: 'a',
+            type: 'object',
+            defaultValue: { color: 'blue' },
+          }),
+        },
+      },
     ]);
 
     expect(JSON.parse(JSON.stringify(manifest))).toEqual(manifest);
@@ -251,20 +266,20 @@ describe('createManifest', () => {
 
 describe('registerFlags', () => {
   it('registers the sources of the exported flags', () => {
-    const c = connection();
+    const c = source();
     registerFlags({ a: { key: 'a', source: c } });
 
     expect(runtime.sources.has(c)).toBe(true);
   });
 
   it('does not register the default connection of a flag without one', () => {
-    registerFlags({ a: defineFlag('a') });
+    registerFlags({ a: bindFlag({ key: 'a' }) });
 
     expect(runtime.sources.size).toBe(0);
   });
 
   it('throws for an export which is not a flag, and registers nothing', () => {
-    const c = connection();
+    const c = source();
     expect(() =>
       registerFlags({ a: { key: 'a', source: c }, helper: 1 }),
     ).toThrow(
@@ -280,9 +295,9 @@ describe('validateFlagsManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: defineFlag('a', false),
-          b: defineFlag({ key: 'b', type: 'string', options: ['x', 'y'] }),
-          c: defineFlag(connection(), 'c'),
+          a: bindFlag({ key: 'a', defaultValue: false }),
+          b: bindFlag({ key: 'b', type: 'string', options: ['x', 'y'] }),
+          c: bindFlag({ key: 'c', source: source() }),
         },
       },
     ]);

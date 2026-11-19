@@ -1,8 +1,8 @@
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 import { HTTPException } from 'hono/http-exception';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: {
       metadata: { name: 'app' },
       resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({

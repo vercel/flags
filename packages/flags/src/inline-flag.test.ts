@@ -198,6 +198,15 @@ describe('defineFlag with decide', () => {
     ).toThrow('flags: Flag "a" has decide and a source.');
   });
 
+  it('needs decide, and points to bindFlag for the flag of a source', () => {
+    expect(() =>
+      // @ts-expect-error an inline flag needs decide
+      defineFlag({ key: 'a' }),
+    ).toThrow(
+      'flags: Flag "a" has no decide. Use bindFlag for the flag of a source.',
+    );
+  });
+
   it('rejects a decide which is not a function', () => {
     expect(() =>
       // @ts-expect-error decide is a function

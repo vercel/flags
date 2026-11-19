@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// The platform variant: flags.config.ts has no default connection, and the
+// The platform variant: flags.config.ts has no default source, and the
 // plugin of @flags-sdk/sveltekit/vite points flags/default-provider to the provider of the
 // platform
 

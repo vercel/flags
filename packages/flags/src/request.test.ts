@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { createFlagsRequest } from './request';
 import { runtime } from './runtime';
 import { defineSource } from './source';
@@ -197,7 +197,7 @@ describe('FlagsRequest', () => {
         return {};
       },
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'a',
       source,
       getEvaluationContext: (_context: undefined, request) => {

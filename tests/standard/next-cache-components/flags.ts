@@ -1,5 +1,5 @@
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
 
-export const summerSale = defineFlag('summer-sale', false);
+export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });

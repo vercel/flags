@@ -17,7 +17,7 @@ management system (system)".
 | **Flag management system**, short **system** (OpenFeature) | The source of truth of the flags, with a dashboard. | LaunchDarkly, Statsig, Vercel Flags, in-memory |
 | **Flag project** | The project in a system. The `project` of a source. | a LaunchDarkly project |
 | **Provider** (OpenFeature) | The OpenFeature object which resolves the flags of a system. Only this object. | `VercelProvider`, `TypedInMemoryProvider` |
-| **Source** | A provider, plus a flag project, plus the function which creates the evaluation context. The old name is "connection" (deprecated). | `defineSource` |
+| **Source** | A provider, plus a flag project, plus the function which creates the evaluation context. The old name was "connection". | `defineSource` |
 | **Deployment platform**, short **platform** | Where the application runs. | Vercel, Netlify, Cloudflare |
 | **Platform project** | A project on a platform. It has many deployments, in environments such as production and preview. The overrides are scoped to it (`PlatformProject`). | a Vercel project |
 | **Deployment** | One build and release of one version of the code of a platform project, e.g. for one commit. | one Vercel deployment |
@@ -30,7 +30,7 @@ management system (system)".
 
 Vercel is both: Vercel Flags is a system (ID `vercel-flags`), and Vercel is
 a platform. By default, Vercel Flags uses the platform project of Vercel as
-its flag project. A connection can name a different project with
+its flag project. A source can name a different project with
 `projectId` and `teamId`, because one project can use the flags of a
 different project.
 
@@ -41,22 +41,22 @@ writes a deployment adapter.
 
 ## Milestones
 
-1. Done: core primitives. Provider types, connections, flags, errors.
+1. Done: core primitives. Provider types, sources, flags, errors.
 2. Done: runtime lifecycle and registration. `runtime`,
-   `registerConnections`, `registerFlags`.
+   `registerSources`, `registerFlags`.
 3. Done: request scope. `runtime.onInvoke(request, next)` keeps the request
    with `AsyncLocalStorage`. `getEvaluationContext` runs once per request and
-   connection.
+   source.
 4. Done: batch evaluation. `evaluate(flag)` and `evaluate([flagA, flagB])`.
-5. Done: evaluation context chain. The call side, the flag and the connection
+5. Done: evaluation context chain. The call side, the flag and the source
    each create a part of the context (see "Evaluation context chain").
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
-7. Done: configuration and default connection. `runtime.configure` with
-   `flags.config.ts`. A flag without a connection uses the default connection
+7. Done: configuration and default source. `runtime.configure` with
+   `flags.config.ts`. A flag without a source uses the default source
    of the application, else the default provider: OFREP, or a fast provider
    that a framework puts in with an alias (see "Configuration" and "Default
-   connection").
+   source").
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
 9. Done: Next.js. `@flags-sdk/next/plugin` and `@flags-sdk/next/binding`, tested in
@@ -87,7 +87,7 @@ writes a deployment adapter.
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
     `flags.config.ts`, the alias of `flags/default-provider`, and the format
     of discovery.
-15. In progress: one standard with sources. "Connection" becomes "source"
+15. Done: one standard with sources. "Source" becomes "source"
     (`defineSource`, `bindFlag`), and code generation from catalogs
     (`flags:<source>`). The plan is in "The move to sources".
 
@@ -186,23 +186,23 @@ has `pnpm test:e2e`.
 Milestone 15 joins this SDK with the prototype of `packages/flags-protocol`
 (code generation from catalogs). The work happens in this package, in small
 steps. After each step, all tests pass: the tests of `flags`, of the
-framework packages, and `tests/standard/next`. The old names stay as
-deprecated aliases until the last step, so the framework packages and the
-test apps keep working.
+framework packages, and `tests/standard/next`. The old names stayed as
+deprecated aliases until the last step (M7), so the framework packages and
+the test apps kept working.
 
 | Step | Contents | Status |
 | --- | --- | --- |
 | M0 | Baseline of the tests | Done |
-| M1 | "Connection" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
-| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
+| M1 | "Source" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
+| M2 | `bindFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. The Flags Discovery Endpoint with `flags/discovery`, added by hand. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
 | M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground` on the SDK with real Vercel Flags. | Done |
-| M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | |
+| M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | Done |
 
 In M4, the flags manifest changed its fields: `connections` became
-`sources`, `connection` of a definition became `source`, and `sources` of a
+`sources`, `source` of a definition became `source`, and `sources` of a
 definition (the places in the code) became `declarations`.
 
 ## Providers
@@ -223,8 +223,8 @@ providers to implement more than the OpenFeature spec.
 ### Architecture
 
 All public functions call the `runtime`. For example, a flag calls
-`runtime.evaluate`, and `registerConnections` calls
-`runtime.registerConnection`. The runtime owns all state and all behavior.
+`runtime.evaluate`, and `registerSources` calls
+`runtime.registerSource`. The runtime owns all state and all behavior.
 
 The package needs Node.js 20.19, or 22.12 or newer (`engines`). The CommonJS
 build loads `jose`, an ES module, with `require()`, and the overrides read
@@ -241,8 +241,8 @@ through its own package name, and the build of the SDK keeps these imports:
 
 A bundler can put more than one copy of the package into one process, e.g.
 one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
-`Symbol.for('flags.v5.state')`: the runtime, and the lists of connections and
-flags. All copies share it. A connection of one copy works with a flag of a
+`Symbol.for('flags.v5.state')`: the runtime, and the lists of sources and
+flags. All copies share it. A source of one copy works with a flag of a
 different copy. The key contains the major version, because a different
 major version can have a different runtime.
 
@@ -258,9 +258,9 @@ one process (`vi.resetModules`).
 
 The package exports `evaluate` (see "Evaluating flags with `evaluate`"). It
 calls `runtime.evaluate`. Both accept a flag returned by `defineFlag`, or a
-`FlagDefinition` (`key`, `connection`, optional `defaultValue`). Use the
-second form to evaluate a key that is only known at runtime. The connection
-must come from `defineConnection`.
+`FlagDefinition` (`key`, `source`, optional `defaultValue`). Use the
+second form to evaluate a key that is only known at runtime. The source
+must come from `defineSource`.
 
 ### Lifecycle alignment with OpenFeature
 
@@ -269,7 +269,7 @@ The provider contract uses the OpenFeature lifecycle without changes:
 | OpenFeature (provider spec)                        | This SDK                                            |
 | -------------------------------------------------- | --------------------------------------------------- |
 | `initialize(context?, domain?)` (2.4)              | Called by `runtime.onInit`, `onInvoke` or the first evaluation. No context and no domain are passed. |
-| Initialized only once, also for several domains    | Initialized only once, also for several connections |
+| Initialized only once, also for several domains    | Initialized only once, also for several sources |
 | `shutdown` / `onClose` (2.5)                       | Called by `runtime.onShutdown`                      |
 | Re-initialization after shutdown is allowed (2.5.2)| The next use initializes the provider again         |
 | Status from events (2.8)                           | Status from the `initialize` promise and from the events of the provider. |
@@ -293,14 +293,14 @@ Differences from the OpenFeature client:
 - A provider instance used with this SDK must not also be registered with the
   OpenFeature API (1.8.4). Otherwise, it is initialized and closed two times.
 
-## Connections
+## Sources
 
-A connection links flags to a flag project in a flag management system
+A source links flags to a flag project in a flag management system
 (system), and to the provider which
 evaluates them. "Provider" always means the OpenFeature provider.
 
 ```ts
-const launchdarkly = defineConnection({
+const launchdarkly = defineSource({
   provider: new LaunchDarklyProvider(),
   project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
   getEvaluationContext, // optional
@@ -313,11 +313,11 @@ const launchdarkly = defineConnection({
   `vercel-flags` has an optional `projectId` and an optional `teamId`, for
   the flags of a different project. Without them, it uses the platform
   project.
-- The connection is a new frozen object exposing `provider`, `project` and
+- The source is a new frozen object exposing `provider`, `project` and
   `getEvaluationContext`. The provider is not modified.
 - `getEvaluationContext(context, request)` is the last step of the
   evaluation context chain (see "Evaluation context chain").
-- Several connections can share a provider. It is initialized once.
+- Several sources can share a provider. It is initialized once.
 
 ## Flags
 
@@ -330,7 +330,7 @@ or `await myFlag({ evaluationContext })`.
   `key`, `type`, `defaultValue`, `options`, `description`, `source` and
   `getEvaluationContext`, so the project is available from every flag.
 - **An inline flag**:
-  `defineFlag({ key, decide, type?, options?, defaultValue?, description? })`.
+  `bindFlag({ key, decide, type?, options?, defaultValue?, description? })`.
   `decide(context, request)` decides the value in the code. It receives the
   evaluation context of the call side as it is, and the current request, or
   `undefined` outside of a request. The type of `context` defines what the
@@ -344,21 +344,14 @@ or `await myFlag({ evaluationContext })`.
 The type of both is explicit: `type`, `boolean` by default. `options` does
 not set the type, because it is optional.
 
-Deprecated until the end of the move to sources: `defineFlag` without
-`decide` (the old name of `bindFlag`), and its short forms:
-
-  | Short form                              | Full form                                       |
-  | --------------------------------------- | ----------------------------------------------- |
-  | `defineFlag(key)`                       | `bindFlag({ key })`                             |
-  | `defineFlag(key, defaultValue)`         | `bindFlag({ key, type, defaultValue })`         |
-  | `defineFlag(source, key)`               | `bindFlag({ key, source })`                     |
-  | `defineFlag(source, key, defaultValue)` | `bindFlag({ key, type, defaultValue, source })` |
-
-  Only the short forms take the type from `defaultValue`.
+`defineFlag` without `decide` throws, and points to `bindFlag`. The short
+forms of earlier drafts (`defineFlag(key)`, `defineFlag(source, key,
+defaultValue)`) are removed: each type other than `boolean` is set with
+`type`.
 
 - `source` must be returned by `defineSource`. This is checked at the
   type level and at runtime. Without `source`, the flag uses the default
-  source (see "Default connection").
+  source (see "Default source").
 - Defining a flag registers its source with the runtime. Flags are usually
   defined at module scope, so the runtime knows about their sources before
   `onInit`. `registerSources` is only needed for flags defined later.
@@ -405,9 +398,9 @@ Deprecated until the end of the move to sources: `defineFlag` without
 ### Flag value types
 
 ```ts
-const summerSale = defineFlag({ key: 'summer-sale' }); // boolean
-const bannerText = defineFlag({ key: 'banner-text', type: 'string' });
-const checkout = defineFlag({
+const summerSale = bindFlag({ key: 'summer-sale' }); // boolean
+const bannerText = bindFlag({ key: 'banner-text', type: 'string' });
+const checkout = bindFlag({
   key: 'checkout',
   type: 'string',
   options: [{ value: 'control', label: 'Old' }, 'express'],
@@ -490,12 +483,12 @@ the step before, so each step further down can change more:
 1. The call side gives `evaluationContext`: `myFlag({ evaluationContext })` or
    `evaluate(flags, { evaluationContext })`.
 2. `getEvaluationContext(context, request)` of the flag receives it and
-   returns the context for the connection.
-3. `getEvaluationContext(context, request)` of the connection receives that
+   returns the context for the source.
+3. `getEvaluationContext(context, request)` of the source receives that
    and returns the context for the provider.
 
 ```ts
-const connection = defineConnection({
+const source = defineSource({
   provider,
   project: { system: 'in-memory' },
   getEvaluationContext: async (context: { teamId: string }, request) => ({
@@ -504,7 +497,7 @@ const connection = defineConnection({
   }),
 });
 
-const teamInsights = defineFlag({ key: 'team-insights', connection });
+const teamInsights = bindFlag({ key: 'team-insights', source });
 
 // API route GET /api/teams/:teamId: the route knows the team
 await teamInsights({ evaluationContext: { teamId: params.teamId } });
@@ -518,14 +511,14 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
   `undefined` outside of a request. The steps run also outside of a request, e.g. in scripts, because
   the provider needs the context in the shape that the last step creates.
 - The SDK calls each step with the step's owner as `this`: the flag or the
-  connection.
+  source.
 
 #### Cache
 
 - Inside a request, each step runs once for each input. A second call with
   the same input, or without input, uses the first result.
   `evaluate([a, b], { evaluationContext })` gives the same object to each
-  flag, so the step of a shared connection runs once.
+  flag, so the step of a shared source runs once.
 - Plain data is compared by its content: primitives, arrays and plain
   objects. Thus, `{ teamId: 't1' }` in two server components is one input,
   also with the keys in a different order. The key is a stable JSON string
@@ -542,17 +535,17 @@ await teamInsights({ evaluationContext: { teamId: params.teamId } });
 
 - The type of `context` of a step defines the input that the step needs. The
   return type defines what the next step receives.
-- The connection: `ConnectionInput<C>` is what its flags must give. Without a
-  step, it is `DefaultConnectionInput` (`EvaluationContext | undefined`).
-- The flag: its step must return `ConnectionInput<C>`. The type of its
+- The source: `SourceInput<C>` is what its flags must give. Without a
+  step, it is `DefaultSourceInput` (`EvaluationContext | undefined`).
+- The flag: its step must return `SourceInput<C>`. The type of its
   `context` is what the call side must give (`FlagEvaluationContext<F>`).
-  Without a step, the call side must give `ConnectionInput<C>`.
+  Without a step, the call side must give `SourceInput<C>`.
 - The call side: the options are optional if the input can be `undefined`.
   Otherwise `evaluationContext` is required.
 - `evaluate` with several flags requires the overlap (intersection) of their
   inputs (`EvaluateContext<F>`), because each flag receives the same object.
 - No field has a special meaning, also not `targetingKey`. Not all providers
-  use it. A connection that needs it declares it.
+  use it. A source that needs it declares it.
 
 ## Hooks, events and tracking
 
@@ -569,7 +562,7 @@ OpenFeature:
 | OpenFeature   | This SDK                                  |
 | ------------- | ----------------------------------------- |
 | API           | `hooks` of the configuration              |
-| Client        | `hooks` of `defineConnection`             |
+| Client        | `hooks` of `defineSource`             |
 | Invocation    | `flag({ hooks, hookHints })`, `evaluate`  |
 | Provider      | `provider.hooks`                          |
 
@@ -638,12 +631,12 @@ until the shutdown, or until a new configuration replaces the provider.
   each next evaluation fail with `PROVIDER_FATAL`. The runtime does not
   initialize the provider again until `onShutdown`. `ERROR` and `STALE` do
   not stop evaluations, as in OpenFeature.
-- Handlers for one connection (the client level of OpenFeature) are not
+- Handlers for one source (the client level of OpenFeature) are not
   supported. A handler can filter by `providerName`.
 
 ### Tracking
 
-`track(eventName, options?)` and `track(connection, eventName, options?)`
+`track(eventName, options?)` and `track(source, eventName, options?)`
 give a tracking event to `provider.track`, e.g. a purchase for an
 experiment.
 
@@ -656,11 +649,11 @@ await track(launchdarkly, 'purchase', {
 
 - The evaluation context comes from the chain without the flag step: the
   call side gives `evaluationContext` to `getEvaluationContext` of the
-  connection. It runs once per request, as for flags.
+  source. It runs once per request, as for flags.
 - `track` waits for the initialization of the provider. OpenFeature does
   not call `track` of a provider which is not ready.
 - A provider without `track` ignores the event.
-- Errors are logged, not thrown. Only a call with a wrong connection throws.
+- Errors are logged, not thrown. Only a call with a wrong source throws.
 
 ## Configuration
 
@@ -671,11 +664,11 @@ application calls it at startup.
 
 ```ts
 // flags.config.ts
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext,
@@ -689,15 +682,15 @@ declare module 'flags' {
 }
 ```
 
-- `defaultConnection`: the connection of all flags without a connection. It
-  must come from `defineConnection`.
+- `defaultSource`: the source of all flags without a source. It
+  must come from `defineSource`.
 - `overrides`: which override tokens the SDK accepts (see "Overrides").
 - `hooks`: OpenFeature hooks for all flags (see "Hooks, events and
   tracking").
 - `runtime.configure` validates the full configuration at once, and throws
   before it changes anything. A new call replaces the configuration, e.g.
   after a reload in development.
-- `onInit` and `onInvoke` initialize the current `defaultConnection`. A new
+- `onInit` and `onInvoke` initialize the current `defaultSource`. A new
   call of `configure` replaces it: the old one is not initialized any more,
   and if it was initialized, the runtime closes its provider, unless a flag
   still uses that provider. Thus, a reload in development, or one call of
@@ -716,28 +709,29 @@ declare module 'flags' {
   `declare module 'flags'`. No generated declaration file is necessary.
   `flags.config.ts` is part of the TypeScript program, so the registration
   applies to the full program.
-- With the registration, a flag without a connection has the types of the
-  configured default connection (`ConfiguredConnection`), e.g. the input of
+- With the registration, a flag without a source has the types of the
+  configured default source (`ConfiguredSource`), e.g. the input of
   its `getEvaluationContext`. Without it, the flag has the open
-  `DefaultConnectionInput`.
+  `DefaultSourceInput`.
 - If `flags.config.ts` is not in the TypeScript program, the types fall back
   to the open context. The type check does not fail, but it is less strict.
 - `test/register` tests this pattern with its own TypeScript program, as part
   of `type-check`. A registration applies to the full program, so the other
   tests can not contain it.
 
-## Default connection
+## Default source
 
-A flag without a connection uses the default connection. The connection
+A flag without a source uses the default source. The source
 resolves at the evaluation, not at the definition, so a flag that a module
-defines before the configuration also uses the configured connection.
+defines before the configuration also uses the configured source.
 
-1. The `defaultConnection` of the configuration, if the application sets one.
-2. Otherwise, the built-in default connection. Its provider comes from the
-   module `flags/default-provider`. The built-in implementation uses OFREP.
+1. The `defaultSource` of the configuration, if the application sets one.
+2. Otherwise, the built-in default source. Its provider comes from the
+   module `flags/default-provider`. For now, the built-in implementation
+   throws (see "The built-in default provider").
 
 ```ts
-const summerSale = defineFlag({ key: 'summer-sale' });
+const summerSale = bindFlag({ key: 'summer-sale' });
 ```
 
 - `flags` exports nothing for Vercel, and there is no wrapper package. The
@@ -745,21 +739,21 @@ const summerSale = defineFlag({ key: 'summer-sale' });
   `VercelProvider` of `@vercel/flags-core/openfeature`, like each other
   OpenFeature provider. That provider needs `@openfeature/server-sdk`, which
   is normal for OpenFeature providers.
-- The built-in default connection has the system `vercel-flags`. Its context is
-  `DefaultConnectionInput`, so it accepts any evaluation context, and gives
+- The built-in default source has the system `vercel-flags`. Its context is
+  `DefaultSourceInput`, so it accepts any evaluation context, and gives
   it to the provider as it is. All copies of the package share it.
-- The runtime initializes the default connection only when a flag uses it,
+- The runtime initializes the default source only when a flag uses it,
   or when `runtime.configure` sets it. Thus, the built-in provider does not
-  start when the application has its own default connection.
-- A flag with its own connection is not affected by the configuration.
+  start when the application has its own default source.
+- A flag with its own source is not affected by the configuration.
 
 The gradual path:
 
 | Step | What the user does                   | Result                                                                      |
 | ---- | ------------------------------------ | --------------------------------------------------------------------------- |
-| 0    | Nothing                              | OFREP locally. On Vercel, a fast provider, if the framework puts it in.     |
+| 0    | Nothing                              | For now, an error. On Vercel, a fast provider, if the framework puts it in. |
 | 1    | Writes `flags.config.ts`             | Evaluation context and fast evaluations everywhere. No flag changes.        |
-| 2    | Adds `connection` to some flags      | More than one provider.                                                     |
+| 2    | Adds `source` to some flags          | More than one provider.                                                     |
 
 ### The built-in default provider
 
@@ -778,12 +772,12 @@ later, when the OFREP endpoint of Vercel Flags is available:
   the bearer credential. It reads the token for each request, because
   `vercel env pull` can renew it.
 - Without the token, the evaluation throws an error that tells the user to
-  run `vercel link` and `vercel env pull`, to set a default connection in
-  `flags.config.ts`, or to pass a connection. The error comes at the
+  run `vercel link` and `vercel env pull`, to set a default source in
+  `flags.config.ts`, or to pass a source. The error comes at the
   evaluation, not at the definition, so that imports in tests and scripts do
   not fail. A flag with `defaultValue` returns it and logs the error.
 - With `NODE_ENV=production`, it logs a warning one time: OFREP sends one
-  request for each evaluation, so set a default connection in
+  request for each evaluation, so set a default source in
   `flags.config.ts`, e.g. with `VercelProvider`.
 
 ### Replacing the default provider with an alias
@@ -798,7 +792,7 @@ e.g. with `VercelProvider` of `@vercel/flags-core`.
   external), and the OFREP code is only in `dist/default-provider.js`. Thus,
   an alias replaces it, and the bundler removes the OFREP code.
 - The SDK calls `createDefaultProvider()` one time for each process, because
-  the built-in default connection is in the shared state. Next.js can have
+  the built-in default source is in the shared state. Next.js can have
   more than one copy of the replacement, e.g. one for each layer, but only
   the first one is called. Thus, a replacement needs no singleton.
 - The replacement for Vercel is `@vercel/flags-core/default-provider`. It
@@ -807,7 +801,7 @@ e.g. with `VercelProvider` of `@vercel/flags-core`.
   condition `next-js`), like `@vercel/flags-core/openfeature`.
 - Without a bundler, nothing replaces the module, so the built-in OFREP
   implementation is used.
-- The default connection of the application always wins over the
+- The default source of the application always wins over the
   replacement.
 
 A test with a small Next.js 16 app gave these results. A fake package
@@ -998,15 +992,15 @@ The public keys:
 ## Runtime lifecycle
 
 The SDK exports one `runtime` instance. It coordinates the providers of all
-connections. An application has only one runtime, so `Runtime` is exported
+sources. An application has only one runtime, so `Runtime` is exported
 only as a type. The lifecycle methods map to the AWS Lambda phases. Framework
 bindings call them.
 
 - `onInit()`: call once before the first request (Lambda init phase). It
-  initializes the providers of all registered connections in parallel, and
+  initializes the providers of all registered sources in parallel, and
   waits for them. It logs failures and does not throw. Use `initialize()` for
   local work, e.g. to parse an embedded fallback configuration. Do not rely on
-  connections that you open here: Lambda can freeze the process between
+  sources that you open here: Lambda can freeze the process between
   requests.
 - `onInvoke(request, next)`: call for each request, e.g. in a middleware.
   Pass the request of the framework and the function that continues to handle
@@ -1017,7 +1011,7 @@ bindings call them.
   request can use only some of the providers, and a slow provider must not
   delay the flags of a different provider. The evaluation of a flag reports
   errors.
-- A flag waits only for the provider of its connection. If the initialization
+- A flag waits only for the provider of its source. If the initialization
   of that provider is in progress, the flag waits for it before it calls the
   provider.
 - `waitForInitialization()`: waits until all running initializations are
@@ -1026,10 +1020,10 @@ bindings call them.
   initializations, then calls `onClose()` on each provider that was
   initialized. It logs errors and does not throw. After a shutdown, the next
   use initializes the providers again.
-- A provider is initialized only once, also when several connections share
+- A provider is initialized only once, also when several sources share
   it. Concurrent callers share one initialization. `initialize()` is called
   synchronously, so the work starts immediately.
-- The provider of a connection that is not registered is initialized on its
+- The provider of a source that is not registered is initialized on its
   first evaluation.
 
 ### The request
@@ -1138,7 +1132,7 @@ provide the same itself.
 
 | Package | Contents | Used by |
 | --- | --- | --- |
-| `flags` | runtime, `defineFlag`, connections, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
+| `flags` | runtime, `defineFlag`, `bindFlag`, `defineSource`, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
 | `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
 | `@flags-sdk/vite` | the generic Vite plugin: the binding, `flags.config.ts`, `'use flags'` modules, the manifest, the default provider of the platform | the framework packages for Vite |
 | `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
@@ -1204,7 +1198,7 @@ The module of the binding:
   development (`NODE_ENV` is not `production`), it calls it before each
   evaluation, and configures again when it returns a different object. Thus,
   a change of `flags.config.ts` applies without a restart, and `configure`
-  closes the old default connection. If the source throws, the evaluation
+  closes the old default source. If the source throws, the evaluation
   fails, and the next one tries again.
 - `setRethrow`: some frameworks use errors as signals, e.g. Next.js to stop
   the static rendering, or to postpone a part of a page. The SDK must never
@@ -1393,12 +1387,12 @@ tested by hand, with a change of `flags.config.ts` during the run.
 
 ### Registration
 
-- `registerConnections(connections)` registers connections. Use it when you
-  have the connections.
-- `registerFlags(moduleExports)` registers the connections of all flags that a
+- `registerSources(sources)` registers sources. Use it when you
+  have the sources.
+- `registerFlags(moduleExports)` registers the sources of all flags that a
   module exports. Use it with a module that only exports flags. It throws if
   an export is not a flag, and then registers nothing.
-- `defineFlag` registers the connection of the flag. Thus, you only need these
+- `defineFlag` registers the source of the flag. Thus, you only need these
   functions for flags that are defined after `onInit`, e.g. in modules that are
   imported lazily, or for plain flag objects.
 - The framework plugins call `registerFlags` for each `'use flags'` module
@@ -1582,15 +1576,15 @@ A module which starts with the `'use flags'` directive is a flags module:
   not on `defineFlag`.
 - Importing it has no side effects, e.g. no network connections. Tools
   import it to read its exports. OpenFeature providers usually connect in
-  `initialize`, not in the constructor, so `defineConnection` in such a
+  `initialize`, not in the constructor, so `defineSource` in such a
   module is fine.
 - The directive is found in the directive prologue (comments, whitespace,
   and string literals at the start), as for `'use client'`. It is not a
   parser.
 - The framework plugins append a self-registration to each flags module:
   `import * as self from './flags'; registerFlags(self);`. `registerFlags`
-  registers the connections of the exports, also of plain flag objects. A
-  flag without a connection uses the default connection, which is not
+  registers the sources of the exports, also of plain flag objects. A
+  flag without a source uses the default source, which is not
   registered. Without a plugin, call `registerFlags` by hand.
 
 ### The manifest
@@ -1642,7 +1636,7 @@ build of the application.
    Thus, its variables `projectId`, `environment` and `teamId` come from
    the environment of the build, like the platform project of the
    overrides (`findPlatformProject`). The fields `projectId` and `teamId`
-   of the connection override them, for the flags of a different project.
+   of the source override them, for the flags of a different project.
 3. The system publishes a system manifest: JSON, with the schema
    `https://flags-sdk.dev/schemas/system-manifest.v1.json`. It has the
    name, a logo, the variables, and the URL templates `flag`, `createFlag`
@@ -1760,7 +1754,7 @@ of Turbopack works on a collection of the whole application.
     only from the page and from the flags of the deployment of v4.
   - The links to the dashboard from the system manifests
     (`resolveFlagLinks`). Flags Explorer builds them only for Vercel Flags
-    now, from the `projectId` of the connection. The system manifests on
+    now, from the `projectId` of the source. The system manifests on
     flags-sdk.dev do not exist yet (404). The toolbar should load them
     through vercel.live, not from the page, with the checks of section 9.2.
 - **OFREP.** The endpoint of Vercel Flags for OFREP, with the OIDC token of
@@ -1832,7 +1826,7 @@ Not decided yet.
 ## Deferred
 
 - Hooks registered at runtime, e.g. `runtime.addHooks`, and hooks of one
-  flag. Today, hooks come from the configuration, the connection, the call
+  flag. Today, hooks come from the configuration, the source, the call
   side and the provider.
 - Groups of projects that share overrides, e.g. for microfrontends (see the
   RFC).

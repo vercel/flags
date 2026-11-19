@@ -8,7 +8,7 @@ import {
   vi,
 } from 'vitest';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
 import { defineSource } from './source';
 import type { Provider } from './types';
@@ -45,7 +45,7 @@ describe('evaluate', () => {
 
   it('evaluates one flag', async () => {
     const { source } = createSource({ a: true });
-    const a = defineFlag({ key: 'a', source });
+    const a = bindFlag({ key: 'a', source });
 
     const value = await evaluate(a);
     expect(value).toBe(true);
@@ -54,9 +54,9 @@ describe('evaluate', () => {
 
   it('evaluates several flags in the order of the list', async () => {
     const { source } = createSource({ a: true, b: false, c: true });
-    const a = defineFlag({ key: 'a', source });
-    const b = defineFlag({ key: 'b', source });
-    const c = defineFlag({ key: 'c', source });
+    const a = bindFlag({ key: 'a', source });
+    const b = bindFlag({ key: 'b', source });
+    const c = bindFlag({ key: 'c', source });
 
     const values = await evaluate([b, a, c]);
     expect(values).toEqual([false, true, true]);
@@ -66,8 +66,8 @@ describe('evaluate', () => {
   it('evaluates flags of several sources', async () => {
     const first = createSource({ a: true });
     const second = createSource({ b: false });
-    const a = defineFlag({ key: 'a', source: first.source });
-    const b = defineFlag({ key: 'b', source: second.source });
+    const a = bindFlag({ key: 'a', source: first.source });
+    const b = bindFlag({ key: 'b', source: second.source });
 
     await expect(evaluate([a, b])).resolves.toEqual([true, false]);
   });
@@ -86,7 +86,7 @@ describe('evaluate', () => {
 
   it('is the same as runtime.evaluate', async () => {
     const { source } = createSource({ a: true });
-    const a = defineFlag({ key: 'a', source });
+    const a = bindFlag({ key: 'a', source });
 
     await expect(runtime.evaluate([a])).resolves.toEqual([true]);
   });
@@ -94,8 +94,8 @@ describe('evaluate', () => {
   describe('when a flag fails', () => {
     it('returns the default value of that flag', async () => {
       const { source } = createSource({ a: true });
-      const a = defineFlag({ key: 'a', source });
-      const missing = defineFlag({
+      const a = bindFlag({ key: 'a', source });
+      const missing = bindFlag({
         key: 'missing',
         defaultValue: false,
         source,
@@ -109,8 +109,8 @@ describe('evaluate', () => {
 
     it('rejects without a default value', async () => {
       const { source } = createSource({ a: true });
-      const a = defineFlag({ key: 'a', source });
-      const missing = defineFlag({ key: 'missing', source });
+      const a = bindFlag({ key: 'a', source });
+      const missing = bindFlag({ key: 'missing', source });
 
       await expect(evaluate([a, missing])).rejects.toMatchObject({
         name: 'FlagEvaluationError',

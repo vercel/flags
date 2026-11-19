@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
 import { defineSource } from './source';
 
@@ -41,7 +41,7 @@ describe('flags/framework replaced by a framework', () => {
         return { value: true };
       },
     };
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'a',
       source: defineSource({
         provider,
@@ -55,7 +55,7 @@ describe('flags/framework replaced by a framework', () => {
   });
 
   it('is called one time', async () => {
-    const flag = defineFlag({ key: 'a', source: source() });
+    const flag = bindFlag({ key: 'a', source: source() });
 
     await Promise.all([flag(), flag()]);
     await flag();
@@ -68,14 +68,14 @@ describe('flags/framework replaced by a framework', () => {
       r.configure({ defaultSource: configured });
     });
 
-    const flag = defineFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a' });
     await flag();
     expect(flag.source).toBe(configured);
   });
 
   it('fails the evaluation and tries again after an error', async () => {
     setup.mockRejectedValueOnce(new Error('flags.config.ts has an error'));
-    const flag = defineFlag({ key: 'a', source: source() });
+    const flag = bindFlag({ key: 'a', source: source() });
 
     await expect(flag()).rejects.toThrow('flags.config.ts has an error');
     await expect(flag()).resolves.toBe(true);

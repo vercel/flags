@@ -23,12 +23,7 @@
  * ```
  */
 import { readFile } from 'node:fs/promises';
-import {
-  defineConnection,
-  defineFlag,
-  encryptOverrides,
-  evaluate,
-} from 'flags';
+import { bindFlag, defineSource, encryptOverrides, evaluate } from 'flags';
 import { validateFlagsManifest } from 'flags/manifest';
 
 interface ConformanceState {
@@ -52,10 +47,10 @@ export function setConformanceSignal(signal: () => unknown): void {
 }
 
 /**
- * The connection of the suite. Its provider returns the evaluation context
+ * The source of the suite. Its provider returns the evaluation context
  * which it receives, so the suite sees what the binding gives the SDK.
  */
-export const conformanceConnection = defineConnection({
+export const conformanceSource = defineSource({
   provider: {
     metadata: { name: 'flags-conformance' },
     resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
@@ -83,16 +78,17 @@ export const conformanceConnection = defineConnection({
   },
 });
 
-export const conformanceContext = defineFlag(
-  conformanceConnection,
-  'conformance-context',
-  '',
-);
-export const conformanceEnabled = defineFlag(
-  conformanceConnection,
-  'conformance-enabled',
-  false,
-);
+export const conformanceContext = bindFlag({
+  key: 'conformance-context',
+  source: conformanceSource,
+  type: 'string',
+  defaultValue: '',
+});
+export const conformanceEnabled = bindFlag({
+  key: 'conformance-enabled',
+  source: conformanceSource,
+  defaultValue: false,
+});
 
 /**
  * What the route `GET /conformance` returns.
@@ -106,7 +102,7 @@ export interface ConformanceResult {
   };
   readonly enabled: boolean;
   /**
-   * How often the connection created the evaluation context in this
+   * How often the source created the evaluation context in this
    * request.
    */
   readonly contextCalls: number | null;

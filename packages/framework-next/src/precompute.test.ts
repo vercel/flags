@@ -1,7 +1,7 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import {
-  defineConnection,
-  defineFlag,
+  bindFlag,
+  defineSource,
   encryptOverrides,
   runtime as publicRuntime,
 } from 'flags';
@@ -28,8 +28,8 @@ import {
 
 const secret = 'Tw1R5-WuhN6vxp9b0s6h0bCdrBQwZXMbGwjzYm1jnUs';
 
-function createConnection() {
-  return defineConnection({
+function createSource() {
+  return defineSource({
     provider: new TypedInMemoryProvider({
       'summer-sale': {
         variants: { on: true, off: false },
@@ -57,15 +57,15 @@ function createConnection() {
 }
 
 function createFlags() {
-  const connection = createConnection();
-  const summerSale = defineFlag({ key: 'summer-sale', connection });
-  const checkout = defineFlag({
+  const source = createSource();
+  const summerSale = bindFlag({ key: 'summer-sale', source });
+  const checkout = bindFlag({
     key: 'checkout',
     type: 'string',
     options: ['control', 'express'],
-    connection,
+    source,
   });
-  const banner = defineFlag({ key: 'banner', type: 'string', connection });
+  const banner = bindFlag({ key: 'banner', type: 'string', source });
   return {
     summerSale,
     checkout,
@@ -201,8 +201,8 @@ describe('precompute', () => {
   });
 
   it('keeps object values which are not one of the options', async () => {
-    const connection = createConnection();
-    const theme = defineFlag({ key: 'theme', type: 'object', connection });
+    const source = createSource();
+    const theme = bindFlag({ key: 'theme', type: 'object', source });
     const code = await serialize([theme], [{ color: 'blue' }]);
 
     await expect(getPrecomputed(theme, [theme], code)).resolves.toEqual({
@@ -212,11 +212,11 @@ describe('precompute', () => {
 
   it('keeps a value of the provider which is not one of the options', async () => {
     // e.g. a variant which the system added after the deployment
-    const checkout = defineFlag({
+    const checkout = bindFlag({
       key: 'checkout',
       type: 'string',
       options: ['control', 'one-click'],
-      connection: createConnection(),
+      source: createSource(),
     });
     const code = await precompute([checkout]);
 

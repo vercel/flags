@@ -3,7 +3,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import {
-  defineFlag,
+  bindFlag,
   defineSource,
   evaluate,
   type FlagsRequestInit,
@@ -60,14 +60,14 @@ const source = defineSource({
   },
 });
 
-const newCheckout = defineFlag({
+const newCheckout = bindFlag({
   key: 'new-checkout',
   defaultValue: false,
   source,
 });
 
 // The middle step: converts the slug of the URL to a team id
-const teamInsights = defineFlag({
+const teamInsights = bindFlag({
   key: 'team-insights',
   defaultValue: false,
   source,

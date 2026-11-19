@@ -15,10 +15,6 @@ export interface Config {
    */
   readonly defaultSource?: Source;
   /**
-   * @deprecated Use `defaultSource`. Connections are now sources.
-   */
-  readonly defaultConnection?: Source;
-  /**
    * Which override tokens the SDK accepts. See `OverridesOptions`.
    */
   readonly overrides?: OverridesOptions;
@@ -68,13 +64,6 @@ type RegisteredConfig = Register extends { config: infer C }
   ? C
   : Record<never, never>;
 
-// `defaultConnection` is the deprecated name of `defaultSource`
-type RegisteredDefaultConnection = RegisteredConfig extends {
-  defaultConnection: infer D extends Source;
-}
-  ? D
-  : DefaultSource;
-
 /**
  * The source of flags without a source: the registered
  * `defaultSource`, or the built-in default source.
@@ -83,9 +72,4 @@ export type ConfiguredSource = RegisteredConfig extends {
   defaultSource: infer D extends Source;
 }
   ? D
-  : RegisteredDefaultConnection;
-
-/**
- * @deprecated Use `ConfiguredSource`. Connections are now sources.
- */
-export type ConfiguredConnection = ConfiguredSource;
+  : DefaultSource;

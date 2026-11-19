@@ -1,10 +1,10 @@
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 // A provider which reads the time, as many providers do, e.g. for a retry
 // or for metrics. Next.js does not allow Date.now() in a prerender, so the
 // evaluation must belong to the render at request time.
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: {
       metadata: { name: 'clock' },
       resolveBooleanEvaluation: async () => ({

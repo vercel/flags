@@ -89,14 +89,6 @@ export interface FlagDefinition {
 }
 
 /**
- * The default source of a configuration. `defaultConnection` is its
- * deprecated name.
- */
-function defaultSourceOf(config: Config): Source | undefined {
-  return config.defaultSource ?? config.defaultConnection;
-}
-
-/**
  * Why a value does not fit a flag, or `undefined` if it fits.
  */
 function valueProblem(value: unknown, type: FlagType): string | undefined {
@@ -132,16 +124,6 @@ export type GetRequest = () =>
   | FlagsRequestInit
   | undefined
   | Promise<FlagsRequestInit | undefined>;
-
-/**
- * @deprecated Use `LoadConfig`. A "source" is now a source of flags.
- */
-export type ConfigSource = LoadConfig;
-
-/**
- * @deprecated Use `GetRequest`. A "source" is now a source of flags.
- */
-export type RequestSource = GetRequest;
 
 type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
 
@@ -443,13 +425,6 @@ class RuntimeImpl {
   }
 
   /**
-   * @deprecated Use `setGetRequest`. A "source" is now a source of flags.
-   */
-  setRequestSource(getRequest: GetRequest | undefined): void {
-    this.setGetRequest(getRequest);
-  }
-
-  /**
    * Sets a function which throws an error again if the framework must
    * receive it. Some frameworks use errors as signals, e.g. Next.js to stop
    * the static rendering, and the SDK must not catch them. The runtime calls
@@ -483,13 +458,6 @@ class RuntimeImpl {
   }
 
   /**
-   * @deprecated Use `setLoadConfig`. A "source" is now a source of flags.
-   */
-  setConfigSource(loadConfig: LoadConfig | undefined): void {
-    this.setLoadConfig(loadConfig);
-  }
-
-  /**
    * Configures the SDK. By convention, the framework binding calls it
    * with the export `config` of `flags.config.ts`. Without a framework, call
    * it at startup.
@@ -507,7 +475,7 @@ class RuntimeImpl {
    * ```
    */
   configure(config: Config): void {
-    const defaultSource = defaultSourceOf(config);
+    const defaultSource = config.defaultSource;
     if (defaultSource !== undefined && !isSource(defaultSource)) {
       throw new Error(
         'flags: The defaultSource of the configuration must be returned by defineSource.',
@@ -520,7 +488,7 @@ class RuntimeImpl {
     }
     const readOverrides = createOverridesReader(config.overrides);
 
-    const previous = defaultSourceOf(this.#config);
+    const previous = this.#config.defaultSource;
     this.#config = config;
     this.#readOverrides = readOverrides;
     // A replaced default source, e.g. after a reload in development,
@@ -537,7 +505,7 @@ class RuntimeImpl {
    * @internal
    */
   get defaultSource(): Source {
-    return defaultSourceOf(this.#config) ?? getBuiltInSource();
+    return this.#config.defaultSource ?? getBuiltInSource();
   }
 
   /**
@@ -1204,7 +1172,7 @@ class RuntimeImpl {
    */
   #registeredProviders(): Provider[] {
     const sources = [...this.#sources];
-    const configured = defaultSourceOf(this.#config);
+    const configured = this.#config.defaultSource;
     if (configured) {
       sources.push(configured);
     } else if (this.#usesDefaultSource) {

@@ -8,7 +8,7 @@ import {
   vi,
 } from 'vitest';
 import { evaluate, type FlagEvaluationContext } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
 import {
   type DefaultSourceInput,
@@ -49,7 +49,7 @@ describe('context chain', () => {
         team: { id: context.teamId },
       }),
     });
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await flag({ evaluationContext: { teamId: 'team-1' } });
     expect(contextOf(provider)).toEqual({ team: { id: 'team-1' } });
@@ -66,7 +66,7 @@ describe('context chain', () => {
         return { team: { id: context.teamId } };
       },
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'a',
       source,
       getEvaluationContext: (context: { slug: string }) => {
@@ -94,7 +94,7 @@ describe('context chain', () => {
         team: { id: context.teamId, ...teams[context.teamId] },
       }),
     });
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     // e.g. GET /api/teams/team-1/settings
     await runtime.onInvoke(request, () =>
@@ -116,7 +116,7 @@ describe('context chain', () => {
         user: request?.headers?.get('x-user') ?? null,
       }),
     });
-    const flag = defineFlag({ key: 'a', source });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request, () =>
       flag({ evaluationContext: { country: 'CH' } }),
@@ -131,7 +131,7 @@ describe('context chain', () => {
         provider,
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await flag({ evaluationContext: { country: 'CH' } });
       expect(contextOf(provider)).toEqual({ country: 'CH' });
@@ -143,7 +143,7 @@ describe('context chain', () => {
         provider,
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         source,
         getEvaluationContext: () => ({ source: 'flag' }),
@@ -159,7 +159,7 @@ describe('context chain', () => {
         provider,
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await flag();
       expect(contextOf(provider)).toEqual({});
@@ -177,7 +177,7 @@ describe('context chain', () => {
           return {};
         },
       });
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         source,
         getEvaluationContext: (_context: undefined, request) => {
@@ -202,7 +202,7 @@ describe('context chain', () => {
           return {};
         },
       });
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await flag();
       expect(received).toEqual([undefined]);
@@ -224,8 +224,8 @@ describe('context chain', () => {
 
     it('runs a step once per request for the same input object', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
-      const b = defineFlag({ key: 'b', source });
+      const a = bindFlag({ key: 'a', source });
+      const b = bindFlag({ key: 'b', source });
       const evaluationContext = { teamId: 't1' };
 
       await runtime.onInvoke(request, async () => {
@@ -237,8 +237,8 @@ describe('context chain', () => {
 
     it('runs a step once per request without input', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
-      const b = defineFlag({ key: 'b', source });
+      const a = bindFlag({ key: 'a', source });
+      const b = bindFlag({ key: 'b', source });
 
       await runtime.onInvoke(request, async () => {
         await Promise.all([a(), b()]);
@@ -249,8 +249,8 @@ describe('context chain', () => {
 
     it('runs a step once for inputs with the same content', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
-      const b = defineFlag({ key: 'b', source });
+      const a = bindFlag({ key: 'a', source });
+      const b = bindFlag({ key: 'b', source });
 
       await runtime.onInvoke(request, async () => {
         await a({ evaluationContext: { teamId: 't1' } });
@@ -262,8 +262,8 @@ describe('context chain', () => {
 
     it('compares an input which is not plain data by identity', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
-      const b = defineFlag({ key: 'b', source });
+      const a = bindFlag({ key: 'a', source });
+      const b = bindFlag({ key: 'b', source });
       class Team {
         constructor(readonly teamId: string) {}
       }
@@ -279,7 +279,7 @@ describe('context chain', () => {
 
     it('runs a step again in the next request', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
+      const a = bindFlag({ key: 'a', source });
 
       await runtime.onInvoke(request, () => a());
       await runtime.onInvoke(request, () => a());
@@ -288,7 +288,7 @@ describe('context chain', () => {
 
     it('runs a step on each evaluation outside of a request', async () => {
       const { source, step } = countingSource();
-      const a = defineFlag({ key: 'a', source });
+      const a = bindFlag({ key: 'a', source });
 
       await a();
       await a();
@@ -300,7 +300,7 @@ describe('context chain', () => {
         teamId: context.slug,
       }));
       const { source } = countingSource();
-      const a = defineFlag({
+      const a = bindFlag({
         key: 'a',
         source,
         getEvaluationContext: flagStep,
@@ -321,7 +321,7 @@ describe('context chain', () => {
         provider: createProvider(),
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         defaultValue: false,
         source,
@@ -344,7 +344,7 @@ describe('context chain', () => {
           throw new Error('Team not found');
         },
       });
-      const flag = defineFlag({ key: 'a', source });
+      const flag = bindFlag({ key: 'a', source });
 
       await expect(flag()).rejects.toMatchObject({
         name: 'FlagEvaluationError',
@@ -383,7 +383,7 @@ describe('context chain', () => {
     });
 
     it('requires the context of the source on the call side', () => {
-      const flag = defineFlag({ key: 'a', source: teamSource });
+      const flag = bindFlag({ key: 'a', source: teamSource });
       expectTypeOf<FlagEvaluationContext<typeof flag>>().toEqualTypeOf<{
         teamId: string;
       }>();
@@ -400,8 +400,8 @@ describe('context chain', () => {
     });
 
     it('makes the options optional if the input can be undefined', () => {
-      const flag = defineFlag({ key: 'a', source: optionalSource });
-      const plain = defineFlag({ key: 'b', source: plainSource });
+      const flag = bindFlag({ key: 'a', source: optionalSource });
+      const plain = bindFlag({ key: 'b', source: plainSource });
 
       void (() => {
         flag();
@@ -412,7 +412,7 @@ describe('context chain', () => {
     });
 
     it('requires the context of the flag when the flag has a step', () => {
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         source: teamSource,
         getEvaluationContext: (context: { slug: string }) => ({
@@ -432,10 +432,10 @@ describe('context chain', () => {
 
     it('requires the step of a flag to return the input of the source', () => {
       void (() => {
-        // @ts-expect-error teamId must be a string
-        defineFlag({
+        bindFlag({
           key: 'a',
           source: teamSource,
+          // @ts-expect-error teamId must be a string
           getEvaluationContext: () => ({ teamId: 1 }),
         });
       });
@@ -465,15 +465,15 @@ describe('context chain', () => {
     });
 
     it('requires the overlap of the contexts in evaluate', () => {
-      const team = defineFlag({ key: 'a', source: teamSource });
-      const slug = defineFlag({
+      const team = bindFlag({ key: 'a', source: teamSource });
+      const slug = bindFlag({
         key: 'b',
         source: teamSource,
         getEvaluationContext: (context: { slug: string }) => ({
           teamId: context.slug,
         }),
       });
-      const optional = defineFlag({ key: 'c', source: optionalSource });
+      const optional = bindFlag({ key: 'c', source: optionalSource });
 
       void (() => {
         evaluate([team, slug], {

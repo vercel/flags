@@ -2,7 +2,7 @@ import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlagEvaluationError } from './errors';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { OVERRIDE_REASON } from './hooks';
 import { encryptOverrides } from './overrides';
 import { runtime } from './runtime';
@@ -63,7 +63,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [recorder('source', steps)],
     });
-    const flag = defineFlag({ key: 'summer-sale', source });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     await flag({ hooks: [recorder('call', steps)] });
     expect(steps).toEqual([
@@ -88,7 +88,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'summer-sale',
       source,
       defaultValue: false,
@@ -125,7 +125,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
     });
     const input = { user: 'bob' };
-    const flag = defineFlag({ key: 'summer-sale', source });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     const value = await flag({
       evaluationContext: input,
@@ -160,7 +160,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
     });
 
-    await defineFlag({ key: 'summer-sale', source })({
+    await bindFlag({ key: 'summer-sale', source })({
       hooks: [timer, other],
     });
     expect(durations).toEqual([undefined, 1]);
@@ -175,7 +175,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [recorder('source', steps), { error, finally: final }],
     });
-    const flag = defineFlag({ key: 'missing', source, defaultValue: true });
+    const flag = bindFlag({ key: 'missing', source, defaultValue: true });
 
     await expect(flag()).resolves.toBe(true);
     expect(steps).toEqual([
@@ -197,7 +197,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'summer-sale', source });
+    const flag = bindFlag({ key: 'summer-sale', source });
     const provider = vi.spyOn(source.provider, 'resolveBooleanEvaluation');
 
     await expect(
@@ -233,7 +233,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'summer-sale', source });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     const value = await flag({
       hooks: [
@@ -257,8 +257,8 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const a = defineFlag({ key: 'summer-sale', source });
-    const b = defineFlag({ key: 'missing', source, defaultValue: false });
+    const a = bindFlag({ key: 'summer-sale', source });
+    const b = bindFlag({ key: 'missing', source, defaultValue: false });
 
     await evaluate([a, b], {
       hooks: [
@@ -279,7 +279,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [{ before }],
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'banner',
       type: 'string',
       source,
@@ -319,7 +319,7 @@ describe('hooks', () => {
         project: { system: 'in-memory' },
       });
       runtime.configure({ hooks: [{ after }] });
-      const flag = defineFlag({ key: 'summer-sale', source });
+      const flag = bindFlag({ key: 'summer-sale', source });
 
       const value = await runtime.onInvoke(await requestWithOverride(), () =>
         flag({ evaluationContext: { user: 'bob' } }),
@@ -345,7 +345,7 @@ describe('hooks', () => {
         project: { system: 'in-memory' },
         getEvaluationContext,
       });
-      const flag = defineFlag({ key: 'summer-sale', source });
+      const flag = bindFlag({ key: 'summer-sale', source });
 
       await expect(
         runtime.onInvoke(await requestWithOverride(), () => flag()),

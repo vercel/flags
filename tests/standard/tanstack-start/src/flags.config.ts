@@ -1,8 +1,8 @@
 import { redirect } from '@tanstack/react-router';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: {
       metadata: { name: 'app' },
       resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({

@@ -45,13 +45,12 @@ app.get('/', async (c) => {
 });
 ```
 
-### 2️⃣ Optional: `flags.config.ts`
+### 2️⃣ `flags.config.ts`
 
-Without a configuration, flags use Vercel Flags through OFREP, with the
-OIDC token of the project (locally from `vercel env pull`). Without a
-bundler, a platform can not replace the default provider, so OFREP sends
-one request for each evaluation, also on Vercel. For fast evaluations, give
-the middleware a configuration with the provider of Vercel Flags:
+Flags without a source use the default source of the configuration. For
+now, without a configuration, the built-in default source throws. Without
+a bundler, a platform can not replace the default provider. Give the
+middleware a configuration, e.g. with the provider of Vercel Flags:
 
 ```sh
 pnpm add @vercel/flags-core @openfeature/server-sdk
@@ -60,10 +59,10 @@ pnpm add @vercel/flags-core @openfeature/server-sdk
 ```ts
 // src/flags.config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
     getEvaluationContext: (_context, request) => ({
@@ -72,7 +71,7 @@ export const config = defineConfig({
   }),
 });
 
-// Gives flags without a connection the types of this connection
+// Gives flags without a source the types of this source
 declare module 'flags' {
   interface Register {
     config: typeof config;
@@ -99,13 +98,13 @@ flags manifest [dir] [--out <file>]
 
 - It imports the modules which start with `'use flags'` in `dir` with
   Node.js, and writes `flags-manifest.json`. It loads `flags.config.ts` if
-  it finds one, for the default connection.
+  it finds one, for the default source.
 - Run it on the source if Node.js can run it (TypeScript with type
   stripping, Node.js 22.18 or newer), or on the output of `tsc`, which
   keeps the directive. A bundled output loses the directive.
 - Without a bundler, nothing appends the self-registration. Call
   `registerFlags` by hand if a module has plain flag objects with a
-  connection.
+  source.
 
 ## License
 

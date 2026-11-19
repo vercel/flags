@@ -23,7 +23,7 @@ the SDK are in [SPEC.md](./SPEC.md). The guide for implementers is
 - **Flag management system (system):** the source of truth of the flags,
   as defined by OpenFeature, e.g. LaunchDarkly or Vercel Flags.
 - **Provider:** an OpenFeature provider of a system.
-- **Connection:** a provider plus a flag project in a system.
+- **Source:** a provider plus a flag project in a system.
 - **Deployment platform (platform):** where the application runs, e.g.
   Vercel. A **platform project** has many **deployments**.
 - **Framework binding (binding):** the module which connects the SDK to one
@@ -218,7 +218,7 @@ directive prologue.
 - Each export of a flags module MUST be a flag: an object or a function
   with a non-empty string `key`.
 - Importing a flags module MUST NOT have side effects other than the
-  definition of flags and connections. It MUST NOT open network
+  definition of flags and sources. It MUST NOT open network
   connections.
 - A build plugin SHOULD append a registration to each flags module, which
   calls `registerFlags` with the exports of the module
@@ -278,7 +278,7 @@ The manifest MUST conform to the JSON Schema
 
 - A platform MAY replace `flags/default-provider` with its own provider,
   for its builds. It MUST NOT replace it for development.
-- A `defaultConnection` of `flags.config.ts` MUST win over the provider of
+- A `defaultSource` of `flags.config.ts` MUST win over the provider of
   the platform. The runtime does this.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.

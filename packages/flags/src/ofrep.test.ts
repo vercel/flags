@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { logger } from './logger';
 import { createOfrepProvider } from './ofrep';
 import { defineSource } from './source';
@@ -254,7 +254,7 @@ describe('createOfrepProvider', () => {
       project: { system: 'in-memory' },
     });
 
-    await expect(defineFlag({ key: 'new-checkout', source })()).resolves.toBe(
+    await expect(bindFlag({ key: 'new-checkout', source })()).resolves.toBe(
       true,
     );
   });
