@@ -1,26 +1,6 @@
 {
   "root": true,
   "title": "Providers",
-  "pages": [
-    "index",
-    "custom-adapters",
-    "openfeature/index",
-    "------",
-    "---Featured---",
-    "vercel",
-    "statsig",
-    "growthbook",
-    "global-config",
-    "---Adapters---",
-    "launchdarkly",
-    "reflag",
-    "posthog",
-    "flagsmith",
-    "---OpenFeature---",
-    "...openfeature",
-    "---Others---",
-    "optimizely",
-    "split"
-  ],
+  "pages": ["index", "vercel", "openfeature", "custom-providers"],
   "defaultOpen": true
 }

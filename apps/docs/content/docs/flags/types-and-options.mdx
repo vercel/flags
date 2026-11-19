@@ -1,0 +1,151 @@
+---
+title: Types and options
+description: Give flags a value type, list their known values, and let TypeScript check them.
+---
+
+Each flag has a value type. Without `type`, a flag is a boolean. Set `type` for each other type:
+
+```ts title="flags.ts"
+import { bindFlag } from 'flags';
+
+export const summerSale = bindFlag({ key: 'summer-sale' }); // boolean
+export const bannerText = bindFlag({ key: 'banner-text', type: 'string' }); // string
+export const maxItems = bindFlag({ key: 'max-items', type: 'number' }); // number
+export const theme = bindFlag({ key: 'theme', type: 'object' }); // any JSON value
+```
+
+The same applies to [inline flags](/docs/flags/inline-flags) with `defineFlag`.
+
+## The types
+
+| `type` | Value | Provider method |
+| --- | --- | --- |
+| `'boolean'` (default) | `boolean` | `resolveBooleanEvaluation` |
+| `'string'` | `string` | `resolveStringEvaluation` |
+| `'number'` | `number` (finite) | `resolveNumberEvaluation` |
+| `'object'` | any JSON value | `resolveObjectEvaluation` |
+
+The names are those of OpenFeature, and the type selects the method of the provider. A provider that has no method for the type, e.g. a provider with only boolean flags, fails for flags of that type.
+
+`object` means any JSON value, as with `resolveObjectEvaluation` of OpenFeature: usually an object or an array, but also a string, a number, a boolean or `null`. Use it for flags whose variants mix types.
+
+The SDK does not infer the type from `defaultValue` or `options`. Set `type` explicitly:
+
+```ts
+// Type error: without a type, a flag is a boolean
+bindFlag({ key: 'banner-text', defaultValue: 'Welcome' });
+
+// Type error: a number flag needs a number
+bindFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
+```
+
+In JavaScript without TypeScript, the SDK logs a warning instead, e.g. `The defaultValue of flag "banner-text" is not a boolean. Set type to use a different type.`
+
+## The type is checked at runtime
+
+The SDK checks each value that a provider or `decide` returns. A value of a different type fails with the error code `TYPE_MISMATCH`: the flag returns its `defaultValue`, or throws (see [Errors and default values](/docs/flags/errors-and-default-values)). Thus, `await summerSale()` is always a boolean, also when someone changes the flag in the dashboard to a string.
+
+Overrides from Flags Explorer must fit the type too. An override of a different type is ignored with a warning, and the flag is evaluated as usual.
+
+## Options
+
+`options` lists the values that a flag can have:
+
+```ts title="flags.ts"
+export const checkout = bindFlag({
+  key: 'checkout',
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+});
+```
+
+An option is a value, or an object with a value and a label:
+
+```ts
+options: [
+  { value: 'control', label: 'Old checkout' },
+  { value: 'express', label: 'Express checkout' },
+],
+```
+
+Options are for tools:
+
+- **Flags Explorer** shows them, with their labels, so you can pick a value for an override.
+- **Precompute** uses them to render one page for each combination (see [Precompute](/docs/frameworks/next/precompute)). A flag that is not a boolean needs options for this.
+- **Your editor** suggests them.
+
+### Options do not limit the value
+
+Your flag management system can add a variant after the deployment, e.g. `'one-click'` for `checkout`. The SDK lets a value of the correct type through, also when it is not one of the options. Your code must not assume that it knows all variants.
+
+The TypeScript type says the same. With options, the type of the value is the union of the options and of the other values of the type:
+
+```ts
+const flow = await checkout();
+// flow: 'control' | 'express' | (string & {})
+
+if (flow === 'express') {
+  // ...
+}
+```
+
+`(string & {})` keeps the options as suggestions in the editor, but tells you that other strings are possible too. Thus, handle the unknown case:
+
+```ts
+function checkoutComponent(flow: string) {
+  if (flow === 'express') {
+    return ExpressCheckout;
+  }
+  // 'control', and each variant that this deployment does not know yet
+  return ClassicCheckout;
+}
+```
+
+For a boolean flag, the type stays `boolean`.
+
+### Options of object flags
+
+An option of an `object` flag must be an object with a `value`, because a JSON value and an option object can look the same:
+
+```ts title="flags.ts"
+export const theme = bindFlag({
+  key: 'theme',
+  type: 'object',
+  options: [
+    { value: { color: 'white' }, label: 'Light' },
+    { value: { color: 'black' }, label: 'Dark' },
+  ],
+});
+```
+
+Otherwise, `bindFlag` throws.
+
+### Rules
+
+- Each option must fit the type. Otherwise, it is a type error, and a warning at runtime.
+- A `defaultValue` should be one of the options. Otherwise, the SDK logs a warning.
+- The flag exposes its options as objects with a value: `checkout.options` is `[{ value: 'control' }, { value: 'express' }]`.
+
+## The fields of a flag
+
+A flag function has the fields of its definition, e.g. for tools or for your own helpers:
+
+| Field | Meaning |
+| --- | --- |
+| `key` | The key, with its literal type |
+| `type` | `'boolean'`, `'string'`, `'number'` or `'object'` |
+| `defaultValue` | The default value, if set |
+| `options` | The options, as objects with a value |
+| `description` | The description, if set |
+| `source` | The source, or the default source for a flag without one |
+
+To get the value type of a flag in TypeScript, use `FlagValueOfFlag`:
+
+```ts
+import type { FlagValueOfFlag } from 'flags';
+import type { checkout } from './flags';
+
+type Checkout = FlagValueOfFlag<typeof checkout>;
+// 'control' | 'express' | (string & {})
+```

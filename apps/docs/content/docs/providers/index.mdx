@@ -1,29 +1,150 @@
 ---
 title: Providers
-description: Combine your feature flag provider with the Flags SDK using an adapter.
+description: Connect the Flags SDK to any flag management system with an OpenFeature server provider.
 ---
 
-Integrate any feature flag provider with the Flags SDK
-using an adapter. We publish adapters for the most common providers, but
-it is also possible to write a [custom adapter](/providers/custom-adapters) in case we don't list
-your provider or in case you have an in-house solution for feature flags.
+A **provider** connects the Flags SDK to a flag management system, such as Vercel Flags, LaunchDarkly, or your own service. The Flags SDK does not have its own provider format: a provider is an [OpenFeature](https://openfeature.dev/) server provider, used as it is.
 
-## Featured providers
+This means:
 
-Featured providers offer fast setup using [Vercel Marketplace](https://vercel.com/marketplace/category/experimentation),
-and low latency with Global Config. They also work well outside of Vercel in Next.js and SvelteKit projects.
+- **No wrappers.** Install the OpenFeature provider of your system and pass it to the SDK. There is no `@flags-sdk/<vendor>` adapter to wait for.
+- **No OpenFeature client.** The SDK calls the provider directly. You do not call `OpenFeature.setProvider()` or `OpenFeature.getClient()`.
+- **The OpenFeature features you know.** Hooks, provider events, tracking, and evaluation reasons work as in OpenFeature. See [OpenFeature compatibility](/docs/flags/openfeature).
 
-<ProviderList featured />
+## From a provider to a source
 
-## Additional providers
+Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools.
 
-Additional providers are published under the `@flags-sdk` npm scope in the [Flags SDK repository](https://github.com/vercel/flags) and offer different levels of
-integration with Next.js, SvelteKit, and Global Config.
+```ts title="sources.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
 
-<ProviderList featured={false} />
+export const vercel = defineSource({
+  // Any OpenFeature server provider
+  provider: new VercelProvider(),
+  // Optional: the flag project, for links in Flags Explorer
+  project: { system: 'vercel-flags' },
+  // Optional: creates the evaluation context, once per request
+  getEvaluationContext: (_input, request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
+});
+```
 
-## Categories
-- **Adapter** - Lets you evaluate feature flags and experiments using the Flags SDK.
-- **Flags Explorer** - Displays flag metadata like descriptions in the [Flags Explorer](https://vercel.com/docs/flags/flags-explorer).
-- **Marketplace** - Available in the Vercel Marketplace.
-- **Global Config** - Lets you read feature flags from an Global Config.
+A flag names its source with `bindFlag`:
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { vercel } from './sources';
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: vercel,
+  defaultValue: false,
+});
+```
+
+Most applications have one main source. Make it the default source in `flags.config.ts`, and flags without a `source` use it:
+
+```ts title="flags.config.ts"
+import { defineConfig } from 'flags';
+import { vercel } from './sources';
+
+export const config = defineConfig({ defaultSource: vercel });
+
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`, and [Configuration](/docs/flags/configuration) for `flags.config.ts`.
+
+<Callout title="Set a default source">
+For now, flags without a source and without a `defaultSource` in `flags.config.ts` fail to evaluate: they return their `defaultValue`, or throw a `FlagEvaluationError`. The built-in default source of Vercel Flags is not available yet.
+</Callout>
+
+## The parts of a source
+
+| Option | Required | What it does |
+| --- | --- | --- |
+| `provider` | Yes | The OpenFeature server provider which evaluates the flags. |
+| `getEvaluationContext(input, request)` | No | Creates the evaluation context for the provider from the input of the flag and the current request (`headers`, `cookies`, `url`). It runs once per request and input. Without it, the provider gets the input as it is. |
+| `project` | No | Names the flag project in the flag management system, e.g. `{ system: 'vercel-flags' }`. Flags Explorer uses it for links to the dashboard. Without it, the flags work the same. |
+| `hooks` | No | OpenFeature hooks for all flags of this source. |
+
+### Projects and dashboard links
+
+The `project` tells tools where the flags live, so that Flags Explorer can link each flag to its page in the dashboard. The SDK knows these systems today:
+
+| `system` | Fields |
+| --- | --- |
+| `vercel-flags` | `projectId?`, `teamId?`. Without them, the project of the Vercel deployment. |
+| `launchdarkly` | `projectId`, `teamId`, `environment?`. The link to a flag needs `environment`. |
+| `in-memory` | None. For in-memory providers in development and tests. |
+
+A source of a system which is not in this list has no `project`. Its flags evaluate the same way; tools only show no dashboard links. A system adds itself with a pull request, see [The flags manifest format](/docs/standard/flags-manifest-format#system-manifests).
+
+## One provider, many sources
+
+A source is cheap. Several sources can share one provider instance, e.g. to give different flags a different evaluation context. The SDK initializes the provider once, and closes it once.
+
+```ts title="sources.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+const provider = new VercelProvider();
+
+// Flags about the visitor
+export const visitor = defineSource({
+  provider,
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_input, request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
+});
+
+// Flags about a team: the call side gives the team
+export const team = defineSource({
+  provider,
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (input: { teamId: string }) => ({
+    team: { id: input.teamId },
+  }),
+});
+```
+
+TypeScript checks that each flag of `team` gets a `teamId` when you call it: `await teamInsights({ evaluationContext: { teamId } })`. See [Evaluation context](/docs/flags/evaluation-context).
+
+An application can also use more than one flag management system at the same time: each flag names the source it belongs to.
+
+## The lifecycle of a provider
+
+The SDK owns the lifecycle of each provider:
+
+- **Initialization.** The SDK calls `initialize()` once, at `runtime.onInit()` or at the first evaluation which needs the provider. Evaluations wait for it, so a cold start does not return default values. (The OpenFeature client would return the default value with `PROVIDER_NOT_READY` instead.)
+- **Evaluation.** The SDK calls `resolveBooleanEvaluation`, `resolveStringEvaluation`, `resolveNumberEvaluation` or `resolveObjectEvaluation`, depending on the `type` of the flag.
+- **Shutdown.** The SDK calls `onClose()` at `runtime.onShutdown()`. A later evaluation initializes the provider again.
+
+<Callout>
+Do not also register a provider instance that you pass to the SDK with the OpenFeature API, e.g. with `OpenFeature.setProvider()`. Otherwise, the provider is initialized and closed twice.
+</Callout>
+
+Importing a module with a source must not open network connections, because tools import your `'use flags'` modules to read the flags (see [The flags manifest](/docs/tooling/flags-manifest)). Most OpenFeature providers connect in `initialize()`, not in their constructor, so this is usually not a concern.
+
+## Choose a provider
+
+<LearnMore icon="arrow" href="/docs/providers/vercel">
+  Vercel Flags: `VercelProvider` of `@vercel/flags-core`
+</LearnMore>
+
+<LearnMore icon="arrow" href="/docs/providers/openfeature">
+  OpenFeature providers: ConfigCat, DevCycle, flagd, GrowthBook, Hypertune, Split, and more
+</LearnMore>
+
+<LearnMore icon="arrow" href="/docs/providers/custom-providers">
+  Custom providers: your own system, and in-memory providers for development and tests
+</LearnMore>

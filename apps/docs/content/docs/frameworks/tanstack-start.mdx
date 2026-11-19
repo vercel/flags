@@ -1,0 +1,224 @@
+---
+title: TanStack Start
+description: Set up the Flags SDK in TanStack Start with one Vite plugin.
+---
+
+`@flags-sdk/tanstack-start` connects the Flags SDK to TanStack Start. It gives each flag the current request through `getRequest()`, loads `flags.config.ts`, lets `redirect()` and `notFound()` pass through, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. It works with the React and the Solid version of TanStack Start. Your code imports only `flags`.
+
+**Requirements:** TanStack Start 1 with Vite 6 or newer.
+
+## Setup
+
+### 1. Install the packages
+
+```sh title="Terminal"
+npm install flags @flags-sdk/tanstack-start
+```
+
+### 2. Add the Vite plugin
+
+```ts title="vite.config.ts"
+import { flags } from '@flags-sdk/tanstack-start/vite';
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import viteReact from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
+});
+```
+
+That is the only required step. No middleware is needed.
+
+### 3. Define your flags
+
+Create `src/flags.ts`. It is the same file as in the [other frameworks](/docs/frameworks):
+
+```ts title="src/flags.ts"
+'use flags';
+
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+
+const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// Flags of the source: the provider decides the value
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+  description: 'The summer sale banner',
+});
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: shop,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+To try the example, install `@openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel).
+
+### 4. Use the flags in a loader
+
+Flags run only on the server. Route loaders run on the server and in the browser, so the loader calls a server function:
+
+```tsx title="src/routes/index.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { evaluate } from 'flags';
+import { betaBanner, checkout, summerSale } from '../flags';
+
+const getFlags = createServerFn({ method: 'GET' }).handler(async () => {
+  const [sale, flow, beta] = await evaluate([summerSale, checkout, betaBanner]);
+  return { sale, flow, beta };
+});
+
+export const Route = createFileRoute('/')({
+  loader: () => getFlags(),
+  component: Home,
+});
+
+function Home() {
+  const { sale, flow, beta } = Route.useLoaderData();
+  return (
+    <main>
+      {beta ? <p>You see the beta.</p> : null}
+      <h1>{sale ? 'Summer sale!' : 'Welcome'}</h1>
+      <p>Checkout: {flow}</p>
+    </main>
+  );
+}
+```
+
+Set the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner.
+
+## Server routes
+
+Server routes can evaluate flags directly in their handlers:
+
+```ts title="src/routes/api/flags.ts"
+import { createFileRoute } from '@tanstack/react-router';
+import { evaluate } from 'flags';
+import { checkout, summerSale } from '../../flags';
+
+export const Route = createFileRoute('/api/flags')({
+  server: {
+    handlers: {
+      GET: async () => {
+        const [sale, flow] = await evaluate([summerSale, checkout]);
+        return Response.json({ sale, flow });
+      },
+    },
+  },
+});
+```
+
+The binding reads the request with `getRequest()`, so flags work in server functions, server routes, and the server rendering of pages. Each flag is evaluated one time for each request.
+
+## `flags.config.ts`
+
+Flags without a `source` use the default source of `flags.config.ts`. For now, without `flags.config.ts`, the built-in default source throws in development. Put the file in the project directory or in `src`:
+
+```sh title="Terminal"
+npm install @vercel/flags-core @openfeature/server-sdk
+```
+
+```ts title="src/flags.config.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
+
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => ({
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    }),
+  }),
+});
+
+// Gives flags without a source the types of this source
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+The file must export `config`. See [Configuration](/docs/flags/configuration).
+
+## Signals
+
+`redirect()` and `notFound()` of TanStack Router reach TanStack Start unchanged, also when you throw them from `getEvaluationContext`:
+
+```ts title="src/flags.config.ts"
+import { redirect } from '@tanstack/react-router';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
+
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => {
+      if (request?.cookies?.get('blocked')) {
+        throw redirect({ to: '/blocked' });
+      }
+      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+    },
+  }),
+});
+```
+
+## Flags Explorer and the manifest
+
+- `vite dev` serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json`.
+- `vite build` writes `flags-manifest.json` into `.output/server`.
+- Overrides of Flags Explorer use the `flag-overrides` cookie. See [Overrides](/docs/tooling/overrides).
+
+To show the values of a request in Flags Explorer, write the flag values element yourself; see [Other frameworks](/docs/frameworks/next/flag-values#other-frameworks).
+
+## Deployment
+
+On Vercel, the plugin uses `@vercel/flags-core/default-provider` for flags without a source, if the project has `@vercel/flags-core`. `flags({ defaultProvider: './src/provider.ts' })` sets another module. A `defaultSource` in `flags.config.ts` always wins.
+
+## How it works
+
+- The binding gets the request with `getRequest()` of TanStack Start and recognizes `redirect()` and `notFound()` with `isRedirect()` and `isNotFound()` of TanStack Router.
+- TanStack Start has a package for React and one for Solid. The plugin resolves the imports of the binding to the packages of your project.
+- The plugin bundles `flags` and `@flags-sdk/tanstack-start` into the server code, so that the aliases reach them, and excludes them from the dependency optimizer of Vite.
+- In `vite dev`, the SSR environment runs in a worker of Nitro, so the plugin imports the flags modules in a runnable copy of that environment to build the manifest.
+
+The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

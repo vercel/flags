@@ -1,0 +1,148 @@
+---
+title: Custom frameworks
+description: Connect the Flags SDK to a framework that has no package yet, by writing a framework binding.
+---
+
+The framework packages of the Flags SDK use only the public API of `flags`. You can write the same for another framework, and a framework can take over its package, vendor it, or ship the binding itself. This page gives an overview. The normative contract is in [Framework bindings](/docs/standard/framework-bindings), and the [conformance suite](/docs/standard/conformance) checks your binding.
+
+## Do you need a binding?
+
+If your framework has a middleware that wraps each request handler, you may not need a binding at all. Call `runtime.onInvoke` in a middleware, as [Hono](/docs/frameworks/hono) and [Express](/docs/frameworks/express) do:
+
+```ts
+import { runtime } from 'flags';
+
+app.use((request, next) => runtime.onInvoke(request, next));
+```
+
+Write a full binding when the framework can give the current request at any time but has no middleware around the render (like `headers()` in Next.js or `getRequestEvent()` in SvelteKit), when it uses thrown errors as signals, or when you want `flags.config.ts`, `'use flags'` registration and the manifest to work without code in the application.
+
+## What a framework provides
+
+1. **A framework binding.** The module behind the alias `flags/framework`. It gives the runtime the current request, the configuration, and the errors that the framework must receive.
+2. **A build plugin.** It sets the aliases, registers `'use flags'` modules, and writes the flags manifest. It is optional without a bundler.
+3. **Optional, for a deployment platform:** an alias of `flags/default-provider` to a fast provider of the platform.
+
+Application code still imports only `flags`.
+
+## The framework binding
+
+```ts title="binding.ts"
+// The module behind flags/framework
+import type { SetupFramework } from 'flags';
+
+export const setupFramework: SetupFramework = (runtime) => {
+  runtime.setGetRequest(getRequest);
+  runtime.setRethrow(rethrowSignal);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+};
+```
+
+The runtime calls `setupFramework` one time, before the first evaluation.
+
+- **`setGetRequest`** sets the request source. It returns the current request as a `FlagsRequestInit` (`headers`, `cookies` and `url`, each optional), or `undefined` outside of a request. The SDK identifies a request by its `headers` object, so return the same object during one request.
+- **`setRethrow`** sets a function that throws an error again if the framework must receive it, for example a redirect. The runtime calls it before it uses the default value of a flag. Use the check functions of the framework, such as `isRedirect()`.
+- **`setLoadConfig`** loads `flags.config.ts` through the alias `flags/config`. In development, the runtime calls it before each evaluation, so a change applies without a restart.
+- **No static import of `flags`.** `flags` imports the binding, so the binding imports only types from `flags`. It gets the runtime as an argument.
+
+### Rendering and caches
+
+If the framework prerenders, the request source must make an evaluation part of the render at request time, as `@flags-sdk/next` does with `connection()`. In a cache scope of the framework, such as `'use cache'`, the request source throws, and the rethrow throws that error again, so a flag never returns a cached or default value by mistake.
+
+## The replaceable modules
+
+The runtime imports three modules through its own package name. A bundler alias replaces them:
+
+| Module | Default | Replaced by |
+| --- | --- | --- |
+| `flags/framework` | no binding | the framework binding |
+| `flags/config` | no configuration | `flags.config.ts` of the application |
+| `flags/default-provider` | the built-in default provider | the provider of a platform, for its builds |
+
+- **Bundle the SDK.** An alias only reaches the SDK when the bundler bundles `flags`, so bundle it into the server code (for example `ssr.noExternal` of Vite, or `externals.inline` of Nitro).
+- **Resolve from the project.** With pnpm, resolve a replacement that is a package name from the project, not from `flags`.
+- **One copy of the framework.** If the binding uses `instanceof` or check functions of the framework, the binding and the application must use one copy of it, for example with `resolve.dedupe` of Vite.
+- **Without an alias.** If a runtime loads `flags` from `node_modules`, for example Nitro in development, register the binding at startup:
+
+  ```ts
+  import { registerFramework } from 'flags/tooling';
+  import { setupFramework } from './binding';
+
+  registerFramework(setupFramework);
+  ```
+
+- **Several copies of the SDK** in one process share one runtime through `globalThis`.
+
+## A Vite plugin
+
+For a framework on Vite, `@flags-sdk/vite` does most of the build work: the aliases, `'use flags'` registration, the manifest in development and in the build, and the default provider of the platform. The SvelteKit, Nuxt and TanStack Start packages use it:
+
+```ts title="vite.ts"
+import { flags } from '@flags-sdk/vite';
+
+export function myFrameworkFlags() {
+  return flags({
+    binding: '@flags-sdk/my-framework/binding',
+    bundle: ['@flags-sdk/my-framework'],
+    dedupe: ['my-framework'],
+  });
+}
+```
+
+| Option | Meaning |
+| --- | --- |
+| `binding` | The module behind `flags/framework`, resolved from the project |
+| `bundle` | More packages to bundle into the server code, for example the package of the binding |
+| `dedupe` | Packages which the binding imports, which must be the copy of the project |
+| `projectModules` | Modules which the binding imports, by the first package which the project has |
+| `defaultProvider` | The module of the default provider, or `false`. On Vercel, the default is `@vercel/flags-core/default-provider` |
+| `manifest` | Whether a build writes `flags-manifest.json`. Default: `true` |
+| `root` | The directory of the project. Default: the root of Vite |
+
+## The lifecycle
+
+The runtime methods map to the phases of a server:
+
+- `runtime.onInit()` at startup initializes the providers.
+- `runtime.onInvoke(request, next)` for each request, if the framework has a middleware that wraps the handler.
+- `runtime.onShutdown()` when the process stops closes the providers.
+
+All three are optional. Call them from the lifecycle hooks of the framework, if it has them. See [No framework](/docs/frameworks/node).
+
+## `'use flags'` modules and the manifest
+
+A module that starts with the `'use flags'` directive exports only flags, and importing it has no side effects. A build plugin does two things with it, with the functions of `flags/tooling`:
+
+1. **Registration.** `hasUseFlagsDirective(source)` finds the directive, and `addSelfRegistration(source, fileName)` appends a call of `registerFlags` with the exports of the module.
+2. **The manifest.** `findFlagsModules(projectDir)` finds the modules. Import them with the bundler of the framework, and pass their exports to `createManifest` of `flags/manifest`:
+   - in development, serve it at `/.well-known/flags/manifest.json` with `cache-control: no-store`, and only in development;
+   - after a build, write it as `flags-manifest.json` (`MANIFEST_FILE`) into the server output. `writeManifestFromBuild` imports the built modules in a child process.
+
+Call `runtime.prepare()` before `createManifest`, so that flags without a source get the default source of `flags.config.ts`. See [Flags manifest](/docs/tooling/flags-manifest) and the [manifest format](/docs/standard/flags-manifest-format).
+
+| Function of `flags/tooling` | Purpose |
+| --- | --- |
+| `registerFramework` | Registers a binding without the alias |
+| `findConfigFile` | Finds `flags.config.ts` in a directory or its `src` |
+| `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
+| `addSelfRegistration` | Appends the registration to a `'use flags'` module |
+| `findFlagsModules` | Finds the `'use flags'` modules of a project |
+| `writeManifestFromBuild` | Writes the manifest from the built modules |
+| `MANIFEST_FILE` | `flags-manifest.json` |
+
+## For deployment platforms
+
+- Set the alias of `flags/default-provider` for your builds, not for development. The module exports `createDefaultProvider()`, which returns an OpenFeature provider. The runtime calls it one time for each process.
+- A `defaultSource` in `flags.config.ts` always wins over your provider.
+- Put `flags-manifest.json` of the build into your build output, so that tools can read it.
+- For Next.js, use the Adapter API: `modifyConfig` for the alias, and `onBuildComplete` for the manifest. Vite frameworks have no such step after the build, so their plugin sets the alias, for example on Vercel when `VERCEL` is set.
+
+## Test your binding
+
+Run the [conformance suite](/docs/standard/conformance) `@flags-sdk/conformance` in an app of your framework. It checks over HTTP: the request, one evaluation context for each request, separate requests, a signal of the framework, an override cookie, and the manifest.
+
+```sh title="Terminal"
+npm install --save-dev @flags-sdk/conformance
+```
+
+The bindings in `packages/framework-*` of the [repository](https://github.com/vercel/flags) are the reference implementations, and `tests/standard/<framework>` has a small test app for each framework.

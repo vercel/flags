@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { agent } from '@/geistdocs';
 import { getLocalizedPath } from '@/lib/geistdocs/public-path';
 
-export const HOME_TITLE = 'Flags SDK: feature flags for Next.js and SvelteKit';
+export const HOME_TITLE =
+  'Flags SDK: an open standard for feature flags in JavaScript';
 export const HOME_DESCRIPTION = agent.product.description;
 export const HOME_OG_IMAGE_PATH = '/og/home/image.png';
 

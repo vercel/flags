@@ -1,0 +1,123 @@
+---
+title: Upgrading from v4
+description: What changed in version 5 of the Flags SDK, and how to move your flags.
+---
+
+Version 5 turns the Flags SDK from a Next.js and SvelteKit library into a standard for every JavaScript framework, built on OpenFeature. The ideas stay the same: flags as code, evaluated on the server, with overrides from Flags Explorer. The API changed.
+
+## What changed
+
+| v4                                                         | v5                                                                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `flag({ key, decide })` from `flags/next` or `flags/sveltekit` | `defineFlag({ key, decide })` from `flags`, for an [inline flag](/docs/flags/inline-flags)            |
+| `flag({ key, adapter })` with an adapter of `@flags-sdk/*` | `bindFlag({ key, source })` with a source of an [OpenFeature provider](/docs/providers)                 |
+| `identify` of each flag                                    | `getEvaluationContext` of the source, and of the flag if needed ([evaluation context](/docs/flags/evaluation-context)) |
+| `dedupe`                                                    | Built in: each flag and each step of the context runs once per request                              |
+| `evaluate` from `flags/next`                               | `evaluate` from `flags`                                                                              |
+| Framework-specific imports (`flags/next`, `flags/sveltekit`) | Your code imports only `flags`. Frameworks have a package for the setup: `@flags-sdk/next`, `@flags-sdk/sveltekit`, … |
+| `precompute`, `generatePermutations` from `flags/next`     | The same API in [`@flags-sdk/next/precompute`](/docs/frameworks/next/precompute)                      |
+| A flag called as `flag(code, group)` on a precomputed page | `getPrecomputed(flag, group, code)`                                                                  |
+| `FlagValues` from `flags/react`                            | [`FlagValues`](/docs/frameworks/next/flag-values) from `@flags-sdk/next/flag-values`, encrypted by default |
+| The endpoint `/.well-known/vercel/flags` with `getProviderData` | The [flags manifest](/docs/tooling/flags-manifest) of `'use flags'` modules                         |
+| Next.js and SvelteKit                                      | Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, and [no framework](/docs/frameworks/node)    |
+
+The override cookies of v4, encrypted with `FLAGS_SECRET`, still work. Precompute codes of v4 stay valid if you set `FLAGS_PRECOMPUTE_SECRET` to your `FLAGS_SECRET` during the upgrade.
+
+## Inline flags
+
+A v4 flag with `decide` becomes an inline flag. `decide` now receives the evaluation context of the call side and the request, instead of `{ headers, cookies, entities }`.
+
+```ts tab="v4" title="flags.ts"
+import { flag } from 'flags/next';
+
+export const betaBanner = flag<boolean>({
+  key: 'beta-banner',
+  options: [false, true],
+  decide({ cookies }) {
+    return cookies.get('beta')?.value === '1';
+  },
+});
+```
+
+```ts tab="v5" title="flags.ts"
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  options: [false, true] as const,
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+});
+```
+
+## Flags of a provider
+
+In v4, each provider had an adapter. In v5, a provider is an OpenFeature provider, and a source connects it to your flags. `identify` moves to the source, where it runs once per request for all its flags.
+
+```ts tab="v4" title="flags.ts"
+import { flag } from 'flags/next';
+import { vercelAdapter } from '@flags-sdk/vercel';
+
+export const summerSale = flag<boolean, { user: { id: string } }>({
+  key: 'summer-sale',
+  adapter: vercelAdapter(),
+  identify({ cookies }) {
+    return { user: { id: cookies.get('user-id')?.value ?? 'anonymous' } };
+  },
+});
+```
+
+```ts tab="v5" title="flags.ts"
+'use flags';
+
+import { bindFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_input, request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
+});
+
+export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
+```
+
+For other vendors, use their OpenFeature provider. See [OpenFeature providers](/docs/providers/openfeature).
+
+## The framework setup
+
+Add the package of your framework, one time. In Next.js:
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({
+  // Your Next.js configuration
+});
+```
+
+See [Frameworks](/docs/frameworks) for the setup of each framework. The Next.js plugin supports Turbopack only.
+
+## Flags Explorer
+
+Remove the route `app/.well-known/vercel/flags/route.ts`. Put your flags into modules that start with `'use flags'`, and add the route of the manifest:
+
+```ts title="app/.well-known/flags/manifest.json/route.ts"
+export { GET } from '@flags-sdk/next/manifest';
+```
+
+See [Flags Explorer](/docs/tooling/flags-explorer).
+
+## Step by step
+
+1. Install `flags@5` and the package of your framework.
+2. Add the framework setup, e.g. `withFlags` in `next.config.ts`.
+3. Replace each provider adapter with a source of its OpenFeature provider.
+4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `bindFlag()` for flags of a provider. Set `type` for each flag that is not a boolean.
+5. Move `identify` to `getEvaluationContext` of the source.
+6. Add `'use flags'` to your flags modules, and replace the discovery endpoint with the manifest route.
+7. Move precompute imports to `@flags-sdk/next/precompute`, and read values with `getPrecomputed`.
+8. Run your type check. The types point to the remaining changes.

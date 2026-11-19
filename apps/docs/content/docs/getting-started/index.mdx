@@ -1,0 +1,76 @@
+---
+title: Introduction
+description: Flags SDK is an open standard for feature flags in JavaScript. Define a flag once, and evaluate it in any framework, or none, with any OpenFeature provider.
+---
+
+Flags SDK is a free, open-source library and an open standard for feature flags in JavaScript.
+
+You define a flag once, in plain TypeScript. You evaluate it on the server in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or plain Node.js. The value comes from your own code, or from any [OpenFeature](https://openfeature.dev) provider, such as Vercel Flags, LaunchDarkly, flagd or ConfigCat.
+
+```ts title="flags.ts"
+import { bindFlag, defineFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+// A source: an OpenFeature provider, and the evaluation context of a request
+const vercel = defineSource({
+  provider: new VercelProvider(),
+  getEvaluationContext: (_input, request) => ({
+    user: request?.cookies?.get('user-id')?.value,
+  }),
+});
+
+// A flag of the provider
+export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
+
+// A flag which your code decides
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+});
+```
+
+```ts title="Anywhere on the server"
+const sale = await summerSale();
+```
+
+## Why a standard
+
+Today, each framework and each flag vendor has its own SDK, with its own way to define a flag, read the request, and cache a value. When you change frameworks or vendors, you rewrite your flags.
+
+Flags SDK separates these concerns:
+
+- **Your flags** are plain code that does not depend on a framework.
+- **Providers** follow the [OpenFeature](https://openfeature.dev) standard, so any OpenFeature server provider works without a wrapper.
+- **Frameworks** connect the current request to the SDK through a small, written contract: [the standard](/docs/standard). A [conformance suite](/docs/standard/conformance) checks each framework binding.
+
+The result is one primitive for the whole ecosystem. Learn it once, and use it everywhere.
+
+## What you get
+
+- **Two kinds of flags.** [Inline flags](/docs/flags/inline-flags) decide their value in your code. [Provider flags](/docs/flags/provider-flags) ask a provider. Both work the same way.
+- **Hand-written or generated.** Write `defineSource` and `bindFlag` by hand, or [generate typed flags](/docs/flags/code-generation) from your provider and import them from `flags:<source>`.
+- **One value per request.** Each flag is [evaluated once for each request](/docs/flags/evaluating-flags), so all parts of a page see the same value.
+- **An evaluation context chain.** The call side, the flag and the source each add a part of the [evaluation context](/docs/flags/evaluation-context), and TypeScript checks each step.
+- **OpenFeature compatibility.** Providers, hooks, events and tracking work [as in OpenFeature](/docs/flags/openfeature).
+- **Flags Explorer.** Override any flag for your browser from the Vercel Toolbar, with [Flags Explorer](/docs/tooling/flags-explorer).
+- **Precompute.** Keep pages static and still show the right variant for each visitor, with [precompute in Next.js](/docs/frameworks/next/precompute).
+
+## Supported frameworks
+
+| Framework      | Package                                                     |
+| -------------- | ----------------------------------------------------------- |
+| Next.js        | [`@flags-sdk/next`](/docs/frameworks/next)                  |
+| SvelteKit      | [`@flags-sdk/sveltekit`](/docs/frameworks/sveltekit)        |
+| Nuxt           | [`@flags-sdk/nuxt`](/docs/frameworks/nuxt)                  |
+| TanStack Start | [`@flags-sdk/tanstack-start`](/docs/frameworks/tanstack-start) |
+| Hono           | [`@flags-sdk/hono`](/docs/frameworks/hono)                  |
+| Express        | [`@flags-sdk/express`](/docs/frameworks/express)            |
+| No framework   | [`flags` only](/docs/frameworks/node)                       |
+
+Your application code imports only `flags`. The framework package is for the setup, one time.
+
+## Next steps
+
+- [Quickstart](/docs/getting-started/quickstart): add your first flag in a few minutes.
+- [How it works](/docs/getting-started/how-it-works): flags, sources, the runtime and framework bindings.
+- [Upgrading from v4](/docs/getting-started/upgrading-from-v4): what changed, and how to move your flags.

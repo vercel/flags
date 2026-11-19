@@ -1,0 +1,179 @@
+---
+title: The flags manifest format
+navTitle: Flags manifest format
+description: The JSON format which describes the flags of an application, how build plugins create it, and the system manifests for dashboard links.
+---
+
+The **flags manifest** describes the flags of an application for tools: their keys, types, options, default values and descriptions, where they are declared, and the flag projects of their sources. It contains no values of flags and no credentials.
+
+This page describes section 7 (discovery) and section 9 (flag management systems) of [STANDARD.md](https://github.com/vercel/flags/blob/main/packages/flags/STANDARD.md), which is the normative text. For how applications use the manifest, see [The flags manifest](/docs/tooling/flags-manifest).
+
+| Document | JSON Schema |
+| --- | --- |
+| Flags manifest | [`https://flags-sdk.dev/schemas/flags-manifest.v1.json`](https://flags-sdk.dev/schemas/flags-manifest.v1.json) |
+| System manifest | [`https://flags-sdk.dev/schemas/system-manifest.v1.json`](https://flags-sdk.dev/schemas/system-manifest.v1.json) |
+
+## Discovery
+
+### `'use flags'` modules
+
+A **flags module** starts with the directive `'use flags'` in its directive prologue.
+
+- Each export of a flags module MUST be a flag: an object or a function with a non-empty string `key`. The contract is based on the exported objects, not on a function of the SDK.
+- Importing a flags module MUST NOT have side effects other than the definition of flags and sources. It MUST NOT open network connections.
+- A build plugin SHOULD append a registration to each flags module, which calls `registerFlags` with the exports of the module (`addSelfRegistration` of `flags/tooling`).
+- A build plugin MUST NOT examine more than the directive prologue to find the directive (`hasUseFlagsDirective` of `flags/tooling`). The directive is found as `'use client'` is: it is not a parser.
+
+### Creating the manifest
+
+A build plugin which supports discovery:
+
+- MUST find all flags modules of the project, also of routes which are not loaded, and import them with the bundler of the framework, so that path aliases and TypeScript work (`findFlagsModules` of `flags/tooling`);
+- MUST create the manifest with `createManifest` of `flags/manifest`, after `runtime.prepare()`, so that flags without a source get the default source of `flags.config.ts`;
+- in development, MUST serve it at `/.well-known/flags/manifest.json`, with `content-type: application/json` and `cache-control: no-store`;
+- MUST NOT serve it in production;
+- after a build, MUST write it as `flags-manifest.json` into the directory of the server output;
+- MUST NOT evaluate flags to create it.
+
+The reference plugins import the built flags modules in a child process after the build (`writeManifestFromBuild` of `flags/tooling`), so that the modules do not run in the process of the build tool.
+
+A deployment platform SHOULD put `flags-manifest.json` into its build output, so that tools can read the flags of a deployment.
+
+## The format
+
+```json title="flags-manifest.json"
+{
+  "version": 1,
+  "sources": {
+    "launchdarkly": {
+      "system": "launchdarkly",
+      "systemManifest": "https://flags-sdk.dev/system-manifests/launchdarkly.json",
+      "variables": { "projectId": "shop", "teamId": "acme", "environment": "production" }
+    }
+  },
+  "definitions": {
+    "checkout": {
+      "type": "string",
+      "options": [{ "value": "control" }, { "value": "express", "label": "Express" }],
+      "defaultValue": "control",
+      "description": "The checkout flow",
+      "declaredInCode": true,
+      "source": "launchdarkly",
+      "declarations": [{ "module": "flags.ts", "export": "checkout" }]
+    },
+    "summer-sale": {
+      "type": "boolean",
+      "defaultValue": false,
+      "declaredInCode": true,
+      "source": "launchdarkly",
+      "declarations": [{ "module": "flags.ts", "export": "summerSale" }]
+    }
+  }
+}
+```
+
+### The top level
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `version` | `1` | Yes | The version of the format. |
+| `sources` | object | Yes | The sources of the flags, by an ID which the definitions use. |
+| `definitions` | object | Yes | The flags, by key. MUST be sorted by key. |
+
+### `sources`
+
+Each entry describes the flag project of one source.
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `system` | string | Yes | The ID of the flag management system, e.g. `vercel-flags` or `launchdarkly`. |
+| `systemManifest` | string (HTTPS URL) | No | The URL of the system manifest of the system. |
+| `variables` | object of strings | Yes | The fields of the `project` of the source, e.g. `projectId`. MUST contain only public identifiers, never credentials. |
+
+- The ID of a source is its system, e.g. `launchdarkly`. A second source of the same system with a different project gets a number, e.g. `launchdarkly-2`.
+- Two source objects with the same project are one source in the manifest.
+- For `vercel-flags`, the variables `projectId`, `teamId` and `environment` come from the environment of the build, unless the `project` of the source sets `projectId` or `teamId`.
+
+### `definitions`
+
+Each entry describes one flag. The field names follow the definitions of Flags Explorer.
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `type` | `"boolean"`, `"string"`, `"number"` or `"object"` | Yes | The type of the flag. `object` is any JSON value. |
+| `options` | array of `{ value, label? }` | No | The known values of the flag, for tools and precompute. They do not limit the values which the provider can return. |
+| `defaultValue` | JSON value | No | The value of the flag when its evaluation fails. |
+| `description` | string | No | What the flag is for. |
+| `declaredInCode` | `true` | Yes | Always `true`: the flag is declared in the code of the application. |
+| `source` | string | No | The ID of the source in `sources`. |
+| `declarations` | array of `{ module, export }` | Yes | Where the flag is declared: the path of the module, relative to the project, and the name of the export. Usually one. |
+
+### Rules
+
+- `definitions` MUST be sorted by key, so that the file is stable between builds.
+- `variables` MUST contain only public identifiers, never credentials.
+- The manifest MUST NOT contain the values of flags.
+- A tool MUST ignore fields which it does not know. Thus, new optional fields do not need a new version.
+
+`validateFlagsManifest` of `flags/manifest` checks a manifest, e.g. in a tool which receives one.
+
+## System manifests
+
+The links to the dashboard of a flag management system are not in the flags manifest. The flags manifest has only the variables of the project; a tool builds the links when it shows a flag. Thus, a system can change its URLs without a new build of any application.
+
+A **system manifest** describes the links of one system:
+
+```json title="launchdarkly.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/system-manifest.v1.json",
+  "version": 1,
+  "name": "LaunchDarkly",
+  "variables": {
+    "projectId": { "description": "The key of the project in LaunchDarkly." },
+    "environment": { "description": "The key of the environment, e.g. production." }
+  },
+  "links": {
+    "flag": "https://app.launchdarkly.com/{projectId}/{environment}/features/{flagKey}/targeting"
+  }
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `version` | Yes | `1` |
+| `name` | Yes | The name of the system. |
+| `logo` | No | An HTTPS URL of the logo of the system. |
+| `variables` | No | The variables which sources of this system give, with a description. `flagKey` is always available in the link of a flag. |
+| `links.flag` | No | The page of one flag. |
+| `links.createFlag` | No | The page which creates a flag. |
+| `links.project` | No | The page of the project. |
+
+### Link templates
+
+A system SHOULD publish a system manifest which conforms to the schema.
+
+- The URL templates MUST use level 1 of [RFC 6570](https://www.rfc-editor.org/rfc/rfc6570): `{name}` placeholders, which are replaced with URL-encoded values.
+- A template MUST be an HTTPS URL, and MUST NOT have a placeholder in its origin, credentials or a fragment. Thus, a value cannot send the user to a different site.
+- Templates SHOULD use stable identifiers, e.g. IDs, not names which can change. A dashboard whose URLs contain names SHOULD accept the IDs in the same place.
+- A tool MUST URL-encode each value, and MUST NOT show a link of which a variable is not known. There are no broken links.
+
+`resolveFlagLinks(systemManifest, variables, flagKey)` of `flags/manifest` does this for a tool. The SDK itself fetches nothing. A tool fetches the system manifest with HTTP caching.
+
+### Hosted system manifests
+
+Until a system publishes its own file, the Flags SDK hosts it at `https://flags-sdk.dev/system-manifests/<system>.json`. When the system publishes its file, the hosted file can redirect to it, so the URL in the SDK does not change. A source can also set its own URL in `project.systemManifest`, an HTTPS URL.
+
+| System | System manifest |
+| --- | --- |
+| `vercel-flags` | `https://flags-sdk.dev/system-manifests/vercel-flags.json` |
+| `launchdarkly` | `https://flags-sdk.dev/system-manifests/launchdarkly.json` |
+| `in-memory` | None |
+
+### Adding a system
+
+A system is known to the SDK by an ID, with the fields of its flag project. To add a system, open a pull request to the [Flags SDK repository](https://github.com/vercel/flags) with:
+
+- its fields in `ProjectFieldsBySystem` (`packages/flags/src/source.ts`), e.g. `{ projectId: string }`. The fields MUST be public identifiers, never credentials;
+- the URL of its system manifest in `systemManifestUrls`, and the system manifest itself, until the system hosts it.
+
+Sources of the system can then use `project: { system: '<id>', ... }`, and TypeScript checks the fields.

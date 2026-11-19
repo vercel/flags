@@ -1,201 +1,285 @@
 ---
-title: 'Vercel Flags'
+title: Vercel Flags
+description: Use Vercel Flags with the Flags SDK through VercelProvider, the OpenFeature provider of @vercel/flags-core.
 ---
 
-Vercel Flags is a feature flag provider built into Vercel's platform, allowing you to manage flags directly in your Vercel projects. The `@flags-sdk/vercel` package connects the Flags SDK to Vercel Flags.
+[Vercel Flags](https://vercel.com/docs/flags/vercel-flags) is the feature flag platform built into Vercel. You manage flags in the dashboard of your Vercel project, and your application evaluates them on the server, without a network request for each flag.
 
-<CopyPrompt text="Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, use `@flags-sdk/vercel` version 1.6.0 or later, configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.">
-  Connect my existing Flags SDK setup to Vercel Flags. Install `@flags-sdk/vercel`, run `vercel env pull` so `.env.local` has the Vercel OIDC token and `FLAGS_SECRET`, update my flag declarations to use `vercelAdapter`, add or reuse an `identify` function for targeting entities, create the Flags Explorer discovery endpoint, and run the relevant type checks or build when finished. Use OIDC for this project's flags. To read another same-team project's flags, use `@flags-sdk/vercel` version 1.6.0 or later, configure a Project Connection, then use `createVercelAdapter({ projectId })` with the source project's ID. For an app outside Vercel, pass an SDK key to `createVercelAdapter`.
+The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server provider of `@vercel/flags-core`. There is no separate adapter: `VercelProvider` is a regular OpenFeature provider, so everything on this page works the same way as with any other [provider](/docs/providers).
+
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create `flags.config.ts` with `defineConfig({ defaultSource: defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext }) })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Add the `Register` declaration for `typeof config`. Declare my flags with `bindFlag` from `flags` in a `'use flags'` module, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create `flags.config.ts` with `defineConfig({ defaultSource: defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext }) })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Add the `Register` declaration for `typeof config`. Declare my flags with `bindFlag` from `flags` in a `'use flags'` module, and run the type check when finished.
 </CopyPrompt>
-
-<LearnMore icon="arrow" href="https://vercel.com/blog/vercel-flags-platform-native-feature-flags" target="_blank">
-  Vercel Flags is now available — read the announcement
-</LearnMore>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
   Learn more about Vercel Flags
 </LearnMore>
 
-## Installation
-
-Install the Vercel adapter package:
-
-```bash
-pnpm i flags @flags-sdk/vercel
-```
-
-If you use an AI coding assistant, install the agent skills: `flags-sdk` for the code, and `vercel-flags` for planning flags, the `vercel flags` CLI, rollouts, and experiments:
-
-```bash
-npx skills add vercel/flags --skill flags-sdk --skill vercel-flags
-```
-
 ## Quickstart
 
-### 1. Create a feature flag in Vercel
+This quickstart assumes that your framework is set up already, e.g. with `withFlags` in `next.config.ts`. See [Frameworks](/docs/frameworks) for your framework.
 
-Create your first feature flag in the Vercel dashboard:
-
-<LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%3Fcreate%3D1&title=Go+to+Vercel+Flags">
-  Create Flag
-</LearnMore>
-
-You can create a boolean feature flag called `example-flag` for this quickstart.
-
-When you create your first flag, Vercel activates Vercel Flags for the project and creates a `FLAGS_SECRET` environment variable for each environment. Flags Explorer uses it for flag overrides.
-
-### 2. Sync environment variables
-
-Vercel Flags authenticates with the Vercel OpenID Connect (OIDC) token of your project. Deployments receive this token automatically. For local development, pull the environment variables to your `.env.local` file using [Vercel CLI](https://vercel.com/docs/cli):
+### 1. Install the packages
 
 ```bash
+npm install flags @vercel/flags-core @openfeature/server-sdk
+```
+
+`@openfeature/server-sdk` is a peer dependency of `VercelProvider`, as for most OpenFeature providers. Your code does not import it.
+
+### 2. Create a flag in Vercel
+
+Create a boolean flag called `summer-sale` in the dashboard of your project:
+
+<LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%3Fcreate%3D1&title=Go+to+Vercel+Flags">
+  Create a flag
+</LearnMore>
+
+### 3. Pull the environment variables
+
+`VercelProvider` authenticates with the OpenID Connect (OIDC) token of your Vercel project. Deployments on Vercel receive the token automatically. For local development, link the project and pull the environment variables into `.env.local`:
+
+```bash
+vercel link
 vercel env pull
 ```
 
-You might need to run `vercel link` first in case you did not link your project to Vercel yet.
+### 4. Make Vercel Flags the default source
 
-### 3. Declare the flag in your code
+```ts title="flags.config.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
 
-Use the `vercelAdapter` to connect your flag declaration to Vercel Flags:
-
-```ts title="flags.ts"
-import { flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
-
-export const exampleFlag = flag({
-  key: "example-flag",
-  adapter: vercelAdapter
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    // The flags of the Vercel project of this deployment
+    project: { system: 'vercel-flags' },
+    // The entities which your targeting rules use, once per request
+    getEvaluationContext: (_input, request) => ({
+      user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+    }),
+  }),
 });
-```
 
-The `vercelAdapter` authenticates with the OIDC token of your project and evaluates the flags of the current environment. If you set a `FLAGS` environment variable, the adapter uses that SDK key instead. See [SDK keys](#sdk-keys) for when you need one.
-
-### 4. Use the flag
-
-Call the flag as a function to resolve its value:
-
-```tsx title="app/hello-world/page.tsx#next"
-import { exampleFlag } from '../../flags';
-
-export default async function Page() {
-  const showExample = await exampleFlag();
-
-  return <div>{showExample ? 'Hello world' : 'Not showing'}</div>
+// Gives flags without a source the types of this source
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
 }
 ```
 
-You can now toggle the feature flag for the development environment on the Vercel dashboard and you should see the updated flag value locally after reloading the page.
-
-## User targeting
-
-Target specific users or groups by providing an `identify` function that returns context about the current user, team, or other entities.
+### 5. Declare and evaluate the flag
 
 ```ts title="flags.ts"
-import { dedupe, flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
+'use flags';
 
-type Entities = {
-  team?: { id: string };
-  user?: { id: string };
-};
+import { bindFlag } from 'flags';
 
-// Use dedupe to prevent redundant evaluation context lookups
-// https://flags-sdk.dev/frameworks/next/evaluation-context#deduplication
-const identify = dedupe(async (): Promise<Entities> => {
-  return {
-    team: { id: 'team-123' },
-    user: { id: 'user-456' },
-  };
-});
-
-export const exampleFlag = flag<boolean, Entities>({
-  key: "example-flag",
-  identify,
-  adapter: vercelAdapter
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  defaultValue: false,
+  description: 'Shows the summer sale banner',
 });
 ```
 
-Configure which entities are available for targeting in your Vercel Flags project:
+```tsx title="app/page.tsx"
+import { summerSale } from '../flags';
+
+export default async function Page() {
+  const sale = await summerSale();
+  return <div>{sale ? 'Summer sale!' : 'Welcome'}</div>;
+}
+```
+
+Toggle the flag for the development environment in the dashboard, and reload the page.
+
+## Targeting
+
+`VercelProvider` evaluates your targeting rules against the evaluation context which `getEvaluationContext` returns. Return the entities which your rules use, e.g. the user and the team:
+
+```ts title="flags.config.ts"
+getEvaluationContext: async (_input, request) => {
+  const session = await getSession(request?.cookies);
+  return {
+    user: { id: session.userId },
+    team: { id: session.teamId },
+  };
+},
+```
+
+The source runs `getEvaluationContext` once per request, so a session lookup happens once, also when a page evaluates many flags. Keep it fast: read cookies and headers, and avoid network requests where you can. See [Evaluation context](/docs/flags/evaluation-context).
+
+Configure which entities your project can target in the dashboard:
 
 <LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%2F%5Bentities&title=Go+to+Vercel+Flags">
-  Configure Entities
+  Configure entities
 </LearnMore>
 
-This allows you to create targeting rules in Vercel Flags based on your specific entity types (users, teams, organizations, etc.).
+## Configure the client
 
-## Flags Explorer integration
+`new VercelProvider()` uses the default client of `@vercel/flags-core`. It uses the SDK key in the `FLAGS` environment variable if you set one, and the OIDC token of the project otherwise. To configure the client, pass an SDK key or a client:
 
-[Flags Explorer](https://vercel.com/docs/flags/flags-explorer) provides a UI for viewing and overriding flags during development and testing.
+```ts title="sources.ts"
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-To enable full integration, create a flags discovery endpoint:
+// An SDK key, e.g. for an application outside Vercel
+const withKey = new VercelProvider(process.env.CUSTOM_FLAGS_KEY!);
 
-```ts title="app/.well-known/vercel/flags/route.ts#next"
-import { createFlagsDiscoveryEndpoint } from 'flags/next';
-import { getProviderData } from "@flags-sdk/vercel";
-import * as flags from '../../../../flags';
-
-export const GET = createFlagsDiscoveryEndpoint(async (request) => {
-  return await getProviderData(flags);
-});
-```
-
-This endpoint allows Flags Explorer to:
-- Discover all flags defined in your codebase
-- Show flag metadata and default values
-- Enable local overrides during development
-
-## Advanced configuration
-
-### Read a connected project's flags
-
-Project Connections let your project read flags from another project in the same team without an SDK key. With the Flags SDK, use `@flags-sdk/vercel` version 1.6.0 or later. In the source project's **Flags → Connections** page, grant your project access. Then pass the source project's ID to `createVercelAdapter`:
-
-```ts title="flags.ts"
-import { flag } from 'flags/next';
-import { createVercelAdapter } from '@flags-sdk/vercel';
-
-const sharedAdapter = createVercelAdapter({ projectId: 'prj_source' });
-
-export const sharedFeature = flag({
-  key: 'shared-feature',
-  adapter: sharedAdapter,
-  defaultValue: false,
-});
-```
-
-The adapter uses your project's OIDC token. Keep `vercelAdapter` for flags owned by your project. For local development, run `vercel env pull` in your project.
-
-Set up the connection before your app evaluates the connected flags. Check it with `vercel flags connections list --project <source>`. If the client's first request is rejected with 401 because access is missing, it does not retry and serves `defaultValue` until the process restarts. If a connected flag only returns its default value, verify the connection, then restart your dev server or redeploy.
-
-Connections grant read access across environments. Your deployment's token selects the source environment: production reads production, preview reads preview, and local development reads development. Custom environments use preview. The `projectId` option cannot be combined with an SDK key.
-
-If you use the [core library](https://vercel.com/docs/flags/vercel-flags/sdks/core) directly, use `@vercel/flags-core` version 1.11.0 or later. The adapter includes the required core library version.
-
-Managing connections with `vercel flags connections` requires Vercel CLI version 63.0.0 or later. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and connection management.
-
-### SDK keys
-
-You do not need an SDK key when your app runs on Vercel and reads its own or a connected project's flags. Use an SDK key for apps outside Vercel or when you need to select an environment explicitly. Create the key in the Vercel dashboard and pass it to `createVercelAdapter`:
-
-```ts title="flags.ts"
-import { flag } from 'flags/next';
-import { createVercelAdapter } from '@flags-sdk/vercel';
-
-const customAdapter = createVercelAdapter(
-  process.env.CUSTOM_FLAGS_KEY!
+// A client with options
+const withClient = new VercelProvider(
+  createClient({ clientName: 'my-app' }),
 );
-
-export const exampleFlag = flag({
-  key: "example-flag",
-  adapter: customAdapter
-});
 ```
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys" target="_blank">
   Learn more about SDK keys
 </LearnMore>
 
-## Additional resources
+## The flags of a different project
 
-- [Vercel Flags](https://vercel.com/docs/flags/vercel-flags)
-- [@flags-sdk/vercel](https://github.com/vercel/flags/tree/main/packages/adapter-vercel)
+A source can read the flags of a different Vercel project. Set `projectId` (and `teamId` for a project of a different team) in `project`, so that Flags Explorer links to the right project, and give the provider access to that project:
+
+```ts title="sources.ts"
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+// A project of the same team, through a Project Connection
+export const shared = defineSource({
+  provider: new VercelProvider(createClient({ projectId: 'prj_source' })),
+  project: { system: 'vercel-flags', projectId: 'prj_source' },
+});
+
+// A project of a different team, with an SDK key of that project
+export const blog = defineSource({
+  provider: new VercelProvider(process.env.BLOG_FLAGS!),
+  project: { system: 'vercel-flags', projectId: 'prj_blog', teamId: 'team_acme' },
+});
+```
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { blog } from './sources';
+
+export const newSearch = bindFlag({ key: 'new-search', source: blog });
+```
+
+- **Project Connections** let a project read the flags of another project of the same team, with its own OIDC token. Grant access in the **Flags → Connections** page of the source project. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections).
+- **SDK keys** work for any project. The SDK key must belong to the project in `project`: the SDK cannot check this, because OpenFeature providers do not report their project.
+
+## Code generation
+
+With [code generation](/docs/flags/code-generation), you do not declare each flag by hand. A catalog reads the flags of your Vercel project, and the SDK generates one typed `bindFlag` for each flag, with its variants as options and its description as JSDoc.
+
+Each source is a directory in `flags/sources`. For a source named `site`:
+
+```ts title="flags/sources/site/provider.ts"
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+// The OpenFeature provider of the source. Without an SDK key, the client
+// uses the OIDC token of the project, e.g. after vercel env pull.
+export default new VercelProvider(createClient({ clientName: 'my-app' }));
+```
+
+```ts title="flags/sources/site/context.ts"
+import type { FlagsRequest } from 'flags';
+
+// The evaluation context of all flags of this source, once per request
+export default function getEvaluationContext(
+  _input: unknown,
+  request: FlagsRequest | undefined,
+) {
+  return {
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  };
+}
+```
+
+```ts title="flags/sources/site/catalog.ts"
+import type { DatafileInput } from '@vercel/flags-core';
+import type { Catalog, CatalogLoadOptions } from 'flags';
+import { streamDatafiles } from './stream.ts';
+
+function catalogFromDatafile(datafile: DatafileInput): Catalog {
+  if (!datafile.projectId || !datafile.environment || !datafile.definitions) {
+    throw new Error('The provider returned an invalid flags datafile.');
+  }
+
+  const flags = Object.fromEntries(
+    Object.entries(datafile.definitions).map(([key, definition]) => [
+      key,
+      { variants: definition.variants },
+    ]),
+  );
+
+  return {
+    // For the links of Flags Explorer
+    project: { system: 'vercel-flags', projectId: datafile.projectId },
+    revision: datafile.revision,
+    flags,
+  };
+}
+
+// Yields a new catalog after each change in Vercel, so that
+// `next dev` and `flags watch` update the generated code
+export default async function* loadCatalog({
+  signal,
+}: CatalogLoadOptions): AsyncGenerator<Catalog> {
+  for await (const datafile of streamDatafiles({ signal })) {
+    yield catalogFromDatafile(datafile);
+  }
+}
+```
+
+`stream.ts` subscribes to the changes of the flags of your project. Copy it from the [playground of the Flags SDK repository](https://github.com/vercel/flags/tree/main/apps/playground/flags/sources/site), which runs this setup against real Vercel Flags. The catalog runs only during code generation, in Node.js, not in your application.
+
+Then enable code generation, and import the flags of the source by its name:
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { codeGeneration: true });
+```
+
+```tsx title="app/page.tsx"
+import { 'summer-sale' as summerSale } from 'flags:site';
+
+export default async function Page() {
+  const sale = await summerSale();
+  return <div>{sale ? 'Summer sale!' : 'Welcome'}</div>;
+}
+```
+
+See [Code generation](/docs/flags/code-generation) for the `tsconfig.json` paths, the `.gitignore` entry, and the `flags sync` and `flags watch` commands for other frameworks.
+
+## Flags Explorer
+
+[Flags Explorer](/docs/tooling/flags-explorer) in the Vercel Toolbar works with Vercel Flags without extra setup:
+
+- **Overrides.** Flags Explorer sets an override cookie which Vercel signs. The SDK verifies it with the public keys of Vercel: on Vercel, and locally after `vercel env pull`. You do not need a `FLAGS_SECRET`. See [Overrides](/docs/tooling/overrides).
+- **Dashboard links.** With `project: { system: 'vercel-flags' }`, Flags Explorer links each flag to its page in the dashboard.
+- **Reporting.** `VercelProvider` reports each evaluation to Vercel, and reports overrides with a hook, so that you can see the values of your flags in Vercel.
+
+## The default provider of a deployment
+
+The SDK resolves flags without a source through the module `flags/default-provider`. A deployment platform can replace this module at build time with a bundler alias, so that flags without a source use a fast provider of the platform without any configuration.
+
+`@vercel/flags-core/default-provider` is this module for Vercel. It exports `createDefaultProvider()`, which returns a `VercelProvider` with the default client. A deployment adapter, e.g. of Next.js on Vercel, can point `flags/default-provider` to it for production builds.
+
+- A `defaultSource` in `flags.config.ts` always wins over the provider of the platform.
+- The platform replaces the module only for builds, not for development.
+- Until your platform does this, set a `defaultSource` in `flags.config.ts`, as in the [quickstart](#4-make-vercel-flags-the-default-source).
+
+See [Framework bindings](/docs/standard/framework-bindings#the-replaceable-modules) for the contract.
+
+## Resources
+
+- [Vercel Flags documentation](https://vercel.com/docs/flags/vercel-flags)
+- [`@vercel/flags-core` on GitHub](https://github.com/vercel/flags/tree/main/packages/vercel-flags-core)
+- [The playground](https://github.com/vercel/flags/tree/main/apps/playground): code generation with real Vercel Flags

@@ -1,0 +1,199 @@
+---
+title: Nuxt
+description: Set up the Flags SDK in Nuxt with one module.
+---
+
+`@flags-sdk/nuxt` connects the Flags SDK to the server of Nuxt (Nitro). It gives each flag the current request through `useEvent()`, loads `flags.config.ts`, lets `createError()` pass through, starts and closes the providers with the server, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. Your code imports only `flags`.
+
+**Requirements:** Nuxt 4 with Nitro 2.
+
+## Setup
+
+### 1. Install the packages
+
+```sh title="Terminal"
+npm install flags @flags-sdk/nuxt
+```
+
+### 2. Add the module
+
+```ts title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: ['@flags-sdk/nuxt'],
+});
+```
+
+That is the only required step. The module also enables the async context of Nitro, which the SDK needs to find the current request.
+
+### 3. Define your flags
+
+Create `lib/flags.ts`. It is the same file as in the [other frameworks](/docs/frameworks):
+
+```ts title="lib/flags.ts"
+'use flags';
+
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+
+const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// Flags of the source: the provider decides the value
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+  description: 'The summer sale banner',
+});
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: shop,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+To try the example, install `@openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel).
+
+### 4. Use the flags in a server route
+
+Flags run only on the server of Nitro. Evaluate them in a server route:
+
+```ts title="server/api/flags.get.ts"
+import { evaluate } from 'flags';
+import { betaBanner, checkout, summerSale } from '../../lib/flags';
+
+// No runtime.onInvoke: the binding gets the request from useEvent()
+export default defineEventHandler(async () => {
+  const [sale, flow, beta] = await evaluate([summerSale, checkout, betaBanner]);
+  return { sale, flow, beta };
+});
+```
+
+Load the values in a page with `useFetch`. During server-side rendering, Nuxt calls the route directly and forwards the cookies of the request, so the flags see the same user:
+
+```vue title="app/pages/index.vue"
+<script setup lang="ts">
+const { data } = await useFetch('/api/flags');
+</script>
+
+<template>
+  <p v-if="data?.beta">You see the beta.</p>
+  <h1>{{ data?.sale ? 'Summer sale!' : 'Welcome' }}</h1>
+  <p>Checkout: {{ data?.flow }}</p>
+</template>
+```
+
+Set the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner. Do not import `flags` in components or composables that run in the browser.
+
+## `flags.config.ts`
+
+Flags without a `source` use the default source of `flags.config.ts`. For now, without `flags.config.ts`, the built-in default source throws in development. Put the file in the project directory or in `src`:
+
+```sh title="Terminal"
+npm install @vercel/flags-core @openfeature/server-sdk
+```
+
+```ts title="flags.config.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
+
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => ({
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    }),
+  }),
+});
+
+// Gives flags without a source the types of this source
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+The file must export `config`. It can use the auto-imports of Nitro from `#imports`. See [Configuration](/docs/flags/configuration).
+
+## Errors of Nitro
+
+An error of `createError()` reaches Nitro unchanged, also when you throw it from `getEvaluationContext`. The flag does not catch it and does not return its default value:
+
+```ts title="flags.config.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
+import { createError } from '#imports';
+
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => {
+      if (request?.cookies?.get('blocked')) {
+        throw createError({ statusCode: 403, statusMessage: 'Blocked' });
+      }
+      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+    },
+  }),
+});
+```
+
+## Lifecycle
+
+The module starts the providers with the Nitro server and closes them when the server shuts down. You do not call `runtime.onInit()` or `runtime.onShutdown()` yourself.
+
+## Flags Explorer and the manifest
+
+- Nuxt builds the app with Vite and the server with Nitro. The module adds the plugin of `@flags-sdk/vite` to both, so `'use flags'` modules register their flags in pages and in server routes.
+- `nuxt dev` serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json`, with `cache-control: no-store`.
+- `nuxt build` writes `flags-manifest.json` into `.output/server`.
+- Overrides of Flags Explorer use the `flag-overrides` cookie. See [Overrides](/docs/tooling/overrides).
+
+To show the values of a request in Flags Explorer, write the flag values element yourself; see [Other frameworks](/docs/frameworks/next/flag-values#other-frameworks).
+
+## Deployment
+
+- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`, the module replaces `flags/default-provider` with `@vercel/flags-core/default-provider` in Nitro. Development uses `flags.config.ts`.
+- A `defaultSource` in `flags.config.ts` always wins.
+- On another platform, or in a test, pass the module of its provider: `modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]`.
+
+## How it works
+
+- The module sets `nitro.alias` for `flags/framework` (to `@flags-sdk/nuxt/binding`) and `flags/config`, and adds `flags` and `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the SDK and the aliases reach it.
+- In development, Nitro loads `flags` from `node_modules`, so a Nitro plugin of the module also registers the binding with `registerFramework` of `flags/tooling`.
+- The binding gets the request with `useEvent()` and recognizes errors of `createError()` with `isError()`.
+- The module uses the hooks `vite:extendConfig` and `nitro:config`, so it does not depend on `@nuxt/kit`.
+
+The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

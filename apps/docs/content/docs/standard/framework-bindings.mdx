@@ -1,0 +1,251 @@
+---
+title: Framework bindings
+description: The contract between a framework and the Flags SDK - the request, the replaceable modules, signals, caches, flags.config.ts and the lifecycle.
+---
+
+A **framework binding** connects the Flags SDK to one framework. It tells the runtime of `flags` three things which only the framework knows: the current request, the configuration of the application, and which thrown values belong to the framework. With a bundler, a **build plugin** sets this up and discovers the flags of the application.
+
+This page describes sections 3 to 6 and 8 of [STANDARD.md](https://github.com/vercel/flags/blob/main/packages/flags/STANDARD.md), which is the normative text. For a hands-on guide, see [Custom frameworks](/docs/frameworks/custom-frameworks).
+
+The bindings in [`packages/framework-*`](https://github.com/vercel/flags/tree/main/packages) are the reference implementations. They use only the public API of `flags`, so a framework can take its package over, vendor it, or implement the same itself.
+
+## Overview
+
+A framework integration has up to three parts:
+
+1. **The framework binding:** the module behind the alias `flags/framework`. It gives the runtime the request, the configuration, and the signals of the framework.
+2. **The build plugin**, for a framework with a bundler: it sets the aliases, registers `'use flags'` modules, and writes the flags manifest.
+3. **For a deployment platform, optionally:** the alias of `flags/default-provider`.
+
+The code of the application imports only `flags`. It never imports the binding.
+
+```ts title="binding.ts"
+// The module behind flags/framework
+import type { SetupFramework } from 'flags';
+
+export const setupFramework: SetupFramework = (runtime) => {
+  runtime.setGetRequest(getRequest);
+  runtime.setRethrow(rethrowSignal);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+};
+```
+
+## The request
+
+### `FlagsRequestInit`
+
+A framework gives the runtime the current request as a `FlagsRequestInit`:
+
+```ts
+interface FlagsRequestInit {
+  readonly headers?: ReadonlyHeaders; // e.g. the Headers of a Web Request
+  readonly cookies?: ReadonlyRequestCookies; // get, getAll, has
+  readonly url?: string | URL;
+}
+```
+
+- A framework MUST give each property which it knows, and MAY omit the others.
+- `headers` MUST implement `get`, `has`, `entries`, `forEach`, `keys` and `values` of the Web `Headers` interface.
+- `cookies`, if given, MUST implement `get(name)`, `getAll()` and `has(name)`, where `get` returns `{ name, value }` or `undefined`. Without `cookies`, the runtime reads the `Cookie` header.
+- `url`, if given, MUST be the full URL of the request, with the origin.
+- A Web `Request` is a `FlagsRequestInit`.
+
+The application sees this as the `request` argument of `decide` and `getEvaluationContext`: a `FlagsRequest` with `headers`, `cookies` and `url`, or `undefined` outside of a request.
+
+### The identity of a request
+
+The runtime creates the evaluation context, and evaluates each flag, once for each request and input. This gives every part of a page the same value. To do this, it must recognize the request:
+
+- A framework which gives the request through a request source MUST return the same `headers` object during one request, and a different object for each other request. Without `headers`, it MUST return the same `FlagsRequestInit` object during one request.
+- A framework MUST NOT give the request of one request during another request.
+
+## The replaceable modules
+
+The runtime imports three modules through the name of its own package. A build plugin or a platform replaces them with a bundler alias:
+
+| Module | Default | Replaced by |
+| --- | --- | --- |
+| `flags/framework` | No binding | The framework binding |
+| `flags/config` | No configuration | `flags.config.ts` of the application |
+| `flags/default-provider` | The provider of the built-in default source | The provider of a platform |
+
+### Replacement
+
+- An implementation which replaces a module MUST make the replacement reach the runtime, e.g. by bundling the package `flags` into the server code (`ssr.noExternal` of Vite, `externals.inline` of Nitro).
+- An implementation MUST resolve a replacement from the project of the application, not from the package `flags`. With pnpm, e.g., a Vite plugin needs a `resolveId` hook with the order `pre`, or Vite resolves `flags/default-provider` through the exports of the package.
+- If the runtime is not bundled, e.g. because the framework loads it from `node_modules` in development, a binding MUST register itself with `registerFramework` of `flags/tooling` before the first evaluation:
+
+  ```ts
+  import { registerFramework } from 'flags/tooling';
+  import { setupFramework } from './binding';
+
+  registerFramework(setupFramework);
+  ```
+
+- If more than one binding is registered, the runtime uses the first.
+
+### Several copies of the SDK
+
+A bundler can put more than one copy of `flags` into one process, e.g. one for each layer of Next.js.
+
+- The runtime MUST share its state between all copies of the same major version in one process, through `globalThis` under `Symbol.for('flags.v5.state')`. The runtime does this.
+- A copy without a binding MUST NOT hide the binding of another copy. Thus, the copy which a build tool loads for its plugin does not hide the binding of the copy in the server code.
+
+### `flags/default-provider`
+
+The module MUST export:
+
+```ts
+export function createDefaultProvider(): Provider; // an OpenFeature provider
+```
+
+- The runtime calls it at most once for each process, so a replacement needs no singleton.
+- The provider MUST NOT be registered with the OpenFeature API.
+
+## The framework binding
+
+The module behind `flags/framework` MUST export `setupFramework`:
+
+```ts
+export const setupFramework: SetupFramework; // (runtime: Runtime) => void | Promise<void>
+```
+
+- The runtime calls `setupFramework` once, before the first evaluation. If it fails, the evaluation fails, and the runtime calls it again at the next evaluation.
+- The binding MUST NOT import the package `flags` at runtime, because `flags` imports the binding. It MAY import its types. It receives the runtime as its argument.
+- The binding MUST use only the public API of `flags`.
+
+### The request source
+
+A framework which can give the current request at any time, but has no middleware which wraps the handler, MUST call `runtime.setGetRequest(source)`:
+
+```ts
+import { isHttpError, isRedirect } from '@sveltejs/kit';
+import type { FlagsRequestInit, SetupFramework } from 'flags';
+import { getRequestEvent } from '$app/server';
+
+export const setupFramework: SetupFramework = (runtime) => {
+  runtime.setGetRequest(getRequest);
+  runtime.setRethrow(rethrowSignal);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+};
+
+function getRequest(): FlagsRequestInit | undefined {
+  try {
+    const event = getRequestEvent();
+    return { headers: event.request.headers, url: event.url };
+  } catch {
+    // Outside of a request, e.g. during a prerender
+    return undefined;
+  }
+}
+
+function rethrowSignal(error: unknown): void {
+  if (isRedirect(error) || isHttpError(error)) {
+    throw error;
+  }
+}
+```
+
+This is the binding of `@flags-sdk/sveltekit`.
+
+- `source()` MUST return the current `FlagsRequestInit`, or `undefined` outside of a request. It MAY return a promise.
+- `source()` MUST NOT throw outside of a request.
+- `source()` MUST throw the signals of the framework unchanged.
+
+### Middleware: `runtime.onInvoke`
+
+A framework with a middleware which wraps the handler MAY call `runtime.onInvoke(request, next)` instead of a request source. Inside `onInvoke`, the runtime does not call the source. This is the middleware of `@flags-sdk/hono`:
+
+```ts
+import { type Config, runtime } from 'flags';
+import type { MiddlewareHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+
+export function flags(options: { config?: Config } = {}): MiddlewareHandler {
+  if (options.config) {
+    runtime.configure(options.config);
+  }
+  runtime.setRethrow((error) => {
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+  });
+  return (c, next) => runtime.onInvoke(c.req.raw, next);
+}
+```
+
+A middleware is not behind the alias `flags/framework`, so it may import `flags`.
+
+### Signals
+
+Some frameworks control the flow of a request with thrown values, e.g. `redirect()` or `notFound()`. These are **signals**. A signal can come from a provider, or from a `getEvaluationContext` step, e.g. a redirect to the login page when there is no session.
+
+- A framework with signals MUST call `runtime.setRethrow(rethrow)`.
+- `rethrow(error)` MUST throw `error` again if it is a signal, or the error of a cache scope (see [Rendering and caches](#rendering-and-caches)), and MUST return otherwise.
+- The runtime calls `rethrow` before it uses the default value of a flag. Thus, a signal reaches the framework unchanged, instead of becoming a default value.
+- A binding SHOULD recognize signals with the functions of the framework, e.g. `isRedirect()`, and MUST use the same copy of the framework as the application (e.g. `resolve.dedupe` of Vite).
+
+### The config source
+
+A framework with a bundler MUST call `runtime.setLoadConfig(source)`, where `source` returns the export `config` of `flags/config`.
+
+- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags.config.ts` applies without a restart.
+- In production, it calls the source once.
+
+### Rendering and caches
+
+A flag value can change at any time, and depends on the request. Thus, an evaluation belongs to the request.
+
+- If the framework prerenders, the binding MUST make an evaluation part of the render at request time, e.g. with `connection()` of Next.js. Thus, a provider can read the time or do I/O.
+- A precomputed value does not use the request. It MAY be prerendered.
+- A binding MUST NOT let an evaluation run in a cache scope of the framework, e.g. `'use cache'` of Next.js, if it can recognize one. The request source MUST throw an error there, and `rethrow` MUST throw it again, so that the flag does not silently return its default value. The application evaluates the flag outside, and passes the value into the cache scope.
+
+## `flags.config.ts`
+
+The configuration of the application (default source, overrides, hooks) is in one file, which the binding loads:
+
+- The file MUST be named `flags.config.ts`, `flags.config.mts`, `flags.config.js` or `flags.config.mjs`, in the directory of the application or in its `src` directory. `findConfigFile` of `flags/tooling` finds it.
+- The configuration MUST be the named export `config`. A default export MUST NOT be read.
+- A framework without a bundler MUST let the application give the configuration, e.g. as an option of a middleware, and give it to `runtime.configure(config)`.
+
+## The lifecycle
+
+The methods of the runtime map to the phases of a serverless function. All three are optional:
+
+| Method | When | What it does |
+| --- | --- | --- |
+| `runtime.onInit()` | At startup | Initializes the providers. Without it, a provider is initialized at its first evaluation. |
+| `runtime.onInvoke(request, next)` | For each request, if the framework has a middleware which wraps the handler | Makes `request` the current request while `next` runs. |
+| `runtime.onShutdown()` | When the process stops | Closes the providers. |
+
+## Discovery
+
+A build plugin which supports discovery finds the `'use flags'` modules of the project, registers their flags, and creates the flags manifest. The requirements (section 7) are on [The flags manifest format](/docs/standard/flags-manifest-format#discovery).
+
+## Deployment platforms
+
+- A platform MAY replace `flags/default-provider` with its own provider, for its builds. It MUST NOT replace it for development.
+- A `defaultSource` of `flags.config.ts` MUST win over the provider of the platform. The runtime does this.
+- A platform SHOULD put `flags-manifest.json` of the build into its build output, so that tools can read it.
+- A platform which signs override tokens MUST follow section 10 of STANDARD.md (see [Overrides](/docs/tooling/overrides)).
+
+For Next.js, a platform uses the Adapter API: `modifyConfig` sets the alias during `phase-production-build`, and `onBuildComplete` copies the manifest. Vite frameworks have no such step after the build, so their plugin sets the alias, e.g. when `VERCEL` is set. See [`tests/standard/next/adapter.mjs`](https://github.com/vercel/flags/blob/main/tests/standard/next/adapter.mjs) for a test adapter.
+
+## `flags/tooling`
+
+Functions for bindings and build plugins:
+
+| Function | Purpose |
+| --- | --- |
+| `registerFramework` | Registers a binding without the alias |
+| `findConfigFile` | Finds `flags.config.ts` in a directory or its `src` |
+| `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
+| `addSelfRegistration` | Appends the registration to a `'use flags'` module |
+| `findFlagsModules` | Finds the `'use flags'` modules of a project |
+| `writeManifestFromBuild` | Writes the manifest from the built modules, in a child process |
+| `MANIFEST_FILE` | `flags-manifest.json` |
+| `optionIndex` | The index of a value in the options of a flag |
+
+## Check your binding
+
+Run the [conformance suite](/docs/standard/conformance) in an application of your framework. It checks the request, one evaluation context per request, separate requests, a signal, an override cookie and the manifest.

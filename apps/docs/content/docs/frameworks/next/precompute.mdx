@@ -1,420 +1,203 @@
 ---
 title: Precompute
-description: Using the precompute pattern in Next.js
+description: Keep Next.js pages static while they show different flag values to each visitor.
 ---
 
-This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
-Ensure you've read about the general precompute concept to understand the pattern and benefits:
+A page that evaluates a flag is dynamic: Next.js renders it for each request. Marketing pages and landing pages should be static and served from the CDN, also while you run A/B tests on them. Precompute solves this:
 
-<CopyPrompt text="Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.">
-  Implement precomputed feature flags in my Next.js app. Add a `FLAGS_SECRET`, group the relevant `flags/next` declarations, call `precompute` from Proxy to rewrite requests with the generated code, update the destination route to read precomputed values from `[code]`, generate static params or use ISR for variants, and run the relevant type checks or build when finished.
-</CopyPrompt>
+1. The proxy evaluates the flags of the page for the visitor.
+2. It puts their values into a short, signed code and rewrites the request to a URL with that code.
+3. Next.js renders one static page for each code, at build time or on the first request.
+4. The page reads the values from the code. It does not evaluate the flags again, so it stays static.
 
-<LearnMore href="/principles/precompute" icon="arrow">
-  <div>Read the introduction to precompute</div>
-</LearnMore>
+The visitor sees the original URL. There is no layout shift and no client-side flicker. See [Precompute](/docs/principles/precompute) for the idea behind the pattern.
 
-## Manual approach
-
-You can manually create variants of a page by creating two versions of the same page. For example, `app/home-a/page.tsx` and `app/home-b/page.tsx`. Then, use Proxy to rewrite the request either to `/home-a` or `/home-b`.
-
-```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
-
-export const homeFlag = flag<boolean>({
-  key: 'home',
-  decide: () => Math.random() > 0.5,
-});
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Proxy as proxy.ts
+  participant Page as app/marketing/[code]
+  Browser->>Proxy: GET /marketing
+  Proxy->>Proxy: precompute(marketingFlags, { request })
+  Proxy->>Page: rewrite to /marketing/<code>
+  Page->>Page: getPrecomputed(flags, marketingFlags, code)
+  Page-->>Browser: static HTML for this combination
 ```
 
-```tsx title="proxy.ts#next"
-import { NextResponse, type NextRequest } from 'next/server';
-import { homeFlag } from './flags';
+Precompute is in `@flags-sdk/next/precompute`. It needs `withFlags` in `next.config.ts` (see [Next.js](/docs/frameworks/next)).
 
-export const config = { matcher: ['/'] };
+## 1. Group the flags of the page
 
-export async function proxy(request: NextRequest) {
-  const home = await homeFlag();
+List the flags that the page uses. The list must be in a separate file, because a `'use flags'` module exports only flags:
 
-  // Determine which version to show based on the feature flag
-  const version = home ? '/home-b' : '/home-a';
+```ts title="marketing-flags.ts"
+import { checkout, summerSale } from './flags';
 
-  // Rewrite the request to the appropriate version
-  const nextUrl = new URL(version, request.url);
-  return NextResponse.rewrite(nextUrl);
-}
+export const marketingFlags = [summerSale, checkout] as const;
 ```
 
-<IframeBrowser
-  src="snippets:/concepts/precompute/manual"
-  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/precompute/manual"
-/>
+`summerSale` and `checkout` are the flags of the [shared `flags.ts`](/docs/frameworks#one-flagsts-for-every-framework). Any flag works: inline flags and flags of a source.
 
-This approach works well for basic cases, but has a few downsides:
+## 2. Precompute in the proxy
 
-- It can be cumbersome having to maintain both `/home-a/page.tsx` and `/home-b/page.tsx`.
-- It doesn't scale well when a feature flag is used on more than one page, or when multiple feature flags are used on a single page.
-
-
-## Precompute pattern
-
-Use the precompute functionality of the Flags SDK to work around the limitations of the manual approach. Use the precompute pattern to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
-
-### Prerequisites
-
-Ensure you have a `FLAGS_SECRET` environment variable set. This variable is used by `precompute` to encrypt the precomputation result into the URL. The `FLAGS_SECRET` environment variable is required for precompute to work. It must contain a random string of 32 characters, encoded as Base64.
-
-Use a separate `FLAGS_SECRET` value for each environment (Development, Preview, and Production), and mark the Preview and Production values as Sensitive.
-
-Generate a random value using the following command, and run it once per environment to produce distinct values:
-
-```sh title="Terminal"
-node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
-```
-
-Create the environment variable on Vercel for each environment, filling in the generated values:
-
-```sh title="Terminal"
-vercel env add FLAGS_SECRET production --sensitive --value <production-secret>
-vercel env add FLAGS_SECRET preview --sensitive --value <preview-secret>
-vercel env add FLAGS_SECRET development --value <development-secret>
-```
-
-Pull the environment variable to your local project:
-
-```sh title="Terminal"
-vc env pull
-```
-
-Alternatively, set the `FLAGS_SECRET` environment variable locally in `.env.local`:
-
-```sh
-FLAGS_SECRET=<your-secret>
-```
-
-
-
-
-### 1. Create flags to be precomputed
-
-Export one or multiple flags as an array to be precomputed.
-
-```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
-
-export const showSummerSale = flag({
-  key: 'summer-sale',
-  decide: () => false,
-});
-
-export const showBanner = flag({
-  key: 'banner',
-  decide: () => false,
-});
-
-// a group of feature flags to be precomputed
-export const marketingFlags = [showSummerSale, showBanner] as const;
-```
-
-### 2. Precompute flags in middleware
-
-Import and pass the group of flags to the `precompute` function in middleware. Then, forward the precomputation result (`code`) to the underlying page using an URL rewrite:
-
-```tsx title="proxy.ts#next"
+```ts title="proxy.ts"
+import { precompute } from '@flags-sdk/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
-import { precompute } from 'flags/next';
-import { marketingFlags } from './flags';
-
-// Note that we're running this middleware for / only, but
-// you could extend it to further pages you're experimenting on
-export const config = { matcher: ['/'] };
+import { marketingFlags } from './marketing-flags';
 
 export async function proxy(request: NextRequest) {
-  // precompute returns a string encoding each flag's returned value
-  const code = await precompute(marketingFlags);
-
-  // rewrites the request to include the precomputed code for this flag combination
-  const nextUrl = new URL(
-    `/${code}${request.nextUrl.pathname}${request.nextUrl.search}`,
-    request.url,
-  );
-
-  return NextResponse.rewrite(nextUrl, { request });
+  // The request goes to the evaluation context chain and to the overrides
+  const code = await precompute(marketingFlags, { request });
+  return NextResponse.rewrite(new URL(`/marketing/${code}`, request.url));
 }
+
+export const config = { matcher: '/marketing' };
 ```
 
-### 3. Access the precomputation result from a page
+`precompute` evaluates the flags inside `runtime.onInvoke(request, ...)`, so `getEvaluationContext`, `decide`, and Flags Explorer overrides all see the request of the proxy.
 
-Next, import the feature flags you created earlier, such as `showBanner`, while providing the code from the URL and the `marketingFlags` list of flags used in the precomputation.
+## 3. Read the values in the page
 
-When the `showBanner` flag is called within this component it reads the result from the precomputation, and it does not invoke the flag's `decide` function again:
+```tsx title="app/marketing/[code]/page.tsx"
+import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
+import { checkout, summerSale } from '../../../flags';
+import { marketingFlags } from '../../../marketing-flags';
 
-```tsx title="app/[code]/page.tsx#next"
-import { marketingFlags, showSummerSale, showBanner } from '../../flags';
-type Params = Promise<{ code: string }>;
-
-export default async function Page({ params }: { params: Params }) {
-  const { code } = await params;
-  // access the precomputed result by passing params.code and the group of
-  // flags used during precomputation of this route segment
-  const summerSale = await showSummerSale(code, marketingFlags);
-  const banner = await showBanner(code, marketingFlags);
-
-  return (
-    <div>
-      {banner ? <p>welcome</p> : null}
-
-      {summerSale ? (
-        <p>summer sale live now</p>
-      ) : (
-        <p>summer sale starting soon</p>
-      )}
-    </div>
-  );
-}
-```
-
-This approach allows middleware to decide the value of feature flags and
-to pass the precomputation result down to the page. This approach also
-works with API Routes.
-
-<IframeBrowser
-  src="snippets:/concepts/precompute/automatic"
-  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/precompute/automatic/%5Bcode%5D"
-/>
-
-## Enabling ISR (optional)
-
-You can enable Incremental Static Regeneration (ISR) to cache generated pages after their initial render:
-
-```tsx title="app/[code]/layout.tsx#next"
-import type { ReactNode } from 'react';
-
-export async function generateStaticParams() {
-  // returning an empty array is enough to enable ISR
-  return [];
-}
-
-export default async function Layout({ children }: { children: ReactNode }) {
-  return children;
-}
-```
-
-In the example above, we used [`generateStaticParams`](https://nextjs.org/docs/app/api-reference/functions/generate-static-params) on the layout. You can also specify it on the page instead. It depends on whether a single page needs the flag or all pages within that layout need the flag.
-
-## Opting into build-time rendering (optional)
-
-The `flags/next` submodule exposes the [`generatePermutations`](/docs/api-reference/frameworks/next#generatepermutations) helper function for generating pages for different combinations of flags at build time. This function is called and takes a list of flags and returns an array of strings representing each combination of flags:
-
-```tsx title="app/[code]/page.tsx#next"
-import type { ReactNode } from 'react';
-import { generatePermutations } from 'flags/next';
-
+// Optional: build a page for each combination at build time
 export async function generateStaticParams() {
   const codes = await generatePermutations(marketingFlags);
   return codes.map((code) => ({ code }));
 }
 
-export default function Page() {
-  /* ... */
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const [sale, flow] = await getPrecomputed(
+    [summerSale, checkout],
+    marketingFlags,
+    code,
+  );
+  return <h1>{sale ? 'Summer sale' : `Checkout: ${flow}`}</h1>;
 }
 ```
 
-You can further customize which specific combinations you want to render by passing a filter function as the second argument of `generatePermutations`. As in the example above, you can also control whether you specify these permutations on the individual pages or on a layout.
+`getPrecomputed(flag, group, code)` returns one value, and `getPrecomputed([a, b], group, code)` returns the values in order. A flag that is not part of the group throws.
 
-### Pages Router
+## Build time or on demand
 
-If you're using the Pages Router, you need to pass a flag to `generatePermutations` which accepts the code from `context` and the group of flags.
+- **At build time.** `generatePermutations(group)` returns the code of each combination. Boolean flags have the values `false` and `true`. Every other flag needs `options`, or `generatePermutations` throws. Pass a `filter` as the second argument to skip combinations that need no page: `generatePermutations(marketingFlags, (values) => values['summer-sale'] === true)`.
+- **On demand (ISR).** Return `[]` from `generateStaticParams`. Next.js renders each combination on its first request and caches it. This avoids long builds when there are many combinations.
 
-You also need to specify a `getStaticPaths` function which can return the permutations to generate at build time or an empty array to use ISR.
+`options` describe the known values, but a provider can still return a value outside of them, for example a new variant added after the deployment. Precompute still works: the code then carries the value itself, and Next.js renders that page on demand, unless you set `export const dynamicParams = false`.
 
-```tsx title="pages/[code]/index.tsx#next"
-import { generatePermutations } from 'flags/next';
-import { marketingFlags, exampleFlag } from '../flags';
+## The secret
 
-export const getStaticPaths = (async () => {
-  const codes = await generatePermutations(marketingFlags);
+The code is signed, so a visitor can not choose flag values by editing the URL.
 
-  return {
-    paths: codes.map((code) => ({ params: { code } })),
-    fallback: 'blocking',
-  };
-}) satisfies GetStaticPaths;
+- `withFlags` puts a random secret for each build into the server code, so precompute needs no configuration.
+- To set the secret yourself, set `FLAGS_PRECOMPUTE_SECRET` for the build and for the runtime. It is not the `FLAGS_SECRET` of the override cookies.
+- Without `withFlags`, set `FLAGS_PRECOMPUTE_SECRET`, or precompute throws.
+- Each function also accepts an explicit `secret`.
 
-export const getStaticProps = (async (context) => {
-  if (typeof context.params?.code !== 'string') return { notFound: true };
+## Several groups
 
-  const example = await exampleFlag(context.params.code, marketingFlags);
-  return { props: { example } };
-}) satisfies GetStaticProps<{ example: boolean }>;`}
-```
+Precompute the flags that each part of the app needs, not all flags. Each extra flag doubles the number of combinations or more. You can have a group for the whole app and a second group for one page, for example `app/[rootCode]/pricing/[pricingCode]/page.tsx`. Call `precompute` for each group in the proxy and put each code into its segment of the rewrite.
 
-<IframeBrowser
-  src="snippets:/examples/pages-router-precomputed"
-  codeSrc="https://github.com/vercel/flags/blob/main/examples/snippets/pages/examples/pages-router-precomputed/%5Bcode%5D/index.tsx"
-/>
+## Identify visitors in the proxy
 
-## Declaring available options (optional)
+A/B tests on static pages often target a random visitor ID in a cookie. A static page can not set cookies, so the proxy creates the ID, passes it to the flags, and sets the cookie on the response:
 
-Options are the possible values that a flag can take. You can declare the available options for a flag by passing an `options` array to the `flag` function:
+```ts title="proxy.ts"
+import { precompute } from '@flags-sdk/next/precompute';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './marketing-flags';
 
-```tsx title="flags.ts#next"
-export const greetingFlag = flag<string>({
-  key: 'greeting',
-  options: ['Hello world', 'Hi', 'Hola'],
-  decide: () => 'Hello world',
-});
-```
+export async function proxy(request: NextRequest) {
+  const visitorId =
+    request.cookies.get('visitor-id')?.value ?? crypto.randomUUID();
 
-Instead of passing the values directly you can also pass an object containing a `label` and `value` property:
+  // The first input of the evaluation context chain, for each flag
+  const code = await precompute(marketingFlags, {
+    request,
+    evaluationContext: { visitorId },
+  });
 
-```tsx title="flags.ts#next"
-export const greetingFlag = flag<string>({
-  key: 'greeting',
-  options: [
-    { label: 'Hello world', value: 'Hello world' },
-    { label: 'Hi', value: 'Hi' },
-    { label: 'Hola', value: 'Hola' },
-  ],
-  decide: () => 'Hello world',
-});
-```
-
-To pass objects you must specify a `label` and `value` property:
-
-```tsx title="flags.ts#next"
-export const greetingFlag = flag<string>({
-  key: 'greeting',
-  options: [
-    {
-      label: 'Hello world',
-      value: {
-        /* your object here */
-      },
-    },
-  ],
-});
-```
-
-The Flags SDK uses the declared options for multiple purposes:
-
-1. Efficiently encode the flag values into the URL
-
-   The `precompute` function generates a short code which your application then transports through the URL. The URLs must remain fairly short for the system to stay efficient. When a feature flag's `decide` function returns a value not explicitly declared in `options` the whole value needs to be inlined into the `code`, which can quickly exceed the URL size limits. For ISR in particular, the URL length needs to stay below 1024 characters.
-
-2. Generate the possible permutations of flags
-
-   The `generatePermutations` function generates all possible combinations of flags for prerendering at build time. The function needs to know the available options for each flag to generate the possible permutations. It can only generate and prerender options declared by the flag.
-
-3. Show the available options in the [Flags Explorer](/docs/vercel#flags-explorer)
-
-   All options declared for a flag are shown in the [Flags Explorer](/docs/vercel#flags-explorer). If present, the `label` is used as the option name.
-
-
-## Adjusting the setup
-
-This section shows how to adapt the precompute pattern to different scenarios.
-
-### Precomputing a single page only
-
-The examples above use a single top-level group of flags, which will opt all pages nested under `app/[code]` into precomputation. Instead of opting the whole application into precomputation, you can also precompute a single page only.
-
-For example, if you want to precompute the `/pricing` page only:
-- Move your pricing page from `app/pricing/page.tsx` to `app/pricing/[pricingCode]/page.tsx`
-- Export a `pricingFlags` array of flags from your `flags.ts` file, containing all flags used by the pricing page
-- Run Proxy for requests to `/pricing`, and pass `pricingFlags` to the `precompute` function
-- Adjust the rewrite in Proxy to rewrite requests from `/pricing` to `/pricing/[pricingCode]`
-- Use the `pricingFlags` array to access the precomputed result in `app/pricing/[pricingCode]/page.tsx` when using Flags
-
-```tsx title="app/pricing/[pricingCode]/page.tsx#next"
-import type { ReactNode } from 'react';
-import { generatePermutations } from 'flags/next';
-import { pricingFlags, discountFlag } from '../../../flags';
-
-export async function generateStaticParams() {
-  const codes = await generatePermutations(pricingFlags);
-  return codes.map((code) => ({ pricingCode: code }));
+  const response = NextResponse.rewrite(
+    new URL(`/marketing/${code}`, request.url),
+  );
+  response.cookies.set('visitor-id', visitorId, { path: '/' });
+  return response;
 }
 
-export default async function Page(props: { params: Promise<{ pricingCode: string }> }) {
-  const { pricingCode } = await props.params;
-  const example = await discountFlag(pricingCode, pricingFlags);
-
-  // ...
-}
+export const config = { matcher: '/marketing' };
 ```
 
-### Precomputing a subset of pages
+On the first visit the request has no cookie yet, so the ID goes to the flags through `evaluationContext`. The source then uses it as the targeting key:
 
-This section describes an alternative folder structure where only a part of the page tree makes use of precomputation.
+```ts title="marketing.ts"
+'use flags';
 
-So far the examples have used a single top-level group of flags under `app/[code]`.
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { bindFlag, defineSource } from 'flags';
 
-Instead, you can nest precomputed flags under a folder like `app/precomputed/[code]`. This makes it clear that only those pages will have access to the precomputed flags.
+const marketing = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  // The input is optional, so the flags also work outside of the proxy
+  getEvaluationContext: (
+    input: { visitorId?: string } | undefined,
+    request,
+  ) => ({
+    targetingKey:
+      input?.visitorId ??
+      request?.cookies?.get('visitor-id')?.value ??
+      'anonymous',
+  }),
+});
 
-
-```md
-app
-├─page.tsx
-└─precomputed
-   └─[rootCode]
-      └─page.tsx
+export const heroTest = bindFlag({
+  key: 'hero-test',
+  source: marketing,
+  defaultValue: false,
+});
 ```
 
-Adjust the rewrite in Proxy to include the `precomputed` segment.
+Add `heroTest` to `marketingFlags`.
 
-Note that you will need to manually maintain the paths in Proxy for which the rewrite should run.
+See [Evaluation context](/docs/flags/evaluation-context) for the context chain.
 
+## Suspense fallbacks
 
-### Multiple groups
+Precomputed values are known in the static shell, so you can use them to pick a matching skeleton. For example, a cheap inline flag that checks whether an auth cookie exists can choose the skeleton of the signed-in state, while the real dashboard streams in (a fragment of a page):
 
-Define multiple groups of flags to avoid unnecessarily generating permutations for flags which are not used by all pages. This control allows you to only generate permutations of the precise flags used by each subset of your pages.
+```tsx title="app/[code]/page.tsx"
+const signedIn = await getPrecomputed(hasAuthCookie, rootFlags, code);
 
-For example, you can have a root group of flags which apply to all pages, and a nested group of flags which only apply to a single page or subset of pages. Create a root `[rootCode]` at the root of your application for the common flags, and a `[pricingCode]` for the flags used by the pricing page.
-
-```tsx title="flags.ts#next"
-// all available flags
-export const navigationFlag = flag(/* ... */)
-export const bannerFlag = flag(/* ... */)
-export const discountFlag = flag(/* ... */)
-
-// two groups of flags
-export const rootFlags = [navigationFlag, bannerFlag];
-export const pricingFlags = [discountFlag];
+return (
+  <Suspense fallback={signedIn ? <DashboardSkeleton /> : <SignInSkeleton />}>
+    <Dashboard />
+  </Suspense>
+);
 ```
 
-The file tree would look like this:
+## Flag values in Flags Explorer
 
-```md
-app
-└─[rootCode]
-   ├─ page.tsx
-   └─ pricing
-       └─ [pricingCode]
-            └─ page.tsx
+Pass the precomputed values to [`FlagValues`](/docs/frameworks/next/flag-values) with `values`. It then does not read the request, and the page stays static:
+
+```tsx
+<FlagValues values={{ [summerSale.key]: sale, [checkout.key]: flow }} />
 ```
 
-To use this pattern, you need to adjust Proxy:
-- Precompute both groups of flags by calling `precompute` for each group
-- Adjust the rewrite to add the precomputed codes at the right segments for each group of flags
+## Upgrading from v4
 
-When calling the feature flag, ensure you specify the code and group of flags it was precomputed for. For example, use `await discountFlag(pricingCode, pricingFlags)` to access the precomputed value of the `discountFlag` that is part of the `pricingFlags` group.
+The API and the format of the code are the same as in v4, and a code of v4 is valid in v5.
 
+- A flag is no longer a function of `(code, group)`. Use `getPrecomputed(flag, group, code)`.
+- A flag that is not part of the code throws.
+- A non-boolean flag without `options` throws in `generatePermutations`.
+- To keep v4 codes valid during the upgrade, set `FLAGS_PRECOMPUTE_SECRET` to the value of your old `FLAGS_SECRET` for that time.
 
-### Combinatory explosion
-
-Using the precompute pattern for pages which consist of many feature flags, or feature flags which have many possible values will lead to an exponential increase in the number of permutations that exist of given page.
-
-- Build time will increase if you rely on [build time rendering](/principles/precompute#opting-into-build-time-rendering-optional).
-- Cache hit rates will decrease if you rely on [lazily generating the permutations](/principles/precompute#enabling-isr-optional).
-
-Be mindful of the flags you precompute, and whether you pregenerate permutations at build time or on demand.
-
-You can manually specify which permutations you generate at build time by passing a second argument to `generatePermutations`. See the [API Reference](/docs/api-reference/frameworks/next#generatepermutations) for more information. All remaining permutations will be generated on demand the first time they are requested.
-
-
-## Next steps
-
-<LearnMore href="/frameworks/next/guides/marketing-pages" icon="arrow">
-  <div>See the Marketing Pages example which implements this pattern</div>
-</LearnMore>
+Precompute is not part of the [Flags SDK standard](/docs/standard). It uses only the public API of `flags`.

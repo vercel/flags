@@ -1,0 +1,263 @@
+---
+title: Framework packages
+description: The API of the SvelteKit, Nuxt, TanStack Start, Vite, Hono and Express packages of the Flags SDK.
+---
+
+Each framework package connects the Flags SDK to one framework: it gives the
+runtime the current request, loads `flags.config.ts`, and lets the signals of
+the framework through. Your application code imports only `flags`; these
+packages are only for the setup. For Next.js, see
+[`@flags-sdk/next`](/docs/api-reference/next).
+
+| Package                     | Entry points                         | Setup                                       |
+| --------------------------- | ------------------------------------ | ------------------------------------------- |
+| `@flags-sdk/sveltekit`      | `/vite`, `/binding`                  | `flags()` in `vite.config.ts`               |
+| `@flags-sdk/nuxt`           | `.` (the module), `/binding`, `/plugin` | `modules: ['@flags-sdk/nuxt']`           |
+| `@flags-sdk/tanstack-start` | `/vite`, `/binding`                  | `flags()` in `vite.config.ts`               |
+| `@flags-sdk/vite`           | `.`                                  | For framework packages, not applications    |
+| `@flags-sdk/hono`           | `.`                                  | `app.use(flags({ config }))`                |
+| `@flags-sdk/express`        | `.`                                  | `app.use(flags({ config }))`                |
+
+The `/binding` entry point of each package exports `setupFramework`, the
+framework binding behind the alias `flags/framework`. The plugin sets the
+alias. Your application does not import it.
+
+## `@flags-sdk/sveltekit`
+
+SvelteKit 2.20 or newer, and Vite 6 or newer. See
+[SvelteKit](/docs/frameworks/sveltekit).
+
+### `flags` (from `@flags-sdk/sveltekit/vite`)
+
+```ts
+function flags(options?: FlagsSvelteKitOptions): Plugin;
+```
+
+The Vite plugin. It points `flags/framework` to the SvelteKit binding,
+`flags/config` to `flags.config.ts` (in the project or in `src`), registers
+`'use flags'` modules, serves the manifest at
+`/.well-known/flags/manifest.json` in development, and writes
+`flags-manifest.json` after a build.
+
+| Option            | Type              | Description                                                                                                                                                                      |
+| ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `defaultProvider` | `string \| false` | The module of the default provider, e.g. of a platform. A path is relative to the project. During a build on Vercel, the default is `@vercel/flags-core/default-provider` if the project has `@vercel/flags-core`. `false` turns this off. |
+
+```ts title="vite.config.ts"
+import { flags } from '@flags-sdk/sveltekit/vite';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [sveltekit(), flags()],
+});
+```
+
+### `setupFramework` (from `@flags-sdk/sveltekit/binding`)
+
+Gets the request with `getRequestEvent()` of `$app/server`, so flags work in
+`load`, actions, `+server.ts` and hooks. Rethrows `redirect()` and `error()`
+of SvelteKit (`isRedirect`, `isHttpError`).
+
+## `@flags-sdk/nuxt`
+
+Nuxt 4 with Nitro 2. See [Nuxt](/docs/frameworks/nuxt).
+
+### The module (default export of `@flags-sdk/nuxt`)
+
+```ts title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: ['@flags-sdk/nuxt'],
+});
+```
+
+The module adds the Vite plugin of `@flags-sdk/vite` to the Vite build and to
+the Nitro build. It:
+
+- points `flags/framework` to the Nuxt binding, and `flags/config` to
+  `flags.config.ts`;
+- enables `experimental.asyncContext` of Nitro, which the binding needs;
+- registers `'use flags'` modules, serves the manifest in `nuxt dev`, and
+  writes `flags-manifest.json` into the server output (`.output/server`);
+- adds a Nitro plugin that calls `runtime.onInit()` when the server starts
+  and `runtime.onShutdown()` when it closes.
+
+| Option            | Type              | Description                                                                                                          |
+| ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `defaultProvider` | `string \| false` | As for SvelteKit. Set it with `modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]`.               |
+
+The type of the options is `FlagsNuxtOptions`. The config key is `flags`.
+
+### `setupFramework` (from `@flags-sdk/nuxt/binding`)
+
+Gets the request with `useEvent()` of Nitro, and rethrows the errors of
+`createError()`.
+
+### `@flags-sdk/nuxt/plugin`
+
+The Nitro plugin that the module adds. It registers the binding with
+`registerFramework`, because Nitro loads `flags` from `node_modules` in
+development, and runs the lifecycle of the runtime.
+
+## `@flags-sdk/tanstack-start`
+
+TanStack Start 1 with Vite 6 or newer, for React and Solid. See
+[TanStack Start](/docs/frameworks/tanstack-start).
+
+### `flags` (from `@flags-sdk/tanstack-start/vite`)
+
+```ts
+function flags(options?: FlagsTanStackStartOptions): Plugin;
+```
+
+The Vite plugin, with the same behavior and the same `defaultProvider`
+option as for SvelteKit. It resolves the server and router modules of
+TanStack Start for React or Solid, whichever the project has.
+
+```ts title="vite.config.ts"
+import { flags } from '@flags-sdk/tanstack-start/vite';
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import viteReact from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
+});
+```
+
+### `setupFramework` (from `@flags-sdk/tanstack-start/binding`)
+
+Gets the request with `getRequest()` of TanStack Start, in server functions,
+server routes and the rendering of pages. Rethrows `redirect()` and
+`notFound()` of TanStack Router.
+
+## `@flags-sdk/vite`
+
+The shared Vite plugin of the framework packages. Applications use the plugin
+of their framework package instead. Use it to
+[build a package for another framework](/docs/frameworks/custom-frameworks).
+It also works as a Rollup plugin, e.g. for the server build of Nitro.
+
+### `flags`
+
+```ts
+function flags(options?: FlagsVitePluginOptions): Plugin;
+```
+
+| Option            | Type                                       | Description                                                                                                                                                    |
+| ----------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `binding`         | `string`                                   | The module behind `flags/framework`, resolved from the project. With it, the plugin also points `flags/config` to `flags.config.ts`.                           |
+| `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
+| `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
+| `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
+| `defaultProvider` | `string \| false`                          | The module of the default provider. During a build on Vercel, the default is `@vercel/flags-core/default-provider` if the project has it. `false` turns this off. |
+| `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
+| `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
+
+```ts
+import { flags } from '@flags-sdk/vite';
+
+export function myFrameworkFlags() {
+  return flags({
+    binding: '@flags-sdk/my-framework/binding',
+    bundle: ['@flags-sdk/my-framework'],
+    dedupe: ['my-framework'],
+  });
+}
+```
+
+### `MANIFEST_PATH`
+
+`'/.well-known/flags/manifest.json'`, the path where the plugin serves the
+manifest in development.
+
+### `platformDefaultProvider`
+
+```ts
+function platformDefaultProvider(
+  dir: string,
+  isBuild: boolean,
+  resolveModule?: (id: string) => unknown,
+): string | undefined;
+```
+
+Returns `'@vercel/flags-core/default-provider'` during a build on Vercel
+(`VERCEL` is set) if the project in `dir` has `@vercel/flags-core`, else
+`undefined`. The Nuxt module uses it.
+
+## `@flags-sdk/hono`
+
+Hono 4 or newer. See [Hono](/docs/frameworks/hono).
+
+### `flags`
+
+```ts
+function flags(options?: FlagsMiddlewareOptions): MiddlewareHandler;
+```
+
+A middleware that runs each request in `runtime.onInvoke(c.req.raw, next)`, so
+flags get the request, also after an `await` in a handler. It sets the
+rethrow so that an `HTTPException` reaches Hono unchanged, also from
+`getEvaluationContext`.
+
+| Option   | Type     | Description                                                                                                             |
+| -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `config` | `Config` | The configuration, e.g. the `config` export of `flags.config.ts`. The middleware passes it to `runtime.configure` once. |
+
+Hono often runs without a bundler, so the configuration is an option, not an
+alias.
+
+```ts title="src/index.ts"
+import { flags } from '@flags-sdk/hono';
+import { evaluate } from 'flags';
+import { Hono } from 'hono';
+import { bannerText, summerSale } from './flags';
+import { config } from './flags.config';
+
+const app = new Hono();
+app.use(flags({ config }));
+
+app.get('/', async (c) => {
+  const [sale, banner] = await evaluate([summerSale, bannerText]);
+  return c.json({ sale, banner });
+});
+```
+
+## `@flags-sdk/express`
+
+Express 4 or newer. See [Express](/docs/frameworks/express).
+
+### `flags`
+
+```ts
+function flags(
+  options?: FlagsMiddlewareOptions,
+): (request: NodeRequest, response: unknown, next: () => void) => void;
+```
+
+A middleware that converts the Node.js request (headers and URL) and runs the
+rest of the request in `runtime.onInvoke`. Errors of flags go to your
+handlers, which pass them to `next` as usual.
+
+| Option   | Type     | Description                                                                                                             |
+| -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `config` | `Config` | The configuration, e.g. the `config` export of `flags.config.ts`. The middleware passes it to `runtime.configure` once. |
+
+```ts title="src/server.ts"
+import { flags } from '@flags-sdk/express';
+import express from 'express';
+import { newCheckout } from './flags';
+import { config } from './flags.config';
+
+const app = express();
+app.use(flags({ config }));
+
+app.get('/', async (_request, response) => {
+  response.json({ checkout: await newCheckout() });
+});
+```
+
+Hono and Express have no build plugin, so they do not serve the flags
+manifest. Run [`flags manifest`](/docs/api-reference/flags-tooling#flags-manifest)
+after the build instead.

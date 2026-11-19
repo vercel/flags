@@ -121,6 +121,9 @@ importers:
 
   apps/docs:
     dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../packages/framework-next
       '@vercel/analytics':
         specifier: ^1.6.1
         version: 1.6.1(@sveltejs/kit@2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.57.2(@typescript-eslint/types@8.71.1))(vite@8.3.4(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)))(svelte@5.57.2(@typescript-eslint/types@8.71.1))(typescript@5.9.3)(vite@8.3.4(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)))(next@16.4.3(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.57.2(@typescript-eslint/types@8.71.1))(vue@3.5.43(typescript@5.9.3))

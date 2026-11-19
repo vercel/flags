@@ -1,0 +1,266 @@
+---
+title: Quickstart
+description: Add the Flags SDK to your application, define your first flag, and connect a provider.
+---
+
+This guide adds a feature flag to your application. Pick your framework in the tabs. The flag code is the same in each framework.
+
+<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application. Detect the framework, install `flags` and the matching framework package (`@flags-sdk/next`, `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`, `@flags-sdk/tanstack-start`, `@flags-sdk/hono` or `@flags-sdk/express`), and add its setup. Create a `flags.ts` module that starts with the `'use flags'` directive and declares an inline flag with `defineFlag({ key, decide })`. Use the flag in one server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
+  Add the Flags SDK (the `flags` package, version 5) to my application. Detect the framework, install `flags` and the matching framework package, and add its setup. Create a `flags.ts` module that starts with the `'use flags'` directive and declares an inline flag with `defineFlag({ key, decide })`. Use the flag in one server-rendered page or route. Follow this quickstart, then run the type check and the build.
+</CopyPrompt>
+
+### 1. Install the packages
+
+Install `flags` and the package of your framework. Without a framework, you only need `flags`.
+
+```sh tab="Next.js" title="Terminal"
+npm install flags @flags-sdk/next
+```
+
+```sh tab="SvelteKit" title="Terminal"
+npm install flags @flags-sdk/sveltekit
+```
+
+```sh tab="Nuxt" title="Terminal"
+npm install flags @flags-sdk/nuxt
+```
+
+```sh tab="TanStack Start" title="Terminal"
+npm install flags @flags-sdk/tanstack-start
+```
+
+```sh tab="Hono" title="Terminal"
+npm install flags @flags-sdk/hono
+```
+
+```sh tab="Express" title="Terminal"
+npm install flags @flags-sdk/express
+```
+
+```sh tab="Node.js" title="Terminal"
+npm install flags
+```
+
+### 2. Connect your framework
+
+The framework package gives the SDK the current request. You add it one time.
+
+```ts tab="Next.js" title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({
+  // Your Next.js configuration, as usual
+});
+```
+
+```ts tab="SvelteKit" title="vite.config.ts"
+import { flags } from '@flags-sdk/sveltekit/vite';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [sveltekit(), flags()],
+});
+```
+
+```ts tab="Nuxt" title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: ['@flags-sdk/nuxt'],
+});
+```
+
+```ts tab="TanStack Start" title="vite.config.ts"
+import { flags } from '@flags-sdk/tanstack-start/vite';
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import viteReact from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
+});
+```
+
+```ts tab="Hono" title="src/server.ts"
+import { flags } from '@flags-sdk/hono';
+import { Hono } from 'hono';
+
+const app = new Hono();
+
+// Each request runs in the scope of the SDK
+app.use(flags());
+```
+
+```ts tab="Express" title="src/server.ts"
+import { flags } from '@flags-sdk/express';
+import express from 'express';
+
+const app = express();
+
+// Each request runs in the scope of the SDK
+app.use(flags());
+```
+
+```ts tab="Node.js" title="server.ts"
+import { createServer } from 'node:http';
+import { runtime } from 'flags';
+
+createServer((incoming, outgoing) => {
+  const request = new Request(`http://${incoming.headers.host}${incoming.url}`, {
+    headers: incoming.headers as HeadersInit,
+  });
+  // Each request runs in the scope of the SDK
+  void runtime.onInvoke(request, async () => {
+    outgoing.end('Hello');
+  });
+}).listen(3000);
+```
+
+### 3. Define a flag
+
+Create a `flags.ts` file. This first flag is an [inline flag](/docs/flags/inline-flags): your code decides its value. Here, the flag is on when the `beta` cookie is set.
+
+```ts title="flags.ts"
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  description: 'Shows the beta banner to testers',
+  options: [false, true] as const,
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+});
+```
+
+The `'use flags'` directive marks a module that only exports flags. Framework packages find these modules, so that tools such as [Flags Explorer](/docs/tooling/flags-explorer) can list your flags.
+
+<Callout>
+  If your `tsconfig.json` sets `"baseUrl": "."`, TypeScript resolves the import
+  `'flags'` to a `flags.ts` file in the root of your project. Then put your
+  flags into a different file, e.g. `lib/flags.ts`.
+</Callout>
+
+### 4. Use the flag
+
+Call the flag on the server. It returns a promise of its value.
+
+```tsx tab="Next.js" title="app/page.tsx"
+import { betaBanner } from '../flags';
+
+export default async function Page() {
+  const showBanner = await betaBanner();
+  return <main>{showBanner ? <p>Welcome to the beta!</p> : null}</main>;
+}
+```
+
+```ts tab="SvelteKit" title="src/routes/+page.server.ts"
+import { betaBanner } from '$lib/flags';
+
+export async function load() {
+  return { showBanner: await betaBanner() };
+}
+```
+
+```ts tab="Nuxt" title="server/api/banner.get.ts"
+import { betaBanner } from '../../flags';
+
+export default defineEventHandler(async () => ({
+  showBanner: await betaBanner(),
+}));
+```
+
+```tsx tab="TanStack Start" title="src/routes/index.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { betaBanner } from '../flags';
+
+// Flags run on the server, so the loader calls a server function
+const getBanner = createServerFn({ method: 'GET' }).handler(() =>
+  betaBanner(),
+);
+
+export const Route = createFileRoute('/')({
+  loader: () => getBanner(),
+  component: Home,
+});
+
+function Home() {
+  const showBanner = Route.useLoaderData();
+  return showBanner ? <p>Welcome to the beta!</p> : null;
+}
+```
+
+```ts tab="Hono" title="src/server.ts"
+import { betaBanner } from './flags';
+
+app.get('/', async (c) => c.json({ showBanner: await betaBanner() }));
+```
+
+```ts tab="Express" title="src/server.ts"
+import { betaBanner } from './flags';
+
+app.get('/', async (_request, response) => {
+  response.json({ showBanner: await betaBanner() });
+});
+```
+
+```ts tab="Node.js" title="server.ts"
+import { betaBanner } from './flags';
+
+void runtime.onInvoke(request, async () => {
+  const showBanner = await betaBanner();
+  outgoing.end(showBanner ? 'Welcome to the beta!' : 'Hello');
+});
+```
+
+Set the cookie `beta=1` in your browser, and reload the page to see the flag change.
+
+### 5. Connect a provider
+
+Most flags come from a flag management system. A [source](/docs/flags/provider-flags) connects flags to an OpenFeature provider, and creates the evaluation context from the request. This example uses Vercel Flags, but [any OpenFeature server provider](/docs/providers/openfeature) works the same way.
+
+```sh title="Terminal"
+npm install @vercel/flags-core @openfeature/server-sdk
+```
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag, defineFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_input, request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
+});
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: vercel,
+  defaultValue: false,
+});
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+});
+```
+
+You call `summerSale()` exactly like `betaBanner()`. The source creates the evaluation context once per request, even when a page evaluates many flags. See [Vercel](/docs/providers/vercel) for the credentials of Vercel Flags.
+
+<Callout>
+  With `defaultValue`, a flag that can not be evaluated returns the default
+  value and logs one line. Without it, the call throws. See [Errors and default
+  values](/docs/flags/errors-and-default-values).
+</Callout>
+
+## Next steps
+
+- [Generate your flags](/docs/flags/code-generation) from your provider, and import them from `flags:<source>`.
+- [Add the evaluation context](/docs/flags/evaluation-context) of your users and teams.
+- [Set up Flags Explorer](/docs/tooling/flags-explorer) to override flags in your browser.
+- Read the guide for [your framework](/docs/frameworks).

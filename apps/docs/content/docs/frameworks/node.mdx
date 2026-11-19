@@ -1,0 +1,190 @@
+---
+title: No framework
+description: Use the Flags SDK in a plain Node.js server, a script, or any runtime without a framework package.
+---
+
+You do not need a framework package to use the Flags SDK. Install only `flags`, and call three functions of `runtime` at the right moments of your server. A framework package does exactly this for you.
+
+| Function | When | What it does |
+| --- | --- | --- |
+| `runtime.onInit()` | One time at startup | Initializes the providers of all registered sources and waits for them. Errors are logged, not thrown. |
+| `runtime.onInvoke(request, next)` | For each request | Runs `next` in the scope of the request. Flags evaluated inside `next` get the request, and each flag is evaluated one time for each request. Returns the result of `next`. |
+| `runtime.onShutdown()` | When the process stops | Waits for running initializations, then closes all providers. |
+
+All three are optional. Without `onInit`, a provider initializes on its first evaluation. Without `onInvoke`, flags get `undefined` as the request.
+
+## Setup
+
+### 1. Install the package
+
+```sh title="Terminal"
+npm install flags
+```
+
+### 2. Define your flags
+
+Use the same `flags.ts` as in the [other frameworks](/docs/frameworks):
+
+```ts title="src/flags.ts"
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+
+const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// Flags of the source: the provider decides the value
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+  description: 'The summer sale banner',
+});
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: shop,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+The `'use flags'` directive is optional here. Add it if you want to write a [flags manifest](#flags-explorer-and-the-manifest) with the CLI.
+
+### 3. Run each request in `onInvoke`
+
+A plain Node.js HTTP server:
+
+```ts title="src/server.ts"
+import { createServer } from 'node:http';
+import { evaluate, runtime } from 'flags';
+import { betaBanner, checkout, summerSale } from './flags.ts';
+
+// Initialize the providers before the first request
+await runtime.onInit();
+
+const server = createServer((incoming, outgoing) => {
+  const url = new URL(incoming.url ?? '/', 'http://localhost');
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(incoming.headers)) {
+    if (typeof value === 'string') {
+      headers.set(name, value);
+    }
+  }
+
+  // Flags evaluated inside onInvoke belong to this request
+  void runtime
+    .onInvoke({ headers, url }, async () => {
+      const [sale, flow, beta] = await evaluate([
+        summerSale,
+        checkout,
+        betaBanner,
+      ]);
+      return { sale, flow, beta };
+    })
+    .then(
+      (body) => {
+        outgoing.setHeader('content-type', 'application/json');
+        outgoing.end(JSON.stringify(body));
+      },
+      (error: unknown) => {
+        outgoing.statusCode = 500;
+        outgoing.end(String(error));
+      },
+    );
+});
+
+server.listen(3000);
+
+// Close the providers when the process stops
+process.on('SIGTERM', () => {
+  server.close();
+  void runtime.onShutdown();
+});
+```
+
+The first argument of `onInvoke` is a `FlagsRequestInit`: `{ headers?, cookies?, url? }`, each optional. Without `cookies`, the SDK reads the `Cookie` header. A Web `Request` fits as it is, so in a runtime with a `fetch` handler you can write:
+
+```ts
+export default {
+  fetch: (request: Request) =>
+    runtime.onInvoke(request, async () => {
+      return Response.json({ sale: await summerSale() });
+    }),
+};
+```
+
+The SDK identifies a request by its `headers` object, so pass the same object for the whole request.
+
+## Configuration
+
+Without a framework plugin, nothing loads `flags.config.ts`. Call `runtime.configure` at startup, before the first evaluation:
+
+```ts title="src/server.ts"
+import { runtime } from 'flags';
+import { config } from './flags.config.ts';
+
+runtime.configure(config);
+await runtime.onInit();
+```
+
+`flags.config.ts` looks the same as in every framework: `export const config = defineConfig({ defaultSource, hooks, overrides })`. Flags without a `source` use its default source. For now, the built-in default source throws, so set a `defaultSource` if you use flags without a source. See [Configuration](/docs/flags/configuration).
+
+## Scripts and background jobs
+
+Flags also work outside of a request, for example in a cron job or a CLI script. The request is then `undefined`, so `getEvaluationContext` must not need it. Pass what the flag needs with `evaluationContext`:
+
+```ts title="scripts/report.ts"
+import { defineFlag } from 'flags';
+
+const detailedReport = defineFlag({
+  key: 'detailed-report',
+  decide: (context: { teamSlug: string }) => context.teamSlug === 'acme',
+});
+
+// No request: the call side gives the evaluation context
+const detailed = await detailedReport({ evaluationContext: { teamSlug: 'acme' } });
+```
+
+See [Evaluation context](/docs/flags/evaluation-context).
+
+## Flags Explorer and the manifest
+
+Put your flags in modules that start with `'use flags'`, then write the manifest with the CLI:
+
+```sh title="Terminal"
+npx flags manifest
+```
+
+It imports the `'use flags'` modules of the current directory (or of `flags manifest [dir]`) with Node.js and writes `flags-manifest.json`. Run it on TypeScript sources with Node.js 22.18 or newer, or on the output of `tsc`. Overrides of Flags Explorer work without extra code: the SDK reads the `flag-overrides` cookie of each request in `onInvoke`. See [Flags manifest](/docs/tooling/flags-manifest) and [CLI](/docs/tooling/cli).
+
+## Example
+
+The repository has a complete server without a framework in [`examples/standard/plain`](https://github.com/vercel/flags/tree/main/examples/standard/plain), with tests.

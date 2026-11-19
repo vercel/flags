@@ -1,0 +1,105 @@
+---
+title: Flags
+navTitle: Overview
+description: The two kinds of flags, inline flags and flags of a source, and when to use which.
+---
+
+A flag is a function. You define it once, and call it on the server wherever you need its value:
+
+```ts
+const sale = await summerSale();
+```
+
+The same definition works in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express and plain Node.js. Your application code imports only the `flags` package. The framework package only connects the SDK to the request of your framework (see [Frameworks](/docs/frameworks)).
+
+## Two kinds of flags
+
+The Flags SDK has two kinds of flags. Both return the same kind of function, and both get overrides from Flags Explorer, hooks, one value per request and type checks.
+
+| | Inline flag | Flag of a source |
+| --- | --- | --- |
+| Defined with | `defineFlag` | `bindFlag` |
+| The value comes from | your code, in `decide` | the OpenFeature provider of a source |
+| Changed by | a deployment | your flag management system, at runtime |
+| Needs | nothing | a source: a provider, optionally a project and an evaluation context |
+
+### Inline flags
+
+An inline flag decides its value in your code. It needs no provider and no account:
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+});
+```
+
+See [Inline flags](/docs/flags/inline-flags).
+
+### Flags of a source
+
+A flag of a source gets its value from a flag management system, such as Vercel Flags or any other system with an OpenFeature provider. A source connects flags to that provider, and creates the evaluation context for it:
+
+```ts title="flags.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { bindFlag, defineSource } from 'flags';
+
+const shop = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+});
+```
+
+See [Flags of a source](/docs/flags/provider-flags). You can write sources and flags by hand, or let the SDK [generate them](/docs/flags/code-generation) from the catalog of your flag management system.
+
+## Which one to use
+
+Use an **inline flag** when:
+
+- the rule fits in a few lines of code, e.g. a cookie, a header, an environment variable or a row in your database;
+- a change of the rule can wait for the next deployment;
+- you want to start with flags before you choose a flag management system.
+
+Use a **flag of a source** when:
+
+- people other than developers change the flag, e.g. product managers in a dashboard;
+- you need targeting rules, percentage rollouts or experiments;
+- a change must apply without a deployment, e.g. a kill switch.
+
+You can change your mind later. Both kinds of flags are called in the same way, so moving a flag from `defineFlag` to `bindFlag` does not change the code that calls it.
+
+## One flag, everywhere
+
+You call each flag in the same way, in a page, an API route, a middleware or a script:
+
+```ts
+await summerSale();
+await teamInsights({ evaluationContext: { teamId: 'team-1' } });
+
+const [sale, checkout] = await evaluate([summerSale, newCheckout]);
+```
+
+During one request, each flag is evaluated once, so all parts of a page see the same value. See [Evaluating flags](/docs/flags/evaluating-flags).
+
+<Callout type="info">
+  Flags run only on the server. Do not import `flags` in client code. Evaluate the flag on the server, and give the value to the client, e.g. as a prop.
+</Callout>
+
+## Next steps
+
+- [Inline flags](/docs/flags/inline-flags): `defineFlag` and `decide`.
+- [Flags of a source](/docs/flags/provider-flags): `defineSource` and `bindFlag`.
+- [Code generation](/docs/flags/code-generation): import the flags of a source with `import { summerSale } from 'flags:shop'`.
+- [The evaluation context](/docs/flags/evaluation-context): how the user, the team or the request reach the provider.
+- [OpenFeature](/docs/flags/openfeature): how the SDK uses OpenFeature providers, hooks and events.

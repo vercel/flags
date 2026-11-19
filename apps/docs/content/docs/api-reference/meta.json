@@ -1,6 +1,13 @@
 {
   "root": true,
   "title": "API Reference",
-  "pages": ["---Core---", "...core", "---Frameworks---", "...frameworks"],
+  "pages": [
+    "---Core---",
+    "flags",
+    "flags-tooling",
+    "---Frameworks---",
+    "next",
+    "framework-packages"
+  ],
   "defaultOpen": true
 }

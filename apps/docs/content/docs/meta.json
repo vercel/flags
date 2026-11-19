@@ -1,9 +1,12 @@
 {
   "pages": [
-    "frameworks/next",
-    "frameworks/sveltekit",
-    "principles",
+    "getting-started",
+    "flags",
+    "frameworks",
     "providers",
+    "tooling",
+    "standard",
+    "principles",
     "api-reference"
   ]
 }

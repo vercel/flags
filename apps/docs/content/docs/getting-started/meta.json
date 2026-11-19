@@ -1,0 +1,6 @@
+{
+  "root": true,
+  "title": "Get Started",
+  "pages": ["index", "quickstart", "how-it-works", "upgrading-from-v4"],
+  "defaultOpen": true
+}

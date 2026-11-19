@@ -1,0 +1,21 @@
+{
+  "root": true,
+  "title": "Flags",
+  "pages": [
+    "index",
+    "---Defining flags---",
+    "inline-flags",
+    "provider-flags",
+    "code-generation",
+    "types-and-options",
+    "---Using flags---",
+    "evaluating-flags",
+    "evaluation-context",
+    "errors-and-default-values",
+    "testing",
+    "---Configuration---",
+    "configuration",
+    "openfeature"
+  ],
+  "defaultOpen": true
+}

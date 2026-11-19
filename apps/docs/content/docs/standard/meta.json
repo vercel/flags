@@ -1,0 +1,11 @@
+{
+  "root": true,
+  "title": "Standard",
+  "pages": [
+    "index",
+    "framework-bindings",
+    "flags-manifest-format",
+    "conformance"
+  ],
+  "defaultOpen": true
+}

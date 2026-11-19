@@ -1,0 +1,206 @@
+---
+title: Testing
+description: Test code that uses flags, with mocks, in-memory providers, simulated requests and override cookies.
+---
+
+Flags are plain async functions, and providers are plain objects. Thus, you can test code that uses flags with the tools you already have. This page uses [Vitest](https://vitest.dev/), but the same works with Jest or `node:test`.
+
+| You want to | Use |
+| --- | --- |
+| Test your code with fixed flag values | [Mock the flags module](#mock-the-flags-module) |
+| Test your flags and their rules, without a network | [An in-memory provider](#use-an-in-memory-provider) |
+| Test the evaluation context, e.g. cookies | [Simulate a request](#simulate-a-request) |
+| Test the running application in a browser | [Override cookies](#end-to-end-tests-with-overrides) |
+
+## Mock the flags module
+
+Keep your flags in their own module, e.g. `flags.ts`. Then a test can replace them:
+
+```ts title="dashboard.ts"
+import { newDashboard } from './flags';
+
+export async function dashboardTitle(): Promise<string> {
+  if (await newDashboard()) {
+    return 'New dashboard';
+  }
+  return 'Dashboard';
+}
+```
+
+```ts title="dashboard.test.ts"
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { dashboardTitle } from './dashboard';
+import { newDashboard } from './flags';
+
+vi.mock('./flags', () => ({
+  newDashboard: vi.fn(),
+}));
+
+describe('dashboardTitle', () => {
+  beforeEach(() => {
+    vi.mocked(newDashboard).mockReset();
+  });
+
+  it('shows the new dashboard when the flag is on', async () => {
+    vi.mocked(newDashboard).mockResolvedValue(true);
+    expect(await dashboardTitle()).toBe('New dashboard');
+  });
+
+  it('shows the old dashboard when the flag is off', async () => {
+    vi.mocked(newDashboard).mockResolvedValue(false);
+    expect(await dashboardTitle()).toBe('Dashboard');
+  });
+});
+```
+
+The mock replaces the evaluation, so the test needs no provider, no request and no `FLAGS_SECRET`.
+
+## Use an in-memory provider
+
+To test real evaluations, give the flags a provider with fixed rules. The in-memory provider of OpenFeature is good for this:
+
+```sh title="Terminal"
+npm install --save-dev @openfeature/server-sdk
+```
+
+Flags without a source use the default source, so a test can replace it with `runtime.configure`. Unless your test runner uses the plugin of your framework, `flags.config.ts` is not loaded in tests anyway:
+
+```ts title="test/setup.ts"
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { defineConfig, defineSource, runtime } from 'flags';
+import { afterAll } from 'vitest';
+
+runtime.configure(
+  defineConfig({
+    defaultSource: defineSource({
+      provider: new TypedInMemoryProvider({
+        'new-dashboard': {
+          variants: { on: true, off: false },
+          defaultVariant: 'off',
+          disabled: false,
+          // On for alice only
+          contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+        },
+      } as const),
+      getEvaluationContext: (_context, request) => ({
+        user: request?.cookies?.get('user')?.value ?? 'anonymous',
+      }),
+    }),
+  }),
+);
+
+// Close the providers after the tests
+afterAll(() => runtime.onShutdown());
+```
+
+```ts title="vitest.config.ts"
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: { setupFiles: ['./test/setup.ts'] },
+});
+```
+
+A new call of `runtime.configure` replaces the configuration, so a test can also set a different default source for itself. For a flag with its own `source`, define the source in a module that your test can mock, or test the flag through overrides (see below).
+
+## Simulate a request
+
+In a test, there is no request, so `request` is `undefined` in `getEvaluationContext` and in `decide`. To test code that reads cookies or headers, run it in `runtime.onInvoke` with a Web `Request`. This example uses the setup file above, where `newDashboard` is a flag of the default source:
+
+```ts title="flags.test.ts"
+import { runtime } from 'flags';
+import { expect, it } from 'vitest';
+import { newDashboard } from './flags';
+
+it('turns on the new dashboard for alice', async () => {
+  const request = new Request('https://shop.example/dashboard', {
+    headers: { cookie: 'user=alice' },
+  });
+
+  expect(await runtime.onInvoke(request, () => newDashboard())).toBe(true);
+  expect(await newDashboard()).toBe(false); // no request: the user is "anonymous"
+});
+```
+
+This also tests [inline flags](/docs/flags/inline-flags):
+
+```ts title="flags.test.ts"
+import { runtime } from 'flags';
+import { expect, it } from 'vitest';
+import { betaBanner } from './flags';
+
+it('shows the beta banner with the beta cookie', async () => {
+  const request = new Request('https://shop.example', {
+    headers: { cookie: 'beta=1' },
+  });
+
+  expect(await runtime.onInvoke(request, () => betaBanner())).toBe(true);
+});
+```
+
+Inside `onInvoke`, each flag is evaluated once, as in a real request. Use a new `onInvoke` call for each request that you simulate.
+
+To test a flag that needs a context, pass it as in your application: `await teamInsights({ evaluationContext: { teamId: 'team-1' } })`.
+
+## End-to-end tests with overrides
+
+In an end-to-end test, the application runs as in production. To choose the value of a flag, set an override cookie, as Flags Explorer does. The SDK only accepts encrypted override cookies, so the application and the test share a secret, `FLAGS_SECRET`:
+
+```sh title="Terminal"
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+`encryptOverrides` creates the cookie. With [Playwright](https://playwright.dev/):
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+// Only for tests. 32 random bytes as base64url.
+export const FLAGS_SECRET = process.env.FLAGS_SECRET ?? 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
+
+export default defineConfig({
+  use: { baseURL: 'http://localhost:3000' },
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    env: { FLAGS_SECRET },
+  },
+});
+```
+
+```ts title="e2e/checkout.spec.ts"
+import { expect, test } from '@playwright/test';
+import { encryptOverrides } from 'flags';
+import { FLAGS_SECRET } from '../playwright.config';
+
+test('shows the express checkout', async ({ context, page, baseURL }) => {
+  const token = await encryptOverrides({ checkout: 'express' }, FLAGS_SECRET);
+  await context.addCookies([
+    { name: 'flag-overrides', value: token, url: baseURL! },
+  ]);
+
+  await page.goto('/checkout');
+  await expect(page.getByText('Express checkout')).toBeVisible();
+});
+```
+
+- An override must fit the type of the flag. Otherwise, it is ignored with a warning.
+- An override skips the provider, so the test does not depend on the rules in your flag management system.
+- With `FLAGS_SECRET` set, the SDK accepts only cookies of this secret. See [Overrides](/docs/tooling/overrides).
+
+The same cookie works in a unit test, with `runtime.onInvoke` and a `Request` with the header `cookie: flag-overrides=<token>`, if `FLAGS_SECRET` is set in the test process.
+
+## Type tests
+
+The types of flags are part of their contract: their value type and the context they need. If you want to check them, use the type tests of your runner, e.g. `expectTypeOf` of Vitest:
+
+```ts title="flags.test-d.ts"
+import { expectTypeOf, it } from 'vitest';
+import { checkout } from './flags';
+
+it('has the options as its value type', () => {
+  expectTypeOf(checkout).returns.resolves.toEqualTypeOf<
+    'control' | 'express' | (string & {})
+  >();
+});
+```

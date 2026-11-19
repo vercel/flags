@@ -1,0 +1,173 @@
+---
+title: Configuration
+description: Set the default source, hooks and override options for all flags in flags.config.ts.
+---
+
+`flags.config.ts` configures the SDK for your whole application. It is optional. Use it to:
+
+- set the **default source**, which flags without a `source` use;
+- add **hooks** that run for all flags;
+- change which **override** cookies the SDK accepts.
+
+```ts title="flags.config.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineConfig, defineSource } from 'flags';
+
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider: new VercelProvider(),
+    project: { system: 'vercel-flags' },
+    getEvaluationContext: (_context, request) => ({
+      user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    }),
+  }),
+});
+
+// Gives flags without a source the types of the default source
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+## The file
+
+- Put it in the directory of your application, or in its `src` directory. The names `flags.config.ts`, `flags.config.mts`, `flags.config.js` and `flags.config.mjs` work.
+- Export the configuration as `config`, a named export. A default export is not read.
+- Wrap it in `defineConfig`. It returns the configuration as it is, with its exact type.
+
+### How it is loaded
+
+The framework packages load `flags.config.ts` for you (see [Frameworks](/docs/frameworks)):
+
+- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start find the file in the build. In development, a change of the file applies without a restart.
+- The middlewares of Hono and Express take it as an option: `app.use(flags({ config }))`.
+- Without a framework, pass it to the runtime at startup:
+
+```ts title="server.ts"
+import { runtime } from 'flags';
+import { config } from './flags.config';
+
+runtime.configure(config);
+```
+
+`runtime.configure` checks the whole configuration at once, and throws before it changes anything. A new call replaces the configuration, and closes the provider of a replaced default source, unless another source still uses it.
+
+## Options
+
+| Option | Meaning |
+| --- | --- |
+| `defaultSource` | The source of all flags without a source. A source of `defineSource`. |
+| `hooks` | OpenFeature hooks for all flags. They run first, before the hooks of the source, of the call and of the provider. |
+| `overrides` | Which override cookies the SDK accepts. |
+
+### `defaultSource`
+
+A flag without `source` uses the default source:
+
+```ts title="flags.ts"
+import { bindFlag } from 'flags';
+
+export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+```
+
+With a default source, most flags need no source of their own. Your flags stay short, and a change of your flag management system changes one file. A flag with its own `source` is not affected by the default source. See [Flags of a source](/docs/flags/provider-flags#the-default-source).
+
+### `hooks`
+
+Hooks for all flags, e.g. to log each evaluation, or to report overrides:
+
+```ts title="flags.config.ts"
+import { defineConfig, OVERRIDE_REASON } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        if (details.reason === OVERRIDE_REASON) {
+          console.log(`${hookContext.flagKey} is overridden: ${details.value}`);
+        }
+      },
+    },
+  ],
+});
+```
+
+See [OpenFeature](/docs/flags/openfeature#hooks).
+
+### `overrides`
+
+Flags Explorer overrides flags for your browser with the cookie `flag-overrides`. The SDK only accepts trusted cookies, and needs no configuration for this:
+
+1. If `FLAGS_SECRET` is set, the SDK accepts only cookies that are encrypted with it.
+2. Otherwise, on Vercel or locally after `vercel env pull`, it accepts only cookies that Vercel signed for this project.
+3. Otherwise, it accepts no override cookies.
+
+The option `overrides` changes these defaults:
+
+| Option | Meaning |
+| --- | --- |
+| `secret` | The shared secret. The default is `FLAGS_SECRET`. `false` accepts no cookies of a shared secret. |
+| `vercel` | `true` accepts cookies that Vercel signs, `false` accepts none, and an object sets options, e.g. `project` (`projectId`, `environment`, `teamId`) or `maxLifetimeSeconds` (the default is 24 hours). |
+
+With an explicit `vercel` option, both kinds of cookies can be active, e.g. during a migration:
+
+```ts title="flags.config.ts"
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  overrides: {
+    vercel: {
+      project: { projectId: 'prj_shop', environment: 'preview' },
+      maxLifetimeSeconds: 7 * 24 * 60 * 60, // one week
+    },
+  },
+});
+```
+
+See [Overrides](/docs/tooling/overrides) for how overrides work and how to create them.
+
+## Types
+
+The `declare module 'flags'` block registers the type of your configuration:
+
+```ts title="flags.config.ts"
+declare module 'flags' {
+  interface Register {
+    config: typeof config;
+  }
+}
+```
+
+With it, a flag without a source has the types of your default source. If its `getEvaluationContext` requires a context, TypeScript requires it at each call of those flags:
+
+```ts title="flags.config.ts"
+export const config = defineConfig({
+  defaultSource: defineSource({
+    provider,
+    getEvaluationContext: (context: { teamId: string }) => ({ team: context.teamId }),
+  }),
+});
+```
+
+```ts
+const teamInsights = bindFlag({ key: 'team-insights' });
+
+await teamInsights({ evaluationContext: { teamId: 'team-1' } }); // OK
+await teamInsights(); // Type error: the default source needs a teamId
+```
+
+Without the registration, flags without a source accept any evaluation context. The registration applies to the whole TypeScript program, so `flags.config.ts` must be part of it, e.g. through the `include` of your `tsconfig.json`.
+
+## The built-in default source
+
+If you set no `defaultSource`, flags without a source use the built-in default source.
+
+<Callout type="warning">
+  For now, the built-in default source throws on each evaluation: "A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags.config.ts." A flag with a `defaultValue` returns it and logs this error. Set a `defaultSource`, or give each flag a `source`.
+</Callout>
+
+The error comes at the evaluation, not at the definition, so that importing your flags in a test or a script does not fail.
+
+A deployment platform can replace the provider of the built-in default source when it builds your application. On Vercel, the deployment adapter can put in the provider of Vercel Flags (`@vercel/flags-core/default-provider`), only for builds. The `defaultSource` of your configuration always wins over such a replacement. Do not rely on the replacement for local development or for other platforms: set a `defaultSource`.

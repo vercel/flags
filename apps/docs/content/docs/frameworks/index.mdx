@@ -1,0 +1,98 @@
+---
+title: Frameworks
+description: Use the same flags in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or plain Node.js.
+---
+
+The Flags SDK does not depend on a framework. You define flags with the `flags` package, and you call them in the same way everywhere: `await summerSale()` or `await evaluate([summerSale, checkout])`. A small framework package connects the SDK to your framework. Your application code imports only `flags`.
+
+## What a framework package does
+
+A framework package is a thin layer between the SDK and the framework. It does five things for you, so that you do not write glue code in your pages:
+
+- **Request scope.** It gives the SDK the current request (headers, cookies, URL). Each `getEvaluationContext` and each inline `decide` function receives this request. The SDK evaluates each flag one time for each request, so all parts of a page see the same value.
+- **Config loading.** It loads `flags.config.ts` (the default source, hooks, and override options). See [Configuration](/docs/flags/configuration).
+- **Signals.** Some frameworks use thrown errors as signals, for example `redirect()` or `notFound()`. The package makes sure that such errors reach the framework unchanged, also when you throw them from `getEvaluationContext`.
+- **`'use flags'` registration.** A module that starts with the `'use flags'` directive exports only flags. The build plugin registers these flags, so that the SDK knows all flags and sources.
+- **Manifest.** The plugin serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json` in development and writes `flags-manifest.json` during the build. [Flags Explorer](/docs/tooling/flags-explorer) reads this manifest.
+
+## Supported frameworks
+
+| Framework | Package | Setup |
+| --- | --- | --- |
+| [Next.js](/docs/frameworks/next) | `@flags-sdk/next` | `export default withFlags({})` in `next.config.ts` |
+| [SvelteKit](/docs/frameworks/sveltekit) | `@flags-sdk/sveltekit` | `plugins: [sveltekit(), flags()]` in `vite.config.ts` |
+| [Nuxt](/docs/frameworks/nuxt) | `@flags-sdk/nuxt` | `modules: ['@flags-sdk/nuxt']` in `nuxt.config.ts` |
+| [TanStack Start](/docs/frameworks/tanstack-start) | `@flags-sdk/tanstack-start` | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` in `vite.config.ts` |
+| [Hono](/docs/frameworks/hono) | `@flags-sdk/hono` | `app.use(flags({ config }))` |
+| [Express](/docs/frameworks/express) | `@flags-sdk/express` | `app.use(flags({ config }))` |
+| [No framework](/docs/frameworks/node) | none | `runtime.onInvoke(request, next)` for each request |
+
+Your framework is not in the list? You can [write a binding for it](/docs/frameworks/custom-frameworks).
+
+## One `flags.ts` for every framework
+
+The pages of this section use the same `flags.ts`. It has one flag of a source (`bindFlag`), backed by an OpenFeature provider, and one inline flag (`defineFlag`), decided in your code. The file works without changes in each framework:
+
+```ts title="flags.ts"
+'use flags';
+
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+
+// A source connects flags to an OpenFeature provider. The in-memory
+// provider needs no account. Any OpenFeature server provider works.
+const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  // Runs one time for each request
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// Flags of the source: the provider decides the value
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+  description: 'The summer sale banner',
+});
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: shop,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+Install the in-memory provider with `npm install @openfeature/server-sdk` to try it. In production, replace it with the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel) or any [OpenFeature provider](/docs/providers/openfeature). The flags and the code that calls them stay the same.
+
+To learn more about the two kinds of flags, see [Inline flags](/docs/flags/inline-flags) and [Provider flags](/docs/flags/provider-flags).
+
+## A shared contract
+
+Each framework package implements the same contract, the [Flags SDK standard](/docs/standard). It defines what a framework must give the SDK, and a [conformance suite](/docs/standard/conformance) checks it. That is why the same flags behave the same in each framework, and why a framework can take over its package or write its own.

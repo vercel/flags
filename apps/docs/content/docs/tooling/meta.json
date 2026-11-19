@@ -1,0 +1,6 @@
+{
+  "root": true,
+  "title": "Tooling",
+  "pages": ["flags-explorer", "overrides", "flags-manifest", "cli"],
+  "defaultOpen": true
+}

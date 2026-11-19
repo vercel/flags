@@ -1,0 +1,182 @@
+---
+title: The evaluation context
+navTitle: Evaluation context
+description: How the user, the team and the request reach the provider, through a typed chain of steps.
+---
+
+The evaluation context is the data that the provider uses for its rules, e.g. the user, the team or the country. A rule like "on for enterprise teams" or "on for 10% of users" needs it.
+
+In the Flags SDK, the context is created in a chain of up to three steps. Each step receives the result of the step before:
+
+```mermaid
+flowchart LR
+  A["Call side<br/>flag({ evaluationContext })"] --> B["Flag<br/>getEvaluationContext"]
+  B --> C["Source<br/>getEvaluationContext"]
+  C --> D["Provider"]
+```
+
+1. The **call side** can give a context: `teamInsights({ evaluationContext: { teamId } })`.
+2. The **flag** can convert it, with its own `getEvaluationContext`.
+3. The **source** creates the context for the provider, also from the current request: its headers, its cookies and its URL.
+
+Each step is optional. A missing step gives its input to the next step as it is. Without any step and without input, the provider receives an empty context.
+
+<Callout type="info">
+  For the ideas behind the evaluation context, see [Evaluation context](/docs/principles/evaluation-context) in Principles.
+</Callout>
+
+## The step of the source
+
+Most applications need only this step. The source reads the user from the request, once per request, for all of its flags:
+
+```ts title="flags.ts"
+import { bindFlag, defineSource } from 'flags';
+import { provider } from './provider';
+
+const shop = defineSource({
+  provider,
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    country: request?.headers?.get('x-vercel-ip-country') ?? null,
+  }),
+});
+
+export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+```
+
+```ts
+// The call side gives nothing: the source knows the user from the request
+await summerSale();
+```
+
+The step can be `async`, e.g. to load the user from a session:
+
+```ts title="flags.ts"
+const shop = defineSource({
+  provider,
+  getEvaluationContext: async (_context, request) => {
+    const session = await getSession(request?.cookies?.get('session')?.value);
+    return { user: session?.userId ?? 'anonymous', plan: session?.plan ?? 'free' };
+  },
+});
+```
+
+### The request
+
+`request` is the current request, in the same shape in every framework:
+
+| Field | Type |
+| --- | --- |
+| `request.headers` | `Headers`-like, read only |
+| `request.cookies` | cookies with `get(name)`, `has(name)` and `getAll()`, read only. Read from the `Cookie` header if the framework gives no cookies. |
+| `request.url` | `URL` |
+
+The framework package gives the SDK the request (see [Frameworks](/docs/frameworks)). Outside of a request, e.g. in a script, at build time or in a static page, `request` is `undefined`. Thus, always handle `undefined`, e.g. with `request?.cookies?.get('user')?.value ?? 'anonymous'`.
+
+## The step of the call side
+
+Some code knows something that the request does not tell, e.g. an API route knows the team from its path. The call side gives it as `evaluationContext`, and the source decides what it needs:
+
+```ts title="flags.ts"
+const teams = defineSource({
+  provider,
+  // The flags of this source must give a teamId
+  getEvaluationContext: async (context: { teamId: string }, request) => ({
+    team: await loadTeam(context.teamId),
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+export const teamInsights = bindFlag({ key: 'team-insights', source: teams });
+```
+
+```ts title="app/api/teams/[teamId]/insights/route.ts"
+const enabled = await teamInsights({ evaluationContext: { teamId } });
+```
+
+## The step of the flag
+
+A flag can convert the context between the call side and the source, e.g. when the call side knows the slug of a team, but the source needs its ID:
+
+```ts title="flags.ts"
+export const teamInsights = bindFlag({
+  key: 'team-insights',
+  source: teams,
+  // The call side gives a slug, the source gets a teamId
+  getEvaluationContext: (context: { slug: string }) => ({
+    teamId: idOfSlug(context.slug),
+  }),
+});
+```
+
+```ts
+await teamInsights({ evaluationContext: { slug: 'acme' } });
+```
+
+A flag without this step gives the context of the call side directly to the source.
+
+## No automatic merge
+
+Each step returns the complete input of the next step. The SDK does not merge the results. To keep the fields of the step before, spread them:
+
+```ts
+getEvaluationContext: (context: { teamId: string }, request) => ({
+  ...context,
+  user: request?.cookies?.get('user')?.value ?? 'anonymous',
+}),
+```
+
+No field has a special meaning, also not `targetingKey`. Not all providers use it. If your provider needs it, the source sets it:
+
+```ts
+getEvaluationContext: (_context, request) => ({
+  targetingKey: request?.cookies?.get('user')?.value ?? 'anonymous',
+}),
+```
+
+## Types
+
+TypeScript checks the whole chain:
+
+- The type of `context` in the step of the source is what its flags must give.
+- The step of a flag must return that type. The type of its own `context` is what the call side must give.
+- The call side may leave out `evaluationContext` only if the input can be `undefined`.
+
+```ts
+teamInsights({ evaluationContext: { teamId: 'team-1' } }); // OK
+teamInsights(); // Type error: the source needs a teamId
+teamInsights({ evaluationContext: { teamId: 1 } }); // Type error: teamId is a string
+```
+
+For flags without a source, register the type of your configuration, so that they get the types of the default source (see [Configuration](/docs/flags/configuration#types)).
+
+## Once per request
+
+Inside a request, each step runs once for each input. If 20 flags share a source, its `getEvaluationContext` runs once, also when the flags are called in different components:
+
+- Two calls with the same input, or both without input, share one result.
+- Plain data is compared by its content: `{ teamId: 't1' }` in two components is one input, also with the keys in a different order.
+- Other objects, e.g. a `Date`, a `Map` or an instance of a class, are compared by identity.
+- Outside of a request, the steps run on each evaluation.
+
+If a step throws, the flags that use its result fail for the rest of the request: they return their `defaultValue` or throw (see [Errors and default values](/docs/flags/errors-and-default-values)).
+
+## Several flags with one context
+
+`evaluate` gives one context to several flags. Each flag receives the same object, so the step of a shared source runs once. The context must fit each flag, so TypeScript requires the overlap of their contexts:
+
+```ts
+const [insights, reports] = await evaluate([teamInsights, teamReports], {
+  evaluationContext: { teamId },
+});
+```
+
+See [Evaluating flags](/docs/flags/evaluating-flags).
+
+## Inline flags
+
+An inline flag has no source. Its `decide(context, request)` receives the context of the call side as it is, and the request. See [Inline flags](/docs/flags/inline-flags#what-decide-receives).
+
+## Tracking events
+
+`track` uses the same chain without the step of the flag: the call side gives `evaluationContext` to the source, and the provider receives the result. See [OpenFeature](/docs/flags/openfeature#tracking).

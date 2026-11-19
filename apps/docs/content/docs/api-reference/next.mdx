@@ -1,0 +1,341 @@
+---
+title: '@flags-sdk/next'
+description: The API of the Next.js package of the Flags SDK, for the plugin, precompute, flag values and the flags manifest.
+---
+
+`@flags-sdk/next` connects the Flags SDK to Next.js. Your flags and pages
+import only `flags`. This package is for the setup in `next.config.ts`, for
+precompute, for `FlagValues`, and for the route of the manifest. See
+[Next.js](/docs/frameworks/next) for a guide.
+
+```sh
+npm install flags @flags-sdk/next
+```
+
+Next.js 15.4 or newer, with the App Router and Turbopack.
+
+| Entry point                    | Exports                                                              |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `@flags-sdk/next/plugin`       | `withFlags`, `FlagsPluginOptions`                                    |
+| `@flags-sdk/next/precompute`   | `precompute`, `getPrecomputed`, `generatePermutations`, `serialize`, `deserialize`, `combine` |
+| `@flags-sdk/next/flag-values`  | `FlagValues`, `FlagValuesProps`                                      |
+| `@flags-sdk/next/manifest`     | `GET`                                                                |
+| `@flags-sdk/next/binding`      | `setupFramework` (the framework binding, set by `withFlags`)         |
+| `@flags-sdk/next/encrypt-values` | `encryptValues`, `EncryptValuesOptions` (used by `FlagValues`)     |
+
+`@flags-sdk/next/encrypt-values-cached`, `@flags-sdk/next/use-flags-loader`
+and `@flags-sdk/next/manifest-loader` are used by `withFlags` internally.
+
+## `@flags-sdk/next/plugin`
+
+### `withFlags`
+
+Adds the Flags SDK to the configuration of Next.js.
+
+```ts
+function withFlags<T extends object>(
+  config?: T,
+  options?: FlagsPluginOptions & { codeGeneration?: false },
+): T;
+
+function withFlags<T extends object>(
+  config: T,
+  options: FlagsPluginOptions & { codeGeneration: true },
+): (phase: string) => Promise<T>;
+```
+
+It keeps your configuration, including your Turbopack aliases and rules, and
+adds:
+
+- The alias `flags/framework` to `@flags-sdk/next/binding`, which gives the
+  SDK the current request (`headers()`, `cookies()`, and `connection()`),
+  passes the signals of Next.js through `unstable_rethrow`, and loads the
+  configuration.
+- The alias `flags/config` to `flags.config.ts`, if it exists.
+- The self-registration of each `'use flags'` module.
+- The modules of the route `@flags-sdk/next/manifest`, and
+  `flags-manifest.json` in `distDir` after `next build`.
+- A random precompute secret for each build, unless
+  `FLAGS_PRECOMPUTE_SECRET` is set.
+- With Cache Components, the encryption of `FlagValues` in `'use cache'`, so
+  static pages can contain encrypted values.
+- The aliases `flags:<source>` from `.flags/aliases.json`.
+
+It supports only Turbopack. A build with webpack throws.
+
+| Option           | Type      | Description                                                                                                                                                                                            |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dir`            | `string`  | The directory of the application, where the plugin looks for `flags.config.ts` and `flags/sources`. The default is the current directory.                                                              |
+| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from the catalogs of `flags/sources/<source>`: once for `next build`, and again after each change of a catalog for `next dev`. `next start` does no catalog work. `withFlags` then returns a function of the phase. |
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({
+  // your Next.js configuration
+});
+```
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { codeGeneration: true });
+```
+
+Without `codeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.
+after `flags sync`, or with `flags watch -- next dev`. See
+[Code generation](/docs/flags/code-generation).
+
+## `@flags-sdk/next/precompute`
+
+Evaluate a group of flags in the proxy, put their values into a short, signed
+code, and read them on a static page. See
+[Precompute](/docs/frameworks/next/precompute).
+
+The secret that signs the codes is, in this order: the `secret` argument,
+`FLAGS_PRECOMPUTE_SECRET`, or the random build secret of `withFlags`. Without
+any of them, the functions throw. It is not `FLAGS_SECRET`.
+
+### `precompute`
+
+```ts
+function precompute<const F extends readonly FlagDefinition[]>(
+  flags: F,
+  options?: PrecomputeOptions<EvaluateContext<F>>,
+): Promise<string>;
+```
+
+| Option              | Type               | Description                                                                                                      |
+| ------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `request`           | `FlagsRequestInit` | The request, e.g. of the proxy. The flags are evaluated in `runtime.onInvoke` with it, so the evaluation context chain and the overrides get it. |
+| `evaluationContext` | `In`               | The first input of the evaluation context chain, for each flag. Required if the flags need one.                  |
+| `secret`            | `string`           | The secret that signs the code.                                                                                  |
+
+Evaluates the flags and returns the code.
+
+```ts title="proxy.ts"
+import { precompute } from '@flags-sdk/next/precompute';
+import { type NextRequest, NextResponse } from 'next/server';
+import { marketingFlags } from './flags';
+
+export async function proxy(request: NextRequest) {
+  const code = await precompute(marketingFlags, { request });
+  return NextResponse.rewrite(new URL(`/marketing/${code}`, request.url));
+}
+
+export const config = { matcher: '/marketing' };
+```
+
+### `getPrecomputed`
+
+```ts
+function getPrecomputed<F extends FlagDefinition>(
+  flag: F,
+  group: readonly FlagDefinition[],
+  code: string,
+  secret?: string,
+): Promise<FlagValueOfFlag<F>>;
+
+function getPrecomputed<const F extends readonly FlagDefinition[]>(
+  flags: F,
+  group: readonly FlagDefinition[],
+  code: string,
+  secret?: string,
+): Promise<EvaluateResults<F>>;
+```
+
+Reads the value of one flag, or the values of several flags in their order,
+from a code. `group` must be the same list, in the same order, that
+`precompute` received. It does not evaluate the flags, so the page stays
+static. Throws if the signature is not valid, or if a flag is not part of
+`group`.
+
+```tsx title="app/marketing/[code]/page.tsx"
+import { getPrecomputed } from '@flags-sdk/next/precompute';
+import { checkout, marketingFlags, summerSale } from '../../../flags';
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const [sale, flow] = await getPrecomputed(
+    [summerSale, checkout],
+    marketingFlags,
+    code,
+  );
+  return <h1>{sale ? 'Summer sale' : `Checkout: ${flow}`}</h1>;
+}
+```
+
+### `generatePermutations`
+
+```ts
+function generatePermutations(
+  flags: readonly FlagDefinition[],
+  filter?: ((values: Record<string, FlagValue>) => boolean) | null,
+  secret?: string,
+): Promise<string[]>;
+```
+
+Returns the code of each combination of the options of the flags, e.g. for
+`generateStaticParams`. A boolean flag without options has `false` and
+`true`. Each other flag needs `options`, or the function throws. `filter`
+returns `false` for a combination that needs no page.
+
+```ts title="app/marketing/[code]/page.tsx"
+import { generatePermutations } from '@flags-sdk/next/precompute';
+import { marketingFlags } from '../../../flags';
+
+export async function generateStaticParams() {
+  const codes = await generatePermutations(marketingFlags);
+  return codes.map((code) => ({ code }));
+}
+```
+
+### `serialize`
+
+```ts
+function serialize(
+  flags: readonly FlagDefinition[],
+  values: readonly unknown[],
+  secret?: string,
+): Promise<string>;
+```
+
+Turns a list of flags and their values into a signed code, without evaluating
+them. A value that is one of the flag's options, or a boolean, takes one byte.
+Throws if a value is `undefined`.
+
+### `deserialize`
+
+```ts
+function deserialize(
+  flags: readonly FlagDefinition[],
+  code: string,
+  secret?: string,
+): Promise<Record<string, FlagValue>>;
+```
+
+Reads the values of all flags from a code, by key. `flags` must be the same
+list, in the same order, as for the code. Throws if the signature is not
+valid, or the code does not match the flags.
+
+### `combine`
+
+```ts
+function combine(flags: readonly FlagDefinition[], values: readonly unknown[]): Record<string, FlagValue>;
+```
+
+Returns the values as a record, by the key of each flag.
+
+### Types
+
+- `PrecomputeOptions<In>`: the options of `precompute`.
+- `PrecomputeArgs<In>`: the options are optional when the flags accept
+  `undefined` as their evaluation context.
+
+The API and the format of the code are those of v4, so codes of v4 stay
+valid when `FLAGS_PRECOMPUTE_SECRET` has the value of the old `FLAGS_SECRET`.
+
+## `@flags-sdk/next/flag-values`
+
+### `FlagValues`
+
+A server component that writes the values of flags into the page, for Flags
+Explorer and analytics:
+
+```html
+<script type="application/json" data-flag-values>…</script>
+```
+
+| Prop         | Type                                          | Description                                                                                                               |
+| ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `flags`      | `readonly FlagDefinition[]`                   | The flags to evaluate. Each flag is evaluated once per request, so the page and the component get the same value.         |
+| `values`     | `FlagValuesType`                              | Values that are already known, e.g. of `getPrecomputed`. They replace the values of flags with the same key.              |
+| `plain`      | `boolean`                                     | Writes the values without encryption, readable by every visitor. The default is `false`.                                  |
+| `encryption` | `EncryptValuesOptions`                        | Options of [`encryptFlagValues`](/docs/api-reference/flags#encryptflagvalues), without `fetch`, e.g. `method`.             |
+
+- Without `FLAGS_SECRET`, the values are encrypted with the public key of
+  Vercel, so only Vercel can read them. With `FLAGS_SECRET`, they use the v4
+  format.
+- It has its own `<Suspense>`, so it can be in a static part of a page.
+- With only `values`, it does not read the request, so a precomputed page
+  stays static.
+- If the values can not be encrypted, it writes no element and logs one
+  warning. The page does not fail.
+
+```tsx title="app/layout.tsx"
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { checkout, summerSale } from '../flags';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <FlagValues flags={[summerSale, checkout]} />
+      </body>
+    </html>
+  );
+}
+```
+
+See [Flag values in Next.js](/docs/frameworks/next/flag-values).
+
+## `@flags-sdk/next/manifest`
+
+### `GET`
+
+```ts
+function GET(): Promise<Response>;
+```
+
+The route handler of the flags manifest, for Flags Explorer. Add it to your
+app:
+
+```ts title="app/.well-known/flags/manifest.json/route.ts"
+export { GET } from '@flags-sdk/next/manifest';
+```
+
+- In development, it returns the manifest of all `'use flags'` modules, with
+  `cache-control: no-store`. A new `'use flags'` file is included without a
+  restart.
+- In production, it returns `404`. `next build` writes `flags-manifest.json`
+  into `distDir` instead, through this route.
+- Without `withFlags`, the manifest has no flags.
+
+See [Flags manifest](/docs/tooling/flags-manifest).
+
+## `@flags-sdk/next/binding`
+
+### `setupFramework`
+
+The framework binding of Next.js, of type `SetupFramework`. `withFlags` points
+`flags/framework` to it. Your application does not import it. It:
+
+1. Sets the request source with `runtime.setGetRequest`: `headers()` and
+   `cookies()`, after `connection()`, so an evaluation belongs to the render
+   at request time. Outside of a request, there is no request. In a cache
+   scope such as `'use cache'`, it throws an error that the runtime does not
+   turn into the default value.
+2. Sets `runtime.setRethrow` to `unstable_rethrow` of Next.js, so `redirect()`,
+   `notFound()` and "Dynamic server usage" reach Next.js.
+3. Sets `runtime.setLoadConfig` to load `flags.config.ts`.
+
+Server components only have `headers()` and `cookies()`, so `request.url` is
+`undefined` in the evaluation context chain.
+
+## `@flags-sdk/next/encrypt-values`
+
+### `encryptValues`
+
+```ts
+function encryptValues(values: FlagValuesType, options?: EncryptValuesOptions): Promise<string>;
+```
+
+The encryption that `FlagValues` uses: `encryptFlagValues` of `flags`. With
+Cache Components, `withFlags` replaces it with a version that runs in
+`'use cache'`. `EncryptValuesOptions` is `EncryptFlagValuesOptions` without
+`fetch`.

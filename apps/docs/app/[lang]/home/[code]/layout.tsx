@@ -1,21 +1,23 @@
+import { getPrecomputed } from '@flags-sdk/next/precompute';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { HomeLayout } from '@/components/geistdocs/home-layout';
-import { enableBannerFlag, rootFlags } from '@/flags';
 import { getRootLang } from '@/lib/geistdocs/root-params';
 import { source } from '@/lib/geistdocs/source';
+import { rootFlags } from '@/root-flags';
+import { enableBannerFlag } from '@/site-flags';
 
 export default async function Layout({
   children,
   params,
 }: LayoutProps<'/[lang]/home/[code]'>) {
   const [{ code }, lang] = await Promise.all([params, getRootLang()]);
-  const bannerFlag = await enableBannerFlag(code, rootFlags);
+  const bannerFlag = await getPrecomputed(enableBannerFlag, rootFlags, code);
   return (
     <>
       {bannerFlag ? (
         <Link
-          href="/providers/vercel"
+          href="/docs/getting-started"
           prefetch={true}
           className="group flex items-center justify-center gap-x-2 gap-y-1 bg-gray-1000 px-4 py-3 text-center text-background-100 text-xs md:text-sm"
         >
@@ -23,8 +25,8 @@ export default async function Layout({
             New
           </span>
           <span className="text-pretty">
-            Vercel Flags is now available — connect your flags with the{' '}
-            <code className="font-mono">@flags-sdk/vercel</code> adapter.
+            Flags SDK 5: one standard for feature flags, in every framework and
+            on OpenFeature.
           </span>
           <ArrowRight className="hidden size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 sm:inline-block" />
         </Link>
