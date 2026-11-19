@@ -32,7 +32,7 @@ test('writes the manifest of the flags into the server output', () => {
 
   expect(manifest).toEqual({
     version: 1,
-    connections: {
+    sources: {
       'in-memory': { system: 'in-memory', variables: {} },
     },
     definitions: {
@@ -42,36 +42,40 @@ test('writes the manifest of the flags into the server output', () => {
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/lib/flags.ts', export: 'bannerText' }],
+        source: 'in-memory',
+        declarations: [{ module: 'src/lib/flags.ts', export: 'bannerText' }],
       },
       greeting: {
         type: 'string',
         defaultValue: 'Hi',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/lib/default-flags.ts', export: 'greeting' }],
+        source: 'in-memory',
+        declarations: [
+          { module: 'src/lib/default-flags.ts', export: 'greeting' },
+        ],
       },
       'new-checkout': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [
+        source: 'in-memory',
+        declarations: [
           { module: 'src/lib/default-flags.ts', export: 'newCheckout' },
         ],
       },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/lib/lazy-flags.ts', export: 'plainFlag' }],
+        source: 'in-memory',
+        declarations: [
+          { module: 'src/lib/lazy-flags.ts', export: 'plainFlag' },
+        ],
       },
       'summer-sale': {
         type: 'boolean',
         defaultValue: false,
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/lib/flags.ts', export: 'summerSale' }],
+        source: 'in-memory',
+        declarations: [{ module: 'src/lib/flags.ts', export: 'summerSale' }],
       },
     },
   });

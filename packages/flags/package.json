@@ -46,6 +46,10 @@
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
     },
+    "./discovery": {
+      "import": "./dist/discovery.js",
+      "require": "./dist/discovery.cjs"
+    },
     "./tooling": {
       "import": "./dist/tooling.js",
       "require": "./dist/tooling.cjs"

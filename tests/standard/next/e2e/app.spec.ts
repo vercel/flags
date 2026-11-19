@@ -159,7 +159,7 @@ test('writes the manifest of the flags into the build', () => {
 
   expect(manifest).toEqual({
     version: 1,
-    connections: {
+    sources: {
       'in-memory': { system: 'in-memory', variables: {} },
     },
     definitions: {
@@ -168,26 +168,26 @@ test('writes the manifest of the flags into the build', () => {
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'flags.ts', export: 'bannerText' }],
+        source: 'in-memory',
+        declarations: [{ module: 'flags.ts', export: 'bannerText' }],
       },
       'new-checkout': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'flags.ts', export: 'newCheckout' }],
+        source: 'in-memory',
+        declarations: [{ module: 'flags.ts', export: 'newCheckout' }],
       },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lazy-flags.ts', export: 'plainFlag' }],
+        source: 'in-memory',
+        declarations: [{ module: 'lazy-flags.ts', export: 'plainFlag' }],
       },
       'summer-sale': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'flags.ts', export: 'summerSale' }],
+        source: 'in-memory',
+        declarations: [{ module: 'flags.ts', export: 'summerSale' }],
       },
     },
   });

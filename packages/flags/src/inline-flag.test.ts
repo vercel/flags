@@ -182,7 +182,7 @@ describe('defineFlag with decide', () => {
       type: 'boolean',
       options: [{ value: false }, { value: true }],
       description: 'My flag',
-      connection: 'in-memory',
+      source: 'in-memory',
     });
   });
 

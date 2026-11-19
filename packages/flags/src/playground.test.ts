@@ -1010,8 +1010,8 @@ describe('14. Discovery for Flags Explorer', () => {
       description: 'The checkout flow',
       declaredInCode: true,
       // Without a source: the default source, here Vercel Flags
-      connection: 'vercel-flags',
-      sources: [{ module: 'flags.ts', export: 'checkout' }],
+      source: 'vercel-flags',
+      declarations: [{ module: 'flags.ts', export: 'checkout' }],
     });
     expect(Object.keys(manifest.definitions)).toEqual(['checkout', 'theme']);
   });
@@ -1031,13 +1031,13 @@ describe('14. Discovery for Flags Explorer', () => {
     ]);
 
     // The manifest has only the variables, not the links
-    const connection = manifest.connections.launchdarkly;
-    expect(connection?.variables).toEqual({
+    const source = manifest.sources.launchdarkly;
+    expect(source?.variables).toEqual({
       projectId: 'shop',
       teamId: 'acme',
     });
 
-    // A tool fetches connection.systemManifest, which the system can
+    // A tool fetches source.systemManifest, which the system can
     // change at any time, and builds the links
     const systemManifest = {
       version: 1,
@@ -1047,11 +1047,7 @@ describe('14. Discovery for Flags Explorer', () => {
       },
     } as const;
     expect(
-      resolveFlagLinks(
-        systemManifest,
-        connection?.variables ?? {},
-        'summer-sale',
-      ),
+      resolveFlagLinks(systemManifest, source?.variables ?? {}, 'summer-sale'),
     ).toEqual({
       flag: 'https://app.launchdarkly.com/projects/shop/flags/summer-sale',
     });

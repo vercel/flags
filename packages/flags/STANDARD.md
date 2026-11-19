@@ -249,7 +249,7 @@ The manifest MUST conform to the JSON Schema
 ```json
 {
   "version": 1,
-  "connections": {
+  "sources": {
     "launchdarkly": {
       "system": "launchdarkly",
       "systemManifest": "https://flags-sdk.dev/system-manifests/launchdarkly.json",
@@ -262,8 +262,8 @@ The manifest MUST conform to the JSON Schema
       "defaultValue": false,
       "description": "The summer sale",
       "declaredInCode": true,
-      "connection": "launchdarkly",
-      "sources": [{ "module": "flags.ts", "export": "summerSale" }]
+      "source": "launchdarkly",
+      "declarations": [{ "module": "flags.ts", "export": "summerSale" }]
     }
   }
 }

@@ -285,6 +285,17 @@ export { GET } from '@flags-sdk/next/manifest';
 - `next build` writes `flags-manifest.json` into `distDir`. The deployment
   adapter of the platform puts it into the build output.
 
+Flags Explorer reads `/.well-known/vercel/flags` today. A plugin of Next.js
+can not add a route, so add it by hand, with `FLAGS_SECRET`:
+
+```ts
+// app/.well-known/vercel/flags/route.ts
+import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/discovery';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+```
+
 ## Deployment
 
 On Vercel, the deployment adapter of Next.js points the module

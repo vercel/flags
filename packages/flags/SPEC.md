@@ -196,14 +196,14 @@ test apps keep working.
 | M1 | "Connection" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
 | M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
-| M4 | Next.js without code generation, with `@flags-sdk/next`. Demo `examples/standard/next-manual`. | |
+| M4 | Next.js without code generation, with `@flags-sdk/next`. The Flags Discovery Endpoint with `flags/discovery`, added by hand. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts`. | |
 | M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground`. | |
 | M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | |
 
-The flags manifest keeps the fields `connections` and `connection` until
-discovery is changed, because `sources` of a definition already means the
-places in the code.
+In M4, the flags manifest changed its fields: `connections` became
+`sources`, `connection` of a definition became `source`, and `sources` of a
+definition (the places in the code) became `declarations`.
 
 ## Providers
 
@@ -1469,6 +1469,31 @@ manifest. The framework collects the data and emits the manifest, through
 the framework plugins of the SDK. There is no secret, no access check, and
 no public endpoint in production.
 
+### The Flags Discovery Endpoint (transitional)
+
+Today, Flags Explorer queries `/.well-known/vercel/flags`, in the format of
+v4 (`ApiData`). Until Flags Explorer reads the manifest, the application
+adds this route by hand, because a plugin of Next.js can not add a route.
+`flags/discovery` has the parts, for each framework:
+
+```ts
+// app/.well-known/vercel/flags/route.ts
+import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/discovery';
+import * as flags from '../../../../flags';
+
+export const GET = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+```
+
+- `getProviderData(...modules)` creates the definitions from the exports of
+  flags modules, with `createManifest`: `options`, `description`,
+  `defaultValue` and `declaredInCode`. It has no `origin` yet, because the
+  links come from the system manifest (see "Links to the dashboard").
+- `createFlagsDiscoveryEndpoint(getApiData)` takes a Web `Request`. Without
+  a valid access proof of Flags Explorer in `Authorization`, it returns
+  401. The access proof is the one of v4: a JWE of `FLAGS_SECRET` with the
+  purpose `proof` (`verifyAccess`, `createAccessProof`).
+- The demo is `examples/standard/next-manual`.
+
 ### `'use flags'`
 
 A module which starts with the `'use flags'` directive is a flags module:
@@ -1504,7 +1529,7 @@ from the exports of the flags modules. It evaluates nothing.
       "defaultValue": "Welcome",
       "description": "The text of the banner",
       "declaredInCode": true,
-      "sources": [{ "module": "src/lib/flags.ts", "export": "bannerText" }]
+      "declarations": [{ "module": "src/lib/flags.ts", "export": "bannerText" }]
     }
   }
 }
@@ -1512,11 +1537,11 @@ from the exports of the flags modules. It evaluates nothing.
 
 - The fields have the names of the definitions of Flags Explorer
   (`options`, `defaultValue`, `description`, `declaredInCode`), plus `type`,
-  `connection` and `sources`. The links come from the connection (see
+  `source` and `declarations`. The links come from the source (see
   "Links to the dashboard").
 - `defineFlag` has an optional `description` for it.
 - An export which is not a flag throws. Two exports with the same key must
-  declare the same flag; then the flag has two sources.
+  declare the same flag; then the flag has two declarations.
 - The keys are sorted, so the file is stable.
 
 ### Links to the dashboard
@@ -1526,13 +1551,13 @@ the manifest. The manifest has only the variables. A tool builds the links
 when it shows a flag. Thus, a system can change its links without a new
 build of the application.
 
-1. Each connection is in `connections` of the manifest: its system, the
+1. Each source is in `sources` of the manifest: its system, the
    URL of its system manifest, and the variables of its project (the
    fields of `project`, without `system` and `systemManifest`). The
    definitions refer to it by an id: the system, and a number if two
-   connections have the same system. Two connection objects with the same
-   project are one connection. A flag without a connection has the default
-   connection, so the Next.js route loads `flags.config.ts` first
+   sources have the same system. Two source objects with the same
+   project are one source. A flag without a source has the default
+   source, so the Next.js route loads `flags.config.ts` first
    (`runtime.prepare()`).
 2. Vercel Flags uses the platform project of Vercel as its flag project.
    Thus, its variables `projectId`, `environment` and `teamId` come from

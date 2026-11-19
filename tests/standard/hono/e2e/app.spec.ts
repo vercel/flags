@@ -17,7 +17,7 @@ test('the script writes the manifest of the flags', () => {
 
   expect(manifest).toEqual({
     version: 1,
-    connections: {
+    sources: {
       'in-memory': { system: 'in-memory', variables: {} },
     },
     definitions: {
@@ -26,21 +26,23 @@ test('the script writes the manifest of the flags', () => {
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/flags.ts', export: 'bannerText' }],
+        source: 'in-memory',
+        declarations: [{ module: 'src/flags.ts', export: 'bannerText' }],
       },
       'new-checkout': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/default-flags.ts', export: 'newCheckout' }],
+        source: 'in-memory',
+        declarations: [
+          { module: 'src/default-flags.ts', export: 'newCheckout' },
+        ],
       },
       'summer-sale': {
         type: 'boolean',
         defaultValue: false,
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'src/flags.ts', export: 'summerSale' }],
+        source: 'in-memory',
+        declarations: [{ module: 'src/flags.ts', export: 'summerSale' }],
       },
     },
   });

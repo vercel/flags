@@ -53,8 +53,8 @@ describe('createManifest', () => {
 
     expect(manifest).toEqual({
       version: 1,
-      // Without a connection, the flags use the default connection
-      connections: { 'vercel-flags': vercel },
+      // Without a source, the flags use the default source
+      sources: { 'vercel-flags': vercel },
       definitions: {
         checkout: {
           type: 'string',
@@ -65,14 +65,14 @@ describe('createManifest', () => {
           defaultValue: 'control',
           description: 'The checkout flow',
           declaredInCode: true,
-          connection: 'vercel-flags',
-          sources: [{ module: 'flags.ts', export: 'checkout' }],
+          source: 'vercel-flags',
+          declarations: [{ module: 'flags.ts', export: 'checkout' }],
         },
         'summer-sale': {
           type: 'boolean',
           declaredInCode: true,
-          connection: 'vercel-flags',
-          sources: [{ module: 'flags.ts', export: 'summerSale' }],
+          source: 'vercel-flags',
+          declarations: [{ module: 'flags.ts', export: 'summerSale' }],
         },
       },
     });
@@ -92,12 +92,12 @@ describe('createManifest', () => {
       type: 'string',
       options: [{ value: 'light' }, { value: 'dark' }],
       declaredInCode: true,
-      connection: 'vercel-flags',
-      sources: [{ module: 'other.ts', export: 'theme' }],
+      source: 'vercel-flags',
+      declarations: [{ module: 'other.ts', export: 'theme' }],
     });
   });
 
-  it('gives each connection its system and the variables of its flag project', () => {
+  it('gives each source its system and the variables of its flag project', () => {
     const launchdarkly = (projectId: string) =>
       defineSource({
         provider: {
@@ -118,8 +118,8 @@ describe('createManifest', () => {
       },
     ]);
 
-    // Two connection objects with the same project are one connection
-    expect(manifest.connections).toEqual({
+    // Two source objects with the same project are one source
+    expect(manifest.sources).toEqual({
       launchdarkly: {
         system: 'launchdarkly',
         systemManifest:
@@ -135,10 +135,10 @@ describe('createManifest', () => {
       // No system manifest for in-memory
       'in-memory': { system: 'in-memory', variables: {} },
     });
-    expect(manifest.definitions.a?.connection).toBe('launchdarkly');
-    expect(manifest.definitions.b?.connection).toBe('launchdarkly');
-    expect(manifest.definitions.c?.connection).toBe('launchdarkly-2');
-    expect(manifest.definitions.d?.connection).toBe('in-memory');
+    expect(manifest.definitions.a?.source).toBe('launchdarkly');
+    expect(manifest.definitions.b?.source).toBe('launchdarkly');
+    expect(manifest.definitions.c?.source).toBe('launchdarkly-2');
+    expect(manifest.definitions.d?.source).toBe('in-memory');
   });
 
   it('uses the fields of a vercel-flags project instead of the environment', () => {
@@ -158,7 +158,7 @@ describe('createManifest', () => {
     const manifest = createManifest([
       { id: 'flags.ts', exports: { a: defineFlag(other, 'a') } },
     ]);
-    expect(manifest.connections['vercel-flags']).toEqual({
+    expect(manifest.sources['vercel-flags']).toEqual({
       ...vercel,
       variables: {
         projectId: 'prj_blog',
@@ -183,21 +183,21 @@ describe('createManifest', () => {
     const manifest = createManifest([
       { id: 'flags.ts', exports: { a: defineFlag(own, 'a') } },
     ]);
-    expect(manifest.connections['in-memory']).toEqual({
+    expect(manifest.sources['in-memory']).toEqual({
       system: 'in-memory',
       systemManifest: 'https://flags.example/provider.json',
       variables: {},
     });
   });
 
-  it('keeps all sources of a flag which two modules export', () => {
+  it('keeps all declarations of a flag which two modules export', () => {
     const flag = defineFlag('summer-sale', false);
     const manifest = createManifest([
       { id: 'a.ts', exports: { summerSale: flag } },
       { id: 'b.ts', exports: { sale: flag } },
     ]);
 
-    expect(manifest.definitions['summer-sale']?.sources).toEqual([
+    expect(manifest.definitions['summer-sale']?.declarations).toEqual([
       { module: 'a.ts', export: 'summerSale' },
       { module: 'b.ts', export: 'sale' },
     ]);
@@ -250,7 +250,7 @@ describe('createManifest', () => {
 });
 
 describe('registerFlags', () => {
-  it('registers the connections of the exported flags', () => {
+  it('registers the sources of the exported flags', () => {
     const c = connection();
     registerFlags({ a: { key: 'a', source: c } });
 
@@ -296,7 +296,7 @@ describe('validateFlagsManifest', () => {
     expect(() =>
       validateFlagsManifest({
         version: 1,
-        connections: {},
+        sources: {},
         definitions: {},
         generator: 'a later version',
       }),
@@ -304,21 +304,21 @@ describe('validateFlagsManifest', () => {
   });
 
   it.each([
-    [{ version: 2, connections: {}, definitions: {} }, 'the version is not 1'],
+    [{ version: 2, sources: {}, definitions: {} }, 'the version is not 1'],
     [
       {
         version: 1,
-        connections: {},
+        sources: {},
         definitions: {
           b: {
             type: 'boolean',
             declaredInCode: true,
-            sources: [{ module: 'f', export: 'b' }],
+            declarations: [{ module: 'f', export: 'b' }],
           },
           a: {
             type: 'boolean',
             declaredInCode: true,
-            sources: [{ module: 'f', export: 'a' }],
+            declarations: [{ module: 'f', export: 'a' }],
           },
         },
       },
@@ -327,22 +327,22 @@ describe('validateFlagsManifest', () => {
     [
       {
         version: 1,
-        connections: {},
+        sources: {},
         definitions: {
           a: {
             type: 'boolean',
             declaredInCode: true,
-            connection: 'missing',
-            sources: [{ module: 'f', export: 'a' }],
+            source: 'missing',
+            declarations: [{ module: 'f', export: 'a' }],
           },
         },
       },
-      'a connection which is not known',
+      'a source which is not known',
     ],
     [
       {
         version: 1,
-        connections: { x: { system: 'x', variables: { key: 1 } } },
+        sources: { x: { system: 'x', variables: { key: 1 } } },
         definitions: {},
       },
       'must be strings',

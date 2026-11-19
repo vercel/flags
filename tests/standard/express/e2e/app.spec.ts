@@ -39,7 +39,7 @@ test('the script writes the manifest of the flags', () => {
     'greeting',
     'new-checkout',
   ]);
-  expect(manifest.connections).toEqual({
+  expect(manifest.sources).toEqual({
     'in-memory': { system: 'in-memory', variables: {} },
   });
 });

@@ -26,6 +26,7 @@ export default defineConfig({
     framework: 'src/framework.ts',
     'config-module': 'src/config-module.ts',
     manifest: 'src/manifest.ts',
+    discovery: 'src/discovery.ts',
     tooling: 'src/tooling.ts',
     cli: 'src/cli.ts',
   },

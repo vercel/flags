@@ -27,9 +27,9 @@ test('gives the platform the manifest of the flags', () => {
   ]);
   // Without a default connection, the flags use Vercel Flags. A tool builds
   // the links from its system manifest.
-  expect(manifest.connections['vercel-flags']).toMatchObject({
+  expect(manifest.sources['vercel-flags']).toMatchObject({
     system: 'vercel-flags',
     systemManifest: 'https://flags-sdk.dev/system-manifests/vercel-flags.json',
   });
-  expect(manifest.definitions['summer-sale'].connection).toBe('vercel-flags');
+  expect(manifest.definitions['summer-sale'].source).toBe('vercel-flags');
 });
