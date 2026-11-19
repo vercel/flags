@@ -2,15 +2,21 @@
   "name": "playground",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "flags:sync": "flags sync",
+    "flags:watch": "flags watch",
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test flags/*.test.ts"
   },
   "dependencies": {
-    "@flags-sdk/vercel": "workspace:*",
-    "flags": "workspace:*",
+    "@vercel/flags-core": "workspace:*",
+    "@vercel/oidc": "3.5.0",
+    "flags": "workspace:../../packages/flags-protocol",
     "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
