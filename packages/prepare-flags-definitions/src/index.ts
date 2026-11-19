@@ -589,8 +589,9 @@ async function writeSnapshots(
 }
 
 /**
- * Writes to a new file and renames it into place, so an existing file or
- * symlink at `path` is replaced instead of written through.
+ * Writes to a new owner-only file and renames it into place, so an existing
+ * file or symlink at `path` is replaced instead of written through, and the
+ * authenticated datafile is never readable by other users.
  */
 async function writeFileAtomically(
   path: string,
@@ -598,7 +599,7 @@ async function writeFileAtomically(
 ): Promise<void> {
   const tempPath = `${path}.${randomUUID()}.tmp`;
   try {
-    await writeFile(tempPath, content, { flag: 'wx' });
+    await writeFile(tempPath, content, { flag: 'wx', mode: 0o600 });
     await rename(tempPath, path);
   } finally {
     await rm(tempPath, { force: true });

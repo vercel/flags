@@ -5,6 +5,7 @@ import {
   readdir,
   readFile,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -619,6 +620,29 @@ describe('prepareFlagsDefinitions', () => {
       await expect(readdir(snapshotsDir)).resolves.toEqual([
         'prj_oidc_test.json',
       ]);
+    });
+
+    it('keeps snapshots readable only by the owner', async () => {
+      await mkdir(snapshotsDir, { recursive: true });
+      const existingPath = join(snapshotsDir, 'prj_oidc_test.json');
+      await writeFile(existingPath, '{}', { mode: 0o600 });
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-mode',
+        env: {
+          VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test'),
+          FLAGS: 'vf_server_test_key_123',
+        },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      const newPath = join(
+        snapshotsDir,
+        `${hashSdkKey('vf_server_test_key_123')}.json`,
+      );
+      expect((await stat(existingPath)).mode & 0o777).toBe(0o600);
+      expect((await stat(newPath)).mode & 0o777).toBe(0o600);
     });
 
     it('does not write through a snapshotsDir that is a symlink', async () => {
