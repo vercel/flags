@@ -442,6 +442,10 @@ export async function prepareFlagsDefinitions(options: {
    * When set, each datafile is also written to `<snapshotsDir>/<key>.json`,
    * keyed by project ID or SDK key hash like the generated module, so build
    * tools can embed it into the deployment's functions.
+   *
+   * The datafiles are authenticated. Use a directory owned by the build that
+   * other users cannot read or modify, including its parent directories, such
+   * as `.vercel/output/snapshots/vercel-flags` inside the project.
    */
   snapshotsDir?: string;
 }): Promise<PrepareFlagsDefinitionsResult> {
