@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.4.1
+
+### Patch Changes
+
+- [#592](https://github.com/vercel/flags/pull/592) [`9c5de4b`](https://github.com/vercel/flags/commit/9c5de4b87b22d7ffc22545dde51913d661b0b651) Thanks [@luismeyer](https://github.com/luismeyer)! - `deserialize` and `getPrecomputed` now throw when a precompute code does not match the requested flags group, such as an empty-group code paired with a non-empty group (or the other way around). The `__no_flags__` sentinel is now only accepted when deserializing an empty flags array.
+
 ## 4.4.0
 
 ### Minor Changes
