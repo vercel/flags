@@ -11,7 +11,7 @@ const catalog: Catalog = {
   project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
   flags: {
     'summer-sale': { variants: [false, true], description: 'The sale' },
-    checkout: { variants: ['control', 'express'] },
+    checkout: { variants: ['control', 'express'], defaultValue: 'control' },
     'max-items': { variants: [10, 20] },
     theme: { variants: [{ color: 'blue' }, { color: 'red' }] },
     mixed: { variants: [{ mode: 'dark' }, null, 'off'] },
@@ -35,6 +35,7 @@ describe('renderSourceModule', () => {
       'project: {"system":"launchdarkly","projectId":"shop","teamId":"acme"},',
     );
     expect(code).toContain('export { flag_0 as "checkout" };');
+    expect(code).toContain('  defaultValue: "control",');
     expect(code).toContain('/**\n * The sale\n */');
     // The keys are sorted, so the file is stable
     expect(code.indexOf('"checkout"')).toBeLessThan(

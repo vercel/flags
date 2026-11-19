@@ -104,6 +104,9 @@ export function renderSourceModule(name: string, catalog: Catalog): string {
       ...(flag.description
         ? [`  description: ${JSON.stringify(flag.description)},`]
         : []),
+      ...(flag.defaultValue !== undefined
+        ? [`  defaultValue: ${JSON.stringify(flag.defaultValue)},`]
+        : []),
       '});',
       `export { ${local} as ${JSON.stringify(key)} };`,
       '',

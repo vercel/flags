@@ -196,7 +196,9 @@ code in the URL, and renders a static page for each combination of values.
 Thus, a page can be static and still show the values of each visitor.
 
 ```ts
-// flags.ts
+// marketing-flags.ts: not in a 'use flags' module, which exports only flags
+import { checkout, summerSale } from './flags';
+
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
@@ -204,7 +206,7 @@ export const marketingFlags = [summerSale, checkout] as const;
 // proxy.ts
 import { precompute } from '@flags-sdk/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
-import { marketingFlags } from './flags';
+import { marketingFlags } from './marketing-flags';
 
 export async function proxy(request: NextRequest) {
   // The request goes to the evaluation context chain and to the overrides
@@ -218,7 +220,8 @@ export const config = { matcher: '/marketing' };
 ```tsx
 // app/marketing/[code]/page.tsx
 import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
-import { checkout, marketingFlags, summerSale } from '../../../flags';
+import { checkout, summerSale } from '../../../flags';
+import { marketingFlags } from '../../../marketing-flags';
 
 // Optional: build a page for each combination at build time
 export async function generateStaticParams() {
@@ -315,7 +318,7 @@ export { GET } from '@flags-sdk/next/manifest';
 On Vercel, the deployment adapter of Next.js points the module
 `flags/default-provider` to the fast provider of Vercel Flags
 (`@vercel/flags-core/default-provider`). Thus, flags without a source
-evaluate without a request for each flag, also with zero configuration.
+evaluate without a request for each flag, also without `flags.config.ts`.
 
 - The adapter does this only for builds. Development uses the
   default source of `flags.config.ts`.

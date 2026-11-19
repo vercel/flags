@@ -16,6 +16,12 @@ export interface CatalogFlag {
    * `description` of the flag.
    */
   readonly description?: string;
+  /**
+   * The value which the flag returns when the evaluation fails, e.g. the
+   * fallback variant of the system. The code generation writes it as the
+   * `defaultValue` of the flag. Without it, a failing evaluation throws.
+   */
+  readonly defaultValue?: unknown;
 }
 
 /**

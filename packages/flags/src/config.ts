@@ -10,8 +10,10 @@ import type { Hook } from './types';
  */
 export interface Config {
   /**
-   * The source of all flags without a source. Without it, they use
-   * Vercel Flags through the built-in default provider.
+   * The source of all flags without a source. Without it, they use the
+   * built-in default source, whose provider comes from
+   * `flags/default-provider`. For now, the built-in provider throws, unless
+   * a platform replaces it, e.g. on Vercel.
    */
   readonly defaultSource?: Source;
   /**

@@ -71,7 +71,8 @@ export interface FlagsVitePluginOptions {
   readonly projectModules?: Readonly<Record<string, readonly string[]>>;
   /**
    * The module of the default provider, e.g. of a platform, instead of the
-   * built-in OFREP provider (see `flags/default-provider`). A path is
+   * built-in default provider (see `flags/default-provider`), which throws
+   * for now. A path is
    * relative to the project. During a build on Vercel (`VERCEL` is set),
    * the default is `@vercel/flags-core/default-provider`, if the project
    * has `@vercel/flags-core`. `false` turns this off.
@@ -84,7 +85,8 @@ const VERCEL_DEFAULT_PROVIDER = '@vercel/flags-core/default-provider';
 /**
  * The default provider of the platform of the build: on Vercel, the fast
  * provider of `@vercel/flags-core`, if the project has it. Development uses
- * OFREP, as with the deployment adapters of Next.js.
+ * the built-in default provider, as with the deployment adapters of
+ * Next.js.
  */
 export function platformDefaultProvider(
   dir: string,

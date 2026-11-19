@@ -382,7 +382,7 @@ defaultValue)`) are removed: each type other than `boolean` is set with
   error, because they occur only once per process.
 - Without `defaultValue`, each issue throws a `FlagEvaluationError`: a
   provider that throws, an `errorCode`, the reason `ERROR` (also without an
-  `errorCode`), a value of the wrong type or outside of the options, and an
+  `errorCode`), a value of the wrong type, and an
   OFREP response without `value`, which asks for the default of the code. The
   OFREP provider marks that result with an internal symbol, so the runtime
   can detect it.
@@ -866,8 +866,8 @@ overrides: encrypted with a shared secret, or signed by Vercel.
 - An override for the key of a flag replaces the evaluation. The SDK does not
   call the provider, does not wait for its initialization, and does not run
   the evaluation context chain.
-- The value must be a boolean for now. Otherwise, the SDK logs a warning and
-  evaluates the flag as usual.
+- The value must have the type of the flag. Otherwise, the SDK logs a
+  warning and evaluates the flag as usual (see "Overrides and evaluate").
 - The SDK reads the token once per request. Outside of a request, there are
   no overrides.
 - An invalid token gives no overrides. The SDK logs one warning with the
@@ -1494,8 +1494,8 @@ must match `[a-z][a-z0-9_-]*`.
 `.flags/<source>.ts` starts with `'use flags'`, so the framework plugins
 register it, and `findFlagsModules` finds it (`.flags` is the only hidden
 directory it reads). It has one `defineSource` with `provider.ts`,
-`context.ts` and the `project` of the catalog (`{ system: 'in-memory' }`
-without one), and one `bindFlag` for each flag, sorted by key:
+`context.ts` and the `project` of the catalog (no `project` without
+one), and one `bindFlag` for each flag, sorted by key:
 
 - `type` comes from the variants (see below for variants of more than one
   type).

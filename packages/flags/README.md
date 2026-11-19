@@ -106,8 +106,10 @@ redirect.
 
 ### 2️⃣ Connect to your flag management system
 
-Optional. Without `flags.config.ts`, flags use Vercel Flags. With it, you
-choose the OpenFeature provider, and how the evaluation context is created:
+Flags without a source use the default source of `flags.config.ts`. In it,
+you choose the OpenFeature provider, and how the evaluation context is
+created. For now, without `flags.config.ts`, the built-in default source
+throws:
 
 ```sh
 pnpm add @vercel/flags-core @openfeature/server-sdk

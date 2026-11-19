@@ -67,7 +67,7 @@ Vite, `externals.inline` of Nitro).
 | ------------------------ | ---------------- | ------------------------------------------- |
 | `flags/framework`        | no binding       | the framework binding                       |
 | `flags/config`           | no configuration | `flags.config.ts` of the application        |
-| `flags/default-provider` | OFREP            | the provider of a platform, for its builds  |
+| `flags/default-provider` | throws for now   | the provider of a platform, for its builds  |
 
 - **Resolve from the project.** With pnpm, a replacement which is a package
   name must be resolved from the project, not from `flags`. E.g. a

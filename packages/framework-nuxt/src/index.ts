@@ -53,7 +53,7 @@ interface Nuxt {
 export interface FlagsNuxtOptions {
   /**
    * The module of the default provider, e.g. of a platform, instead of the
-   * built-in OFREP provider. A path is relative to the project. During a
+   * built-in default provider, which throws for now. A path is relative to the project. During a
    * build on Vercel, the default is `@vercel/flags-core/default-provider`,
    * if the project has it. `false` turns this off.
    *
