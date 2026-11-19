@@ -3,7 +3,8 @@
 A plain Node.js HTTP server. It shows:
 
 - a source (`defineSource`) with an OpenFeature provider, here an in-memory provider
-- flags of the source, with a boolean and a string value
+- flags of the source (`bindFlag`), with a boolean and a string value
+- an inline flag (`defineFlag` with `decide`), without a provider
 - the evaluation context chain: the call side, the flag, and the source
 - the lifecycle of the runtime: `onInit`, `onInvoke` for each request, `onShutdown`
 

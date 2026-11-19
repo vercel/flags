@@ -36,7 +36,7 @@ export function createDefaultProvider(): Provider {
   function current(): ProviderOfAllTypes {
     if (!process.env.VERCEL_OIDC_TOKEN) {
       throw new Error(
-        'flags: A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to defineFlag.',
+        'flags: A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
       );
     }
     if (process.env.NODE_ENV === 'production' && !warnedAboutProduction) {

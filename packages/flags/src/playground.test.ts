@@ -9,6 +9,7 @@ import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  bindFlag,
   decryptOverrides,
   defineConfig,
   defineFlag,
@@ -110,7 +111,7 @@ describe('1. Sources and flags', () => {
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
-    const summerSale = defineFlag({
+    const summerSale = bindFlag({
       key: 'summer-sale',
       source: launchdarkly,
     });
@@ -123,7 +124,7 @@ describe('1. Sources and flags', () => {
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
-    const summerSale = defineFlag({
+    const summerSale = bindFlag({
       key: 'summer-sale',
       source: launchdarkly,
     });
@@ -136,22 +137,21 @@ describe('1. Sources and flags', () => {
     });
   });
 
-  it('has short forms for the common cases', async () => {
-    const launchdarkly = defineSource({
-      provider: createProvider(),
-      project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
+  it('defines an inline flag, which decides its value in the code', async () => {
+    // No provider: decide receives the context of the call side and the
+    // request. Overrides, hooks and the cache of the request still apply.
+    const betaBanner = defineFlag({
+      key: 'beta-banner',
+      decide: (_context, request) =>
+        request?.cookies?.get('beta')?.value === '1',
+      options: [false, true] as const, // optional, e.g. for Flags Explorer
     });
 
-    // The same as defineFlag({ key, source })
-    const summerSale = defineFlag(launchdarkly, 'summer-sale');
-    // The type comes from the default value: a boolean flag
-    const newCheckout = defineFlag(launchdarkly, 'new-checkout', false);
-
-    expect(await summerSale()).toBe(true);
-    expect(await newCheckout()).toBe(false);
-    expect(newCheckout.defaultValue).toBe(false);
-    // Without a source, defineFlag('summer-sale') and
-    // defineFlag('summer-sale', false) use the default source
+    const request = new Request('https://shop.example', {
+      headers: { cookie: 'beta=1' },
+    });
+    expect(await runtime.onInvoke(request, () => betaBanner())).toBe(true);
+    expect(await betaBanner()).toBe(false);
   });
 
   it('requires the fields of the system', () => {
@@ -178,7 +178,7 @@ describe('2. Default values and errors', () => {
     });
 
   it('returns the default value and logs one line when a flag fails', async () => {
-    const missing = defineFlag({
+    const missing = bindFlag({
       key: 'does-not-exist',
       defaultValue: false,
       source: source(),
@@ -191,7 +191,7 @@ describe('2. Default values and errors', () => {
   });
 
   it('throws when a flag without a default value fails', async () => {
-    const missing = defineFlag({
+    const missing = bindFlag({
       key: 'does-not-exist',
       source: source(),
     });
@@ -211,8 +211,8 @@ describe('3. Several flags at once', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    const summerSale = defineFlag({ key: 'summer-sale', source });
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const summerSale = bindFlag({ key: 'summer-sale', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     const [sale, checkout] = await evaluate([summerSale, newCheckout]);
 
@@ -244,7 +244,7 @@ describe('4. The evaluation context chain', () => {
         user: context.user,
       }),
     });
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     expect(await newCheckout({ evaluationContext: { user: 'alice' } })).toBe(
       true,
@@ -270,7 +270,7 @@ describe('4. The evaluation context chain', () => {
         team: teams[context.teamId],
       }),
     });
-    const teamInsights = defineFlag({ key: 'team-insights', source });
+    const teamInsights = bindFlag({ key: 'team-insights', source });
 
     // e.g. GET /api/teams/team-1/insights
     expect(
@@ -291,7 +291,7 @@ describe('4. The evaluation context chain', () => {
     });
 
     // The call side knows the slug, the source needs the id
-    const teamInsights = defineFlag({
+    const teamInsights = bindFlag({
       key: 'team-insights',
       source,
       getEvaluationContext: (context: { slug: string }) => ({
@@ -312,7 +312,7 @@ describe('4. The evaluation context chain', () => {
         team: context.teamId,
       }),
     });
-    const teamInsights = defineFlag({ key: 'team-insights', source });
+    const teamInsights = bindFlag({ key: 'team-insights', source });
 
     void (() => {
       teamInsights({ evaluationContext: { teamId: 'team-1' } });
@@ -341,7 +341,7 @@ describe('5. Requests', () => {
 
   it('gives each step the request of a middleware', async () => {
     const { source } = cookieSource();
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     // e.g. in Hono: app.use((c, next) => runtime.onInvoke(c.req.raw, next))
     const request = new Request('https://shop.example/checkout', {
@@ -366,7 +366,7 @@ describe('5. Requests', () => {
         return {};
       },
     });
-    const summerSale = defineFlag({ key: 'summer-sale', source });
+    const summerSale = bindFlag({ key: 'summer-sale', source });
 
     const request = new Request('https://shop.example/teams/acme', {
       headers: { 'accept-language': 'de-CH', cookie: 'user=alice' },
@@ -382,8 +382,8 @@ describe('5. Requests', () => {
 
   it('creates the context once per request', async () => {
     const { source, calls } = cookieSource();
-    const summerSale = defineFlag({ key: 'summer-sale', source });
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const summerSale = bindFlag({ key: 'summer-sale', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     const request = new Request('https://shop.example', {
       headers: { cookie: 'user=alice' },
@@ -400,7 +400,7 @@ describe('5. Requests', () => {
   it('evaluates each flag once per request, so the page is consistent', async () => {
     const provider = createProvider();
     const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
-    const summerSale = defineFlag({
+    const summerSale = bindFlag({
       key: 'summer-sale',
       source: defineSource({
         provider,
@@ -418,7 +418,7 @@ describe('5. Requests', () => {
 
   it('works like Next.js, which gives only headers() and cookies()', async () => {
     const { source, calls } = cookieSource();
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     // Next.js: headers() returns the same object during one request, so the
     // SDK can identify the request without a middleware
@@ -432,7 +432,7 @@ describe('5. Requests', () => {
 
   it('uses no request outside of a request, e.g. in a script', async () => {
     const { source } = cookieSource();
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     expect(await newCheckout()).toBe(false); // user is "anonymous"
   });
@@ -441,7 +441,7 @@ describe('5. Requests', () => {
 describe('6. Runtime lifecycle', () => {
   it('initializes the providers before the first request', async () => {
     const { source, steps } = lifecycleSource();
-    const summerSale = defineFlag({ key: 'summer-sale', source });
+    const summerSale = bindFlag({ key: 'summer-sale', source });
 
     // e.g. in the AWS Lambda init phase
     await runtime.onInit();
@@ -457,7 +457,7 @@ describe('6. Runtime lifecycle', () => {
 
   it('initializes a provider on its first evaluation without onInit', async () => {
     const { source, steps } = lifecycleSource();
-    const summerSale = defineFlag({ key: 'summer-sale', source });
+    const summerSale = bindFlag({ key: 'summer-sale', source });
 
     await summerSale();
 
@@ -473,8 +473,8 @@ describe('6. Runtime lifecycle', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    defineFlag({ key: 'summer-sale', source: slow.source });
-    const summerSale = defineFlag({ key: 'summer-sale', source: fast });
+    bindFlag({ key: 'summer-sale', source: slow.source });
+    const summerSale = bindFlag({ key: 'summer-sale', source: fast });
 
     // onInvoke starts the initialization of "slow", but does not wait for it
     const value = await runtime.onInvoke(
@@ -489,7 +489,7 @@ describe('6. Runtime lifecycle', () => {
 
   it('closes the providers on shutdown', async () => {
     const { source, steps } = lifecycleSource();
-    defineFlag({ key: 'summer-sale', source });
+    bindFlag({ key: 'summer-sale', source });
 
     await runtime.onInit();
     await runtime.onShutdown();
@@ -518,8 +518,8 @@ describe('7. Registration', () => {
     // The framework plugins append this to each 'use flags' module:
     // import * as self from './flags'; registerFlags(self);
     const flagsModule = {
-      summerSale: defineFlag({ key: 'summer-sale', source }),
-      newCheckout: defineFlag({ key: 'new-checkout', source }),
+      summerSale: bindFlag({ key: 'summer-sale', source }),
+      newCheckout: bindFlag({ key: 'new-checkout', source }),
     };
 
     expect(() => registerFlags(flagsModule)).not.toThrow();
@@ -548,7 +548,7 @@ describe('8. One runtime for each process', () => {
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const newCheckout = defineFlag({ key: 'new-checkout', source });
+    const newCheckout = bindFlag({ key: 'new-checkout', source });
 
     expect(instrumentation.defineFlag).not.toBe(defineFlag);
     expect(instrumentation.runtime).toBe(runtime);
@@ -576,7 +576,7 @@ describe('9. Overrides', () => {
         'base64url',
       ),
     );
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: source(),
     });
@@ -621,7 +621,7 @@ describe('9. Overrides', () => {
     };
     vi.stubGlobal('fetch', async () => Response.json(publicKeys));
 
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: source(),
     });
@@ -666,7 +666,7 @@ describe('9. Overrides', () => {
     };
     vi.stubGlobal('fetch', async () => Response.json(publicKeys));
 
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: source(),
     });
@@ -696,7 +696,7 @@ describe('9. Overrides', () => {
   });
 
   it('ignores a cookie which is not trusted', async () => {
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: source(),
     });
@@ -732,24 +732,24 @@ describe('10. Zero configuration and flags.config.ts', () => {
       Response.json({ key: 'summer-sale', value: true, reason: 'STATIC' }),
     );
 
-    const summerSale = defineFlag({ key: 'summer-sale' });
+    const summerSale = bindFlag({ key: 'summer-sale' });
 
     expect(await summerSale()).toBe(true);
   });
 
   it('tells what to do when the project is not connected to Vercel', async () => {
     vi.stubEnv('VERCEL_OIDC_TOKEN', '');
-    const summerSale = defineFlag({ key: 'summer-sale' });
+    const summerSale = bindFlag({ key: 'summer-sale' });
 
     await expect(summerSale()).rejects.toThrow(
-      'Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to defineFlag.',
+      'Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
     );
   });
 
   it('upgrades all flags with one default source in flags.config.ts', async () => {
     // The flags of the application, without a source
-    const newCheckout = defineFlag({ key: 'new-checkout' });
-    const summerSale = defineFlag({ key: 'summer-sale' });
+    const newCheckout = bindFlag({ key: 'new-checkout' });
+    const summerSale = bindFlag({ key: 'summer-sale' });
 
     // flags.config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
     // Here, a
@@ -813,17 +813,17 @@ describe('11. Flag value types', () => {
 
   it('evaluates strings, numbers and objects', async () => {
     const c = source();
-    const bannerText = defineFlag({
+    const bannerText = bindFlag({
       key: 'banner-text',
       type: 'string',
       source: c,
     });
-    const maxItems = defineFlag({
+    const maxItems = bindFlag({
       key: 'max-items',
       type: 'number',
       source: c,
     });
-    const theme = defineFlag({ key: 'theme', type: 'object', source: c });
+    const theme = bindFlag({ key: 'theme', type: 'object', source: c });
 
     expect(await evaluate([bannerText, maxItems, theme])).toEqual([
       'Summer sale!',
@@ -833,7 +833,7 @@ describe('11. Flag value types', () => {
   });
 
   it('limits a flag to its options', async () => {
-    const checkout = defineFlag({
+    const checkout = bindFlag({
       key: 'checkout',
       type: 'string',
       // The type of the value is 'control' | 'express'
@@ -856,9 +856,9 @@ describe('11. Flag value types', () => {
   it('shows a type error for a value which does not fit the type', () => {
     void (() => {
       // @ts-expect-error without a type, a flag is a boolean
-      defineFlag({ key: 'banner-text', defaultValue: 'Welcome' });
+      bindFlag({ key: 'banner-text', defaultValue: 'Welcome' });
       // @ts-expect-error a number flag needs a number
-      defineFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
+      bindFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
     });
   });
 });
@@ -892,7 +892,7 @@ describe('12. What a framework binding does', () => {
       if (error instanceof RenderSignal) throw error;
     });
 
-    const newCheckout = defineFlag({ key: 'new-checkout' });
+    const newCheckout = bindFlag({ key: 'new-checkout' });
     expect(await newCheckout()).toBe(true);
   });
 });
@@ -913,7 +913,7 @@ describe('13. Hooks, events and tracking', () => {
     // flags.config.ts: hooks for all flags. A source and the call side
     // can add more.
     runtime.configure(defineConfig({ hooks: [logEvaluations] }));
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: defineSource({
         provider: createProvider(),
@@ -944,7 +944,7 @@ describe('13. Hooks, events and tracking', () => {
         },
       ],
     });
-    const newCheckout = defineFlag({
+    const newCheckout = bindFlag({
       key: 'new-checkout',
       source: defineSource({
         provider: createProvider(),
@@ -966,7 +966,7 @@ describe('13. Hooks, events and tracking', () => {
       events.push(`${details.providerName} is ready`);
     });
     const { source } = lifecycleSource('remote');
-    defineFlag({ key: 'summer-sale', source });
+    bindFlag({ key: 'summer-sale', source });
 
     await runtime.onInit();
     expect(events).toEqual(['remote is ready']);
@@ -1002,14 +1002,14 @@ describe('14. Discovery for Flags Explorer', () => {
     // flags.ts starts with 'use flags': it exports only flags, and importing
     // it has no side effects
     const flagsModule = {
-      checkout: defineFlag({
+      checkout: bindFlag({
         key: 'checkout',
         type: 'string',
         options: ['control', 'express'],
         defaultValue: 'control',
         description: 'The checkout flow',
       }),
-      // Any object with a key is a flag, not only a flag of defineFlag
+      // Any object with a key is a flag, not only a flag of defineFlag or bindFlag
       theme: { key: 'theme', type: 'string', options: ['light', 'dark'] },
     };
 
@@ -1037,7 +1037,9 @@ describe('14. Discovery for Flags Explorer', () => {
     const manifest = createManifest([
       {
         id: 'flags.ts',
-        exports: { summerSale: defineFlag(launchdarkly, 'summer-sale') },
+        exports: {
+          summerSale: bindFlag({ key: 'summer-sale', source: launchdarkly }),
+        },
       },
     ]);
 

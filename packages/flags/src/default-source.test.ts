@@ -124,7 +124,7 @@ describe('built-in default source', () => {
     await expect(defineFlag({ key: 'a' })()).rejects.toMatchObject({
       name: 'FlagEvaluationError',
       message:
-        'flags: Could not evaluate flag "a": A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to defineFlag.',
+        'flags: Could not evaluate flag "a": A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
     });
   });
 

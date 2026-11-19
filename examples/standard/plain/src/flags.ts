@@ -1,5 +1,5 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { defineFlag, defineSource } from 'flags';
+import { bindFlag, defineFlag, defineSource } from 'flags';
 
 // A source connects flags to an OpenFeature provider. Here it is an
 // in-memory provider, so the demo needs no account. Any OpenFeature
@@ -45,9 +45,9 @@ export const shop = defineSource({
   }),
 });
 
-export const summerSale = defineFlag({ key: 'summer-sale', source: shop });
+export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
 
-export const bannerText = defineFlag({
+export const bannerText = bindFlag({
   key: 'banner-text',
   source: shop,
   type: 'string',
@@ -61,10 +61,18 @@ const teams: Record<string, { plan: string }> = {
   tiny: { plan: 'hobby' },
 };
 
-export const teamInsights = defineFlag({
+export const teamInsights = bindFlag({
   key: 'team-insights',
   source: shop,
   getEvaluationContext: (context: { teamSlug: string }) => ({
     team: teams[context.teamSlug] ?? { plan: 'unknown' },
   }),
+});
+
+// An inline flag decides its value in the code, without a provider. It gets
+// the context of the call side and the request.
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
 });

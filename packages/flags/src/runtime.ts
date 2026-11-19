@@ -5,7 +5,7 @@ import type { Config } from './config';
 import { getBuiltInSource } from './default-source';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
-import { HookRun, OVERRIDE_REASON } from './hooks';
+import { DECIDE_REASON, HookRun, OVERRIDE_REASON } from './hooks';
 import { logger } from './logger';
 import { codeDefault } from './ofrep';
 import {
@@ -80,6 +80,14 @@ export interface FlagDefinition {
    * the default source.
    */
   readonly source?: Source;
+  /**
+   * Decides the value of an inline flag, instead of the provider of the
+   * source.
+   */
+  readonly decide?: (
+    context: unknown,
+    request: FlagsRequest | undefined,
+  ) => FlagValue | Promise<FlagValue>;
 }
 
 /**
@@ -857,7 +865,7 @@ class RuntimeImpl {
       // An override skips the provider and its initialization
       const resolve =
         override === undefined
-          ? this.#resolveMethod(key, provider, type)
+          ? this.#resolveMethodOf(flag, provider, type, call, scope)
           : undefined;
       const initialization = resolve
         ? this.initializeProvider(provider)
@@ -931,6 +939,29 @@ class RuntimeImpl {
     );
     logger.debug(evaluationError);
     return defaultValue;
+  }
+
+  /**
+   * The method which resolves the value: `decide` of an inline flag, or the
+   * method of the provider for the type.
+   */
+  #resolveMethodOf(
+    flag: FlagDefinition,
+    provider: Provider,
+    type: FlagType,
+    call: CallOptions | undefined,
+    scope: RequestScope | undefined,
+  ): ResolveMethod {
+    const { decide } = flag;
+    if (!decide) {
+      return this.#resolveMethod(flag.key, provider, type);
+    }
+    // decide receives the context of the call side as it is, not the
+    // context for a provider
+    return async () => ({
+      value: await decide(call?.evaluationContext, scope?.request),
+      reason: DECIDE_REASON,
+    });
   }
 
   #resolveMethod(

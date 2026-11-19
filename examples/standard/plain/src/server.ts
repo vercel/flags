@@ -1,6 +1,6 @@
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { evaluate, runtime } from 'flags';
-import { bannerText, summerSale, teamInsights } from './flags.ts';
+import { bannerText, betaBanner, summerSale, teamInsights } from './flags.ts';
 
 /**
  * A plain Node.js server. Without a framework, the application calls the
@@ -22,12 +22,16 @@ export async function createServer(): Promise<Server> {
     // Each request runs in onInvoke, so the flags know the request
     void runtime
       .onInvoke({ headers, url }, async () => {
-        const [sale, banner] = await evaluate([summerSale, bannerText]);
+        const [sale, banner, beta] = await evaluate([
+          summerSale,
+          bannerText,
+          betaBanner,
+        ]);
         const teamSlug = url.searchParams.get('team');
         const insights = teamSlug
           ? await teamInsights({ evaluationContext: { teamSlug } })
           : null;
-        return { sale, banner, insights };
+        return { sale, banner, beta, insights };
       })
       .then(
         (body) => {

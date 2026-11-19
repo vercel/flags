@@ -1,4 +1,5 @@
 import type { ConfiguredSource } from './config';
+import { type DecideSource, getDecideSource } from './decide';
 import { logger } from './logger';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
@@ -115,6 +116,53 @@ export interface FlagOptions<
   ): SourceInput<C> | Promise<SourceInput<C>>;
 }
 
+/**
+ * The options of an inline flag: a flag which decides its value in the code,
+ * with `decide`, without a provider.
+ */
+export interface InlineFlagOptions<
+  K extends string,
+  In,
+  T extends FlagType,
+  O extends FlagOptionsOf<T>,
+> {
+  readonly key: K;
+  /**
+   * Decides the value of the flag. Receives the evaluation context of the
+   * call side, and the current request, or `undefined` outside of a request.
+   * The type of `context` defines what the call side must give.
+   *
+   * @example
+   * ```ts
+   * decide: (_context, request) =>
+   *   request?.cookies?.get('beta')?.value === '1',
+   * ```
+   */
+  decide(
+    context: In,
+    request: FlagsRequest | undefined,
+  ): NoInfer<FlagValueFrom<T, O>> | Promise<NoInfer<FlagValueFrom<T, O>>>;
+  /**
+   * The type of the value. The default is `boolean`. Each other type must be
+   * set here.
+   */
+  readonly type?: T;
+  /**
+   * Returned when `decide` fails, after logging the error. If not set, the
+   * error is thrown.
+   */
+  readonly defaultValue?: NoInfer<FlagValueFrom<T, O>>;
+  /**
+   * The values which the flag can have, e.g. for Flags Explorer and
+   * precompute. A value or `{ value, label }`.
+   */
+  readonly options?: O;
+  /**
+   * What the flag is for, e.g. for Flags Explorer.
+   */
+  readonly description?: string;
+}
+
 export type Flag<
   C extends Source = Source,
   K extends string = string,
@@ -152,17 +200,33 @@ type ValueTypeOf<D> = D extends boolean
       : FlagObjectValue;
 
 /**
- * Declares a flag. Call the returned function to evaluate it.
+ * Declares an inline flag, which decides its value in the code with
+ * `decide`. Call the returned function to evaluate it. For a flag of a
+ * provider, use `bindFlag`.
  *
  * @example
  * ```ts
- * // Uses the default source
- * const flag = defineFlag({ key: 'new-checkout' });
- * // Uses a provider of your choice
- * const other = defineFlag({ key: 'new-checkout', source });
- * await flag();
- * await flag({ evaluationContext: { teamId: 'team-1' } });
+ * const myFlag = defineFlag({
+ *   key: 'my-flag',
+ *   decide: () => false,
+ *   options: [false, true] as const, // optional
+ * });
+ * await myFlag();
  * ```
+ */
+export function defineFlag<
+  const K extends string,
+  const T extends FlagType = 'boolean',
+  const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
+  In = undefined,
+>(
+  options: InlineFlagOptions<K, In, T, O>,
+): Flag<DecideSource, K, In, FlagValueFrom<T, O>>;
+/**
+ * Declares a flag of a source.
+ *
+ * @deprecated Use `bindFlag` for the flags of a source, and `defineFlag`
+ * with `decide` for inline flags.
  */
 export function defineFlag<
   const K extends string,
@@ -178,6 +242,8 @@ export function defineFlag<
  * ```ts
  * const summerSale = defineFlag('summer-sale');
  * ```
+ *
+ * @deprecated Use `bindFlag({ key, source, type, defaultValue })`.
  */
 export function defineFlag<const K extends string>(
   key: K,
@@ -190,6 +256,8 @@ export function defineFlag<const K extends string>(
  * ```ts
  * const bannerText = defineFlag('banner-text', 'Welcome'); // string
  * ```
+ *
+ * @deprecated Use `bindFlag({ key, source, type, defaultValue })`.
  */
 export function defineFlag<const K extends string, D extends FlagValue>(
   key: K,
@@ -203,6 +271,8 @@ export function defineFlag<const K extends string, D extends FlagValue>(
  * ```ts
  * const summerSale = defineFlag(launchdarkly, 'summer-sale');
  * ```
+ *
+ * @deprecated Use `bindFlag({ key, source, type, defaultValue })`.
  */
 export function defineFlag<C extends Source, const K extends string>(
   source: C,
@@ -217,6 +287,8 @@ export function defineFlag<C extends Source, const K extends string>(
  * ```ts
  * const maxItems = defineFlag(launchdarkly, 'max-items', 10); // number
  * ```
+ *
+ * @deprecated Use `bindFlag({ key, source, type, defaultValue })`.
  */
 export function defineFlag<
   C extends Source,
@@ -232,11 +304,52 @@ export function defineFlag(...args: unknown[]): unknown {
 }
 
 /**
+ * Declares a flag of a source: the provider of the source decides its
+ * value. Call the returned function to evaluate it. Without a source, the
+ * flag uses the default source. For an inline flag, use `defineFlag`.
+ *
+ * @example
+ * ```ts
+ * export const enableDashboard = bindFlag({
+ *   key: 'enable-dashboard',
+ *   source,
+ *   options: [false, true] as const, // optional
+ * });
+ * await enableDashboard();
+ * await enableDashboard({ evaluationContext: { teamId: 'team-1' } });
+ * ```
+ */
+export function bindFlag<
+  const K extends string,
+  const T extends FlagType = 'boolean',
+  const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
+  C extends Source = ConfiguredSource,
+  In = SourceInput<C>,
+>(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>> {
+  if (typeof options !== 'object' || options === null) {
+    throw new TypeError('flags: bindFlag expects options.');
+  }
+  if ('decide' in options) {
+    throw new TypeError(
+      `flags: Flag "${String(options.key)}" has decide. Use defineFlag for inline flags.`,
+    );
+  }
+  return defineFromOptions(toOptions([options])) as unknown as Flag<
+    C,
+    K,
+    In,
+    FlagValueFrom<T, O>
+  >;
+}
+
+type AnyFlagOptions = FlagOptions<Source, string, unknown, FlagType, never> & {
+  readonly decide?: unknown;
+};
+
+/**
  * Converts the arguments of a short form into the options of the full form.
  */
-function toOptions(
-  args: unknown[],
-): FlagOptions<Source, string, unknown, FlagType, never> {
+function toOptions(args: unknown[]): AnyFlagOptions {
   const [first, second, third] = args;
   if (typeof first === 'string') {
     return withDefault({ key: first }, second, args.length > 1);
@@ -255,7 +368,7 @@ function toOptions(
         'flags: The source of a flag must be returned by defineSource.',
       );
     }
-    return first as FlagOptions<Source, string, unknown, FlagType, never>;
+    return first as AnyFlagOptions;
   }
   throw new TypeError(
     'flags: defineFlag expects a key, a source and a key, or options.',
@@ -289,14 +402,27 @@ function typeOfValue(key: string, value: unknown): FlagType {
 }
 
 function defineFromOptions(
-  options: FlagOptions<Source, string, unknown, FlagType, never>,
+  options: AnyFlagOptions,
 ): Flag<Source, string, unknown, FlagValue> {
-  const { key, defaultValue, getEvaluationContext } = options;
-  // `connection` is the deprecated name of `source`
-  const explicit = options.source ?? options.connection;
+  const { key, defaultValue, getEvaluationContext, decide } = options;
   if (typeof key !== 'string') {
     throw new TypeError('flags: The key of a flag must be a string.');
   }
+  if (decide !== undefined && typeof decide !== 'function') {
+    throw new TypeError(
+      `flags: The decide of flag "${key}" must be a function.`,
+    );
+  }
+  if (decide && (options.source ?? options.connection) !== undefined) {
+    throw new TypeError(
+      `flags: Flag "${key}" has decide and a source. An inline flag has no source.`,
+    );
+  }
+  // An inline flag uses the internal source of inline flags.
+  // `connection` is the deprecated name of `source`.
+  const explicit = decide
+    ? getDecideSource()
+    : (options.source ?? options.connection);
   if (
     options.description !== undefined &&
     typeof options.description !== 'string'
@@ -336,6 +462,9 @@ function defineFromOptions(
         options: { value: flagOptions, enumerable: true },
         description: { value: options.description, enumerable: true },
         getEvaluationContext: { value: getEvaluationContext, enumerable: true },
+        // Not enumerable, so that the manifest and tools see the same fields
+        // as for the flags of a provider
+        decide: { value: decide },
         // Without a source, the default source at the time of the
         // evaluation, so the configuration can come later than the flag
         source: {

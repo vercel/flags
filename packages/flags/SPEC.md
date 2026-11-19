@@ -194,7 +194,7 @@ test apps keep working.
 | --- | --- | --- |
 | M0 | Baseline of the tests | Done |
 | M1 | "Connection" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
-| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source | |
+| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. Demo `examples/standard/next-manual`. | |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts`. | |
@@ -321,32 +321,47 @@ const launchdarkly = defineConnection({
 
 ## Flags
 
-`defineFlag({ key, defaultValue?, connection, getEvaluationContext? })` returns
-an async function: `await myFlag()` or
-`await myFlag({ evaluationContext })`. The function also exposes `key`,
-`defaultValue`, `connection` and `getEvaluationContext`, so the project is
-available from every flag.
+There are two kinds of flags. Both return an async function: `await myFlag()`
+or `await myFlag({ evaluationContext })`.
 
-- Short forms for the common cases:
+- **A flag of a source**:
+  `bindFlag({ key, source?, type?, options?, defaultValue?, description?, getEvaluationContext? })`.
+  The provider of the source decides the value. The function exposes
+  `key`, `type`, `defaultValue`, `options`, `description`, `source` and
+  `getEvaluationContext`, so the project is available from every flag.
+- **An inline flag**:
+  `defineFlag({ key, decide, type?, options?, defaultValue?, description? })`.
+  `decide(context, request)` decides the value in the code. It receives the
+  evaluation context of the call side as it is, and the current request, or
+  `undefined` outside of a request. The type of `context` defines what the
+  call side must give. An inline flag has no source of its own: it uses one
+  internal source (system `in-memory`, provider `decide`), so it goes
+  through the same steps as a flag of a provider: overrides, hooks, the
+  cache of the request, and the check of the type. Its reason is `DECIDE`
+  (`DECIDE_REASON`), like `OVERRIDE` for overrides. `decide` together with
+  `source` throws.
 
-  | Short form                                  | Full form                                             |
-  | ------------------------------------------- | ----------------------------------------------------- |
-  | `defineFlag(key)`                           | `defineFlag({ key })`                                 |
-  | `defineFlag(key, defaultValue)`             | `defineFlag({ key, type, defaultValue })`             |
-  | `defineFlag(connection, key)`               | `defineFlag({ key, connection })`                     |
-  | `defineFlag(connection, key, defaultValue)` | `defineFlag({ key, type, defaultValue, connection })` |
+The type of both is explicit: `type`, `boolean` by default. `options` does
+not set the type, because it is optional.
 
-  Only the short forms take the type from `defaultValue`: `'Welcome'` gives
-  a `string` flag, and the value has the type `string`, not `'Welcome'`.
-  Without `defaultValue`, the flag is a boolean. For `options` and
-  `getEvaluationContext`, use the full form. The full form is the first
-  overload, so TypeScript shows its error first for wrong options.
-- `connection` must be returned by `defineConnection`. This is checked at the
-  type level and at runtime. Without `connection`, the flag uses the default
-  connection (see "Default connection").
-- Defining a flag registers its connection with the runtime. Flags are usually
-  defined at module scope, so the runtime knows about their connections before
-  `onInit`. `registerConnections` is only needed for flags defined later.
+Deprecated until the end of the move to sources: `defineFlag` without
+`decide` (the old name of `bindFlag`), and its short forms:
+
+  | Short form                              | Full form                                       |
+  | --------------------------------------- | ----------------------------------------------- |
+  | `defineFlag(key)`                       | `bindFlag({ key })`                             |
+  | `defineFlag(key, defaultValue)`         | `bindFlag({ key, type, defaultValue })`         |
+  | `defineFlag(source, key)`               | `bindFlag({ key, source })`                     |
+  | `defineFlag(source, key, defaultValue)` | `bindFlag({ key, type, defaultValue, source })` |
+
+  Only the short forms take the type from `defaultValue`.
+
+- `source` must be returned by `defineSource`. This is checked at the
+  type level and at runtime. Without `source`, the flag uses the default
+  source (see "Default connection").
+- Defining a flag registers its source with the runtime. Flags are usually
+  defined at module scope, so the runtime knows about their sources before
+  `onInit`. `registerSources` is only needed for flags defined later.
 - The provider is initialized before its first evaluation. Concurrent
   evaluations share one initialization, and a failed initialization is retried
   on the next evaluation.

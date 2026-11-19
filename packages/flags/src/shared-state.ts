@@ -12,6 +12,7 @@ interface SharedState {
   readonly flags: WeakSet<object>;
   runtime?: unknown;
   defaultSource?: unknown;
+  decideSource?: unknown;
   /**
    * The framework binding of the first copy which has one. A copy without
    * the alias of `flags/framework`, e.g. in the process of the build tool,

@@ -15,11 +15,13 @@ export {
   type FlagValueOfFlag,
 } from './evaluate';
 export {
+  bindFlag,
   defineFlag,
   type EvaluationArgs,
   type EvaluationOptions,
   type Flag,
   type FlagOptions,
+  type InlineFlagOptions,
 } from './flag';
 export {
   decryptFlagValues,
@@ -29,7 +31,7 @@ export {
   serializeFlagValues,
 } from './flag-values';
 export type { SetupFramework } from './framework';
-export { OVERRIDE_REASON } from './hooks';
+export { DECIDE_REASON, OVERRIDE_REASON } from './hooks';
 export {
   decryptOverrides,
   encryptOverrides,
