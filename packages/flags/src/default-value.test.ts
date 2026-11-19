@@ -1,9 +1,9 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { createOfrepProvider } from './ofrep';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 
 // OpenFeature requires a default of the correct type, and providers examine
 // it. Without defaultValue, the SDK passes false. A provider which returns
@@ -18,8 +18,8 @@ describe('a flag without defaultValue', () => {
     vi.restoreAllMocks();
   });
 
-  const connection = () =>
-    defineConnection({
+  const source = () =>
+    defineSource({
       provider: new TypedInMemoryProvider({
         'old-checkout': {
           variants: { on: true, off: false },
@@ -39,7 +39,7 @@ describe('a flag without defaultValue', () => {
     };
     const flag = defineFlag({
       key: 'a',
-      connection: defineConnection({
+      source: defineSource({
         provider,
         project: { system: 'in-memory' },
       }),
@@ -51,7 +51,7 @@ describe('a flag without defaultValue', () => {
 
   it('returns false when the provider returns the default, e.g. for a disabled flag', async () => {
     await expect(
-      defineFlag({ key: 'old-checkout', connection: connection() })(),
+      defineFlag({ key: 'old-checkout', source: source() })(),
     ).resolves.toBe(false);
   });
 
@@ -60,7 +60,7 @@ describe('a flag without defaultValue', () => {
       defineFlag({
         key: 'old-checkout',
         defaultValue: true,
-        connection: connection(),
+        source: source(),
       })(),
     ).resolves.toBe(true);
   });
@@ -77,7 +77,7 @@ describe('a provider which reports an issue', () => {
   });
 
   const reportsError = () =>
-    defineConnection({
+    defineSource({
       provider: {
         metadata: { name: 'test' },
         // The reason ERROR, but no errorCode
@@ -91,7 +91,7 @@ describe('a provider which reports an issue', () => {
 
   it('throws for the reason ERROR without an errorCode', async () => {
     await expect(
-      defineFlag({ key: 'a', connection: reportsError() })(),
+      defineFlag({ key: 'a', source: reportsError() })(),
     ).rejects.toMatchObject({
       code: 'GENERAL',
       message:
@@ -104,14 +104,14 @@ describe('a provider which reports an issue', () => {
       defineFlag({
         key: 'a',
         defaultValue: true,
-        connection: reportsError(),
+        source: reportsError(),
       })(),
     ).resolves.toBe(true);
   });
 
   describe('OFREP without a value: the default of the code', () => {
     const ofrep = () =>
-      defineConnection({
+      defineSource({
         provider: createOfrepProvider({
           baseUrl: 'https://flags.example.com',
           fetch: async () => Response.json({ key: 'a', reason: 'DEFAULT' }),
@@ -121,7 +121,7 @@ describe('a provider which reports an issue', () => {
 
     it('throws without defaultValue', async () => {
       await expect(
-        defineFlag({ key: 'a', connection: ofrep() })(),
+        defineFlag({ key: 'a', source: ofrep() })(),
       ).rejects.toMatchObject({
         message:
           'flags: Could not evaluate flag "a": The provider asks for the default value, but the flag has no defaultValue.',
@@ -130,7 +130,7 @@ describe('a provider which reports an issue', () => {
 
     it('returns the defaultValue', async () => {
       await expect(
-        defineFlag({ key: 'a', defaultValue: true, connection: ofrep() })(),
+        defineFlag({ key: 'a', defaultValue: true, source: ofrep() })(),
       ).resolves.toBe(true);
     });
   });

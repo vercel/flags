@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider } from './types';
 
 // What a platform does at build time: an alias replaces the module
@@ -31,11 +31,11 @@ describe('flags/default-provider replaced by an alias', () => {
     vi.unstubAllEnvs();
   });
 
-  it('gives flags without a connection the provider of the platform', async () => {
+  it('gives flags without a source the provider of the platform', async () => {
     const flag = defineFlag({ key: 'summer-sale' });
 
     await expect(flag()).resolves.toBe(true);
-    expect(flag.connection.provider).toBe(fastProvider);
+    expect(flag.source.provider).toBe(fastProvider);
   });
 
   it('initializes the provider of the platform in onInit', async () => {
@@ -48,7 +48,7 @@ describe('flags/default-provider replaced by an alias', () => {
   it('does not initialize the provider of the platform without a flag which uses it', async () => {
     defineFlag({
       key: 'own',
-      connection: defineConnection({
+      source: defineSource({
         provider: {
           metadata: { name: 'own' },
           resolveBooleanEvaluation: async () => ({ value: true }),
@@ -64,7 +64,7 @@ describe('flags/default-provider replaced by an alias', () => {
   it('does not initialize the provider of the platform when the application sets a default', async () => {
     defineFlag({ key: 'summer-sale' });
     runtime.configure({
-      defaultConnection: defineConnection({
+      defaultSource: defineSource({
         provider: {
           metadata: { name: 'app' },
           resolveBooleanEvaluation: async () => ({ value: false }),
@@ -77,13 +77,13 @@ describe('flags/default-provider replaced by an alias', () => {
     expect(fastProvider.initialize).not.toHaveBeenCalled();
   });
 
-  it('loses against the default connection of the application', async () => {
+  it('loses against the default source of the application', async () => {
     const appProvider = {
       metadata: { name: 'app' },
       resolveBooleanEvaluation: vi.fn(async () => ({ value: false })),
     } satisfies Provider;
     runtime.configure({
-      defaultConnection: defineConnection({
+      defaultSource: defineSource({
         provider: appProvider,
         project: { system: 'in-memory' },
       }),

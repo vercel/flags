@@ -57,7 +57,7 @@ interface CommonProjectFields {
 }
 
 /**
- * The flag project in a system which a connection points to.
+ * The flag project in a system which a source points to.
  */
 export type Project<N extends FlagManagementSystem = FlagManagementSystem> = {
   [K in N]: { system: K } & CommonProjectFields & ProjectFieldsBySystem[K];
@@ -68,8 +68,8 @@ export type Project<N extends FlagManagementSystem = FlagManagementSystem> = {
  * context of the step before, and the current request. `request` is
  * `undefined` outside of `runtime.onInvoke`.
  *
- * The chain runs from the call side, through the flag, to the connection.
- * The result of the connection goes to the provider.
+ * The chain runs from the call side, through the flag, to the source.
+ * The result of the source goes to the provider.
  */
 export type GetEvaluationContext<In = unknown, Out = EvaluationContext> = (
   context: In,
@@ -77,16 +77,16 @@ export type GetEvaluationContext<In = unknown, Out = EvaluationContext> = (
 ) => Out | Promise<Out>;
 
 /**
- * The context which a connection accepts from its flags. Without
- * `getEvaluationContext`, the connection gives it to the provider as it is.
+ * The context which a source accepts from its flags. Without
+ * `getEvaluationContext`, the source gives it to the provider as it is.
  */
-export type DefaultConnectionInput = EvaluationContext | undefined;
+export type DefaultSourceInput = EvaluationContext | undefined;
 
-export interface ConnectionOptions<
+export interface SourceOptions<
   P extends Provider,
   N extends FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
-  In = DefaultConnectionInput,
+  In = DefaultSourceInput,
 > {
   /**
    * The OpenFeature provider used to evaluate flags.
@@ -94,7 +94,7 @@ export interface ConnectionOptions<
   provider: P;
   project: { system: N } & CommonProjectFields & ProjectFieldsBySystem[N];
   /**
-   * OpenFeature hooks for the flags of this connection. They run after the
+   * OpenFeature hooks for the flags of this source. They run after the
    * hooks of the configuration, and before the hooks of the call side and of
    * the provider. They also run for overrides.
    */
@@ -102,7 +102,7 @@ export interface ConnectionOptions<
   /**
    * The last step of the chain. Receives the context which the flag creates,
    * and returns the context for the provider. The type of `context` defines
-   * what the flags of this connection must give. The return type defines
+   * what the flags of this source must give. The return type defines
    * what the provider receives.
    *
    * Runs once per request for each input. Plain data is compared by its
@@ -128,13 +128,13 @@ export interface ConnectionOptions<
  * evaluates them.
  *
  * `C` is the context which the provider receives. `In` is the context which
- * the flags of this connection must give.
+ * the flags of this source must give.
  */
-export interface Connection<
+export interface Source<
   P extends Provider = Provider,
   N extends FlagManagementSystem = FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
-  In = DefaultConnectionInput,
+  In = DefaultSourceInput,
 > {
   readonly provider: P;
   readonly project: Project<N>;
@@ -146,29 +146,24 @@ export interface Connection<
 }
 
 /**
- * The context which the flags of a connection must give.
+ * The context which the flags of a source must give.
  */
-export type ConnectionInput<C extends Connection> =
-  C extends Connection<
-    Provider,
-    FlagManagementSystem,
-    EvaluationContext,
-    infer In
-  >
+export type SourceInput<C extends Source> =
+  C extends Source<Provider, FlagManagementSystem, EvaluationContext, infer In>
     ? In
     : never;
 
-const { connections } = sharedState;
+const { sources } = sharedState;
 
 /**
- * Defines a connection to a flag project in a system.
+ * Defines a source to a flag project in a system.
  */
-export function defineConnection<
+export function defineSource<
   P extends Provider,
   N extends FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
-  In = DefaultConnectionInput,
->(options: ConnectionOptions<P, N, C, In>): Connection<P, N, C, In> {
+  In = DefaultSourceInput,
+>(options: SourceOptions<P, N, C, In>): Source<P, N, C, In> {
   if (Object.hasOwn(options.project, 'platform')) {
     throw new TypeError(
       'flags: Use `system` instead of `platform` for the flag management system of a project.',
@@ -180,21 +175,56 @@ export function defineConnection<
       'flags: The systemManifest of a project must be an HTTPS URL.',
     );
   }
-  const connection: Connection<P, N, C, In> = Object.freeze({
+  const source: Source<P, N, C, In> = Object.freeze({
     provider: options.provider,
     project: Object.freeze({ ...options.project }) as unknown as Project<N>,
     getEvaluationContext: options.getEvaluationContext,
     hooks: options.hooks ? Object.freeze([...options.hooks]) : undefined,
   });
-  connections.add(connection);
-  return connection;
+  sources.add(source);
+  return source;
 }
 
 /**
- * Returns whether the value was returned by `defineConnection`.
+ * Returns whether the value was returned by `defineSource`.
  *
  * @internal
  */
-export function isConnection(value: unknown): value is Connection {
-  return typeof value === 'object' && value !== null && connections.has(value);
+export function isSource(value: unknown): value is Source {
+  return typeof value === 'object' && value !== null && sources.has(value);
 }
+
+/**
+ * @deprecated Use `defineSource`. Connections are now sources.
+ */
+export const defineConnection: typeof defineSource = defineSource;
+
+/**
+ * @deprecated Use `Source`. Connections are now sources.
+ */
+export type Connection<
+  P extends Provider = Provider,
+  N extends FlagManagementSystem = FlagManagementSystem,
+  C extends EvaluationContext = EvaluationContext,
+  In = DefaultSourceInput,
+> = Source<P, N, C, In>;
+
+/**
+ * @deprecated Use `SourceInput`. Connections are now sources.
+ */
+export type ConnectionInput<C extends Source> = SourceInput<C>;
+
+/**
+ * @deprecated Use `SourceOptions`. Connections are now sources.
+ */
+export type ConnectionOptions<
+  P extends Provider,
+  N extends FlagManagementSystem,
+  C extends EvaluationContext = EvaluationContext,
+  In = DefaultSourceInput,
+> = SourceOptions<P, N, C, In>;
+
+/**
+ * @deprecated Use `DefaultSourceInput`. Connections are now sources.
+ */
+export type DefaultConnectionInput = DefaultSourceInput;

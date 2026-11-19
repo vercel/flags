@@ -9,18 +9,15 @@ import {
   vi,
 } from 'vitest';
 import { defineConfig } from './config';
-import { type DefaultConnectionInput, defineConnection } from './connection';
-import {
-  type DefaultConnection,
-  getBuiltInConnection,
-} from './default-connection';
 import {
   resetProductionWarning,
   VERCEL_OFREP_BASE_URL,
 } from './default-provider';
+import { type DefaultSource, getBuiltInSource } from './default-source';
 import { evaluate, type FlagEvaluationContext } from './evaluate';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
+import { type DefaultSourceInput, defineSource } from './source';
 import type { Provider } from './types';
 
 function ofrepServer(value: boolean) {
@@ -29,13 +26,13 @@ function ofrepServer(value: boolean) {
   );
 }
 
-function connectionOf(value: boolean, name = 'app') {
+function sourceOf(value: boolean, name = 'app') {
   const provider = {
     metadata: { name },
     initialize: vi.fn(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value })),
   } satisfies Provider;
-  return defineConnection({ provider, project: { system: 'in-memory' } });
+  return defineSource({ provider, project: { system: 'in-memory' } });
 }
 
 let warnings: string[];
@@ -57,20 +54,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('built-in default connection', () => {
-  it('is the connection of a flag without a connection', () => {
+describe('built-in default source', () => {
+  it('is the source of a flag without a source', () => {
     const flag = defineFlag({ key: 'a' });
 
-    expect(flag.connection).toBe(getBuiltInConnection());
-    expect(flag.connection.project).toEqual({ system: 'vercel-flags' });
-    expectTypeOf(flag.connection).toEqualTypeOf<DefaultConnection>();
+    expect(flag.source).toBe(getBuiltInSource());
+    expect(flag.source.project).toEqual({ system: 'vercel-flags' });
+    expectTypeOf(flag.source).toEqualTypeOf<DefaultSource>();
   });
 
   it('accepts any evaluation context', () => {
     const flag = defineFlag({ key: 'a' });
     expectTypeOf<
       FlagEvaluationContext<typeof flag>
-    >().toEqualTypeOf<DefaultConnectionInput>();
+    >().toEqualTypeOf<DefaultSourceInput>();
 
     void (() => {
       flag();
@@ -82,8 +79,8 @@ describe('built-in default connection', () => {
     vi.resetModules();
     const copy: typeof import('./index') = await import('./index');
 
-    expect(copy.defineFlag({ key: 'a' }).connection).toBe(
-      defineFlag({ key: 'a' }).connection,
+    expect(copy.defineFlag({ key: 'a' }).source).toBe(
+      defineFlag({ key: 'a' }).source,
     );
   });
 
@@ -127,7 +124,7 @@ describe('built-in default connection', () => {
     await expect(defineFlag({ key: 'a' })()).rejects.toMatchObject({
       name: 'FlagEvaluationError',
       message:
-        'flags: Could not evaluate flag "a": A flag without a connection uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default connection in flags.config.ts, or pass a connection to defineFlag.',
+        'flags: Could not evaluate flag "a": A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to defineFlag.',
     });
   });
 
@@ -153,12 +150,12 @@ describe('built-in default connection', () => {
       await flag();
 
       expect(warnings).toEqual([
-        'flags: Flags without a connection use OFREP, which sends one request for each evaluation. For production, set a default connection in flags.config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
+        'flags: Flags without a source use OFREP, which sends one request for each evaluation. For production, set a default source in flags.config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
       ]);
     });
 
-    it('logs no warning with a configured default connection', async () => {
-      runtime.configure({ defaultConnection: connectionOf(true) });
+    it('logs no warning with a configured default source', async () => {
+      runtime.configure({ defaultSource: sourceOf(true) });
       await defineFlag({ key: 'a' })();
 
       expect(warnings).toEqual([]);
@@ -166,53 +163,53 @@ describe('built-in default connection', () => {
   });
 });
 
-describe('configured default connection', () => {
-  it('replaces the built-in default connection', async () => {
-    const connection = connectionOf(true);
-    runtime.configure(defineConfig({ defaultConnection: connection }));
+describe('configured default source', () => {
+  it('replaces the built-in default source', async () => {
+    const source = sourceOf(true);
+    runtime.configure(defineConfig({ defaultSource: source }));
     const flag = defineFlag({ key: 'a' });
 
-    expect(flag.connection).toBe(connection);
+    expect(flag.source).toBe(source);
     await expect(flag()).resolves.toBe(true);
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalled();
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalled();
   });
 
   it('applies to flags which are defined before the configuration', async () => {
     const flag = defineFlag({ key: 'a' });
-    const connection = connectionOf(true);
+    const source = sourceOf(true);
 
-    runtime.configure({ defaultConnection: connection });
-    expect(flag.connection).toBe(connection);
+    runtime.configure({ defaultSource: source });
+    expect(flag.source).toBe(source);
     await expect(flag()).resolves.toBe(true);
   });
 
-  it('applies to plain definitions without a connection', async () => {
-    runtime.configure({ defaultConnection: connectionOf(true) });
+  it('applies to plain definitions without a source', async () => {
+    runtime.configure({ defaultSource: sourceOf(true) });
 
     await expect(evaluate({ key: 'dynamic' })).resolves.toBe(true);
   });
 
-  it('does not change flags with their own connection', async () => {
-    runtime.configure({ defaultConnection: connectionOf(true) });
-    const own = connectionOf(false, 'own');
-    const flag = defineFlag({ key: 'a', connection: own });
+  it('does not change flags with their own source', async () => {
+    runtime.configure({ defaultSource: sourceOf(true) });
+    const own = sourceOf(false, 'own');
+    const flag = defineFlag({ key: 'a', source: own });
 
-    expect(flag.connection).toBe(own);
+    expect(flag.source).toBe(own);
     await expect(flag()).resolves.toBe(false);
   });
 
   it('is replaced by the next call of configure', async () => {
-    runtime.configure({ defaultConnection: connectionOf(true) });
+    runtime.configure({ defaultSource: sourceOf(true) });
     const flag = defineFlag({ key: 'a' });
     await expect(flag()).resolves.toBe(true);
 
-    runtime.configure({ defaultConnection: connectionOf(false) });
+    runtime.configure({ defaultSource: sourceOf(false) });
     await expect(flag()).resolves.toBe(false);
   });
 
   it('works with any OpenFeature provider', async () => {
     runtime.configure({
-      defaultConnection: defineConnection({
+      defaultSource: defineSource({
         provider: new TypedInMemoryProvider({
           'summer-sale': {
             variants: { on: true, off: false },
@@ -227,43 +224,43 @@ describe('configured default connection', () => {
     await expect(defineFlag({ key: 'summer-sale' })()).resolves.toBe(true);
   });
 
-  it('only accepts a connection returned by defineConnection', () => {
+  it('only accepts a source returned by defineSource', () => {
     const fake = {
-      provider: connectionOf(true).provider,
+      provider: sourceOf(true).provider,
       project: { system: 'in-memory' as const },
     };
 
-    expect(() => runtime.configure({ defaultConnection: fake })).toThrow(
-      'flags: The defaultConnection of the configuration must be returned by defineConnection.',
+    expect(() => runtime.configure({ defaultSource: fake })).toThrow(
+      'flags: The defaultSource of the configuration must be returned by defineSource.',
     );
   });
 
   describe('initialization', () => {
-    it('initializes the configured default connection in onInit', async () => {
-      const connection = connectionOf(true);
+    it('initializes the configured default source in onInit', async () => {
+      const source = sourceOf(true);
       defineFlag({ key: 'a' });
-      runtime.configure({ defaultConnection: connection });
+      runtime.configure({ defaultSource: source });
 
       await runtime.onInit();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
-    it('initializes a configured default connection also before a flag uses it', async () => {
-      const connection = connectionOf(true);
-      runtime.configure({ defaultConnection: connection });
+    it('initializes a configured default source also before a flag uses it', async () => {
+      const source = sourceOf(true);
+      runtime.configure({ defaultSource: source });
 
       await runtime.onInit();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
   });
 });
 
-describe('a replaced default connection', () => {
+describe('a replaced default source', () => {
   it('is not initialized after it is replaced', async () => {
-    const first = connectionOf(true, 'first');
-    const second = connectionOf(true, 'second');
-    runtime.configure({ defaultConnection: first });
-    runtime.configure({ defaultConnection: second });
+    const first = sourceOf(true, 'first');
+    const second = sourceOf(true, 'second');
+    runtime.configure({ defaultSource: first });
+    runtime.configure({ defaultSource: second });
 
     await runtime.onInit();
     expect(first.provider.initialize).not.toHaveBeenCalled();
@@ -271,25 +268,25 @@ describe('a replaced default connection', () => {
   });
 
   it('is closed when it was initialized', async () => {
-    const first = connectionOf(true, 'first');
+    const first = sourceOf(true, 'first');
     const onClose = vi.fn(async () => {});
     Object.assign(first.provider, { onClose });
-    runtime.configure({ defaultConnection: first });
+    runtime.configure({ defaultSource: first });
     await runtime.onInit();
 
-    runtime.configure({ defaultConnection: connectionOf(true, 'second') });
+    runtime.configure({ defaultSource: sourceOf(true, 'second') });
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it('is not closed when a flag still uses its provider', async () => {
-    const shared = connectionOf(true, 'shared');
+    const shared = sourceOf(true, 'shared');
     const onClose = vi.fn(async () => {});
     Object.assign(shared.provider, { onClose });
-    defineFlag({ key: 'own', connection: shared });
-    runtime.configure({ defaultConnection: shared });
+    defineFlag({ key: 'own', source: shared });
+    runtime.configure({ defaultSource: shared });
     await runtime.onInit();
 
-    runtime.configure({ defaultConnection: connectionOf(true, 'second') });
+    runtime.configure({ defaultSource: sourceOf(true, 'second') });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -297,12 +294,12 @@ describe('a replaced default connection', () => {
 
 describe('configure', () => {
   it('validates all options before it changes anything', async () => {
-    const connection = connectionOf(true);
-    runtime.configure({ defaultConnection: connection });
+    const source = sourceOf(true);
+    runtime.configure({ defaultSource: source });
 
     expect(() =>
       runtime.configure({
-        defaultConnection: connectionOf(false),
+        defaultSource: sourceOf(false),
         overrides: { secret: 'not-valid' },
       }),
     ).toThrow('flags: Invalid FLAGS_SECRET.');

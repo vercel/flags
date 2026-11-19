@@ -1,10 +1,10 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { FlagEvaluationError } from './errors';
 import { defineFlag } from './flag';
 import { logger } from './logger';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 
 describe('logger', () => {
   beforeEach(() => {
@@ -36,14 +36,14 @@ describe('logger', () => {
   });
 
   it('logs one line when a flag returns its default value', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider({}),
       project: { system: 'in-memory' },
     });
     const flag = defineFlag({
       key: 'missing',
       defaultValue: false,
-      connection,
+      source,
     });
 
     await flag();
@@ -55,14 +55,14 @@ describe('logger', () => {
 
   it('does not write the debug messages of providers', async () => {
     // The in-memory provider logs unknown keys at debug level
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider({}),
       project: { system: 'in-memory' },
     });
     const flag = defineFlag({
       key: 'missing',
       defaultValue: false,
-      connection,
+      source,
     });
 
     await flag();
@@ -71,7 +71,7 @@ describe('logger', () => {
 
   it('gives the full error to the debug level', async () => {
     const debug = vi.spyOn(logger, 'debug');
-    const connection = defineConnection({
+    const source = defineSource({
       provider: {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: async () => {
@@ -80,14 +80,14 @@ describe('logger', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'a', defaultValue: true, connection });
+    const flag = defineFlag({ key: 'a', defaultValue: true, source });
 
     await flag();
     expect(debug).toHaveBeenCalledWith(expect.any(FlagEvaluationError));
   });
 
   it('does not write two periods when the message ends with one', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: async () => {
@@ -96,7 +96,7 @@ describe('logger', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'a', defaultValue: true, connection });
+    const flag = defineFlag({ key: 'a', defaultValue: true, source });
 
     await flag();
     expect(console.error).toHaveBeenCalledWith(

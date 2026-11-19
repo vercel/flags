@@ -17,9 +17,9 @@ import { getRequestURL, isError, useEvent } from '#imports';
  * must receive, and a way to load `flags.config.ts`.
  */
 export const setupFramework: SetupFramework = (runtime) => {
-  runtime.setRequestSource(getRequest);
+  runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setConfigSource(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
 };
 
 /**

@@ -18,9 +18,9 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineConnection } from '../connection';
 import { defineFlag } from '../flag';
 import { runtime } from '../runtime';
+import { defineSource } from '../source';
 import type { Provider } from '../types';
 import { decryptOverrides, encryptOverrides } from './index';
 import {
@@ -40,11 +40,11 @@ function createFlag(key = 'new-checkout') {
     initialize: vi.fn(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value: false })),
   } satisfies Provider;
-  const connection = defineConnection({
+  const source = defineSource({
     provider,
     project: { system: 'in-memory' },
   });
-  return { flag: defineFlag({ key, connection }), provider };
+  return { flag: defineFlag({ key, source }), provider };
 }
 
 function withCookie(cookie: string) {
@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  runtime.setRequestSource(undefined);
+  runtime.setGetRequest(undefined);
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -98,7 +98,7 @@ describe('overrides with the shared secret', () => {
     const token = await encryptOverrides({ 'new-checkout': true });
     // Without onInvoke, nothing starts the initialization in advance
     const headers = new Headers({ cookie: `flag-overrides=${token}` });
-    runtime.setRequestSource(() => ({ headers }));
+    runtime.setGetRequest(() => ({ headers }));
 
     await expect(flag()).resolves.toBe(true);
     expect(provider.initialize).not.toHaveBeenCalled();
@@ -280,11 +280,11 @@ describe('overrides with the shared secret', () => {
     expect(provider.resolveBooleanEvaluation).toHaveBeenCalled();
   });
 
-  it('works with the request source, e.g. in Next.js', async () => {
+  it('works with the request getter, e.g. in Next.js', async () => {
     const { flag } = createFlag();
     const token = await encryptOverrides({ 'new-checkout': true });
     const headers = new Headers({ cookie: `flag-overrides=${token}` });
-    runtime.setRequestSource(() => ({ headers }));
+    runtime.setGetRequest(() => ({ headers }));
 
     await expect(flag()).resolves.toBe(true);
   });

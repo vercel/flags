@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { createFlagsRequest } from './request';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type {
   FlagsRequest,
   FlagsRequestInit,
@@ -186,7 +186,7 @@ describe('FlagsRequest', () => {
 
   it('is the same object for each step of a request', async () => {
     const received: (FlagsRequest | undefined)[] = [];
-    const connection = defineConnection({
+    const source = defineSource({
       provider: {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: async () => ({ value: true }),
@@ -199,7 +199,7 @@ describe('FlagsRequest', () => {
     });
     const flag = defineFlag({
       key: 'a',
-      connection,
+      source,
       getEvaluationContext: (_context: undefined, request) => {
         received.push(request);
         return undefined;

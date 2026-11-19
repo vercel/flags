@@ -9,11 +9,11 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineConnection } from './connection';
 import { evaluate } from './evaluate';
 import { defineFlag } from './flag';
 import { encryptOverrides } from './overrides/shared-secret';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider } from './types';
 import type { FlagObjectValue } from './value-types';
 
@@ -50,8 +50,8 @@ const flagValues = {
   },
 } as const;
 
-const connection = () =>
-  defineConnection({
+const source = () =>
+  defineSource({
     provider: new TypedInMemoryProvider(flagValues),
     project: { system: 'in-memory' },
   });
@@ -78,7 +78,7 @@ afterEach(() => {
 
 describe('flag value types', () => {
   it('is a boolean without a type', async () => {
-    const flag = defineFlag({ key: 'summer-sale', connection: connection() });
+    const flag = defineFlag({ key: 'summer-sale', source: source() });
 
     expect(flag.type).toBe('boolean');
     await expect(flag()).resolves.toBe(true);
@@ -89,7 +89,7 @@ describe('flag value types', () => {
     const flag = defineFlag({
       key: 'banner-text',
       type: 'string',
-      connection: connection(),
+      source: source(),
     });
 
     await expect(flag()).resolves.toBe('Sale!');
@@ -101,7 +101,7 @@ describe('flag value types', () => {
       key: 'max-items',
       type: 'number',
       defaultValue: 5,
-      connection: connection(),
+      source: source(),
     });
 
     await expect(flag()).resolves.toBe(10);
@@ -112,7 +112,7 @@ describe('flag value types', () => {
     const flag = defineFlag({
       key: 'theme',
       type: 'object',
-      connection: connection(),
+      source: source(),
     });
 
     await expect(flag()).resolves.toEqual({ color: 'red' });
@@ -120,17 +120,17 @@ describe('flag value types', () => {
   });
 
   it('gives the types of the flags to evaluate', async () => {
-    const c = connection();
-    const sale = defineFlag({ key: 'summer-sale', connection: c });
+    const c = source();
+    const sale = defineFlag({ key: 'summer-sale', source: c });
     const text = defineFlag({
       key: 'banner-text',
       type: 'string',
-      connection: c,
+      source: c,
     });
     const items = defineFlag({
       key: 'max-items',
       type: 'number',
-      connection: c,
+      source: c,
     });
 
     const values = await evaluate([sale, text, items]);
@@ -138,7 +138,7 @@ describe('flag value types', () => {
     expectTypeOf(values).toEqualTypeOf<[boolean, string, number]>();
     expectTypeOf(await evaluate(text)).toEqualTypeOf<string>();
     expectTypeOf(
-      await evaluate({ key: 'max-items', type: 'number', connection: c }),
+      await evaluate({ key: 'max-items', type: 'number', source: c }),
     ).toEqualTypeOf<number>();
   });
 
@@ -149,7 +149,7 @@ describe('flag value types', () => {
         type: 'string',
         options: ['control', 'express', 'one-click'],
         defaultValue: 'control',
-        connection: connection(),
+        source: source(),
       });
 
       await expect(flag()).resolves.toBe('express');
@@ -166,7 +166,7 @@ describe('flag value types', () => {
           { value: 'control', label: 'Control' },
           { value: 'express', label: 'Express checkout' },
         ],
-        connection: connection(),
+        source: source(),
       });
 
       expect(flag.options).toEqual([
@@ -182,7 +182,7 @@ describe('flag value types', () => {
       const flag = defineFlag({
         key: 'summer-sale',
         options: [true, false],
-        connection: connection(),
+        source: source(),
       });
 
       expect(flag.options).toEqual([{ value: true }, { value: false }]);
@@ -194,7 +194,7 @@ describe('flag value types', () => {
         type: 'string',
         options: ['control', 'express'],
         defaultValue: 'control',
-        connection: connection(),
+        source: source(),
       });
 
       await expect(flag()).resolves.toBe('control');
@@ -208,7 +208,7 @@ describe('flag value types', () => {
         key: 'theme',
         type: 'object',
         options: [{ value: { color: 'blue' } }, { value: { color: 'red' } }],
-        connection: connection(),
+        source: source(),
       });
 
       await expect(flag()).resolves.toEqual({ color: 'red' });
@@ -221,7 +221,7 @@ describe('flag value types', () => {
           key: 'theme',
           type: 'object',
           options: [{ color: 'blue' }],
-          connection: connection(),
+          source: source(),
         }),
       ).toThrow(
         'flags: The options of flag "theme" must be objects with a value, e.g. { value: { color: \'blue\' } }, because the flag has the type object.',
@@ -243,7 +243,7 @@ describe('flag value types', () => {
         key: 'max-items',
         type: 'number',
         defaultValue: 0,
-        connection: defineConnection({
+        source: defineSource({
           provider,
           project: { system: 'in-memory' },
         }),
@@ -260,7 +260,7 @@ describe('flag value types', () => {
       const flag = defineFlag({
         key: 'banner-text',
         type: 'number',
-        connection: connection(),
+        source: source(),
       });
 
       await expect(flag()).rejects.toMatchObject({
@@ -277,7 +277,7 @@ describe('flag value types', () => {
       const flag = defineFlag({
         key: 'a',
         type: 'string',
-        connection: defineConnection({
+        source: defineSource({
           provider: onlyBoolean,
           project: { system: 'in-memory' },
         }),
@@ -295,7 +295,7 @@ describe('flag value types', () => {
         defineFlag({
           key: 'a',
           type: 'date',
-          connection: connection(),
+          source: source(),
         }),
       ).toThrow(
         'flags: The type of flag "a" must be boolean, string, number or object.',
@@ -321,7 +321,7 @@ describe('flag value types', () => {
       await defineFlag({
         key: 'a',
         type,
-        connection: defineConnection({
+        source: defineSource({
           provider,
           project: { system: 'in-memory' },
         }),
@@ -337,7 +337,7 @@ describe('flag value types', () => {
       defineFlag({
         key: 'banner-text',
         defaultValue: 'Welcome',
-        connection: connection(),
+        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -350,7 +350,7 @@ describe('flag value types', () => {
       defineFlag({
         key: 'checkout',
         options: ['control', 'express'],
-        connection: connection(),
+        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -383,7 +383,7 @@ describe('flag value types', () => {
         type: 'string',
         options: ['a', 'b'],
         defaultValue: 'c',
-        connection: connection(),
+        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -413,7 +413,7 @@ describe('flag value types', () => {
       const flag = defineFlag({
         key: 'banner-text',
         type: 'string',
-        connection: connection(),
+        source: source(),
       });
 
       await expect(
@@ -425,7 +425,7 @@ describe('flag value types', () => {
       const flag = defineFlag({
         key: 'max-items',
         type: 'number',
-        connection: connection(),
+        source: source(),
       });
 
       await expect(
@@ -441,7 +441,7 @@ describe('flag value types', () => {
         key: 'checkout',
         type: 'string',
         options: ['control', 'express', 'one-click'],
-        connection: connection(),
+        source: source(),
       });
 
       await expect(

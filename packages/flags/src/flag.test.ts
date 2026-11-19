@@ -8,11 +8,11 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineConnection } from './connection';
 import { FlagEvaluationError } from './errors';
 import { defineFlag } from './flag';
 import { logger } from './logger';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider, ResolutionDetails } from './types';
 
 const myFlags = {
@@ -23,14 +23,14 @@ const myFlags = {
   },
 } as const;
 
-function inMemoryConnection() {
-  return defineConnection({
+function inMemorySource() {
+  return defineSource({
     provider: new TypedInMemoryProvider(myFlags),
     project: { system: 'in-memory' },
   });
 }
 
-function customConnection(
+function customSource(
   resolve: () => Promise<ResolutionDetails<unknown>>,
   initialize?: () => Promise<void>,
 ) {
@@ -39,7 +39,7 @@ function customConnection(
     initialize,
     resolveBooleanEvaluation: vi.fn(resolve),
   } as Provider & { resolveBooleanEvaluation: ReturnType<typeof vi.fn> };
-  return defineConnection({ provider, project: { system: 'in-memory' } });
+  return defineSource({ provider, project: { system: 'in-memory' } });
 }
 
 describe('defineFlag', () => {
@@ -54,7 +54,7 @@ describe('defineFlag', () => {
   it('evaluates the flag with the provider', async () => {
     const flag = defineFlag({
       key: 'v2_enabled',
-      connection: inMemoryConnection(),
+      source: inMemorySource(),
     });
 
     await expect(flag()).resolves.toBe(true);
@@ -62,34 +62,34 @@ describe('defineFlag', () => {
     expectTypeOf(flag).returns.toEqualTypeOf<Promise<boolean>>();
   });
 
-  it('exposes its definition and the connection', () => {
-    const connection = defineConnection({
+  it('exposes its definition and the source', () => {
+    const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
     const flag = defineFlag({
       key: 'v2_enabled',
       defaultValue: false,
-      connection,
+      source,
     });
 
     expect(flag.key).toBe('v2_enabled');
     expect(flag.defaultValue).toBe(false);
-    expect(flag.connection).toBe(connection);
-    expect(flag.connection.project).toEqual({
+    expect(flag.source).toBe(source);
+    expect(flag.source.project).toEqual({
       system: 'launchdarkly',
       projectId: 'x',
       teamId: 'y',
     });
     expectTypeOf(flag.key).toEqualTypeOf<'v2_enabled'>();
-    expectTypeOf(flag.connection.project.teamId).toEqualTypeOf<string>();
+    expectTypeOf(flag.source.project.teamId).toEqualTypeOf<string>();
   });
 
   it('passes an empty context and a logger to the provider', async () => {
-    const connection = customConnection(async () => ({ value: true }));
-    await defineFlag({ key: 'a', connection })();
+    const source = customSource(async () => ({ value: true }));
+    await defineFlag({ key: 'a', source })();
 
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
       false,
       {},
@@ -98,10 +98,10 @@ describe('defineFlag', () => {
   });
 
   it('passes the default value to the provider', async () => {
-    const connection = customConnection(async () => ({ value: true }));
-    await defineFlag({ key: 'a', defaultValue: true, connection })();
+    const source = customSource(async () => ({ value: true }));
+    await defineFlag({ key: 'a', defaultValue: true, source })();
 
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
       true,
       {},
@@ -109,32 +109,32 @@ describe('defineFlag', () => {
     );
   });
 
-  it('registers the connection', () => {
-    const connection = inMemoryConnection();
-    expect(runtime.connections).not.toContain(connection);
+  it('registers the source', () => {
+    const source = inMemorySource();
+    expect(runtime.sources).not.toContain(source);
 
-    defineFlag({ key: 'v2_enabled', connection });
-    expect(runtime.connections).toContain(connection);
+    defineFlag({ key: 'v2_enabled', source });
+    expect(runtime.sources).toContain(source);
   });
 
-  it('requires a connection returned by defineConnection', () => {
-    const connection = {
+  it('requires a source returned by defineSource', () => {
+    const source = {
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'in-memory' as const },
     };
 
-    expect(() => defineFlag({ key: 'v2_enabled', connection })).toThrow(
-      'flags: The connection of flag "v2_enabled" must be returned by defineConnection.',
+    expect(() => defineFlag({ key: 'v2_enabled', source })).toThrow(
+      'flags: The source of flag "v2_enabled" must be returned by defineSource.',
     );
   });
 
-  it('requires a connection, not a provider', () => {
+  it('requires a source, not a provider', () => {
     const provider = new TypedInMemoryProvider(myFlags);
-    const options = { key: 'v2_enabled', connection: provider };
+    const options = { key: 'v2_enabled', source: provider };
 
-    // @ts-expect-error a provider is not a connection
+    // @ts-expect-error a provider is not a source
     expect(() => defineFlag(options)).toThrow(
-      'flags: The connection of flag "v2_enabled" must be returned by defineConnection.',
+      'flags: The source of flag "v2_enabled" must be returned by defineSource.',
     );
   });
 
@@ -143,7 +143,7 @@ describe('defineFlag', () => {
       const flag = defineFlag({
         key: 'missing',
         defaultValue: true,
-        connection: inMemoryConnection(),
+        source: inMemorySource(),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -155,7 +155,7 @@ describe('defineFlag', () => {
     it('throws without a default value', async () => {
       const flag = defineFlag({
         key: 'missing',
-        connection: inMemoryConnection(),
+        source: inMemorySource(),
       });
 
       const error = await flag().catch((e: unknown) => e);
@@ -171,13 +171,11 @@ describe('defineFlag', () => {
     });
 
     it('uses GENERAL for errors without a code', async () => {
-      const connection = customConnection(async () => {
+      const source = customSource(async () => {
         throw 'oops';
       });
 
-      await expect(
-        defineFlag({ key: 'a', connection })(),
-      ).rejects.toMatchObject({
+      await expect(defineFlag({ key: 'a', source })()).rejects.toMatchObject({
         code: 'GENERAL',
         message: 'flags: Could not evaluate flag "a": oops',
         cause: 'oops',
@@ -196,7 +194,7 @@ describe('defineFlag', () => {
       const flag = defineFlag({
         key: 'a',
         defaultValue: true,
-        connection: customConnection(resolve),
+        source: customSource(resolve),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -208,7 +206,7 @@ describe('defineFlag', () => {
     it('throws without a default value', async () => {
       const flag = defineFlag({
         key: 'a',
-        connection: customConnection(resolve),
+        source: customSource(resolve),
       });
 
       await expect(flag()).rejects.toMatchObject({
@@ -221,9 +219,9 @@ describe('defineFlag', () => {
   });
 
   it('throws when the provider returns a non-boolean value', async () => {
-    const connection = customConnection(async () => ({ value: 'on' }));
+    const source = customSource(async () => ({ value: 'on' }));
 
-    await expect(defineFlag({ key: 'a', connection })()).rejects.toMatchObject({
+    await expect(defineFlag({ key: 'a', source })()).rejects.toMatchObject({
       code: 'TYPE_MISMATCH',
       message:
         'flags: Could not evaluate flag "a": Expected a boolean, got string',
@@ -233,12 +231,9 @@ describe('defineFlag', () => {
   describe('initialization', () => {
     it('initializes the provider once', async () => {
       const initialize = vi.fn(async () => {});
-      const connection = customConnection(
-        async () => ({ value: true }),
-        initialize,
-      );
-      const a = defineFlag({ key: 'a', connection });
-      const b = defineFlag({ key: 'b', connection });
+      const source = customSource(async () => ({ value: true }), initialize);
+      const a = defineFlag({ key: 'a', source });
+      const b = defineFlag({ key: 'b', source });
 
       expect(initialize).not.toHaveBeenCalled();
       await Promise.all([a(), b(), a()]);
@@ -248,7 +243,7 @@ describe('defineFlag', () => {
 
     it('evaluates after initialization finished', async () => {
       const order: string[] = [];
-      const connection = customConnection(
+      const source = customSource(
         async () => {
           order.push('resolve');
           return { value: true };
@@ -259,7 +254,7 @@ describe('defineFlag', () => {
         },
       );
 
-      await defineFlag({ key: 'a', connection })();
+      await defineFlag({ key: 'a', source })();
       expect(order).toEqual(['initialize', 'resolve']);
     });
 
@@ -268,11 +263,8 @@ describe('defineFlag', () => {
         .fn<() => Promise<void>>()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue(undefined);
-      const connection = customConnection(
-        async () => ({ value: true }),
-        initialize,
-      );
-      const flag = defineFlag({ key: 'a', connection });
+      const source = customSource(async () => ({ value: true }), initialize);
+      const flag = defineFlag({ key: 'a', source });
 
       await expect(flag()).rejects.toMatchObject({
         code: 'GENERAL',
@@ -283,22 +275,17 @@ describe('defineFlag', () => {
     });
 
     it('handles initialize throwing synchronously', async () => {
-      const connection = customConnection(
-        async () => ({ value: true }),
-        (() => {
-          throw new Error('Sync error');
-        }) as () => Promise<void>,
-      );
+      const source = customSource(async () => ({ value: true }), (() => {
+        throw new Error('Sync error');
+      }) as () => Promise<void>);
 
-      await expect(
-        defineFlag({ key: 'a', connection })(),
-      ).rejects.toMatchObject({
+      await expect(defineFlag({ key: 'a', source })()).rejects.toMatchObject({
         message: 'flags: Could not evaluate flag "a": Sync error',
       });
     });
 
     it('returns the default value when initialization fails', async () => {
-      const connection = customConnection(
+      const source = customSource(
         async () => ({ value: false }),
         async () => {
           throw new Error('Network error');
@@ -306,7 +293,7 @@ describe('defineFlag', () => {
       );
 
       await expect(
-        defineFlag({ key: 'a', defaultValue: true, connection })(),
+        defineFlag({ key: 'a', defaultValue: true, source })(),
       ).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
         'flags: Could not evaluate flag "a": Network error. Returned the default value: true.',
@@ -317,7 +304,7 @@ describe('defineFlag', () => {
   it('keeps the literal type of the key', () => {
     const flag = defineFlag({
       key: 'anything',
-      connection: inMemoryConnection(),
+      source: inMemorySource(),
     });
     expectTypeOf(flag.key).toEqualTypeOf<'anything'>();
   });

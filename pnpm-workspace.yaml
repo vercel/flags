@@ -5,6 +5,7 @@ packages:
   - examples/*
   - examples/providers/*
   - examples/playgrounds/*
+  - examples/standard/*
   - apps/*
 
 catalog:

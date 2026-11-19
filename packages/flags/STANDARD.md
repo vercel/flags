@@ -146,7 +146,7 @@ export const setupFramework: SetupFramework; // (runtime: Runtime) => void | Pro
 
 A framework which can give the current request at any time, but has no
 middleware which wraps the handler, MUST call
-`runtime.setRequestSource(source)`.
+`runtime.setGetRequest(source)`.
 
 - `source()` MUST return the current `FlagsRequestInit`, or `undefined`
   outside of a request. It MAY return a promise.
@@ -175,7 +175,7 @@ redirect. These are **signals**.
 
 ### 5.3 The config source
 
-A framework with a bundler MUST call `runtime.setConfigSource(source)`,
+A framework with a bundler MUST call `runtime.setLoadConfig(source)`,
 where `source` returns the export `config` of `flags/config`.
 
 - In development, the runtime calls the source before each evaluation, and

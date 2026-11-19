@@ -11,16 +11,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   decryptOverrides,
   defineConfig,
-  defineConnection,
   defineFlag,
+  defineSource,
   encryptOverrides,
   evaluate,
   FlagEvaluationError,
   type Hook,
   OVERRIDE_REASON,
   type Provider,
-  registerConnections,
   registerFlags,
+  registerSources,
   runtime,
   track,
 } from './index';
@@ -59,7 +59,7 @@ function createProvider() {
 
 // A provider which loads its data in initialize, e.g. from a CDN, and
 // writes each lifecycle step to a list
-function lifecycleConnection(name = 'remote') {
+function lifecycleSource(name = 'remote') {
   const steps: string[] = [];
   const flags = createProvider();
   const provider: Provider = {
@@ -76,11 +76,11 @@ function lifecycleConnection(name = 'remote') {
       return flags.resolveBooleanEvaluation(key, defaultValue, context, logger);
     },
   };
-  const connection = defineConnection({
+  const source = defineSource({
     provider,
     project: { system: 'in-memory' },
   });
-  return { connection, steps };
+  return { source, steps };
 }
 
 let errors: string[];
@@ -94,42 +94,42 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  runtime.setRequestSource(undefined);
+  runtime.setGetRequest(undefined);
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
-describe('1. Connections and flags', () => {
+describe('1. Sources and flags', () => {
   it('defines a flag and evaluates it', async () => {
-    // A connection links flags to a flag project in a flag management
+    // A source links flags to a flag project in a flag management
     // system (system), and to the
     // provider which evaluates them
-    const launchdarkly = defineConnection({
+    const launchdarkly = defineSource({
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
     const summerSale = defineFlag({
       key: 'summer-sale',
-      connection: launchdarkly,
+      source: launchdarkly,
     });
 
     expect(await summerSale()).toBe(true);
   });
 
   it('gives each flag access to its project', () => {
-    const launchdarkly = defineConnection({
+    const launchdarkly = defineSource({
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
     const summerSale = defineFlag({
       key: 'summer-sale',
-      connection: launchdarkly,
+      source: launchdarkly,
     });
 
     expect(summerSale.key).toBe('summer-sale');
-    expect(summerSale.connection.project).toEqual({
+    expect(summerSale.source.project).toEqual({
       system: 'launchdarkly',
       projectId: 'shop',
       teamId: 'acme',
@@ -137,12 +137,12 @@ describe('1. Connections and flags', () => {
   });
 
   it('has short forms for the common cases', async () => {
-    const launchdarkly = defineConnection({
+    const launchdarkly = defineSource({
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
-    // The same as defineFlag({ key, connection })
+    // The same as defineFlag({ key, source })
     const summerSale = defineFlag(launchdarkly, 'summer-sale');
     // The type comes from the default value: a boolean flag
     const newCheckout = defineFlag(launchdarkly, 'new-checkout', false);
@@ -150,19 +150,19 @@ describe('1. Connections and flags', () => {
     expect(await summerSale()).toBe(true);
     expect(await newCheckout()).toBe(false);
     expect(newCheckout.defaultValue).toBe(false);
-    // Without a connection, defineFlag('summer-sale') and
-    // defineFlag('summer-sale', false) use the default connection
+    // Without a source, defineFlag('summer-sale') and
+    // defineFlag('summer-sale', false) use the default source
   });
 
   it('requires the fields of the system', () => {
     void (() => {
-      defineConnection({
+      defineSource({
         provider: createProvider(),
         // @ts-expect-error launchdarkly requires projectId and teamId
         project: { system: 'launchdarkly' },
       });
       // in-memory requires no fields
-      defineConnection({
+      defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
       });
@@ -171,8 +171,8 @@ describe('1. Connections and flags', () => {
 });
 
 describe('2. Default values and errors', () => {
-  const connection = () =>
-    defineConnection({
+  const source = () =>
+    defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
@@ -181,7 +181,7 @@ describe('2. Default values and errors', () => {
     const missing = defineFlag({
       key: 'does-not-exist',
       defaultValue: false,
-      connection: connection(),
+      source: source(),
     });
 
     expect(await missing()).toBe(false);
@@ -193,7 +193,7 @@ describe('2. Default values and errors', () => {
   it('throws when a flag without a default value fails', async () => {
     const missing = defineFlag({
       key: 'does-not-exist',
-      connection: connection(),
+      source: source(),
     });
 
     const error = await missing().catch((e: unknown) => e);
@@ -207,12 +207,12 @@ describe('2. Default values and errors', () => {
 
 describe('3. Several flags at once', () => {
   it('evaluates a list of flags and returns the values in order', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const summerSale = defineFlag({ key: 'summer-sale', source });
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     const [sale, checkout] = await evaluate([summerSale, newCheckout]);
 
@@ -221,30 +221,30 @@ describe('3. Several flags at once', () => {
   });
 
   it('evaluates a key which is only known at runtime', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
     const key = ['summer', 'sale'].join('-');
 
-    expect(await evaluate({ key, connection })).toBe(true);
+    expect(await evaluate({ key, source })).toBe(true);
   });
 });
 
 describe('4. The evaluation context chain', () => {
   // The context flows from the call side, through the flag, to the
-  // connection. Each step can change it.
+  // source. Each step can change it.
 
-  it('passes the context of the call side to the connection', async () => {
-    const connection = defineConnection({
+  it('passes the context of the call side to the source', async () => {
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      // The connection decides what its flags must give
+      // The source decides what its flags must give
       getEvaluationContext: (context: { user: string }) => ({
         user: context.user,
       }),
     });
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     expect(await newCheckout({ evaluationContext: { user: 'alice' } })).toBe(
       true,
@@ -260,17 +260,17 @@ describe('4. The evaluation context chain', () => {
       'team-2': { plan: 'free' },
     };
 
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      // The connection loads the team, e.g. from a database
+      // The source loads the team, e.g. from a database
       getEvaluationContext: async (context: {
         teamId: keyof typeof teams;
       }) => ({
         team: teams[context.teamId],
       }),
     });
-    const teamInsights = defineFlag({ key: 'team-insights', connection });
+    const teamInsights = defineFlag({ key: 'team-insights', source });
 
     // e.g. GET /api/teams/team-1/insights
     expect(
@@ -281,8 +281,8 @@ describe('4. The evaluation context chain', () => {
     ).toBe(false);
   });
 
-  it('lets a flag convert the context between the call side and the connection', async () => {
-    const connection = defineConnection({
+  it('lets a flag convert the context between the call side and the source', async () => {
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
@@ -290,10 +290,10 @@ describe('4. The evaluation context chain', () => {
       }),
     });
 
-    // The call side knows the slug, the connection needs the id
+    // The call side knows the slug, the source needs the id
     const teamInsights = defineFlag({
       key: 'team-insights',
-      connection,
+      source,
       getEvaluationContext: (context: { slug: string }) => ({
         teamId: `id-of-${context.slug}`,
       }),
@@ -305,18 +305,18 @@ describe('4. The evaluation context chain', () => {
   });
 
   it('checks the context at the type level', () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: context.teamId,
       }),
     });
-    const teamInsights = defineFlag({ key: 'team-insights', connection });
+    const teamInsights = defineFlag({ key: 'team-insights', source });
 
     void (() => {
       teamInsights({ evaluationContext: { teamId: 'team-1' } });
-      // @ts-expect-error the connection needs a teamId
+      // @ts-expect-error the source needs a teamId
       teamInsights();
       // @ts-expect-error teamId must be a string
       teamInsights({ evaluationContext: { teamId: 1 } });
@@ -325,10 +325,10 @@ describe('4. The evaluation context chain', () => {
 });
 
 describe('5. Requests', () => {
-  // The connection reads the user from a cookie of the current request
-  function cookieConnection() {
+  // The source reads the user from a cookie of the current request
+  function cookieSource() {
     const calls = { count: 0 };
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => {
@@ -336,12 +336,12 @@ describe('5. Requests', () => {
         return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
       },
     });
-    return { connection, calls };
+    return { source, calls };
   }
 
   it('gives each step the request of a middleware', async () => {
-    const { connection } = cookieConnection();
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const { source } = cookieSource();
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     // e.g. in Hono: app.use((c, next) => runtime.onInvoke(c.req.raw, next))
     const request = new Request('https://shop.example/checkout', {
@@ -354,7 +354,7 @@ describe('5. Requests', () => {
 
   it('gives each step the standard request: headers, cookies and URL', async () => {
     let seen: unknown;
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => {
@@ -366,7 +366,7 @@ describe('5. Requests', () => {
         return {};
       },
     });
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
+    const summerSale = defineFlag({ key: 'summer-sale', source });
 
     const request = new Request('https://shop.example/teams/acme', {
       headers: { 'accept-language': 'de-CH', cookie: 'user=alice' },
@@ -381,9 +381,9 @@ describe('5. Requests', () => {
   });
 
   it('creates the context once per request', async () => {
-    const { connection, calls } = cookieConnection();
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const { source, calls } = cookieSource();
+    const summerSale = defineFlag({ key: 'summer-sale', source });
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     const request = new Request('https://shop.example', {
       headers: { cookie: 'user=alice' },
@@ -402,7 +402,7 @@ describe('5. Requests', () => {
     const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
     const summerSale = defineFlag({
       key: 'summer-sale',
-      connection: defineConnection({
+      source: defineSource({
         provider,
         project: { system: 'in-memory' },
       }),
@@ -417,13 +417,13 @@ describe('5. Requests', () => {
   });
 
   it('works like Next.js, which gives only headers() and cookies()', async () => {
-    const { connection, calls } = cookieConnection();
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const { source, calls } = cookieSource();
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     // Next.js: headers() returns the same object during one request, so the
     // SDK can identify the request without a middleware
     const headers = new Headers({ cookie: 'user=alice' });
-    runtime.setRequestSource(async () => ({ headers }));
+    runtime.setGetRequest(async () => ({ headers }));
 
     expect(await newCheckout()).toBe(true);
     expect(await newCheckout()).toBe(true);
@@ -431,8 +431,8 @@ describe('5. Requests', () => {
   });
 
   it('uses no request outside of a request, e.g. in a script', async () => {
-    const { connection } = cookieConnection();
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const { source } = cookieSource();
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     expect(await newCheckout()).toBe(false); // user is "anonymous"
   });
@@ -440,8 +440,8 @@ describe('5. Requests', () => {
 
 describe('6. Runtime lifecycle', () => {
   it('initializes the providers before the first request', async () => {
-    const { connection, steps } = lifecycleConnection();
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
+    const { source, steps } = lifecycleSource();
+    const summerSale = defineFlag({ key: 'summer-sale', source });
 
     // e.g. in the AWS Lambda init phase
     await runtime.onInit();
@@ -456,8 +456,8 @@ describe('6. Runtime lifecycle', () => {
   });
 
   it('initializes a provider on its first evaluation without onInit', async () => {
-    const { connection, steps } = lifecycleConnection();
-    const summerSale = defineFlag({ key: 'summer-sale', connection });
+    const { source, steps } = lifecycleSource();
+    const summerSale = defineFlag({ key: 'summer-sale', source });
 
     await summerSale();
 
@@ -468,13 +468,13 @@ describe('6. Runtime lifecycle', () => {
   });
 
   it('does not let a slow provider delay the flags of a different provider', async () => {
-    const slow = lifecycleConnection('slow');
-    const fast = defineConnection({
+    const slow = lifecycleSource('slow');
+    const fast = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    defineFlag({ key: 'summer-sale', connection: slow.connection });
-    const summerSale = defineFlag({ key: 'summer-sale', connection: fast });
+    defineFlag({ key: 'summer-sale', source: slow.source });
+    const summerSale = defineFlag({ key: 'summer-sale', source: fast });
 
     // onInvoke starts the initialization of "slow", but does not wait for it
     const value = await runtime.onInvoke(
@@ -488,8 +488,8 @@ describe('6. Runtime lifecycle', () => {
   });
 
   it('closes the providers on shutdown', async () => {
-    const { connection, steps } = lifecycleConnection();
-    defineFlag({ key: 'summer-sale', connection });
+    const { source, steps } = lifecycleSource();
+    defineFlag({ key: 'summer-sale', source });
 
     await runtime.onInit();
     await runtime.onShutdown();
@@ -499,27 +499,27 @@ describe('6. Runtime lifecycle', () => {
 });
 
 describe('7. Registration', () => {
-  it('registers connections whose flags are defined later', async () => {
-    const { connection, steps } = lifecycleConnection();
+  it('registers sources whose flags are defined later', async () => {
+    const { source, steps } = lifecycleSource();
 
-    // No flag of this connection is defined yet, e.g. because its module is
-    // imported later. Thus, onInit only knows the connection through this:
-    registerConnections([connection]);
+    // No flag of this source is defined yet, e.g. because its module is
+    // imported later. Thus, onInit only knows the source through this:
+    registerSources([source]);
     await runtime.onInit();
 
     expect(steps).toEqual(['remote: initialize']);
   });
 
   it('registers the flags of a module, e.g. a "use flags" module', () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
     // The framework plugins append this to each 'use flags' module:
     // import * as self from './flags'; registerFlags(self);
     const flagsModule = {
-      summerSale: defineFlag({ key: 'summer-sale', connection }),
-      newCheckout: defineFlag({ key: 'new-checkout', connection }),
+      summerSale: defineFlag({ key: 'summer-sale', source }),
+      newCheckout: defineFlag({ key: 'new-checkout', source }),
     };
 
     expect(() => registerFlags(flagsModule)).not.toThrow();
@@ -530,7 +530,7 @@ describe('7. Registration', () => {
 });
 
 describe('8. One runtime for each process', () => {
-  it('lets Next.js set the request source in instrumentation.ts', async () => {
+  it('lets Next.js set the request getter in instrumentation.ts', async () => {
     // Next.js can bundle instrumentation.ts and the pages separately, so
     // each bundle can have its own copy of the package
     vi.resetModules();
@@ -538,17 +538,17 @@ describe('8. One runtime for each process', () => {
 
     // instrumentation.ts, register(): one time for each process
     const headers = new Headers({ cookie: 'user=alice' });
-    instrumentation.runtime.setRequestSource(async () => ({ headers }));
+    instrumentation.runtime.setGetRequest(async () => ({ headers }));
 
     // A page, with a different copy of the package
-    const connection = defineConnection({
+    const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (_context, request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const newCheckout = defineFlag({ key: 'new-checkout', connection });
+    const newCheckout = defineFlag({ key: 'new-checkout', source });
 
     expect(instrumentation.defineFlag).not.toBe(defineFlag);
     expect(instrumentation.runtime).toBe(runtime);
@@ -561,8 +561,8 @@ describe('9. Overrides', () => {
   // Vercel Toolbar. It is a cookie, and it must be trusted: either encrypted
   // with a shared secret, or signed by Vercel.
 
-  const connection = () =>
-    defineConnection({
+  const source = () =>
+    defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
@@ -578,7 +578,7 @@ describe('9. Overrides', () => {
     );
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: connection(),
+      source: source(),
     });
 
     // e.g. in a test or in CI
@@ -623,7 +623,7 @@ describe('9. Overrides', () => {
 
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: connection(),
+      source: source(),
     });
 
     // What the Vercel Toolbar does: sign the override for this project
@@ -668,7 +668,7 @@ describe('9. Overrides', () => {
 
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: connection(),
+      source: source(),
     });
 
     // What Flags Explorer does in local development
@@ -698,7 +698,7 @@ describe('9. Overrides', () => {
   it('ignores a cookie which is not trusted', async () => {
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: connection(),
+      source: source(),
     });
     const request = new Request('https://shop.example', {
       headers: { cookie: 'flag-overrides=I-want-the-new-checkout' },
@@ -716,7 +716,7 @@ describe('9. Overrides', () => {
 });
 
 describe('10. Zero configuration and flags.config.ts', () => {
-  // A flag without a connection uses the default connection. Without
+  // A flag without a source uses the default source. Without
   // configuration, that is Vercel Flags: locally with the OpenFeature Remote
   // Evaluation Protocol (OFREP), after vercel link and vercel env pull. When
   // a framework builds for Vercel, it replaces this provider with a fast one
@@ -742,20 +742,20 @@ describe('10. Zero configuration and flags.config.ts', () => {
     const summerSale = defineFlag({ key: 'summer-sale' });
 
     await expect(summerSale()).rejects.toThrow(
-      'Run `vercel link` and `vercel env pull`, set a default connection in flags.config.ts, or pass a connection to defineFlag.',
+      'Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to defineFlag.',
     );
   });
 
-  it('upgrades all flags with one default connection in flags.config.ts', async () => {
-    // The flags of the application, without a connection
+  it('upgrades all flags with one default source in flags.config.ts', async () => {
+    // The flags of the application, without a source
     const newCheckout = defineFlag({ key: 'new-checkout' });
     const summerSale = defineFlag({ key: 'summer-sale' });
 
     // flags.config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
     // Here, a
-    // connection with an evaluation context from a cookie.
+    // source with an evaluation context from a cookie.
     const config = defineConfig({
-      defaultConnection: defineConnection({
+      defaultSource: defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => ({
@@ -776,7 +776,7 @@ describe('10. Zero configuration and flags.config.ts', () => {
     // new-checkout is on for alice only
     expect(checkout).toBe(true);
     expect(sale).toBe(true);
-    expect(newCheckout.connection).toBe(config.defaultConnection);
+    expect(newCheckout.source).toBe(config.defaultSource);
   });
 });
 
@@ -784,8 +784,8 @@ describe('11. Flag value types', () => {
   // Without a type, a flag is a boolean. Each other type must be set with
   // type. The names are those of OpenFeature.
 
-  const connection = () =>
-    defineConnection({
+  const source = () =>
+    defineSource({
       provider: new TypedInMemoryProvider({
         'banner-text': {
           variants: { welcome: 'Welcome', sale: 'Summer sale!' },
@@ -812,18 +812,18 @@ describe('11. Flag value types', () => {
     });
 
   it('evaluates strings, numbers and objects', async () => {
-    const c = connection();
+    const c = source();
     const bannerText = defineFlag({
       key: 'banner-text',
       type: 'string',
-      connection: c,
+      source: c,
     });
     const maxItems = defineFlag({
       key: 'max-items',
       type: 'number',
-      connection: c,
+      source: c,
     });
-    const theme = defineFlag({ key: 'theme', type: 'object', connection: c });
+    const theme = defineFlag({ key: 'theme', type: 'object', source: c });
 
     expect(await evaluate([bannerText, maxItems, theme])).toEqual([
       'Summer sale!',
@@ -842,7 +842,7 @@ describe('11. Flag value types', () => {
         { value: 'express', label: 'Express checkout' },
       ],
       defaultValue: 'control',
-      connection: connection(),
+      source: source(),
     });
 
     const value: 'control' | 'express' = await checkout();
@@ -874,11 +874,11 @@ describe('12. What a framework binding does', () => {
     const headers = new Headers({ cookie: 'user=alice' });
 
     // Next.js: headers() and cookies() of the current request
-    runtime.setRequestSource(async () => ({ headers }));
+    runtime.setGetRequest(async () => ({ headers }));
     // flags.config.ts. In development, the runtime loads it again.
-    runtime.setConfigSource(() =>
+    runtime.setLoadConfig(() =>
       defineConfig({
-        defaultConnection: defineConnection({
+        defaultSource: defineSource({
           provider: createProvider(),
           project: { system: 'in-memory' },
           getEvaluationContext: (_context, request) => ({
@@ -910,12 +910,12 @@ describe('13. Hooks, events and tracking', () => {
         );
       },
     };
-    // flags.config.ts: hooks for all flags. A connection and the call side
+    // flags.config.ts: hooks for all flags. A source and the call side
     // can add more.
     runtime.configure(defineConfig({ hooks: [logEvaluations] }));
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: defineConnection({
+      source: defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
       }),
@@ -946,7 +946,7 @@ describe('13. Hooks, events and tracking', () => {
     });
     const newCheckout = defineFlag({
       key: 'new-checkout',
-      connection: defineConnection({
+      source: defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
       }),
@@ -965,8 +965,8 @@ describe('13. Hooks, events and tracking', () => {
     runtime.addHandler('PROVIDER_READY', (details) => {
       events.push(`${details.providerName} is ready`);
     });
-    const { connection } = lifecycleConnection('remote');
-    defineFlag({ key: 'summer-sale', connection });
+    const { source } = lifecycleSource('remote');
+    defineFlag({ key: 'summer-sale', source });
 
     await runtime.onInit();
     expect(events).toEqual(['remote is ready']);
@@ -974,7 +974,7 @@ describe('13. Hooks, events and tracking', () => {
 
   it('records tracking events, e.g. a purchase for an experiment', async () => {
     const provider = Object.assign(createProvider(), { track: vi.fn() });
-    const shop = defineConnection({
+    const shop = defineSource({
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { user: string }) => context,
@@ -984,7 +984,7 @@ describe('13. Hooks, events and tracking', () => {
       evaluationContext: { user: 'alice' },
       details: { value: 99 },
     });
-    // The provider receives the context of the connection, as for a flag
+    // The provider receives the context of the source, as for a flag
     expect(provider.track).toHaveBeenCalledWith(
       'purchase',
       { user: 'alice' },
@@ -1022,7 +1022,7 @@ describe('14. Discovery for Flags Explorer', () => {
       defaultValue: 'control',
       description: 'The checkout flow',
       declaredInCode: true,
-      // Without a connection: the default connection, here Vercel Flags
+      // Without a source: the default source, here Vercel Flags
       connection: 'vercel-flags',
       sources: [{ module: 'flags.ts', export: 'checkout' }],
     });
@@ -1030,7 +1030,7 @@ describe('14. Discovery for Flags Explorer', () => {
   });
 
   it('lets a tool build the links to the dashboard of the system', () => {
-    const launchdarkly = defineConnection({
+    const launchdarkly = defineSource({
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
@@ -1069,15 +1069,15 @@ describe('14. Discovery for Flags Explorer', () => {
   });
 
   it('registers the flags of a use flags module', () => {
-    const remote = defineConnection({
+    const remote = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
 
     // The framework plugins append this call to each 'use flags' module.
     // Without a plugin, call it with the module namespace object.
-    registerFlags({ plain: { key: 'plain', connection: remote } });
+    registerFlags({ plain: { key: 'plain', source: remote } });
 
-    expect(runtime.connections.has(remote)).toBe(true);
+    expect(runtime.sources.has(remote)).toBe(true);
   });
 });

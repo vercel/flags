@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { logger } from './logger';
 import { createOfrepProvider } from './ofrep';
+import { defineSource } from './source';
 import type { Provider } from './types';
 
 /**
@@ -244,18 +244,18 @@ describe('createOfrepProvider', () => {
     ).resolves.toMatchObject({ value: { color: 'red' } });
   });
 
-  it('works as the provider of a connection', async () => {
+  it('works as the provider of a source', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { provider: ofrep } = provider(() =>
       Response.json({ key: 'new-checkout', value: true, reason: 'STATIC' }),
     );
-    const connection = defineConnection({
+    const source = defineSource({
       provider: ofrep,
       project: { system: 'in-memory' },
     });
 
-    await expect(
-      defineFlag({ key: 'new-checkout', connection })(),
-    ).resolves.toBe(true);
+    await expect(defineFlag({ key: 'new-checkout', source })()).resolves.toBe(
+      true,
+    );
   });
 });

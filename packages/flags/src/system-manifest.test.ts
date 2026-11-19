@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { systemManifestUrls } from './connection';
+import { systemManifestUrls } from './source';
 import {
   expandTemplate,
   resolveFlagLinks,
@@ -20,7 +20,7 @@ const manifest: SystemManifest = {
 };
 
 describe('resolveFlagLinks', () => {
-  it('builds the links from the variables of the connection', () => {
+  it('builds the links from the variables of the source', () => {
     expect(
       resolveFlagLinks(
         manifest,

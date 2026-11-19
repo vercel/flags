@@ -15,9 +15,9 @@ management system (system)".
 | Term | Meaning | Examples |
 | --- | --- | --- |
 | **Flag management system**, short **system** (OpenFeature) | The source of truth of the flags, with a dashboard. | LaunchDarkly, Statsig, Vercel Flags, in-memory |
-| **Flag project** | The project in a system. The `project` of a connection. | a LaunchDarkly project |
+| **Flag project** | The project in a system. The `project` of a source. | a LaunchDarkly project |
 | **Provider** (OpenFeature) | The OpenFeature object which resolves the flags of a system. Only this object. | `VercelProvider`, `TypedInMemoryProvider` |
-| **Connection** | A provider, plus a flag project. | `defineConnection` |
+| **Source** | A provider, plus a flag project, plus the function which creates the evaluation context. The old name is "connection" (deprecated). | `defineSource` |
 | **Deployment platform**, short **platform** | Where the application runs. | Vercel, Netlify, Cloudflare |
 | **Platform project** | A project on a platform. It has many deployments, in environments such as production and preview. The overrides are scoped to it (`PlatformProject`). | a Vercel project |
 | **Deployment** | One build and release of one version of the code of a platform project, e.g. for one commit. | one Vercel deployment |
@@ -87,6 +87,9 @@ writes a deployment adapter.
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
     `flags.config.ts`, the alias of `flags/default-provider`, and the format
     of discovery.
+15. In progress: one standard with sources. "Connection" becomes "source"
+    (`defineSource`, `bindFlag`), and code generation from catalogs
+    (`flags:<source>`). The plan is in "The move to sources".
 
 Not planned now: the migration from v4 (later with a skill or a codemod), and
 the packages of the monorepo that still use v4.
@@ -177,6 +180,30 @@ built on the standard of this SDK. The usage is in
 framework: `next`, `sveltekit`, `nuxt`, `hono`, `express` and
 `tanstack-start`. They test the SDK and its contract, not providers. Each
 has `pnpm test:e2e`.
+
+### The move to sources
+
+Milestone 15 joins this SDK with the prototype of `packages/flags-protocol`
+(code generation from catalogs). The work happens in this package, in small
+steps. After each step, all tests pass: the tests of `flags`, of the
+framework packages, and `tests/standard/next`. The old names stay as
+deprecated aliases until the last step, so the framework packages and the
+test apps keep working.
+
+| Step | Contents | Status |
+| --- | --- | --- |
+| M0 | Baseline of the tests | Done |
+| M1 | "Connection" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
+| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source | |
+| M3 | A value which is not in `options` goes through. The OFREP default source throws. | |
+| M4 | Next.js without code generation, with `@flags-sdk/next`. Demo `examples/standard/next-manual`. | |
+| M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts`. | |
+| M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground`. | |
+| M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | |
+
+The flags manifest keeps the fields `connections` and `connection` until
+discovery is changed, because `sources` of a definition already means the
+places in the code.
 
 ## Providers
 
@@ -1024,7 +1051,7 @@ interface FlagsRequest {
    `next` starts keeps the scope, also after `next` returns, e.g. in Express.
    This is similar to transaction context propagation in OpenFeature. The SDK
    does not use `enterWith`, because it changes the context of the caller.
-2. `runtime.setRequestSource(source)`: for frameworks that can give the
+2. `runtime.setGetRequest(source)`: for frameworks that can give the
    current request at any time, but have no middleware that wraps the
    handler, e.g. Next.js. The source returns the current request, or
    `undefined` outside of a request. It can be async.
@@ -1139,11 +1166,11 @@ The module of the binding:
 
 | Method                           | Purpose                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `runtime.setRequestSource(fn)`   | Gives the current request, if no middleware wraps the handler (see "The request")          |
-| `runtime.setConfigSource(fn)`    | Gives the configuration. In development, the runtime loads it again before each evaluation |
+| `runtime.setGetRequest(fn)`   | Gives the current request, if no middleware wraps the handler (see "The request")          |
+| `runtime.setLoadConfig(fn)`    | Gives the configuration. In development, the runtime loads it again before each evaluation |
 | `runtime.setRethrow(fn)`         | Throws the errors again which the framework must receive                                    |
 
-- `setConfigSource`: in production, the runtime calls it one time. In
+- `setLoadConfig`: in production, the runtime calls it one time. In
   development (`NODE_ENV` is not `production`), it calls it before each
   evaluation, and configures again when it returns a different object. Thus,
   a change of `flags.config.ts` applies without a restart, and `configure`
@@ -1161,8 +1188,8 @@ The tasks of a binding:
 
 | Task                                   | With a framework                                                                            | Without a framework                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setConfigSource`           | `runtime.configure(config)` at startup                     |
-| Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setRequestSource`                    | `runtime.onInvoke` in a middleware                         |
+| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setLoadConfig`           | `runtime.configure(config)` at startup                     |
+| Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setGetRequest`                    | `runtime.onInvoke` in a middleware                         |
 | Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
 | `onInit` and `onShutdown`              | At startup, and when the process stops, if the framework has such hooks                     | At startup, and on `SIGTERM`                               |
@@ -1221,7 +1248,7 @@ export default withFlags({ /* the configuration of Next.js */ });
   application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
   same object during one request. Thus, `@flags-sdk/next/binding` uses
-  `runtime.setRequestSource` with `headers()` and `cookies()`. The test shows
+  `runtime.setGetRequest` with `headers()` and `cookies()`. The test shows
   one call of `getEvaluationContext` for five evaluations in one request.
 - Outside of a request, e.g. at build time, `headers()` throws, so the source
   returns `undefined`. The static page of the test evaluates with the user

@@ -1,7 +1,7 @@
 /**
  * The system manifest: a JSON file which a flag management system (system)
  * publishes. It tells tools such as Flags Explorer how to build the links to
- * its dashboard, from the variables of a connection, e.g. the flag project.
+ * its dashboard, from the variables of a source, e.g. the flag project.
  * The flags manifest of an application stores only the variables, so a
  * system can change its links without a new build of the application.
  *
@@ -39,7 +39,7 @@ export interface SystemManifest {
    */
   readonly logo?: string;
   /**
-   * The variables which the connections give, with a description.
+   * The variables which the sources give, with a description.
    */
   readonly variables?: Readonly<
     Record<string, { readonly description?: string }>
@@ -143,7 +143,7 @@ export function expandTemplate(
 
 /**
  * Builds the links of a flag from a system manifest and the variables of
- * its connection. A link whose variables are not all known is left out.
+ * its source. A link whose variables are not all known is left out.
  */
 export function resolveFlagLinks(
   systemManifest: SystemManifest,

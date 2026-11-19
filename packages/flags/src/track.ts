@@ -1,16 +1,12 @@
-import type { ConfiguredConnection } from './config';
-import {
-  type Connection,
-  type ConnectionInput,
-  isConnection,
-} from './connection';
+import type { ConfiguredSource } from './config';
 import { runtime } from './runtime';
+import { isSource, type Source, type SourceInput } from './source';
 import type { TrackingEventDetails } from './types';
 
 export interface TrackOptions<In> {
   /**
    * The first input of the chain which creates the evaluation context. It
-   * goes to `getEvaluationContext` of the connection.
+   * goes to `getEvaluationContext` of the source.
    */
   evaluationContext: In;
   /**
@@ -21,16 +17,16 @@ export interface TrackOptions<In> {
 
 /**
  * The arguments after the event name. The options are optional if the
- * connection accepts `undefined` as its evaluation context.
+ * source accepts `undefined` as its evaluation context.
  */
 export type TrackArgs<In> = undefined extends In
   ? [options?: Partial<TrackOptions<In>>]
   : [options: TrackOptions<In>];
 
 /**
- * Records a tracking event with the provider of the default connection, e.g.
+ * Records a tracking event with the provider of the default source, e.g.
  * a purchase for an experiment. The provider gets the evaluation context of
- * the connection, as for a flag.
+ * the source, as for a flag.
  *
  * Waits for the initialization of the provider. A provider without `track`
  * ignores the event. Errors are logged, not thrown.
@@ -42,29 +38,29 @@ export type TrackArgs<In> = undefined extends In
  */
 export function track(
   eventName: string,
-  ...args: TrackArgs<ConnectionInput<ConfiguredConnection>>
+  ...args: TrackArgs<SourceInput<ConfiguredSource>>
 ): Promise<void>;
 /**
- * Records a tracking event with the provider of a connection.
+ * Records a tracking event with the provider of a source.
  *
  * @example
  * ```ts
  * await track(launchdarkly, 'purchase', { details: { value: 99 } });
  * ```
  */
-export function track<C extends Connection>(
-  connection: C,
+export function track<C extends Source>(
+  source: C,
   eventName: string,
-  ...args: TrackArgs<ConnectionInput<C>>
+  ...args: TrackArgs<SourceInput<C>>
 ): Promise<void>;
 export function track(...args: unknown[]): Promise<void> {
   const [first, ...rest] = args;
   if (typeof first === 'string') {
     return runtime.track(undefined, first, rest[0] as never);
   }
-  if (!isConnection(first)) {
+  if (!isSource(first)) {
     throw new Error(
-      'flags: track expects an event name, or a connection and an event name.',
+      'flags: track expects an event name, or a source and an event name.',
     );
   }
   if (typeof rest[0] !== 'string') {

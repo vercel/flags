@@ -7,9 +7,9 @@
  * flags, and it does not depend on how the flags were created.
  */
 import stringify from 'fast-json-stable-stringify';
-import { systemManifestUrls } from './connection';
 import { findPlatformProject } from './overrides/vercel';
 import { runtime } from './runtime';
+import { systemManifestUrls } from './source';
 import { isSafeUrl } from './system-manifest';
 import {
   describeValue,
@@ -102,6 +102,8 @@ export interface FlagsManifest {
  */
 interface ExportedFlag {
   readonly key: string;
+  readonly source?: unknown;
+  /** @deprecated The old name of `source`. */
   readonly connection?: unknown;
   readonly type?: unknown;
   readonly options?: unknown;
@@ -160,11 +162,13 @@ function definitionOf(
 }
 
 /**
- * The connection of a flag in the manifest. A flag without a connection uses
- * the default connection.
+ * The source of a flag, as a connection of the manifest. A flag without a
+ * source uses the default source.
  */
 function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
-  const connection = (flag.connection ?? runtime.defaultConnection) as {
+  const connection = (flag.source ??
+    flag.connection ??
+    runtime.defaultSource) as {
     project?: unknown;
   };
   const project = connection?.project as Record<string, unknown> | undefined;

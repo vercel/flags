@@ -45,13 +45,13 @@ export function rethrow(error: unknown): void {
  * `import()`.
  */
 export const setupFramework: SetupFramework = async (runtime) => {
-  runtime.setRequestSource(getRequest);
+  runtime.setGetRequest(getRequest);
   // Next.js uses errors as signals, e.g. to stop the static rendering. They
   // must reach Next.js, also from steps of the context chain or providers.
   runtime.setRethrow(rethrow);
   // A source, so that the runtime loads the configuration again after a
   // change in development
-  runtime.setConfigSource(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
 };
 
 /**

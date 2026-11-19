@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 
 // What a framework plugin does: an alias replaces flags/framework
 const setup = vi.fn();
@@ -9,8 +9,8 @@ vi.mock('flags/framework', () => ({
   setupFramework: (r: unknown) => setup(r),
 }));
 
-const connection = () =>
-  defineConnection({
+const source = () =>
+  defineSource({
     provider: {
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),
@@ -43,7 +43,7 @@ describe('flags/framework replaced by a framework', () => {
     };
     const flag = defineFlag({
       key: 'a',
-      connection: defineConnection({
+      source: defineSource({
         provider,
         project: { system: 'in-memory' },
       }),
@@ -55,7 +55,7 @@ describe('flags/framework replaced by a framework', () => {
   });
 
   it('is called one time', async () => {
-    const flag = defineFlag({ key: 'a', connection: connection() });
+    const flag = defineFlag({ key: 'a', source: source() });
 
     await Promise.all([flag(), flag()]);
     await flag();
@@ -63,19 +63,19 @@ describe('flags/framework replaced by a framework', () => {
   });
 
   it('can configure the runtime before the evaluation', async () => {
-    const configured = connection();
+    const configured = source();
     setup.mockImplementation((r: typeof runtime) => {
-      r.configure({ defaultConnection: configured });
+      r.configure({ defaultSource: configured });
     });
 
     const flag = defineFlag({ key: 'a' });
     await flag();
-    expect(flag.connection).toBe(configured);
+    expect(flag.source).toBe(configured);
   });
 
   it('fails the evaluation and tries again after an error', async () => {
     setup.mockRejectedValueOnce(new Error('flags.config.ts has an error'));
-    const flag = defineFlag({ key: 'a', connection: connection() });
+    const flag = defineFlag({ key: 'a', source: source() });
 
     await expect(flag()).rejects.toThrow('flags.config.ts has an error');
     await expect(flag()).resolves.toBe(true);

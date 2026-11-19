@@ -1,9 +1,9 @@
-import { defineConfig, defineConnection } from 'flags';
+import { defineConfig, defineSource } from 'flags';
 
 // The pattern of flags.config.ts: the configuration and the registration of
 // its type in one file
 export const config = defineConfig({
-  defaultConnection: defineConnection({
+  defaultSource: defineSource({
     provider: {
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),

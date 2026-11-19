@@ -1,7 +1,7 @@
-import type { ConfiguredConnection } from './config';
-import type { Connection, ConnectionInput } from './connection';
+import type { ConfiguredSource } from './config';
 import type { EvaluationArgs } from './flag';
 import { type FlagDefinition, runtime } from './runtime';
+import type { Source, SourceInput } from './source';
 import type { FlagsRequest } from './types';
 import type { FlagType, FlagValueOf } from './value-types';
 
@@ -16,7 +16,7 @@ type UnionToIntersection<U> = (
 /**
  * The evaluation context which the call side gives to a flag. It is the type
  * of `context` of `getEvaluationContext` of the flag. If the flag has none,
- * it is the type of the connection.
+ * it is the type of the source.
  */
 export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   getEvaluationContext?(
@@ -25,19 +25,19 @@ export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   ): unknown;
 }
   ? unknown extends In
-    ? ConnectionInput<ConnectionOf<F>>
+    ? SourceInput<SourceOf<F>>
     : In
-  : ConnectionInput<ConnectionOf<F>>;
+  : SourceInput<SourceOf<F>>;
 
 /**
- * The connection of a flag. Without a connection, the configured default
- * connection.
+ * The source of a flag. Without a source, the configured default
+ * source.
  */
-type ConnectionOf<F extends FlagDefinition> = F extends {
-  readonly connection: infer C extends Connection;
+type SourceOf<F extends FlagDefinition> = F extends {
+  readonly source: infer C extends Source;
 }
   ? C
-  : ConfiguredConnection;
+  : ConfiguredSource;
 
 /**
  * The evaluation context which `evaluate` accepts for a list of flags.
@@ -100,7 +100,7 @@ export interface Evaluate {
  *
  * `evaluationContext` is the first input of the chain which creates the
  * evaluation context of each flag: it goes to `getEvaluationContext` of the
- * flag, then of the connection, and then to the provider. For several flags,
+ * flag, then of the source, and then to the provider. For several flags,
  * each flag receives the same object, so each step runs once per request for
  * all of them.
  *

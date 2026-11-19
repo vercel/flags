@@ -7,14 +7,14 @@ import {
   it,
   vi,
 } from 'vitest';
-import {
-  type ConnectionInput,
-  type DefaultConnectionInput,
-  defineConnection,
-} from './connection';
 import { evaluate, type FlagEvaluationContext } from './evaluate';
 import { defineFlag } from './flag';
 import { runtime } from './runtime';
+import {
+  type DefaultSourceInput,
+  defineSource,
+  type SourceInput,
+} from './source';
 import type { EvaluationContext, FlagsRequest, Provider } from './types';
 
 function createProvider() {
@@ -40,35 +40,35 @@ describe('context chain', () => {
     vi.restoreAllMocks();
   });
 
-  it('gives the context of the call side to the connection', async () => {
+  it('gives the context of the call side to the source', async () => {
     const provider = createProvider();
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: { id: context.teamId },
       }),
     });
-    const flag = defineFlag({ key: 'a', connection });
+    const flag = defineFlag({ key: 'a', source });
 
     await flag({ evaluationContext: { teamId: 'team-1' } });
     expect(contextOf(provider)).toEqual({ team: { id: 'team-1' } });
   });
 
-  it('runs the steps from the call side to the connection', async () => {
+  it('runs the steps from the call side to the source', async () => {
     const order: string[] = [];
     const provider = createProvider();
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => {
-        order.push(`connection:${context.teamId}`);
+        order.push(`source:${context.teamId}`);
         return { team: { id: context.teamId } };
       },
     });
     const flag = defineFlag({
       key: 'a',
-      connection,
+      source,
       getEvaluationContext: (context: { slug: string }) => {
         order.push(`flag:${context.slug}`);
         return { teamId: `id-of-${context.slug}` };
@@ -76,14 +76,14 @@ describe('context chain', () => {
     });
 
     await flag({ evaluationContext: { slug: 'acme' } });
-    expect(order).toEqual(['flag:acme', 'connection:id-of-acme']);
+    expect(order).toEqual(['flag:acme', 'source:id-of-acme']);
     expect(contextOf(provider)).toEqual({ team: { id: 'id-of-acme' } });
   });
 
   it('supports the team of an API route', async () => {
     const teams = { 'team-1': { plan: 'enterprise' } };
     const provider = createProvider();
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: async (
@@ -94,7 +94,7 @@ describe('context chain', () => {
         team: { id: context.teamId, ...teams[context.teamId] },
       }),
     });
-    const flag = defineFlag({ key: 'a', connection });
+    const flag = defineFlag({ key: 'a', source });
 
     // e.g. GET /api/teams/team-1/settings
     await runtime.onInvoke(request, () =>
@@ -108,7 +108,7 @@ describe('context chain', () => {
 
   it('lets a step keep the fields of the step before', async () => {
     const provider = createProvider();
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { country: string }, request) => ({
@@ -116,7 +116,7 @@ describe('context chain', () => {
         user: request?.headers?.get('x-user') ?? null,
       }),
     });
-    const flag = defineFlag({ key: 'a', connection });
+    const flag = defineFlag({ key: 'a', source });
 
     await runtime.onInvoke(request, () =>
       flag({ evaluationContext: { country: 'CH' } }),
@@ -127,11 +127,11 @@ describe('context chain', () => {
   describe('missing steps', () => {
     it('gives the context of the call side to the provider', async () => {
       const provider = createProvider();
-      const connection = defineConnection({
+      const source = defineSource({
         provider,
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({ key: 'a', connection });
+      const flag = defineFlag({ key: 'a', source });
 
       await flag({ evaluationContext: { country: 'CH' } });
       expect(contextOf(provider)).toEqual({ country: 'CH' });
@@ -139,13 +139,13 @@ describe('context chain', () => {
 
     it('gives the context of the flag to the provider', async () => {
       const provider = createProvider();
-      const connection = defineConnection({
+      const source = defineSource({
         provider,
         project: { system: 'in-memory' },
       });
       const flag = defineFlag({
         key: 'a',
-        connection,
+        source,
         getEvaluationContext: () => ({ source: 'flag' }),
       });
 
@@ -155,11 +155,11 @@ describe('context chain', () => {
 
     it('gives an empty context to the provider without any input', async () => {
       const provider = createProvider();
-      const connection = defineConnection({
+      const source = defineSource({
         provider,
         project: { system: 'in-memory' },
       });
-      const flag = defineFlag({ key: 'a', connection });
+      const flag = defineFlag({ key: 'a', source });
 
       await flag();
       expect(contextOf(provider)).toEqual({});
@@ -169,7 +169,7 @@ describe('context chain', () => {
   describe('request', () => {
     it('is given to each step inside of a request', async () => {
       const received: (FlagsRequest | undefined)[] = [];
-      const connection = defineConnection({
+      const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => {
@@ -179,7 +179,7 @@ describe('context chain', () => {
       });
       const flag = defineFlag({
         key: 'a',
-        connection,
+        source,
         getEvaluationContext: (_context: undefined, request) => {
           received.push(request);
           return undefined;
@@ -194,7 +194,7 @@ describe('context chain', () => {
 
     it('is undefined outside of a request', async () => {
       const received: unknown[] = [];
-      const connection = defineConnection({
+      const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: (_context, request) => {
@@ -202,7 +202,7 @@ describe('context chain', () => {
           return {};
         },
       });
-      const flag = defineFlag({ key: 'a', connection });
+      const flag = defineFlag({ key: 'a', source });
 
       await flag();
       expect(received).toEqual([undefined]);
@@ -210,22 +210,22 @@ describe('context chain', () => {
   });
 
   describe('cache', () => {
-    function countingConnection() {
+    function countingSource() {
       const step = vi.fn((context: { teamId: string } | undefined) => ({
         team: context?.teamId ?? 'none',
       }));
-      const connection = defineConnection({
+      const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: step,
       });
-      return { connection, step };
+      return { source, step };
     }
 
     it('runs a step once per request for the same input object', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
-      const b = defineFlag({ key: 'b', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
+      const b = defineFlag({ key: 'b', source });
       const evaluationContext = { teamId: 't1' };
 
       await runtime.onInvoke(request, async () => {
@@ -236,9 +236,9 @@ describe('context chain', () => {
     });
 
     it('runs a step once per request without input', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
-      const b = defineFlag({ key: 'b', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
+      const b = defineFlag({ key: 'b', source });
 
       await runtime.onInvoke(request, async () => {
         await Promise.all([a(), b()]);
@@ -248,9 +248,9 @@ describe('context chain', () => {
     });
 
     it('runs a step once for inputs with the same content', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
-      const b = defineFlag({ key: 'b', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
+      const b = defineFlag({ key: 'b', source });
 
       await runtime.onInvoke(request, async () => {
         await a({ evaluationContext: { teamId: 't1' } });
@@ -261,9 +261,9 @@ describe('context chain', () => {
     });
 
     it('compares an input which is not plain data by identity', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
-      const b = defineFlag({ key: 'b', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
+      const b = defineFlag({ key: 'b', source });
       class Team {
         constructor(readonly teamId: string) {}
       }
@@ -278,8 +278,8 @@ describe('context chain', () => {
     });
 
     it('runs a step again in the next request', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
 
       await runtime.onInvoke(request, () => a());
       await runtime.onInvoke(request, () => a());
@@ -287,8 +287,8 @@ describe('context chain', () => {
     });
 
     it('runs a step on each evaluation outside of a request', async () => {
-      const { connection, step } = countingConnection();
-      const a = defineFlag({ key: 'a', connection });
+      const { source, step } = countingSource();
+      const a = defineFlag({ key: 'a', source });
 
       await a();
       await a();
@@ -299,10 +299,10 @@ describe('context chain', () => {
       const flagStep = vi.fn((context: { slug: string }) => ({
         teamId: context.slug,
       }));
-      const { connection } = countingConnection();
+      const { source } = countingSource();
       const a = defineFlag({
         key: 'a',
-        connection,
+        source,
         getEvaluationContext: flagStep,
       });
       const evaluationContext = { slug: 'acme' };
@@ -317,14 +317,14 @@ describe('context chain', () => {
 
   describe('errors', () => {
     it('returns the default value when the step of the flag throws', async () => {
-      const connection = defineConnection({
+      const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
       });
       const flag = defineFlag({
         key: 'a',
         defaultValue: false,
-        connection,
+        source,
         getEvaluationContext: () => {
           throw new Error('No team');
         },
@@ -336,15 +336,15 @@ describe('context chain', () => {
       );
     });
 
-    it('rejects without a default value when the connection step throws', async () => {
-      const connection = defineConnection({
+    it('rejects without a default value when the source step throws', async () => {
+      const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: async (): Promise<EvaluationContext> => {
           throw new Error('Team not found');
         },
       });
-      const flag = defineFlag({ key: 'a', connection });
+      const flag = defineFlag({ key: 'a', source });
 
       await expect(flag()).rejects.toMatchObject({
         name: 'FlagEvaluationError',
@@ -354,36 +354,36 @@ describe('context chain', () => {
   });
 
   describe('types', () => {
-    const teamConnection = defineConnection({
+    const teamSource = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string }) => ({
         team: context.teamId,
       }),
     });
-    const optionalConnection = defineConnection({
+    const optionalSource = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
       getEvaluationContext: (context: { teamId: string } | undefined) => ({
         team: context?.teamId ?? null,
       }),
     });
-    const plainConnection = defineConnection({
+    const plainSource = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
 
-    it('takes the input of a connection from its getEvaluationContext', () => {
-      expectTypeOf<ConnectionInput<typeof teamConnection>>().toEqualTypeOf<{
+    it('takes the input of a source from its getEvaluationContext', () => {
+      expectTypeOf<SourceInput<typeof teamSource>>().toEqualTypeOf<{
         teamId: string;
       }>();
       expectTypeOf<
-        ConnectionInput<typeof plainConnection>
-      >().toEqualTypeOf<DefaultConnectionInput>();
+        SourceInput<typeof plainSource>
+      >().toEqualTypeOf<DefaultSourceInput>();
     });
 
-    it('requires the context of the connection on the call side', () => {
-      const flag = defineFlag({ key: 'a', connection: teamConnection });
+    it('requires the context of the source on the call side', () => {
+      const flag = defineFlag({ key: 'a', source: teamSource });
       expectTypeOf<FlagEvaluationContext<typeof flag>>().toEqualTypeOf<{
         teamId: string;
       }>();
@@ -394,14 +394,14 @@ describe('context chain', () => {
         flag();
         // @ts-expect-error teamId must be a string
         flag({ evaluationContext: { teamId: 1 } });
-        // @ts-expect-error the connection does not define "slug"
+        // @ts-expect-error the source does not define "slug"
         flag({ evaluationContext: { slug: 'acme' } });
       });
     });
 
     it('makes the options optional if the input can be undefined', () => {
-      const flag = defineFlag({ key: 'a', connection: optionalConnection });
-      const plain = defineFlag({ key: 'b', connection: plainConnection });
+      const flag = defineFlag({ key: 'a', source: optionalSource });
+      const plain = defineFlag({ key: 'b', source: plainSource });
 
       void (() => {
         flag();
@@ -414,7 +414,7 @@ describe('context chain', () => {
     it('requires the context of the flag when the flag has a step', () => {
       const flag = defineFlag({
         key: 'a',
-        connection: teamConnection,
+        source: teamSource,
         getEvaluationContext: (context: { slug: string }) => ({
           teamId: context.slug,
         }),
@@ -430,50 +430,50 @@ describe('context chain', () => {
       });
     });
 
-    it('requires the step of a flag to return the input of the connection', () => {
+    it('requires the step of a flag to return the input of the source', () => {
       void (() => {
         // @ts-expect-error teamId must be a string
         defineFlag({
           key: 'a',
-          connection: teamConnection,
+          source: teamSource,
           getEvaluationContext: () => ({ teamId: 1 }),
         });
       });
     });
 
     it('types the request of each step', () => {
-      defineConnection({
+      defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
         getEvaluationContext: (context, request) => {
-          expectTypeOf(context).toEqualTypeOf<DefaultConnectionInput>();
+          expectTypeOf(context).toEqualTypeOf<DefaultSourceInput>();
           expectTypeOf(request).toEqualTypeOf<FlagsRequest | undefined>();
           return {};
         },
       });
     });
 
-    it('requires the input of the connection for plain definitions', () => {
+    it('requires the input of the source for plain definitions', () => {
       void (() => {
         evaluate(
-          { key: 'a', connection: teamConnection },
+          { key: 'a', source: teamSource },
           { evaluationContext: { teamId: 't1' } },
         );
         // @ts-expect-error the evaluation context is required
-        evaluate({ key: 'a', connection: teamConnection });
+        evaluate({ key: 'a', source: teamSource });
       });
     });
 
     it('requires the overlap of the contexts in evaluate', () => {
-      const team = defineFlag({ key: 'a', connection: teamConnection });
+      const team = defineFlag({ key: 'a', source: teamSource });
       const slug = defineFlag({
         key: 'b',
-        connection: teamConnection,
+        source: teamSource,
         getEvaluationContext: (context: { slug: string }) => ({
           teamId: context.slug,
         }),
       });
-      const optional = defineFlag({ key: 'c', connection: optionalConnection });
+      const optional = defineFlag({ key: 'c', source: optionalSource });
 
       void (() => {
         evaluate([team, slug], {

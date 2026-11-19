@@ -147,7 +147,7 @@ const copies = new WeakMap<ViteDevServer, Promise<DevImporter>>();
  * copy of the SSR environment imports the modules.
  *
  * The copy stays open as long as the dev server: the runtime keeps the
- * loader of flags.config.ts of the copy as its config source. Each manifest
+ * loader of flags.config.ts of the copy as its config loader. Each manifest
  * clears its modules first, so it imports the current files. `vite` is only
  * loaded when it is necessary.
  */

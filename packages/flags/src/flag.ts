@@ -1,12 +1,8 @@
-import type { ConfiguredConnection } from './config';
-import {
-  type Connection,
-  type ConnectionInput,
-  isConnection,
-} from './connection';
+import type { ConfiguredSource } from './config';
 import { logger } from './logger';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
+import { isSource, type Source, type SourceInput } from './source';
 import type { FlagsRequest, Hook, HookHints } from './types';
 import {
   type FlagObjectValue,
@@ -38,13 +34,13 @@ export function isFlag(value: unknown): value is Flag {
 export interface EvaluationOptions<In> {
   /**
    * The first input of the chain which creates the evaluation context. It
-   * goes to `getEvaluationContext` of the flag, or of the connection if the
+   * goes to `getEvaluationContext` of the flag, or of the source if the
    * flag has none.
    */
   evaluationContext: In;
   /**
    * OpenFeature hooks for this evaluation only. They run after the hooks of
-   * the configuration and of the connection, and before the hooks of the
+   * the configuration and of the source, and before the hooks of the
    * provider.
    */
   hooks?: readonly Hook[];
@@ -63,7 +59,7 @@ export type EvaluationArgs<In> = undefined extends In
   : [options: EvaluationOptions<In>];
 
 export interface FlagOptions<
-  C extends Connection,
+  C extends Source,
   K extends string,
   In,
   T extends FlagType,
@@ -91,16 +87,20 @@ export interface FlagOptions<
    */
   readonly description?: string;
   /**
-   * A connection returned by `defineConnection`. Without it, the flag uses
-   * the default connection.
+   * A source returned by `defineSource`. Without it, the flag uses
+   * the default source.
+   */
+  readonly source?: C;
+  /**
+   * @deprecated Use `source`. Connections are now sources.
    */
   readonly connection?: C;
   /**
    * The middle step of the chain. Receives the evaluation context of the call
-   * side, and returns the context for the connection. The type of `context`
+   * side, and returns the context for the source. The type of `context`
    * defines what the call side must give.
    *
-   * Without it, the call side gives its context directly to the connection.
+   * Without it, the call side gives its context directly to the source.
    *
    * @example
    * ```ts
@@ -112,13 +112,13 @@ export interface FlagOptions<
   getEvaluationContext?(
     context: In,
     request: FlagsRequest | undefined,
-  ): ConnectionInput<C> | Promise<ConnectionInput<C>>;
+  ): SourceInput<C> | Promise<SourceInput<C>>;
 }
 
 export type Flag<
-  C extends Connection = Connection,
+  C extends Source = Source,
   K extends string = string,
-  In = ConnectionInput<C>,
+  In = SourceInput<C>,
   V extends FlagValue = boolean,
 > = ((...args: EvaluationArgs<In>) => Promise<V>) & {
   readonly key: K;
@@ -129,11 +129,15 @@ export type Flag<
    */
   readonly options?: readonly FlagOptionObject<V>[];
   readonly description?: string;
+  readonly source: C;
+  /**
+   * @deprecated Use `source`. Connections are now sources.
+   */
   readonly connection: C;
   getEvaluationContext?(
     context: In,
     request: FlagsRequest | undefined,
-  ): ConnectionInput<C> | Promise<ConnectionInput<C>>;
+  ): SourceInput<C> | Promise<SourceInput<C>>;
 };
 
 /**
@@ -152,10 +156,10 @@ type ValueTypeOf<D> = D extends boolean
  *
  * @example
  * ```ts
- * // Uses the default connection
+ * // Uses the default source
  * const flag = defineFlag({ key: 'new-checkout' });
  * // Uses a provider of your choice
- * const other = defineFlag({ key: 'new-checkout', connection });
+ * const other = defineFlag({ key: 'new-checkout', source });
  * await flag();
  * await flag({ evaluationContext: { teamId: 'team-1' } });
  * ```
@@ -164,8 +168,8 @@ export function defineFlag<
   const K extends string,
   const T extends FlagType = 'boolean',
   const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
-  C extends Connection = ConfiguredConnection,
-  In = ConnectionInput<C>,
+  C extends Source = ConfiguredSource,
+  In = SourceInput<C>,
 >(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>>;
 /**
  * Declares a boolean flag with a key. Short for `defineFlag({ key })`.
@@ -177,12 +181,7 @@ export function defineFlag<
  */
 export function defineFlag<const K extends string>(
   key: K,
-): Flag<
-  ConfiguredConnection,
-  K,
-  ConnectionInput<ConfiguredConnection>,
-  boolean
->;
+): Flag<ConfiguredSource, K, SourceInput<ConfiguredSource>, boolean>;
 /**
  * Declares a flag with a key and a default value. The type of the flag comes
  * from the default value. Short for `defineFlag({ key, type, defaultValue })`.
@@ -195,29 +194,24 @@ export function defineFlag<const K extends string>(
 export function defineFlag<const K extends string, D extends FlagValue>(
   key: K,
   defaultValue: D,
-): Flag<
-  ConfiguredConnection,
-  K,
-  ConnectionInput<ConfiguredConnection>,
-  ValueTypeOf<D>
->;
+): Flag<ConfiguredSource, K, SourceInput<ConfiguredSource>, ValueTypeOf<D>>;
 /**
- * Declares a boolean flag of a connection. Short for
- * `defineFlag({ key, connection })`.
+ * Declares a boolean flag of a source. Short for
+ * `defineFlag({ key, source })`.
  *
  * @example
  * ```ts
  * const summerSale = defineFlag(launchdarkly, 'summer-sale');
  * ```
  */
-export function defineFlag<C extends Connection, const K extends string>(
-  connection: C,
+export function defineFlag<C extends Source, const K extends string>(
+  source: C,
   key: K,
-): Flag<C, K, ConnectionInput<C>, boolean>;
+): Flag<C, K, SourceInput<C>, boolean>;
 /**
- * Declares a flag of a connection, with a default value. The type of the flag
+ * Declares a flag of a source, with a default value. The type of the flag
  * comes from the default value. Short for
- * `defineFlag({ key, type, defaultValue, connection })`.
+ * `defineFlag({ key, type, defaultValue, source })`.
  *
  * @example
  * ```ts
@@ -225,14 +219,14 @@ export function defineFlag<C extends Connection, const K extends string>(
  * ```
  */
 export function defineFlag<
-  C extends Connection,
+  C extends Source,
   const K extends string,
   D extends FlagValue,
 >(
-  connection: C,
+  source: C,
   key: K,
   defaultValue: D,
-): Flag<C, K, ConnectionInput<C>, ValueTypeOf<D>>;
+): Flag<C, K, SourceInput<C>, ValueTypeOf<D>>;
 export function defineFlag(...args: unknown[]): unknown {
   return defineFromOptions(toOptions(args));
 }
@@ -242,41 +236,37 @@ export function defineFlag(...args: unknown[]): unknown {
  */
 function toOptions(
   args: unknown[],
-): FlagOptions<Connection, string, unknown, FlagType, never> {
+): FlagOptions<Source, string, unknown, FlagType, never> {
   const [first, second, third] = args;
   if (typeof first === 'string') {
     return withDefault({ key: first }, second, args.length > 1);
   }
-  if (isConnection(first)) {
+  if (isSource(first)) {
     if (typeof second !== 'string') {
       throw new TypeError('flags: The key of a flag must be a string.');
     }
-    return withDefault(
-      { key: second, connection: first },
-      third,
-      args.length > 2,
-    );
+    return withDefault({ key: second, source: first }, third, args.length > 2);
   }
   if (typeof first === 'object' && first !== null) {
-    // An object with a provider and a project looks like a connection, but
-    // defineConnection did not return it
+    // An object with a provider and a project looks like a source, but
+    // defineSource did not return it
     if ('provider' in first && 'project' in first && !('key' in first)) {
       throw new Error(
-        'flags: The connection of a flag must be returned by defineConnection.',
+        'flags: The source of a flag must be returned by defineSource.',
       );
     }
-    return first as FlagOptions<Connection, string, unknown, FlagType, never>;
+    return first as FlagOptions<Source, string, unknown, FlagType, never>;
   }
   throw new TypeError(
-    'flags: defineFlag expects a key, a connection and a key, or options.',
+    'flags: defineFlag expects a key, a source and a key, or options.',
   );
 }
 
 function withDefault(
-  options: { key: string; connection?: Connection },
+  options: { key: string; source?: Source },
   defaultValue: unknown,
   hasDefault: boolean,
-): FlagOptions<Connection, string, unknown, FlagType, never> {
+): FlagOptions<Source, string, unknown, FlagType, never> {
   if (!hasDefault || defaultValue === undefined) return options;
   return {
     ...options,
@@ -299,10 +289,11 @@ function typeOfValue(key: string, value: unknown): FlagType {
 }
 
 function defineFromOptions(
-  options: FlagOptions<Connection, string, unknown, FlagType, never>,
-): Flag<Connection, string, unknown, FlagValue> {
+  options: FlagOptions<Source, string, unknown, FlagType, never>,
+): Flag<Source, string, unknown, FlagValue> {
   const { key, defaultValue, getEvaluationContext } = options;
-  const explicit = options.connection;
+  // `connection` is the deprecated name of `source`
+  const explicit = options.source ?? options.connection;
   if (typeof key !== 'string') {
     throw new TypeError('flags: The key of a flag must be a string.');
   }
@@ -321,20 +312,20 @@ function defineFromOptions(
       `flags: The type of flag "${key}" must be boolean, string, number or object.`,
     );
   }
-  if (explicit !== undefined && !isConnection(explicit)) {
+  if (explicit !== undefined && !isSource(explicit)) {
     throw new Error(
-      `flags: The connection of flag "${key}" must be returned by defineConnection.`,
+      `flags: The source of flag "${key}" must be returned by defineSource.`,
     );
   }
   const flagOptions = normalizeOptions(key, type, options.options);
   warnAboutValues(key, type, options.type, defaultValue, flagOptions);
 
-  if (explicit) runtime.registerConnection(explicit);
-  else runtime.markDefaultConnectionUsed();
+  if (explicit) runtime.registerSource(explicit);
+  else runtime.markDefaultSourceUsed();
 
   // The flag gives itself to the runtime, so that flag() and evaluate(flag)
   // share the cache of the request
-  const flag: Flag<Connection, string, unknown, FlagValue> =
+  const flag: Flag<Source, string, unknown, FlagValue> =
     Object.defineProperties(
       (options?: Partial<EvaluationOptions<unknown>>) =>
         runtime.evaluate(flag as FlagDefinition, options as never),
@@ -345,14 +336,17 @@ function defineFromOptions(
         options: { value: flagOptions, enumerable: true },
         description: { value: options.description, enumerable: true },
         getEvaluationContext: { value: getEvaluationContext, enumerable: true },
-        // Without a connection, the default connection at the time of the
+        // Without a source, the default source at the time of the
         // evaluation, so the configuration can come later than the flag
-        connection: {
-          get: () => explicit ?? runtime.defaultConnection,
+        source: {
+          get: () => explicit ?? runtime.defaultSource,
           enumerable: true,
         },
+        connection: {
+          get: () => explicit ?? runtime.defaultSource,
+        },
       },
-    ) as unknown as Flag<Connection, string, unknown, FlagValue>;
+    ) as unknown as Flag<Source, string, unknown, FlagValue>;
   flags.add(flag);
   return flag;
 }

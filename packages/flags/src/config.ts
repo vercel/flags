@@ -1,6 +1,6 @@
-import type { Connection } from './connection';
-import type { DefaultConnection } from './default-connection';
+import type { DefaultSource } from './default-source';
 import type { OverridesOptions } from './overrides/reader';
+import type { Source } from './source';
 import type { Hook } from './types';
 
 /**
@@ -10,17 +10,21 @@ import type { Hook } from './types';
  */
 export interface Config {
   /**
-   * The connection of all flags without a connection. Without it, they use
+   * The source of all flags without a source. Without it, they use
    * Vercel Flags through the built-in default provider.
    */
-  readonly defaultConnection?: Connection;
+  readonly defaultSource?: Source;
+  /**
+   * @deprecated Use `defaultSource`. Connections are now sources.
+   */
+  readonly defaultConnection?: Source;
   /**
    * Which override tokens the SDK accepts. See `OverridesOptions`.
    */
   readonly overrides?: OverridesOptions;
   /**
    * OpenFeature hooks for all flags. They run first, before the hooks of the
-   * connection, of the call side and of the provider. They also run for
+   * source, of the call side and of the provider. They also run for
    * overrides, with the reason `OVERRIDE`.
    */
   readonly hooks?: readonly Hook[];
@@ -35,7 +39,7 @@ export interface Config {
  * ```ts
  * // flags.config.ts
  * export const config = defineConfig({
- *   defaultConnection: defineConnection({
+ *   defaultSource: defineSource({
  *     provider: new VercelProvider(), // of @vercel/flags-core/openfeature
  *     project: { system: 'vercel-flags' },
  *   }),
@@ -54,8 +58,8 @@ export function defineConfig<const C extends Config>(config: C): C {
 
 /**
  * Registers types for the application. Register the type of the
- * configuration, so that flags without a connection get the types of the
- * configured default connection.
+ * configuration, so that flags without a source get the types of the
+ * configured default source.
  */
 // biome-ignore lint/suspicious/noEmptyInterface: applications add to it
 export interface Register {}
@@ -64,12 +68,24 @@ type RegisteredConfig = Register extends { config: infer C }
   ? C
   : Record<never, never>;
 
-/**
- * The connection of flags without a connection: the registered
- * `defaultConnection`, or the built-in default connection.
- */
-export type ConfiguredConnection = RegisteredConfig extends {
-  defaultConnection: infer D extends Connection;
+// `defaultConnection` is the deprecated name of `defaultSource`
+type RegisteredDefaultConnection = RegisteredConfig extends {
+  defaultConnection: infer D extends Source;
 }
   ? D
-  : DefaultConnection;
+  : DefaultSource;
+
+/**
+ * The source of flags without a source: the registered
+ * `defaultSource`, or the built-in default source.
+ */
+export type ConfiguredSource = RegisteredConfig extends {
+  defaultSource: infer D extends Source;
+}
+  ? D
+  : RegisteredDefaultConnection;
+
+/**
+ * @deprecated Use `ConfiguredSource`. Connections are now sources.
+ */
+export type ConfiguredConnection = ConfiguredSource;

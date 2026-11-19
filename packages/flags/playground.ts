@@ -3,8 +3,8 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import {
-  defineConnection,
   defineFlag,
+  defineSource,
   evaluate,
   type FlagsRequestInit,
   runtime,
@@ -26,7 +26,7 @@ const teams: Record<string, { plan: string }> = {
   globex: { plan: 'free' },
 };
 
-const connection = defineConnection({
+const source = defineSource({
   provider: new TypedInMemoryProvider({
     'new-checkout': {
       variants: { on: true, off: false },
@@ -50,7 +50,7 @@ const connection = defineConnection({
   // The last step of the chain: receives the context of the flag or of the
   // call side, and the request
   getEvaluationContext: (context: { teamId?: string } | undefined, request) => {
-    console.log('connection getEvaluationContext', context);
+    console.log('source getEvaluationContext', context);
     const team = context?.teamId ? teams[context.teamId] : undefined;
     return {
       // Node.js gives no cookies, so they come from the Cookie header
@@ -63,14 +63,14 @@ const connection = defineConnection({
 const newCheckout = defineFlag({
   key: 'new-checkout',
   defaultValue: false,
-  connection,
+  source,
 });
 
 // The middle step: converts the slug of the URL to a team id
 const teamInsights = defineFlag({
   key: 'team-insights',
   defaultValue: false,
-  connection,
+  source,
   getEvaluationContext: (context: { slug: string }) => ({
     teamId: context.slug,
   }),

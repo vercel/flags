@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { defineFlag } from './flag';
 import { createManifest, validateFlagsManifest } from './manifest';
 import { registerFlags } from './register';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 
 const connection = () =>
-  defineConnection({
+  defineSource({
     provider: {
       metadata: { name: 'test' },
       resolveBooleanEvaluation: async () => ({ value: true }),
@@ -99,7 +99,7 @@ describe('createManifest', () => {
 
   it('gives each connection its system and the variables of its flag project', () => {
     const launchdarkly = (projectId: string) =>
-      defineConnection({
+      defineSource({
         provider: {
           metadata: { name: 'ld' },
           resolveBooleanEvaluation: async () => ({ value: true }),
@@ -142,7 +142,7 @@ describe('createManifest', () => {
   });
 
   it('uses the fields of a vercel-flags project instead of the environment', () => {
-    const other = defineConnection({
+    const other = defineSource({
       provider: {
         metadata: { name: 'vercel' },
         resolveBooleanEvaluation: async () => ({ value: true }),
@@ -169,7 +169,7 @@ describe('createManifest', () => {
   });
 
   it('uses the system manifest of the project instead of the one of the system', () => {
-    const own = defineConnection({
+    const own = defineSource({
       provider: {
         metadata: { name: 'own' },
         resolveBooleanEvaluation: async () => ({ value: true }),
@@ -252,25 +252,25 @@ describe('createManifest', () => {
 describe('registerFlags', () => {
   it('registers the connections of the exported flags', () => {
     const c = connection();
-    registerFlags({ a: { key: 'a', connection: c } });
+    registerFlags({ a: { key: 'a', source: c } });
 
-    expect(runtime.connections.has(c)).toBe(true);
+    expect(runtime.sources.has(c)).toBe(true);
   });
 
   it('does not register the default connection of a flag without one', () => {
     registerFlags({ a: defineFlag('a') });
 
-    expect(runtime.connections.size).toBe(0);
+    expect(runtime.sources.size).toBe(0);
   });
 
   it('throws for an export which is not a flag, and registers nothing', () => {
     const c = connection();
     expect(() =>
-      registerFlags({ a: { key: 'a', connection: c }, helper: 1 }),
+      registerFlags({ a: { key: 'a', source: c }, helper: 1 }),
     ).toThrow(
       'flags: registerFlags expects only flags, but export "helper" is not a flag.',
     );
-    expect(runtime.connections.has(c)).toBe(false);
+    expect(runtime.sources.has(c)).toBe(false);
   });
 });
 

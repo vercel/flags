@@ -1,6 +1,6 @@
 import { defineFlag, evaluate } from 'flags';
 
-// A flag without a connection has the types of the configured default
+// A flag without a source has the types of the configured default
 const teamFlag = defineFlag({ key: 'team-flag' });
 
 teamFlag({ evaluationContext: { teamId: 't1' } });

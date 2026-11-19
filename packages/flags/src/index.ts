@@ -1,20 +1,10 @@
 export {
   type Config,
   type ConfiguredConnection,
+  type ConfiguredSource,
   defineConfig,
   type Register,
 } from './config';
-export {
-  type Connection,
-  type ConnectionInput,
-  type ConnectionOptions,
-  type DefaultConnectionInput,
-  defineConnection,
-  type FlagManagementSystem,
-  type GetEvaluationContext,
-  type Project,
-  type ProjectFieldsBySystem,
-} from './connection';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,
@@ -51,14 +41,36 @@ export {
   type PlatformProject,
   type VercelOverridesOptions,
 } from './overrides';
-export { registerConnections, registerFlags } from './register';
+export {
+  registerConnections,
+  registerFlags,
+  registerSources,
+} from './register';
 export {
   type ConfigSource,
   type FlagDefinition,
+  type GetRequest,
+  type LoadConfig,
   type RequestSource,
   type Runtime,
   runtime,
 } from './runtime';
+export {
+  type Connection,
+  type ConnectionInput,
+  type ConnectionOptions,
+  type DefaultConnectionInput,
+  type DefaultSourceInput,
+  defineConnection,
+  defineSource,
+  type FlagManagementSystem,
+  type GetEvaluationContext,
+  type Project,
+  type ProjectFieldsBySystem,
+  type Source,
+  type SourceInput,
+  type SourceOptions,
+} from './source';
 export { type TrackArgs, type TrackOptions, track } from './track';
 export type {
   BeforeHookContext,

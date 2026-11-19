@@ -1,6 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { defineConnection, isConnection } from './connection';
+import { defineSource, isSource } from './source';
 
 const myFlags = {
   v2_enabled: {
@@ -10,26 +10,26 @@ const myFlags = {
   },
 } as const;
 
-describe('defineConnection', () => {
+describe('defineSource', () => {
   it('connects a provider to a project', () => {
     const provider = new TypedInMemoryProvider(myFlags);
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
 
-    expect(connection.provider).toBe(provider);
-    expect(connection.project).toEqual({
+    expect(source.provider).toBe(provider);
+    expect(source.project).toEqual({
       system: 'launchdarkly',
       projectId: 'x',
       teamId: 'y',
     });
-    expect(isConnection(connection)).toBe(true);
+    expect(isSource(source)).toBe(true);
   });
 
   it('does not modify the provider', () => {
     const provider = new TypedInMemoryProvider(myFlags);
-    defineConnection({
+    defineSource({
       provider,
       project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
@@ -39,65 +39,65 @@ describe('defineConnection', () => {
 
   it('keeps getEvaluationContext', () => {
     const getEvaluationContext = () => ({ targetingKey: 'user' });
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'in-memory' },
       getEvaluationContext,
     });
 
-    expect(connection.getEvaluationContext).toBe(getEvaluationContext);
+    expect(source.getEvaluationContext).toBe(getEvaluationContext);
   });
 
   it('can not be modified', () => {
     const project = { system: 'in-memory' } as const;
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
       project,
     });
 
-    expect(Object.isFrozen(connection)).toBe(true);
-    expect(Object.isFrozen(connection.project)).toBe(true);
-    expect(connection.project).not.toBe(project);
+    expect(Object.isFrozen(source)).toBe(true);
+    expect(Object.isFrozen(source.project)).toBe(true);
+    expect(source.project).not.toBe(project);
   });
 
   it('narrows the types by system', () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
 
-    expectTypeOf(connection.provider).toEqualTypeOf<
+    expectTypeOf(source.provider).toEqualTypeOf<
       TypedInMemoryProvider<typeof myFlags>
     >();
-    expectTypeOf(connection.project.system).toEqualTypeOf<'launchdarkly'>();
-    expectTypeOf(connection.project.projectId).toEqualTypeOf<string>();
-    expectTypeOf(connection.project.teamId).toEqualTypeOf<string>();
+    expectTypeOf(source.project.system).toEqualTypeOf<'launchdarkly'>();
+    expectTypeOf(source.project.projectId).toEqualTypeOf<string>();
+    expectTypeOf(source.project.teamId).toEqualTypeOf<string>();
   });
 
   it('supports platforms without project fields', () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'in-memory' },
     });
 
-    expect(connection.project).toEqual({ system: 'in-memory' });
-    expectTypeOf(connection.project.system).toEqualTypeOf<'in-memory'>();
+    expect(source.project).toEqual({ system: 'in-memory' });
+    expectTypeOf(source.project.system).toEqualTypeOf<'in-memory'>();
     // @ts-expect-error in-memory has no projectId
-    connection.project.projectId;
+    source.project.projectId;
   });
 
   it('accepts a vercel-flags project with or without projectId and teamId', () => {
     const provider = new TypedInMemoryProvider(myFlags);
 
     // The platform project of Vercel
-    defineConnection({ provider, project: { system: 'vercel-flags' } });
+    defineSource({ provider, project: { system: 'vercel-flags' } });
     // A different project of the same team
-    defineConnection({
+    defineSource({
       provider,
       project: { system: 'vercel-flags', projectId: 'prj_blog' },
     });
     // A project of a different team
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: {
         system: 'vercel-flags',
@@ -106,28 +106,26 @@ describe('defineConnection', () => {
       },
     });
 
-    expectTypeOf(connection.project.projectId).toEqualTypeOf<
-      string | undefined
-    >();
-    expectTypeOf(connection.project.teamId).toEqualTypeOf<string | undefined>();
+    expectTypeOf(source.project.projectId).toEqualTypeOf<string | undefined>();
+    expectTypeOf(source.project.teamId).toEqualTypeOf<string | undefined>();
   });
 
   it('rejects invalid projects at the type level', () => {
     const provider = new TypedInMemoryProvider(myFlags);
 
-    defineConnection({
+    defineSource({
       provider,
       // @ts-expect-error unknown system
       project: { system: 'unknown', projectId: 'x' },
     });
 
-    defineConnection({
+    defineSource({
       provider,
       // @ts-expect-error teamId is required for launchdarkly
       project: { system: 'launchdarkly', projectId: 'x' },
     });
 
-    defineConnection({
+    defineSource({
       provider,
       project: {
         system: 'launchdarkly',
@@ -138,7 +136,7 @@ describe('defineConnection', () => {
       },
     });
 
-    defineConnection({
+    defineSource({
       provider,
       project: {
         system: 'in-memory',
@@ -148,19 +146,19 @@ describe('defineConnection', () => {
     });
   });
 
-  it('only recognizes connections returned by defineConnection', () => {
+  it('only recognizes sources returned by defineSource', () => {
     expect(
-      isConnection({
+      isSource({
         provider: new TypedInMemoryProvider(myFlags),
         project: { system: 'in-memory' },
       }),
     ).toBe(false);
-    expect(isConnection(null)).toBe(false);
+    expect(isSource(null)).toBe(false);
   });
 
   it('throws for the old field platform', () => {
     expect(() =>
-      defineConnection({
+      defineSource({
         provider: {
           metadata: { name: 'x' },
           resolveBooleanEvaluation: async () => ({ value: true }),
