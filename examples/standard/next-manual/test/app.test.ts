@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import { encryptOverrides } from 'flags';
-import { createAccessProof } from 'flags/discovery';
 
 // Runs the build of `pnpm build` with `next start`, and requests it
 
@@ -71,33 +71,29 @@ test('applies overrides of Flags Explorer', async () => {
   });
 });
 
-test('lists the flags for Flags Explorer', async () => {
-  const url = `${base}/.well-known/vercel/flags`;
-  assert.equal((await fetch(url)).status, 401);
+test('writes the manifest of the flags for Flags Explorer', async () => {
+  // The route of the manifest is only for development
+  assert.equal(
+    (await fetch(`${base}/.well-known/flags/manifest.json`)).status,
+    404,
+  );
 
-  const proof = await createAccessProof(secret);
-  const response = await fetch(url, {
-    headers: { authorization: `Bearer ${proof}` },
-  });
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    definitions: {
-      'beta-banner': {
-        declaredInCode: true,
-        options: [{ value: false }, { value: true }],
-        description: 'Shows the beta banner to testers',
-      },
-      checkout: {
-        declaredInCode: true,
-        options: [{ value: 'control' }, { value: 'express' }],
-        description: 'The checkout flow',
-        defaultValue: 'control',
-      },
-      'summer-sale': {
-        declaredInCode: true,
-        description: 'The summer sale banner',
-      },
-    },
-    hints: [],
+  // next build writes the manifest of the 'use flags' modules
+  const manifest = JSON.parse(
+    await readFile('.next/flags-manifest.json', 'utf8'),
+  );
+  assert.deepEqual(Object.keys(manifest.definitions), [
+    'beta-banner',
+    'checkout',
+    'summer-sale',
+  ]);
+  assert.deepEqual(manifest.definitions.checkout, {
+    type: 'string',
+    options: [{ value: 'control' }, { value: 'express' }],
+    defaultValue: 'control',
+    description: 'The checkout flow',
+    declaredInCode: true,
+    source: 'in-memory',
+    declarations: [{ module: 'flags.ts', export: 'checkout' }],
   });
 });

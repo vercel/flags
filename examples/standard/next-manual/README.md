@@ -8,8 +8,9 @@ The Flags SDK with Next.js. The source and the flags are written by hand in
   source (`bindFlag`), and an inline flag (`defineFlag` with `decide`)
 - a value of the provider which is not one of the options
 - overrides of Flags Explorer with `FLAGS_SECRET`
-- the Flags Discovery Endpoint in `app/.well-known/vercel/flags/route.ts`,
-  which the application adds by hand
+- the manifest of the flags for Flags Explorer: the route
+  `app/.well-known/flags/manifest.json/route.ts` in development, and
+  `.next/flags-manifest.json` after `next build`
 
 ```sh
 pnpm --filter flags --filter @flags-sdk/next build

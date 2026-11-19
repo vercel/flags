@@ -196,7 +196,7 @@ the test apps kept working.
 | M1 | "Source" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource`. `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
 | M2 | `bindFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws. | Done |
-| M4 | Next.js without code generation, with `@flags-sdk/next`. The Flags Discovery Endpoint with `flags/discovery`, added by hand. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. | Done |
+| M4 | Next.js without code generation, with `@flags-sdk/next`. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. (M4 also added a transitional Flags Discovery Endpoint of v4, `flags/discovery`. It was removed again: Flags Explorer uses the flags manifest.) | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
 | M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground` on the SDK with real Vercel Flags. | Done |
 | M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | Done |
@@ -1541,31 +1541,6 @@ it. It gives tools such as Flags Explorer the flags of an application, as a
 manifest. The framework collects the data and emits the manifest, through
 the framework plugins of the SDK. There is no secret, no access check, and
 no public endpoint in production.
-
-### The Flags Discovery Endpoint (transitional)
-
-Today, Flags Explorer queries `/.well-known/vercel/flags`, in the format of
-v4 (`ApiData`). Until Flags Explorer reads the manifest, the application
-adds this route by hand, because a plugin of Next.js can not add a route.
-`flags/discovery` has the parts, for each framework:
-
-```ts
-// app/.well-known/vercel/flags/route.ts
-import { createFlagsDiscoveryEndpoint, getProviderData } from 'flags/discovery';
-import * as flags from '../../../../flags';
-
-export const GET = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
-```
-
-- `getProviderData(...modules)` creates the definitions from the exports of
-  flags modules, with `createManifest`: `options`, `description`,
-  `defaultValue` and `declaredInCode`. It has no `origin` yet, because the
-  links come from the system manifest (see "Links to the dashboard").
-- `createFlagsDiscoveryEndpoint(getApiData)` takes a Web `Request`. Without
-  a valid access proof of Flags Explorer in `Authorization`, it returns
-  401. The access proof is the one of v4: a JWE of `FLAGS_SECRET` with the
-  purpose `proof` (`verifyAccess`, `createAccessProof`).
-- The demo is `examples/standard/next-manual`.
 
 ### `'use flags'`
 

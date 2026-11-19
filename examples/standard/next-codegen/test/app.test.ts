@@ -3,7 +3,6 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import { encryptOverrides } from 'flags';
-import { createAccessProof } from 'flags/discovery';
 
 // Runs the build of `pnpm build` with `next start`, and requests it
 
@@ -69,21 +68,21 @@ test('applies overrides of Flags Explorer', async () => {
   assert.equal((await flagsOfPage(`flag-overrides=${token}`)).flow, 'control');
 });
 
-test('lists the generated flags for Flags Explorer', async () => {
-  const proof = await createAccessProof(secret);
-  const response = await fetch(`${base}/.well-known/vercel/flags`, {
-    headers: { authorization: `Bearer ${proof}` },
-  });
-  assert.equal(response.status, 200);
-  const { definitions } = await response.json();
-  assert.deepEqual(Object.keys(definitions), [
+test('writes the manifest of the generated flags for Flags Explorer', async () => {
+  // The generated modules are 'use flags' modules, so the manifest has them
+  const manifest = JSON.parse(
+    await readFile('.next/flags-manifest.json', 'utf8'),
+  );
+  assert.deepEqual(Object.keys(manifest.definitions), [
     'checkout',
     'hero-text',
     'summer-sale',
   ]);
-  assert.deepEqual(definitions.checkout, {
-    declaredInCode: true,
-    options: [{ value: 'control' }, { value: 'express' }],
-    description: 'The checkout flow',
-  });
+  assert.deepEqual(manifest.definitions['hero-text'].declarations, [
+    { module: '.flags/marketing.ts', export: 'hero-text' },
+  ]);
+  assert.deepEqual(manifest.definitions.checkout.options, [
+    { value: 'control' },
+    { value: 'express' },
+  ]);
 });
