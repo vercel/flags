@@ -253,7 +253,11 @@ The manifest MUST conform to the JSON Schema
     "launchdarkly": {
       "system": "launchdarkly",
       "systemManifest": "https://flags-sdk.dev/system-manifests/launchdarkly.json",
-      "variables": { "projectId": "shop", "environment": "production" }
+      "variables": {
+        "projectId": "shop",
+        "teamId": "acme",
+        "environment": "production"
+      }
     }
   },
   "definitions": {
@@ -345,8 +349,9 @@ An override sets the value of a flag for one browser, with a cookie.
 
 ### 10.3 Both kinds
 
-- A value of an override which does not fit the type or the options of
-  its flag MUST be ignored.
+- A value of an override which does not fit the type of its flag MUST be
+  ignored. A value which is not one of the options of its flag MUST NOT be
+  ignored, because options do not limit the values of a flag.
 - An evaluation with an override MUST have the reason `OVERRIDE` in its
   evaluation details, and runs all hooks.
 

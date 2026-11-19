@@ -339,7 +339,8 @@ or `await myFlag({ evaluationContext })`.
   evaluation context of the call side as it is, and the current request, or
   `undefined` outside of a request. The type of `context` defines what the
   call side must give. An inline flag has no source of its own: it uses one
-  internal source (system `in-memory`, provider `decide`), so it goes
+  internal source (provider `decide`, no project, so the flags manifest
+  names no source for it), so it goes
   through the same steps as a flag of a provider: overrides, hooks, the
   cache of the request, and the check of the type. Its reason is `DECIDE`
   (`DECIDE_REASON`), like `OVERRIDE` for overrides. `decide` together with

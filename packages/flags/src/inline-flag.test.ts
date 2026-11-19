@@ -182,8 +182,9 @@ describe('defineFlag with decide', () => {
       type: 'boolean',
       options: [{ value: false }, { value: true }],
       description: 'My flag',
-      source: 'in-memory',
     });
+    // No flag management system is involved, so there is no source
+    expect(manifest.definitions['my-flag']?.source).toBeUndefined();
   });
 
   it('rejects decide together with a source', () => {

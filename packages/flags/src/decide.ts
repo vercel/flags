@@ -6,7 +6,8 @@ import type { EvaluationContext, Provider, ResolutionDetails } from './types';
  * The internal source of all inline flags. Its provider only exists so that
  * inline flags go through the same steps as the flags of a provider:
  * overrides, hooks, the cache of the request, and the checks of the value.
- * The runtime calls `decide` of the flag instead of the provider.
+ * The runtime calls `decide` of the flag instead of the provider. It has no
+ * project, so the flags manifest names no source for inline flags.
  */
 export type DecideSource = Source<
   Provider,
@@ -35,7 +36,6 @@ export function getDecideSource(): DecideSource {
       resolveNumberEvaluation: notCalled,
       resolveObjectEvaluation: notCalled,
     },
-    project: { system: 'in-memory' },
   });
   return sharedState.decideSource as DecideSource;
 }
