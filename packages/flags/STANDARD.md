@@ -309,7 +309,8 @@ An override sets the value of a flag for one browser, with a cookie.
 
 - The cookie is `flag-overrides`. Its value is a JWE with the algorithm
   `dir` and the encryption `A256GCM`, with the key `FLAGS_SECRET` (32 bytes,
-  base64url).
+  base64url). An implementation SHOULD also accept the secret in standard
+  base64 (with `+`, `/` and `=`), as v4 of the SDK did.
 - The payload MUST have the claim `pur` with the value `overrides`, the
   claim `o` with an object of flag keys and values, and MAY have `exp`.
 - If `FLAGS_SECRET` is set, the runtime MUST accept this kind. On the

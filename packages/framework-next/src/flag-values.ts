@@ -85,13 +85,19 @@ async function FlagValuesElement({
 
   let data: FlagValuesType | string = all;
   if (!plain) {
+    // The flag values are only for tools, so the page does not fail
+    let result: Awaited<ReturnType<typeof encryptValues>>;
     try {
-      data = await encryptValues(all, encryption);
+      result = await encryptValues(all, encryption);
     } catch (error) {
-      // The flag values are only for tools, so the page does not fail
       warnOnce(error);
       return null;
     }
+    if ('error' in result) {
+      warnOnce(result.error);
+      return null;
+    }
+    data = result.token;
   }
   return createElement('script', {
     type: 'application/json',

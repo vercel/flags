@@ -7,7 +7,8 @@
  * @internal
  */
 
-import { base64url, compactVerify } from 'jose';
+import { compactVerify } from 'jose';
+import { decodeSecret } from './secret';
 
 /**
  * Checks the signature of a code, and returns its payload. Throws if the
@@ -17,7 +18,7 @@ export async function verifyCode(
   code: string,
   secret: string,
 ): Promise<Uint8Array> {
-  const { payload } = await compactVerify(code, base64url.decode(secret), {
+  const { payload } = await compactVerify(code, decodeSecret(secret), {
     algorithms: ['HS256'],
   });
   return payload;

@@ -150,6 +150,21 @@ describe('precompute', () => {
     );
   });
 
+  it('reads a code of v4 with a secret in standard base64, as v4 did', async () => {
+    const { summerSale, checkout, banner, group } = createFlags();
+    // The same secret as above, in standard base64: with + and =
+    vi.stubEnv(
+      'FLAGS_PRECOMPUTE_SECRET',
+      'Tw1R5+WuhN6vxp9b0s6h0bCdrBQwZXMbGwjzYm1jnUs=',
+    );
+    const code =
+      'eyJhbGciOiJIUzI1NiJ9._gH_IkhlbGxvIg.GZ-saLB0vB_iGKH2FPLq4HrI_EK22LKiBkT1cIq6OdQ';
+
+    await expect(
+      getPrecomputed([summerSale, checkout, banner], group, code),
+    ).resolves.toEqual([true, 'express', 'Hello']);
+  });
+
   it('rejects a code with a wrong signature', async () => {
     const { group } = createFlags();
     const code = await serialize(group, [true, 'express', 'Hello'], secret);

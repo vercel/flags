@@ -12,7 +12,10 @@
 
 import { encryptFlagValues, type FlagValuesType } from 'flags';
 import * as nextCache from 'next/cache';
-import type { EncryptValuesOptions } from './encrypt-values';
+import type {
+  EncryptValuesOptions,
+  EncryptValuesResult,
+} from './encrypt-values';
 
 // Next.js 15 has the function only as unstable_cacheLife
 const cacheLife = ((nextCache as Record<string, unknown>).cacheLife ??
@@ -23,10 +26,19 @@ const cacheLife = ((nextCache as Record<string, unknown>).cacheLife ??
 export async function encryptValues(
   values: FlagValuesType,
   options?: EncryptValuesOptions,
-): Promise<string> {
+): Promise<EncryptValuesResult> {
   'use cache';
-  // The token of the same values stays correct, so a precomputed page does
-  // not have to revalidate for it. The longest profile of Next.js.
-  cacheLife?.('max');
-  return encryptFlagValues(values, options);
+  try {
+    const token = await encryptFlagValues(values, options);
+    // The token of the same values stays correct, so a precomputed page
+    // does not have to revalidate for it. The longest profile of Next.js.
+    cacheLife?.('max');
+    return { token };
+  } catch (error) {
+    // Not thrown: Next.js fails the prerender when a cache function throws.
+    // A short profile, so that a failure, e.g. of the network, does not
+    // stay in the cache. Not 'seconds': a prerender treats it as dynamic.
+    cacheLife?.('minutes');
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
 }

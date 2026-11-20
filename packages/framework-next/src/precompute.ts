@@ -22,7 +22,8 @@ import {
   runtime,
 } from 'flags';
 import { optionIndex } from 'flags/tooling';
-import { base64url, CompactSign } from 'jose';
+import { CompactSign } from 'jose';
+import { decodeSecret } from './secret';
 
 type Flags = readonly FlagDefinition[];
 
@@ -177,7 +178,7 @@ export async function serialize(
   }
   return new CompactSign(payload)
     .setProtectedHeader({ alg: 'HS256' })
-    .sign(base64url.decode(key));
+    .sign(decodeSecret(key));
 }
 
 // A page reads the same code several times, e.g. once for each flag

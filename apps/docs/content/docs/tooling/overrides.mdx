@@ -68,7 +68,7 @@ Use `FLAGS_SECRET` to create overrides yourself, e.g. in end-to-end tests, or wh
 
 ### 1. Create a secret
 
-`FLAGS_SECRET` is 32 random bytes, encoded as base64url:
+`FLAGS_SECRET` is 32 random bytes, encoded as base64url. The SDK also accepts standard base64 (with `+`, `/` and `=`), as v4 did, so an existing secret keeps working:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"

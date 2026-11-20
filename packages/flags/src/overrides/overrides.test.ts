@@ -152,6 +152,18 @@ describe('overrides with the shared secret', () => {
     ).resolves.toBe(true);
   });
 
+  it('accepts a FLAGS_SECRET in standard base64, as v4 did', async () => {
+    // The same bytes, with + / and =, e.g. from `openssl rand -base64 32`
+    const standard = Buffer.from(base64url.decode(secret)).toString('base64');
+    vi.stubEnv('FLAGS_SECRET', standard);
+    const { flag } = createFlag();
+    const token = await encryptOverrides({ 'new-checkout': true }, secret);
+
+    await expect(
+      runtime.onInvoke(withCookie(`flag-overrides=${token}`), () => flag()),
+    ).resolves.toBe(true);
+  });
+
   it('accepts no tokens of the shared secret with secret false', async () => {
     runtime.configure({ overrides: { secret: false } });
     const { flag } = createFlag();
@@ -169,7 +181,7 @@ describe('overrides with the shared secret', () => {
     expect(() =>
       runtime.configure({ overrides: { secret: 'too-short' } }),
     ).toThrow(
-      'flags: Invalid FLAGS_SECRET. It must be 32 random bytes, encoded as base64url.',
+      'flags: Invalid FLAGS_SECRET. It must be 32 random bytes, encoded as base64url or base64.',
     );
   });
 
