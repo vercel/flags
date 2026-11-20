@@ -13,8 +13,10 @@ export { findFlagsModules } from './find-flags-modules';
 export {
   type FlagsAliases,
   findFlagsDirectory,
+  findGeneratedDeclarations,
   GENERATED_DECLARATIONS,
   GENERATED_DIRECTORY,
+  type GenerateOptions,
   generateFlags,
   type WatchResult,
   watchFlags,

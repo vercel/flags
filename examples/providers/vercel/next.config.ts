@@ -6,4 +6,8 @@ const nextConfig: NextConfig = {};
 
 // withFlags must be the outer plugin. It gives the request of each page to
 // the SDK, and registers the 'use flags' modules for Flags Explorer.
-export default withFlags(withVercelToolbar()(nextConfig));
+// The flags are written by hand, so the default source flags:self of
+// @vercel/flags-core is off
+export default withFlags(withVercelToolbar()(nextConfig), {
+  disableSelfSource: true,
+});

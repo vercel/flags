@@ -233,6 +233,54 @@ describe('code generation of flags:<source>', () => {
     return dir;
   }
 
+  // An app which depends on @vercel/flags-core, with a fake package
+  function projectWithVercelFlags() {
+    const dir = projectWith();
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ dependencies: { '@vercel/flags-core': '1.0.0' } }),
+    );
+    const core = join(dir, 'node_modules/@vercel/flags-core');
+    mkdirSync(core, { recursive: true });
+    writeFileSync(
+      join(core, 'package.json'),
+      JSON.stringify({
+        name: '@vercel/flags-core',
+        type: 'module',
+        exports: { './catalog': './catalog.js' },
+      }),
+    );
+    writeFileSync(
+      join(core, 'catalog.js'),
+      "export const loadCatalog = () => ({ flags: { 'summer-sale': { variants: [false, true] } } });",
+    );
+    return dir;
+  }
+
+  it('generates the default source self for an app with @vercel/flags-core', async () => {
+    const dir = projectWithVercelFlags();
+
+    const resolved = await withFlags<NextConfig>(
+      {},
+      { dir },
+    )('phase-production-build');
+
+    expect(resolved.turbopack?.resolveAlias).toMatchObject({
+      'flags:self': './.flags/self.ts',
+    });
+  });
+
+  it('generates no default source with disableSelfSource', async () => {
+    const dir = projectWithVercelFlags();
+
+    await withFlags<NextConfig>(
+      {},
+      { dir, disableSelfSource: true },
+    )('phase-production-build');
+
+    expect(existsSync(join(dir, '.flags'))).toBe(false);
+  });
+
   it('points flags:<source> to the modules of .flags/aliases.json', () => {
     const dir = projectWith();
     mkdirSync(join(dir, '.flags'));

@@ -94,7 +94,18 @@ export interface SourceFiles {
    * Whether the source has `context.ts`. The default is `true`.
    */
   readonly context?: boolean;
+  /**
+   * Where the provider comes from: `provider.ts` of the source (`'file'`,
+   * the default), or `new VercelProvider()` of `@vercel/flags-core`
+   * (`'vercel'`), for the default source `self`.
+   */
+  readonly provider?: 'file' | 'vercel';
 }
+
+/**
+ * The module of the provider of Vercel Flags, for the default source.
+ */
+const VERCEL_PROVIDER_MODULE = '@vercel/flags-core/openfeature';
 
 /**
  * Writes the module of `flags:<source>` for a catalog. The module has the
@@ -128,7 +139,7 @@ export function renderSourceModule(
           `import getEvaluationContext from '${sourcesPath}/${name}/context.ts';`,
         ]
       : []),
-    `import provider from '${sourcesPath}/${name}/provider.ts';`,
+    ...providerImport(name, sourcesPath, options.provider ?? 'file'),
     '',
     'const source = defineSource({',
     '  provider,',
@@ -176,6 +187,22 @@ export function renderSourceModule(
     );
   }
   return lines.join('\n');
+}
+
+function providerImport(
+  name: string,
+  sourcesPath: string,
+  provider: 'file' | 'vercel',
+): string[] {
+  if (provider === 'vercel') {
+    // Without an SDK key, the client uses the OIDC token of the project
+    return [
+      `import { VercelProvider } from '${VERCEL_PROVIDER_MODULE}';`,
+      '',
+      'const provider = new VercelProvider();',
+    ];
+  }
+  return [`import provider from '${sourcesPath}/${name}/provider.ts';`];
 }
 
 /**
@@ -247,7 +274,9 @@ export function renderDeclarations(
       '    Source,',
       "  } from 'flags';",
       '',
-      `  type Provider = (typeof import('./sources/${name}/provider'))['default'];`,
+      (files.provider ?? 'file') === 'vercel'
+        ? `  type Provider = import('${VERCEL_PROVIDER_MODULE}').VercelProvider;`
+        : `  type Provider = (typeof import('./sources/${name}/provider'))['default'];`,
       ...input,
       '',
       `  /** The source \`${name}\` of \`flags/sources/${name}\`. */`,

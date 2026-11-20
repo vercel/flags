@@ -25,14 +25,9 @@
  * It is a plain function and uses only hooks of Nuxt, so that the SDK does
  * not depend on `@nuxt/kit`.
  */
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flags, resolveAliases, startCodeGeneration } from '@flags-sdk/vite';
-import {
-  findConfigFile,
-  findFlagsDirectory,
-  GENERATED_DECLARATIONS,
-} from 'flags/tooling';
+import { findConfigFile, findGeneratedDeclarations } from 'flags/tooling';
 
 type Plugins = unknown[] | unknown;
 
@@ -76,6 +71,13 @@ export interface FlagsNuxtOptions {
    * ```
    */
   readonly disableCodeGeneration?: boolean;
+  /**
+   * Turns off the default source `self`. By default, an application which
+   * depends on `@vercel/flags-core` has the source `self` with the flags of
+   * its Vercel project, also without `flags/sources/self/`. The code
+   * generation then loads these flags from Vercel Flags.
+   */
+  readonly disableSelfSource?: boolean;
 }
 
 /**
@@ -118,15 +120,16 @@ export default async function flagsNuxtModule(
   const root = nuxt.options.rootDir;
   let aliases: Record<string, string> = {};
   if (!options?.disableCodeGeneration) {
-    const generation = startCodeGeneration(root, nuxt.options.dev);
+    const generation = startCodeGeneration(root, nuxt.options.dev, {
+      disableSelfSource: options?.disableSelfSource,
+    });
     nuxt.hook('close', () => generation.stop());
     aliases = resolveAliases(root, await generation.ready);
     // The types of flags:<source>: the declarations in the folder flags,
     // as a reference of the types of Nuxt. Not an alias of Nuxt, which
     // would point TypeScript to the generated module instead.
-    const flagsDirectory = await findFlagsDirectory(root);
-    if (flagsDirectory) {
-      const declarations = join(flagsDirectory, GENERATED_DECLARATIONS);
+    const declarations = await findGeneratedDeclarations(root);
+    if (declarations) {
       nuxt.hook('prepare:types', ({ references }) => {
         references.push({ path: declarations });
       });

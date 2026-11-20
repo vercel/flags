@@ -42,6 +42,13 @@ export interface FlagsPluginOptions {
    * `.flags/aliases.json`, e.g. from `flags sync` or `flags watch`.
    */
   readonly disableCodeGeneration?: boolean;
+  /**
+   * Turns off the default source `self`. By default, an application which
+   * depends on `@vercel/flags-core` has the source `self` with the flags of
+   * its Vercel project, also without `flags/sources/self/`. The code
+   * generation then loads these flags from Vercel Flags.
+   */
+  readonly disableSelfSource?: boolean;
 }
 
 // The phases of Next.js, as in next/constants
@@ -253,13 +260,14 @@ export function withFlags<T extends object>(
   if (options.disableCodeGeneration && typeof config !== 'function') {
     return addFlags(config, dir);
   }
+  const generateOptions = { disableSelfSource: options.disableSelfSource };
   return async (phase, context) => {
     // `next start` and the other phases do no catalog work
     if (!options.disableCodeGeneration) {
       if (phase === PHASE_DEVELOPMENT_SERVER) {
-        await prepareCodeGeneration(dir, true);
+        await prepareCodeGeneration(dir, true, generateOptions);
       } else if (phase === PHASE_PRODUCTION_BUILD) {
-        await prepareCodeGeneration(dir, false);
+        await prepareCodeGeneration(dir, false, generateOptions);
       }
     }
     const resolved =

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import {
   type FlagsAliases,
   GENERATED_DIRECTORY,
+  type GenerateOptions,
   generateFlags,
   watchFlags,
 } from 'flags/tooling';
@@ -62,6 +63,7 @@ function setForWorkers(dir: string, name: string, value: string | undefined) {
 export function prepareCodeGeneration(
   dir: string,
   watch: boolean,
+  options: GenerateOptions = {},
 ): Promise<void> {
   const mode = watch ? 'watch' : 'build';
   const key = `${mode}:${dir}`;
@@ -94,7 +96,7 @@ export function prepareCodeGeneration(
   };
   const ready = (async () => {
     if (!watch) {
-      await generateFlags(dir);
+      await generateFlags(dir, options);
       setForWorkers(dir, ownerVariable, String(process.pid));
       return;
     }
@@ -102,7 +104,10 @@ export function prepareCodeGeneration(
     process.once('SIGTERM', stop);
     process.once('exit', stop);
     try {
-      const { done } = await watchFlags(dir, { signal: controller.signal });
+      const { done } = await watchFlags(dir, {
+        ...options,
+        signal: controller.signal,
+      });
       setForWorkers(dir, ownerVariable, String(process.pid));
       done
         .catch((error: unknown) => {

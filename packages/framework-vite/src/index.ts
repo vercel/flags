@@ -84,6 +84,13 @@ export interface FlagsVitePluginOptions {
    * `flags:<source>` to them. Without `flags/sources`, it writes nothing.
    */
   readonly disableCodeGeneration?: boolean;
+  /**
+   * Turns off the default source `self`. By default, an application which
+   * depends on `@vercel/flags-core` has the source `self` with the flags of
+   * its Vercel project, also without `flags/sources/self/`. The code
+   * generation then loads these flags from Vercel Flags.
+   */
+  readonly disableSelfSource?: boolean;
 }
 
 /**
@@ -186,7 +193,9 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       // As a plain Rollup plugin, e.g. in Nitro, there is no config hook, so
       // a framework module generates the code itself
       if (!options.disableCodeGeneration) {
-        generation = startCodeGeneration(dir, env.command === 'serve');
+        generation = startCodeGeneration(dir, env.command === 'serve', {
+          disableSelfSource: options.disableSelfSource,
+        });
         aliases = resolveAliases(dir, await generation.ready);
       }
       if (!options.binding && Object.keys(aliases).length === 0) return;
