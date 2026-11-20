@@ -1,4 +1,14 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -541,6 +551,144 @@ describe('prepareFlagsDefinitions', () => {
 
       export const version = "1.0.1";"
     `);
+  });
+
+  describe('snapshotsDir', () => {
+    let snapshotsDir: string;
+
+    beforeEach(async () => {
+      snapshotsDir = join(
+        await mkdtemp(join(tmpdir(), 'flags-snapshots-')),
+        'vercel-flags',
+      );
+    });
+
+    afterEach(async () => {
+      await rm(join(snapshotsDir, '..'), { recursive: true, force: true });
+    });
+
+    it('writes each datafile keyed by project ID and SDK key hash', async () => {
+      const mockFetch = mockFetchWithSources(
+        okJson({ flag_a: { value: true } }),
+      );
+
+      const result = await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots',
+        env: {
+          VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test'),
+          FLAGS: 'vf_server_test_key_123',
+        },
+        fetch: mockFetch,
+        snapshotsDir,
+      });
+
+      expect(result).toEqual({ created: true, entryCount: 2 });
+
+      const expected = { flag_a: { value: true }, fetchedAt: FETCH_TIME };
+      await expect(
+        readFile(join(snapshotsDir, 'prj_oidc_test.json'), 'utf8').then(
+          JSON.parse,
+        ),
+      ).resolves.toEqual(expected);
+      await expect(
+        readFile(
+          join(snapshotsDir, `${hashSdkKey('vf_server_test_key_123')}.json`),
+          'utf8',
+        ).then(JSON.parse),
+      ).resolves.toEqual(expected);
+    });
+
+    it('replaces a symlink at a snapshot path instead of writing through it', async () => {
+      const outside = join(snapshotsDir, '..', 'outside.txt');
+      await writeFile(outside, 'original');
+      await mkdir(snapshotsDir, { recursive: true });
+      await symlink(outside, join(snapshotsDir, 'prj_oidc_test.json'));
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-symlink',
+        env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test') },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      await expect(readFile(outside, 'utf8')).resolves.toBe('original');
+      const snapshotPath = join(snapshotsDir, 'prj_oidc_test.json');
+      expect((await lstat(snapshotPath)).isSymbolicLink()).toBe(false);
+      await expect(
+        readFile(snapshotPath, 'utf8').then(JSON.parse),
+      ).resolves.toEqual({ flag_a: { value: true }, fetchedAt: FETCH_TIME });
+      await expect(readdir(snapshotsDir)).resolves.toEqual([
+        'prj_oidc_test.json',
+      ]);
+    });
+
+    it('keeps snapshots readable only by the owner', async () => {
+      await mkdir(snapshotsDir, { recursive: true });
+      const existingPath = join(snapshotsDir, 'prj_oidc_test.json');
+      await writeFile(existingPath, '{}', { mode: 0o600 });
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-mode',
+        env: {
+          VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test'),
+          FLAGS: 'vf_server_test_key_123',
+        },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      const newPath = join(
+        snapshotsDir,
+        `${hashSdkKey('vf_server_test_key_123')}.json`,
+      );
+      expect((await stat(existingPath)).mode & 0o777).toBe(0o600);
+      expect((await stat(newPath)).mode & 0o777).toBe(0o600);
+    });
+
+    it('does not write through a snapshotsDir that is a symlink', async () => {
+      const outsideDir = join(snapshotsDir, '..', 'outside');
+      await mkdir(outsideDir);
+      await symlink(outsideDir, snapshotsDir);
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-symlink-dir',
+        env: { VERCEL_OIDC_TOKEN: createOidcToken('prj_oidc_test') },
+        fetch: mockFetchWithSources(okJson({ flag_a: { value: true } })),
+        snapshotsDir,
+      });
+
+      await expect(readdir(outsideDir)).resolves.toEqual([]);
+    });
+
+    it('does not create the directory when there are no flags entries', async () => {
+      const result = await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-empty',
+        env: {},
+        fetch: vi.fn(),
+        snapshotsDir,
+      });
+
+      expect(result).toEqual({ created: false, reason: 'no-flags-entries' });
+      await expect(readdir(snapshotsDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    it('does not write snapshots when the option is not set', async () => {
+      const mockFetch = mockFetchWithSources(
+        okJson({ flag_a: { value: true } }),
+      );
+
+      await prepareFlagsDefinitions({
+        cwd: '/tmp/test-snapshots-unset',
+        env: { FLAGS: 'vf_server_test_key_123' },
+        fetch: mockFetch,
+      });
+
+      await expect(readdir(snapshotsDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
   });
 
   it('retries transient failures and succeeds', async () => {
