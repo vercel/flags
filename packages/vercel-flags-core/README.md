@@ -24,7 +24,7 @@ const app = express();
 const client = createClient(); // Uses Vercel OIDC; does not initialize yet.
 
 app.get('/api/feature', async (_req, res) => {
-  const result = await client.evaluate<boolean>('show-new-feature', false);
+  const result = await client.evaluate<boolean>('showNewFeature', false);
   res.json({ enabled: result.value });
 });
 

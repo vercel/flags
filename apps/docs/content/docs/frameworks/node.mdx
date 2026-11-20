@@ -48,20 +48,18 @@ export const self = defineSource({
 ```
 
 ```ts title="src/flags.ts"
-import { bindFlag, defineFlag } from 'flags';
+import { defineFlag } from 'flags';
 import { self } from './flags/self.ts';
 
 // A flag of the source: the provider decides the value
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source: self,
+export const enableSale = self.bindFlag('enableSale', {
   defaultValue: false,
   description: 'Shows the summer sale',
 });
 
 // An inline flag: your code decides the value
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -78,7 +76,7 @@ A plain Node.js HTTP server:
 
 ```ts title="src/server.ts"
 import { createServer } from 'node:http';
-import { evaluate, runtime } from 'flags';
+import { runtime } from 'flags';
 import { betaBanner, enableSale } from './flags.ts';
 
 // Initialize the providers before the first request
@@ -96,7 +94,8 @@ const server = createServer((incoming, outgoing) => {
   // Flags evaluated inside onInvoke belong to this request
   void runtime
     .onInvoke({ headers, url }, async () => {
-      const [sale, beta] = await evaluate([enableSale, betaBanner]);
+      const sale = await enableSale();
+      const beta = await betaBanner();
       return { sale, beta };
     })
     .then(
@@ -158,7 +157,7 @@ Flags also work outside of a request, for example in a cron job or a CLI script.
 import { defineFlag } from 'flags';
 
 const detailedReport = defineFlag({
-  key: 'detailed-report',
+  key: 'detailedReport',
   decide: (_request, context: { teamSlug: string }) => context.teamSlug === 'acme',
 });
 

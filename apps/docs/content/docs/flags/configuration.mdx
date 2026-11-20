@@ -3,7 +3,7 @@ title: Configuration
 description: Set hooks, override options and static settings for all flags in the flags folder.
 ---
 
-The `flags` folder of your application holds the configuration for all flags. **Each file is optional**: without them, flags work, each provider flag names its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add a file when you want to:
+The `flags` folder of your application holds the configuration for all flags. **Each file is optional**: without them, flags work, each provider flag is declared on its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add a file when you want to:
 
 - add **hooks**: OpenFeature hooks that run for every flag;
 - change the **overrides**: which override cookies the SDK accepts;
@@ -20,7 +20,7 @@ Each concern has one file:
 
 Each setting has exactly one place. The code files run only in the application. Only the JSON file is static, so every tool can read it. A source has the same split: `catalog.ts` is read at build time, and `provider.ts`, `context.ts` and `hooks.ts` run in the application.
 
-The configuration has no source. Each provider flag names its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
+The configuration has no source. Each provider flag is declared on its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
 
 ## The files
 

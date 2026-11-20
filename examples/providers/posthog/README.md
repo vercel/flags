@@ -29,7 +29,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 Optionally set `POSTHOG_SECRET_KEY` to a feature flags secret key (`phs_...`) to enable local evaluation. By default, PostHog evaluates the flags remotely.
 
-`flags.ts` creates the PostHog client of `posthog-node` and defines a source with `PostHogProvider`, the OpenFeature provider of `@flags-sdk/posthog/openfeature`. It binds both flags to the source with `bindFlag`:
+`flags.ts` creates the PostHog client of `posthog-node` and defines a source with `PostHogProvider`, the OpenFeature provider of `@flags-sdk/posthog/openfeature`. It binds both flags to the source with `source.bindFlag`:
 
 - `show_banner` has the type `boolean`: the provider reads whether the flag is enabled.
 - `welcome_message` has the type `object`: the provider reads the JSON payload of the flag. A flag of the type `string` reads the variant key of a multivariate flag instead.

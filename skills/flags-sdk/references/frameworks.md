@@ -71,12 +71,12 @@ Use a flag in a server component or a route handler:
 
 ```tsx
 // app/page.tsx
-import { evaluate } from 'flags';
 import { enableSale } from 'flags:self';
 import { betaBanner } from '../flags';
 
 export default async function Page() {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   return (
     <main>
       {beta ? <p>You see the beta.</p> : null}
@@ -233,12 +233,12 @@ export default defineConfig({
 
 ```ts
 // src/routes/+page.server.ts
-import { evaluate } from 'flags';
 import { enableSale } from 'flags:self';
 import { betaBanner } from '$lib/flags';
 
 export async function load() {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   return { sale, beta };
 }
 ```
@@ -281,12 +281,12 @@ export default defineNuxtConfig({
 
 ```ts
 // server/api/flags.get.ts
-import { evaluate } from 'flags';
 import { enableSale } from 'flags:self';
 import { betaBanner } from '../../lib/flags';
 
 export default defineEventHandler(async () => {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   return { sale, beta };
 });
 ```
@@ -354,7 +354,6 @@ function Home() {
 ```ts
 // src/routes/api/flags.ts
 import { createFileRoute } from '@tanstack/react-router';
-import { evaluate } from 'flags';
 import { enableSale } from 'flags:self';
 import { betaBanner } from '../../flags';
 
@@ -362,7 +361,8 @@ export const Route = createFileRoute('/api/flags')({
   server: {
     handlers: {
       GET: async () => {
-        const [sale, beta] = await evaluate([enableSale, betaBanner]);
+        const sale = await enableSale();
+        const beta = await betaBanner();
         return Response.json({ sale, beta });
       },
     },
@@ -399,20 +399,18 @@ export const self = defineSource({
 // src/flags.ts
 'use flags';
 
-import { bindFlag, defineFlag } from 'flags';
+import { defineFlag } from 'flags';
 import { self } from './flags/self.ts';
 
 // A flag of the source: the provider decides the value
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source: self,
+export const enableSale = self.bindFlag('enableSale', {
   defaultValue: false,
   description: 'Shows the summer sale',
 });
 
 // An inline flag: your code decides the value
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -423,7 +421,7 @@ export const betaBanner = defineFlag({
 // src/server.ts
 import { flags } from '@flags-sdk/hono';
 import { serve } from '@hono/node-server';
-import { evaluate, runtime } from 'flags';
+import { runtime } from 'flags';
 import { Hono } from 'hono';
 import { betaBanner, enableSale } from './flags.ts';
 
@@ -433,7 +431,8 @@ const app = new Hono();
 app.use(flags());
 
 app.get('/', async (c) => {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   return c.json({ sale, beta });
 });
 
@@ -464,7 +463,7 @@ pnpm add flags @flags-sdk/express @vercel/flags-core @openfeature/server-sdk
 // src/server.ts
 import { flags } from '@flags-sdk/express';
 import express from 'express';
-import { evaluate, runtime } from 'flags';
+import { runtime } from 'flags';
 import { betaBanner, enableSale } from './flags.ts';
 
 const app = express();
@@ -473,7 +472,8 @@ const app = express();
 app.use(flags());
 
 app.get('/', async (_request, response) => {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   response.json({ sale, beta });
 });
 
@@ -514,7 +514,7 @@ export default {
 - With `node:http`, pass `{ headers, url }`, and pass the same `headers` object for the whole request. Without `cookies`, the SDK reads the `Cookie` header.
 - Scripts and cron jobs have no request. Pass what the flag needs with `evaluationContext`.
 - `'use flags'` is optional here. Add it if you want to write a manifest with `npx flags manifest`.
-- Without a bundler, nothing appends the self-registration of `'use flags'` modules. `bindFlag` registers its source itself. Call `registerFlags` for modules that export plain flag objects.
+- Without a bundler, nothing appends the self-registration of `'use flags'` modules. `source.bindFlag` registers its source itself. Call `registerFlags` for modules that export plain flag objects.
 - Complete example: `examples/standard/plain` in the repository.
 
 ## Custom frameworks

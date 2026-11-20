@@ -9,14 +9,14 @@ A flag can fail: the provider is down, the flag does not exist in your flag mana
 - **Without `defaultValue`**, the call throws a `FlagEvaluationError`.
 
 ```ts title="flags.ts"
-import { bindFlag } from 'flags';
+
 import { self } from './flags/self';
 
 // Returns false when the evaluation fails
-export const summerSale = bindFlag({ key: 'summer-sale', source: self, defaultValue: false });
+export const summerSale = self.bindFlag('summerSale', { defaultValue: false });
 
 // Throws when the evaluation fails
-export const pricingTable = bindFlag({ key: 'pricing-table', source: self, type: 'string' });
+export const pricingTable = self.bindFlag('pricingTable', { type: 'string' });
 ```
 
 ## With a default value
@@ -24,7 +24,7 @@ export const pricingTable = bindFlag({ key: 'pricing-table', source: self, type:
 The flag returns `defaultValue`, and the SDK logs one line:
 
 ```text
-flags: Could not evaluate flag "summer-sale": no flag found with key summer-sale. Returned the default value: false.
+flags: Could not evaluate flag "summerSale": no flag found with key summerSale. Returned the default value: false.
 ```
 
 One line keeps your logs small when a flag fails on each request. The full error goes to the debug level.
@@ -43,7 +43,7 @@ try {
   const table = await pricingTable();
 } catch (error) {
   if (error instanceof FlagEvaluationError) {
-    console.log(error.flagKey); // 'pricing-table'
+    console.log(error.flagKey); // 'pricingTable'
     console.log(error.code); // e.g. 'FLAG_NOT_FOUND'
   }
   throw error;
@@ -54,7 +54,7 @@ try {
 | --- | --- |
 | `flagKey` | The key of the flag |
 | `code` | An OpenFeature error code, e.g. `FLAG_NOT_FOUND`, `TYPE_MISMATCH`, `PROVIDER_FATAL` or `GENERAL` (for errors without a code) |
-| `message` | e.g. `flags: Could not evaluate flag "pricing-table": no flag found with key pricing-table` |
+| `message` | e.g. `flags: Could not evaluate flag "pricingTable": no flag found with key pricingTable` |
 | `cause` | The original error, if there is one |
 
 Leave out `defaultValue` when no value is safe, and an error page is better than a wrong value, e.g. for a flag that selects a price.

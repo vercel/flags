@@ -14,7 +14,7 @@ Copy `.env.example` to `.env.local` and set `FLAGS_SECRET` to a random secret:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-`flags.ts` passes the OpenFeature provider directly to `defineSource`, and binds `welcome_message` and `show_banner` to that source with `bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change the greeting or switch the banner's `defaultVariant` from `on` to `off` in `flags.ts`, then refresh the page. Every visitor uses the same `demo-user` targeting key; change `getEvaluationContext` of the source to add user targeting. It runs once per request for all flags of the source.
+`flags.ts` passes the OpenFeature provider directly to `defineSource`, and binds `welcome_message` and `show_banner` to that source with `source.bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change the greeting or switch the banner's `defaultVariant` from `on` to `off` in `flags.ts`, then refresh the page. Every visitor uses the same `demo-user` targeting key; change `getEvaluationContext` of the source to add user targeting. It runs once per request for all flags of the source.
 
 The in-memory provider is for demonstration. Replace it with your OpenFeature server provider in `flags.ts` for production. The SDK initializes the provider before the first evaluation, so do not call `OpenFeature.setProviderAndWait()`. See [OpenFeature providers](https://flags-sdk.dev/providers/openfeature).
 

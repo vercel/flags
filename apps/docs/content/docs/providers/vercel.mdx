@@ -31,7 +31,7 @@ npm install flags @vercel/flags-core @openfeature/server-sdk
 
 ### 2. Create a flag in Vercel
 
-Create a boolean flag called `summer-sale` in the dashboard of your project:
+Create a boolean flag called `summerSale` in the dashboard of your project:
 
 <LearnMore icon="arrow" target="_blank" href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fflags%3Fcreate%3D1&title=Go+to+Vercel+Flags">
   Create a flag
@@ -84,7 +84,7 @@ Restart the dev server after you add the file. Without `context.ts`, the provide
 Import the flag from `flags:self`:
 
 ```tsx title="app/page.tsx"
-import { 'summer-sale' as summerSale } from 'flags:self';
+import { summerSale } from 'flags:self';
 
 export default async function Page() {
   const sale = await summerSale();
@@ -116,12 +116,9 @@ export const self = defineSource({
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
@@ -219,10 +216,9 @@ export const blog = defineSource({
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { blog } from './flags/other-projects';
 
-export const newSearch = bindFlag({ key: 'new-search', source: blog });
+export const newSearch = blog.bindFlag('newSearch');
 ```
 
 - **Project Connections** let a project read the flags of another project of the same team, with its own OIDC token. Grant access in the **Flags → Connections** page of the source project. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections).
@@ -261,7 +257,7 @@ import type { CatalogLoader } from 'flags';
 const loadCatalog: CatalogLoader = () => ({
   project: { system: 'vercel-flags' },
   flags: {
-    'summer-sale': {
+    summerSale: {
       variants: [false, true],
       defaultValue: false,
       description: 'Shows the summer sale banner',

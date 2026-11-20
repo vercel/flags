@@ -39,12 +39,9 @@ A module which starts with `'use flags'` exports only flags. The framework plugi
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -112,7 +109,7 @@ Other frameworks write the element with the functions of `flags`:
 import { encryptFlagValues, serializeFlagValues } from 'flags';
 
 const content = serializeFlagValues(
-  await encryptFlagValues({ 'summer-sale': true, checkout: 'express' }),
+  await encryptFlagValues({ summerSale: true, checkout: 'express' }),
 );
 const html = `<script type="application/json" data-flag-values>${content}</script>`;
 ```

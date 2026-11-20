@@ -31,12 +31,12 @@ Precompute is in `@flags-sdk/next/precompute`. It needs `withFlags` in `next.con
 List the flags that the page uses. The list must be in a separate file, because a `'use flags'` module exports only flags:
 
 ```ts title="marketing-flags.ts"
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
-`summer-sale` and `checkout` are flags of the source `self`, from its catalog in `flags/sources/self` (see [Next.js](/docs/frameworks/next)). Any flag works: inline flags and flags of a source, generated or written by hand.
+`summerSale` and `checkout` are flags of the source `self`, from its catalog in `flags/sources/self` (see [Next.js](/docs/frameworks/next)). Any flag works: inline flags and flags of a source, generated or written by hand.
 
 ## 2. Precompute in the proxy
 
@@ -60,7 +60,7 @@ export const config = { matcher: '/marketing' };
 
 ```tsx title="app/marketing/[code]/page.tsx"
 import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 import { marketingFlags } from '../../../marketing-flags';
 
 // Optional: build a page for each combination at build time
@@ -88,7 +88,7 @@ export default async function Page({
 
 ## Build time or on demand
 
-- **At build time.** `generatePermutations(group)` returns the code of each combination. Boolean flags have the values `false` and `true`. Every other flag needs `options`, or `generatePermutations` throws. Pass a `filter` as the second argument to skip combinations that need no page: `generatePermutations(marketingFlags, (values) => values['summer-sale'] === true)`.
+- **At build time.** `generatePermutations(group)` returns the code of each combination. Boolean flags have the values `false` and `true`. Every other flag needs `options`, or `generatePermutations` throws. Pass a `filter` as the second argument to skip combinations that need no page: `generatePermutations(marketingFlags, (values) => values.summerSale === true)`.
 - **On demand (ISR).** Return `[]` from `generateStaticParams`. Next.js renders each combination on its first request and caches it. This avoids long builds when there are many combinations.
 
 `options` describe the known values, but a provider can still return a value outside of them, for example a new variant added after the deployment. Precompute still works: the code then carries the value itself, and Next.js renders that page on demand, unless you set `export const dynamicParams = false`.
@@ -141,7 +141,7 @@ On the first visit the request has no cookie yet, so the ID goes to the flags th
 'use flags';
 
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 const marketing = defineSource({
   provider: new VercelProvider(),
@@ -158,9 +158,7 @@ const marketing = defineSource({
   }),
 });
 
-export const heroTest = bindFlag({
-  key: 'hero-test',
-  source: marketing,
+export const heroTest = marketing.bindFlag('heroTest', {
   defaultValue: false,
 });
 ```

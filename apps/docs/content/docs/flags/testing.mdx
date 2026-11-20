@@ -63,7 +63,7 @@ To test real evaluations, give the flags a provider with fixed rules. The in-mem
 npm install --save-dev @openfeature/server-sdk
 ```
 
-Each flag names its source, e.g. `bindFlag({ key, source: self })` with `self` from `./flags/self`. Mock the module of the source, so that it uses an in-memory provider:
+Each flag is declared on its source, e.g. `self.bindFlag('newDashboard')` with `self` from `./flags/self`. Mock the module of the source, so that it uses an in-memory provider:
 
 ```ts title="flags.test.ts"
 import { expect, it, vi } from 'vitest';
@@ -75,7 +75,7 @@ vi.mock('./flags/self', async () => {
   return {
     self: defineSource({
       provider: new TypedInMemoryProvider({
-        'new-dashboard': {
+        newDashboard: {
           variants: { on: true, off: false },
           defaultVariant: 'off',
           disabled: false,
@@ -107,7 +107,7 @@ vi.mock('./flags/sources/self/provider.ts', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
   return {
     default: new TypedInMemoryProvider({
-      'new-dashboard': {
+      newDashboard: {
         variants: { on: true, off: false },
         defaultVariant: 'on',
         disabled: false,

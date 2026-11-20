@@ -217,7 +217,7 @@ A flag value can change at any time, and depends on the request. Thus, an evalua
 
 ## The configuration files
 
-The configuration of the application has one optional file for each part, in the folder `flags` of the application or of its `src` directory. The binding loads each file which exists. The configuration has no source: each flag of a provider names its source.
+The configuration of the application has one optional file for each part, in the folder `flags` of the application or of its `src` directory. The binding loads each file which exists. The configuration has no source: each flag of a provider is declared on its source.
 
 | File | Part of `Config` | Read by |
 | --- | --- | --- |
@@ -245,7 +245,7 @@ A build plugin which supports discovery finds the `'use flags'` modules of the p
 
 ## Deployment platforms
 
-- This version of the standard has no default provider. Each flag of a provider names its source, and the configuration has no source.
+- This version of the standard has no default provider. Each flag of a provider is declared on its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10 of STANDARD.md (see [Overrides](/docs/tooling/overrides)).
 

@@ -42,7 +42,7 @@ app.get('/', async (_request, response) => {
 
 ### 2️⃣ Optional: the configuration files
 
-You do not need a configuration file: each flag names its source, and
+You do not need a configuration file: each flag is declared on its source, and
 overrides work with `FLAGS_SECRET`, or on Vercel, without one. The folder
 `flags` (or `src/flags`), next to `flags/sources`, can have one file for each
 part of the configuration of all flags:
@@ -79,9 +79,9 @@ file yourself, and pass them as `settings`. See
 ## Sources and code generation
 
 There is no bundler, so there is no plugin for code generation. Each flag
-names its source. Use one of two ways:
+is declared on its source. Use one of two ways:
 
-- Write `defineSource` and `bindFlag` by hand.
+- Write `defineSource` and `source.bindFlag` by hand.
 - Put each source into `flags/sources/<source>` (`catalog.ts`,
   `provider.ts`, and an optional `context.ts` and `hooks.ts`). By convention, the main source of the
   application is `flags/sources/self`. Run `flags sync` (one time) or
@@ -89,7 +89,7 @@ names its source. Use one of two ways:
   module:
 
   ```ts
-  import { 'summer-sale' as summerSale } from './.flags/self.ts';
+  import { summerSale } from './.flags/self.ts';
   ```
 
 ## Discovery

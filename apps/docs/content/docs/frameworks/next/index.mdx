@@ -88,7 +88,7 @@ Not every flag needs a provider. An [inline flag](/docs/flags/inline-flags) deci
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -100,12 +100,12 @@ The `'use flags'` directive marks a module that exports only flags. `withFlags` 
 Both kinds of flags are called in the same way:
 
 ```tsx title="app/page.tsx"
-import { evaluate } from 'flags';
 import { enableSale } from 'flags:self';
 import { betaBanner } from '../flags';
 
 export default async function Page() {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   return (
     <main>
       {beta ? <p>You see the beta.</p> : null}
@@ -199,7 +199,7 @@ To show the values of a request in Flags Explorer and in Vercel Web Analytics, r
 
 ## Without code generation
 
-You can also write the source and its flags by hand, e.g. if you prefer code to the folder of a source. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, set `"selfSource": false` in `flags/config.json`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `withFlags({}, { disableCodeGeneration: true })`.
+You can also write the source and its flags by hand, e.g. if you prefer code to the folder of a source. Use `defineSource` and `source.bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, set `"selfSource": false` in `flags/config.json`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `withFlags({}, { disableCodeGeneration: true })`.
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -217,18 +217,15 @@ export const self = defineSource({
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source: self,
+export const enableSale = self.bindFlag('enableSale', {
   defaultValue: false,
   description: 'Shows the summer sale',
 });
 ```
 
-Each flag names its source. This is the same code that the code generation writes. `withFlags` points `flags:<source>` to the modules in `.flags` also with `disableCodeGeneration`, e.g. after `flags sync`, or with `flags watch -- next dev`. See [Flags of a source](/docs/flags/provider-flags).
+Each flag is declared on its source. This is the same code that the code generation writes. `withFlags` points `flags:<source>` to the modules in `.flags` also with `disableCodeGeneration`, e.g. after `flags sync`, or with `flags watch -- next dev`. See [Flags of a source](/docs/flags/provider-flags).
 
 ## Cache Components
 

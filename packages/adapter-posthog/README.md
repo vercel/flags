@@ -35,7 +35,7 @@ The application creates the PostHog client of `posthog-node` (5 or 6) and gives 
 
 ```ts
 import { PostHogProvider } from "@flags-sdk/posthog/openfeature";
-import { bindFlag, defineSource } from "flags";
+import { defineSource } from "flags";
 import { PostHog } from "posthog-node";
 
 const posthog = defineSource({
@@ -49,9 +49,7 @@ const posthog = defineSource({
   getEvaluationContext: () => ({ targetingKey: "user-123" }),
 });
 
-export const showBanner = bindFlag({
-  key: "show_banner",
-  source: posthog,
+export const showBanner = posthog.bindFlag("showBanner", {
   defaultValue: false,
 });
 ```

@@ -24,7 +24,7 @@ import { defineSource } from 'flags';
 
 export const shop = defineSource({
   provider: new TypedInMemoryProvider({
-    'summer-sale': {
+    summerSale: {
       variants: { on: true, off: false },
       defaultVariant: 'off',
       disabled: false,
@@ -48,14 +48,11 @@ export const shop = defineSource({
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { shop } from './sources';
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+export const summerSale = shop.bindFlag('summerSale');
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: shop,
+export const checkout = shop.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',

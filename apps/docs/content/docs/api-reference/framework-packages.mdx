@@ -241,7 +241,6 @@ alias.
 
 ```ts title="src/index.ts"
 import { flags } from '@flags-sdk/hono';
-import { evaluate } from 'flags';
 import { Hono } from 'hono';
 import { bannerText, summerSale } from './flags';
 import hooks from './flags/hooks';
@@ -250,7 +249,8 @@ const app = new Hono();
 app.use(flags({ config: { hooks } }));
 
 app.get('/', async (c) => {
-  const [sale, banner] = await evaluate([summerSale, bannerText]);
+  const sale = await summerSale();
+  const banner = await bannerText();
   return c.json({ sale, banner });
 });
 ```

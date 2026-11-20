@@ -3,7 +3,7 @@ title: Frameworks
 description: Use the same flags in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or plain Node.js.
 ---
 
-The Flags SDK does not depend on a framework. You define flags with the `flags` package, and you call them in the same way everywhere: `await enableSale()` or `await evaluate([enableSale, betaBanner])`. A small framework package connects the SDK to your framework. Your application code imports only `flags`.
+The Flags SDK does not depend on a framework. You define flags with the `flags` package, and you call them in the same way everywhere: `await enableSale()`. A small framework package connects the SDK to your framework. Your application code imports only `flags`.
 
 ## What a framework package does
 
@@ -67,7 +67,7 @@ Inline flags, which your code decides, go into a module that starts with `'use f
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -78,7 +78,7 @@ See [Code generation](/docs/flags/code-generation) for the details, and to load 
 
 ### Without a bundler: sources by hand
 
-Hono, Express and plain Node.js often run without a bundler, so nothing generates `flags:self`. Write the source and its flags by hand, with `defineSource` and `bindFlag`. By convention, the source module is `flags/self.ts`:
+Hono, Express and plain Node.js often run without a bundler, so nothing generates `flags:self`. Write the source and its flags by hand, with `defineSource` and `source.bindFlag`. By convention, the source module is `flags/self.ts`:
 
 ```ts title="src/flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -97,20 +97,18 @@ export const self = defineSource({
 ```ts title="src/flags.ts"
 'use flags';
 
-import { bindFlag, defineFlag } from 'flags';
+import { defineFlag } from 'flags';
 import { self } from './flags/self.ts';
 
 // A flag of the source: the provider decides the value
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source: self,
+export const enableSale = self.bindFlag('enableSale', {
   defaultValue: false,
   description: 'Shows the summer sale',
 });
 
 // An inline flag: your code decides the value
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',

@@ -3,7 +3,7 @@ name: flags-sdk
 description: >
   Write feature flag code with the Flags SDK v5 (the `flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a flag to code, or changing flag code:
-  `defineFlag` (inline flags), `bindFlag` and `defineSource` (provider flags), the file system
+  `defineFlag` (inline flags), `defineSource` and `source.bindFlag` (provider flags), the file system
   API (`flags/sources/<source>/provider.ts`, `catalog.ts`, `context.ts`, `hooks.ts`) with
   `import { ... } from 'flags:<source>'`, the default source `flags:self` of
   `@vercel/flags-core` (`"selfSource": false` in `flags/config.json`), code generation (`flags sync`, `flags watch`,
@@ -36,13 +36,13 @@ Run the CLI steps of this skill yourself. Do not leave them to the user as "next
 - **A flag is an async function.** Call it on the server: `const sale = await enableSale()`. It returns the value, not the details.
 - **Two kinds of flags.**
   - An **inline flag**, `defineFlag({ key, decide })`, decides its value in code. `decide(request, context)` receives the current request (`undefined` outside a request) and the evaluation context of the call side.
-  - A **provider flag**, `bindFlag({ key, source })`, asks the OpenFeature provider of a source.
-- **A source** is `defineSource({ provider, project?, getEvaluationContext?, hooks? })`. Each provider flag names its source. The runtime has no default source. By convention, the main source of an app is `self`. With `@vercel/flags-core` in `package.json`, the code generation gives the default source `self` of Vercel Flags (see below).
-- **The evaluation context** comes from a chain: call side (`flag({ evaluationContext })`) → flag (`getEvaluationContext` of `bindFlag`) → source (`getEvaluationContext(request, input)`) → provider. Each step is optional and runs once per request and input. This replaces `identify` and `dedupe` of v4. The SDK does not merge the steps: each step returns the complete input of the next one.
+  - A **provider flag**, `source.bindFlag(key, options?)`, asks the OpenFeature provider of its source.
+- **A source** is `defineSource({ provider, project?, getEvaluationContext?, hooks? })`. Each provider flag is declared on its source. The runtime has no default source. By convention, the main source of an app is `self`. With `@vercel/flags-core` in `package.json`, the code generation gives the default source `self` of Vercel Flags (see below).
+- **The evaluation context** comes from a chain: call side (`flag({ evaluationContext })`) → flag (`getEvaluationContext` of `source.bindFlag`) → source (`getEvaluationContext(request, input)`) → provider. Each step is optional and runs once per request and input. This replaces `identify` and `dedupe` of v4. The SDK does not merge the steps: each step returns the complete input of the next one.
 - **Types.** Without `type`, a flag is a boolean. Set `type: 'string' | 'number' | 'object'` for every other flag. The SDK does not infer the type from `defaultValue` or `options`. `object` is any JSON value.
 - **`options`** list the known values, for Flags Explorer and precompute. They do not limit the value: a new variant goes through.
 - **`defaultValue`** is returned when the evaluation fails, and the SDK logs one line. Without it, the call throws a `FlagEvaluationError`.
-- **One value per request.** Each flag is evaluated once per request and context. Use `evaluate([a, b])` to evaluate several flags in parallel.
+- **One value per request.** Each flag is evaluated once per request and context. Call flags directly: `await summerSale()`. Calls of many flags in parallel share the work (one evaluation context per request, one provider call per flag). `evaluate([a, b, c])` gives no speed advantage. Use it only as a convenience for a list of flags.
 - **`'use flags'` modules.** A module that starts with `'use flags'` exports only flags. The framework plugins register these flags, and the flags manifest for Flags Explorer lists them. Generated modules have the directive already.
 - **The runtime** (`runtime` of `flags`) knows the current request, initializes each provider once, and closes it at shutdown. The framework package connects it to the request. Without a framework, call `runtime.onInvoke(request, next)` yourself.
 - **App code imports only `flags`** (and `flags:<source>`). The framework packages are only for the setup, plus precompute and `FlagValues` in Next.js.
@@ -69,7 +69,7 @@ flags/                    # in the app root or in src/ (SvelteKit: always src/fl
 .flags/                   # generated modules, ignored by its own .gitignore
 ```
 
-**Hand-written sources** (Hono, Express, plain Node.js, or when the user prefers code): write `defineSource` in one module (e.g. `flags/self.ts`) and the `bindFlag` calls in a `'use flags'` module (e.g. `flags.ts`). The generated code is the same code, so the call sites do not change when you switch. In a framework with a plugin and `@vercel/flags-core`, also set `"selfSource": false` in `flags/config.json`.
+**Hand-written sources** (Hono, Express, plain Node.js, or when the user prefers code): write `defineSource` in one module (e.g. `flags/self.ts`) and the `self.bindFlag(key)` calls in a `'use flags'` module (e.g. `flags.ts`). The generated code is the same code, so the call sites do not change when you switch. In a framework with a plugin and `@vercel/flags-core`, also set `"selfSource": false` in `flags/config.json`.
 
 Inline flags (`defineFlag`) go into a hand-written `'use flags'` module in both setups.
 
@@ -154,18 +154,16 @@ Use this flow when the flag does not exist on Vercel yet. If it exists (the prom
 3. **Pull the credentials** if `.env.local` has no `VERCEL_OIDC_TOKEN=`: `vercel env pull`.
 4. **Generate the code**:
    - File system API: a running dev server picks up the new flag. Otherwise run `npx flags sync`. Check that `flags/generated.d.ts` (or `src/flags/generated.d.ts`) declares the key.
-   - Hand-written source: add a `bindFlag` to the `'use flags'` module:
+   - Hand-written source: add a `self.bindFlag` call to the `'use flags'` module:
      ```ts
-     export const myFlag = bindFlag({
-       key: 'my-flag',
-       source: self,
+     export const myFlag = self.bindFlag('myFlag', {
        defaultValue: false,
        description: 'What the flag is for',
      });
      ```
-5. **Use the flag** on the server. A generated module exports each flag under its key. Import a key that is not a valid name with a string import:
+5. **Use the flag** on the server. A generated module exports each flag under its key, so a camelCase key is a valid import name:
    ```tsx
-   import { 'my-flag' as myFlag } from 'flags:self';
+   import { myFlag } from 'flags:self';
 
    export default async function Page() {
      const enabled = await myFlag();
@@ -184,16 +182,14 @@ Use this flow when the flag was created in the dashboard or by someone else. Do 
 3. **Pull the credentials** if `.env.local` has no `VERCEL_OIDC_TOKEN=`.
 4. **Get the flag into code**:
    - File system API: the catalog already generates it. Run `npx flags sync` (or let the dev server do it), and import the flag from `flags:self`. Its type and options come from the variants.
-   - Hand-written: map the `inspect` output to `bindFlag`:
-     - `key`: the key exactly as printed.
+   - Hand-written: map the `inspect` output to `source.bindFlag`:
+     - `key` (the first argument): the key exactly as printed.
      - kind → `type`: `boolean` → no `type` (or `'boolean'`), `string` → `'string'`, `number` → `'number'`, `json` → `'object'`.
      - `options`: the variants, when you use precompute or want them in Flags Explorer.
      - `description`: copy it.
      - `defaultValue`: the value for a failed evaluation or an archived flag, usually what production serves today.
      ```ts
-     export const welcomeMessage = bindFlag({
-       key: 'welcome-message',
-       source: self,
+     export const welcomeMessage = self.bindFlag('welcomeMessage', {
        type: 'string',
        description: 'Copy shown on the landing page',
        defaultValue: 'control',
@@ -213,14 +209,14 @@ What a flag serves (enable, set, split, rollout, rules) changes in the dashboard
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
 });
 ```
 
-A typed second parameter of `decide` makes the context required at each call: `decide: async (_request, context: { teamId: string }) => ...` and `await teamInsights({ evaluationContext: { teamId } })`. To move an inline flag to a provider, replace `defineFlag` with `bindFlag` (or the generated flag) and keep the key. The call sites do not change.
+A typed second parameter of `decide` makes the context required at each call: `decide: async (_request, context: { teamId: string }) => ...` and `await teamInsights({ evaluationContext: { teamId } })`. To move an inline flag to a provider, replace `defineFlag` with `source.bindFlag` (or the generated flag) and keep the key. The call sites do not change.
 
 ## Evaluate flags
 
@@ -230,14 +226,17 @@ import { enableSale } from 'flags:self';
 import { betaBanner } from './flags';
 
 const sale = await enableSale();
-const [sale2, beta] = await evaluate([enableSale, betaBanner]);
+const beta = await betaBanner();
 const insights = await teamInsights({ evaluationContext: { teamId } });
+
+// A convenience for a list of flags, e.g. all flags of a page
+const values = await evaluate([enableSale, betaBanner]); // [boolean, boolean]
 ```
 
 - Flags run only on the server: server components, route handlers, loaders, server functions, middleware and scripts. Pass values to the client as props or loader data.
 - Never import `flags` or `flags:<source>` in client code (`'use client'`, universal `+page.ts`, browser components).
 - In the Next.js proxy, wrap the call: `await runtime.onInvoke(request, () => betaBanner())`.
-- A key that is known only at runtime: ``evaluate({ key: `feature-${name}`, source: self })``. Define known flags with `bindFlag`, so they have types and appear in the manifest.
+- A key that is known only at runtime: ``evaluate({ key: `feature-${name}`, source: self })``. Define known flags with `source.bindFlag`, so they have types and appear in the manifest.
 
 ## Overrides and `FLAGS_SECRET`
 
@@ -268,7 +267,7 @@ Precompute keeps pages static while flags vary per visitor. The proxy calls `pre
 - **Creating `provider.ts` and `catalog.ts` for Vercel Flags.** Not needed with `@vercel/flags-core`: the default source `self` has them. Add a file only to replace its part. Each other source still needs both files.
 - **An empty `flags:self` in CI.** Without credentials, the default catalog gives no flags and the SDK warns; the build does not fail, but the type check fails at the import of a flag. Pull the credentials (or set `FLAGS`), commit `flags/generated.d.ts`, or set `"selfSource": false` in `flags/config.json`. A custom `catalog.ts` fails the build instead.
 - **Webpack in Next.js.** `withFlags` supports Turbopack only. A webpack build throws.
-- **No source on `bindFlag`.** The runtime has no default source. `bindFlag` without `source` throws. The configuration files have no source option.
+- **A standalone `bindFlag` or a `source` option.** They do not exist. Declare a provider flag on its source: `self.bindFlag('summerSale')`. The runtime has no default source, and the configuration files have no source option.
 - **No `flags/config.ts` and no `defineConfig`.** They do not exist. Put the hooks for all flags into the default export of `flags/hooks.ts`, the override options into the default export of `flags/overrides.ts`, and the static settings into `flags/config.json`. The SDK checks `flags/config.json` strictly: an unknown key or a wrong type is an error.
 - **Missing `type`.** A non-boolean flag without `type` is a type error, and a string value fails at runtime with `TYPE_MISMATCH`.
 - **Other exports in a `'use flags'` module.** Each export must be a flag. Export sources, helpers, types and precompute groups from other modules. An export that is not a flag makes the manifest fail.

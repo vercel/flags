@@ -84,13 +84,13 @@ object, and run `flags sync` before `next build`.
 
 ### 2️⃣ Give the flags a source
 
-Each flag of a provider names its source:
+Each flag of a provider is declared on its source:
 
 ```ts
 // flags.ts
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 // The main source of the application
@@ -102,7 +102,7 @@ const self = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const summerSale = self.bindFlag('summerSale');
 ```
 
 The runtime has no global source. Code generation can write the sources
@@ -139,11 +139,11 @@ See [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ```tsx
 // app/page.tsx
-import { evaluate } from 'flags';
 import { bannerText, summerSale } from '../flags';
 
 export default async function Page() {
-  const [sale, banner] = await evaluate([summerSale, bannerText]);
+  const sale = await summerSale();
+  const banner = await bannerText();
   return <h1>{sale ? banner : 'Welcome'}</h1>;
 }
 ```
@@ -325,7 +325,7 @@ export default withFlags({});
 
 ```ts
 // app/page.tsx
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 ```
 
 - `withFlags` returns a function of the phase. `next build` generates

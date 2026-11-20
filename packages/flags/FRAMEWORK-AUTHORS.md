@@ -202,7 +202,7 @@ plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 
 ## For deployment platforms
 
-- Each flag of a provider names its source, and the configuration has no
+- Each flag of a provider is declared on its source, and the configuration has no
   source. The default is on the level of the files: with
   `@vercel/flags-core`, the code generation gives the default source `self`
   of Vercel Flags.

@@ -54,7 +54,7 @@ writes a deployment adapter.
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
 7. Done: configuration. `runtime.configure` with the optional files
    `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`. There is
-   no default source: each flag of a provider names its source (see
+   no default source: each flag of a provider is declared on its source (see
    "Configuration" and "No default source").
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
@@ -193,7 +193,7 @@ the test apps kept working.
 | --- | --- | --- |
 | M0 | Baseline of the tests | Done |
 | M1 | "Source" becomes "source": `defineSource`, `registerSources`, `source` of a flag, `defaultSource` (removed later in M9). `setRequestSource` becomes `setGetRequest` and `setConfigSource` becomes `setLoadConfig`, because "source" now means only a source of flags. Demo `examples/standard/plain`. | Done |
-| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags") | Done |
+| M2 | `defineFlag({ key, decide })` for inline flags, `bindFlag({ key, source })` for the flags of a source (see "Flags"; now `source.bindFlag(key, options)`) | Done |
 | M3 | A value which is not in `options` goes through. The OFREP default source throws (removed later in M9). | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. (M4 also added a transitional Flags Discovery Endpoint of v4, `flags/discovery`. It was removed again: Flags Explorer uses the flags manifest.) | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
@@ -266,8 +266,8 @@ copy which is loaded later still gives its binding. This is necessary for
 one process (`vi.resetModules`).
 
 The package exports `evaluate` (see "Evaluating flags with `evaluate`"). It
-calls `runtime.evaluate`. Both accept a flag returned by `bindFlag` or
-`defineFlag`, or a
+calls `runtime.evaluate`. Both accept a flag returned by `source.bindFlag`
+or `defineFlag`, or a
 `FlagDefinition` (`key`, `source`, optional `defaultValue`). Use the
 second form to evaluate a key that is only known at runtime. The source
 must come from `defineSource`.
@@ -339,8 +339,10 @@ There are two kinds of flags. Both return an async function: `await myFlag()`
 or `await myFlag({ evaluationContext })`.
 
 - **A flag of a source**:
-  `bindFlag({ key, source, type?, options?, defaultValue?, description?, getEvaluationContext? })`.
-  The provider of the source decides the value. The function exposes
+  `source.bindFlag(key, { type?, options?, defaultValue?, description?, getEvaluationContext? })`.
+  `bindFlag` is a method of the source that `defineSource` returns (the
+  type `BindableSource`). The options (the type `BindFlagOptions`) are
+  optional. The provider of the source decides the value. The function exposes
   `key`, `type`, `defaultValue`, `options`, `description`, `source` and
   `getEvaluationContext`, so the project is available from every flag.
 - **An inline flag**:
@@ -359,15 +361,15 @@ or `await myFlag({ evaluationContext })`.
 The type of both is explicit: `type`, `boolean` by default. `options` does
 not set the type, because it is optional.
 
-`defineFlag` without `decide` throws, and points to `bindFlag`. `bindFlag`
-with `decide` throws, and points to `defineFlag`. The short
+`defineFlag` without `decide` throws, and points to `source.bindFlag(key)`.
+`source.bindFlag` with `decide` throws, and points to `defineFlag`. Options
+that are not an object throw. The short
 forms of earlier drafts (`defineFlag(key)`, `defineFlag(source, key,
 defaultValue)`) are removed: each type other than `boolean` is set with
 `type`.
 
-- `source` is required, and must be returned by `defineSource`. This is
-  checked at the type level and at runtime. There is no default source (see
-  "No default source").
+- A flag of a provider is declared on its source, so it always has a source
+  of `defineSource`. There is no default source (see "No default source").
 - Defining a flag registers its source with the runtime. Flags are usually
   defined at module scope, so the runtime knows about their sources before
   `onInit`. `registerSources` is only needed for flags defined later.
@@ -411,10 +413,9 @@ defaultValue)`) are removed: each type other than `boolean` is set with
 ### Flag value types
 
 ```ts
-const summerSale = bindFlag({ key: 'summer-sale' }); // boolean
-const bannerText = bindFlag({ key: 'banner-text', type: 'string' });
-const checkout = bindFlag({
-  key: 'checkout',
+const summerSale = source.bindFlag('summerSale'); // boolean
+const bannerText = source.bindFlag('bannerText', { type: 'string' });
+const checkout = source.bindFlag('checkout', {
   type: 'string',
   options: [{ value: 'control', label: 'Old' }, 'express'],
   defaultValue: 'control',
@@ -426,7 +427,7 @@ const checkout = bindFlag({
   set with `type`. The SDK does not infer the type from `defaultValue` or
   `options`.
 - A `defaultValue` or options that do not fit the type are type errors. For
-  code without TypeScript, `bindFlag` and `defineFlag` log a warning, e.g. `The
+  code without TypeScript, `source.bindFlag` and `defineFlag` log a warning, e.g. `The
   defaultValue of flag "a" is not a boolean. Set type to use a different
   type.` An unknown `type` throws.
 - `object` means any JSON value, as with `resolveObjectEvaluation` of
@@ -454,7 +455,7 @@ const checkout = bindFlag({
   The editor suggests the options, and the type stays true at runtime. For
   `boolean`, it is `boolean`.
 - An option of an `object` flag must be `{ value }`, because a JSON value and
-  an option object can look the same. Otherwise, `bindFlag` throws.
+  an option object can look the same. Otherwise, `source.bindFlag` throws.
 - A `defaultValue` that is not one of the options is a warning at runtime.
 
 #### Overrides and evaluate
@@ -471,13 +472,13 @@ const checkout = bindFlag({
 `runtime.evaluate`.
 
 ```ts
-const [showBanner, newCheckout] = await evaluate([showBannerFlag, newCheckoutFlag]);
+const [banner, flow] = await evaluate([showBanner, newCheckout]);
 const enabled = await evaluate(teamFlag, { evaluationContext: { teamId: 'team-1' } });
 ```
 
 - It accepts one flag or a list of flags. For a list, it returns a tuple with
   the values in the order of the list.
-- It accepts flags returned by `bindFlag` or `defineFlag`, and plain
+- It accepts flags returned by `source.bindFlag` or `defineFlag`, and plain
   `FlagDefinition`s.
 - `evaluationContext` is the input of the call side for each flag. Each flag
   receives the same object, so each step of the chain runs once per request
@@ -486,6 +487,10 @@ const enabled = await evaluate(teamFlag, { evaluationContext: { teamId: 'team-1'
   flag without `defaultValue` fails, the call rejects with its
   `FlagEvaluationError`. Thus, `evaluate([flag])` behaves the same as
   `flag()`.
+- A direct call, `await flag()`, is the normal way to evaluate a flag.
+  `evaluate` is not faster: each flag is evaluated once per request, and
+  calls of many flags in parallel share the work (one evaluation context per
+  request, one provider call per flag). It is a convenience for lists.
 
 ### Evaluation context chain
 
@@ -509,7 +514,7 @@ const source = defineSource({
   }),
 });
 
-const teamInsights = bindFlag({ key: 'team-insights', source });
+const teamInsights = source.bindFlag('teamInsights');
 
 // API route GET /api/teams/:teamId: the route knows the team
 await teamInsights({ evaluationContext: { teamId: params.teamId } });
@@ -737,21 +742,20 @@ export default hooks;
 
 ## No default source
 
-There is no default mechanism for now. Each flag of a provider names its
-source with `source`. `bindFlag` without `source` is a type error, and
-throws when it defines the flag. A `FlagDefinition` without a source fails
-at the evaluation.
+There is no default mechanism for now. Each flag of a provider is declared
+on its source, with `source.bindFlag(key)`, so it cannot lack a source. A
+`FlagDefinition` without a source fails at the evaluation.
 
 - By convention, the main source of an application is `flags/sources/self`,
   with `catalog.ts`, `provider.ts` and an optional `context.ts` (see
   "Code generation"). The application imports its flags from `flags:self`:
 
   ```ts
-  import { 'summer-sale' as summerSale } from 'flags:self';
+  import { summerSale } from 'flags:self';
   ```
 
 - Without code generation, the application writes the same source by hand,
-  e.g. in `flags/self.ts`, and gives it to each `bindFlag`.
+  e.g. in `flags/self.ts`, and declares each flag with `self.bindFlag(key)`.
 - `flags` exports nothing for Vercel, and there is no wrapper package. The
   application uses the OpenFeature provider of Vercel Flags directly:
   `VercelProvider` of `@vercel/flags-core/openfeature`, like each other
@@ -759,8 +763,8 @@ at the evaluation.
 - The default is on the level of the files, not in the configuration: an
   application which depends on `@vercel/flags-core` has the default source
   `self` of Vercel Flags in the code generation (see "The default source
-  `self`"). The runtime still has no default source: each flag names its
-  source.
+  `self`"). The runtime still has no default source: each flag is declared
+  on its source.
 
 Earlier drafts had a `defaultSource` in the configuration, a built-in
 default source with the module `flags/default-provider`, a replacement of
@@ -1059,7 +1063,7 @@ provide the same itself.
 
 | Package | Contents | Used by |
 | --- | --- | --- |
-| `flags` | runtime, `defineFlag`, `bindFlag`, `defineSource`, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
+| `flags` | runtime, `defineFlag`, `defineSource` (with `source.bindFlag`), overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
 | `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
 | `@flags-sdk/vite` | the generic Vite plugin: the binding, the configuration files, `'use flags'` modules, the manifest, the code generation | the framework packages for Vite |
 | `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
@@ -1315,7 +1319,7 @@ tested by hand, with a change of the configuration during the run.
 - `registerFlags(moduleExports)` registers the sources of all flags that a
   module exports. Use it with a module that only exports flags. It throws if
   an export is not a flag, and then registers nothing.
-- `bindFlag` registers the source of the flag. Thus, you only need these
+- `source.bindFlag` registers the source of the flag. Thus, you only need these
   functions for flags that are defined after `onInit`, e.g. in modules that are
   imported lazily, or for plain flag objects.
 - The framework plugins call `registerFlags` for each `'use flags'` module
@@ -1385,11 +1389,11 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
 ## Code generation
 
 Code generation is optional. It writes the same code as `defineSource`
-and `bindFlag` by hand, from a catalog of the flag management system.
+and `source.bindFlag` by hand, from a catalog of the flag management system.
 Then the application imports the flags of a source by its name:
 
 ```ts
-import { 'summer-sale' as summerSale } from 'flags:self';
+import { summerSale } from 'flags:self';
 ```
 
 By convention, the main source of an application is `flags/sources/self`,
@@ -1479,7 +1483,7 @@ register it, and `findFlagsModules` finds it (`.flags` is the only hidden
 directory it reads). It has one `defineSource` with `provider.ts` (or
 `new VercelProvider()` for the default source),
 `context.ts` (if the source has one) and the `project` of the catalog (no `project` without
-one), and one `bindFlag` for each flag, sorted by key:
+one), and one `source.bindFlag(key, options)` for each flag, sorted by key:
 
 - `type` comes from the variants (see below for variants of more than one
   type).
@@ -1490,8 +1494,9 @@ one), and one `bindFlag` for each flag, sorted by key:
   paragraphs. A variant longer than 40 characters is shortened, and the
   JSDoc shows at most 10 variants. The module and `generated.d.ts` have the
   same JSDoc, so the editor shows it on hover.
-- The exports have the keys as names (`export { flag_0 as "summer-sale" }`),
-  so a key can have any characters.
+- The exports have the keys as names (`export { flag_0 as "summerSale" }`),
+  so a key can have any characters. A key that is not a valid name needs a
+  string import, e.g. `import { 'summer-sale' as summerSale } from 'flags:self'`.
 
 The generation imports only `catalog.ts`. It checks that each source has
 `provider.ts` and `catalog.ts` (except the parts of the default source)
@@ -1566,7 +1571,7 @@ bundler.
   framework loads the configuration more than once.
 
 Hono, Express and plain Node.js have no bundler, so they have no plugin.
-The application writes `defineSource` and `bindFlag` by hand, or runs
+The application writes `defineSource` and `source.bindFlag` by hand, or runs
 `flags sync` (or `flags watch`) and imports the generated module, e.g.
 `./.flags/self.ts`.
 
@@ -1611,7 +1616,7 @@ from the exports of the flags modules. It evaluates nothing.
 {
   "version": 1,
   "definitions": {
-    "banner-text": {
+    "bannerText": {
       "type": "string",
       "options": [{ "value": "Welcome" }, { "value": "Summer sale!" }],
       "defaultValue": "Welcome",
@@ -1627,7 +1632,7 @@ from the exports of the flags modules. It evaluates nothing.
   (`options`, `defaultValue`, `description`, `declaredInCode`), plus `type`,
   `source` and `declarations`. The links come from the source (see
   "Links to the dashboard").
-- `bindFlag` and `defineFlag` have an optional `description` for it.
+- `source.bindFlag` and `defineFlag` have an optional `description` for it.
 - An export which is not a flag throws. Two exports with the same key must
   declare the same flag; then the flag has two declarations.
 - The keys are sorted, so the file is stable.

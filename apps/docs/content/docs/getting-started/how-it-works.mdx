@@ -26,7 +26,7 @@ const sale = await summerSale();
 There are two kinds of flags:
 
 - An **inline flag**, defined with `defineFlag`, decides its value in your code with a `decide` function. See [Inline flags](/docs/flags/inline-flags).
-- A **provider flag**, defined with `bindFlag`, asks the provider of a source. See [Provider flags](/docs/flags/provider-flags).
+- A **provider flag**, defined with `source.bindFlag`, asks the provider of a source. See [Provider flags](/docs/flags/provider-flags).
 
 Both kinds get the same features: overrides from Flags Explorer, OpenFeature hooks, one value per request, and type checks.
 
@@ -61,10 +61,10 @@ const self = defineSource({
   getEvaluationContext: (request) => ({ user: getUser(request) }),
 });
 
-const summerSale = bindFlag({ key: 'summer-sale', source: self });
+const summerSale = self.bindFlag('summerSale');
 ```
 
-Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider names its source: the runtime has no global source to fall back on.
+Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider is declared on its source: the runtime has no global source to fall back on.
 
 ## The runtime
 

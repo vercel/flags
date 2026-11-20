@@ -57,7 +57,7 @@ vi.mock('./flags/self', async () => {
   return {
     self: defineSource({
       provider: new TypedInMemoryProvider({
-        'new-dashboard': {
+        newDashboard: {
           variants: { on: true, off: false },
           defaultVariant: 'off',
           disabled: false,
@@ -90,7 +90,7 @@ vi.mock('./flags/sources/self/provider.ts', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
   return {
     default: new TypedInMemoryProvider({
-      'new-dashboard': {
+      newDashboard: {
         variants: { on: true, off: false },
         defaultVariant: 'on',
         disabled: false,

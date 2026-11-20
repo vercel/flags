@@ -3,7 +3,7 @@
 > **Status (2026-11):** `packages/flags-protocol` is joined into `packages/flags`
 > (milestones M0 to M7 in "The move to sources" of
 > [the SPEC](../packages/flags/SPEC.md)). "Connection" is now "source"
-> (`defineSource`), flags of a source use `bindFlag`, inline flags use
+> (`defineSource`), flags of a source use `source.bindFlag(key)`, inline flags use
 > `defineFlag` with `decide`, and code generation is in `flags/tooling` and
 > in the framework plugins (on by default, `disableCodeGeneration` turns it
 > off). "Current implementation" and "Code reading

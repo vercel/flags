@@ -42,7 +42,7 @@ Package: `@vercel/flags-core`. Provider: `VercelProvider` of `@vercel/flags-core
 3. The source: none to create. With `@vercel/flags-core` in `package.json`, the plugin gives the default source `self`: provider `new VercelProvider()`, catalog `@vercel/flags-core/catalog`, no context. Do not write `provider.ts` or `catalog.ts` for it. Add only `flags/sources/self/context.ts` when targeting rules use entities (see [Targeting](#targeting)). The default provider and catalog stay. See [code-generation.md](code-generation.md#the-default-source-self).
 4. Add the framework plugin. Import the flags from `flags:self`:
    ```tsx
-   import { 'summer-sale' as summerSale } from 'flags:self';
+   import { summerSale } from 'flags:self';
 
    export default async function Page() {
      const sale = await summerSale();
@@ -76,12 +76,9 @@ export const self = defineSource({
 // flags.ts
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
@@ -194,7 +191,7 @@ import type { CatalogLoader } from 'flags';
 const loadCatalog: CatalogLoader = () => ({
   project: { system: 'vercel-flags' },
   flags: {
-    'summer-sale': {
+    summerSale: {
       variants: [false, true],
       defaultValue: false,
       description: 'Shows the summer sale banner',
@@ -296,18 +293,15 @@ const loadCatalog: CatalogLoader = () => ({
 export default loadCatalog;
 ```
 
-By hand, the same provider goes into `defineSource`, and each flag names the source:
+By hand, the same provider goes into `defineSource`, and each flag is declared on the source:
 
 ```ts
 // flags.ts
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -438,7 +432,7 @@ pnpm add flags @openfeature/server-sdk @statsig/statsig-node-core @flags-sdk/sta
 
 ```ts
 import { StatsigProvider } from '@flags-sdk/statsig/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 const statsig = defineSource({
   // Creating it does not open a connection: it fetches the rules in initialize()
@@ -447,13 +441,11 @@ const statsig = defineSource({
   getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
 });
 
-// The feature gate `show_banner`
-export const showBanner = bindFlag({ key: 'show_banner', source: statsig, defaultValue: false });
+// The feature gate `showBanner`
+export const showBanner = statsig.bindFlag('showBanner', { defaultValue: false });
 
 // The `text` parameter of the dynamic config `welcome_message_text`
-export const welcomeMessage = bindFlag({
-  key: 'config:welcome_message_text.text',
-  source: statsig,
+export const welcomeMessage = statsig.bindFlag('config:welcome_message_text.text', {
   type: 'string',
   defaultValue: 'Welcome',
 });
@@ -481,7 +473,7 @@ pnpm add flags @openfeature/server-sdk posthog-node @flags-sdk/posthog
 
 ```ts
 import { PostHogProvider } from '@flags-sdk/posthog/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { PostHog } from 'posthog-node';
 
 // The application creates the client. The provider does not open a connection itself.
@@ -497,7 +489,7 @@ const source = defineSource({
   getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
 });
 
-export const showBanner = bindFlag({ key: 'show_banner', source, defaultValue: false });
+export const showBanner = source.bindFlag('showBanner', { defaultValue: false });
 ```
 
 | `type`    | Value                                                                         |
@@ -547,7 +539,7 @@ import { defineSource } from 'flags';
 
 export const shop = defineSource({
   provider: new TypedInMemoryProvider({
-    'summer-sale': {
+    summerSale: {
       variants: { on: true, off: false },
       defaultVariant: 'off',
       disabled: false,

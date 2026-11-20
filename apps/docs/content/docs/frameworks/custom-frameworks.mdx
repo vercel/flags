@@ -162,7 +162,7 @@ Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The plugin
 
 ## For deployment platforms
 
-- There is no default provider. Each flag of a provider names its source, and the configuration has no source.
+- There is no default provider. Each flag of a provider is declared on its source, and the configuration has no source.
 - Put `flags-manifest.json` of the build into your build output, so that tools can read it. For Next.js, use `onBuildComplete` of the Adapter API.
 
 ## Test your binding

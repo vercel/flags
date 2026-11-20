@@ -19,9 +19,7 @@ defineFlag({
 const source = defineSource({ provider, getEvaluationContext });
 
 // using a flag from a provider
-bindFlag({
-  key: "enableDashboard",
-  source: source,
+source.bindFlag("enableDashboard", {
   options: [false, true] as const,
 });
 ```

@@ -5,7 +5,7 @@ The Flags SDK with Next.js. The source and the flags are written by hand in
 
 - `withFlags` of `@flags-sdk/next/plugin` in `next.config.ts`
 - a `'use flags'` module with a source (`defineSource`), flags of the
-  source (`bindFlag`), and an inline flag (`defineFlag` with `decide`)
+  source (`source.bindFlag`), and an inline flag (`defineFlag` with `decide`)
 - a value of the provider which is not one of the options
 - overrides of Flags Explorer with `FLAGS_SECRET`
 - the manifest of the flags for Flags Explorer: the route

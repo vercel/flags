@@ -55,7 +55,7 @@ Throws a `TypeError` without `decide`, or with a `source`.
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
 });
@@ -63,59 +63,10 @@ export const betaBanner = defineFlag({
 await betaBanner(); // boolean
 ```
 
-### `bindFlag`
-
-Declares a **flag of a source**: the provider of the source decides its value.
-With [code generation](/docs/flags/code-generation), the SDK writes these
-calls for you, e.g. in `.flags/self.ts`.
-
-```ts
-function bindFlag<K, T, O, C extends Source, In = SourceInput<C>>(
-  options: FlagOptions<C, K, In, T, O>,
-): Flag<C, K, In, FlagValueFrom<T, O>>;
-```
-
-| Option                 | Type                                                     | Description                                                                                                                                                              |
-| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `key`                  | `string`                                                 | The key of the flag in the flag management system. Required.                                                                                                             |
-| `source`               | `Source`                                                 | A source of [`defineSource`](#definesource). Required.                                                                                                                   |
-| `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`           | The type of the value. The default is `'boolean'`. Selects the resolve method of the provider.                                                                            |
-| `options`              | `readonly (V \| { value: V; label?: string })[]`         | The known values, for Flags Explorer and precompute. They do not limit the values: a provider value outside the options goes through.                                    |
-| `defaultValue`         | `V`                                                      | Returned when the evaluation fails, after logging one line. Without it, a [`FlagEvaluationError`](#flagevaluationerror) is thrown.                                      |
-| `description`          | `string`                                                 | What the flag is for, shown in Flags Explorer.                                                                                                                           |
-| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<C> \| Promise<SourceInput<C>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the current request and the call side context, and returns the input of the source. The type of `context` defines what the call side must pass. |
-
-Throws a `TypeError` with `decide` (use `defineFlag`), without `source`, or
-when `source` was not returned by `defineSource`.
-
-```ts title="flags.ts"
-'use flags';
-
-import { bindFlag } from 'flags';
-import { self } from './flags/self';
-
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
-  defaultValue: false,
-});
-
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
-  type: 'string',
-  options: ['control', 'express'],
-  defaultValue: 'control',
-  description: 'The checkout flow',
-});
-
-await checkout(); // 'control' | 'express' | (string & {})
-```
-
 ### `Flag`
 
-The type of a flag that `defineFlag` and `bindFlag` return. A flag is an async
-function with read-only properties.
+The type of a flag that `defineFlag` and `source.bindFlag` return. A flag is
+an async function with read-only properties.
 
 ```ts
 type Flag<C extends Source, K extends string, In, V extends FlagValue> =
@@ -131,12 +82,13 @@ type Flag<C extends Source, K extends string, In, V extends FlagValue> =
 ```
 
 - `options` are always normalized to `{ value, label? }` objects.
-- `source` is the source of `bindFlag`. For an inline flag, it is the
+- `source` is the source of a provider flag. For an inline flag, it is the
   internal source of inline flags (`DecideSource`).
 
-### `FlagOptions` and `InlineFlagOptions`
+### `BindFlagOptions` and `InlineFlagOptions`
 
-The option types of `bindFlag` and `defineFlag`, as in the tables above.
+The option types of `source.bindFlag` and `defineFlag`, as in the tables of
+[`source.bindFlag`](#sourcebindflag) and [`defineFlag`](#defineflag).
 
 ## Sources
 
@@ -148,7 +100,7 @@ management system, and the last step of the evaluation context chain.
 ```ts
 function defineSource<P extends Provider, N extends FlagManagementSystem, C extends EvaluationContext, In>(
   options: SourceOptions<P, N, C, In>,
-): Source<P, N, C, In>;
+): BindableSource<P, N, C, In>;
 ```
 
 | Option                 | Type                                                    | Description                                                                                                                                                                                |
@@ -158,7 +110,8 @@ function defineSource<P extends Provider, N extends FlagManagementSystem, C exte
 | `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => C \| Promise<C>` | The last step of the chain. Returns the evaluation context for the provider. Runs once per request and input. Outside of a request, it runs on each evaluation with `request` undefined.     |
 | `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides. The code generation passes the default export of `flags/sources/<source>/hooks.ts`.             |
 
-The returned source is frozen. Throws a `TypeError` for a `project` with
+The returned source is frozen. Declare its flags with
+[`source.bindFlag`](#sourcebindflag). Throws a `TypeError` for a `project` with
 `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
 
 ```ts title="flags/self.ts"
@@ -172,6 +125,53 @@ export const self = defineSource({
     targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
   }),
 });
+```
+
+### `source.bindFlag`
+
+Declares a **flag of a source**: the provider of the source decides its value.
+`bindFlag` is a method of the source that [`defineSource`](#definesource)
+returns. With [code generation](/docs/flags/code-generation), the SDK writes
+these calls for you, e.g. in `.flags/self.ts`.
+
+```ts
+source.bindFlag<K, T, O, In = SourceInput<typeof source>>(
+  key: K,
+  options?: BindFlagOptions<typeof source, In, T, O>,
+): Flag<typeof source, K, In, FlagValueFrom<T, O>>;
+```
+
+`key` is the key of the flag in the flag management system. All options are
+optional:
+
+| Option                 | Type                                                     | Description                                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`           | The type of the value. The default is `'boolean'`. Selects the resolve method of the provider.                                                                            |
+| `options`              | `readonly (V \| { value: V; label?: string })[]`         | The known values, for Flags Explorer and precompute. They do not limit the values: a provider value outside the options goes through.                                    |
+| `defaultValue`         | `V`                                                      | Returned when the evaluation fails, after logging one line. Without it, a [`FlagEvaluationError`](#flagevaluationerror) is thrown.                                      |
+| `description`          | `string`                                                 | What the flag is for, shown in Flags Explorer.                                                                                                                           |
+| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<typeof source> \| Promise<SourceInput<typeof source>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the current request and the call side context, and returns the input of the source. The type of `context` defines what the call side must pass. |
+
+Throws a `TypeError` with `decide` (use `defineFlag`), or when `options` is
+not an object.
+
+```ts title="flags.ts"
+'use flags';
+
+import { self } from './flags/self';
+
+export const summerSale = self.bindFlag('summerSale', {
+  defaultValue: false,
+});
+
+export const checkout = self.bindFlag('checkout', {
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+await checkout(); // 'control' | 'express' | (string & {})
 ```
 
 ### `Project`
@@ -193,9 +193,11 @@ Related types:
 - `FlagManagementSystem`: `'vercel-flags' | 'launchdarkly' | 'in-memory'`.
 - `ProjectFieldsBySystem`: the fields of each system, as in the table.
 
-### `Source`
+### `Source` and `BindableSource`
 
-The type that `defineSource` returns.
+`Source` is the type of a source. `BindableSource` is the type that
+`defineSource` returns: a `Source` with the method
+[`bindFlag`](#sourcebindflag).
 
 ```ts
 interface Source<P extends Provider, N extends FlagManagementSystem, C extends EvaluationContext, In> {
@@ -203,6 +205,13 @@ interface Source<P extends Provider, N extends FlagManagementSystem, C extends E
   readonly project?: Project<N>;
   readonly hooks?: readonly Hook[];
   getEvaluationContext?(request: FlagsRequest | undefined, context: In): C | Promise<C>;
+}
+
+interface BindableSource<P, N, C, In> extends Source<P, N, C, In> {
+  bindFlag<K, T, O, FlagIn = In>(
+    key: K,
+    options?: BindFlagOptions<this, FlagIn, T, O>,
+  ): Flag<this, K, FlagIn, FlagValueFrom<T, O>>;
 }
 ```
 
@@ -243,6 +252,11 @@ await teamInsights({ evaluationContext: { teamSlug: 'acme' } });
 
 Evaluates one flag, or a list of flags. Returns the values in the order of
 the list.
+
+Direct calls such as `await summerSale()` are fine. The SDK evaluates each
+flag once per request, and parallel calls of many flags share the work: one
+evaluation context per request, one provider call per flag. `evaluate` is not
+faster. It is a convenience for lists.
 
 ```ts
 function evaluate<F extends FlagDefinition>(
@@ -424,8 +438,8 @@ The type of the configuration, the argument of `runtime.configure`.
 | `overrides` | `OverridesOptions` | `flags/overrides.ts` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                 |
 | `settings`  | `Settings`         | `flags/config.json`  | The static settings, which the plugins and the CLI also read. See [`Settings`](#settings).          |
 
-The configuration has no sources: each flag of a provider names its source in
-`bindFlag`.
+The configuration has no sources: each flag of a provider is declared on its
+source, with `source.bindFlag`.
 
 ```ts title="flags/hooks.ts"
 import type { Hook } from 'flags';
@@ -514,7 +528,7 @@ base64url.
 ```ts
 import { encryptOverrides } from 'flags';
 
-const token = await encryptOverrides({ 'summer-sale': true });
+const token = await encryptOverrides({ summerSale: true });
 ```
 
 ### `signOverrides`

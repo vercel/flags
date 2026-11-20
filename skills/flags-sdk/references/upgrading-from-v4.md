@@ -9,7 +9,7 @@ Full guide: https://flags-sdk.dev/docs/getting-started/upgrading-from-v4
 | v4                                                              | v5                                                                                         |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `flag({ key, decide })` from `flags/next` or `flags/sveltekit`  | `defineFlag({ key, decide })` from `flags` (inline flag)                                    |
-| `flag({ key, adapter })` with an adapter of `@flags-sdk/*`      | `bindFlag({ key, source })` with a source of an OpenFeature provider                        |
+| `flag({ key, adapter })` with an adapter of `@flags-sdk/*`      | `source.bindFlag(key)` on a source of an OpenFeature provider                               |
 | `identify` of each flag                                         | `getEvaluationContext` of the source (or `context.ts`), and of the flag if needed           |
 | `dedupe`                                                        | Built in: each flag and each context step runs once per request                            |
 | `evaluate` from `flags/next`                                    | `evaluate` from `flags`                                                                    |
@@ -26,7 +26,7 @@ Full guide: https://flags-sdk.dev/docs/getting-started/upgrading-from-v4
 - v4 override cookies (`vercel-flag-overrides`, encrypted with `FLAGS_SECRET`) still work.
 - v4 precompute codes stay valid if you set `FLAGS_PRECOMPUTE_SECRET` to the old `FLAGS_SECRET` during the upgrade.
 - `decide` now receives `(request, context)` instead of `{ headers, cookies, entities }`. Read cookies with `request?.cookies?.get(name)?.value`.
-- Each provider flag names its source. There is no default source.
+- Each provider flag is declared on its source, with `source.bindFlag(key)`. With code generation, the default source `self` of Vercel Flags needs no declaration.
 - Set `type` for each flag that is not a boolean. v5 does not infer it from `defaultValue`.
 
 ## Inline flags
@@ -36,7 +36,7 @@ Full guide: https://flags-sdk.dev/docs/getting-started/upgrading-from-v4
 import { flag } from 'flags/next';
 
 export const betaBanner = flag<boolean>({
-  key: 'beta-banner',
+  key: 'betaBanner',
   options: [false, true],
   decide({ cookies }) {
     return cookies.get('beta')?.value === '1';
@@ -51,7 +51,7 @@ export const betaBanner = flag<boolean>({
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   options: [false, true] as const,
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
@@ -65,7 +65,7 @@ import { flag } from 'flags/next';
 import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const summerSale = flag<boolean, { user: { id: string } }>({
-  key: 'summer-sale',
+  key: 'summerSale',
   adapter: vercelAdapter(),
   identify({ cookies }) {
     return { user: { id: cookies.get('user-id')?.value ?? 'anonymous' } };
@@ -77,7 +77,7 @@ export const summerSale = flag<boolean, { user: { id: string } }>({
 // v5: flags.ts
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 const self = defineSource({
@@ -88,7 +88,7 @@ const self = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const summerSale = self.bindFlag('summerSale');
 ```
 
 With a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use the file system API instead: the provider goes into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, the flags into `flags/sources/self/catalog.ts` (for Vercel: `export { default } from '@vercel/flags-core/catalog'`), and you import `import { summerSale } from 'flags:self'`. See [code-generation.md](code-generation.md).
@@ -100,7 +100,7 @@ Other vendors: replace the adapter with the vendor's OpenFeature provider ([prov
 1. Install `flags@5` and the package of your framework.
 2. Add the framework setup, e.g. `withFlags` in `next.config.ts` (as the outer plugin).
 3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with code generation, or `defineSource` by hand.
-4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `bindFlag({ key, source })` (or the generated flags of `flags:<source>`) for provider flags. Set `type` for each flag that is not a boolean.
+4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or the generated flags of `flags:<source>`) for provider flags. Set `type` for each flag that is not a boolean.
 5. Move `identify` to `getEvaluationContext(request, input)` of the source, or to the default export of `context.ts`. Remove `dedupe`.
 6. Add `'use flags'` to the flags modules. Move other exports (sources, precompute groups, helpers) to other modules.
 7. Remove `app/.well-known/vercel/flags/route.ts`. Add `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest';`.

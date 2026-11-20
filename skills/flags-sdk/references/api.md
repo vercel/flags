@@ -55,41 +55,36 @@ function defineFlag(options: InlineFlagOptions): Flag;
 
 Throws a `TypeError` without `decide`, or with a `source`.
 
-#### `bindFlag`
+#### `source.bindFlag`
 
-A provider flag: the provider of the source sets the value. Code generation writes these calls.
+A provider flag: the provider of the source sets the value. `bindFlag` is a method of the source that `defineSource` returns (`BindableSource`). Code generation writes these calls.
 
 ```ts
-function bindFlag(options: FlagOptions): Flag;
+source.bindFlag(key: string, options?: BindFlagOptions): Flag;
 ```
+
+`key` is required: the key in the flag management system. All options are optional:
 
 | Option                 | Type                                                                                  | Description                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `key`                  | `string`                                                                              | Required. The key in the flag management system.                                                  |
-| `source`               | `Source`                                                                              | Required. A source of `defineSource`.                                                             |
 | `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`                                       | Default `'boolean'`. Selects `resolveBooleanEvaluation`, `resolveStringEvaluation`, `resolveNumberEvaluation` or `resolveObjectEvaluation`. |
 | `options`              | `readonly (V \| { value: V; label?: string })[]`                                      | Known values. They do not limit the value.                                                        |
 | `defaultValue`         | `V`                                                                                   | Returned when the evaluation fails. Without it, a `FlagEvaluationError` is thrown.                |
 | `description`          | `string`                                                                              | Shown in Flags Explorer.                                                                          |
 | `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<C> \| Promise<...>` | The middle step of the context chain: converts the call side context into the input of the source. |
 
-Throws a `TypeError` with `decide`, without `source`, or with a `source` that `defineSource` did not return.
+Throws a `TypeError` with `decide`, or when `options` is not an object.
 
 ```ts
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
 });
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -104,7 +99,7 @@ await checkout(); // 'control' | 'express' | (string & {})
 A flag is an async function with read-only fields: `key`, `type`, `defaultValue?`, `options?` (always `{ value, label? }` objects), `description?`, `source` (an inline flag has an internal `DecideSource`), and `getEvaluationContext?`.
 
 ```ts
-summerSale.key; // 'summer-sale'
+summerSale.key; // 'summerSale'
 checkout.options; // [{ value: 'control' }, { value: 'express' }]
 enableSale.source; // the source, e.g. for track()
 ```
@@ -121,7 +116,7 @@ function defineSource(options: {
   project?: Project;
   getEvaluationContext?: (request: FlagsRequest | undefined, context: In) => C | Promise<C>;
   hooks?: readonly Hook[];
-}): Source;
+}): BindableSource;
 ```
 
 - `provider`: any OpenFeature server provider, as it is. Several sources can share one instance; the SDK initializes it once.
@@ -129,7 +124,7 @@ function defineSource(options: {
 - `getEvaluationContext`: the last step of the chain. Runs once per request and input. Outside a request, it runs on each evaluation with `request` undefined. The type of its second parameter is what the flags of the source must pass.
 - `hooks`: OpenFeature hooks for the flags of this source. They also run for overrides.
 
-The returned source is frozen. Throws for a `project` with `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
+The returned source is frozen. It is a `BindableSource`: a `Source` with the method [`bindFlag`](#sourcebindflag) for its flags. Throws for a `project` with `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
 
 #### `Project`
 
@@ -165,6 +160,7 @@ function evaluate({ key, source, type?, defaultValue? }, options?): Promise<Valu
 - For a list, each flag gets the same `evaluationContext`. Its type is the intersection of the contexts.
 - A flag without `defaultValue` that fails makes the whole call reject.
 - `evaluate(flag)` and `flag()` share the per-request cache.
+- Prefer the direct call, `await flag()`. `evaluate` is not faster: each flag is evaluated once per request, and calls in parallel share the work. It is a convenience for lists.
 
 Types: `Evaluate`, `FlagEvaluationContext<F>`, `EvaluateContext<F[]>`, `EvaluateResults<F[]>`, `FlagValueOfFlag<F>`, `EvaluationOptions`, `EvaluationArgs`.
 
@@ -304,7 +300,7 @@ function serializeFlagValues(data: Record<string, JsonValue> | string): string;
 import { encryptFlagValues, evaluate, serializeFlagValues } from 'flags';
 
 const [sale, flow] = await evaluate([summerSale, checkout]);
-const token = await encryptFlagValues({ 'summer-sale': sale, checkout: flow });
+const token = await encryptFlagValues({ summerSale: sale, checkout: flow });
 const html = `<script type="application/json" data-flag-values>${serializeFlagValues(token)}</script>`;
 ```
 

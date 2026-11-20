@@ -19,18 +19,16 @@ A module which starts with the `'use flags'` directive is a **flags module**. Th
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag, defineFlag } from 'flags';
+import { defineFlag } from 'flags';
 import { shop } from './sources';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
+export const summerSale = shop.bindFlag('summerSale', {
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -98,14 +96,14 @@ For the module above, with `shop` an in-memory source, the manifest is:
     }
   },
   "definitions": {
-    "beta-banner": {
+    "betaBanner": {
       "type": "boolean",
       "options": [{ "value": false }, { "value": true }],
       "description": "Shows the beta banner to testers",
       "declaredInCode": true,
       "declarations": [{ "module": "flags.ts", "export": "betaBanner" }]
     },
-    "summer-sale": {
+    "summerSale": {
       "type": "boolean",
       "defaultValue": false,
       "description": "Shows the summer sale banner",

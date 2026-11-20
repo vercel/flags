@@ -1,17 +1,17 @@
 ---
 title: Flags of a source
 navTitle: Provider flags
-description: Connect flags to a flag management system with defineSource and bindFlag.
+description: Connect flags to a flag management system with defineSource and source.bindFlag.
 ---
 
 A flag of a source gets its value from a flag management system, e.g. Vercel Flags. Each flag of a source has two parts:
 
 - a **source** with `defineSource`: the OpenFeature provider of the system, the project in that system, and how to create the evaluation context;
-- one **flag** for each key with `bindFlag`.
+- one **flag** for each key with `source.bindFlag`.
 
 There are two ways to get these calls:
 
-- **The file system API**, for frameworks with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start). You put the provider, the evaluation context and the catalog of the source in the folder `flags/sources/self`, and [code generation](/docs/flags/code-generation) writes the `defineSource` and `bindFlag` calls for you. You import the flags with `import { summerSale } from 'flags:self'`.
+- **The file system API**, for frameworks with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start). You put the provider, the evaluation context and the catalog of the source in the folder `flags/sources/self`, and [code generation](/docs/flags/code-generation) writes the `defineSource` and `source.bindFlag` calls for you. You import the flags with `import { summerSale } from 'flags:self'`.
 - **By hand**, for frameworks without a bundler (Hono, Express, plain Node.js), or when you prefer to write the code. This page shows that code. It is the same code that the code generation writes.
 
 By convention, the main source of an application is called `self`:
@@ -32,19 +32,14 @@ export const self = defineSource({
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
   description: 'The summer sale banner',
 });
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -52,16 +47,16 @@ export const checkout = bindFlag({
 ```
 
 ```ts title="app/page.tsx"
-import { evaluate } from 'flags';
 import { checkout, summerSale } from '../flags';
 
-const [sale, flow] = await evaluate([summerSale, checkout]);
+const sale = await summerSale();
+const flow = await checkout();
 ```
 
 `'use flags'` at the top of `flags.ts` is optional. It marks a module that exports only flags, so that Flags Explorer can find them (see [Flags manifest](/docs/tooling/flags-manifest)). That is why the source has its own module.
 
 <Callout type="info">
-  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `catalog.ts` and an optional `context.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `bindFlag` calls. See [Code generation](/docs/flags/code-generation).
+  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `catalog.ts` and an optional `context.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `source.bindFlag` calls. See [Code generation](/docs/flags/code-generation).
 </Callout>
 
 ## Sources
@@ -89,7 +84,7 @@ import { defineSource } from 'flags';
 
 export const self = defineSource({
   provider: new TypedInMemoryProvider({
-    'summer-sale': {
+    summerSale: {
       variants: { on: true, off: false },
       defaultVariant: 'off',
       disabled: false,
@@ -128,13 +123,12 @@ A system that is not in the list can add itself with a pull request to the SDK. 
 ## Flags
 
 ```ts
-bindFlag({ key, source, type?, options?, defaultValue?, description?, getEvaluationContext? });
+source.bindFlag(key, { type?, options?, defaultValue?, description?, getEvaluationContext? });
 ```
 
 | Option | Meaning |
 | --- | --- |
-| `key` | The key of the flag in the flag management system. |
-| `source` | Required. A source of `defineSource`, e.g. `self`. Without it, `bindFlag` throws. |
+| `key` | Required. The first argument: the key of the flag in the flag management system, e.g. `'summerSale'`. |
 | `type` | `'boolean'` (the default), `'string'`, `'number'` or `'object'`. See [Types and options](/docs/flags/types-and-options). |
 | `options` | The known values, for Flags Explorer and precompute. They do not limit the value. |
 | `defaultValue` | Returned when the evaluation fails. Without it, the call throws. See [Errors and default values](/docs/flags/errors-and-default-values). |
@@ -144,7 +138,7 @@ bindFlag({ key, source, type?, options?, defaultValue?, description?, getEvaluat
 The returned function has the fields of its definition, so tools and your code can read them:
 
 ```ts
-summerSale.key; // 'summer-sale'
+summerSale.key; // 'summerSale'
 summerSale.type; // 'boolean'
 summerSale.source.project; // { system: 'vercel-flags' }
 checkout.options; // [{ value: 'control' }, { value: 'express' }]
@@ -156,7 +150,7 @@ Each flag names its own source, so one application can use several systems, or s
 
 ```ts title="flags.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 // The flags of a different Vercel project, e.g. of a different team
 const blog = defineSource({
@@ -174,8 +168,8 @@ const self = defineSource({
   project: { system: 'vercel-flags' },
 });
 
-export const newSearch = bindFlag({ key: 'new-search', source: blog });
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const newSearch = blog.bindFlag('newSearch');
+export const summerSale = self.bindFlag('summerSale');
 ```
 
 With `projectId` and `teamId`, the SDK key of the provider must belong to the same project.

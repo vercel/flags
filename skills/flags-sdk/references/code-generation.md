@@ -1,12 +1,12 @@
 # Code generation (the file system API)
 
-Describe a source in `flags/sources/<source>/`. The SDK writes the `defineSource` and `bindFlag` calls from the catalog of your flag management system. Import each flag by its key:
+Describe a source in `flags/sources/<source>/`. The SDK writes the `defineSource` and `source.bindFlag` calls from the catalog of your flag management system. Import each flag by its key:
 
 ```ts
-import { evaluate } from 'flags';
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 
-const [sale, flow] = await evaluate([summerSale, checkout]);
+const sale = await summerSale();
+const flow = await checkout();
 ```
 
 A new flag in the flag management system becomes a new export, with its type, variants, description and default value. You write no declaration.
@@ -184,7 +184,7 @@ export default async function* loadCatalog({
 
 - the `'use flags'` directive;
 - one `defineSource` with `provider.ts` (or `new VercelProvider()` for the default source), `context.ts` and `hooks.ts` (if present) and the `project` of the catalog (if present);
-- one `bindFlag` per flag, sorted by key, exported under its key (`export { flag_0 as "summer-sale" }`):
+- one `source.bindFlag` per flag, sorted by key, exported under its key (`export { flag_0 as "summerSale" }`):
   - `type` from the variants: `boolean`, `string` or `number` if all variants have that type, else `object`;
   - `options`: the variants (they do not limit the value);
   - `description` and `defaultValue`, if the catalog has them;
@@ -196,7 +196,7 @@ The generator writes a file only when its content changes, never writes half a f
 
 ### Import names
 
-A key that is not a valid JavaScript name needs a string import:
+A generated module exports each flag under its key. Use camelCase keys, so that the key is a valid import name. A key that is not a valid JavaScript name, e.g. a key from an existing dashboard, needs a string import:
 
 ```ts
 import { 'summer-sale' as summerSale } from 'flags:self';
@@ -267,7 +267,7 @@ A generated flag without a `defaultValue` in its catalog throws a `FlagEvaluatio
    }
    ```
 2. **Use a static catalog** with `defaultValue` for each flag (see [Static catalog](#static-catalog)). For the default source, put it into `flags/sources/self/catalog.ts`; the default provider stays.
-3. **Write the flag by hand** with `bindFlag({ key, source, defaultValue })` ([providers.md](providers.md#by-hand)).
+3. **Write the flag by hand** with `self.bindFlag(key, { defaultValue })` ([providers.md](providers.md#by-hand)).
 
 Rethrow errors that are not a `FlagEvaluationError`, so framework signals pass.
 

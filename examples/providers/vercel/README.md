@@ -31,7 +31,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 Run `vercel env pull .env.local` again if your local OIDC token expires. For deployments outside Vercel, you can optionally set `FLAGS` to a Vercel Flags SDK key.
 
-`flags.ts` defines a source with `VercelProvider`, the OpenFeature provider of `@vercel/flags-core/openfeature`, and binds both flags to it with `bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in the Vercel Dashboard and refresh the page. If flags cannot be evaluated, the welcome message falls back to `Welcome to the Vercel example` and the banner stays hidden.
+`flags.ts` defines a source with `VercelProvider`, the OpenFeature provider of `@vercel/flags-core/openfeature`, and binds both flags to it with `source.bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in the Vercel Dashboard and refresh the page. If flags cannot be evaluated, the welcome message falls back to `Welcome to the Vercel example` and the banner stays hidden.
 
 See the [Vercel Flags quickstart](https://vercel.com/docs/flags/vercel-flags/quickstart) for provider setup.
 

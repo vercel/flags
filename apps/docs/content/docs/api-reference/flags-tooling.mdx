@@ -206,7 +206,7 @@ function renderSourceModule(
 ```
 
 Returns the source code of the generated module of one source: a `'use flags'`
-module with one `defineSource` and one `bindFlag` per flag of the catalog. The
+module with one `defineSource` and one `source.bindFlag` per flag of the catalog. The
 type of each flag comes from its variants (mixed types become `object`), the
 variants become its `options`, and the `defaultValue` of the catalog becomes
 its `defaultValue`. Throws for a source name that is not

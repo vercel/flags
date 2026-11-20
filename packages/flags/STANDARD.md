@@ -288,7 +288,7 @@ The manifest MUST conform to the JSON Schema
     }
   },
   "definitions": {
-    "summer-sale": {
+    "summerSale": {
       "type": "boolean",
       "defaultValue": false,
       "description": "The summer sale",
@@ -308,7 +308,7 @@ The manifest MUST conform to the JSON Schema
 ## 8. Deployment platforms
 
 - This version of the standard has no default provider. Each flag of a
-  provider names its source, and the configuration has no source.
+  provider is declared on its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10.

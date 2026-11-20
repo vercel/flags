@@ -49,7 +49,7 @@ That is the only required step.
 
 ### 2️⃣ Optional: the configuration files
 
-You do not need a configuration file: each flag names its source, and
+You do not need a configuration file: each flag is declared on its source, and
 overrides work with `FLAGS_SECRET`, or on Vercel, without one. The folder `flags` (or `src/flags`),
 next to `flags/sources`, can have one file for each part of the
 configuration of all flags. None of them has a source:
@@ -76,11 +76,11 @@ See [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ```ts
 // src/routes/+page.server.ts
-import { evaluate } from 'flags';
 import { bannerText, summerSale } from '../lib/flags';
 
 export async function load() {
-  const [sale, banner] = await evaluate([summerSale, bannerText]);
+  const sale = await summerSale();
+  const banner = await bannerText();
   return { sale, banner };
 }
 ```
@@ -129,7 +129,7 @@ export default defineConfig({
   `flags:<source>`:
 
   ```ts
-  import { 'summer-sale' as summerSale } from 'flags:self';
+  import { summerSale } from 'flags:self';
   ```
 
 - The types are in `src/flags/generated.d.ts`, so `svelte.config.js` and
@@ -137,8 +137,8 @@ export default defineConfig({
 - Without `flags/sources` and without the default source, the plugin
   writes nothing. To turn the generation
   off, use `flags({ disableCodeGeneration: true })`.
-- Without code generation, write `defineSource` and `bindFlag` by hand.
-  Each flag names its source. The runtime has no global source.
+- Without code generation, write `defineSource` and `source.bindFlag` by hand.
+  Each flag is declared on its source. The runtime has no global source.
 
 ## How it works
 

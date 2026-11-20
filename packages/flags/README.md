@@ -12,12 +12,12 @@ const sale = await summerSale();
 
 - **Any flag management system.** Use the OpenFeature provider of Vercel
   Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
-- **Explicit sources.** Each flag names its source. By convention, the main
+- **Explicit sources.** Each flag is declared on its source. By convention, the main
   source of an application is `flags/sources/self`.
 - **Code generation, if you want it.** Put each source into
   `flags/sources/<source>`, and import its flags with
-  `import { 'summer-sale' as summerSale } from 'flags:self'`. The generated
-  code is the same as `defineSource` and `bindFlag` by hand. With
+  `import { summerSale } from 'flags:self'`. The generated
+  code is the same as `defineSource` and `source.bindFlag` by hand. With
   `@vercel/flags-core`, `flags:self` has the flags of your Vercel project,
   without a folder.
 - **One value for each request.** Each flag is evaluated one time for each
@@ -59,7 +59,7 @@ Without an SDK, each place which needs a flag talks to the provider itself:
 import { flagsClient } from '@vercel/flags-core';
 
 const user = await loadUser(await cookies());
-const { value: sale } = await flagsClient.evaluate('summer-sale', false, {
+const { value: sale } = await flagsClient.evaluate('summerSale', false, {
   user: { id: user.id },
 });
 ```
@@ -79,9 +79,7 @@ Declare a flag one time, and call it where you need it:
 
 ```ts
 // flags.ts
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
 });
 
@@ -124,7 +122,7 @@ pnpm add @vercel/flags-core @openfeature/server-sdk
 // flags.ts
 'use flags';
 
-import { bindFlag, defineFlag, defineSource } from 'flags';
+import { defineFlag, defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 // The main source of the application
@@ -137,9 +135,7 @@ const self = defineSource({
 });
 
 // A flag of the source
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -148,7 +144,7 @@ export const checkout = bindFlag({
 
 // An inline flag, which the code decides
 export const summerSale = defineFlag({
-  key: 'summer-sale',
+  key: 'summerSale',
   decide: () => Date.now() > Date.parse('2026-06-21'),
 });
 ```
@@ -162,11 +158,11 @@ for you, so that you import them from `flags:<source>` (see
 
 ```ts
 // app/page.tsx
-import { evaluate } from 'flags';
 import { checkout, summerSale } from '../flags';
 
 export default async function Page() {
-  const [sale, flow] = await evaluate([summerSale, checkout]);
+  const sale = await summerSale();
+  const flow = await checkout();
   // flow has the type 'control' | 'express' | (string & {})
 }
 ```
@@ -184,14 +180,14 @@ TL;DR:
 
 ```ts
 // A flag of a source: its provider decides the value
-bindFlag({ key: 'summer-sale', source: self }); // a boolean
-bindFlag({ key: 'banner-text', source: self, type: 'string', defaultValue: 'Welcome' });
-bindFlag({ key: 'max-items', source: shop, type: 'number', defaultValue: 10 });
-bindFlag({ key, source, type, options, defaultValue, description, getEvaluationContext });
+self.bindFlag('summerSale'); // a boolean
+self.bindFlag('bannerText', { type: 'string', defaultValue: 'Welcome' });
+shop.bindFlag('maxItems', { type: 'number', defaultValue: 10 });
+source.bindFlag(key, { type, options, defaultValue, description, getEvaluationContext });
 
 // An inline flag: the code decides the value
 defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const, // optional
 });
@@ -202,7 +198,8 @@ defineFlag({
 - `options` are for Flags Explorer and precompute. The editor suggests
   them, but the provider can also return other values of the type, e.g. a
   variant which was added after the deployment.
-- `source` is required for `bindFlag`. There is no default source.
+- A flag of a provider is declared on its source, with `source.bindFlag`.
+  There is no default source.
 - **With `defaultValue`**, a flag which can not be evaluated returns it and
   logs one line. **Without `defaultValue`**, it throws a
   `FlagEvaluationError`.
@@ -231,7 +228,7 @@ several flags.
 
 A source is a provider plus a project in a flag management system, plus
 the function which creates the evaluation context.
-Each flag names its source, so a second source can use a different
+Each flag is declared on its source, so a second source can use a different
 provider or a different project:
 
 ```ts
@@ -245,7 +242,7 @@ const blog = defineSource({
   },
 });
 
-export const newSearch = bindFlag({ key: 'new-search', source: blog });
+export const newSearch = blog.bindFlag('newSearch');
 ```
 
 - With `project: { system: 'vercel-flags' }`, the flag project is the
@@ -273,7 +270,7 @@ By convention, the main source is `flags/sources/self`. The SDK generates
 `.flags/self.ts` from it, and your code imports its flags from `flags:self`:
 
 ```ts
-import { 'summer-sale' as summerSale } from 'flags:self';
+import { summerSale } from 'flags:self';
 ```
 
 The framework packages with a bundler generate the modules for you, by
@@ -320,7 +317,7 @@ a cookie. The SDK accepts two kinds of cookies:
 ```ts
 import { encryptOverrides } from 'flags';
 
-const cookie = await encryptOverrides({ 'summer-sale': true }); // e.g. in a test
+const cookie = await encryptOverrides({ summerSale: true }); // e.g. in a test
 ```
 
 To change which cookies the SDK accepts, export the options

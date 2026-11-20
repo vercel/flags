@@ -202,7 +202,7 @@ The `'use flags'` directive lets [Flags Explorer](/docs/tooling/flags-explorer) 
 ```ts title=".flags/self.ts (simplified)"
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import getEvaluationContext from '../flags/sources/self/context.ts';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
@@ -214,9 +214,7 @@ const source = defineSource({
   getEvaluationContext,
 });
 
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source,
+export const enableSale = source.bindFlag('enableSale', {
   options: [false, true],
   defaultValue: false,
 });

@@ -81,7 +81,7 @@ import { encryptFlagValues, evaluate, serializeFlagValues } from 'flags';
 import { checkout, summerSale } from './flags';
 
 const [sale, flow] = await evaluate([summerSale, checkout]);
-const token = await encryptFlagValues({ 'summer-sale': sale, checkout: flow });
+const token = await encryptFlagValues({ summerSale: sale, checkout: flow });
 
 // serializeFlagValues escapes the content, so it can not end the element
 const html = `<script type="application/json" data-flag-values>${serializeFlagValues(token)}</script>`;
