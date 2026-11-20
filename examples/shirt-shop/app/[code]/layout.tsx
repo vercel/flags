@@ -1,10 +1,15 @@
-import { deserialize, generatePermutations } from 'flags/next';
-import { FlagValues } from 'flags/react';
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import {
+  deserialize,
+  generatePermutations,
+  getPrecomputed,
+} from '@flags-sdk/next/precompute';
 import { FreeDelivery } from '@/app/free-delivery';
 import { DevTools } from '@/components/dev-tools';
 import { Footer } from '@/components/footer';
 import { Navigation } from '@/components/navigation';
-import { productFlags, showFreeDeliveryBannerFlag } from '@/flags';
+import { showFreeDeliveryBannerFlag } from '@/flags';
+import { productFlags } from '@/product-flags';
 
 export async function generateStaticParams() {
   // Returning an empty array here is important as it enables ISR, so
@@ -27,9 +32,10 @@ export default async function Layout(props: {
   const params = await props.params;
   const values = await deserialize(productFlags, params.code);
 
-  const showFreeDeliveryBanner = await showFreeDeliveryBannerFlag(
-    params.code,
+  const showFreeDeliveryBanner = await getPrecomputed(
+    showFreeDeliveryBannerFlag,
     productFlags,
+    params.code,
   );
 
   return (

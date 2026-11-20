@@ -89,9 +89,19 @@ export async function getRequest(): Promise<FlagsRequestInit | undefined> {
   }
 }
 
-function isCacheScopeError(error: Error): boolean {
+/**
+ * Whether Next.js rejected `headers()`, `cookies()` or `connection()`
+ * because of a cache scope. The wording changes between versions, e.g.
+ * `inside "use cache"` before 16.4.6, and ``inside `"use cache"` `` since,
+ * so the check only looks for the name of the scope. The error comes from
+ * one of these three calls, so the name is enough.
+ *
+ * @internal
+ */
+export function isCacheScopeError(error: Error): boolean {
+  // "use cache", "use cache: private", "use cache: remote"
   return (
-    error.message.includes('inside "use cache') ||
-    error.message.includes('cached with `unstable_cache()`')
+    error.message.includes('"use cache') ||
+    error.message.includes('unstable_cache()')
   );
 }

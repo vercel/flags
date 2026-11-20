@@ -7,6 +7,22 @@ import type { JsonValue } from './types';
 export type FlagOverrides = Record<string, JsonValue>;
 
 /**
+ * Turns a secret in standard base64 (with `+`, `/` and `=`) into base64url.
+ * v4 of the SDK decoded both, because jose 5 did, and many projects have a
+ * `FLAGS_SECRET` in standard base64. The bytes stay the same, so tokens and
+ * codes of v4 stay valid.
+ *
+ * @internal
+ */
+export function toBase64url(secret: string): string {
+  return secret
+    .trim()
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+/**
  * Decodes the shared secret. It must be 32 random bytes, encoded as
  * base64url.
  *
@@ -15,13 +31,13 @@ export type FlagOverrides = Record<string, JsonValue>;
 export function decodeSecret(secret: string): Uint8Array {
   let key: Uint8Array;
   try {
-    key = base64url.decode(secret);
+    key = base64url.decode(toBase64url(secret));
   } catch {
     key = new Uint8Array();
   }
   if (key.length !== 32) {
     throw new Error(
-      'flags: Invalid FLAGS_SECRET. It must be 32 random bytes, encoded as base64url.',
+      'flags: Invalid FLAGS_SECRET. It must be 32 random bytes, encoded as base64url or base64.',
     );
   }
   return key;

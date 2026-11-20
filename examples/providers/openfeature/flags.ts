@@ -1,45 +1,40 @@
-import { createOpenFeatureAdapter } from '@flags-sdk/openfeature';
-import {
-  type EvaluationContext,
-  InMemoryProvider,
-  OpenFeature,
-} from '@openfeature/server-sdk';
-import { flag } from 'flags/next';
+'use flags';
+
+import { InMemoryProvider } from '@openfeature/server-sdk';
+import { bindFlag, defineSource } from 'flags';
 
 // Replace InMemoryProvider with your OpenFeature provider for production.
-const openFeatureAdapter = createOpenFeatureAdapter(async () => {
-  await OpenFeature.setProviderAndWait(
-    new InMemoryProvider({
-      welcome_message: {
-        variants: { greeting: 'Hello from OpenFeature' },
-        defaultVariant: 'greeting',
-        disabled: false,
-      },
-      show_banner: {
-        variants: { on: true, off: false },
-        defaultVariant: 'on',
-        disabled: false,
-      },
-    }),
-  );
-  return OpenFeature.getClient();
+// The SDK calls the provider directly and initializes it before the first
+// evaluation, so there is no need for OpenFeature.setProviderAndWait().
+const openFeature = defineSource({
+  provider: new InMemoryProvider({
+    welcome_message: {
+      variants: { greeting: 'Hello from OpenFeature' },
+      defaultVariant: 'greeting',
+      disabled: false,
+    },
+    show_banner: {
+      variants: { on: true, off: false },
+      defaultVariant: 'on',
+      disabled: false,
+    },
+  }),
+  // A shared demo context keeps this example focused on flag evaluation.
+  // It runs once per request for all flags of this source.
+  getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
 });
 
-// A shared demo context keeps this example focused on flag evaluation.
-const identify = (): EvaluationContext => ({ targetingKey: 'demo-user' });
-
-export const welcomeMessage = flag<string, EvaluationContext>({
+export const welcomeMessage = bindFlag({
   key: 'welcome_message',
+  source: openFeature,
+  type: 'string',
   description: 'The welcome message shown on the home page.',
   defaultValue: 'Welcome to the OpenFeature example',
-  identify,
-  adapter: openFeatureAdapter.stringValue(),
 });
 
-export const showBanner = flag<boolean, EvaluationContext>({
+export const showBanner = bindFlag({
   key: 'show_banner',
+  source: openFeature,
   description: 'Show the promotional banner on the home page.',
   defaultValue: false,
-  identify,
-  adapter: openFeatureAdapter.booleanValue(),
 });

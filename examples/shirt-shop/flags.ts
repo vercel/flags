@@ -1,6 +1,14 @@
-import { flag } from 'flags/next';
+'use flags';
+
+import { defineFlag, type FlagsRequest } from 'flags';
 import { xxHash32 } from 'js-xxhash';
-import { type EvaluationContext, identify } from './lib/identify';
+
+/**
+ * The evaluation context which the proxy gives to the flags. On the first
+ * request the stable id is not in the cookie yet, so the proxy passes the
+ * generated id here.
+ */
+type EvaluationContext = { stableId?: string } | undefined;
 
 /**
  * Takes a string and puts it into a bucket.
@@ -19,46 +27,67 @@ function bucket(key: string, buckets: number = 2) {
   return hashNum % buckets;
 }
 
-export const showSummerBannerFlag = flag<boolean, EvaluationContext>({
+/**
+ * Reads the stable id from the evaluation context, or from the cookie.
+ */
+function getStableId(
+  request: FlagsRequest | undefined,
+  context: EvaluationContext,
+) {
+  return context?.stableId ?? request?.cookies?.get('stable-id')?.value;
+}
+
+export const showSummerBannerFlag = defineFlag({
   key: 'summer-sale',
   description: 'Shows a bright yellow banner for a 20% discount',
   defaultValue: false,
-  identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) return this.defaultValue!;
-    return bucket(`${this.key}/${entities.stableId}`) === 1;
+  decide(request, context: EvaluationContext) {
+    const stableId = getStableId(request, context);
+    if (!stableId) {
+      return false;
+    }
+    return bucket(`summer-sale/${stableId}`) === 1;
   },
 });
 
-export const showFreeDeliveryBannerFlag = flag<boolean, EvaluationContext>({
+export const showFreeDeliveryBannerFlag = defineFlag({
   key: 'free-delivery',
   description: 'Show a black free delivery banner at the top of the page',
   defaultValue: false,
-  identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) return this.defaultValue!;
-    return bucket(`${this.key}/${entities.stableId}`) === 1;
+  decide(request, context: EvaluationContext) {
+    const stableId = getStableId(request, context);
+    if (!stableId) {
+      return false;
+    }
+    return bucket(`free-delivery/${stableId}`) === 1;
   },
 });
 
-export const proceedToCheckoutColorFlag = flag<string, EvaluationContext>({
+const proceedToCheckoutColors = ['blue', 'green', 'red'] as const;
+
+export const proceedToCheckoutColorFlag = defineFlag({
   key: 'proceed-to-checkout-color',
+  type: 'string',
   description: 'The color of the proceed to checkout button',
   defaultValue: 'blue',
-  options: ['blue', 'green', 'red'],
-  identify,
-  decide({ entities }) {
-    if (!entities || !entities.stableId) {
-      return this.defaultValue as string;
+  options: proceedToCheckoutColors,
+  decide(request, context: EvaluationContext) {
+    const stableId = getStableId(request, context);
+    if (!stableId) {
+      return 'blue';
     }
-    return this.options![
-      bucket(`${this.key}/${entities.stableId}`, this.options!.length)
-    ] as string;
+    return proceedToCheckoutColors[
+      bucket(
+        `proceed-to-checkout-color/${stableId}`,
+        proceedToCheckoutColors.length,
+      )
+    ];
   },
 });
 
-export const delayFlag = flag<number>({
+export const delayFlag = defineFlag({
   key: 'delay',
+  type: 'number',
   defaultValue: 0,
   description:
     'A flag for debugging and demo purposes which delays the data loading',
@@ -70,12 +99,6 @@ export const delayFlag = flag<number>({
     { value: 10_000, label: '10s' },
   ],
   decide() {
-    return this.defaultValue!;
+    return 0;
   },
 });
-
-export const productFlags = [
-  showFreeDeliveryBannerFlag,
-  showSummerBannerFlag,
-  proceedToCheckoutColorFlag,
-] as const;

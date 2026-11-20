@@ -15,7 +15,7 @@
     "hono": "^4.13.13"
   },
   "devDependencies": {
-    "@playwright/test": "1.58.1",
+    "@playwright/test": "1.65.1",
     "@types/node": "^22.14.0"
   },
   "engines": {

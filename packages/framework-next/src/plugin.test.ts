@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { findConfigFile } from 'flags/tooling';
 import type { NextConfig } from 'next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { withFlags } from './plugin';
+import { withFlags, writeManifest } from './plugin';
 
 function projectWith(file?: string) {
   const dir = mkdtempSync(join(tmpdir(), 'flags-next-'));
@@ -317,5 +317,46 @@ describe('code generation of flags:<source>', () => {
 
     expect(resolved.distDir).toBe('out');
     expect(existsSync(join(dir, '.flags'))).toBe(false);
+  });
+});
+
+describe('writeManifest', () => {
+  function buildWithRoute(get: string) {
+    const distDir = mkdtempSync(join(tmpdir(), 'flags-manifest-'));
+    const routeDir = join(
+      distDir,
+      'server/app/.well-known/flags/manifest.json',
+    );
+    mkdirSync(routeDir, { recursive: true });
+    writeFileSync(
+      join(routeDir, 'route.js'),
+      `exports.routeModule = { userland: { GET: ${get} } };`,
+    );
+    return distDir;
+  }
+
+  it('writes the manifest and does not wait for open connections', async () => {
+    // A provider which connects when its module loads keeps the process open
+    const distDir = buildWithRoute(
+      `async () => { setInterval(() => {}, 1000); return Response.json({ flags: {} }); }`,
+    );
+    const started = Date.now();
+
+    await writeManifest(distDir, distDir);
+
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(
+      JSON.parse(readFileSync(join(distDir, 'flags-manifest.json'), 'utf8')),
+    ).toEqual({ flags: {} });
+  });
+
+  it('fails the build with the error of the route', async () => {
+    const distDir = buildWithRoute(
+      `async () => new Response(null, { status: 500 })`,
+    );
+
+    await expect(writeManifest(distDir, distDir)).rejects.toThrow(
+      'The route returned 500',
+    );
   });
 });

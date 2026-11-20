@@ -113,13 +113,13 @@ See [OpenFeature providers](/docs/providers/openfeature) for the providers of ot
 | `system` | Fields |
 | --- | --- |
 | `'vercel-flags'` | `projectId?`, `teamId?`. Without them, the project is the Vercel project of the deployment. |
-| `'launchdarkly'` | `projectId` (the project key), `teamId`, `environment?` (needed for the link to a flag) |
+| `'launchdarkly'` | `projectId` (the project key), `teamId?`, `environment?` (needed for the link to a flag) |
 | `'in-memory'` | none |
 
 TypeScript checks the fields of each system:
 
 ```ts
-// Type error: launchdarkly needs projectId and teamId
+// Type error: launchdarkly needs projectId
 defineSource({ provider, project: { system: 'launchdarkly' } });
 ```
 

@@ -19,7 +19,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@playwright/test": "1.58.1",
+    "@playwright/test": "1.65.1",
     "@types/node": "22.14.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

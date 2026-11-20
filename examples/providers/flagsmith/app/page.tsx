@@ -1,5 +1,5 @@
-import { evaluate } from 'flags/next';
-import { FlagValues } from 'flags/react';
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { evaluate } from 'flags';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
@@ -17,8 +17,8 @@ export default async function Home() {
         Change <code>welcome_message</code> or <code>show_banner</code> in
         Flagsmith, then refresh this page.
       </p>
-      <a href="https://flags-sdk.dev/providers/flagsmith">
-        Adapter documentation
+      <a href="https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/flagsmith">
+        Provider documentation
       </a>
     </main>
   );

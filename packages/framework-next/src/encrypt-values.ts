@@ -18,9 +18,22 @@ import {
  */
 export type EncryptValuesOptions = Omit<EncryptFlagValuesOptions, 'fetch'>;
 
-export function encryptValues(
+/**
+ * The token, or the message of the error. The function does not throw,
+ * because Next.js fails a prerender when a `'use cache'` function throws,
+ * also when the caller catches the error.
+ */
+export type EncryptValuesResult =
+  | { readonly token: string }
+  | { readonly error: string };
+
+export async function encryptValues(
   values: FlagValuesType,
   options?: EncryptValuesOptions,
-): Promise<string> {
-  return encryptFlagValues(values, options);
+): Promise<EncryptValuesResult> {
+  try {
+    return { token: await encryptFlagValues(values, options) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
 }

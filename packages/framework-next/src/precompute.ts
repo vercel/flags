@@ -22,7 +22,8 @@ import {
   runtime,
 } from 'flags';
 import { optionIndex } from 'flags/tooling';
-import { base64url, CompactSign } from 'jose';
+import { CompactSign } from 'jose';
+import { decodeSecret } from './secret';
 
 type Flags = readonly FlagDefinition[];
 
@@ -177,7 +178,7 @@ export async function serialize(
   }
   return new CompactSign(payload)
     .setProtectedHeader({ alg: 'HS256' })
-    .sign(base64url.decode(key));
+    .sign(decodeSecret(key));
 }
 
 // A page reads the same code several times, e.g. once for each flag
@@ -212,7 +213,19 @@ export async function deserialize(
   secret: string | undefined = defaultSecret(),
 ): Promise<Record<string, FlagValue>> {
   const key = secretOrThrow(secret, 'deserialize');
-  if (code === NO_FLAGS) return {};
+  // The code of an empty group fits only an empty group, and the other way
+  // around, so that a code of a different group gives no values
+  if (code === NO_FLAGS) {
+    if (flags.length === 0) return {};
+    throw new Error(
+      'flags: Received the code of an empty list of flags, but the list of flags is not empty.',
+    );
+  }
+  if (flags.length === 0) {
+    throw new Error(
+      'flags: Received the code of a list of flags, but the list of flags is empty.',
+    );
+  }
 
   const payload = await verify(code, key);
   if (payload.length < flags.length) {

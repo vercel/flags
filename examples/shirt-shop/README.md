@@ -8,8 +8,13 @@ This example uses the [Flags SDK](https://flags-sdk.dev) along with the [Flags E
 
 ## How it works
 
-This demo uses two feature flags defined in code control the visibility of two banners on the page.
+This demo uses two feature flags defined in code to control the visibility of two banners on the page.
 Both flags are configured to show/hide each banner 50% of the time.
+
+The flags are inline flags of the Flags SDK v5, declared with `defineFlag` in `flags.ts`, a module which starts with the `'use flags'` directive.
+Their `decide` functions put the visitor into a bucket based on a stable id.
+The proxy (`proxy.ts`) evaluates the flags with `precompute` of `@flags-sdk/next/precompute` and rewrites the request to a static page for this combination of values.
+The pages read the values with `getPrecomputed`, so they stay static.
 
 Once you visit the page, you can see a variation of both/one/none of the banners.
 Since this example is using a stable id to identify users, you will see the same variation all the time.
@@ -20,6 +25,7 @@ This allows you to test different variations of the banners.
 This templates also tracks analytics events in Vercel Analytics.
 
 If you deployed your own instance of this example you can also use the [Flags Explorer](https://vercel.com/docs/workflow-collaboration/feature-flags/using-vercel-toolbar) to test different variations by creating overrides.
+Flags Explorer finds the flags through the flags manifest at `app/.well-known/flags/manifest.json/route.ts`.
 
 ## Deploy this template
 

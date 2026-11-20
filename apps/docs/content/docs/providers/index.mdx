@@ -85,7 +85,7 @@ The `project` tells tools where the flags live, so that Flags Explorer can link 
 | `system` | Fields |
 | --- | --- |
 | `vercel-flags` | `projectId?`, `teamId?`. Without them, the project of the Vercel deployment. |
-| `launchdarkly` | `projectId`, `teamId`, `environment?`. The link to a flag needs `environment`. |
+| `launchdarkly` | `projectId`, `teamId?`, `environment?`. The link to a flag needs `environment`. |
 | `in-memory` | None. For in-memory providers in development and tests. |
 
 A source of a system which is not in this list has no `project`. Its flags evaluate the same way; tools only show no dashboard links. A system adds itself with a pull request, see [The flags manifest format](/docs/standard/flags-manifest-format#system-manifests).

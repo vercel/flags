@@ -2,9 +2,9 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook&env=GROWTHBOOK_CLIENT_KEY%2CGROWTHBOOK_API_KEY%2CFLAGS_SECRET&envDescription=Provide+GrowthBook+credentials+for+flag+metadata.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook%23setup&project-name=flags-sdk-growthbook&repository-name=flags-sdk-growthbook)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook&env=GROWTHBOOK_CLIENT_KEY%2CFLAGS_SECRET&envDescription=GROWTHBOOK_CLIENT_KEY+is+the+client+key+of+your+GrowthBook+SDK+connection.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fgrowthbook%23setup&project-name=flags-sdk-growthbook&repository-name=flags-sdk-growthbook)
 
-The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
@@ -21,13 +21,13 @@ Copy `.env.example` to `.env.local` and set `GROWTHBOOK_CLIENT_KEY` to your SDK 
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change their values in GrowthBook and refresh the page after the SDK's feature cache updates. Every visitor uses the same `demo-user` context; replace `identify` in `flags.ts` to add user targeting.
+`flags.ts` defines a source with `GrowthbookProvider`, the OpenFeature provider of `@openfeature/growthbook-provider`, and binds both flags to it with `bindFlag`. The provider creates the GrowthBook client of `@growthbook/growthbook` and loads the features before the first evaluation, then refreshes them every 60 seconds (`pollingInterval`). For self-hosted GrowthBook, set `GROWTHBOOK_API_HOST`.
+
+The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in GrowthBook and refresh the page after the provider has refreshed the features. Every visitor uses the same `demo-user` context; change `getEvaluationContext` in `flags.ts` to add user targeting. It runs once per request for all flags of the source, and the provider gives its result to GrowthBook as the attributes.
 
 ## Flags Explorer
 
-The discovery endpoint at `/.well-known/vercel/flags` loads flag metadata from GrowthBook using `getProviderData` from `@flags-sdk/growthbook`, protected by `FLAGS_SECRET`. The page reports evaluated values to the toolbar.
-
-Set `GROWTHBOOK_API_KEY` to a GrowthBook API key or personal access token with read access to features. This is separate from `GROWTHBOOK_CLIENT_KEY`. Discovery filters metadata to your SDK connection. For self-hosted GrowthBook, set `GROWTHBOOK_API_HOST` for SDK evaluation, `GROWTHBOOK_APP_API_HOST` for the management API, and `GROWTHBOOK_APP_ORIGIN` for dashboard links.
+`flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers its flags. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. Flags Explorer shows the flags of the code; flags which exist only in GrowthBook and links to the GrowthBook dashboard are not part of the manifest. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment as a regular environment variable (Config). Alternatively, pull an existing value with `vercel env pull .env.local`. Restart the dev server after linking.
 
@@ -53,7 +53,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-growthbook
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/growthbook` dependencies to `workspace:*`. Explicit dependencies in `turbo.json` build the local SDK and adapter before starting Next.js.
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`) through `workspace:*`. Turbo builds them before it starts Next.js.
 
 To build this example and its dependencies:
 
@@ -70,4 +70,4 @@ To deploy the workspace version on Vercel:
 4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flags-sdk-growthbook`.
 5. Add the environment variables from Setup.
 
-When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.
