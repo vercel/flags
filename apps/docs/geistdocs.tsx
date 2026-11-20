@@ -37,10 +37,6 @@ export const nav = [
     href: "/docs/standard",
   },
   {
-    label: "Principles",
-    href: "/docs/principles/flags-as-code",
-  },
-  {
     label: "API Reference",
     href: "/docs/api-reference/flags",
   },
