@@ -22,7 +22,7 @@ import { bindFlag } from '../flag';
 import { runtime } from '../runtime';
 import { defineSource } from '../source';
 import type { Provider } from '../types';
-import { decryptOverrides, encryptOverrides } from './index';
+import { decryptOverrides, encryptOverrides, signOverrides } from './index';
 import {
   SIGNED_OVERRIDES_POLICY,
   VERCEL_TOOLBAR_ISSUER,
@@ -366,7 +366,7 @@ describe('overrides which Vercel signs', () => {
       pur: SIGNED_OVERRIDES_POLICY.purpose,
       scope: {
         teamId: 'team_1',
-        projectId: 'prj_1',
+        projectIds: ['prj_1'],
         environments: ['preview'],
       },
       overrides: { 'new-checkout': true },
@@ -397,6 +397,19 @@ describe('overrides which Vercel signs', () => {
     expect(provider.resolveBooleanEvaluation).not.toHaveBeenCalled();
   });
 
+  it('accepts a token of all projects of a microfrontends group', async () => {
+    configure();
+    const token = await sign({
+      scope: {
+        teamId: 'team_1',
+        projectIds: ['prj_2', 'prj_1'],
+        environments: ['preview'],
+      },
+    });
+
+    expect((await evaluateWith(token)).value).toBe(true);
+  });
+
   it('loads the public keys once and keeps them', async () => {
     const fetch = configure();
     const token = await sign();
@@ -422,27 +435,28 @@ describe('overrides which Vercel signs', () => {
   });
 
   describe('lifetime', () => {
-    it('accepts tokens of up to 24 hours by default', async () => {
+    const week = 7 * 24 * 60 * 60;
+
+    it('accepts tokens of up to 7 days by default', async () => {
       configure();
-      const { value } = await evaluateWith(
-        await sign({}, { lifetime: 24 * 60 * 60 }),
-      );
+      const { value } = await evaluateWith(await sign({}, { lifetime: week }));
       expect(value).toBe(true);
     });
 
-    it('rejects tokens of more than 24 hours by default', async () => {
+    it('rejects tokens of more than 7 days by default', async () => {
       configure();
       const { value } = await evaluateWith(
-        await sign({}, { lifetime: 24 * 60 * 60 + 1 }),
+        await sign({}, { lifetime: week + 1 }),
       );
       expect(value).toBe(false);
       expect(warnings[0]).toContain('invalid-claims');
     });
 
     it('accepts a longer lifetime when configured', async () => {
-      const week = 7 * 24 * 60 * 60;
-      configure({ maxLifetimeSeconds: week });
-      const { value } = await evaluateWith(await sign({}, { lifetime: week }));
+      configure({ maxLifetimeSeconds: 4 * week });
+      const { value } = await evaluateWith(
+        await sign({}, { lifetime: 4 * week }),
+      );
       expect(value).toBe(true);
     });
   });
@@ -459,7 +473,7 @@ describe('overrides which Vercel signs', () => {
       const token = sign({
         scope: {
           teamId: 'team_2',
-          projectId: 'prj_1',
+          projectIds: ['prj_1'],
           environments: ['preview'],
         },
       });
@@ -471,7 +485,7 @@ describe('overrides which Vercel signs', () => {
       const token = sign({
         scope: {
           teamId: 'team_1',
-          projectId: 'prj_2',
+          projectIds: ['prj_2'],
           environments: ['preview'],
         },
       });
@@ -483,8 +497,20 @@ describe('overrides which Vercel signs', () => {
       const token = sign({
         scope: {
           teamId: 'team_1',
-          projectId: 'prj_1',
+          projectIds: ['prj_1'],
           environments: ['production'],
+        },
+      });
+      expect(await rejection(token)).toContain('wrong-scope');
+    });
+
+    it('for a single projectId instead of projectIds', async () => {
+      configure();
+      const token = sign({
+        scope: {
+          teamId: 'team_1',
+          projectId: 'prj_1',
+          environments: ['preview'],
         },
       });
       expect(await rejection(token)).toContain('wrong-scope');
@@ -678,7 +704,7 @@ describe('overrides which Vercel signs', () => {
       const token = await sign({
         scope: {
           teamId: 'team_any',
-          projectId: 'prj_1',
+          projectIds: ['prj_1'],
           environments: ['preview'],
         },
       });
@@ -686,16 +712,14 @@ describe('overrides which Vercel signs', () => {
       expect((await evaluateWith(token)).value).toBe(true);
     });
 
-    it('uses only the shared secret when FLAGS_SECRET is set', async () => {
+    it('accepts both kinds of tokens on Vercel when FLAGS_SECRET is set', async () => {
       onVercel();
       vi.stubEnv('FLAGS_SECRET', secret);
 
-      expect((await evaluateWith(await sign())).value).toBe(false);
-      expect(warnings).toEqual([
-        'flags: The override cookie was ignored. Reason: untrusted-jws.',
-      ]);
+      expect((await evaluateWith(await sign())).value).toBe(true);
       const token = await encryptOverrides({ 'new-checkout': true });
       expect((await evaluateWith(token)).value).toBe(true);
+      expect(warnings).toEqual([]);
     });
 
     it('accepts no signed tokens outside of Vercel', async () => {
@@ -719,7 +743,7 @@ describe('overrides which Vercel signs', () => {
       const token = await sign({
         scope: {
           teamId: 'team_1',
-          projectId: 'prj_1',
+          projectIds: ['prj_1'],
           environments: ['development'],
         },
       });
@@ -729,7 +753,7 @@ describe('overrides which Vercel signs', () => {
       const otherTeam = await sign({
         scope: {
           teamId: 'team_2',
-          projectId: 'prj_1',
+          projectIds: ['prj_1'],
           environments: ['development'],
         },
       });
@@ -750,7 +774,7 @@ describe('overrides which Vercel signs', () => {
 
       const local = {
         teamId: 'team_1',
-        projectId: 'prj_1',
+        projectIds: ['prj_1'],
         environments: ['development'],
       };
 
@@ -802,6 +826,75 @@ describe('overrides which Vercel signs', () => {
             'The Vercel project for the overrides is not known.',
           ),
         });
+      });
+    });
+
+    describe('with the OIDC token of a request', () => {
+      const requestContext = Symbol.for('@vercel/request-context');
+
+      async function oidcToken(claims: Record<string, unknown>) {
+        return new SignJWT(claims)
+          .setProtectedHeader({ alg: 'HS256' })
+          .sign(crypto.getRandomValues(new Uint8Array(32)));
+      }
+
+      // On a deployment, Vercel adds the token to each request
+      function inRequest(token: string) {
+        Reflect.set(globalThis, requestContext, {
+          get: () => ({ headers: { 'x-vercel-oidc-token': token } }),
+        });
+      }
+
+      afterEach(() => {
+        Reflect.deleteProperty(globalThis, requestContext);
+      });
+
+      it('reads the project without the system environment variables', async () => {
+        vi.stubEnv('FLAGS_SECRET', '');
+        vi.stubEnv('VERCEL', '1');
+        vi.stubGlobal('fetch', keyServer());
+        vi.spyOn(process, 'cwd').mockReturnValue(tmpdir());
+        inRequest(
+          await oidcToken({
+            project_id: 'prj_1',
+            owner_id: 'team_1',
+            environment: 'preview',
+          }),
+        );
+
+        expect((await evaluateWith(await sign())).value).toBe(true);
+      });
+
+      it('compares the team of the deployment', async () => {
+        vi.stubEnv('FLAGS_SECRET', '');
+        vi.stubEnv('VERCEL', '1');
+        vi.stubGlobal('fetch', keyServer());
+        vi.spyOn(process, 'cwd').mockReturnValue(tmpdir());
+        inRequest(
+          await oidcToken({
+            project_id: 'prj_1',
+            owner_id: 'team_2',
+            environment: 'preview',
+          }),
+        );
+
+        expect((await evaluateWith(await sign())).value).toBe(false);
+        expect(warnings[0]).toContain('wrong-scope');
+      });
+
+      it('prefers the token of the request over VERCEL_OIDC_TOKEN', async () => {
+        vi.stubEnv('FLAGS_SECRET', '');
+        vi.stubGlobal('fetch', keyServer());
+        vi.spyOn(process, 'cwd').mockReturnValue(tmpdir());
+        vi.stubEnv(
+          'VERCEL_OIDC_TOKEN',
+          await oidcToken({ project_id: 'prj_other', environment: 'preview' }),
+        );
+        inRequest(
+          await oidcToken({ project_id: 'prj_1', environment: 'preview' }),
+        );
+
+        expect((await evaluateWith(await sign())).value).toBe(true);
       });
     });
 
@@ -887,5 +980,88 @@ describe('overrides which Vercel signs', () => {
         'flags: The option maxLifetimeSeconds of the Vercel overrides must be a positive number.',
       );
     });
+  });
+});
+
+describe('signOverrides', () => {
+  const requestContext = Symbol.for('@vercel/request-context');
+
+  async function oidcToken(claims: Record<string, unknown>) {
+    return new SignJWT(claims)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(crypto.getRandomValues(new Uint8Array(32)));
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, requestContext);
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('signs the overrides for the project of the host with its OIDC token', async () => {
+    const token = await oidcToken({
+      project_id: 'prj_1',
+      environment: 'preview',
+    });
+    vi.stubEnv('VERCEL_OIDC_TOKEN', token);
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    const fetch = vi.fn(async () =>
+      Response.json({ token: 'signed.jws.token' }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      signOverrides({ 'new-checkout': true }, { ttl: 600 }),
+    ).resolves.toBe('signed.jws.token');
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.vercel.com/v1/projects/prj_1/feature-flags/overrides/sign',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ authorization: `Bearer ${token}` }),
+        body: JSON.stringify({ overrides: { 'new-checkout': true }, ttl: 600 }),
+      }),
+    );
+  });
+
+  it('prefers the OIDC token of the request', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', await oidcToken({ project_id: 'prj_env' }));
+    vi.stubEnv('VERCEL_PROJECT_ID', '');
+    const requestToken = await oidcToken({ project_id: 'prj_request' });
+    Reflect.set(globalThis, requestContext, {
+      get: () => ({ headers: { 'x-vercel-oidc-token': requestToken } }),
+    });
+    const fetch = vi.fn(async () => Response.json({ token: 'signed' }));
+    vi.stubGlobal('fetch', fetch);
+
+    await signOverrides({ a: 1 });
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.vercel.com/v1/projects/prj_request/feature-flags/overrides/sign',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: `Bearer ${requestToken}`,
+        }),
+      }),
+    );
+  });
+
+  it('throws without an OIDC token, and does not call Vercel', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', '');
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(signOverrides({ a: 1 })).rejects.toThrow(
+      'flags: Could not sign the overrides',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('throws when Vercel does not sign the overrides', async () => {
+    vi.stubEnv('VERCEL_OIDC_TOKEN', await oidcToken({ project_id: 'prj_1' }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ error: 'forbidden' }, { status: 403 })),
+    );
+
+    await expect(signOverrides({ a: 1 })).rejects.toThrow('status 403');
   });
 });

@@ -8,5 +8,6 @@ export type { JsonValue, OverrideRejection } from './types';
 export {
   OverridesError,
   type PlatformProject,
+  signOverrides,
   type VercelOverridesOptions,
 } from './vercel';

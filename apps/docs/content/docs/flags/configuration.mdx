@@ -80,8 +80,8 @@ See [OpenFeature](/docs/flags/openfeature#hooks).
 
 Flags Explorer overrides flags for your browser with the cookie `flag-overrides`. The SDK only accepts trusted cookies, and needs no configuration for this:
 
-1. If `FLAGS_SECRET` is set, the SDK accepts only cookies that are encrypted with it.
-2. Otherwise, on Vercel or locally after `vercel env pull`, it accepts only cookies that Vercel signed for this project.
+1. If `FLAGS_SECRET` is set, the SDK accepts cookies that are encrypted with it.
+2. On Vercel or locally after `vercel env pull`, it accepts cookies that Vercel signed for this project, also when `FLAGS_SECRET` is set.
 3. Otherwise, it accepts no override cookies.
 
 The option `overrides` changes these defaults:
@@ -89,7 +89,7 @@ The option `overrides` changes these defaults:
 | Option | Meaning |
 | --- | --- |
 | `secret` | The shared secret. The default is `FLAGS_SECRET`. `false` accepts no cookies of a shared secret. |
-| `vercel` | `true` accepts cookies that Vercel signs, `false` accepts none, and an object sets options, e.g. `project` (`projectId`, `environment`, `teamId`) or `maxLifetimeSeconds` (the default is 24 hours). |
+| `vercel` | `true` accepts cookies that Vercel signs, `false` accepts none, and an object sets options, e.g. `project` (`projectId`, `environment`, `teamId`) or `maxLifetimeSeconds` (the default is 7 days). |
 
 With an explicit `vercel` option, both kinds of cookies can be active, e.g. during a migration:
 
