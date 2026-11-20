@@ -437,28 +437,58 @@ export const tggl = defineSource({
 
 [Tggl provider documentation](https://tggl.io/developers/sdks/open-feature/node)
 
-## Community providers
+## Providers of the Flags SDK
 
-These providers are maintained by the community, not by the vendor.
+These providers are part of the Flags SDK. The Flags SDK team maintains them.
 
 ### PostHog
 
 ```bash
-npm install flags @openfeature/server-sdk @tapico/node-openfeature-posthog
+npm install flags @openfeature/server-sdk posthog-node @flags-sdk/posthog
 ```
 
 ```ts title="flags/self.ts"
-import { PostHogProvider } from '@tapico/node-openfeature-posthog';
+import { PostHogProvider } from '@flags-sdk/posthog/openfeature';
 import { defineSource } from 'flags';
+import { PostHog } from 'posthog-node';
 import { getEvaluationContext } from './context';
 
 export const posthog = defineSource({
-  provider: new PostHogProvider(/* options */),
+  provider: new PostHogProvider(
+    new PostHog(process.env.POSTHOG_PROJECT_API_KEY!, {
+      host: process.env.POSTHOG_HOST,
+    }),
+  ),
   getEvaluationContext,
 });
 ```
 
-[PostHog provider documentation](https://www.npmjs.com/package/@tapico/node-openfeature-posthog)
+The `targetingKey` of the evaluation context is the distinct ID. A boolean flag reads whether the flag is enabled, a string flag reads the variant key of a multivariate flag, and number and object flags read the JSON payload.
+
+[PostHog provider documentation](https://github.com/vercel/flags/tree/main/packages/adapter-posthog#openfeature-provider)
+
+### Statsig
+
+```bash
+npm install flags @openfeature/server-sdk @statsig/statsig-node-core @flags-sdk/statsig
+```
+
+```ts title="flags/self.ts"
+import { StatsigProvider } from '@flags-sdk/statsig/openfeature';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const statsig = defineSource({
+  // Creates a Statsig instance of the Statsig Server Core SDK. It fetches
+  // the rules on initialization, not at import.
+  provider: new StatsigProvider(process.env.STATSIG_SERVER_API_KEY!),
+  getEvaluationContext,
+});
+```
+
+The flag key selects the Statsig entity. A plain key, e.g. `show_banner`, is a feature gate. The prefixes `config:`, `experiment:` and `layer:` select a dynamic config, an experiment or a layer, e.g. `config:welcome`. Without a parameter, an object flag reads the whole value of a config or an experiment. A layer key needs a parameter. Add `.<param>` to read one parameter, e.g. `experiment:pricing.price`; string and number flags need a parameter. The `targetingKey` of the evaluation context is the `userID`. Fields such as `email`, `country`, `custom` and `customIDs` go to the fields of the `StatsigUser` with the same name.
+
+[Statsig provider documentation](https://github.com/vercel/flags/tree/main/packages/adapter-statsig#openfeature-provider)
 
 ## LaunchDarkly
 

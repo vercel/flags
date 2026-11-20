@@ -102,28 +102,30 @@
       "dependsOn": ["flags#build", "@flags-sdk/next#build"]
     },
     "flags-sdk-statsig#dev": {
-      "dependsOn": [],
-      "env": [
-        "STATSIG_SERVER_API_KEY",
-        "FLAGS_SECRET",
-        "EXPERIMENTATION_CONFIG",
-        "EXPERIMENTATION_CONFIG_ITEM_KEY"
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/statsig#build"
       ],
+      "env": ["FLAGS_SECRET", "STATSIG_SERVER_API_KEY"],
       "cache": false
     },
     "flags-sdk-statsig#build": {
-      "dependsOn": [],
-      "env": [
-        "STATSIG_SERVER_API_KEY",
-        "FLAGS_SECRET",
-        "EXPERIMENTATION_CONFIG",
-        "EXPERIMENTATION_CONFIG_ITEM_KEY"
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/statsig#build"
       ],
+      "env": ["FLAGS_SECRET", "STATSIG_SERVER_API_KEY"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-statsig#type-check": {
-      "dependsOn": []
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/statsig#build"
+      ]
     },
     "flags-sdk-vercel#dev": {
       "dependsOn": [
@@ -168,34 +170,40 @@
       "dependsOn": []
     },
     "flags-sdk-posthog#dev": {
-      "dependsOn": [],
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/posthog#build"
+      ],
       "env": [
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
         "POSTHOG_HOST",
-        "POSTHOG_SECRET_KEY",
-        "POSTHOG_PERSONAL_API_KEY",
-        "POSTHOG_PROJECT_SECRET_API_KEY",
-        "POSTHOG_PROJECT_ID"
+        "POSTHOG_SECRET_KEY"
       ],
       "cache": false
     },
     "flags-sdk-posthog#build": {
-      "dependsOn": [],
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/posthog#build"
+      ],
       "env": [
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
         "POSTHOG_HOST",
-        "POSTHOG_SECRET_KEY",
-        "POSTHOG_PERSONAL_API_KEY",
-        "POSTHOG_PROJECT_SECRET_API_KEY",
-        "POSTHOG_PROJECT_ID"
+        "POSTHOG_SECRET_KEY"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-posthog#type-check": {
-      "dependsOn": []
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@flags-sdk/posthog#build"
+      ]
     },
     "flags-sdk-openfeature#dev": {
       "dependsOn": ["flags#build", "@flags-sdk/next#build"],

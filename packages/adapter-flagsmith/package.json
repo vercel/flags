@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@types/node": "22.14.0",
-    "flags": "workspace:*",
+    "flags": "4.5.0",
     "msw": "2.6.4",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",

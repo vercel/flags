@@ -506,18 +506,27 @@ importers:
 
   examples/providers/posthog:
     dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../../packages/framework-next
       '@flags-sdk/posthog':
-        specifier: ^1.1.0
-        version: 1.1.0
+        specifier: workspace:*
+        version: link:../../../packages/adapter-posthog
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(40652bf384c9f84da4c6428668094c6f)
       flags:
-        specifier: ^4.4.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: workspace:*
+        version: link:../../../packages/flags
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      posthog-node:
+        specifier: 6.0.3
+        version: 6.0.3(@opentelemetry/api@1.9.0)
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -574,15 +583,24 @@ importers:
 
   examples/providers/statsig:
     dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../../packages/framework-next
       '@flags-sdk/statsig':
-        specifier: ^0.3.1
-        version: 0.3.1(@aws-sdk/credential-provider-web-identity@3.972.90)(@opentelemetry/api@1.9.0)(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)))(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+        specifier: workspace:*
+        version: link:../../../packages/adapter-statsig
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
+      '@statsig/statsig-node-core':
+        specifier: 0.24.2
+        version: 0.24.2
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(40652bf384c9f84da4c6428668094c6f)
       flags:
-        specifier: ^4.4.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: workspace:*
+        version: link:../../../packages/flags
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1017,8 +1035,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1048,8 +1066,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       rimraf:
         specifier: 6.1.2
         version: 6.1.2
@@ -1082,8 +1100,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1116,8 +1134,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1150,8 +1168,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1180,8 +1198,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1207,8 +1225,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1234,12 +1252,15 @@ importers:
         specifier: 5.45.0
         version: 5.45.0
     devDependencies:
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1269,8 +1290,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1296,8 +1317,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1332,12 +1353,18 @@ importers:
         specifier: ^0.7.0
         version: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)))
     devDependencies:
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
+      '@statsig/statsig-node-core':
+        specifier: 0.24.2
+        version: 0.24.2
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -1367,8 +1394,8 @@ importers:
         specifier: 22.14.0
         version: 22.14.0
       flags:
-        specifier: workspace:*
-        version: link:../flags
+        specifier: 4.5.0
+        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       msw:
         specifier: 2.6.4
         version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
@@ -2534,15 +2561,8 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@flags-sdk/posthog@1.1.0':
-    resolution: {integrity: sha512-IYL/DaGrNVxJmGnRxGHkOQHHfq/OZ4dX+ZWkiTSNE4oKEndvD0jH3cxoD9aQmacFSvNclRoDWJSliy8iMyAYpw==}
-    engines: {node: ^20.20.0 || >=22.22.0}
-
   '@flags-sdk/reflag@1.0.3':
     resolution: {integrity: sha512-3v84CxH5N1M7EyEhwWfbUDjQJV/cN5GbidBVNFmKSUhXzxkh8PZdRF3GjLGnzcLtfp+rAasILZDN02RTfl7a0w==}
-
-  '@flags-sdk/statsig@0.3.1':
-    resolution: {integrity: sha512-tmmNfRR9pdUISk41XI6F0WtyiU61bmGOuXw6KWb+HZCSqpQKGZ28eHdyVC4xvJywaXTI3x39MKvADgAMp251vA==}
 
   '@flagsmith/nodejs@9.0.3':
     resolution: {integrity: sha512-SN/bpKI3VaEZe+lEHdy9ljR+SQGI3aQWS4UE9VfaxcN1z/lB7Bwc/6pI8QOJd6Xn+CTWpsGlUWDVveM+yYR63w==}
@@ -3363,8 +3383,14 @@ packages:
   '@posthog/core@1.43.1':
     resolution: {integrity: sha512-hGM8f5sp3we6Em/RQHXbmyYm554hUx9+9jhf92ZQgDS4/xW72KHyZiO9wcFye+qAx2cJAOhOCDIznmO1FV8IbA==}
 
+  '@posthog/core@1.69.1':
+    resolution: {integrity: sha512-36hlJRZlVh5d+yBOmqObT162SrqNes9yY4x4wLDXVSu5Dzdt19KNxQ136cd37+U0yABZVx7ehjtWslyn1iG+0Q==}
+
   '@posthog/types@1.397.0':
     resolution: {integrity: sha512-Pa7FtsBo3V0XrhY4y8Xquwp8U07syuZ2IGQdlsRyxhz0yejQLceFjI58UssCXE5zDCDj3km5l7H3ufD6rHChCg==}
+
+  '@posthog/types@1.425.1':
+    resolution: {integrity: sha512-mh7jyQ5lN+XCeOnMdYkBEFtO/G0TxeLOKTWNH6E6OZjxS4nVM0Tb2xQt+FG5DCFM9qzL2HmuX6A793TwlJVDvw==}
 
   '@publint/pack@0.1.4':
     resolution: {integrity: sha512-HDVTWq3H0uTXiU0eeSQntcVUTPP3GamzeXI41+x7uU9J65JgWQh3qWZHblR1i0npXfFtF+mxBiU2nJH8znxWnQ==}
@@ -5910,6 +5936,68 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@statsig/statsig-node-core-darwin-arm64@0.24.2':
+    resolution: {integrity: sha512-04UhUJ36+1e+umd5Nt4CMhE/3svlJuKv3sdbEWJ8AnFDrh2Hnm4/zn+bB5twtoqoE5Ld7PuZfzkzKSLU40jlYw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@statsig/statsig-node-core-darwin-x64@0.24.2':
+    resolution: {integrity: sha512-8K3vrPVEjGs6V2ETUGw6Vy5ogVI+WEJGYyid8IkT0ZJN5H4NtC5CY15+yNGXS/gvklzz1kgU9dU4kcBeOSElDQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@statsig/statsig-node-core-linux-arm64-gnu@0.24.2':
+    resolution: {integrity: sha512-7MR6qzelhj63B6ifaQUf2rhotb4jlMJsfT8kVyofqZYBwI9x1qbF4loUEnVht5acZPYR0Ymd/TeEc51GGjIXOw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@statsig/statsig-node-core-linux-arm64-musl@0.24.2':
+    resolution: {integrity: sha512-xnJmHHajrb3Em49g6Z3wqcQyQNRaEW6RhbE51tuAVYbjAkk6cYCI7SJoEXVpztspSTOphbc/BwoUwBTKZneOLg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@statsig/statsig-node-core-linux-x64-gnu@0.24.2':
+    resolution: {integrity: sha512-4JXXjob7s1DqYZukFzR+mvhTnRtixMzzTV5AT1As5AimQRjG9rebYgQk59sD7v6zIU81IBg/rtirp7+fx1j8Kw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@statsig/statsig-node-core-linux-x64-musl@0.24.2':
+    resolution: {integrity: sha512-0maJkJQC3F/nAf2ApNe6A1UTcXNRzExXqxERS6kNHSaixgxUnqNzdynOSqPcwDEdNYTCjjQGLWcGejLpxTPc2Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@statsig/statsig-node-core-win32-arm64-msvc@0.24.2':
+    resolution: {integrity: sha512-Lk0hIdVmaPp3AJXpzVvCa/I5clMvUFDhkxnxsdAvVigCXBJDfU09dxYN/1Vus3YK3koEOOs6J3qr/RpX8o07VQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@statsig/statsig-node-core-win32-ia32-msvc@0.24.2':
+    resolution: {integrity: sha512-cxRFAFPKOz9eTXp+5DBiLjjmlF7Ps+IzFvmdzUhingxrYCTiOtGO7OwzD1FCmagiS2QwzCO2qDdIzNCFVZlquA==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@statsig/statsig-node-core-win32-x64-msvc@0.24.2':
+    resolution: {integrity: sha512-UVAQU/qG89Bwm4QpY7STvnelM+nAi53+N2vzVkpjK/cSTKrbDbyMmeI1YU4gWOyv9utS9sVePZxsF69+WPVs3w==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@statsig/statsig-node-core@0.24.2':
+    resolution: {integrity: sha512-I3yPKF7WFUbVdDVH0WrUXyNVg7D8Sx9oPttC9fA6TDJl+rcB9GWoFkaGVZwx0SGEj6nvCM21Y2wRAOk0BhQ5Nw==}
+    engines: {node: '>= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0'}
 
   '@streamdown/cjk@1.0.2':
     resolution: {integrity: sha512-5OOuZjj2Lnae92Zmg2gA5hloSbcKj25gv+QY4iKbYI+iRsiGWbgmYxmgxNUSO9SR6BKOCy783UHN1HM/QEUpdw==}
@@ -11195,6 +11283,21 @@ packages:
       rxjs:
         optional: true
 
+  posthog-node@6.0.3:
+    resolution: {integrity: sha512-nRYHLGCHPya5srUmBETjtcg6rfopsTpCesjRsDKB1oXlbFNmn7z5n0Hu1x60czJr8kGkOysynaoNCogBZCXQhQ==}
+    engines: {node: ^20.20.0 || >=22.22.0}
+    peerDependencies:
+      '@opentelemetry/api': ^1.2.0
+      '@react-email/render': ^2.1.0
+      rxjs: ^7.0.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@react-email/render':
+        optional: true
+      rxjs:
+        optional: true
+
   powershell-utils@0.2.1:
     resolution: {integrity: sha512-C+y9x90UElAddDZmV4qOx9W53B61PO7cIqWz2dQsWlwswuq4mr8NEwytdGKboYbQlGZ3awrkTeNvcZiZNHnQ8A==}
     engines: {node: '>=20'}
@@ -14128,28 +14231,9 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
-  '@flags-sdk/posthog@1.1.0':
-    dependencies:
-      posthog-node: 5.45.0
-    transitivePeerDependencies:
-      - rxjs
-
   '@flags-sdk/reflag@1.0.3':
     dependencies:
       '@reflag/node-sdk': 1.0.1
-
-  '@flags-sdk/statsig@0.3.1(@aws-sdk/credential-provider-web-identity@3.972.90)(@opentelemetry/api@1.9.0)(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)))(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
-    dependencies:
-      '@vercel/functions': 1.6.0(@aws-sdk/credential-provider-web-identity@3.972.90)
-      '@vercel/global-config': 1.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
-      statsig-node-lite: 0.5.2
-      statsig-node-vercel: 0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)))
-    transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-web-identity'
-      - '@opentelemetry/api'
-      - '@vercel/edge-config'
-      - encoding
-      - next
 
   '@flagsmith/nodejs@9.0.3':
     dependencies:
@@ -16886,7 +16970,13 @@ snapshots:
     dependencies:
       '@posthog/types': 1.397.0
 
+  '@posthog/core@1.69.1':
+    dependencies:
+      '@posthog/types': 1.425.1
+
   '@posthog/types@1.397.0': {}
+
+  '@posthog/types@1.425.1': {}
 
   '@publint/pack@0.1.4': {}
 
@@ -19384,6 +19474,45 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
+  '@statsig/statsig-node-core-darwin-arm64@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-darwin-x64@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-linux-arm64-gnu@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-linux-arm64-musl@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-linux-x64-gnu@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-linux-x64-musl@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-win32-arm64-msvc@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-win32-ia32-msvc@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core-win32-x64-msvc@0.24.2':
+    optional: true
+
+  '@statsig/statsig-node-core@0.24.2':
+    optionalDependencies:
+      '@statsig/statsig-node-core-darwin-arm64': 0.24.2
+      '@statsig/statsig-node-core-darwin-x64': 0.24.2
+      '@statsig/statsig-node-core-linux-arm64-gnu': 0.24.2
+      '@statsig/statsig-node-core-linux-arm64-musl': 0.24.2
+      '@statsig/statsig-node-core-linux-x64-gnu': 0.24.2
+      '@statsig/statsig-node-core-linux-x64-musl': 0.24.2
+      '@statsig/statsig-node-core-win32-arm64-msvc': 0.24.2
+      '@statsig/statsig-node-core-win32-ia32-msvc': 0.24.2
+      '@statsig/statsig-node-core-win32-x64-msvc': 0.24.2
+
   '@streamdown/cjk@1.0.2(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.4)(unified@11.0.5)':
     dependencies:
       react: 19.2.4
@@ -20950,13 +21079,6 @@ snapshots:
       vue: 3.5.43(typescript@5.9.3)
 
   '@vercel/edge-config-fs@0.1.0': {}
-
-  '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
-    dependencies:
-      '@vercel/edge-config-fs': 0.1.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-      next: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
 
   '@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))':
     dependencies:
@@ -23542,6 +23664,16 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
+  flags@4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+    dependencies:
+      '@edge-runtime/cookies': 5.0.2
+      jose: 5.10.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
@@ -27994,6 +28126,12 @@ snapshots:
     dependencies:
       '@posthog/core': 1.43.1
 
+  posthog-node@6.0.3(@opentelemetry/api@1.9.0):
+    dependencies:
+      '@posthog/core': 1.69.1
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+
   powershell-utils@0.2.1: {}
 
   prelude-ls@1.2.1: {}
@@ -29079,13 +29217,6 @@ snapshots:
       node-fetch: 2.7.0
       ua-parser-js: 1.0.41
       uuid: 11.1.1
-    transitivePeerDependencies:
-      - encoding
-
-  statsig-node-vercel@0.7.0(@vercel/edge-config@1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))):
-    dependencies:
-      '@vercel/edge-config': 1.4.3(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
-      statsig-node-lite: 0.4.4
     transitivePeerDependencies:
       - encoding
 
