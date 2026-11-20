@@ -36,6 +36,8 @@ export async function fetchDatafile(options: {
   signal?: AbortSignal;
   /** Total attempts, including the initial request. Defaults to three. */
   maxAttempts?: number;
+  /** Requests metadata such as descriptions and variant labels. */
+  includeMetadata?: boolean;
 }): Promise<BundledDefinitions> {
   options.signal?.throwIfAborted();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -77,7 +79,14 @@ export async function fetchDatafile(options: {
       throw error;
     });
     signal.throwIfAborted();
-    const res = await options.fetch(`${options.host}/v1/datafile`, {
+    const datafileUrl = options.includeMetadata
+      ? (() => {
+          const url = new URL('/v1/datafile', options.host);
+          url.searchParams.set('metadata', '1');
+          return url;
+        })()
+      : `${options.host}/v1/datafile`;
+    const res = await options.fetch(datafileUrl, {
       headers: {
         ...authHeaders(token, options.auth.sourceProjectId),
         'User-Agent': `VercelFlagsCore/${version}`,

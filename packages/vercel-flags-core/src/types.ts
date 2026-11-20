@@ -1059,6 +1059,11 @@ export namespace Packed {
     variants: Value[];
     /** Description of the flag. */
     description?: string;
+    /** Labels and descriptions aligned with the variants array. */
+    variantMetadata?: {
+      label?: string;
+      description?: string;
+    }[];
     /** Experiment linked to this flag. */
     experiment?: experimental_ExperimentDefinition;
     /**  environments */

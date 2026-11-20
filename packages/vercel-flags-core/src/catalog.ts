@@ -90,7 +90,13 @@ export function catalogFromDatafile(
     }
     const description = definition.description ?? options.describe?.(key);
     flags[key] = {
-      variants: definition.variants,
+      variants: definition.variants.map((value, index) => {
+        const metadata = definition.variantMetadata?.[index];
+        if (metadata?.label === undefined) {
+          return value;
+        }
+        return { value, label: metadata.label };
+      }),
       ...(description ? { description } : {}),
     };
   }
@@ -174,6 +180,7 @@ async function* streamCatalogs(
       fetch: options.fetch,
       resolveToken: () => auth.resolveToken(),
       sourceProjectId: auth.sourceProjectId,
+      includeMetadata: true,
     },
     {
       onDatafile: (datafile) => push({ type: 'datafile', datafile }),

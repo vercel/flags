@@ -65,6 +65,8 @@ export type StreamConfig = {
   resolveToken: () => Promise<string>;
   /** Sent as X-Vercel-Flags-Project-Id when reading another project's flags */
   sourceProjectId?: string;
+  /** Requests metadata such as descriptions and variant labels. */
+  includeMetadata?: boolean;
 };
 
 /**
@@ -174,7 +176,14 @@ export async function connectStream(
         if (revision !== undefined) {
           headers['X-Revision'] = String(revision);
         }
-        const response = await fetchFn(`${host}/v1/stream`, {
+        const streamUrl = config.includeMetadata
+          ? (() => {
+              const url = new URL('/v1/stream', host);
+              url.searchParams.set('metadata', '1');
+              return url;
+            })()
+          : `${host}/v1/stream`;
+        const response = await fetchFn(streamUrl, {
           headers,
           signal: connectionAbort.signal,
         });

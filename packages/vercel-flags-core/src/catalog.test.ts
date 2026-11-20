@@ -112,8 +112,10 @@ describe('createCatalogLoader', () => {
 
     controller.abort();
     expect(await catalogs.next()).toEqual({ done: true, value: undefined });
-    expect(fetch).toHaveBeenCalledWith(
-      'https://flags.vercel.com/v1/stream',
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(
+      'https://flags.vercel.com/v1/stream?metadata=1',
+    );
+    expect(fetch.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: `Bearer ${SDK_KEY}`,
@@ -135,8 +137,10 @@ describe('createCatalogLoader', () => {
     await catalogs.next();
     controller.abort();
 
-    expect(fetch).toHaveBeenCalledWith(
-      expect.any(String),
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(
+      'https://flags.vercel.com/v1/stream?metadata=1',
+    );
+    expect(fetch.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: `Bearer ${SDK_KEY}`,
