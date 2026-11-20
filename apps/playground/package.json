@@ -19,7 +19,7 @@
     "@vercel/flags-core": "workspace:*",
     "@vercel/oidc": "3.5.0",
     "flags": "workspace:*",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -29,7 +29,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3"
   }

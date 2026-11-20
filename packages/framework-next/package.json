@@ -141,7 +141,7 @@
     "typescript": "^5.9.3",
     "@types/node": "22.14.0",
     "vitest": "4.1.11",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "@openfeature/server-sdk": "1.23.0",
     "@openfeature/core": "1.12.0",
     "react": "19.2.4",
