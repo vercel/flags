@@ -247,21 +247,16 @@ For options, use `createCatalogLoader`:
 import { createCatalogLoader } from '@vercel/flags-core/catalog';
 
 export default createCatalogLoader({
-  // The datafile of Vercel Flags has no descriptions. Written as JSDoc.
-  describe: (key) => descriptions[key],
-  // Or: sdkKey: process.env.MY_FLAGS_KEY, projectId: 'prj_source'
+  // A connected project of the same team, with the OIDC token
+  projectId: 'prj_source',
+  // Or: sdkKey: process.env.MY_FLAGS_KEY
 });
-
-const descriptions: Record<string, string> = {
-  'summer-sale': 'Shows the summer sale banner',
-};
 ```
 
 | Option     | Description                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------- |
 | `sdkKey`   | The SDK key or connection string. The default is `FLAGS`, then the OIDC token.                         |
 | `projectId`| The flags of a connected project of the same team, with the OIDC token. Not together with `sdkKey`.    |
-| `describe` | The description of a flag, from its key.                                                              |
 
 The catalog runs only during code generation, in Node.js, not in your application. It gives no `defaultValue`, so a flag whose evaluation fails throws. To give a default value, or to write the flags yourself, return a static catalog instead:
 
@@ -282,7 +277,9 @@ const loadCatalog: CatalogLoader = () => ({
 export default loadCatalog;
 ```
 
-`catalogFromDatafile(datafile, { describe })` turns a datafile into a catalog, if you load the datafile yourself. See [Code generation](/docs/flags/code-generation).
+Your editor shows what the catalog knows about each generated flag, as JSDoc: its variants, and its description if the datafile has one.
+
+`catalogFromDatafile(datafile)` turns a datafile into a catalog, if you load the datafile yourself. See [Code generation](/docs/flags/code-generation).
 
 ## Flags Explorer
 

@@ -45,19 +45,10 @@ afterEach(() => {
 
 describe('catalogFromDatafile', () => {
   it('gives the variants, the project and the revision', () => {
-    expect(
-      catalogFromDatafile(datafile(7), {
-        describe: (key) => `About ${key}`,
-      }),
-    ).toEqual({
+    expect(catalogFromDatafile(datafile(7))).toEqual({
       project: { system: 'vercel-flags', projectId: 'prj_123' },
       revision: 7,
-      flags: {
-        'summer-sale': {
-          variants: [false, true],
-          description: 'About summer-sale',
-        },
-      },
+      flags: { 'summer-sale': { variants: [false, true] } },
     });
   });
 

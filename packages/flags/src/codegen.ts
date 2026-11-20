@@ -1,4 +1,4 @@
-import type { Catalog } from './catalog';
+import type { Catalog, CatalogFlag } from './catalog';
 import type { FlagType } from './value-types';
 
 /**
@@ -37,13 +37,50 @@ export function flagTypeOf(variants: readonly unknown[]): FlagType {
   return 'object';
 }
 
+// A variant longer than this is shortened in the JSDoc, e.g. a large object
+const MAX_VARIANT_LENGTH = 40;
+const MAX_VARIANTS = 10;
+
+/** A value as inline code of Markdown, also with a backtick in it. */
+function inlineCode(value: unknown): string {
+  let text = JSON.stringify(value) ?? String(value);
+  if (text.length > MAX_VARIANT_LENGTH) {
+    text = `${text.slice(0, MAX_VARIANT_LENGTH - 1)}…`;
+  }
+  return text.includes('`') ? `\`\` ${text} \`\`` : `\`${text}\``;
+}
+
+/**
+ * The text of the JSDoc of a flag: what the catalog knows about it. The
+ * description, if the catalog has one, then the variants and the default
+ * value. The parts are paragraphs, so that the editor shows them on lines
+ * of their own.
+ */
+function flagDoc(flag: CatalogFlag): string {
+  const parts: string[] = [];
+  if (flag.description) {
+    parts.push(flag.description);
+  }
+  if (flag.variants.length > 0) {
+    const shown = flag.variants.slice(0, MAX_VARIANTS).map(inlineCode);
+    const more = flag.variants.length - shown.length;
+    parts.push(
+      `Variants: ${shown.join(', ')}${more > 0 ? `, and ${more} more` : ''}`,
+    );
+  }
+  if (flag.defaultValue !== undefined) {
+    parts.push(`Default value: ${inlineCode(flag.defaultValue)}`);
+  }
+  return parts.join('\n\n');
+}
+
 function jsDoc(description: string): string[] {
   return [
     '/**',
     ...description
       .replace(/\*\//g, '*\\/')
       .split(/\r?\n/)
-      .map((line) => ` * ${line}`),
+      .map((line) => (line ? ` * ${line}` : ' *')),
     ' */',
   ];
 }
@@ -117,8 +154,9 @@ export function renderSourceModule(
     // Private names, so that a key can have any characters, or be a
     // reserved word
     const local = `flag_${index}`;
-    if (flag.description) {
-      lines.push(...jsDoc(flag.description));
+    const doc = flagDoc(flag);
+    if (doc) {
+      lines.push(...jsDoc(doc));
     }
     lines.push(
       `const ${local} = bindFlag({`,
@@ -222,8 +260,9 @@ export function renderDeclarations(
     );
     for (const [index, [key, flag]] of entries.entries()) {
       const local = `flag_${index}`;
-      if (flag.description) {
-        lines.push(...jsDoc(flag.description).map((line) => `  ${line}`));
+      const doc = flagDoc(flag);
+      if (doc) {
+        lines.push(...jsDoc(doc).map((line) => `  ${line}`));
       }
       lines.push(
         `  const ${local}: Flag<${source}, ${JSON.stringify(key)}, Input, ${valueTypeOf(flag.variants)}>;`,

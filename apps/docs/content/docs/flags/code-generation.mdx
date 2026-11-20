@@ -264,8 +264,9 @@ For each source, `.flags/<source>.ts` contains:
 - one `bindFlag` for each flag of the catalog, sorted by key, with:
   - `type` from the variants: `boolean`, `string` or `number` if all variants have that type, otherwise `object` (any JSON value, e.g. for variants of mixed types);
   - `options`: the variants. As for every flag, they do not limit the value: a variant that is added after the deployment goes through;
-  - `description`, also as JSDoc, so your editor shows it;
-  - `defaultValue`, if the catalog has one for the flag.
+  - `description`, if the catalog has one;
+  - `defaultValue`, if the catalog has one for the flag;
+  - a JSDoc comment with what the catalog knows about the flag, so your editor shows it: the description, the variants and the default value. A long variant is shortened, and the JSDoc shows at most 10 variants.
 
 The generator also writes `flags/generated.d.ts`, next to `flags/sources`. It declares the module `flags:<source>` of each source, with the type of each flag. TypeScript includes the file with its default `include` (`**/*.ts`), so you do not configure TypeScript. Each source has a named type, e.g. `SelfSource`, so your editor shows a short type for a flag, e.g. `Flag<SelfSource, "enableSale", undefined, boolean>`.
 

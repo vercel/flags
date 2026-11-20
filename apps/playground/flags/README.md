@@ -6,10 +6,9 @@ name, e.g. `import { flag0 } from 'flags:site'`.
 
 | File | Responsibility |
 | --- | --- |
-| `sources/<source>/catalog.ts` | `createCatalogLoader` of `@vercel/flags-core/catalog`: the flags of Vercel Flags, from its stream, with the OIDC token. Adds demo descriptions. Runs at build time and in development only. |
+| `sources/<source>/catalog.ts` | `@vercel/flags-core/catalog`: the flags of Vercel Flags, from its stream, with the OIDC token. Runs at build time and in development only. |
 | `sources/<source>/provider.ts` | The OpenFeature provider: `VercelProvider` of `@vercel/flags-core/openfeature`. |
 | `sources/<source>/context.ts` | `getEvaluationContext(request, input)`: the visitor from a cookie. |
-| `../utils/demo-descriptions.ts` | Sample flag descriptions for the generated JSDoc. |
 
 `withFlags({})` in `next.config.ts` generates `.flags/<source>.ts` and
 `flags/generated.d.ts` (the types of `flags:<source>`) one time during

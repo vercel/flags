@@ -36,12 +36,36 @@ describe('renderSourceModule', () => {
     );
     expect(code).toContain('export { flag_0 as "checkout" };');
     expect(code).toContain('  defaultValue: "control",');
-    expect(code).toContain('/**\n * The sale\n */');
+    expect(code).toContain(
+      '/**\n * The sale\n *\n * Variants: `false`, `true`\n */',
+    );
+    // Without a description, the JSDoc has what the catalog knows
+    expect(code).toContain(
+      '/**\n * Variants: `"control"`, `"express"`\n *\n * Default value: `"control"`\n */',
+    );
     // The keys are sorted, so the file is stable
     expect(code.indexOf('"checkout"')).toBeLessThan(
       code.indexOf('"summer-sale"'),
     );
     expect(code).not.toContain('catalog');
+  });
+
+  it('shortens long variants in the JSDoc, and escapes it', () => {
+    const code = renderSourceModule('site', {
+      flags: {
+        big: {
+          variants: [
+            { text: 'x'.repeat(100) },
+            ...Array.from({ length: 11 }, (_, index) => index),
+          ],
+        },
+        tricky: { variants: ['a`b', '*/'] },
+      },
+    });
+
+    expect(code).toContain(`Variants: \`{"text":"${'x'.repeat(30)}…\``);
+    expect(code).toContain(', and 2 more');
+    expect(code).toContain('Variants: `` "a`b" ``, `"*\\/"`');
   });
 
   it('writes no project without a project in the catalog', () => {

@@ -1376,7 +1376,11 @@ one), and one `bindFlag` for each flag, sorted by key:
   type).
 - `options` are the variants of the catalog. They do not limit the value
   (see "Options").
-- `description` is also JSDoc, so the editor shows it.
+- The JSDoc of each flag has what the catalog knows: the description (if
+  the catalog has one), the variants and the default value, as separate
+  paragraphs. A variant longer than 40 characters is shortened, and the
+  JSDoc shows at most 10 variants. The module and `generated.d.ts` have the
+  same JSDoc, so the editor shows it on hover.
 - The exports have the keys as names (`export { flag_0 as "summer-sale" }`),
   so a key can have any characters.
 

@@ -220,24 +220,21 @@ For options, use `createCatalogLoader`:
 import { createCatalogLoader } from '@vercel/flags-core/catalog';
 
 export default createCatalogLoader({
-  describe: (key) => descriptions[key],
+  // A connected project of the same team, with the OIDC token
+  projectId: 'prj_source',
 });
-
-const descriptions: Record<string, string> = {
-  'summer-sale': 'Shows the summer sale banner',
-};
 ```
 
 | Option      | Description                                                                                       |
 | ----------- | ------------------------------------------------------------------------------------------------- |
 | `sdkKey`    | The SDK key or connection string. The default is the `FLAGS` environment variable, then the OIDC token. |
 | `projectId` | The flags of a connected project of the same team, with the OIDC token. Not together with `sdkKey`. |
-| `describe`  | The description of a flag, from its key. The datafile has no descriptions.                        |
 | `fetch`     | The `fetch` for the stream, e.g. in tests.                                                        |
 
 For the OIDC token, run `vercel link` and `vercel env pull` once. The catalog
-throws on a `401` response. `catalogFromDatafile(datafile, { describe })`
-turns a datafile into a catalog, if you load the datafile yourself.
+throws on a `401` response. `catalogFromDatafile(datafile)` turns a
+datafile into a catalog, if you load the datafile yourself. The catalog has
+the description of a flag if the datafile has one.
 
 ## Client debug logging
 

@@ -53,10 +53,6 @@ export interface VercelCatalogOptions {
    */
   readonly projectId?: string;
   /**
-   * Gives the description of a flag when it is not included in the datafile.
-   */
-  readonly describe?: (key: string) => string | undefined;
-  /**
    * The `fetch` for the stream, e.g. in tests.
    */
   readonly fetch?: typeof globalThis.fetch;
@@ -69,13 +65,11 @@ export interface VercelCatalogOptions {
 }
 
 /**
- * Turns a datafile of Vercel Flags into a catalog: the variants of each
- * flag, the project for the links of Flags Explorer, and the revision.
+ * Turns a datafile of Vercel Flags into a catalog: the variants and the
+ * description of each flag, the project for the links of Flags Explorer,
+ * and the revision.
  */
-export function catalogFromDatafile(
-  datafile: DatafileInput,
-  options: Pick<VercelCatalogOptions, 'describe'> = {},
-): VercelCatalog {
+export function catalogFromDatafile(datafile: DatafileInput): VercelCatalog {
   if (!datafile.projectId || !datafile.definitions) {
     throw new Error(
       '@vercel/flags-core: The datafile has no projectId or no definitions.',
@@ -88,7 +82,7 @@ export function catalogFromDatafile(
         `@vercel/flags-core: The flag ${JSON.stringify(key)} has no variants.`,
       );
     }
-    const description = definition.description ?? options.describe?.(key);
+    const { description } = definition;
     flags[key] = {
       variants: definition.variants,
       ...(description ? { description } : {}),
@@ -207,7 +201,7 @@ async function* streamCatalogs(
         datafile.revision <= previous.revision;
       if (!unchanged) {
         previous = datafile;
-        yield catalogFromDatafile(datafile, options);
+        yield catalogFromDatafile(datafile);
       }
     }
   } finally {
