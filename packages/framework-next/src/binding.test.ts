@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRequest, rethrow, setupFramework } from './binding';
+import {
+  getRequest,
+  isCacheScopeError,
+  rethrow,
+  setupFramework,
+} from './binding';
 
 const headers = vi.fn();
 const cookies = vi.fn();
@@ -76,6 +81,18 @@ describe('getRequest', () => {
     // The runtime calls rethrow before it uses the default value
     expect(() => rethrow(thrown)).toThrow(thrown as Error);
     expect(() => rethrow(new Error('other'))).not.toThrow();
+  });
+
+  it.each([
+    // Next.js before 16.4.6
+    'Route / used `headers()` inside "use cache". Accessing Dynamic data sources inside a cache scope is not supported.',
+    'Route / used `cookies()` inside a function cached with `unstable_cache()`.',
+    // Next.js 16.4.6
+    'Route "/cached": `headers()` can\'t be read inside `"use cache"`. Read it outside the cached function and pass what you need as an argument.',
+    'Route "/cached": `cookies()` can\'t be read inside `unstable_cache()`. Read it outside the cached function and pass what you need as an argument.',
+    'Route "/cached": `connection()` can\'t be called inside `"use cache: private"` because private cached functions may run during prefetching, without a navigation request.',
+  ])('finds the cache scope in the error of Next.js: %s', (message) => {
+    expect(isCacheScopeError(new Error(message))).toBe(true);
   });
 
   it('gives no request outside of a request', async () => {
