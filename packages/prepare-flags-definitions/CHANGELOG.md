@@ -1,5 +1,11 @@
 # @vercel/prepare-flags-definitions
 
+## 0.7.0
+
+### Minor Changes
+
+- [#605](https://github.com/vercel/flags/pull/605) [`5f15ef3`](https://github.com/vercel/flags/commit/5f15ef38725c61c6f9ab2b5a63c3d6f24c634d8c) Thanks [@AndyBitz](https://github.com/AndyBitz)! - Add a `snapshotsDir` option that also writes each datafile as `<key>.json` for build tools to embed into functions
+
 ## 0.6.1
 
 ### Patch Changes

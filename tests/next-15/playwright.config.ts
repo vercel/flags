@@ -39,10 +39,6 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         channel: 'chromium',
-        launchOptions: {
-          executablePath:
-            '/home/runner/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
-        },
       },
     },
   ],
