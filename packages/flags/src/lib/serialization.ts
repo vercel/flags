@@ -178,7 +178,7 @@ export async function serialize(
       }
 
       const matchedIndex = matchIndex(options, value);
-      if (matchedIndex > -1) return matchedIndex;
+      if (matchedIndex > -1 && matchedIndex < MAX_OPTION_LENGTH) return matchedIndex;
 
       // value was not listed in options, so we need to
       // transport it using JSON.stringify(). we return 255 to
