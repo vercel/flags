@@ -225,6 +225,17 @@ describe('precompute', () => {
     );
   });
 
+  it('rejects a code which does not fit an empty or a non-empty list', async () => {
+    const { summerSale: flag } = createFlags();
+    await expect(deserialize([flag], '__no_flags__')).rejects.toThrow(
+      'the list of flags is not empty',
+    );
+    const code = await precompute([flag]);
+    await expect(deserialize([], code)).rejects.toThrow(
+      'the list of flags is empty',
+    );
+  });
+
   it('has a code for an empty list', async () => {
     await expect(precompute([])).resolves.toBe('__no_flags__');
     await expect(deserialize([], '__no_flags__')).resolves.toEqual({});
