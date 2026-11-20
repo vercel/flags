@@ -53,8 +53,7 @@ export interface VercelCatalogOptions {
    */
   readonly projectId?: string;
   /**
-   * Gives the description of a flag. The datafile of Vercel Flags has no
-   * descriptions.
+   * Gives the description of a flag when it is not included in the datafile.
    */
   readonly describe?: (key: string) => string | undefined;
   /**
@@ -89,7 +88,7 @@ export function catalogFromDatafile(
         `@vercel/flags-core: The flag ${JSON.stringify(key)} has no variants.`,
       );
     }
-    const description = options.describe?.(key);
+    const description = definition.description ?? options.describe?.(key);
     flags[key] = {
       variants: definition.variants,
       ...(description ? { description } : {}),

@@ -1057,6 +1057,8 @@ export namespace Packed {
     variantIds?: string[];
     /**  variants, packed down to just their values */
     variants: Value[];
+    /** Description of the flag. */
+    description?: string;
     /** Experiment linked to this flag. */
     experiment?: experimental_ExperimentDefinition;
     /**  environments */

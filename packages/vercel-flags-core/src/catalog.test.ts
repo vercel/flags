@@ -61,6 +61,23 @@ describe('catalogFromDatafile', () => {
     });
   });
 
+  it('uses the description from the datafile', () => {
+    const input = datafile(7);
+    input.definitions['summer-sale']!.description =
+      'Controls the summer sale experience';
+
+    expect(catalogFromDatafile(input)).toEqual({
+      project: { system: 'vercel-flags', projectId: 'prj_123' },
+      revision: 7,
+      flags: {
+        'summer-sale': {
+          variants: [false, true],
+          description: 'Controls the summer sale experience',
+        },
+      },
+    });
+  });
+
   it('rejects a datafile without definitions', () => {
     expect(() =>
       catalogFromDatafile({ projectId: 'prj_123' } as DatafileInput),
