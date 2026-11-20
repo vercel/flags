@@ -67,8 +67,7 @@ Each of these fails the evaluation. The flag then returns its `defaultValue` or 
 - the provider has no method for the type of the flag;
 - `decide` of an inline flag throws, or returns a value of a different type;
 - a `getEvaluationContext` step throws. The flags that use its result fail for the rest of the request;
-- a hook throws in `before` or `after` (see [OpenFeature](/docs/flags/openfeature#hooks));
-- the flag has no source, and no default source is configured (see [Configuration](/docs/flags/configuration#the-built-in-default-source)).
+- a hook throws in `before` or `after` (see [OpenFeature](/docs/flags/openfeature#hooks)).
 
 A value that is not one of the `options` is not a failure. It goes through, see [Options do not limit the value](/docs/flags/types-and-options#options-do-not-limit-the-value).
 
@@ -95,7 +94,7 @@ A flag from [code generation](/docs/flags/code-generation) has a `defaultValue` 
 
 ```ts title="app/page.tsx"
 import { FlagEvaluationError } from 'flags';
-import { checkout } from 'flags:shop';
+import { checkout } from 'flags:self';
 
 async function checkoutFlow(): Promise<string> {
   try {

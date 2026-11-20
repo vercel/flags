@@ -13,53 +13,68 @@ This means:
 
 ## From a provider to a source
 
-Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools.
+Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools. Each flag names its source.
 
-```ts title="sources.ts"
+### With the file system API
+
+With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`. The provider is the default export of `provider.ts`:
+
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+// Any OpenFeature server provider
+export default new VercelProvider();
+```
+
+Next to it, `context.ts` creates the evaluation context, and `catalog.ts` lists the flags of the source. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags:
+
+```ts
+import { summerSale } from 'flags:self';
+```
+
+### By hand
+
+Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source with `defineSource`:
+
+```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineSource } from 'flags';
 
-export const vercel = defineSource({
+export const self = defineSource({
   // Any OpenFeature server provider
   provider: new VercelProvider(),
   // Optional: the flag project, for links in Flags Explorer
   project: { system: 'vercel-flags' },
   // Optional: creates the evaluation context, once per request
-  getEvaluationContext: (_input, request) => ({
+  getEvaluationContext: (request) => ({
     user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
   }),
 });
 ```
 
-A flag names its source with `bindFlag`:
+A flag names its source with `bindFlag`. The `source` is required:
 
 ```ts title="flags.ts"
 'use flags';
 
 import { bindFlag } from 'flags';
-import { vercel } from './sources';
+import { self } from './flags/self';
 
 export const summerSale = bindFlag({
   key: 'summer-sale',
-  source: vercel,
+  source: self,
   defaultValue: false,
 });
 ```
 
-Instead of writing the sources and flags by hand, you can also generate them from your flag management system with [code generation](/docs/flags/code-generation): put the provider in `flags/sources/<source>/provider.ts`, and import the flags with `import { summerSale } from 'flags:<source>'`.
-
-See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`.
-
-<Callout title="Name the source of each flag">
-For now, a flag without a source fails to evaluate: it returns its `defaultValue`, or throws a `FlagEvaluationError`. The built-in default source of Vercel Flags is not available yet. Give each flag a `source`, or use code generation, which does this for you. (A `defaultSource` in the optional [`flags/config.ts`](/docs/flags/configuration#defaultsource) is also possible.)
-</Callout>
+The generated code of the file system API is the same as this hand-written code. See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`.
 
 ## The parts of a source
 
 | Option | Required | What it does |
 | --- | --- | --- |
 | `provider` | Yes | The OpenFeature server provider which evaluates the flags. |
-| `getEvaluationContext(input, request)` | No | Creates the evaluation context for the provider from the input of the flag and the current request (`headers`, `cookies`, `url`). It runs once per request and input. Without it, the provider gets the input as it is. |
+| `getEvaluationContext(request, input)` | No | Creates the evaluation context for the provider from the current request (`headers`, `cookies`, `url`) and the input of the flag. It runs once per request and input. Without it, the provider gets the input as it is. |
 | `project` | No | Names the flag project in the flag management system, e.g. `{ system: 'vercel-flags' }`. Flags Explorer uses it for links to the dashboard. Without it, the flags work the same. |
 | `hooks` | No | OpenFeature hooks for all flags of this source. |
 
@@ -89,7 +104,7 @@ const provider = new VercelProvider();
 export const visitor = defineSource({
   provider,
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (_input, request) => ({
+  getEvaluationContext: (request) => ({
     user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
   }),
 });
@@ -98,7 +113,7 @@ export const visitor = defineSource({
 export const team = defineSource({
   provider,
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (input: { teamId: string }) => ({
+  getEvaluationContext: (_request, input: { teamId: string }) => ({
     team: { id: input.teamId },
   }),
 });

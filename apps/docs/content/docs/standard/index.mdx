@@ -22,7 +22,7 @@ The Flags SDK standard replaces this glue with a small set of contracts. An impl
 
 **Tools need data, not code.** Flags Explorer and similar tools need to know which flags exist, how to override them, and which values a page used. The standard defines these as documents and cookies, not as an API of one SDK, so that a tool can support every framework at once.
 
-**Platforms need a seam.** A deployment platform can make flags faster, e.g. with a provider which reads flag data at the edge of its network. The standard defines where a platform plugs in, and guarantees that the configuration of the application always wins.
+**Platforms need a seam.** A deployment platform hosts the build output and can sign override tokens. The standard defines where the flags manifest goes and how a platform signs overrides, so that tools work on each deployment.
 
 ## The roles
 
@@ -31,7 +31,7 @@ The Flags SDK standard replaces this glue with a small set of contracts. An impl
 | **Application author** | You, building an app | Flags with `defineFlag` and `bindFlag`, sources with `defineSource`, `flags/config.ts`. Imports only `flags`. | [Flags](/docs/flags) |
 | **Framework author** | A framework, or its package `@flags-sdk/<framework>` | A framework binding and, with a bundler, a build plugin | [Framework bindings](/docs/standard/framework-bindings) |
 | **Provider author** | A flag management system, e.g. LaunchDarkly | An OpenFeature server provider; optionally a system manifest for dashboard links | [Custom providers](/docs/providers/custom-providers), [Flags manifest format](/docs/standard/flags-manifest-format#system-manifests) |
-| **Platform** | A deployment platform, e.g. Vercel | Optionally a default provider; the flags manifest in its build output; signed override tokens | [Framework bindings](/docs/standard/framework-bindings#deployment-platforms) |
+| **Platform** | A deployment platform, e.g. Vercel | The flags manifest in its build output; signed override tokens | [Framework bindings](/docs/standard/framework-bindings#deployment-platforms) |
 | **Tool author** | E.g. Flags Explorer | Reads the flags manifest and the flag values; writes the override cookie | [Flags manifest format](/docs/standard/flags-manifest-format) |
 
 Application authors do not need to read the standard. It exists so that the parts below the application fit together.
@@ -44,7 +44,6 @@ flowchart LR
   Framework["Framework binding"] -- "Flags SDK standard" --> SDK
   SDK -- "OpenFeature provider contract" --> Provider["OpenFeature provider"]
   SDK -. "manifest, cookies, values" .-> Tools["Tools, e.g. Flags Explorer"]
-  Platform["Deployment platform"] -. "flags/default-provider" .-> SDK
 ```
 
 - **Between the SDK and providers: OpenFeature.** The provider contract is the [OpenFeature specification](https://openfeature.dev/specification/), without changes or extensions. The standard does not repeat it.
@@ -58,7 +57,7 @@ The standard has these parts. The section numbers refer to STANDARD.md.
 | Part | Sections | Page |
 | --- | --- | --- |
 | The request: `FlagsRequestInit`, the identity of a request | 3 | [Framework bindings](/docs/standard/framework-bindings#the-request) |
-| The replaceable modules: `flags/framework`, `flags/config`, `flags/default-provider` | 4 | [Framework bindings](/docs/standard/framework-bindings#the-replaceable-modules) |
+| The replaceable modules: `flags/framework` and `flags/config` | 4 | [Framework bindings](/docs/standard/framework-bindings#the-replaceable-modules) |
 | The framework binding: request source, signals, config source, caches | 5 | [Framework bindings](/docs/standard/framework-bindings#the-framework-binding) |
 | `flags/config.ts` | 6 | [Framework bindings](/docs/standard/framework-bindings#flagsconfigts) |
 | Discovery: `'use flags'` modules and the flags manifest | 7 | [Flags manifest format](/docs/standard/flags-manifest-format) |
@@ -83,7 +82,7 @@ An implementation conforms to one or more classes:
 | --- | --- | --- |
 | Framework binding | a framework, or its package `@flags-sdk/<framework>` | 3, 4, 5, 6 |
 | Build plugin | a framework with a bundler | 4, 7 |
-| Deployment platform | e.g. Vercel | 4.3, 8, 11.3 |
+| Deployment platform | e.g. Vercel | 8, 11.3 |
 | Flag management system | e.g. LaunchDarkly | 9 |
 | Tool | e.g. Flags Explorer | 7.3, 9.2, 10, 11 |
 

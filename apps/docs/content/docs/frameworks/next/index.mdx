@@ -3,12 +3,12 @@ title: Next.js
 description: Set up the Flags SDK in a Next.js App Router project with one line in next.config.ts.
 ---
 
-`@flags-sdk/next` connects the Flags SDK to Next.js. It gives each flag the request of the page, loads `flags/config.ts`, lets Next.js signals pass through, registers your flags for Flags Explorer, and adds [precompute](/docs/frameworks/next/precompute) for static pages with flags. You add one plugin to `next.config.ts`. Your pages import only `flags`.
+`@flags-sdk/next` connects the Flags SDK to Next.js. It gives each flag the request of the page, loads `flags/config.ts`, lets Next.js signals pass through, generates the modules of `flags:<source>`, registers your flags for Flags Explorer, and adds [precompute](/docs/frameworks/next/precompute) for static pages with flags. You add one plugin to `next.config.ts`. Your pages import only `flags` and your flags.
 
 **Requirements:** Next.js 15.4 or newer with the App Router and Turbopack, and Node.js 20.19, or 22.12 or newer.
 
-<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app. Install `flags` and `@flags-sdk/next`, wrap `next.config.ts` with `withFlags` from `@flags-sdk/next/plugin`, create a `flags.ts` module that starts with `'use flags'` and defines one inline flag with `defineFlag` and one flag of a source with `defineSource` and `bindFlag`, use the flags in a server component with `evaluate` from `flags`, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
-  Add the Flags SDK v5 to my Next.js App Router app. Install `flags` and `@flags-sdk/next`, wrap `next.config.ts` with `withFlags`, create a `'use flags'` module with one inline flag and one flag of a source, use the flags in a server component, add the manifest route, and run the type check and `next build` when finished.
+<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app with its file system API. Install `flags`, `@flags-sdk/next` and `@vercel/flags-core`, wrap `next.config.ts` with `withFlags({}, { codeGeneration: true })` from `@flags-sdk/next/plugin`, create the source `self` in `flags/sources/self` with `provider.ts` (default export `new VercelProvider()` of `@vercel/flags-core/openfeature`), `context.ts` (default export `getEvaluationContext(request)`) and `catalog.ts` (default export: a `CatalogLoader` with the flag `enableSale`), add the path `flags:*` to `./.flags/*` and `allowImportingTsExtensions` to `tsconfig.json`, add `.flags` to `.gitignore`, use the flag with `import { enableSale } from 'flags:self'` in a server component, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
+  Add the Flags SDK v5 to my Next.js App Router app with its file system API. Install the packages, turn on code generation in `withFlags`, create the source `self` in `flags/sources/self`, configure TypeScript, use `enableSale` from `flags:self` in a server component, add the manifest route, and run the type check and `next build` when finished.
 </CopyPrompt>
 
 ## Setup
@@ -16,119 +16,158 @@ description: Set up the Flags SDK in a Next.js App Router project with one line 
 ### 1. Install the packages
 
 ```sh title="Terminal"
-npm install flags @flags-sdk/next
+npm install flags @flags-sdk/next @vercel/flags-core
 ```
 
-`flags` is the SDK. `@flags-sdk/next` is only for the setup, for precompute, and for `FlagValues`.
+`flags` is the SDK. `@flags-sdk/next` is only for the setup, for precompute, and for `FlagValues`. `@vercel/flags-core` has the provider of [Vercel Flags](/docs/providers/vercel); use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the plugin
 
 ```ts title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({
-  // Your Next.js configuration, as usual
-});
+export default withFlags(
+  {
+    // Your Next.js configuration, as usual
+  },
+  { codeGeneration: true },
+);
 ```
 
-That is the only required step. `withFlags` keeps your configuration, including your Turbopack aliases and rules. There is no middleware to add and no code to put in your pages.
+`withFlags` keeps your configuration, including your Turbopack aliases and rules. There is no middleware to add and no code to put in your pages. `codeGeneration` writes the modules of `flags:<source>` from the folders of `flags/sources`.
 
 If `flags/config.ts` is not in the app directory or in its `src` folder, pass the directory: `withFlags({}, { dir: '/path/to/the/app' })`.
 
-### 3. Define your flags
+### 3. Create the source `self`
 
-Create `flags.ts`. This is the same file that the other [framework pages](/docs/frameworks) use:
+By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with three files.
+
+The provider evaluates the flags. It is any OpenFeature server provider:
+
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export default new VercelProvider();
+```
+
+The context tells the provider who the user is. The SDK calls it once per request:
+
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+}
+```
+
+The catalog lists the flags of the source, for the code generation. Start with a list in your code:
+
+```ts title="flags/sources/self/catalog.ts"
+import type { CatalogLoader } from 'flags';
+
+const loadCatalog: CatalogLoader = () => ({
+  flags: {
+    enableSale: {
+      variants: [false, true],
+      description: 'Shows the summer sale',
+      defaultValue: false,
+    },
+  },
+});
+
+export default loadCatalog;
+```
+
+`VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. See [Vercel Flags](/docs/providers/vercel). To try the SDK without an account, export an in-memory provider instead, e.g. `TypedInMemoryProvider` of `@openfeature/server-sdk` (see [Custom providers](/docs/providers/custom-providers)).
+
+### 4. Configure TypeScript and Git
+
+`next dev` and `next build` write `.flags/self.ts`. Point `flags:*` to the generated modules, and allow the `.ts` imports that they contain:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "flags:*": ["./.flags/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".flags/**/*.ts"]
+}
+```
+
+```text title=".gitignore"
+.flags
+```
+
+### 5. Use the flag in a page
+
+```tsx title="app/page.tsx"
+import { enableSale } from 'flags:self';
+
+export default async function Page() {
+  // The flag gets the request of the page through withFlags
+  const sale = await enableSale();
+  return <main>{sale ? <h1>Summer sale!</h1> : <h1>Welcome</h1>}</main>;
+}
+```
+
+A new flag in the catalog becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation) to load the catalog from your flag management system, and for more sources.
+
+## Inline flags
+
+Not every flag needs a provider. An [inline flag](/docs/flags/inline-flags) decides its value in your code. Put inline flags into a module that starts with `'use flags'`:
 
 ```ts title="flags.ts"
 'use flags';
 
-import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineFlag, defineSource } from 'flags';
+import { defineFlag } from 'flags';
 
-const shop = defineSource({
-  provider: new TypedInMemoryProvider({
-    'summer-sale': {
-      variants: { on: true, off: false },
-      defaultVariant: 'off',
-      disabled: false,
-      // On for alice only
-      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
-    },
-    checkout: {
-      variants: { control: 'control', express: 'express' },
-      defaultVariant: 'express',
-      disabled: false,
-    },
-  } as const),
-  project: { system: 'in-memory' },
-  getEvaluationContext: (_context, request) => ({
-    user: request?.cookies?.get('user')?.value ?? 'anonymous',
-  }),
-});
-
-// Flags of the source: the provider decides the value
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
-  defaultValue: false,
-  description: 'The summer sale banner',
-});
-
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: shop,
-  type: 'string',
-  options: ['control', 'express'],
-  defaultValue: 'control',
-  description: 'The checkout flow',
-});
-
-// An inline flag: your code decides the value
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
 });
 ```
 
-The `'use flags'` directive marks a module that exports only flags. `withFlags` registers these flags, so they show up in the [flags manifest](/docs/tooling/flags-manifest) and in Flags Explorer. Keep other exports, such as arrays of flags for precompute, in a different file.
+The `'use flags'` directive marks a module that exports only flags. `withFlags` registers these flags, so they show up in the [flags manifest](/docs/tooling/flags-manifest) and in Flags Explorer. The generated `flags:self` module has the directive already. Keep other exports, such as arrays of flags for precompute, in a different file.
 
-To try the example, install the in-memory provider with `npm install @openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel). You can also let [code generation](#code-generation) write the sources and flags for you.
-
-### 4. Use the flags in a page
+Both kinds of flags are called in the same way:
 
 ```tsx title="app/page.tsx"
 import { evaluate } from 'flags';
-import { betaBanner, checkout, summerSale } from '../flags';
+import { enableSale } from 'flags:self';
+import { betaBanner } from '../flags';
 
 export default async function Page() {
-  // The flags get the request of the page through withFlags
-  const [sale, flow, beta] = await evaluate([summerSale, checkout, betaBanner]);
+  const [sale, beta] = await evaluate([enableSale, betaBanner]);
   return (
     <main>
       {beta ? <p>You see the beta.</p> : null}
       {sale ? <h1>Summer sale!</h1> : <h1>Welcome</h1>}
-      <p>Checkout: {flow}</p>
     </main>
   );
 }
 ```
 
-Set the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner.
+Set the cookie `beta=1` to see the beta banner.
 
 ## Where you can call flags
 
-- **Server components.** Call a flag in any server component. Each flag is evaluated one time for each request, so two components that call `summerSale()` get the same value, and the provider is called only once. See [Evaluating flags](/docs/flags/evaluating-flags).
+- **Server components.** Call a flag in any server component. Each flag is evaluated one time for each request, so two components that call `enableSale()` get the same value, and the provider is called only once. See [Evaluating flags](/docs/flags/evaluating-flags).
 - **Route handlers.** Call flags in the same way:
 
   ```ts title="app/api/flags/route.ts"
   import { evaluate } from 'flags';
-  import { checkout, summerSale } from '../../../flags';
+  import { enableSale } from 'flags:self';
+  import { betaBanner } from '../../../flags';
 
   export async function GET() {
-    const [sale, flow] = await evaluate([summerSale, checkout]);
-    return Response.json({ sale, flow });
+    const [sale, beta] = await evaluate([enableSale, betaBanner]);
+    return Response.json({ sale, beta });
   }
   ```
 
@@ -155,9 +194,9 @@ Set the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner
 
 ## Optional: `flags/config.ts`
 
-You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. The `withFlags` plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The `withFlags` plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
 ```ts title="flags/config.ts"
 import { defineConfig } from 'flags';
@@ -190,33 +229,38 @@ Flags Explorer sets overrides with the `flag-overrides` cookie. Overrides are tr
 
 To show the values of a request in Flags Explorer and in Vercel Web Analytics, render [`FlagValues`](/docs/frameworks/next/flag-values).
 
-## Code generation
+## Without code generation
 
-Code generation is optional. With it, you do not write `defineSource` and `bindFlag` by hand: `withFlags` reads the flags of your flag management system and writes a typed module for each source.
+You can also write the source and its flags by hand, e.g. if you prefer code to the folder of a source. Leave out `codeGeneration`, and use `defineSource` and `bindFlag`:
 
-```ts title="next.config.ts"
-import { withFlags } from '@flags-sdk/next/plugin';
+```ts title="flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
 
-export default withFlags({}, { codeGeneration: true });
+export const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
 ```
 
-Each source is a folder in `flags/sources/<source>` with `catalog.ts` (the flags), `provider.ts` (the OpenFeature provider) and `context.ts` (the evaluation context). Then import the flags by name:
+```ts title="flags.ts"
+'use flags';
 
-```tsx title="app/page.tsx"
-import { evaluate } from 'flags';
-import { checkout, 'summer-sale' as summerSale } from 'flags:shop';
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
-export default async function Page() {
-  const [sale, flow] = await evaluate([summerSale, checkout]);
-  return <p>{sale ? 'Summer sale!' : `Checkout: ${flow}`}</p>;
-}
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale',
+});
 ```
 
-- `next build` generates the modules one time. `next dev` generates them and watches the catalogs. `next start` does no catalog work.
-- Add `"paths": { "flags:*": ["./.flags/*"] }` and `"allowImportingTsExtensions": true` to `tsconfig.json`, and `.flags` to `.gitignore`.
-- `withFlags` points `flags:<source>` to the generated modules also without `codeGeneration`, for example after `flags sync`, or with `flags watch -- next dev`.
-
-The generated code is the same as code you write by hand. See [Code generation](/docs/flags/code-generation) for the folder layout and the catalog format.
+Each flag names its source. This is the same code that the code generation writes. `withFlags` points `flags:<source>` to the modules in `.flags` also without `codeGeneration`, e.g. after `flags sync`, or with `flags watch -- next dev`. See [Flags of a source](/docs/flags/provider-flags).
 
 ## Cache Components
 
@@ -228,7 +272,7 @@ The SDK works with `cacheComponents: true`:
 
 ```tsx title="app/page.tsx"
 import { Suspense } from 'react';
-import { summerSale } from '../flags';
+import { enableSale } from 'flags:self';
 
 async function Prices({ sale }: { sale: boolean }) {
   'use cache';
@@ -236,7 +280,7 @@ async function Prices({ sale }: { sale: boolean }) {
 }
 
 async function Sale() {
-  return <Prices sale={await summerSale()} />;
+  return <Prices sale={await enableSale()} />;
 }
 
 export default function Page() {
@@ -310,22 +354,13 @@ export { expect } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 test('shows the sale', async ({ page, setFlagOverrides }) => {
-  await setFlagOverrides({ 'summer-sale': true });
+  await setFlagOverrides({ enableSale: true });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Summer sale!' })).toBeVisible();
 });
 ```
 
-The tests need the same `FLAGS_SECRET` as the app. To load it from your `.env` files, call `loadEnvConfig(process.cwd(), true)` of `@next/env` at the top of `playwright.config.ts`. Use the flag `key` as the key of the overrides, not the name of the export. Overrides work for flags of every source, and also for precomputed pages, when the cookie is set before the proxy runs. See [Testing](/docs/flags/testing) for unit tests.
-
-## Deployment
-
-On Vercel, the deployment adapter of Next.js points the module `flags/default-provider` to the fast provider of Vercel Flags (`@vercel/flags-core/default-provider`). Flags without a source then evaluate without a network request for each flag.
-
-- This only concerns flags without a `source`. Flags that name their source, by hand or with [code generation](#code-generation), use their source everywhere.
-- The adapter runs only for builds, not for development.
-- A `defaultSource` in the optional `flags/config.ts` always wins over the provider of the platform.
-- On other hosts, flags without a source use the built-in default source, which throws for now. Give each flag a `source`.
+The tests need the same `FLAGS_SECRET` as the app. To load it from your `.env` files, call `loadEnvConfig(process.cwd(), true)` of `@next/env` at the top of `playwright.config.ts`. Use the flag `key` as the key of the overrides. Overrides work for flags of every source, and also for precomputed pages, when the cookie is set before the proxy runs. See [Testing](/docs/flags/testing) for unit tests.
 
 ## Limits
 
@@ -338,7 +373,7 @@ On Vercel, the deployment adapter of Next.js points the module `flags/default-pr
 
 ## How it works
 
-`withFlags` sets two Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/config` points to your `flags/config.ts`. Before the first evaluation, the SDK calls the binding, which sets three things:
+`withFlags` sets two Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/config` points to your `flags/config.ts`. It also points each `flags:<source>` to its module in `.flags`. Before the first evaluation, the SDK calls the binding, which sets three things:
 
 1. **The request.** It reads `headers()` and `cookies()`. `headers()` returns the same object for one request, so the SDK uses it to find the per-request cache. The binding also waits for `connection()`.
 2. **The rethrow.** It passes errors to `unstable_rethrow`, so that Next.js signals pass through.

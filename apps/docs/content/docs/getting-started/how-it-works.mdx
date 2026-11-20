@@ -38,17 +38,31 @@ A source connects flags to a flag management system. It has three parts:
 - optionally, the **project** in the flag management system, for the links of Flags Explorer,
 - optionally, `getEvaluationContext`, which creates the **evaluation context** from the request, e.g. the user from a cookie.
 
+With a framework with a bundler, a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`:
+
+- `provider.ts` exports the provider, e.g. `export default new VercelProvider()`,
+- `context.ts` exports `getEvaluationContext(request, input)`,
+- `catalog.ts` lists the flags of the source.
+
+[Code generation](/docs/flags/code-generation) turns the folder into the module `flags:self`, with the source and one typed flag for each flag of the catalog:
+
 ```ts
-const vercel = defineSource({
-  provider: new VercelProvider(),
-  project: { system: 'vercel-flags' },
-  getEvaluationContext: (_input, request) => ({ user: getUser(request) }),
-});
+import { summerSale } from 'flags:self';
 ```
 
-Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag names its source: `bindFlag({ key, source: vercel })`.
+Without a bundler, e.g. with Hono, Express or plain Node.js, you write the same code by hand. The generated code is the same code you would write:
 
-You can write sources and flags by hand, or [generate them](/docs/flags/code-generation) from the catalog of your provider. The generated code is the same code you would write.
+```ts
+const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({ user: getUser(request) }),
+});
+
+const summerSale = bindFlag({ key: 'summer-sale', source: self });
+```
+
+Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider names its source: there is no default source.
 
 ## The runtime
 

@@ -63,43 +63,17 @@ To test real evaluations, give the flags a provider with fixed rules. The in-mem
 npm install --save-dev @openfeature/server-sdk
 ```
 
-If your flags name their source, e.g. `bindFlag({ key, source: vercel })` with `vercel` from `./sources`, mock the module of the source, so that it uses an in-memory provider:
+Each flag names its source, e.g. `bindFlag({ key, source: self })` with `self` from `./flags/self`. Mock the module of the source, so that it uses an in-memory provider:
 
 ```ts title="flags.test.ts"
 import { expect, it, vi } from 'vitest';
 import { newDashboard } from './flags';
 
-vi.mock('./sources', async () => {
+vi.mock('./flags/self', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
   const { defineSource } = await import('flags');
   return {
-    vercel: defineSource({
-      provider: new TypedInMemoryProvider({
-        'new-dashboard': {
-          variants: { on: true, off: false },
-          defaultVariant: 'on',
-          disabled: false,
-        },
-      } as const),
-    }),
-  };
-});
-
-it('evaluates the in-memory flag', async () => {
-  expect(await newDashboard()).toBe(true);
-});
-```
-
-Another option is the default source: flags without a `source` use it, so a test setup can set it with `runtime.configure`. Unless your test runner uses the plugin of your framework, `flags/config.ts` is not loaded in tests anyway:
-
-```ts title="test/setup.ts"
-import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { defineConfig, defineSource, runtime } from 'flags';
-import { afterAll } from 'vitest';
-
-runtime.configure(
-  defineConfig({
-    defaultSource: defineSource({
+    self: defineSource({
       provider: new TypedInMemoryProvider({
         'new-dashboard': {
           variants: { on: true, off: false },
@@ -109,30 +83,79 @@ runtime.configure(
           contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
         },
       } as const),
-      getEvaluationContext: (_context, request) => ({
+      getEvaluationContext: (request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     }),
-  }),
-);
+  };
+});
 
-// Close the providers after the tests
-afterAll(() => runtime.onShutdown());
-```
-
-```ts title="vitest.config.ts"
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: { setupFiles: ['./test/setup.ts'] },
+it('evaluates the in-memory flag', async () => {
+  expect(await newDashboard()).toBe(false); // no request: the user is "anonymous"
 });
 ```
 
-A new call of `runtime.configure` replaces the configuration, so a test can also set a different default source for itself. You can also test a flag through overrides (see below).
+### With code generation
+
+The generated module `.flags/self.ts` imports the provider from `flags/sources/self/provider.ts`. Mock that file, and keep `context.ts` as it is:
+
+```ts title="flags.test.ts"
+import { expect, it, vi } from 'vitest';
+import { newDashboard } from 'flags:self';
+
+vi.mock('./flags/sources/self/provider.ts', async () => {
+  const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
+  return {
+    default: new TypedInMemoryProvider({
+      'new-dashboard': {
+        variants: { on: true, off: false },
+        defaultVariant: 'on',
+        disabled: false,
+      },
+    } as const),
+  };
+});
+
+it('evaluates the in-memory flag', async () => {
+  expect(await newDashboard()).toBe(true);
+});
+```
+
+Unless your test runner uses the plugin of your framework, generate the modules before the tests with `flags sync`, and point `flags:<source>` to them:
+
+```ts title="vitest.config.ts"
+import path from 'node:path';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  resolve: {
+    alias: [{ find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` }],
+  },
+});
+```
+
+```json title="package.json"
+{
+  "scripts": {
+    "test": "flags sync && vitest"
+  }
+}
+```
+
+Close the providers after the tests, e.g. in a setup file of `test.setupFiles` in `vitest.config.ts`:
+
+```ts title="test/setup.ts"
+import { runtime } from 'flags';
+import { afterAll } from 'vitest';
+
+afterAll(() => runtime.onShutdown());
+```
+
+Unless your test runner uses the plugin of your framework, `flags/config.ts` is not loaded in tests. To test with its hooks or overrides options, call `runtime.configure(config)` in the setup file. You can also test a flag through overrides (see below).
 
 ## Simulate a request
 
-In a test, there is no request, so `request` is `undefined` in `getEvaluationContext` and in `decide`. To test code that reads cookies or headers, run it in `runtime.onInvoke` with a Web `Request`. This example uses the setup file above, where `newDashboard` is a flag of the default source:
+In a test, there is no request, so `request` is `undefined` in `getEvaluationContext` and in `decide`. To test code that reads cookies or headers, run it in `runtime.onInvoke` with a Web `Request`. This example uses the mock of `./flags/self` above, where `newDashboard` is on for the user `alice`:
 
 ```ts title="flags.test.ts"
 import { runtime } from 'flags';

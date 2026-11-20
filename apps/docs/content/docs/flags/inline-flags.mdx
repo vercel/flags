@@ -10,7 +10,7 @@ import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   description: 'Shows the beta banner to testers',
 });
 ```
@@ -25,10 +25,12 @@ This code is the same in every framework. The framework package gives the SDK th
 
 ## What `decide` receives
 
-`decide(context, request)` receives two arguments:
+`decide(request, context)` receives two arguments:
 
-- `context`: the evaluation context that the call side gives, as it is. Without one, it is `undefined`.
 - `request`: the current request, as a `FlagsRequest` with `headers`, `cookies` and `url`. Outside of a request, e.g. in a script or at build time, it is `undefined`.
+- `context`: the evaluation context that the call side gives, as it is. Without one, it is `undefined`.
+
+The request comes first because most flags need only the request. Leave out `context` if you do not use it: `decide: (request) => ...`.
 
 `decide` can be `async`, e.g. to read from a database.
 
@@ -42,7 +44,7 @@ import { db } from './db';
 
 export const teamInsights = defineFlag({
   key: 'team-insights',
-  decide: async (context: { teamId: string }) => {
+  decide: async (_request, context: { teamId: string }) => {
     const team = await db.teams.find(context.teamId);
     return team?.plan === 'enterprise';
   },
@@ -71,7 +73,7 @@ export const checkout = defineFlag({
   key: 'checkout',
   type: 'string',
   options: ['control', 'express'],
-  decide: (_context, request) => {
+  decide: (request) => {
     if (request?.cookies?.get('checkout')?.value === 'express') {
       return 'express';
     }
@@ -132,15 +134,15 @@ When a flag outgrows your code, e.g. because a product manager wants to change i
 // Before
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 
 // After: the provider of the source decides
 export const betaBanner = bindFlag({
   key: 'beta-banner',
-  source: vercel,
+  source: self,
   defaultValue: false,
 });
 ```
 
-The code that calls `betaBanner()` does not change. `vercel` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags).
+The code that calls `betaBanner()` does not change. `self` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags). With [code generation](/docs/flags/code-generation), remove the inline flag, and import the flag of the same key from `flags:self` instead. Only the import changes.

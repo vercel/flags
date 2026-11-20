@@ -87,18 +87,17 @@ establish the evaluation context. Instead, store the information the flags
 need in a cookie when a user signs in. The browser sends the cookie with each
 request, and the source can read it from the request:
 
-```ts title="sources.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineSource } from 'flags';
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
 
-export const vercel = defineSource({
-  provider: new VercelProvider(),
-  project: { system: 'vercel-flags' },
-  // Reads the cookie. No database request in the proxy
-  getEvaluationContext: (_context, request) => ({
+// Reads the cookie. No database request in the proxy
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return {
     targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
-  }),
-});
+  };
+}
 ```
 
 Where needed, sign or encrypt the cookie so that visitors can not change it or

@@ -19,7 +19,7 @@ evaluation context chain identifies.
 ## The chain
 
 The evaluation context is created in a chain of up to three steps. Each step
-receives the result of the step before, and the current request:
+receives the current request first, and then the result of the step before:
 
 ```mermaid
 flowchart LR
@@ -48,8 +48,8 @@ const shop = defineSource({
   provider,
   // Runs once per request and input, for all flags of the source
   getEvaluationContext: (
-    input: { team?: { plan: string } } | undefined,
     request,
+    input: { team?: { plan: string } } | undefined,
   ) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
     ...(input?.team ? { team: input.team } : {}),
@@ -65,7 +65,7 @@ export const teamInsights = bindFlag({
   key: 'team-insights',
   source: shop,
   defaultValue: false,
-  getEvaluationContext: (context: { teamSlug: string }) => ({
+  getEvaluationContext: (_request, context: { teamSlug: string }) => ({
     team: teams[context.teamSlug] ?? { plan: 'unknown' },
   }),
 });
@@ -97,9 +97,7 @@ do not need a `dedupe` helper.
 
 **Types connect the steps.** The type of the `context` parameter of each step
 defines what the step before must give. If `teamInsights` needs a
-`teamSlug`, calling it without one is a type error. If you set an optional
-default source, flags without a source use its types once you register the
-configuration (see [Configuration](/docs/flags/configuration#types)).
+`teamSlug`, calling it without one is a type error.
 
 **The request is the same in every framework.** Each step receives a
 `FlagsRequest` with `headers`, `cookies` and `url`. The framework package
@@ -110,14 +108,14 @@ build time, so handle that case.
 ## Inline flags
 
 An inline flag has no source and no provider. Its `decide` function receives
-the evaluation context of the call side as it is, and the request:
+the request, and the evaluation context of the call side as it is:
 
 ```ts title="flags.ts"
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 ```
 

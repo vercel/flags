@@ -7,30 +7,32 @@ Flags SDK is a free, open-source library and an open standard for feature flags 
 
 You define a flag once, in plain TypeScript. You evaluate it on the server in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or plain Node.js. The value comes from your own code, or from any [OpenFeature](https://openfeature.dev) provider, such as Vercel Flags, LaunchDarkly, flagd or ConfigCat.
 
-```ts title="flags.ts"
-import { bindFlag, defineFlag, defineSource } from 'flags';
-import { VercelProvider } from '@vercel/flags-core/openfeature';
+```ts title="app/page.tsx"
+import { enableSale } from 'flags:self';
 
-// A source: an OpenFeature provider, and the evaluation context of a request
-const vercel = defineSource({
-  provider: new VercelProvider(),
-  getEvaluationContext: (_input, request) => ({
-    user: request?.cookies?.get('user-id')?.value,
-  }),
-});
-
-// A flag of the provider
-export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
-
-// A flag which your code decides
-export const betaBanner = defineFlag({
-  key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
-});
+const sale = await enableSale();
 ```
 
-```ts title="Anywhere on the server"
-const sale = await summerSale();
+`flags:self` comes from a folder in your project. It names the OpenFeature provider of your flags, and how to find the user of a request:
+
+```txt
+flags/sources/self/
+  provider.ts   export default new VercelProvider();
+  context.ts    export default (request) => ({ user: getUser(request) });
+  catalog.ts    the list of flags, for code generation
+```
+
+Code generation turns the folder into plain code: one source, and one typed flag for each key. You can also write that code by hand, and decide flags in your own code with inline flags:
+
+```ts title="flags.ts"
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'betaBanner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+});
 ```
 
 ## Why a standard
@@ -48,7 +50,7 @@ The result is one primitive for the whole ecosystem. Learn it once, and use it e
 ## What you get
 
 - **Two kinds of flags.** [Inline flags](/docs/flags/inline-flags) decide their value in your code. [Provider flags](/docs/flags/provider-flags) ask a provider. Both work the same way.
-- **Hand-written or generated.** Write `defineSource` and `bindFlag` by hand, or [generate typed flags](/docs/flags/code-generation) from your provider and import them from `flags:<source>`.
+- **Generated or hand-written.** Put a provider into `flags/sources/<source>`, and [import typed flags](/docs/flags/code-generation) from `flags:<source>`. Or write `defineSource` and `bindFlag` by hand, e.g. in a framework without a bundler.
 - **One value per request.** Each flag is [evaluated once for each request](/docs/flags/evaluating-flags), so all parts of a page see the same value.
 - **An evaluation context chain.** The call side, the flag and the source each add a part of the [evaluation context](/docs/flags/evaluation-context), and TypeScript checks each step.
 - **OpenFeature compatibility.** Providers, hooks, events and tracking work [as in OpenFeature](/docs/flags/openfeature).

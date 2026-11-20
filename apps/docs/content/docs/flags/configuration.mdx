@@ -1,13 +1,14 @@
 ---
 title: Configuration
-description: Set hooks, override options and an optional default source for all flags in flags/config.ts.
+description: Set hooks and override options for all flags in flags/config.ts.
 ---
 
 `flags/config.ts` holds settings for all flags of your application. **It is optional**: without it, flags work, each provider flag names its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add the file when you want to:
 
 - add **hooks**: OpenFeature hooks that run for every flag;
-- change the **overrides**: which override cookies the SDK accepts;
-- set a **default source**, which flags without a `source` use.
+- change the **overrides**: which override cookies the SDK accepts.
+
+The configuration has no source. Each provider flag names its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
 
 ```ts title="flags/config.ts"
 import { defineConfig } from 'flags';
@@ -44,7 +45,7 @@ import { config } from './flags/config';
 runtime.configure(config);
 ```
 
-`runtime.configure` checks the whole configuration at once, and throws before it changes anything. A new call replaces the configuration, and closes the provider of a replaced default source, unless another source still uses it.
+`runtime.configure` checks the whole configuration at once, and throws before it changes anything. A new call replaces the configuration, e.g. after a reload in development.
 
 ## Options
 
@@ -52,7 +53,6 @@ runtime.configure(config);
 | --- | --- |
 | `hooks` | OpenFeature hooks for all flags. They run first, before the hooks of the source, of the call and of the provider. |
 | `overrides` | Which override cookies the SDK accepts. |
-| `defaultSource` | Optional. The source of all flags without a source. A source of `defineSource`. |
 
 ### `hooks`
 
@@ -107,71 +107,3 @@ export const config = defineConfig({
 ```
 
 See [Overrides](/docs/tooling/overrides) for how overrides work and how to create them.
-
-### `defaultSource`
-
-`defaultSource` is optional. The usual way to connect a provider is a source that your flags name: `bindFlag({ key, source })`, or [code generation](/docs/flags/code-generation). See [Provider flags](/docs/flags/provider-flags).
-
-If most of your flags use one source, you can make it the default source. Then a flag without `source` uses it:
-
-```ts title="flags/config.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
-
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-  }),
-});
-
-// Gives flags without a source the types of the default source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
-```
-
-```ts title="flags.ts"
-import { bindFlag } from 'flags';
-
-// No source: the default source of flags/config.ts
-export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
-```
-
-A flag with its own `source` is not affected by the default source.
-
-#### Types
-
-The `declare module 'flags'` block registers the type of your configuration. You only need it with a `defaultSource`. With it, a flag without a source has the types of your default source. If its `getEvaluationContext` requires a context, TypeScript requires it at each call of those flags:
-
-```ts title="flags/config.ts"
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider,
-    getEvaluationContext: (context: { teamId: string }) => ({ team: context.teamId }),
-  }),
-});
-```
-
-```ts
-const teamInsights = bindFlag({ key: 'team-insights' });
-
-await teamInsights({ evaluationContext: { teamId: 'team-1' } }); // OK
-await teamInsights(); // Type error: the default source needs a teamId
-```
-
-Without the registration, flags without a source accept any evaluation context. The registration applies to the whole TypeScript program, so `flags/config.ts` must be part of it, e.g. through the `include` of your `tsconfig.json`.
-
-#### The built-in default source
-
-If you set no `defaultSource`, flags without a source use the built-in default source.
-
-<Callout type="warning">
-  For now, the built-in default source throws on each evaluation: "A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags/config.ts." A flag with a `defaultValue` returns it and logs this error. Give each flag a `source`, or set a `defaultSource`.
-</Callout>
-
-The error comes at the evaluation, not at the definition, so that importing your flags in a test or a script does not fail.
-
-A deployment platform can replace the provider of the built-in default source when it builds your application. On Vercel, the deployment adapter can put in the provider of Vercel Flags (`@vercel/flags-core/default-provider`), only for builds. The `defaultSource` of your configuration always wins over such a replacement. Do not rely on the replacement for local development or for other platforms.

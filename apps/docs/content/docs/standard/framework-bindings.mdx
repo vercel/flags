@@ -11,11 +11,10 @@ The bindings in [`packages/framework-*`](https://github.com/vercel/flags/tree/ma
 
 ## Overview
 
-A framework integration has up to three parts:
+A framework integration has up to two parts:
 
 1. **The framework binding:** the module behind the alias `flags/framework`. It gives the runtime the request, the configuration, and the signals of the framework.
-2. **The build plugin**, for a framework with a bundler: it sets the aliases, registers `'use flags'` modules, and writes the flags manifest.
-3. **For a deployment platform, optionally:** the alias of `flags/default-provider`.
+2. **The build plugin**, for a framework with a bundler: it sets the aliases, registers `'use flags'` modules, writes the flags manifest, and optionally generates the modules of `flags:<source>`.
 
 The code of the application imports only `flags`. It never imports the binding.
 
@@ -50,7 +49,7 @@ interface FlagsRequestInit {
 - `url`, if given, MUST be the full URL of the request, with the origin.
 - A Web `Request` is a `FlagsRequestInit`.
 
-The application sees this as the `request` argument of `decide` and `getEvaluationContext`: a `FlagsRequest` with `headers`, `cookies` and `url`, or `undefined` outside of a request.
+The application sees this as the first argument, `request`, of `decide` and `getEvaluationContext`: a `FlagsRequest` with `headers`, `cookies` and `url`, or `undefined` outside of a request.
 
 ### The identity of a request
 
@@ -61,18 +60,17 @@ The runtime creates the evaluation context, and evaluates each flag, once for ea
 
 ## The replaceable modules
 
-The runtime imports three modules through the name of its own package. A build plugin or a platform replaces them with a bundler alias:
+The runtime imports two modules through the name of its own package. A build plugin replaces them with a bundler alias:
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | No binding | The framework binding |
 | `flags/config` | No configuration | `flags/config.ts` of the application |
-| `flags/default-provider` | The provider of the built-in default source | The provider of a platform |
 
 ### Replacement
 
 - An implementation which replaces a module MUST make the replacement reach the runtime, e.g. by bundling the package `flags` into the server code (`ssr.noExternal` of Vite, `externals.inline` of Nitro).
-- An implementation MUST resolve a replacement from the project of the application, not from the package `flags`. With pnpm, e.g., a Vite plugin needs a `resolveId` hook with the order `pre`, or Vite resolves `flags/default-provider` through the exports of the package.
+- An implementation MUST resolve a replacement from the project of the application, not from the package `flags`. With pnpm, e.g., a Vite plugin needs a `resolveId` hook with the order `pre`, or Vite resolves `flags/config` through the exports of the package.
 - If the runtime is not bundled, e.g. because the framework loads it from `node_modules` in development, a binding MUST register itself with `registerFramework` of `flags/tooling` before the first evaluation:
 
   ```ts
@@ -90,17 +88,6 @@ A bundler can put more than one copy of `flags` into one process, e.g. one for e
 
 - The runtime MUST share its state between all copies of the same major version in one process, through `globalThis` under `Symbol.for('flags.v5.state')`. The runtime does this.
 - A copy without a binding MUST NOT hide the binding of another copy. Thus, the copy which a build tool loads for its plugin does not hide the binding of the copy in the server code.
-
-### `flags/default-provider`
-
-The module MUST export:
-
-```ts
-export function createDefaultProvider(): Provider; // an OpenFeature provider
-```
-
-- The runtime calls it at most once for each process, so a replacement needs no singleton.
-- The provider MUST NOT be registered with the OpenFeature API.
 
 ## The framework binding
 
@@ -202,7 +189,7 @@ A flag value can change at any time, and depends on the request. Thus, an evalua
 
 ## `flags/config.ts`
 
-The configuration of the application (default source, overrides, hooks) is in one optional file, which the binding loads if it exists:
+The configuration of the application (`hooks` and `overrides`) is in one optional file, which the binding loads if it exists. It has no source: each flag of a provider names its source.
 
 - The file MUST be named `flags/config.ts`, `flags/config.mts`, `flags/config.js` or `flags/config.mjs`, in the directory of the application or in its `src` directory. `findConfigFile` of `flags/tooling` finds it.
 - The configuration MUST be the named export `config`. A default export MUST NOT be read.
@@ -224,12 +211,11 @@ A build plugin which supports discovery finds the `'use flags'` modules of the p
 
 ## Deployment platforms
 
-- A platform MAY replace `flags/default-provider` with its own provider, for its builds. It MUST NOT replace it for development.
-- A `defaultSource` of `flags/config.ts` MUST win over the provider of the platform. The runtime does this.
+- This version of the standard has no default provider. Each flag of a provider names its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10 of STANDARD.md (see [Overrides](/docs/tooling/overrides)).
 
-For Next.js, a platform uses the Adapter API: `modifyConfig` sets the alias during `phase-production-build`, and `onBuildComplete` copies the manifest. Vite frameworks have no such step after the build, so their plugin sets the alias, e.g. when `VERCEL` is set. See [`tests/standard/next/adapter.mjs`](https://github.com/vercel/flags/blob/main/tests/standard/next/adapter.mjs) for a test adapter.
+For Next.js, a platform copies the manifest with `onBuildComplete` of the Adapter API.
 
 ## `flags/tooling`
 

@@ -59,7 +59,7 @@ const providerCode = `import { VercelProvider } from '@vercel/flags-core/openfea
 
 export default new VercelProvider();`;
 
-const contextCode = `export default (_input, request) => ({
+const contextCode = `export default (request) => ({
   user: request?.cookies?.get('user-id')?.value,
 });`;
 

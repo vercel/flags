@@ -32,7 +32,7 @@ import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 ```
 
@@ -40,28 +40,44 @@ See [Inline flags](/docs/flags/inline-flags).
 
 ### Flags of a source
 
-A flag of a source gets its value from a flag management system, such as Vercel Flags or any other system with an OpenFeature provider. A source connects flags to that provider, and creates the evaluation context for it:
+A flag of a source gets its value from a flag management system, such as Vercel Flags or any other system with an OpenFeature provider. A source connects flags to that provider, and creates the evaluation context for it. By convention, the main source of an application is `self`.
 
-```ts title="flags.ts"
+In Next.js, SvelteKit, Nuxt and TanStack Start, you describe the source with three files in `flags/sources/self`, and import its flags from `flags:self`:
+
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export default new VercelProvider();
+```
+
+```ts title="app/page.tsx"
+import { summerSale } from 'flags:self';
+
+const sale = await summerSale();
+```
+
+The SDK [generates](/docs/flags/code-generation) the module of `flags:self` from the catalog of your flag management system. Without a bundler, or if you prefer, you write the same code by hand:
+
+```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { bindFlag, defineSource } from 'flags';
 
-const shop = defineSource({
+export const self = defineSource({
   provider: new VercelProvider(),
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
 
 export const summerSale = bindFlag({
   key: 'summer-sale',
-  source: shop,
+  source: self,
   defaultValue: false,
 });
 ```
 
-See [Flags of a source](/docs/flags/provider-flags). You can write sources and flags by hand, or let the SDK [generate them](/docs/flags/code-generation) from the catalog of your flag management system.
+See [Flags of a source](/docs/flags/provider-flags).
 
 ## Which one to use
 
@@ -100,6 +116,6 @@ During one request, each flag is evaluated once, so all parts of a page see the 
 
 - [Inline flags](/docs/flags/inline-flags): `defineFlag` and `decide`.
 - [Flags of a source](/docs/flags/provider-flags): `defineSource` and `bindFlag`.
-- [Code generation](/docs/flags/code-generation): import the flags of a source with `import { summerSale } from 'flags:shop'`.
+- [Code generation](/docs/flags/code-generation): describe a source in `flags/sources/self`, and import its flags with `import { summerSale } from 'flags:self'`.
 - [The evaluation context](/docs/flags/evaluation-context): how the user, the team or the request reach the provider.
 - [OpenFeature](/docs/flags/openfeature): how the SDK uses OpenFeature providers, hooks and events.

@@ -32,16 +32,21 @@ To get there, you declare the flag once:
 'use flags';
 
 import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
 export const summerSale = bindFlag({
   key: 'summer-sale',
+  source: self,
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
 ```
 
 `bindFlag` declares a flag whose value comes from a flag management system,
-through a [source](/docs/flags/provider-flags). If the code decides the value,
+through a [source](/docs/flags/provider-flags). With
+[code generation](/docs/flags/code-generation), you do not write this code:
+the SDK writes it from the catalog of `flags/sources/self/`, and you import
+the flag with `import { summerSale } from 'flags:self'`. If the code decides the value,
 use `defineFlag` with a `decide` function instead. Both return the same kind of
 flag, and you call both the same way. See
 [the two kinds of flags](/docs/flags).
@@ -65,6 +70,7 @@ The declaration contains everything the call site needs to know: the `type`
 ```ts title="flags.ts"
 export const checkout = bindFlag({
   key: 'checkout',
+  source: self,
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -95,19 +101,17 @@ differently, or forgets a field, the same flag can return different values on
 the same page.
 
 The Flags SDK moves this work out of the call site. A source creates the
-evaluation context once, from the current request, for all of its flags:
+evaluation context once, from the current request, for all of its flags. For
+the source `self`, this is the default export of `context.ts`:
 
-```ts title="sources.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineSource } from 'flags';
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
 
-export const vercel = defineSource({
-  provider: new VercelProvider(),
-  project: { system: 'vercel-flags' },
-  getEvaluationContext: (_context, request) => ({
-    user: request?.cookies?.get('user')?.value ?? 'anonymous',
-  }),
-});
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+}
 ```
 
 The call site only passes what it alone knows, for example a team from the
@@ -125,15 +129,12 @@ The Flags SDK is built on [OpenFeature](https://openfeature.dev). A source
 takes any OpenFeature server provider as it is, without a wrapper or an
 adapter. To switch providers, change the provider of the source:
 
-```ts title="sources.ts"
-import { defineSource } from 'flags';
-import { provider } from './provider';
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-export const shop = defineSource({
-  // Any OpenFeature server provider, e.g. of Vercel Flags,
-  // LaunchDarkly, GrowthBook or flagd
-  provider,
-});
+// Any OpenFeature server provider, e.g. of Vercel Flags,
+// LaunchDarkly, GrowthBook or flagd
+export default new VercelProvider();
 ```
 
 Your flag declarations and call sites stay the same. See

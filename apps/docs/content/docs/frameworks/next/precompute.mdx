@@ -31,12 +31,12 @@ Precompute is in `@flags-sdk/next/precompute`. It needs `withFlags` in `next.con
 List the flags that the page uses. The list must be in a separate file, because a `'use flags'` module exports only flags:
 
 ```ts title="marketing-flags.ts"
-import { checkout, summerSale } from './flags';
+import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
-`summerSale` and `checkout` are the flags of the [shared `flags.ts`](/docs/frameworks#one-flagsts-for-every-framework). Any flag works: inline flags and flags of a source.
+`summer-sale` and `checkout` are flags of the source `self`, from its catalog in `flags/sources/self` (see [Next.js](/docs/frameworks/next)). Any flag works: inline flags and flags of a source, generated or written by hand.
 
 ## 2. Precompute in the proxy
 
@@ -60,7 +60,7 @@ export const config = { matcher: '/marketing' };
 
 ```tsx title="app/marketing/[code]/page.tsx"
 import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
-import { checkout, summerSale } from '../../../flags';
+import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 import { marketingFlags } from '../../../marketing-flags';
 
 // Optional: build a page for each combination at build time
@@ -148,8 +148,8 @@ const marketing = defineSource({
   project: { system: 'vercel-flags' },
   // The input is optional, so the flags also work outside of the proxy
   getEvaluationContext: (
-    input: { visitorId?: string } | undefined,
     request,
+    input: { visitorId?: string } | undefined,
   ) => ({
     targetingKey:
       input?.visitorId ??

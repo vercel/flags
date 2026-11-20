@@ -23,60 +23,54 @@ npm install flags
 
 ### 2. Define your flags
 
-Use the same `flags.ts` as in the [other frameworks](/docs/frameworks):
+Write the source and its flags by hand, as in [Hono](/docs/frameworks/hono) and [Express](/docs/frameworks/express). By convention, the main source of an application is `self`:
 
-```ts title="src/flags.ts"
+```ts title="src/flags/self.ts"
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
-const shop = defineSource({
+// Any OpenFeature server provider works. This one needs no account.
+export const self = defineSource({
   provider: new TypedInMemoryProvider({
-    'summer-sale': {
+    enableSale: {
       variants: { on: true, off: false },
       defaultVariant: 'off',
       disabled: false,
       // On for alice only
       contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
     },
-    checkout: {
-      variants: { control: 'control', express: 'express' },
-      defaultVariant: 'express',
-      disabled: false,
-    },
   } as const),
   project: { system: 'in-memory' },
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
+```
 
-// Flags of the source: the provider decides the value
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
+```ts title="src/flags.ts"
+import { bindFlag, defineFlag } from 'flags';
+import { self } from './flags/self.ts';
+
+// A flag of the source: the provider decides the value
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source: self,
   defaultValue: false,
-  description: 'The summer sale banner',
-});
-
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: shop,
-  type: 'string',
-  options: ['control', 'express'],
-  defaultValue: 'control',
-  description: 'The checkout flow',
+  description: 'Shows the summer sale',
 });
 
 // An inline flag: your code decides the value
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
 });
 ```
 
-The `'use flags'` directive is optional here. Add it if you want to write a [flags manifest](#flags-explorer-and-the-manifest) with the CLI.
+The `'use flags'` directive is optional here. Add it at the top of `src/flags.ts` if you want to write a [flags manifest](#flags-explorer-and-the-manifest) with the CLI. To try the example, install `@openfeature/server-sdk`.
+
+You can also use the folder `flags/sources/self` of the file system API: `flags sync` writes `.flags/self.ts`, and you import it by its path. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
 
 ### 3. Run each request in `onInvoke`
 
@@ -85,7 +79,7 @@ A plain Node.js HTTP server:
 ```ts title="src/server.ts"
 import { createServer } from 'node:http';
 import { evaluate, runtime } from 'flags';
-import { betaBanner, checkout, summerSale } from './flags.ts';
+import { betaBanner, enableSale } from './flags.ts';
 
 // Initialize the providers before the first request
 await runtime.onInit();
@@ -102,12 +96,8 @@ const server = createServer((incoming, outgoing) => {
   // Flags evaluated inside onInvoke belong to this request
   void runtime
     .onInvoke({ headers, url }, async () => {
-      const [sale, flow, beta] = await evaluate([
-        summerSale,
-        checkout,
-        betaBanner,
-      ]);
-      return { sale, flow, beta };
+      const [sale, beta] = await evaluate([enableSale, betaBanner]);
+      return { sale, beta };
     })
     .then(
       (body) => {
@@ -136,7 +126,7 @@ The first argument of `onInvoke` is a `FlagsRequestInit`: `{ headers?, cookies?,
 export default {
   fetch: (request: Request) =>
     runtime.onInvoke(request, async () => {
-      return Response.json({ sale: await summerSale() });
+      return Response.json({ sale: await enableSale() });
     }),
 };
 ```
@@ -145,9 +135,9 @@ The SDK identifies a request by its `headers` object, so pass the same object fo
 
 ## Optional: `flags/config.ts`
 
-You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-Add `flags/config.ts` when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. Without a framework plugin, nothing loads the file. Call `runtime.configure` at startup, before the first evaluation:
+Add `flags/config.ts` when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. Without a framework plugin, nothing loads the file. Call `runtime.configure` at startup, before the first evaluation:
 
 ```ts title="src/server.ts"
 import { runtime } from 'flags';
@@ -157,7 +147,7 @@ runtime.configure(config);
 await runtime.onInit();
 ```
 
-`flags/config.ts` looks the same as in every framework: `export const config = defineConfig({ hooks, overrides, defaultSource })`. See [Configuration](/docs/flags/configuration).
+`flags/config.ts` looks the same as in every framework: `export const config = defineConfig({ hooks, overrides })`. See [Configuration](/docs/flags/configuration).
 
 ## Scripts and background jobs
 
@@ -168,7 +158,7 @@ import { defineFlag } from 'flags';
 
 const detailedReport = defineFlag({
   key: 'detailed-report',
-  decide: (context: { teamSlug: string }) => context.teamSlug === 'acme',
+  decide: (_request, context: { teamSlug: string }) => context.teamSlug === 'acme',
 });
 
 // No request: the call side gives the evaluation context

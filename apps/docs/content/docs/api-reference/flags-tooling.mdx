@@ -118,7 +118,7 @@ function generateFlags(directory?: string): Promise<FlagsAliases>;
 The function behind `flags sync`. Reads the catalog of each source in
 `flags/sources/<source>/catalog.ts` once, writes `.flags/<source>.ts`, closes
 the catalogs, and returns the aliases, e.g.
-`{ 'flags:shop': './.flags/shop.ts' }`. The default directory is the current
+`{ 'flags:self': './.flags/self.ts' }`. The default directory is the current
 directory. See [Code generation](/docs/flags/code-generation).
 
 ### `watchFlags`
@@ -146,8 +146,9 @@ function renderSourceModule(name: string, catalog: Catalog): string;
 
 Returns the source code of the generated module of one source: a `'use flags'`
 module with one `defineSource` and one `bindFlag` per flag of the catalog. The
-type of each flag comes from its variants (mixed types become `object`), and
-the variants become its `options`. Throws for a source name that is not
+type of each flag comes from its variants (mixed types become `object`), the
+variants become its `options`, and the `defaultValue` of the catalog becomes
+its `defaultValue`. Throws for a source name that is not
 `[a-z][a-z0-9_-]*` (case-insensitive).
 
 ### `GENERATED_DIRECTORY`
@@ -168,7 +169,7 @@ their content. Precompute uses it to encode values.
 ### Types
 
 - `FlagsAliases`: `Record<string, string>`, e.g.
-  `{ 'flags:shop': './.flags/shop.ts' }`, relative to the application.
+  `{ 'flags:self': './.flags/self.ts' }`, relative to the application.
 - `WatchResult`: the result of `watchFlags`.
 
 ## `flags/manifest`
@@ -195,17 +196,14 @@ function createManifest(modules: readonly FlagsModule[]): FlagsManifest;
 ```
 
 Creates the manifest from the exports of the `'use flags'` modules. It does not
-evaluate flags. Call `runtime.prepare()` first, so that flags without a source
-get the default source of `flags/config.ts`.
+evaluate flags.
 
 Throws if an export is not a flag, or if two exports declare the same key with
 different values.
 
 ```ts
-import { runtime } from 'flags';
 import { createManifest } from 'flags/manifest';
 
-await runtime.prepare();
 const manifest = createManifest([
   { id: 'flags.ts', exports: { ...(await import('./flags')) } },
 ]);

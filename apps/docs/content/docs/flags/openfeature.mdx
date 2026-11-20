@@ -13,20 +13,30 @@ Pass the provider to `defineSource`, the same object that you would give to `Ope
 npm install flags @openfeature/server-sdk @openfeature/flagd-provider
 ```
 
-```ts title="flags.ts"
+With the file system API, the provider is the default export of `flags/sources/self/provider.ts`:
+
+```ts title="flags/sources/self/provider.ts"
+import { FlagdProvider } from '@openfeature/flagd-provider';
+
+export default new FlagdProvider();
+```
+
+By hand, pass it to `defineSource`:
+
+```ts title="flags/self.ts"
 import { FlagdProvider } from '@openfeature/flagd-provider';
 import { bindFlag, defineSource } from 'flags';
 
-const flagd = defineSource({
+export const self = defineSource({
   provider: new FlagdProvider(),
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     targetingKey: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
 
 export const newCheckout = bindFlag({
   key: 'new-checkout',
-  source: flagd,
+  source: self,
   defaultValue: false,
 });
 ```
@@ -48,7 +58,7 @@ Without an OpenFeature client, the SDK takes over the client's part of the contr
 | API, client and invocation hooks | Hooks of `flags/config.ts`, of the source and of the call |
 | Provider hooks (`provider.hooks`) | Run as in OpenFeature |
 | `OpenFeature.addHandler(event, handler)` | `runtime.addHandler(event, handler)` |
-| `client.track(name, context, details)` | `track(name, options)` or `track(source, name, options)` |
+| `client.track(name, context, details)` | `track(source, name, options)` |
 | Evaluation context | Created per request by the [evaluation context chain](/docs/flags/evaluation-context) |
 
 ## Hooks
@@ -143,20 +153,28 @@ runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
 
 ## Tracking
 
-`track` gives a tracking event to the provider, e.g. a purchase for an experiment:
+`track(source, eventName, options?)` gives a tracking event to the provider of a source, e.g. a purchase for an experiment:
 
 ```ts title="app/checkout/actions.ts"
 import { track } from 'flags';
-import { shop } from './sources';
+import { self } from '../../flags/self';
 
-// The provider of a source, with an evaluation context
-await track(shop, 'purchase', {
+// The provider of the source, with an evaluation context
+await track(self, 'purchase', {
   evaluationContext: { userId: 'alice' },
   details: { value: 99 },
 });
 
-// Without a source: the provider of the default source
-await track('purchase', { details: { value: 99 } });
+// Without options, if the source needs no evaluation context
+await track(self, 'signup');
+```
+
+The source is required. A generated module of `flags:<source>` does not export its source, but each flag has it as its `source` field:
+
+```ts
+import { enableSale } from 'flags:self';
+
+await track(enableSale.source, 'purchase', { details: { value: 99 } });
 ```
 
 - The provider receives the evaluation context of the source, as for a flag: `evaluationContext` goes to the `getEvaluationContext` of the source. During a request, the source also reads the request, once per request.

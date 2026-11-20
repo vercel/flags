@@ -27,22 +27,39 @@ Each step is optional. A missing step gives its input to the next step as it is.
 
 ## The step of the source
 
-Most applications need only this step. The source reads the user from the request, once per request, for all of its flags:
+Most applications need only this step. The source reads the user from the request, once per request, for all of its flags. With the file system API, the step is the default export of `flags/sources/self/context.ts`:
 
-```ts title="flags.ts"
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return {
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    country: request?.headers?.get('x-vercel-ip-country') ?? null,
+  };
+}
+```
+
+By hand, it is the option `getEvaluationContext` of `defineSource`:
+
+```ts title="flags/self.ts"
 import { bindFlag, defineSource } from 'flags';
 import { provider } from './provider';
 
-const shop = defineSource({
+export const self = defineSource({
   provider,
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
     country: request?.headers?.get('x-vercel-ip-country') ?? null,
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+export const summerSale = bindFlag({ key: 'summer-sale', source: self });
 ```
+
+The step receives `request` first, and the input of the step before as the second argument. Leave out the second argument if you do not need it.
 
 ```ts
 // The call side gives nothing: the source knows the user from the request
@@ -51,10 +68,10 @@ await summerSale();
 
 The step can be `async`, e.g. to load the user from a session:
 
-```ts title="flags.ts"
-const shop = defineSource({
+```ts title="flags/self.ts"
+export const self = defineSource({
   provider,
-  getEvaluationContext: async (_context, request) => {
+  getEvaluationContext: async (request) => {
     const session = await getSession(request?.cookies?.get('session')?.value);
     return { user: session?.userId ?? 'anonymous', plan: session?.plan ?? 'free' };
   },
@@ -81,7 +98,7 @@ Some code knows something that the request does not tell, e.g. an API route know
 const teams = defineSource({
   provider,
   // The flags of this source must give a teamId
-  getEvaluationContext: async (context: { teamId: string }, request) => ({
+  getEvaluationContext: async (request, context: { teamId: string }) => ({
     team: await loadTeam(context.teamId),
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
@@ -103,7 +120,7 @@ export const teamInsights = bindFlag({
   key: 'team-insights',
   source: teams,
   // The call side gives a slug, the source gets a teamId
-  getEvaluationContext: (context: { slug: string }) => ({
+  getEvaluationContext: (_request, context: { slug: string }) => ({
     teamId: idOfSlug(context.slug),
   }),
 });
@@ -120,7 +137,7 @@ A flag without this step gives the context of the call side directly to the sour
 Each step returns the complete input of the next step. The SDK does not merge the results. To keep the fields of the step before, spread them:
 
 ```ts
-getEvaluationContext: (context: { teamId: string }, request) => ({
+getEvaluationContext: (request, context: { teamId: string }) => ({
   ...context,
   user: request?.cookies?.get('user')?.value ?? 'anonymous',
 }),
@@ -129,7 +146,7 @@ getEvaluationContext: (context: { teamId: string }, request) => ({
 No field has a special meaning, also not `targetingKey`. Not all providers use it. If your provider needs it, the source sets it:
 
 ```ts
-getEvaluationContext: (_context, request) => ({
+getEvaluationContext: (request) => ({
   targetingKey: request?.cookies?.get('user')?.value ?? 'anonymous',
 }),
 ```
@@ -138,8 +155,8 @@ getEvaluationContext: (_context, request) => ({
 
 TypeScript checks the whole chain:
 
-- The type of `context` in the step of the source is what its flags must give.
-- The step of a flag must return that type. The type of its own `context` is what the call side must give.
+- The type of the second argument of the step of the source is what its flags must give.
+- The step of a flag must return that type. The type of its own second argument is what the call side must give.
 - The call side may leave out `evaluationContext` only if the input can be `undefined`.
 
 ```ts
@@ -147,8 +164,6 @@ teamInsights({ evaluationContext: { teamId: 'team-1' } }); // OK
 teamInsights(); // Type error: the source needs a teamId
 teamInsights({ evaluationContext: { teamId: 1 } }); // Type error: teamId is a string
 ```
-
-For flags without a source, register the type of your configuration, so that they get the types of the default source (see [Configuration](/docs/flags/configuration#types)).
 
 ## Once per request
 
@@ -175,7 +190,7 @@ See [Evaluating flags](/docs/flags/evaluating-flags).
 
 ## Inline flags
 
-An inline flag has no source. Its `decide(context, request)` receives the context of the call side as it is, and the request. See [Inline flags](/docs/flags/inline-flags#what-decide-receives).
+An inline flag has no source. Its `decide(request, context)` receives the request, and the context of the call side as it is. See [Inline flags](/docs/flags/inline-flags#what-decide-receives).
 
 ## Tracking events
 

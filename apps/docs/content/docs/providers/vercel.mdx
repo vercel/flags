@@ -7,8 +7,8 @@ description: Use Vercel Flags with the Flags SDK through VercelProvider, the Ope
 
 The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server provider of `@vercel/flags-core`. There is no separate adapter: `VercelProvider` is a regular OpenFeature provider, so everything on this page works the same way as with any other [provider](/docs/providers).
 
-<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create a source module `sources.ts` that exports `const vercel = defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Declare my flags with `bindFlag({ key, source: vercel })` from `flags` in a `'use flags'` module, and run the type check when finished.">
-  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create a source module `sources.ts` that exports `const vercel = defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Declare my flags with `bindFlag({ key, source: vercel })` from `flags` in a `'use flags'` module, and run the type check when finished.
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Enable code generation for my framework, add `.flags` to `.gitignore`, add the `flags:*` path to `tsconfig.json`, import the flags from `flags:self`, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Enable code generation for my framework, add `.flags` to `.gitignore`, add the `flags:*` path to `tsconfig.json`, import the flags from `flags:self`, and run the type check when finished.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
@@ -44,43 +44,69 @@ vercel link
 vercel env pull
 ```
 
-### 4. Define a source
+### 4. Create the source `self`
 
-A source connects your flags to Vercel Flags:
+By convention, the main source of an app is `self`, in the folder `flags/sources/self/`. The provider is the default export of `provider.ts`:
 
-```ts title="sources.ts"
+```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineSource } from 'flags';
 
-export const vercel = defineSource({
-  provider: new VercelProvider(),
-  // The flags of the Vercel project of this deployment
-  project: { system: 'vercel-flags' },
-  // The entities which your targeting rules use, once per request
-  getEvaluationContext: (_input, request) => ({
+// Without an SDK key, the client uses the OIDC token of the project
+export default new VercelProvider();
+```
+
+The default export of `context.ts` creates the evaluation context, once per request:
+
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+// The entities which your targeting rules use
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return {
     user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
-  }),
-});
+  };
+}
 ```
 
-### 5. Declare and evaluate the flag
+The default export of `catalog.ts` lists the flags, for the code generation. For a start, return a static list. Later, [load it from Vercel](#load-the-catalog-from-vercel):
 
-```ts title="flags.ts"
-'use flags';
+```ts title="flags/sources/self/catalog.ts"
+import type { CatalogLoader } from 'flags';
 
-import { bindFlag } from 'flags';
-import { vercel } from './sources';
-
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: vercel,
-  defaultValue: false,
-  description: 'Shows the summer sale banner',
+const loadCatalog: CatalogLoader = () => ({
+  project: { system: 'vercel-flags' },
+  flags: {
+    'summer-sale': {
+      variants: [false, true],
+      defaultValue: false,
+      description: 'Shows the summer sale banner',
+    },
+  },
 });
+
+export default loadCatalog;
 ```
+
+### 5. Enable code generation
+
+Enable code generation in the plugin of your framework, e.g. for Next.js:
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { codeGeneration: true });
+```
+
+The plugin writes `.flags/self.ts`. See [Code generation](/docs/flags/code-generation) for SvelteKit, Nuxt and TanStack Start, the `tsconfig.json` paths and the `.gitignore` entry.
+
+### 6. Evaluate the flag
+
+Import the flag from `flags:self`:
 
 ```tsx title="app/page.tsx"
-import { summerSale } from '../flags';
+import { 'summer-sale' as summerSale } from 'flags:self';
 
 export default async function Page() {
   const sale = await summerSale();
@@ -90,21 +116,59 @@ export default async function Page() {
 
 Toggle the flag for the development environment in the dashboard, and reload the page.
 
+### Without code generation
+
+Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source and the flags by hand. The generated code is the same:
+
+```ts title="flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+export const self = defineSource({
+  provider: new VercelProvider(),
+  // The flags of the Vercel project of this deployment
+  project: { system: 'vercel-flags' },
+  // The entities which your targeting rules use, once per request
+  getEvaluationContext: (request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
+});
+```
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale banner',
+});
+```
+
 ## Targeting
 
 `VercelProvider` evaluates your targeting rules against the evaluation context which `getEvaluationContext` returns. Return the entities which your rules use, e.g. the user and the team:
 
-```ts title="sources.ts"
-getEvaluationContext: async (_input, request) => {
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+import { getSession } from '../../../lib/session';
+
+export default async function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
   const session = await getSession(request?.cookies);
   return {
     user: { id: session.userId },
     team: { id: session.teamId },
   };
-},
+}
 ```
 
-The source runs `getEvaluationContext` once per request, so a session lookup happens once, also when a page evaluates many flags. Keep it fast: read cookies and headers, and avoid network requests where you can. See [Evaluation context](/docs/flags/evaluation-context).
+The source runs `getEvaluationContext` once per request (also `getEvaluationContext` of a hand-written `defineSource`), so a session lookup happens once, also when a page evaluates many flags. Keep it fast: read cookies and headers, and avoid network requests where you can. See [Evaluation context](/docs/flags/evaluation-context).
 
 Configure which entities your project can target in the dashboard:
 
@@ -116,17 +180,15 @@ Configure which entities your project can target in the dashboard:
 
 `new VercelProvider()` uses the default client of `@vercel/flags-core`. It uses the SDK key in the `FLAGS` environment variable if you set one, and the OIDC token of the project otherwise. To configure the client, pass an SDK key or a client:
 
-```ts title="sources.ts"
+```ts title="flags/sources/self/provider.ts"
 import { createClient } from '@vercel/flags-core';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-// An SDK key, e.g. for an application outside Vercel
-const withKey = new VercelProvider(process.env.CUSTOM_FLAGS_KEY!);
-
 // A client with options
-const withClient = new VercelProvider(
-  createClient({ clientName: 'my-app' }),
-);
+export default new VercelProvider(createClient({ clientName: 'my-app' }));
+
+// Or an SDK key, e.g. for an application outside Vercel:
+// export default new VercelProvider(process.env.CUSTOM_FLAGS_KEY!);
 ```
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys" target="_blank">
@@ -135,9 +197,9 @@ const withClient = new VercelProvider(
 
 ## The flags of a different project
 
-A source can read the flags of a different Vercel project. Set `projectId` (and `teamId` for a project of a different team) in `project`, so that Flags Explorer links to the right project, and give the provider access to that project:
+A source can read the flags of a different Vercel project. Set `projectId` (and `teamId` for a project of a different team) in `project`, so that Flags Explorer links to the right project, and give the provider access to that project. With the file system API, put each project in a source folder of its own, e.g. `flags/sources/blog/`, and set `project` in its catalog. By hand:
 
-```ts title="sources.ts"
+```ts title="flags/other-projects.ts"
 import { createClient } from '@vercel/flags-core';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineSource } from 'flags';
@@ -159,7 +221,7 @@ export const blog = defineSource({
 'use flags';
 
 import { bindFlag } from 'flags';
-import { blog } from './sources';
+import { blog } from './flags/other-projects';
 
 export const newSearch = bindFlag({ key: 'new-search', source: blog });
 ```
@@ -167,36 +229,11 @@ export const newSearch = bindFlag({ key: 'new-search', source: blog });
 - **Project Connections** let a project read the flags of another project of the same team, with its own OIDC token. Grant access in the **Flags → Connections** page of the source project. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections).
 - **SDK keys** work for any project. The SDK key must belong to the project in `project`: the SDK cannot check this, because OpenFeature providers do not report their project.
 
-## Code generation
+## Load the catalog from Vercel
 
-With [code generation](/docs/flags/code-generation), you do not declare each flag by hand. A catalog reads the flags of your Vercel project, and the SDK generates one typed `bindFlag` for each flag, with its variants as options and its description as JSDoc.
+A static catalog is enough for a start, but you then add each new flag twice: in the dashboard and in `catalog.ts`. A catalog can instead read the flags of your Vercel project, so that the SDK generates one typed flag for each flag in the dashboard, with its variants as options:
 
-Each source is a directory in `flags/sources`. For a source named `site`:
-
-```ts title="flags/sources/site/provider.ts"
-import { createClient } from '@vercel/flags-core';
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-
-// The OpenFeature provider of the source. Without an SDK key, the client
-// uses the OIDC token of the project, e.g. after vercel env pull.
-export default new VercelProvider(createClient({ clientName: 'my-app' }));
-```
-
-```ts title="flags/sources/site/context.ts"
-import type { FlagsRequest } from 'flags';
-
-// The evaluation context of all flags of this source, once per request
-export default function getEvaluationContext(
-  _input: unknown,
-  request: FlagsRequest | undefined,
-) {
-  return {
-    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
-  };
-}
-```
-
-```ts title="flags/sources/site/catalog.ts"
+```ts title="flags/sources/self/catalog.ts"
 import type { DatafileInput } from '@vercel/flags-core';
 import type { Catalog, CatalogLoadOptions } from 'flags';
 import { streamDatafiles } from './stream.ts';
@@ -221,8 +258,8 @@ function catalogFromDatafile(datafile: DatafileInput): Catalog {
   };
 }
 
-// Yields a new catalog after each change in Vercel, so that
-// `next dev` and `flags watch` update the generated code
+// Yields a new catalog after each change in Vercel, so that the
+// development server and `flags watch` update the generated code
 export default async function* loadCatalog({
   signal,
 }: CatalogLoadOptions): AsyncGenerator<Catalog> {
@@ -234,24 +271,7 @@ export default async function* loadCatalog({
 
 `stream.ts` subscribes to the changes of the flags of your project. Copy it from the [playground of the Flags SDK repository](https://github.com/vercel/flags/tree/main/apps/playground/flags/sources/site), which runs this setup against real Vercel Flags. The catalog runs only during code generation, in Node.js, not in your application.
 
-Then enable code generation, and import the flags of the source by its name:
-
-```ts title="next.config.ts"
-import { withFlags } from '@flags-sdk/next/plugin';
-
-export default withFlags({}, { codeGeneration: true });
-```
-
-```tsx title="app/page.tsx"
-import { 'summer-sale' as summerSale } from 'flags:site';
-
-export default async function Page() {
-  const sale = await summerSale();
-  return <div>{sale ? 'Summer sale!' : 'Welcome'}</div>;
-}
-```
-
-See [Code generation](/docs/flags/code-generation) for the `tsconfig.json` paths, the `.gitignore` entry, and the `flags sync` and `flags watch` commands for other frameworks.
+An entry of the catalog can also have a `description` (written as JSDoc) and a `defaultValue` (returned when an evaluation fails). Without a `defaultValue`, a failing evaluation throws. See [Code generation](/docs/flags/code-generation).
 
 ## Flags Explorer
 
@@ -260,18 +280,6 @@ See [Code generation](/docs/flags/code-generation) for the `tsconfig.json` paths
 - **Overrides.** Flags Explorer sets an override cookie which Vercel signs. The SDK verifies it with the public keys of Vercel: on Vercel, and locally after `vercel env pull`. You do not need a `FLAGS_SECRET`. See [Overrides](/docs/tooling/overrides).
 - **Dashboard links.** With `project: { system: 'vercel-flags' }`, Flags Explorer links each flag to its page in the dashboard.
 - **Reporting.** `VercelProvider` reports each evaluation to Vercel, and reports overrides with a hook, so that you can see the values of your flags in Vercel.
-
-## The default provider of a deployment
-
-The SDK resolves flags without a source through the module `flags/default-provider`. A deployment platform can replace this module at build time with a bundler alias, so that flags without a source use a fast provider of the platform. It applies only to flags without a source, and only to builds on that platform.
-
-`@vercel/flags-core/default-provider` is this module for Vercel. It exports `createDefaultProvider()`, which returns a `VercelProvider` with the default client. A deployment adapter, e.g. of Next.js on Vercel, can point `flags/default-provider` to it for production builds.
-
-- A `defaultSource` in the optional [`flags/config.ts`](/docs/flags/configuration#defaultsource) always wins over the provider of the platform.
-- The platform replaces the module only for builds, not for development.
-- Until your platform does this, give each flag a `source`, as in the [quickstart](#4-define-a-source), or use [code generation](#code-generation).
-
-See [Framework bindings](/docs/standard/framework-bindings#the-replaceable-modules) for the contract.
 
 ## Resources
 

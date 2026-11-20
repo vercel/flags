@@ -57,10 +57,10 @@ const [insights, reports] = await evaluate([teamInsights, teamReports], {
 `evaluate` also accepts a plain definition with a `key` and a `source`, e.g. for a key from a database:
 
 ```ts
-const enabled = await evaluate({ key: `feature-${name}`, source: shop });
+const enabled = await evaluate({ key: `feature-${name}`, source: self });
 ```
 
-The definition can also have `type` and `defaultValue`. Without `source`, it uses the default source. Flags that you know in advance should be defined with `bindFlag`, so that they have types and are in the [flags manifest](/docs/tooling/flags-manifest).
+The definition can also have `type` and `defaultValue`. The `source` is required. Flags that you know in advance should be defined with `bindFlag`, so that they have types and are in the [flags manifest](/docs/tooling/flags-manifest).
 
 ## One value per request
 

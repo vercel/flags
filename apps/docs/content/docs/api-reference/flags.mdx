@@ -20,8 +20,8 @@ Node.js 20.19, or 22.12 or newer. The package runs only on the server.
 | `flags/tooling`  | Framework packages and build tools. See [flags/tooling](/docs/api-reference/flags-tooling) |
 | `flags/manifest` | Tools that create or read the flags manifest. See [flags/manifest](/docs/api-reference/flags-tooling#flagsmanifest) |
 
-The subpaths `flags/framework`, `flags/config` and `flags/default-provider`
-are replaced by bundler aliases of framework packages and platforms. Your
+The subpaths `flags/framework` and `flags/config` are replaced by bundler
+aliases of framework packages. Your
 application does not import them. See
 [Custom frameworks](/docs/frameworks/custom-frameworks).
 
@@ -42,7 +42,7 @@ function defineFlag<K, T, O, In>(
 | Option         | Type                                             | Description                                                                                                          |
 | -------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `key`          | `string`                                         | The key of the flag. Required.                                                                                       |
-| `decide`       | `(context: In, request: FlagsRequest \| undefined) => V \| Promise<V>` | Required. Receives the evaluation context of the call side as it is, and the current request (`undefined` outside of a request). The type of `context` defines what the call side must pass. |
+| `decide`       | `(request: FlagsRequest \| undefined, context: In) => V \| Promise<V>` | Required. Receives the current request (`undefined` outside of a request), and the evaluation context of the call side as it is. The type of `context` defines what the call side must pass. |
 | `type`         | `'boolean' \| 'string' \| 'number' \| 'object'`   | The type of the value. The default is `'boolean'`.                                                                    |
 | `options`      | `readonly (V \| { value: V; label?: string })[]` | The known values, for Flags Explorer and precompute. For `object` flags, only `{ value }` objects.                    |
 | `defaultValue` | `V`                                              | Returned when `decide` fails, after logging one line. Without it, the error is thrown.                               |
@@ -55,7 +55,7 @@ import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
 });
 
@@ -65,10 +65,11 @@ await betaBanner(); // boolean
 ### `bindFlag`
 
 Declares a **flag of a source**: the provider of the source decides its value.
-Without `source`, the flag uses the default source of the configuration.
+With [code generation](/docs/flags/code-generation), the SDK writes these
+calls for you, e.g. in `.flags/self.ts`.
 
 ```ts
-function bindFlag<K, T, O, C extends Source = ConfiguredSource, In = SourceInput<C>>(
+function bindFlag<K, T, O, C extends Source, In = SourceInput<C>>(
   options: FlagOptions<C, K, In, T, O>,
 ): Flag<C, K, In, FlagValueFrom<T, O>>;
 ```
@@ -76,27 +77,31 @@ function bindFlag<K, T, O, C extends Source = ConfiguredSource, In = SourceInput
 | Option                 | Type                                                     | Description                                                                                                                                                              |
 | ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `key`                  | `string`                                                 | The key of the flag in the flag management system. Required.                                                                                                             |
-| `source`               | `Source`                                                 | A source of [`defineSource`](#definesource). The default is the default source.                                                                                          |
+| `source`               | `Source`                                                 | A source of [`defineSource`](#definesource). Required.                                                                                                                   |
 | `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`           | The type of the value. The default is `'boolean'`. Selects the resolve method of the provider.                                                                            |
 | `options`              | `readonly (V \| { value: V; label?: string })[]`         | The known values, for Flags Explorer and precompute. They do not limit the values: a provider value outside the options goes through.                                    |
 | `defaultValue`         | `V`                                                      | Returned when the evaluation fails, after logging one line. Without it, a [`FlagEvaluationError`](#flagevaluationerror) is thrown.                                      |
 | `description`          | `string`                                                 | What the flag is for, shown in Flags Explorer.                                                                                                                           |
-| `getEvaluationContext` | `(context: In, request: FlagsRequest \| undefined) => SourceInput<C> \| Promise<SourceInput<C>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the call side context and returns the input of the source. The type of `context` defines what the call side must pass. |
+| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<C> \| Promise<SourceInput<C>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the current request and the call side context, and returns the input of the source. The type of `context` defines what the call side must pass. |
 
-Throws a `TypeError` with `decide` (use `defineFlag`), or when `source` was not
-returned by `defineSource`.
+Throws a `TypeError` with `decide` (use `defineFlag`), without `source`, or
+when `source` was not returned by `defineSource`.
 
 ```ts title="flags.ts"
 'use flags';
 
 import { bindFlag } from 'flags';
-import { shop } from './sources';
+import { self } from './flags/self';
 
-export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
+  defaultValue: false,
+});
 
 export const checkout = bindFlag({
   key: 'checkout',
-  source: shop,
+  source: self,
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -120,13 +125,13 @@ type Flag<C extends Source, K extends string, In, V extends FlagValue> =
     readonly options?: readonly FlagOptionObject<V>[];
     readonly description?: string;
     readonly source: C;
-    getEvaluationContext?(context: In, request: FlagsRequest | undefined): unknown;
+    getEvaluationContext?(request: FlagsRequest | undefined, context: In): SourceInput<C> | Promise<SourceInput<C>>;
   };
 ```
 
 - `options` are always normalized to `{ value, label? }` objects.
-- `source` of a flag without a source is the default source at the time of
-  the evaluation, so the configuration can be loaded after the flag.
+- `source` is the source of `bindFlag`. For an inline flag, it is the
+  internal source of inline flags (`DecideSource`).
 
 ### `FlagOptions` and `InlineFlagOptions`
 
@@ -149,20 +154,20 @@ function defineSource<P extends Provider, N extends FlagManagementSystem, C exte
 | ---------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `provider`             | `Provider`                                              | Any OpenFeature server provider. Required.                                                                                                                                                 |
 | `project`              | `Project`                                               | The flag project in the flag management system. Optional. Flags Explorer uses it for links to the dashboard. Without it, the flags work the same, but the manifest names no source for them. |
-| `getEvaluationContext` | `(context: In, request: FlagsRequest \| undefined) => C \| Promise<C>` | The last step of the chain. Returns the evaluation context for the provider. Runs once per request and input. Outside of a request, it runs on each evaluation with `request` undefined.     |
+| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => C \| Promise<C>` | The last step of the chain. Returns the evaluation context for the provider. Runs once per request and input. Outside of a request, it runs on each evaluation with `request` undefined.     |
 | `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides.             |
 
 The returned source is frozen. Throws a `TypeError` for a `project` with
 `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
 
-```ts title="flags/sources.ts"
+```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineSource } from 'flags';
 
-export const shop = defineSource({
+export const self = defineSource({
   provider: new VercelProvider(),
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
   }),
 });
@@ -196,18 +201,18 @@ interface Source<P extends Provider, N extends FlagManagementSystem, C extends E
   readonly provider: P;
   readonly project?: Project<N>;
   readonly hooks?: readonly Hook[];
-  getEvaluationContext?(context: In, request: FlagsRequest | undefined): C | Promise<C>;
+  getEvaluationContext?(request: FlagsRequest | undefined, context: In): C | Promise<C>;
 }
 ```
 
 - `SourceOptions`: the options of `defineSource`.
 - `SourceInput<S>`: the context that the flags of source `S` must give, i.e.
   the type of `context` of its `getEvaluationContext`.
-- `DefaultSourceInput`: `EvaluationContext | undefined`, the input of a
-  source without `getEvaluationContext`. Such a source passes the context to
-  the provider as it is.
+- `DefaultSourceInput`: `EvaluationContext | undefined`, the default input
+  type of a source (`In`), e.g. of a source without `getEvaluationContext`.
+  Such a source passes the context to the provider as it is.
 - `GetEvaluationContext<In, Out>`: the type of a step of the chain,
-  `(context: In, request: FlagsRequest | undefined) => Out | Promise<Out>`.
+  `(request: FlagsRequest | undefined, context: In) => Out | Promise<Out>`.
 
 ## Evaluating flags
 
@@ -292,10 +297,10 @@ runtime.configure(config: Config): void;
 ```
 
 Sets the configuration, usually the `config` export of `flags/config.ts`.
-A new call replaces the configuration. A replaced default source is closed if
-no other source uses its provider. Throws before it changes anything if the
-configuration is not valid, e.g. a `defaultSource` not returned by
-`defineSource`.
+A new call replaces the configuration. Throws before it changes anything if
+the configuration is not valid, e.g. when `hooks` is not an array, or when it
+has a `defaultSource` (an option of earlier versions: give each flag its
+source).
 
 ### `runtime.onInit`
 
@@ -344,8 +349,7 @@ runtime.prepare(): Promise<void>;
 ```
 
 Sets up the framework binding and loads the configuration, without
-initializing providers. For tools, e.g. before `createManifest`, so that flags
-without a source get the default source of `flags/config.ts`.
+initializing providers. For tools, e.g. the route of the manifest.
 
 ### `runtime.addHandler` and `runtime.removeHandler`
 
@@ -414,44 +418,28 @@ from the optional `flags/config.ts`. Framework plugins load it. See
 function defineConfig<const C extends Config>(config: C): C;
 ```
 
-| Option          | Type               | Description                                                                                                                     |
-| --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `defaultSource` | `Source`           | The source of all flags without a source.                                                                                       |
-| `overrides`     | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                                            |
-| `hooks`         | `readonly Hook[]`  | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`.                           |
+| Option      | Type               | Description                                                                                                   |
+| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `overrides` | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                          |
+| `hooks`     | `readonly Hook[]`  | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`.         |
 
-<Callout title="The default source">
-  Without a `defaultSource`, flags without a source use the built-in default
-  source. For now, the built-in default source throws on each evaluation. On
-  Vercel, a deployment adapter can replace it with a fast provider for
-  builds. Give each flag a `source`, or set a `defaultSource`.
-</Callout>
+The configuration has no sources: each flag of a provider names its source in
+`bindFlag`.
 
 ```ts title="flags/config.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+import { defineConfig } from 'flags';
 
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-  }),
+  overrides: { secret: process.env.FLAGS_SECRET },
+  hooks: [
+    {
+      after(hookContext, details) {
+        console.log(hookContext.flagKey, details.value);
+      },
+    },
+  ],
 });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
-
-### `Register`
-
-An empty interface that your application extends with
-`declare module 'flags'`. Register `config: typeof config`, so that flags
-without a source get the types of the configured default source, including
-its evaluation context. `ConfiguredSource` is the resulting type: the
-registered `defaultSource`, or the built-in default source.
 
 ### `Config`
 
@@ -610,7 +598,6 @@ experiment. The provider receives the evaluation context of the source, as for
 a flag.
 
 ```ts
-function track(eventName: string, options?: TrackOptions<In>): Promise<void>;
 function track(source: Source, eventName: string, options?: TrackOptions<In>): Promise<void>;
 ```
 
@@ -619,16 +606,16 @@ function track(source: Source, eventName: string, options?: TrackOptions<In>): P
 | `evaluationContext` | `In`                   | The input of the source's `getEvaluationContext`.                           |
 | `details`           | `TrackingEventDetails` | Data of the event, e.g. `{ value: 99 }`.                                    |
 
-Without a source, it uses the default source. Waits for the initialization of
-the provider. A provider without `track` ignores the event. Errors are logged,
+The source is required. Waits for the initialization of the provider. A provider without `track` ignores the event. Errors are logged,
 not thrown. The options are required when the source needs an evaluation
 context (`TrackArgs<In>`).
 
 ```ts
 import { track } from 'flags';
 
-await track('purchase', { details: { value: 99 } });
-await track(shop, 'purchase', { details: { value: 99 } });
+import { self } from './flags/self';
+
+await track(self, 'purchase', { details: { value: 99 } });
 ```
 
 ## Errors and reasons
@@ -687,7 +674,11 @@ export const config = defineConfig({
 ## Code generation types
 
 Types for the files of [code generation](/docs/flags/code-generation) in
-`flags/sources/<source>/`.
+`flags/sources/<source>/`. By convention, the main source of an app is
+`self`: the folder `flags/sources/self/` with `catalog.ts`, `provider.ts`
+(default export: the OpenFeature provider) and `context.ts` (default export:
+`getEvaluationContext(request, input)`). The code generation writes
+`.flags/self.ts`, and your code imports from `flags:self`.
 
 - `CatalogLoader`: the default export of `catalog.ts`.
   `(options: CatalogLoadOptions) => Catalog | AsyncIterable<Catalog> | Promise<Catalog | AsyncIterable<Catalog>>`.
@@ -702,11 +693,11 @@ Types for the files of [code generation](/docs/flags/code-generation) in
   `string` or `number` if all variants have that type, else `object`.
   `defaultValue` becomes the `defaultValue` of the flag.
 
-```ts title="flags/sources/shop/catalog.ts"
+```ts title="flags/sources/self/catalog.ts"
 import type { CatalogLoader } from 'flags';
 
-const loadCatalog: CatalogLoader = async () => ({
-  flags: { 'summer-sale': { variants: [false, true] } },
+const loadCatalog: CatalogLoader = () => ({
+  flags: { enableSale: { variants: [false, true], defaultValue: false } },
 });
 
 export default loadCatalog;

@@ -39,9 +39,9 @@ The Vite plugin. It points `flags/framework` to the SvelteKit binding,
 `/.well-known/flags/manifest.json` in development, and writes
 `flags-manifest.json` after a build.
 
-| Option            | Type              | Description                                                                                                                                                                      |
-| ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `defaultProvider` | `string \| false` | The module of the default provider, e.g. of a platform. A path is relative to the project. During a build on Vercel, the default is `@vercel/flags-core/default-provider` if the project has `@vercel/flags-core`. `false` turns this off. |
+| Option           | Type      | Description                                                                                                                                                                                       |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from `flags/sources/<source>/`, e.g. `.flags/self.ts` for `flags:self`: one time for a build, and after each change of a catalog in development. The plugin points `flags:<source>` to the modules. See [Code generation](/docs/flags/code-generation). |
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/sveltekit/vite';
@@ -49,8 +49,19 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit(), flags()],
+  plugins: [sveltekit(), flags({ codeGeneration: true })],
 });
+```
+
+For the types of `flags:self`, add the alias to `svelte.config.js`, and
+`allowImportingTsExtensions: true` to `tsconfig.json`:
+
+```js title="svelte.config.js"
+export default {
+  kit: {
+    alias: { 'flags:self': '.flags/self.ts' },
+  },
+};
 ```
 
 ### `setupFramework` (from `@flags-sdk/sveltekit/binding`)
@@ -67,7 +78,7 @@ Nuxt 4 with Nitro 2. See [Nuxt](/docs/frameworks/nuxt).
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
-  modules: ['@flags-sdk/nuxt'],
+  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
 });
 ```
 
@@ -80,11 +91,14 @@ the Nitro build. It:
 - registers `'use flags'` modules, serves the manifest in `nuxt dev`, and
   writes `flags-manifest.json` into the server output (`.output/server`);
 - adds a Nitro plugin that calls `runtime.onInit()` when the server starts
-  and `runtime.onShutdown()` when it closes.
+  and `runtime.onShutdown()` when it closes;
+- with `codeGeneration`, generates the modules of `flags:<source>` and adds
+  their aliases to the aliases of Nuxt, so the tsconfig of Nuxt has their
+  paths too.
 
-| Option            | Type              | Description                                                                                                          |
-| ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `defaultProvider` | `string \| false` | As for SvelteKit. Set it with `modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]`.               |
+| Option           | Type      | Description                                                                                                                           |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from `flags/sources/<source>/`: one time for a build, and after each change of a catalog for `nuxt dev`. |
 
 The type of the options is `FlagsNuxtOptions`. The config key is `flags`.
 
@@ -110,9 +124,11 @@ TanStack Start 1 with Vite 6 or newer, for React and Solid. See
 function flags(options?: FlagsTanStackStartOptions): Plugin;
 ```
 
-The Vite plugin, with the same behavior and the same `defaultProvider`
+The Vite plugin, with the same behavior and the same `codeGeneration`
 option as for SvelteKit. It resolves the server and router modules of
-TanStack Start for React or Solid, whichever the project has.
+TanStack Start for React or Solid, whichever the project has. For the types
+of `flags:<source>`, add `"paths": { "flags:*": ["./.flags/*"] }` and
+`allowImportingTsExtensions: true` to `tsconfig.json`.
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/tanstack-start/vite';
@@ -122,7 +138,7 @@ import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
+  plugins: [nitro(), tanstackStart(), viteReact(), flags({ codeGeneration: true })],
 });
 ```
 
@@ -151,7 +167,7 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 | `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
-| `defaultProvider` | `string \| false`                          | The module of the default provider. During a build on Vercel, the default is `@vercel/flags-core/default-provider` if the project has it. `false` turns this off. |
+| `codeGeneration`  | `boolean`                                  | Generates the modules of `flags:<source>` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
 | `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
 | `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
 
@@ -172,19 +188,19 @@ export function myFrameworkFlags() {
 `'/.well-known/flags/manifest.json'`, the path where the plugin serves the
 manifest in development.
 
-### `platformDefaultProvider`
+### `startCodeGeneration` and `resolveAliases`
 
 ```ts
-function platformDefaultProvider(
-  dir: string,
-  isBuild: boolean,
-  resolveModule?: (id: string) => unknown,
-): string | undefined;
+function startCodeGeneration(dir: string, watch: boolean): CodeGeneration;
+function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, string>;
 ```
 
-Returns `'@vercel/flags-core/default-provider'` during a build on Vercel
-(`VERCEL` is set) if the project in `dir` has `@vercel/flags-core`, else
-`undefined`. The Nuxt module uses it.
+The code generation behind the `codeGeneration` option, for plugins of other
+bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules
+one time (`watch: false`), or again after each change of a catalog
+(`watch: true`). Its `CodeGeneration` has `ready`, a promise of the aliases
+when the first modules exist, and `stop()`. `resolveAliases` turns the
+aliases into absolute paths, e.g. `{ 'flags:self': '/app/.flags/self.ts' }`.
 
 ## `@flags-sdk/hono`
 

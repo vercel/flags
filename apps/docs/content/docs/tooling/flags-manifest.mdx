@@ -31,7 +31,7 @@ export const summerSale = bindFlag({
 
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
 });
@@ -43,7 +43,7 @@ The rules of a flags module:
 - **No side effects.** Importing the module only defines flags and sources. It must not open network connections, because tools import it to read the flags.
 - **The directive comes first**, as with `'use client'`: only comments, whitespace and other directives can be before it.
 
-You can have as many flags modules as you like, e.g. one for each feature. Two exports with the same key must declare the same flag. The modules which [code generation](/docs/flags/code-generation) writes into `.flags` are flags modules too.
+You can have as many flags modules as you like, e.g. one for each feature. Two exports with the same key must declare the same flag. The modules which [code generation](/docs/flags/code-generation) writes into `.flags`, e.g. `.flags/self.ts` for `flags:self`, are flags modules too.
 
 The plugins also append a registration to each flags module, which calls `registerFlags` with its exports. Without a plugin, call it yourself where needed: `registerFlags(await import('./flags'))`.
 
@@ -120,7 +120,6 @@ For the module above, with `shop` an in-memory source, the manifest is:
 - **`definitions`** has one entry for each flag, sorted by key, so the file is stable between builds.
 - **`sources`** has the flag projects of the sources, by an ID which the definitions use in `source`. The `variables` are the fields of the `project` of the source, e.g. `projectId`, never credentials.
 - An inline flag has no `source`, because no flag management system decides its value. A source without a `project` also gives its flags no `source`.
-- A provider flag without its own source gets the default source of `flags/config.ts`. Thus, the plugins load your configuration before they create the manifest.
 
 For a Vercel Flags source, the variables come from the environment of the build, e.g. the project ID of the deployment, unless the `project` of the source sets them. The format is defined by a JSON Schema; see [The flags manifest format](/docs/standard/flags-manifest-format).
 

@@ -39,7 +39,7 @@ export const shop = defineSource({
   } as const),
   // Tools know that this source has no dashboard
   project: { system: 'in-memory' },
-  getEvaluationContext: (_input, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
@@ -64,6 +64,7 @@ export const checkout = bindFlag({
 
 - Each flag has `variants`, a `defaultVariant` and `disabled`. A `contextEvaluator` returns the name of the variant for an evaluation context.
 - The evaluation context is what the source's `getEvaluationContext` returns, so the rules can use the request, e.g. a cookie.
+- With the file system API, the provider is the default export of `flags/sources/self/provider.ts`, e.g. `export default new TypedInMemoryProvider({ ... })`, and the code generation writes the source and the flags. See [Code generation](/docs/flags/code-generation).
 - For tests, see [Testing](/docs/flags/testing). You can also set values for one browser with an [override](/docs/tooling/overrides), without changing the provider.
 
 ## A provider object
@@ -129,7 +130,7 @@ import { createJsonProvider } from './lib/json-provider';
 
 export const remote = defineSource({
   provider: createJsonProvider('https://config.example.com/flags.json'),
-  getEvaluationContext: (_input, request) => ({
+  getEvaluationContext: (request) => ({
     targetingKey: request?.cookies?.get('user-id')?.value ?? 'default',
   }),
 });
@@ -154,7 +155,7 @@ See [Errors and default values](/docs/flags/errors-and-default-values).
 | `resolveStringEvaluation`, `resolveNumberEvaluation`, `resolveObjectEvaluation` | The other types of flags. `resolveObjectEvaluation` returns any JSON value. |
 | `hooks` | OpenFeature hooks which run around each evaluation of this provider, also for overrides (reason `OVERRIDE`). |
 | `events` | An event emitter for provider events, e.g. `PROVIDER_CONFIGURATION_CHANGED`. |
-| `track(eventName, context, details)` | Receives tracking events of `track()`, e.g. for experiments. |
+| `track(eventName, context, details)` | Receives tracking events of `track(source, eventName, options?)`, e.g. for experiments. |
 
 See [OpenFeature compatibility](/docs/flags/openfeature) for hooks, events and tracking.
 

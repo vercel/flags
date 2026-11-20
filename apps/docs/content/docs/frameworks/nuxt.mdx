@@ -3,7 +3,7 @@ title: Nuxt
 description: Set up the Flags SDK in Nuxt with one module.
 ---
 
-`@flags-sdk/nuxt` connects the Flags SDK to the server of Nuxt (Nitro). It gives each flag the current request through `useEvent()`, loads `flags/config.ts`, lets `createError()` pass through, starts and closes the providers with the server, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. Your code imports only `flags`.
+`@flags-sdk/nuxt` connects the Flags SDK to the server of Nuxt (Nitro). It gives each flag the current request through `useEvent()`, loads `flags/config.ts`, lets `createError()` pass through, starts and closes the providers with the server, generates the modules of `flags:<source>`, and registers your flags for Flags Explorer. Your code imports only `flags`.
 
 **Requirements:** Nuxt 4 with Nitro 2.
 
@@ -12,91 +12,80 @@ description: Set up the Flags SDK in Nuxt with one module.
 ### 1. Install the packages
 
 ```sh title="Terminal"
-npm install flags @flags-sdk/nuxt
+npm install flags @flags-sdk/nuxt @vercel/flags-core
 ```
+
+`@vercel/flags-core` has the provider of [Vercel Flags](/docs/providers/vercel). Use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the module
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
-  modules: ['@flags-sdk/nuxt'],
+  // codeGeneration writes .flags/self.ts from flags/sources/self
+  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
 });
 ```
 
-That is the only required step. The module also enables the async context of Nitro, which the SDK needs to find the current request.
+The module also enables the async context of Nitro, which the SDK needs to find the current request. It adds `flags:<source>` to the aliases of Nuxt, so the generated `tsconfig.json` of Nuxt has the paths, and the types work without more configuration.
 
-### 3. Define your flags
+### 3. Create the source `self`
 
-Create `lib/flags.ts`. It is the same file as in the [other frameworks](/docs/frameworks):
+By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with three files.
 
-```ts title="lib/flags.ts"
-'use flags';
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineFlag, defineSource } from 'flags';
-
-const shop = defineSource({
-  provider: new TypedInMemoryProvider({
-    'summer-sale': {
-      variants: { on: true, off: false },
-      defaultVariant: 'off',
-      disabled: false,
-      // On for alice only
-      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
-    },
-    checkout: {
-      variants: { control: 'control', express: 'express' },
-      defaultVariant: 'express',
-      disabled: false,
-    },
-  } as const),
-  project: { system: 'in-memory' },
-  getEvaluationContext: (_context, request) => ({
-    user: request?.cookies?.get('user')?.value ?? 'anonymous',
-  }),
-});
-
-// Flags of the source: the provider decides the value
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
-  defaultValue: false,
-  description: 'The summer sale banner',
-});
-
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: shop,
-  type: 'string',
-  options: ['control', 'express'],
-  defaultValue: 'control',
-  description: 'The checkout flow',
-});
-
-// An inline flag: your code decides the value
-export const betaBanner = defineFlag({
-  key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
-  options: [false, true] as const,
-  description: 'Shows the beta banner to testers',
-});
+// Any OpenFeature server provider works
+export default new VercelProvider();
 ```
 
-To try the example, install `@openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel).
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
 
-### 4. Use the flags in a server route
+// The evaluation context of all flags of this source, once per request
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+}
+```
+
+```ts title="flags/sources/self/catalog.ts"
+import type { CatalogLoader } from 'flags';
+
+// The flags of the source, for the code generation
+const loadCatalog: CatalogLoader = () => ({
+  flags: {
+    enableSale: {
+      variants: [false, true],
+      description: 'Shows the summer sale',
+      defaultValue: false,
+    },
+  },
+});
+
+export default loadCatalog;
+```
+
+`VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead.
+
+Add the generated folder to `.gitignore`:
+
+```text title=".gitignore"
+.flags
+```
+
+### 4. Use the flag in a server route
 
 Flags run only on the server of Nitro. Evaluate them in a server route:
 
 ```ts title="server/api/flags.get.ts"
-import { evaluate } from 'flags';
-import { betaBanner, checkout, summerSale } from '../../lib/flags';
+import { enableSale } from 'flags:self';
 
 // No runtime.onInvoke: the binding gets the request from useEvent()
-export default defineEventHandler(async () => {
-  const [sale, flow, beta] = await evaluate([summerSale, checkout, betaBanner]);
-  return { sale, flow, beta };
-});
+export default defineEventHandler(async () => ({
+  sale: await enableSale(),
+}));
 ```
 
 Load the values in a page with `useFetch`. During server-side rendering, Nuxt calls the route directly and forwards the cookies of the request, so the flags see the same user:
@@ -107,19 +96,82 @@ const { data } = await useFetch('/api/flags');
 </script>
 
 <template>
-  <p v-if="data?.beta">You see the beta.</p>
   <h1>{{ data?.sale ? 'Summer sale!' : 'Welcome' }}</h1>
-  <p>Checkout: {{ data?.flow }}</p>
 </template>
 ```
 
-Set the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner. Do not import `flags` in components or composables that run in the browser.
+Do not import `flags` or `flags:self` in components or composables that run in the browser. A new flag in the catalog becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation).
+
+## Inline flags
+
+An [inline flag](/docs/flags/inline-flags) decides its value in your code. Put inline flags into a module that starts with `'use flags'`:
+
+```ts title="lib/flags.ts"
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+The module registers the flags of each module that starts with `'use flags'`, so Flags Explorer finds them. The generated `flags:self` module has the directive already. Both kinds of flags are called in the same way:
+
+```ts title="server/api/flags.get.ts"
+import { evaluate } from 'flags';
+import { enableSale } from 'flags:self';
+import { betaBanner } from '../../lib/flags';
+
+export default defineEventHandler(async () => {
+  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  return { sale, beta };
+});
+```
+
+Set the cookie `beta=1` to see the beta banner.
+
+## Without code generation
+
+You can also write the source and its flags by hand. Leave out `codeGeneration` (`modules: ['@flags-sdk/nuxt']`), and use `defineSource` and `bindFlag`:
+
+```ts title="flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+export const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+```ts title="lib/flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from '../flags/self';
+
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale',
+});
+```
+
+Each flag names its source. This is the same code that the code generation writes. See [Flags of a source](/docs/flags/provider-flags).
 
 ## Optional: `flags/config.ts`
 
-You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. The Nuxt module loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The Nuxt module loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
 ```ts title="flags/config.ts"
 import { defineConfig } from 'flags';
@@ -141,15 +193,15 @@ See [Configuration](/docs/flags/configuration) for all options.
 
 An error of `createError()` reaches Nitro unchanged, also when you throw it from `getEvaluationContext`. The flag does not catch it and does not return its default value:
 
-```ts title="sources.ts"
+```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineSource } from 'flags';
 import { createError } from '#imports';
 
-export const vercel = defineSource({
+export const self = defineSource({
   provider: new VercelProvider(),
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (_context, request) => {
+  getEvaluationContext: (request) => {
     if (request?.cookies?.get('blocked')) {
       throw createError({ statusCode: 403, statusMessage: 'Blocked' });
     }
@@ -171,17 +223,9 @@ The module starts the providers with the Nitro server and closes them when the s
 
 To show the values of a request in Flags Explorer, write the flag values element yourself; see [Other frameworks](/docs/frameworks/next/flag-values#other-frameworks).
 
-## Deployment
-
-This only concerns flags without a `source`:
-
-- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`, the module replaces `flags/default-provider` with `@vercel/flags-core/default-provider` in Nitro. Development does not replace it.
-- A `defaultSource` in the optional `flags/config.ts` always wins.
-- On another platform, or in a test, pass the module of its provider: `modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]`.
-
 ## How it works
 
-- The module sets `nitro.alias` for `flags/framework` (to `@flags-sdk/nuxt/binding`) and `flags/config`, and adds `flags` and `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the SDK and the aliases reach it.
+- The module sets `nitro.alias` for `flags/framework` (to `@flags-sdk/nuxt/binding`), `flags/config` and, with `codeGeneration`, each `flags:<source>`, and adds `flags` and `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the SDK and the aliases reach it.
 - In development, Nitro loads `flags` from `node_modules`, so a Nitro plugin of the module also registers the binding with `registerFramework` of `flags/tooling`.
 - The binding gets the request with `useEvent()` and recognizes errors of `createError()` with `isError()`.
 - The module uses the hooks `vite:extendConfig` and `nitro:config`, so it does not depend on `@nuxt/kit`.

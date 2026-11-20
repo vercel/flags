@@ -82,6 +82,12 @@ import { withFlags } from '@flags-sdk/next/plugin';
 export default withFlags({}, { codeGeneration: true });
 ```
 
+With `flags/sources/self/`, this writes `.flags/self.ts`, and your code
+imports `import { enableSale } from 'flags:self'`. For the types, add
+`"paths": { "flags:*": ["./.flags/*"] }` and
+`"allowImportingTsExtensions": true` to `tsconfig.json`, and `.flags` to
+`.gitignore`.
+
 Without `codeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.
 after `flags sync`, or with `flags watch -- next dev`. See
 [Code generation](/docs/flags/code-generation).
