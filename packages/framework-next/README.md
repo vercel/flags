@@ -105,8 +105,11 @@ const self = defineSource({
 export const summerSale = bindFlag({ key: 'summer-sale', source: self });
 ```
 
-There is no default source. Code generation can write the sources and
-flags for you (see "Code generation").
+The runtime has no global source. Code generation can write the sources
+and flags for you (see "Code generation"). With `@vercel/flags-core`, it
+does so by default: `flags:self` has the flags of your Vercel project, and
+you do not write the code above. If you write the source by hand, use
+`withFlags(config, { disableSelfSource: true })`.
 
 ### 3️⃣ Optional: `flags/config.ts`
 
@@ -303,7 +306,8 @@ By default, `withFlags` writes the modules of `flags:<source>`
 from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
 "Code generation"). By convention, the main source of the application is
 `flags/sources/self` (`catalog.ts`, `provider.ts` and an optional
-`context.ts`):
+`context.ts`). With `@vercel/flags-core` in the dependencies, the source
+`self` is the default source of Vercel Flags, also without the folder:
 
 ```ts
 // next.config.ts
@@ -323,9 +327,18 @@ import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 - Next.js loads the configuration more than once, also in its workers. One
   process owns the generation, and the others see its PID in the
   environment.
+- The default source `self` uses `new VercelProvider()` and the catalog of
+  `@vercel/flags-core/catalog`. Each file in `flags/sources/self` replaces
+  its part, e.g. `context.ts` adds an evaluation context. If the flags can
+  not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags
+  and the SDK warns. `withFlags({}, { disableSelfSource: true })` turns the
+  default source off.
 - The folder `flags` is in the directory of the application or in its
-  `src`. Without `flags/sources`, `withFlags` writes nothing.
-- For the types, `withFlags` writes `flags/generated.d.ts`. TypeScript
+  `src`. Without `flags/sources` and without the default source,
+  `withFlags` writes nothing.
+- For the types, `withFlags` writes `flags/generated.d.ts` (without
+  `flags/sources`: `src/flags/generated.d.ts` if the application has
+  `src`). TypeScript
   finds it with its default `include`, so `tsconfig.json` needs no change.
   Commit the file, or ignore it and run `flags sync` before `tsc`.
 - `.flags` has its own `.gitignore`, so `.gitignore` needs no change.

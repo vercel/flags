@@ -17,7 +17,9 @@ const sale = await summerSale();
 - **Code generation, if you want it.** Put each source into
   `flags/sources/<source>`, and import its flags with
   `import { 'summer-sale' as summerSale } from 'flags:self'`. The generated
-  code is the same as `defineSource` and `bindFlag` by hand.
+  code is the same as `defineSource` and `bindFlag` by hand. With
+  `@vercel/flags-core`, `flags:self` has the flags of your Vercel project,
+  without a folder.
 - **One value for each request.** Each flag is evaluated one time for each
   request, so all parts of a page get the same value.
 - **Typed.** Flags have a type and options, and TypeScript checks the
@@ -280,6 +282,21 @@ build, and watch the catalogs in development. They also write the types in
 use `disableCodeGeneration: true`. Without a
 bundler, e.g. with Hono or Express, run `flags sync` (or `flags watch`),
 and import `./.flags/self.ts`.
+
+### The default source `self`
+
+An application which depends on `@vercel/flags-core` has the source `self`
+by default, with the flags of its Vercel project. It needs no folder
+`flags/sources/self`. Its provider is `new VercelProvider()` of
+`@vercel/flags-core/openfeature`, its catalog is
+`@vercel/flags-core/catalog`, and it has no evaluation context. Each file in
+`flags/sources/self` replaces its part, e.g. `context.ts` adds an evaluation
+context. Each other source needs `provider.ts` and `catalog.ts`.
+
+Run `vercel link` and `vercel env pull` for the credentials. Without them,
+`flags:self` has no flags, and the SDK warns. To turn off the default source,
+use `disableSelfSource: true` in the plugin, or
+`flags sync --disable-self-source`.
 
 ## Overrides
 

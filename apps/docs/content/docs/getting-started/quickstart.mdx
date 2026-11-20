@@ -1,9 +1,9 @@
 ---
 title: Quickstart
-description: Connect your flag provider in a folder, and import your flags by name.
+description: Install the packages, add the plugin, and import the flags of your Vercel project by name.
 ---
 
-This guide connects a flag provider to your application, and imports its flags by name:
+This guide connects Vercel Flags to your application, and imports its flags by name:
 
 ```ts
 import { enableSale } from 'flags:self';
@@ -19,13 +19,13 @@ Pick your framework in the tabs. The setup is the same in each framework.
   [Express](/docs/frameworks/express) or [no framework](/docs/frameworks/node).
 </Callout>
 
-<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags` and the matching framework package, add its plugin, and create the source `self` in `flags/sources/self` with `catalog.ts`, `provider.ts` and `context.ts`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
-  Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework, install `flags` and the matching framework package, add its plugin, and create the source `self` in `flags/sources/self`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
+<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags`, the matching framework package, `@vercel/flags-core` and `@openfeature/server-sdk`, and add the plugin. Do not create `flags/sources/self`: with `@vercel/flags-core`, the source `self` is the default. Run `vercel link` and `vercel env pull`, and create a boolean flag `enableSale` with `vercel flags create enableSale --kind boolean`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
+  Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework, install `flags`, the matching framework package, `@vercel/flags-core` and `@openfeature/server-sdk`, and add the plugin. Link the Vercel project, pull its environment variables, and create a boolean flag `enableSale`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
 </CopyPrompt>
 
 ### 1. Install the packages
 
-Install `flags`, the package of your framework, and the OpenFeature provider of your flag management system. This guide uses Vercel Flags, but [any OpenFeature provider](/docs/providers/openfeature) works the same way.
+Install `flags`, the package of your framework, and the OpenFeature provider of Vercel Flags. For another flag management system, see [Use another provider](#use-another-provider).
 
 ```sh tab="Next.js" title="Terminal"
 npm install flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
@@ -45,7 +45,7 @@ npm install flags @flags-sdk/tanstack-start @vercel/flags-core @openfeature/serv
 
 ### 2. Add the plugin
 
-The framework package connects the SDK to the request. By default, it also turns the folders in `flags/sources` into the imports `flags:<source>`.
+The framework package connects the SDK to the request. By default, it also generates the imports `flags:<source>`, e.g. `flags:self` for the flags of your Vercel project.
 
 ```ts tab="Next.js" title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
@@ -83,60 +83,24 @@ export default defineConfig({
 });
 ```
 
-### 3. Create the source `self`
+### 3. Create the flag in Vercel
 
-A source is a folder in `flags/sources`. The main source of your application is, by convention, `self`. It has two files, and one optional file:
+With `@vercel/flags-core` in your dependencies, your application has the source `self` by default. It has the flags of your Vercel project. You do not create files for it.
 
-```txt
-flags/
-  sources/
-    self/
-      provider.ts   which provider evaluates the flags
-      catalog.ts    which flags exist, for code generation
-      context.ts    optional: who the user is, for each request
+Link your application to its Vercel project, and pull its environment variables. The code generation and the provider use the OIDC token of the project:
+
+```sh title="Terminal"
+vercel link
+vercel env pull
 ```
 
-<Callout>
-  In SvelteKit, put the folder into `src/flags`, since SvelteKit type-checks
-  `src` only. The paths are then `src/flags/sources/self/...`.
-</Callout>
+Then create a boolean flag `enableSale` in the dashboard of your project, or with the CLI:
 
-The provider evaluates the flags. It is any OpenFeature server provider:
-
-```ts title="flags/sources/self/provider.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-
-export default new VercelProvider();
+```sh title="Terminal"
+vercel flags create enableSale --kind boolean
 ```
 
-The catalog lists the flags of the source. Code generation reads it, and writes one typed import for each flag. The catalog of Vercel Flags reads the flags of your Vercel project, and keeps the generated code in sync while you develop:
-
-```ts title="flags/sources/self/catalog.ts"
-export { default } from '@vercel/flags-core/catalog';
-```
-
-With another provider, the catalog can also return a list. See [Code generation](/docs/flags/code-generation).
-
-The context is optional. It tells the provider who the user is, e.g. for targeting rules. The SDK calls it once for each request, even when a page evaluates many flags:
-
-```ts title="flags/sources/self/context.ts"
-import type { FlagsRequest } from 'flags';
-
-export default function getEvaluationContext(request: FlagsRequest | undefined) {
-  return {
-    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
-  };
-}
-```
-
-Without `context.ts`, the provider gets only the evaluation context of the call side.
-
-<Callout>
-  The provider and the catalog of Vercel Flags use the OIDC token of your
-  project. Run `vercel link` and `vercel env pull` once, and create a boolean
-  flag `enableSale` in the dashboard of your project. See [Vercel
-  Flags](/docs/providers/vercel).
-</Callout>
+See [Vercel Flags](/docs/providers/vercel) for an SDK key instead of the OIDC token.
 
 ### 4. Use the flag
 
@@ -186,9 +150,35 @@ function Home() {
 }
 ```
 
-Start your development server. The plugin generates `.flags/self.ts` and `flags/generated.d.ts` before the first request, and again when the catalog changes. You do not need to set up TypeScript.
+Start your development server. The plugin loads the flags of your Vercel project, and generates `.flags/self.ts` and `flags/generated.d.ts` before the first request. It writes them again when a flag changes in Vercel. You do not need to set up TypeScript.
 
-### 5. Optional: decide a flag in code
+<Callout>
+  If your application has a `src` directory, the types go to
+  `src/flags/generated.d.ts`. If the flags can not be loaded, e.g. in CI
+  without `vercel env pull`, `flags:self` has no flags and the SDK shows a
+  warning. The build does not fail, but the type check fails at the import of
+  `enableSale`.
+</Callout>
+
+### 5. Optional: add the evaluation context
+
+The evaluation context tells the provider who the user is, e.g. for targeting rules. Add `flags/sources/self/context.ts` (in SvelteKit, `src/flags/sources/self/context.ts`). The SDK calls it once for each request, even when a page evaluates many flags:
+
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+export default function getEvaluationContext(request: FlagsRequest | undefined) {
+  return {
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  };
+}
+```
+
+Restart the dev server. The source `self` keeps the default provider and catalog of Vercel Flags, and adds your context. In the same way, `provider.ts` or `catalog.ts` in `flags/sources/self` replaces the default provider or catalog. See [The default source `self`](/docs/flags/code-generation#the-default-source-self).
+
+Without `context.ts`, the provider gets only the evaluation context of the call side.
+
+### 6. Optional: decide a flag in code
 
 Not every flag needs a provider. An [inline flag](/docs/flags/inline-flags) decides its value in your code, and gets the same overrides, caching and types. Put inline flags into a module that starts with `'use flags'`:
 
@@ -207,16 +197,22 @@ The `'use flags'` directive lets [Flags Explorer](/docs/tooling/flags-explorer) 
 
 ## What happened behind the scenes
 
-`.flags/self.ts` is plain code: one source, and one flag for each key of the catalog. The plugin also writes `flags/generated.d.ts`, next to `flags/sources`. It declares the types of `flags:self`, so TypeScript finds them without more setup. You can write the same code by hand, e.g. in a framework without a bundler:
+`.flags/self.ts` is plain code: one source, and one flag for each flag of your Vercel project. The plugin also writes `flags/generated.d.ts`. It declares the types of `flags:self`, so TypeScript finds them without more setup. You can write the same code by hand, e.g. in a framework without a bundler:
 
 ```ts title=".flags/self.ts (simplified)"
 'use flags';
 
 import { bindFlag, defineSource } from 'flags';
 import getEvaluationContext from '../flags/sources/self/context.ts';
-import provider from '../flags/sources/self/provider.ts';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-const source = defineSource({ provider, getEvaluationContext });
+const provider = new VercelProvider();
+
+const source = defineSource({
+  provider,
+  project: { system: 'vercel-flags', projectId: 'prj_...' },
+  getEvaluationContext,
+});
 
 export const enableSale = bindFlag({
   key: 'enableSale',
@@ -226,11 +222,26 @@ export const enableSale = bindFlag({
 });
 ```
 
-See [Provider flags](/docs/flags/provider-flags) for the API behind it.
+The import of `context.ts` is there only if you added the file. See [Provider flags](/docs/flags/provider-flags) for the API behind it.
+
+## Use another provider
+
+With another flag management system, or without `@vercel/flags-core`, create the source yourself. A source is a folder `flags/sources/<source>` with two files, and one optional file:
+
+```txt
+flags/
+  sources/
+    self/
+      provider.ts   which provider evaluates the flags
+      catalog.ts    which flags exist, for code generation
+      context.ts    optional: who the user is, for each request
+```
+
+`provider.ts` exports any OpenFeature server provider. `catalog.ts` exports a catalog loader, which returns the flags of the source, e.g. a list in your code. See [Code generation](/docs/flags/code-generation) and [OpenFeature providers](/docs/providers/openfeature).
 
 ## Next steps
 
-- [Load the catalog](/docs/flags/code-generation) from your flag management system.
+- [Learn how code generation works](/docs/flags/code-generation), and how to replace a part of the source `self`.
 - [Add the evaluation context](/docs/flags/evaluation-context) of your users and teams.
 - [Set up Flags Explorer](/docs/tooling/flags-explorer) to override flags in your browser.
 - Read the guide for [your framework](/docs/frameworks).

@@ -322,7 +322,7 @@ The source is required. A generated module does not export its source: use `enab
 
 For framework packages and build tools. Apps do not use them.
 
-`flags/tooling`: `registerFramework(setup)`, `findConfigFile(dir)`, `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). Types: `FlagsAliases`, `WatchResult`, `SourceFiles`.
+`flags/tooling`: `registerFramework(setup)`, `findConfigFile(dir)`, `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?, options?: GenerateOptions)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal, disableSelfSource? })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). Types: `FlagsAliases`, `WatchResult`, `GenerateOptions` (`{ disableSelfSource?: boolean }`), `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel' }`; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
 
 `flags/manifest`: `createManifest(modules)` (from `{ id, exports }` of `'use flags'` modules; throws for an export that is not a flag), `validateFlagsManifest`, `validateSystemManifest`, `resolveFlagLinks`, `expandTemplate`.
 
@@ -336,8 +336,8 @@ const manifest = createManifest([{ id: 'flags.ts', exports: { ...flags } }]);
 ## The `flags` CLI
 
 ```sh
-flags sync [dir] [--production]
-flags watch [dir] [--production] [-- command ...args]
+flags sync [dir] [--production] [--disable-self-source]
+flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
 flags manifest [dir] [--out <file>]
 ```
 
@@ -361,9 +361,9 @@ Next.js 15.4 or newer, App Router, Turbopack.
 ```ts
 function withFlags<T extends object>(
   config?: T | NextConfigFunction<T>,
-  options?: { dir?: string; disableCodeGeneration?: false },
+  options?: { dir?: string; disableCodeGeneration?: false; disableSelfSource?: boolean },
 ): NextConfigFunction<T>;
-function withFlags<T extends object>(config: T, options: { dir?: string; disableCodeGeneration: true }): T;
+function withFlags<T extends object>(config: T, options: { dir?: string; disableCodeGeneration: true; disableSelfSource?: boolean }): T;
 ```
 
 - Adds the aliases `flags/framework` (the binding: `headers()`, `cookies()`, `connection()`, `unstable_rethrow`), `flags/config`, and `flags:<source>` (from `.flags/aliases.json`).
@@ -372,6 +372,7 @@ function withFlags<T extends object>(config: T, options: { dir?: string; disable
 - With Cache Components, encrypts `FlagValues` in `'use cache'`.
 - Generates code once for `next build`, watches for `next dev`, does nothing for `next start`.
 - `dir`: where to look for `flags/config.ts` and `flags/sources` (also in `src`). Default: the current directory.
+- `disableSelfSource`: no default source `self` for an app with `@vercel/flags-core` (see [code-generation.md](code-generation.md#the-default-source-self)). Set it when the sources are written by hand.
 - Returns a phase function, so it must be the outer plugin. With `disableCodeGeneration: true` and an object config, it returns the object.
 - A phase function config: `withFlags((phase) => ({ ... }))`. Do not call `withFlags` inside the function.
 
@@ -415,10 +416,10 @@ Development: the manifest of all `'use flags'` modules, `cache-control: no-store
 
 | Package                     | Entry points                            | Setup                                                    | Option                          |
 | --------------------------- | --------------------------------------- | -------------------------------------------------------- | ------------------------------- |
-| `@flags-sdk/sveltekit`      | `/vite` (`flags`), `/binding`           | `plugins: [sveltekit(), flags()]`                        | `disableCodeGeneration`         |
-| `@flags-sdk/nuxt`           | `.` (module), `/binding`, `/plugin`     | `modules: ['@flags-sdk/nuxt']`                           | `disableCodeGeneration` (config key `flags`, type `FlagsNuxtOptions`) |
-| `@flags-sdk/tanstack-start` | `/vite` (`flags`), `/binding`           | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` | `disableCodeGeneration`      |
-| `@flags-sdk/vite`           | `.` (`flags`, `MANIFEST_PATH`, `startCodeGeneration`, `resolveAliases`) | For framework packages and other Vite setups | `binding`, `bundle`, `dedupe`, `projectModules`, `disableCodeGeneration`, `manifest`, `root` |
+| `@flags-sdk/sveltekit`      | `/vite` (`flags`), `/binding`           | `plugins: [sveltekit(), flags()]`                        | `disableCodeGeneration`, `disableSelfSource` |
+| `@flags-sdk/nuxt`           | `.` (module), `/binding`, `/plugin`     | `modules: ['@flags-sdk/nuxt']`                           | `disableCodeGeneration`, `disableSelfSource` (config key `flags`, type `FlagsNuxtOptions`) |
+| `@flags-sdk/tanstack-start` | `/vite` (`flags`), `/binding`           | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` | `disableCodeGeneration`, `disableSelfSource` |
+| `@flags-sdk/vite`           | `.` (`flags`, `MANIFEST_PATH`, `startCodeGeneration`, `resolveAliases`) | For framework packages and other Vite setups | `binding`, `bundle`, `dedupe`, `projectModules`, `disableCodeGeneration`, `disableSelfSource`, `manifest`, `root` |
 | `@flags-sdk/hono`           | `.` (`flags`)                           | `app.use(flags({ config }))`                             | `config`                        |
 | `@flags-sdk/express`        | `.` (`flags`)                           | `app.use(flags({ config }))`                             | `config`                        |
 

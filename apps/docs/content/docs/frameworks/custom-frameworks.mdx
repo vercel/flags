@@ -130,15 +130,18 @@ Call `runtime.prepare()` before `createManifest`. It sets up the binding and loa
 | `MANIFEST_FILE` | `flags-manifest.json` |
 | `generateFlags` | Generates the modules of `flags:<source>` one time |
 | `watchFlags` | Generates them again after each change of a catalog |
+| `findGeneratedDeclarations` | Finds `flags/generated.d.ts` in a directory or its `src` |
 
 ## Code generation
 
 Code generation is optional. Each source is a folder `flags/sources/<source>` with `catalog.ts`, `provider.ts` and an optional `context.ts`. By convention, the main source of an application is `flags/sources/self`. The folder `flags` is in the root of the project or in `src`. The build plugin generates `.flags/<source>.ts` and the types in `flags/generated.d.ts` with the functions of `flags/tooling`, and sets the alias `flags:<source>` to each module:
 
-- for a build, `generateFlags(dir)` one time, before the bundler resolves the imports;
-- for a dev server, `watchFlags(dir, { signal })`, which generates again after each change of a catalog.
+- for a build, `generateFlags(dir, options)` one time, before the bundler resolves the imports;
+- for a dev server, `watchFlags(dir, { signal, ...options })`, which generates again after each change of a catalog.
 
-Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The plugins of the Flags SDK generate the code by default, and have the option `disableCodeGeneration` to turn it off, e.g. `flags({ disableCodeGeneration: true })`. Without a folder `flags/sources`, they write nothing. A framework without a bundler has no plugin: the application runs `flags sync` and imports `./.flags/self.ts`. See [Code generation](/docs/flags/code-generation).
+`options` is `GenerateOptions`: `{ disableSelfSource?: boolean }`. An application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), also without `flags/sources/self`. Give your users the option `disableSelfSource`, and pass it on. Find the types with `findGeneratedDeclarations(dir)`: for the default source, they can be in `src/flags/generated.d.ts` without a folder `flags/sources`.
+
+Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The plugins of the Flags SDK generate the code by default, and have the option `disableCodeGeneration` to turn it off, e.g. `flags({ disableCodeGeneration: true })`. Without a folder `flags/sources` and without the default source, they write nothing. A framework without a bundler has no plugin: the application runs `flags sync` and imports `./.flags/self.ts`. See [Code generation](/docs/flags/code-generation).
 
 ## For deployment platforms
 

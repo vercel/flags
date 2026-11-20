@@ -13,7 +13,7 @@ A framework package is a thin layer between the SDK and the framework. It does t
 - **Config loading.** It loads your optional `flags/config.ts` (hooks and override options). See [Configuration](/docs/flags/configuration).
 - **Signals.** Some frameworks use thrown errors as signals, for example `redirect()` or `notFound()`. The package makes sure that such errors reach the framework unchanged, also when you throw them from `getEvaluationContext`.
 - **`'use flags'` registration.** A module that starts with the `'use flags'` directive exports only flags. The build plugin registers these flags, so that the SDK knows all flags and sources.
-- **Code generation.** With a bundler, the plugin generates the modules of `flags:<source>` from the folders of `flags/sources` (see [Code generation](/docs/flags/code-generation)).
+- **Code generation.** With a bundler, the plugin generates the modules of `flags:<source>` from the folders of `flags/sources`, and `flags:self` with the flags of your Vercel project if you depend on `@vercel/flags-core` (see [Code generation](/docs/flags/code-generation)).
 - **Manifest.** The plugin serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json` in development and writes `flags-manifest.json` during the build. [Flags Explorer](/docs/tooling/flags-explorer) reads this manifest.
 
 ## Supported frameworks
@@ -34,14 +34,9 @@ Your framework is not in the list? You can [write a binding for it](/docs/framew
 
 ### With a bundler: the file system API
 
-In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. In SvelteKit, it is `src/flags/sources/self`, since SvelteKit type-checks `src` only. The files are the same in each of these frameworks. `context.ts` is optional:
+In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is `self`. With `@vercel/flags-core` in your dependencies, the plugin gives you the source `self` with the flags of your Vercel project. You do not create files for it. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project.
 
-```ts title="flags/sources/self/provider.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-
-// Any OpenFeature server provider works
-export default new VercelProvider();
-```
+To add an evaluation context, add `flags/sources/self/context.ts`. In SvelteKit, it is `src/flags/sources/self/context.ts`, since SvelteKit type-checks `src` only. The file is the same in each of these frameworks:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -54,14 +49,9 @@ export default function getEvaluationContext(
 }
 ```
 
-```ts title="flags/sources/self/catalog.ts"
-// The flags of your Vercel project, for the code generation
-export { default } from '@vercel/flags-core/catalog';
-```
+With another provider, the folder `flags/sources/self` has `provider.ts` and `catalog.ts`. `provider.ts` exports any OpenFeature server provider, and the catalog can also return a list.
 
-The provider and the catalog of Vercel Flags use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. With another provider, the catalog can also return a list.
-
-The plugin of your framework generates `.flags/self.ts` and the types in `flags/generated.d.ts`, and your code imports the flags:
+The plugin of your framework generates `.flags/self.ts` and the types in `flags/generated.d.ts` (or `src/flags/generated.d.ts`), and your code imports the flags:
 
 ```ts
 import { enableSale } from 'flags:self';

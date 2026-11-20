@@ -99,6 +99,13 @@ export default defineNuxtConfig({
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
   `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `flags/sources/self`.
+- With `@vercel/flags-core` in the dependencies, the source `self` is the
+  default source of Vercel Flags, also without `flags/sources/self`:
+  `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
+  Each file in `flags/sources/self` replaces its part, e.g.
+  `context.ts` adds an evaluation context. Without the credentials of
+  `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
+  the default source off, use `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`.
 - The module generates `.flags/<source>.ts` one time for `nuxt build`, and
   watches the catalogs in `nuxt dev`. It adds the aliases `flags:<source>`
   for Vite and for Nitro:
@@ -110,11 +117,12 @@ export default defineNuxtConfig({
 - The types are in `flags/generated.d.ts`. The module adds the file to the
   types of Nuxt (hook `prepare:types`), so the types work without `paths`.
   `.flags` has its own `.gitignore`.
-- Without `flags/sources`, the module writes nothing. To turn the
+- Without `flags/sources` and without the default source, the module
+  writes nothing. To turn the
   generation off, use
   `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
-  Each flag names its source. There is no default source.
+  Each flag names its source. The runtime has no global source.
 
 ## How it works
 

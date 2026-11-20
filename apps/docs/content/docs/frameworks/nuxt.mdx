@@ -12,41 +12,29 @@ description: Set up the Flags SDK in Nuxt with one module.
 ### 1. Install the packages
 
 ```sh title="Terminal"
-npm install flags @flags-sdk/nuxt @vercel/flags-core
+npm install flags @flags-sdk/nuxt @vercel/flags-core @openfeature/server-sdk
 ```
 
-`@vercel/flags-core` has the provider of [Vercel Flags](/docs/providers/vercel). Use the provider of your flag management system instead, if you have a different one.
+`@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel), and `@openfeature/server-sdk` is its peer dependency. Use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the module
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
-  // Writes .flags/self.ts from flags/sources/self
+  // Writes .flags/self.ts with the flags of your Vercel project
   modules: ['@flags-sdk/nuxt'],
 });
 ```
 
 The module also enables the async context of Nitro, which the SDK needs to find the current request. It writes the types of `flags:<source>` into `flags/generated.d.ts`, and adds the file to the types of Nuxt, so the types work without more configuration.
 
-### 3. Create the source `self`
+### 3. Create the flag in Vercel
 
-By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with two files and one optional file.
+With `@vercel/flags-core` in your dependencies, your application has the source `self` by default: the flags of your Vercel project. You do not create files for it. The module uses `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
 
-```ts title="flags/sources/self/provider.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
+`VercelProvider` and the catalog use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. See [Vercel Flags](/docs/providers/vercel).
 
-// Any OpenFeature server provider works
-export default new VercelProvider();
-```
-
-```ts title="flags/sources/self/catalog.ts"
-// The flags of your Vercel project, for the code generation
-export { default } from '@vercel/flags-core/catalog';
-```
-
-With another provider, the catalog can also return a list. See [Code generation](/docs/flags/code-generation).
-
-The context is optional. Without `context.ts`, the provider gets only the evaluation context of the call side.
+The context is optional. It tells the provider who the user is, e.g. for targeting rules. Add `flags/sources/self/context.ts`. The SDK calls it once per request, and the default provider and catalog stay:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -59,7 +47,9 @@ export default function getEvaluationContext(
 }
 ```
 
-`VercelProvider` and the catalog use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. See [Vercel Flags](/docs/providers/vercel). To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead, and return a static catalog.
+Without `context.ts`, the provider gets only the evaluation context of the call side. In the same way, `provider.ts` or `catalog.ts` replaces the default provider or catalog. See [The default source `self`](/docs/flags/code-generation#the-default-source-self).
+
+With another provider, create `flags/sources/self` with `provider.ts` and `catalog.ts`. The catalog can also return a list. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk`, and return a static catalog. See [Code generation](/docs/flags/code-generation).
 
 ### 4. Use the flag in a server route
 
@@ -86,7 +76,7 @@ const { data } = await useFetch('/api/flags');
 </template>
 ```
 
-Do not import `flags` or `flags:self` in components or composables that run in the browser. A new flag in the catalog becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation).
+Do not import `flags` or `flags:self` in components or composables that run in the browser. A new flag in your Vercel project becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation).
 
 ## Inline flags
 
@@ -122,7 +112,7 @@ Set the cookie `beta=1` to see the beta banner.
 
 ## Without code generation
 
-You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources`, the code generation writes nothing. To turn it off, use `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
+You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, use `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`, so that the module does not generate the default source `self`. To turn off all code generation, use `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';

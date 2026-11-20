@@ -56,7 +56,7 @@ import { summerSale } from 'flags:self';
 const sale = await summerSale();
 ```
 
-The SDK [generates](/docs/flags/code-generation) the module of `flags:self` from the catalog of your flag management system. Without a bundler, or if you prefer, you write the same code by hand:
+The SDK [generates](/docs/flags/code-generation) the module of `flags:self` from the catalog of your flag management system. With Vercel Flags, you do not need the folder: an application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), with the flags of its Vercel project. Without a bundler, or if you prefer, you write the same code by hand:
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';

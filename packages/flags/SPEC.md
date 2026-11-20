@@ -715,9 +715,11 @@ at the evaluation.
   application uses the OpenFeature provider of Vercel Flags directly:
   `VercelProvider` of `@vercel/flags-core/openfeature`, like each other
   OpenFeature provider, e.g. in `flags/sources/self/provider.ts`.
-- A default can come later, on the level of the files, not in the
-  configuration. E.g. a platform can give a default for
-  `flags/sources/self/provider.ts`. It is not decided yet.
+- The default is on the level of the files, not in the configuration: an
+  application which depends on `@vercel/flags-core` has the default source
+  `self` of Vercel Flags in the code generation (see "The default source
+  `self`"). The runtime still has no default source: each flag names its
+  source.
 
 Earlier drafts had a `defaultSource` in the configuration, a built-in
 default source with the module `flags/default-provider`, a replacement of
@@ -1036,8 +1038,9 @@ provide the same itself.
   `findFlagsModules`, `hasUseFlagsDirective`, `addSelfRegistration`,
   `writeManifestFromBuild`, `MANIFEST_FILE`, `findConfigFile`,
   `optionIndex`, `registerFramework`, and the code generation:
-  `generateFlags`, `watchFlags`, `renderSourceModule` and
-  `GENERATED_DIRECTORY` (see "Code generation"). It is part of the
+  `generateFlags`, `watchFlags`, `GenerateOptions`, `renderSourceModule`,
+  `findGeneratedDeclarations` and `GENERATED_DIRECTORY` (see "Code
+  generation"). It is part of the
   contract of a framework binding.
 - `registerFramework(setupFramework)` registers a binding without the
   alias of `flags/framework`, for a runtime which loads `flags` from
@@ -1140,7 +1143,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 | Path                    | Content                                                          | Used by                    |
 | ----------------------- | ---------------------------------------------------------------- | -------------------------- |
-| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, disableCodeGeneration? })`, the build plugin | `next.config.ts`        |
+| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, disableCodeGeneration?, disableSelfSource? })`, the build plugin | `next.config.ts`        |
 | `@flags-sdk/next/binding`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
 | `@flags-sdk/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
@@ -1344,7 +1347,8 @@ By convention, the main source of an application is `flags/sources/self`,
 imported as `flags:self`. An application with more sources adds more
 directories, e.g. `flags/sources/shop` for `flags:shop`. The folder `flags`
 is in the directory of the application, or else in `src`, as for
-`flags/config.ts`. Without `flags/sources`, the generation writes nothing.
+`flags/config.ts`. Without `flags/sources` and without the default source
+`self` (see below), the generation writes nothing.
 
 `catalog.ts` and the files which it imports can use relative imports
 without an extension. Node.js loads them with its type stripping, and the
@@ -1374,11 +1378,55 @@ A `Catalog` has `flags` (for each key: `variants` and an optional
 links of Flags Explorer) and an optional `revision`. The name of a source
 must match `[a-z][a-z0-9_-]*`.
 
+### The default source `self`
+
+An application which depends on `@vercel/flags-core` (in `dependencies`,
+`devDependencies`, `peerDependencies` or `optionalDependencies` of its
+`package.json`) has the source `self` with the flags of its Vercel project,
+also without `flags/sources/self/`. The dependency is the opt-in: without
+it, there is no `flags:self` of its own, no network request, and no file.
+
+| Part | Default |
+| --- | --- |
+| Provider | `new VercelProvider()` of `@vercel/flags-core/openfeature`: the OIDC token after `vercel link` and `vercel env pull`, or an SDK key in `FLAGS` |
+| Catalog | `loadCatalog` of `@vercel/flags-core/catalog`, resolved from the dependencies of the application. A build takes the first catalog, and the dev server stays connected |
+| Context | None |
+
+- Each file of `flags/sources/self/` replaces its part: `context.ts` adds
+  an evaluation context, `provider.ts` replaces the provider, and
+  `catalog.ts` the catalog. The other parts stay the defaults.
+- Each other source, and `self` without `@vercel/flags-core`, needs
+  `provider.ts` and `catalog.ts`.
+- Without `flags/sources`, the types go into a folder `flags` which
+  exists (in the root or in `src`, e.g. with `flags/config.ts`). Without
+  one, they go to `src/flags/generated.d.ts` if the application has `src`,
+  else to `flags/generated.d.ts`, and the generation creates the folder.
+  It removes a `generated.d.ts` with its own header from the other place,
+  so that one file declares the modules.
+  `findGeneratedDeclarations(directory)` finds the file.
+- The catalog sets `project: { system: 'vercel-flags', projectId }`, so the
+  flags have the links of the dashboard.
+- If the default catalog fails before its first catalog, e.g. in CI without
+  credentials, the source has no flags, and the SDK warns:
+
+  ```txt
+  flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set disableSelfSource.
+  ```
+
+  The generation does not fail. An
+  import of a flag of `flags:self` then fails the type check. A
+  `catalog.ts` of the application still fails the generation.
+- `disableSelfSource: true` in each plugin, and `--disable-self-source` for
+  `flags sync` and `flags watch`, turn it off. The option also avoids the
+  network requests of the generation. An application which depends on
+  `@vercel/flags-core` and writes its sources by hand sets it.
+
 ### The generated module
 
 `.flags/<source>.ts` starts with `'use flags'`, so the framework plugins
 register it, and `findFlagsModules` finds it (`.flags` is the only hidden
-directory it reads). It has one `defineSource` with `provider.ts`,
+directory it reads). It has one `defineSource` with `provider.ts` (or
+`new VercelProvider()` for the default source),
 `context.ts` (if the source has one) and the `project` of the catalog (no `project` without
 one), and one `bindFlag` for each flag, sorted by key:
 
@@ -1395,7 +1443,8 @@ one), and one `bindFlag` for each flag, sorted by key:
   so a key can have any characters.
 
 The generation imports only `catalog.ts`. It checks that each source has
-`provider.ts` and `catalog.ts` before it runs a catalog. It renders all modules before it
+`provider.ts` and `catalog.ts` (except the parts of the default source)
+before it runs a catalog. It renders all modules before it
 writes one, and writes a file only when its content changes, with a rename,
 so a watcher never sees half a file. It removes the module of a removed
 source. If a catalog fails, the last modules stay. It also writes
@@ -1423,9 +1472,9 @@ catalog: OpenFeature providers do not give their project.
 
 ### The commands
 
-- `flags sync [dir] [--production]` generates one time, from the first
+- `flags sync [dir] [--production] [--disable-self-source]` generates one time, from the first
   catalog of each source, and closes the catalogs.
-- `flags watch [dir] [--production] [-- command ...args]` generates again
+- `flags watch [dir] [--production] [--disable-self-source] [-- command ...args]` generates again
   after each change of a catalog. It starts the command after the first
   generation, and stops when the command ends, or on SIGINT and SIGTERM.
   A change of a file of a source needs a restart.
@@ -1437,7 +1486,8 @@ catalog: OpenFeature providers do not give their project.
 ### In the frameworks
 
 Each framework with a bundler generates the code by default, and has the
-option `disableCodeGeneration` to turn it off. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
+option `disableCodeGeneration` to turn it off, and `disableSelfSource` to
+turn off only the default source `self`. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
 catalogs in development. It adds the aliases `flags:<source>` to the
 bundler.
 
@@ -1460,7 +1510,7 @@ bundler.
   `vite build`.
 - Nuxt: the module generates before the build, gives the aliases to Vite
   and to Nitro, and adds `flags/generated.d.ts` to the types of Nuxt with
-  the hook `prepare:types`.
+  the hook `prepare:types` (found with `findGeneratedDeclarations`).
 - A process generates one time for each directory and mode, also when the
   framework loads the configuration more than once.
 
@@ -1670,10 +1720,10 @@ of Turbopack works on a collection of the whole application.
     now, from the `projectId` of the source. The system manifests on
     flags-sdk.dev do not exist yet (404). The toolbar should load them
     through vercel.live, not from the page, with the checks of section 9.2.
-- **A default for `flags/sources/self`.** There is no default source now
-  (see "No default source"). A default can come later on the level of the
-  files, e.g. a default of the platform for
-  `flags/sources/self/provider.ts`. The OFREP endpoint of Vercel Flags and
+- **A default for `flags/sources/self`.** Done for Vercel Flags, on the
+  level of the files: the default source `self` of `@vercel/flags-core`
+  (see "The default source `self`"). The runtime still has no default
+  source (see "No default source"). The OFREP endpoint of Vercel Flags and
   the replacement of `flags/default-provider` are not planned in their
   earlier form.
 - **KMS for flag overrides.** Flags Explorer signs override tokens with Vercel

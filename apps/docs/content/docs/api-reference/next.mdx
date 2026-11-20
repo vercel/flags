@@ -77,12 +77,17 @@ It supports only Turbopack. A build with webpack throws.
 | ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dir`                   | `string`  | The directory of the application, where the plugin looks for `flags/config.ts` and `flags/sources` (also in `src`). The default is the current directory.                                 |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. For a configuration object, `withFlags` then returns the object, not a function of the phase. The default is `false`.                 |
+| `disableSelfSource`     | `boolean` | Turns off the default source `self`, the flags of your Vercel project for an application which depends on `@vercel/flags-core`. Also stops the requests of the code generation to Vercel Flags. The default is `false`. |
 
 By default, `withFlags` generates the modules of `flags:<source>` from the
 catalogs of `flags/sources/<source>`: once for `next build`, and again after
 each change of a catalog for `next dev`. `next start` does no catalog work.
-`withFlags` then returns a function of the phase. Without a folder
-`flags/sources`, it writes nothing.
+`withFlags` then returns a function of the phase. An application which
+depends on `@vercel/flags-core` also gets `flags:self` with the flags of its
+Vercel project, without a folder `flags/sources/self` (see
+[The default source `self`](/docs/flags/code-generation#the-default-source-self)).
+Without a folder `flags/sources` and without the default source, it writes
+nothing.
 
 ```ts title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
@@ -92,9 +97,12 @@ export default withFlags({
 });
 ```
 
-With `flags/sources/self/`, this writes `.flags/self.ts`, and your code
-imports `import { enableSale } from 'flags:self'`. For the types, it writes
-`flags/generated.d.ts`. You do not change `tsconfig.json` or `.gitignore`.
+With `@vercel/flags-core` or with `flags/sources/self/`, this writes
+`.flags/self.ts`, and your code imports
+`import { enableSale } from 'flags:self'`. For the types, it writes
+`flags/generated.d.ts` (`src/flags/generated.d.ts` for an application with
+`src` and without a folder `flags/sources`). You do not change
+`tsconfig.json` or `.gitignore`.
 
 The configuration can also be a function of the phase. Pass the function to
 `withFlags`. Do not call `withFlags` inside the function: `withFlags` returns
@@ -144,6 +152,16 @@ To turn off the code generation, e.g. if you write your sources by hand:
 import { withFlags } from '@flags-sdk/next/plugin';
 
 export default withFlags({}, { disableCodeGeneration: true });
+```
+
+To keep the code generation of `flags/sources`, but turn off the default
+source `self`, e.g. if you depend on `@vercel/flags-core` and write the
+source of Vercel Flags by hand:
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { disableSelfSource: true });
 ```
 
 With `disableCodeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.

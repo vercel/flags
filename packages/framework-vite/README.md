@@ -16,6 +16,9 @@ uses the plugin of its framework package, not this one.
 - **Code generation** of `flags:<source>` from the catalogs of
   `flags/sources/<source>`, by default, with the types in
   `flags/generated.d.ts`. The option `disableCodeGeneration` turns it off.
+  An application which depends on `@vercel/flags-core` also gets the
+  default source `self`, with the flags of its Vercel project. The option
+  `disableSelfSource` turns it off.
 - **A Rollup plugin too**, e.g. for the server build of Nitro.
 
 ## Installation
@@ -45,6 +48,7 @@ export function myFrameworkFlags() {
 | `dedupe`          | Packages which the binding imports, which must be the copy of the project       |
 | `projectModules`  | Modules which the binding imports, by the first package which the project has   |
 | `disableCodeGeneration` | Turns off the code generation. By default, the plugin generates `.flags/<source>.ts` and `flags/generated.d.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. It adds the aliases `flags:<source>` |
+| `disableSelfSource` | Turns off the default source `self`. By default, an application which depends on `@vercel/flags-core` has the source `self` with the flags of its Vercel project, also without `flags/sources/self/` |
 | `manifest`        | Whether a build writes `flags-manifest.json`. The default is `true`             |
 | `root`            | The directory of the project. The default is the root of Vite                   |
 

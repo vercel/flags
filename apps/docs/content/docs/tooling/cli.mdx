@@ -11,7 +11,7 @@ npx flags sync
 
 | Command | What it does |
 | --- | --- |
-| [`flags sync`](#flags-sync) | Generates the modules of `flags:<source>` one time, from the catalogs in `flags/sources`. |
+| [`flags sync`](#flags-sync) | Generates the modules of `flags:<source>` one time, from the catalogs in `flags/sources` and of the default source `self`. |
 | [`flags watch`](#flags-watch) | Generates them again after each change of a catalog, and can start your development server. |
 | [`flags manifest`](#flags-manifest) | Writes the [flags manifest](/docs/tooling/flags-manifest) of an application without a framework plugin. |
 
@@ -20,12 +20,16 @@ With a framework plugin, the code generation runs for you by default, during the
 ## `flags sync`
 
 ```bash
-flags sync [dir] [--production]
+flags sync [dir] [--production] [--disable-self-source]
 ```
 
 Runs the catalog of each source in `flags/sources/<source>` one time, and writes `.flags/<source>.ts`, e.g. `.flags/self.ts` for the main source `flags/sources/self`. It also writes the types of `flags:<source>` into `flags/generated.d.ts`. The folder `flags` is in `dir` or in its `src` folder. See [Code generation](/docs/flags/code-generation).
 
+If your application depends on `@vercel/flags-core`, it also writes the [default source `self`](/docs/flags/code-generation#the-default-source-self) with the flags of your Vercel project, also without `flags/sources/self`. If these flags can not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags, the command warns, and it does not fail.
+
 - `dir` is the directory of your application. The default is the current directory.
+- `--production` loads the `.env` files for production. See [Environment variables](#environment-variables).
+- `--disable-self-source` turns off the default source `self`. The command then makes no requests to Vercel Flags for it.
 - It writes a file only when its content changes, and removes the module of a removed source.
 - If a catalog fails, the command fails, and the last generated modules stay.
 
@@ -43,10 +47,10 @@ Run it before the type check and the build, e.g. in CI:
 ## `flags watch`
 
 ```bash
-flags watch [dir] [--production] [-- command ...args]
+flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
 ```
 
-Generates the modules, then generates them again each time a catalog yields a new catalog, e.g. when someone changes a flag in the dashboard.
+Generates the modules, then generates them again each time a catalog yields a new catalog, e.g. when someone changes a flag in the dashboard. It takes the same options as `flags sync`.
 
 - With `-- command`, it starts the command after the first generation, and stops when the command ends. Use it to run your development server with up-to-date flags:
 

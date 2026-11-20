@@ -135,16 +135,25 @@ plugin generates `.flags/<source>.ts`, and the types in
 `flags/generated.d.ts`, with the functions of `flags/tooling`, and sets the
 alias `flags:<source>` to each module:
 
-- for a build, `generateFlags(dir)` one time, before the bundler resolves
-  the imports;
-- for a dev server, `watchFlags(dir, { signal })`, which generates again
-  after each change of a catalog.
+- for a build, `generateFlags(dir, options)` one time, before the bundler
+  resolves the imports;
+- for a dev server, `watchFlags(dir, { signal, ...options })`, which
+  generates again after each change of a catalog.
+
+`options` is `GenerateOptions`: `{ disableSelfSource?: boolean }`. An
+application which depends on `@vercel/flags-core` has the default source
+`self`, with the flags of its Vercel project, also without
+`flags/sources/self`. Give your users the option `disableSelfSource`, and
+pass it on. Find the types with `findGeneratedDeclarations(dir)`, not next
+to `flags/sources`: for the default source, they can be in
+`src/flags/generated.d.ts` without a folder `flags/sources`.
 
 Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The
 plugins of this repository generate the code by default, and have the
 option `disableCodeGeneration` to turn it off, e.g.
-`flags({ disableCodeGeneration: true })`. Without `flags/sources`, they
-write nothing. A framework without a bundler has no
+`flags({ disableCodeGeneration: true })`, and `disableSelfSource` for the
+default source. Without `flags/sources` and without the default source,
+they write nothing. A framework without a bundler has no
 plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 
 ## `flags/tooling`
@@ -161,15 +170,16 @@ plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 | `optionIndex`            | The index of a value in the options of a flag                 |
 | `generateFlags`          | Generates the modules of `flags:<source>` one time            |
 | `watchFlags`             | Generates them again after each change of a catalog           |
+| `findGeneratedDeclarations` | Finds `flags/generated.d.ts` in a directory or its `src`   |
 | `renderSourceModule`     | Renders the module of one source from its catalog             |
 | `GENERATED_DIRECTORY`    | `.flags`                                                      |
 
 ## For deployment platforms
 
-- There is no default provider for now. Each flag of a provider names its
-  source, and the configuration has no source. A default can come later on
-  the level of the files, e.g. a default of the platform for
-  `flags/sources/self/provider.ts`.
+- Each flag of a provider names its source, and the configuration has no
+  source. The default is on the level of the files: with
+  `@vercel/flags-core`, the code generation gives the default source `self`
+  of Vercel Flags.
 - Put `flags-manifest.json` of the build into your build output, so that
   tools can read it. For Next.js, use `onBuildComplete` of the Adapter API.
 

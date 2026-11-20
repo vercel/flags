@@ -127,7 +127,7 @@ The folder `flags` is in the root of your application, or in `src` (`src/flags/s
 | `provider.ts` | The OpenFeature provider | In your application |
 | `context.ts` (optional) | `getEvaluationContext(request, input)`, as for [`defineSource`](/docs/flags/provider-flags#sources) | In your application |
 
-The name of the folder is the name of the source, and the module is `flags:<source>`. It must start with a letter, and contain only letters, digits, `-` and `_`. Each folder needs `provider.ts` and `catalog.ts`. `context.ts` is optional.
+The name of the folder is the name of the source, and the module is `flags:<source>`. It must start with a letter, and contain only letters, digits, `-` and `_`. Each folder needs `provider.ts` and `catalog.ts`. `context.ts` is optional. The exception is the [default source `self`](#the-default-source-self) of Vercel Flags.
 
 ### `provider.ts`
 
@@ -255,12 +255,108 @@ export default async function* loadCatalog({
   Node.js loads `catalog.ts` with its built-in type stripping, without a bundler. Use a Node.js version that strips types by default (22.18 or newer), use only erasable TypeScript syntax (no `enum`), and use relative imports for the other files of the source, e.g. `import { selfFlags } from './definitions'`. You do not need the `.ts` extension: the SDK finds the `.ts`, `.tsx` or `/index.ts` file of an import.
 </Callout>
 
+## The default source `self`
+
+An application which depends on `@vercel/flags-core` has the source `self` by default. It has the flags of your Vercel project, and you do not create `flags/sources/self`:
+
+```ts title="app/page.tsx"
+import { enableSale } from 'flags:self';
+```
+
+The SDK turns it on when `package.json` has `@vercel/flags-core` in any dependency field, e.g. `dependencies` or `devDependencies`. An application without `@vercel/flags-core` never gets the default source: the SDK does no network request and writes no file for it.
+
+The default source has these parts:
+
+| Part | Default |
+| --- | --- |
+| Provider | `new VercelProvider()` of `@vercel/flags-core/openfeature`. It uses the OIDC token of `vercel link` and `vercel env pull`, or the SDK key in the environment variable `FLAGS`. |
+| Catalog | `@vercel/flags-core/catalog`, from the dependencies of your application. A build takes the first catalog. The dev server stays connected, and rewrites the module after each change in Vercel. |
+| Context | None. The provider gets only the evaluation context of the call side. |
+
+The catalog gives the `project` of the source, so each flag links to its page in the dashboard of Vercel Flags.
+
+### Replace a part
+
+Each file in `flags/sources/self` replaces its part of the default source. The other parts stay the defaults:
+
+- `context.ts` adds an evaluation context, e.g. for targeting rules. The provider and the catalog stay the defaults.
+- `provider.ts` replaces the provider, e.g. `new VercelProvider(createClient(...))` with an SDK key of your choice.
+- `catalog.ts` replaces the catalog, e.g. with a static catalog that has a `defaultValue` for each flag.
+
+```text
+flags/
+  sources/
+    self/
+      context.ts    # Only the context. The provider and the catalog are the defaults.
+```
+
+Restart the dev server after you add or remove a file. Each other source, and `self` without `@vercel/flags-core`, needs `provider.ts` and `catalog.ts`, as above.
+
+### Where the types go
+
+If your application has a folder `flags/sources`, the types go to `flags/generated.d.ts` next to it, as for each source. Without it, the types go into a folder `flags` which exists, e.g. with `flags/config.ts`. Without one, they go to `src/flags/generated.d.ts` if your application has a `src` directory, otherwise to `flags/generated.d.ts`, and the SDK creates the folder. If the place changes, e.g. when you add `flags/sources/self/` in the root, the SDK removes the old `generated.d.ts`, so that only one file declares `flags:self`. The module is `.flags/self.ts`, as for each source.
+
+### Without credentials
+
+The default catalog needs the credentials of Vercel Flags. If it can not load the flags before its first catalog, e.g. in CI without `vercel env pull`, `flags:self` has no flags and the SDK warns:
+
+```txt
+flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set disableSelfSource.
+```
+
+The build does not fail. A type check then fails at each import of a flag of `flags:self`. A `catalog.ts` of your own still fails the build when it fails.
+
+### Turn it off
+
+Set `disableSelfSource: true` to turn off the default source. This also stops the network requests of the code generation to Vercel Flags. Set it if you depend on `@vercel/flags-core` but write your sources by hand.
+
+```ts tab="Next.js" title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({}, { disableSelfSource: true });
+```
+
+```ts tab="SvelteKit" title="vite.config.ts"
+import { flags } from '@flags-sdk/sveltekit/vite';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [sveltekit(), flags({ disableSelfSource: true })],
+});
+```
+
+```ts tab="Nuxt" title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]],
+});
+```
+
+```ts tab="TanStack Start" title="vite.config.ts"
+import { flags } from '@flags-sdk/tanstack-start/vite';
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import viteReact from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    nitro(),
+    tanstackStart(),
+    viteReact(),
+    flags({ disableSelfSource: true }),
+  ],
+});
+```
+
+For `@flags-sdk/vite`, use `flags({ disableSelfSource: true })`. For the command line, use `flags sync --disable-self-source` and `flags watch --disable-self-source`.
+
 ## What the generator writes
 
 For each source, `.flags/<source>.ts` contains:
 
 - the `'use flags'` directive, so the framework packages register the flags and Flags Explorer finds them;
-- one `defineSource` with `provider.ts`, `context.ts` (if the folder has one) and the `project` of the catalog, if it has one;
+- one `defineSource` with `provider.ts` (or `new VercelProvider()` for the default source `self`), `context.ts` (if the folder has one) and the `project` of the catalog, if it has one;
 - one `bindFlag` for each flag of the catalog, sorted by key, with:
   - `type` from the variants: `boolean`, `string` or `number` if all variants have that type, otherwise `object` (any JSON value, e.g. for variants of mixed types);
   - `options`: the variants. As for every flag, they do not limit the value: a variant that is added after the deployment goes through;
@@ -280,7 +376,7 @@ The generator writes a file only when its content changes, never writes half a f
 
 ### 1. Add the folder of the source
 
-Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `catalog.ts` and, if you need it, `context.ts`, as above. In SvelteKit, create `src/flags/sources/self`.
+Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `catalog.ts` and, if you need it, `context.ts`, as above. In SvelteKit, create `src/flags/sources/self`. With `@vercel/flags-core`, skip this step, or add only the files that you want to replace (see [The default source `self`](#the-default-source-self)).
 
 ### 2. Add the plugin
 
@@ -320,7 +416,7 @@ export default defineConfig({
 });
 ```
 
-The plugin writes `.flags/<source>.ts` for each folder of `flags/sources`, and `flags/generated.d.ts` for the types. It points each `flags:<source>` import to its module:
+The plugin writes `.flags/<source>.ts` for each folder of `flags/sources` and for the default source `self`, and `flags/generated.d.ts` for the types. It points each `flags:<source>` import to its module:
 
 - The dev server (`next dev`, `vite dev`, `nuxt dev`) generates the modules before it resolves the imports, and keeps the catalogs open: a change of a catalog rewrites the module.
 - A build generates the modules once, then closes the catalogs.
@@ -328,7 +424,7 @@ The plugin writes `.flags/<source>.ts` for each folder of `flags/sources`, and `
 
 Restart the dev server after you change a file of a source, or add or remove a source.
 
-Without a folder `flags/sources`, the plugin writes nothing. To turn off code generation, e.g. if you write your sources by hand, use `disableCodeGeneration: true`, e.g. `withFlags({}, { disableCodeGeneration: true })`, `flags({ disableCodeGeneration: true })` or `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
+Without a folder `flags/sources` and without the default source `self`, the plugin writes nothing. To turn off code generation, e.g. if you write your sources by hand, use `disableCodeGeneration: true`, e.g. `withFlags({}, { disableCodeGeneration: true })`, `flags({ disableCodeGeneration: true })` or `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
 ### 3. Commit or ignore the types
 

@@ -2,7 +2,7 @@
 
 A provider is an OpenFeature server provider, used as it is. There are no adapters. A source connects a provider to flags:
 
-- File system API: the provider is the default export of `flags/sources/<source>/provider.ts`.
+- File system API: the provider is the default export of `flags/sources/<source>/provider.ts`. With `@vercel/flags-core` in `package.json`, the source `self` has the default provider `new VercelProvider()`, and needs no `provider.ts`.
 - By hand: `defineSource({ provider, project?, getEvaluationContext?, hooks? })`.
 
 Do not call `OpenFeature.setProvider()` or `OpenFeature.getClient()`. The SDK calls the provider directly, initializes it once before the first evaluation (or at `runtime.onInit()`), waits for it, and closes it at `runtime.onShutdown()`. Do not register the same instance with the OpenFeature API too. Use a server provider (Node.js), not a web provider.
@@ -39,19 +39,7 @@ Package: `@vercel/flags-core`. Provider: `VercelProvider` of `@vercel/flags-core
 
 1. Install: `pnpm add flags @vercel/flags-core @openfeature/server-sdk` plus the framework package.
 2. Credentials: `vercel link`, then `vercel env pull`. `VercelProvider` uses the OIDC token of the project. Deployments on Vercel get it automatically.
-3. Create the source:
-   ```ts
-   // flags/sources/self/provider.ts
-   import { VercelProvider } from '@vercel/flags-core/openfeature';
-
-   // Without an SDK key, the client uses the OIDC token of the project
-   export default new VercelProvider();
-   ```
-   ```ts
-   // flags/sources/self/catalog.ts
-   export { default } from '@vercel/flags-core/catalog';
-   ```
-   Add `context.ts` when targeting rules use entities (see [Targeting](#targeting)).
+3. The source: none to create. With `@vercel/flags-core` in `package.json`, the plugin gives the default source `self`: provider `new VercelProvider()`, catalog `@vercel/flags-core/catalog`, no context. Do not write `provider.ts` or `catalog.ts` for it. Add only `flags/sources/self/context.ts` when targeting rules use entities (see [Targeting](#targeting)). The default provider and catalog stay. See [code-generation.md](code-generation.md#the-default-source-self).
 4. Add the framework plugin. Import the flags from `flags:self`:
    ```tsx
    import { 'summer-sale' as summerSale } from 'flags:self';
@@ -66,7 +54,7 @@ Create flags with `vercel flags create <key> --kind <kind> --description "<descr
 
 ### By hand
 
-Without a bundler, or when you prefer code:
+Without a bundler, or when you prefer code. With a framework plugin, also set `disableSelfSource: true` (e.g. `withFlags(config, { disableSelfSource: true })`), so that the plugin does not generate the default source `self` too:
 
 ```ts
 // flags/self.ts
@@ -103,7 +91,7 @@ export const summerSale = bindFlag({
 
 ### Configure the client and SDK keys
 
-`new VercelProvider()` uses the SDK key in `FLAGS` if set, otherwise the OIDC token. Pass a client or an SDK key to change this:
+`new VercelProvider()` uses the SDK key in `FLAGS` if set, otherwise the OIDC token. To change this, add `flags/sources/self/provider.ts`, and pass a client or an SDK key. It replaces only the default provider; the default catalog stays:
 
 ```ts
 // flags/sources/self/provider.ts
@@ -121,7 +109,7 @@ Use SDK keys for apps outside Vercel, to select an environment explicitly, or fo
 
 ### The flags of another project
 
-Put each project into its own source. Give the provider and the catalog the same project:
+Put each project into its own source. A source other than `self` needs both files. Give the provider and the catalog the same project:
 
 ```ts
 // flags/sources/shared/provider.ts
@@ -178,6 +166,8 @@ If a connected flag only returns its default value, check the connection, then r
 ### The catalog
 
 `@vercel/flags-core/catalog` reads the flags of the project from the stream of Vercel Flags, with `FLAGS` or the OIDC token. A build takes the first catalog. A dev server stays connected and regenerates after each change in Vercel. The catalog sets `project: { system: 'vercel-flags', projectId }`, the variants and the descriptions.
+
+It is the default catalog of the source `self`. If it can not load the flags before the first catalog (no credentials, e.g. in CI), `flags:self` has no flags and the SDK warns; the build does not fail, but the type check fails at each import of a flag. Add `flags/sources/self/catalog.ts` only for options or a static catalog. It replaces only the default catalog:
 
 ```ts
 // flags/sources/self/catalog.ts

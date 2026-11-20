@@ -44,6 +44,8 @@ With a framework with a bundler, a source is a folder. By convention, the main s
 - `catalog.ts` lists the flags of the source,
 - optionally, `context.ts` exports `getEvaluationContext(request, input)`.
 
+With `@vercel/flags-core` in your dependencies, you do not create this folder. The source `self` is then the default source of Vercel Flags: `new VercelProvider()`, and the flags of your Vercel project as the catalog. A file in `flags/sources/self/` replaces its part, e.g. `context.ts` adds the evaluation context.
+
 [Code generation](/docs/flags/code-generation) turns the folder into the module `flags:self`, with the source and one typed flag for each flag of the catalog:
 
 ```ts
@@ -62,7 +64,7 @@ const self = defineSource({
 const summerSale = bindFlag({ key: 'summer-sale', source: self });
 ```
 
-Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider names its source: there is no default source.
+Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider names its source: the runtime has no global source to fall back on.
 
 ## The runtime
 

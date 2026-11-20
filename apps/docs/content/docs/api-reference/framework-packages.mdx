@@ -43,13 +43,18 @@ By default, the plugin also generates the modules of `flags:<source>` from
 `flags/sources/<source>/`, e.g. `.flags/self.ts` for `flags:self`, and their
 types in `flags/generated.d.ts`: one time for a build, and after each change
 of a catalog in development. It points `flags:<source>` to the modules.
-Without a folder `flags/sources`, it writes nothing. In SvelteKit, put the
+An application which depends on `@vercel/flags-core` also gets the default
+source `self`, with the flags of its Vercel project (see
+[The default source `self`](/docs/flags/code-generation#the-default-source-self)).
+Without a folder `flags/sources` and without the default source, it writes
+nothing. In SvelteKit, put the
 folder into `src/flags`, since SvelteKit type-checks `src` only. See
 [Code generation](/docs/flags/code-generation).
 
 | Option                  | Type      | Description                                                                        |
 | ----------------------- | --------- | ---------------------------------------------------------------------------------- |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`.         |
+| `disableSelfSource`     | `boolean` | Turns off the default source `self` of `@vercel/flags-core`. The default is `false`. |
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/sveltekit/vite';
@@ -92,11 +97,13 @@ the Nitro build. It:
 - by default, generates the modules of `flags:<source>` from
   `flags/sources/<source>/` (one time for a build, and after each change of a
   catalog for `nuxt dev`), adds their aliases to the Vite and Nitro builds,
-  and adds `flags/generated.d.ts` to the types of Nuxt.
+  and adds `flags/generated.d.ts` to the types of Nuxt. With
+  `@vercel/flags-core`, this includes the default source `self`.
 
 | Option                  | Type      | Description                                                                |
 | ----------------------- | --------- | -------------------------------------------------------------------------- |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`. |
+| `disableSelfSource`     | `boolean` | Turns off the default source `self` of `@vercel/flags-core`. The default is `false`. |
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
@@ -129,7 +136,7 @@ function flags(options?: FlagsTanStackStartOptions): Plugin;
 ```
 
 The Vite plugin, with the same behavior and the same `disableCodeGeneration`
-option as for SvelteKit. It resolves the server and router modules of
+and `disableSelfSource` options as for SvelteKit. It resolves the server and router modules of
 TanStack Start for React or Solid, whichever the project has.
 
 ```ts title="vite.config.ts"
@@ -170,6 +177,7 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
 | `disableCodeGeneration` | `boolean`                            | Turns off the code generation. By default, the plugin generates the modules of `flags:<source>` and `flags/generated.d.ts` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
+| `disableSelfSource` | `boolean`                                | Turns off the default source `self`. By default, an application which depends on `@vercel/flags-core` has the source `self` with the flags of its Vercel project, also without `flags/sources/self/`. The code generation then loads these flags from Vercel Flags. |
 | `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
 | `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
 
@@ -193,14 +201,19 @@ manifest in development.
 ### `startCodeGeneration` and `resolveAliases`
 
 ```ts
-function startCodeGeneration(dir: string, watch: boolean): CodeGeneration;
+function startCodeGeneration(
+  dir: string,
+  watch: boolean,
+  options?: GenerateOptions,
+): CodeGeneration;
 function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, string>;
 ```
 
 The code generation of the plugin, for plugins of other
 bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules
 one time (`watch: false`), or again after each change of a catalog
-(`watch: true`). Its `CodeGeneration` has `ready`, a promise of the aliases
+(`watch: true`). `options` are the `GenerateOptions` of `flags/tooling`,
+e.g. `{ disableSelfSource: true }`. Its `CodeGeneration` has `ready`, a promise of the aliases
 when the first modules exist, and `stop()`. `resolveAliases` turns the
 aliases into absolute paths, e.g. `{ 'flags:self': '/app/.flags/self.ts' }`.
 

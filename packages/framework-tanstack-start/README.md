@@ -110,6 +110,13 @@ export default defineConfig({
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
   `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `flags/sources/self`.
+- With `@vercel/flags-core` in the dependencies, the source `self` is the
+  default source of Vercel Flags, also without `flags/sources/self`:
+  `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
+  Each file in `flags/sources/self` replaces its part, e.g.
+  `context.ts` adds an evaluation context. Without the credentials of
+  `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
+  the default source off, use `flags({ disableSelfSource: true })`.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and
   watches the catalogs in `vite dev`. It adds the aliases
   `flags:<source>`:
@@ -118,12 +125,13 @@ export default defineConfig({
   import { 'summer-sale' as summerSale } from 'flags:self';
   ```
 
-- The types are in `flags/generated.d.ts`, so `tsconfig.json` needs no
-  change. `.flags` has its own `.gitignore`.
-- Without `flags/sources`, the plugin writes nothing. To turn the generation
+- The types are in `flags/generated.d.ts` (without `flags/sources`, in
+  `src/flags/generated.d.ts`), so `tsconfig.json` needs no change. `.flags` has its own `.gitignore`.
+- Without `flags/sources` and without the default source, the plugin
+  writes nothing. To turn the generation
   off, use `flags({ disableCodeGeneration: true })`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
-  Each flag names its source. There is no default source.
+  Each flag names its source. The runtime has no global source.
 
 ## How it works
 

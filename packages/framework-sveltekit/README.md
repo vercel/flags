@@ -108,6 +108,13 @@ export default defineConfig({
   `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `src/flags/sources/self`. Use `src/flags`, since SvelteKit
   type-checks `src` only.
+- With `@vercel/flags-core` in the dependencies, the source `self` is the
+  default source of Vercel Flags, also without `src/flags/sources/self`:
+  `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
+  Each file in `src/flags/sources/self` replaces its part, e.g.
+  `context.ts` adds an evaluation context. Without the credentials of
+  `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
+  the default source off, use `flags({ disableSelfSource: true })`.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and
   watches the catalogs in `vite dev`. It adds the aliases
   `flags:<source>`:
@@ -118,10 +125,11 @@ export default defineConfig({
 
 - The types are in `src/flags/generated.d.ts`, so `svelte.config.js` and
   `tsconfig.json` need no change. `.flags` has its own `.gitignore`.
-- Without `flags/sources`, the plugin writes nothing. To turn the generation
+- Without `flags/sources` and without the default source, the plugin
+  writes nothing. To turn the generation
   off, use `flags({ disableCodeGeneration: true })`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
-  Each flag names its source. There is no default source.
+  Each flag names its source. The runtime has no global source.
 
 ## How it works
 
