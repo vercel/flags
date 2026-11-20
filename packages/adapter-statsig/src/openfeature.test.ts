@@ -303,15 +303,32 @@ describe('StatsigProvider: errors', () => {
     ).rejects.toMatchObject({ code: ErrorCode.PROVIDER_NOT_READY });
   });
 
-  it('throws when Statsig fails to initialize', async () => {
+  it('throws an error which is tried again when Statsig fails to initialize', async () => {
     const { fake, statsig } = createFakeStatsig(entities);
     fake.initialize.mockResolvedValueOnce({
       isSuccess: false,
-      error: 'Unauthorized',
+      error: 'NetworkError|RequestFailed: connect ECONNREFUSED',
     } as never);
-    await expect(new StatsigProvider(statsig).initialize()).rejects.toThrow(
-      'Unauthorized',
-    );
+    await expect(
+      new StatsigProvider(statsig).initialize(),
+    ).rejects.toMatchObject({ code: 'GENERAL' });
+  });
+
+  it.each([
+    401, 403,
+  ])('throws a fatal error, which is not tried again, for a key which Statsig rejects (%i)', async (status) => {
+    const { fake, statsig } = createFakeStatsig(entities);
+    // The message of @statsig/statsig-node-core for a wrong key
+    fake.initialize.mockResolvedValueOnce({
+      isSuccess: false,
+      error: `NetworkError|RetriesExhausted: https://api.statsigcdn.com/v2/download_config_specs/secret-*****.json status(${status}) attempts(1) Unauthorized: Unauthorized`,
+    } as never);
+    await expect(
+      new StatsigProvider(statsig).initialize(),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_FATAL',
+      message: expect.stringContaining('Check the Statsig server secret key'),
+    });
   });
 });
 

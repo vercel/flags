@@ -75,6 +75,8 @@ Options:
 - `new StatsigProvider(statsig)` uses your `Statsig` instance. The provider initializes it, but does not shut it down.
 - `disableExposureLogging: true` turns off exposure logging. Statsig logs exposures by default.
 
+If Statsig rejects the key (401 or 403), `initialize()` throws a fatal error (`PROVIDER_FATAL`). The SDK does not try again, and the flags return their default values until the process restarts. Other errors, e.g. of the network, are tried again on the next evaluation.
+
 `track(eventName, context, details)` calls `logEvent`. `details.value` becomes the value of the event, and the other details its metadata.
 
 ## Documentation
