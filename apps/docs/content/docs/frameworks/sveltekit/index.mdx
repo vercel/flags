@@ -51,7 +51,7 @@ npm i -g vercel@latest
    vc env pull
    ```
 
-   You only need a `FLAGS_SECRET` to use the Flags SDK outside of Vercel, to [precompute](/frameworks/sveltekit/precompute) flags in a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), or when your project does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
+   You need a `FLAGS_SECRET` to use the Flags SDK outside of Vercel, when your project does not expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables), to create encrypted overrides in [end-to-end tests](/docs/frameworks/sveltekit/guides/e2e-tests), and for some [precompute](/frameworks/sveltekit/precompute) setups, such as a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`).
 4. On SvelteKit 3, declare the variables that the Flags SDK reads. SvelteKit 3 only exposes the environment variables that `src/env.ts` declares, so without this step the Flags SDK does not see the variables of `.env.local` in local development and local builds:
 
    ```ts title="src/env.ts"

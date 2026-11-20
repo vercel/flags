@@ -224,6 +224,8 @@ function getOverridesTokenOnce(values: FlagOverridesType, baseURL: string) {
   let token = tokens.get(key);
   if (!token) {
     token = getOverridesToken(values, baseURL);
+    // A failed request, e.g. by the rate limit, is not reused
+    token.catch(() => tokens.delete(key));
     tokens.set(key, token);
   }
   return token;
@@ -256,7 +258,7 @@ export const test = base.extend<FlagFixtures>({
 export { expect } from '@playwright/test';
 ```
 
-A signed token expires after one hour by default. For a longer test run, set a `ttl` of up to one day.
+The fixture reuses a token for the whole test run, and a signed token expires after one hour by default. For a longer test run, set a `ttl` of up to one day in seconds: `signOverrides(overrides, { ttl })` in the route, or `ttl` in the body of the request to the Vercel API.
 
 ### Let the application sign the overrides
 
@@ -271,13 +273,16 @@ function isLocal() {
 }
 
 export async function POST(request: Request) {
+  // Off unless you enable it for the environment under test.
+  const enabled = process.env.FLAG_OVERRIDES_ROUTE === 'enabled';
+
   // A deployment only answers on its own URL, never on a public domain.
   const deploymentHost = process.env.VERCEL_URL;
   const allowed = deploymentHost
     ? request.headers.get('x-forwarded-host') === deploymentHost
     : isLocal();
 
-  if (!allowed) {
+  if (!enabled || !allowed) {
     return new Response('Not found', { status: 404 });
   }
 
@@ -291,6 +296,8 @@ export async function POST(request: Request) {
 <Callout type="warn">
   Whoever reaches this route can override the flags of the deployment. The route only answers on the deployment URL (`VERCEL_URL`), which [Deployment Protection](https://vercel.com/docs/deployment-protection) guards. Without Deployment Protection, call the Vercel API from the tests instead.
 </Callout>
+
+The route is off by default. Set the environment variable `FLAG_OVERRIDES_ROUTE` to `enabled` only for the environments you test against, e.g. Preview and Development, and leave it unset for Production.
 
 Request the token from the application under test. Set `BASE_URL` to the deployment URL, not to a branch or custom domain:
 
@@ -338,10 +345,13 @@ import type { FlagOverridesType } from 'flags';
 export async function getOverridesToken(
   overrides: FlagOverridesType,
 ): Promise<string> {
-  const { VERCEL_TOKEN, VERCEL_PROJECT_ID, VERCEL_TEAM_ID } = process.env;
+  const { VERCEL_TOKEN, VERCEL_PROJECT_ID, VERCEL_TEAM_ID, VERCEL_TARGET_ENV } =
+    process.env;
 
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) {
-    throw new Error('Set VERCEL_TOKEN and VERCEL_PROJECT_ID to sign flag overrides.');
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID || !VERCEL_TARGET_ENV) {
+    throw new Error(
+      'Set VERCEL_TOKEN, VERCEL_PROJECT_ID and VERCEL_TARGET_ENV to sign flag overrides.',
+    );
   }
 
   const url = new URL(
@@ -357,10 +367,7 @@ export async function getOverridesToken(
       authorization: `Bearer ${VERCEL_TOKEN}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      overrides,
-      environment: process.env.VERCEL_TARGET_ENV ?? 'development',
-    }),
+    body: JSON.stringify({ overrides, environment: VERCEL_TARGET_ENV }),
   });
 
   if (!response.ok) {
